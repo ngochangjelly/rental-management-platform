@@ -73,7 +73,7 @@
             border: 1px solid #dee2e6;
             border-radius: 8px;
             background: #f8f9fa;
-            max-height: 600px;
+            max-height: 800px;
             overflow-y: auto;
             position: relative;
         }
@@ -107,6 +107,15 @@
         .criteria-item.highlighted {
             background-color: #fff3cd;
             border-left: 4px solid #ffc107;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
     </style>
 </head>
@@ -342,15 +351,9 @@
                                             <div class="pdf-viewer-container">
                                                 <div class="pdf-controls">
                                                     <div>
-                                                        <button class="btn btn-sm btn-outline-secondary" onclick="previousPage()">
-                                                            <i class="bi bi-chevron-left"></i>
-                                                        </button>
                                                         <span class="mx-2">
-                                                            Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                                                            <span id="totalPages">1</span> pages
                                                         </span>
-                                                        <button class="btn btn-sm btn-outline-secondary" onclick="nextPage()">
-                                                            <i class="bi bi-chevron-right"></i>
-                                                        </button>
                                                     </div>
                                                     <div>
                                                         <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()">
@@ -363,8 +366,7 @@
                                                     </div>
                                                 </div>
                                                 <div id="pdfContainer">
-                                                    <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
-                                                    <div id="highlightLayer"></div>
+                                                    <!-- All pages will be rendered here -->
                                                 </div>
                                             </div>
                                         </div>
@@ -400,6 +402,7 @@
             setupNavigation();
             loadUserInfo();
             setupFeatureCards();
+            setupPDFControls();
         });
 
         function updateCurrentDate() {
@@ -437,6 +440,20 @@
                     showSection('contract-analysis');
                 });
             }
+        }
+
+        function setupPDFControls() {
+            // Add event listeners to PDF navigation buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('#nextPageBtn')) {
+                    console.log('Next page button clicked via event listener');
+                    nextPage();
+                }
+                if (e.target.closest('#prevPageBtn')) {
+                    console.log('Previous page button clicked via event listener');
+                    previousPage();
+                }
+            });
         }
 
         function showSection(sectionName) {
@@ -750,8 +767,6 @@
         async function loadPDF(filename) {
             try {
                 console.log('Loading PDF:', filename);
-                canvas = document.getElementById('pdfCanvas');
-                ctx = canvas.getContext('2d');
                 
                 const url = `/pdf/${filename}`;
                 console.log('PDF URL:', url);
@@ -767,7 +782,7 @@
                 pdfDoc = await pdfjsLib.getDocument(url).promise;
                 document.getElementById('totalPages').textContent = pdfDoc.numPages;
                 
-                await renderPage(currentPage);
+                await renderAllPages();
                 console.log('PDF loaded successfully');
             } catch (error) {
                 console.error('Error loading PDF:', error);
@@ -782,13 +797,113 @@
             }
         }
 
+        async function renderAllPages() {
+            try {
+                if (!pdfDoc) {
+                    throw new Error('PDF document not loaded');
+                }
+                
+                const pdfContainer = document.getElementById('pdfContainer');
+                pdfContainer.innerHTML = ''; // Clear existing content
+                
+                console.log(`Rendering all ${pdfDoc.numPages} pages`);
+                
+                for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                    console.log(`Rendering page ${pageNum} of ${pdfDoc.numPages}`);
+                    
+                    const page = await pdfDoc.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: scale });
+                    
+                    // Create canvas for this page
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.className = 'pdf-canvas';
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    canvas.style.marginBottom = '20px';
+                    canvas.style.border = '1px solid #ddd';
+                    
+                    // Create container for page and highlights
+                    const pageContainer = document.createElement('div');
+                    pageContainer.style.position = 'relative';
+                    pageContainer.style.marginBottom = '20px';
+                    
+                    // Create highlight layer for this page
+                    const highlightLayer = document.createElement('div');
+                    highlightLayer.className = 'highlight-layer';
+                    highlightLayer.style.position = 'absolute';
+                    highlightLayer.style.top = '0';
+                    highlightLayer.style.left = '0';
+                    highlightLayer.style.width = viewport.width + 'px';
+                    highlightLayer.style.height = viewport.height + 'px';
+                    highlightLayer.style.pointerEvents = 'none';
+                    
+                    // Add page number label
+                    const pageLabel = document.createElement('div');
+                    pageLabel.textContent = `Page ${pageNum}`;
+                    pageLabel.style.textAlign = 'center';
+                    pageLabel.style.marginBottom = '10px';
+                    pageLabel.style.fontWeight = 'bold';
+                    pageLabel.style.color = '#666';
+                    
+                    // Render the page
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport
+                    };
+                    
+                    await page.render(renderContext).promise;
+                    
+                    // Assemble the page
+                    pageContainer.appendChild(pageLabel);
+                    pageContainer.appendChild(canvas);
+                    pageContainer.appendChild(highlightLayer);
+                    pdfContainer.appendChild(pageContainer);
+                    
+                    console.log(`Page ${pageNum} rendered successfully`);
+                }
+                
+                // Update zoom level display
+                document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+                
+                // Add highlights for all pages
+                if (analysisData) {
+                    await highlightAllPages();
+                }
+                
+                console.log('All pages rendered successfully');
+            } catch (error) {
+                console.error('Error rendering pages:', error);
+                const pdfContainer = document.getElementById('pdfContainer');
+                pdfContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Error rendering pages: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
         async function renderPage(pageNum) {
             try {
+                console.log(`Rendering page ${pageNum} of ${pdfDoc ? pdfDoc.numPages : 'unknown'}`);
+                
+                if (!pdfDoc) {
+                    throw new Error('PDF document not loaded');
+                }
+                
+                if (pageNum < 1 || pageNum > pdfDoc.numPages) {
+                    throw new Error(`Invalid page number: ${pageNum}`);
+                }
+                
                 const page = await pdfDoc.getPage(pageNum);
                 const viewport = page.getViewport({ scale: scale });
                 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
+                
+                // Clear canvas before rendering
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 const renderContext = {
                     canvasContext: ctx,
@@ -796,8 +911,18 @@
                 };
                 
                 await page.render(renderContext).promise;
+                
+                // Update UI
                 document.getElementById('currentPage').textContent = pageNum;
+                document.getElementById('totalPages').textContent = pdfDoc.numPages;
                 document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+                
+                // Update navigation buttons
+                const prevBtn = document.getElementById('prevPageBtn');
+                const nextBtn = document.getElementById('nextPageBtn');
+                
+                if (prevBtn) prevBtn.disabled = pageNum <= 1;
+                if (nextBtn) nextBtn.disabled = pageNum >= pdfDoc.numPages;
                 
                 // Clear existing highlights
                 clearHighlights();
@@ -806,37 +931,117 @@
                 if (analysisData) {
                     await highlightClauses(page, viewport);
                 }
+                
+                console.log(`Page ${pageNum} rendered successfully`);
             } catch (error) {
                 console.error('Error rendering page:', error);
+                const pdfContainer = document.getElementById('pdfContainer');
+                if (pdfContainer) {
+                    pdfContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Error rendering page: ${error.message}
+                        </div>
+                    `;
+                }
             }
         }
 
         function previousPage() {
-            if (currentPage <= 1) return;
+            console.log('Previous page clicked, current:', currentPage);
+            if (!pdfDoc) {
+                console.error('PDF not loaded');
+                return;
+            }
+            if (currentPage <= 1) {
+                console.log('Already on first page');
+                return;
+            }
             currentPage--;
+            console.log('Navigating to page:', currentPage);
             renderPage(currentPage);
         }
 
         function nextPage() {
-            if (currentPage >= pdfDoc.numPages) return;
+            console.log('Next page clicked, current:', currentPage, 'total:', pdfDoc ? pdfDoc.numPages : 'unknown');
+            if (!pdfDoc) {
+                console.error('PDF not loaded');
+                alert('PDF not loaded yet. Please wait for the PDF to load completely.');
+                return;
+            }
+            if (currentPage >= pdfDoc.numPages) {
+                console.log('Already on last page');
+                alert('Already on the last page');
+                return;
+            }
             currentPage++;
+            console.log('Navigating to page:', currentPage);
             renderPage(currentPage);
         }
 
         function zoomIn() {
             scale += 0.2;
-            renderPage(currentPage);
+            renderAllPages();
         }
 
         function zoomOut() {
             if (scale <= 0.4) return;
             scale -= 0.2;
-            renderPage(currentPage);
+            renderAllPages();
         }
 
         function clearHighlights() {
-            const highlightLayer = document.getElementById('highlightLayer');
-            highlightLayer.innerHTML = '';
+            const highlightLayers = document.querySelectorAll('.highlight-layer');
+            highlightLayers.forEach(layer => layer.innerHTML = '');
+        }
+
+        async function highlightAllPages() {
+            if (!analysisData || !analysisData.analysis.keywordAnalysis || !pdfDoc) return;
+            
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: scale });
+                const textContent = await page.getTextContent();
+                
+                const highlightLayers = document.querySelectorAll('.highlight-layer');
+                const highlightLayer = highlightLayers[pageNum - 1]; // 0-indexed
+                
+                if (!highlightLayer) continue;
+                
+                analysisData.analysis.keywordAnalysis.forEach((issue, issueIndex) => {
+                    if (issue.textPositions) {
+                        issue.textPositions.forEach(position => {
+                            // Find text items that contain the keyword
+                            textContent.items.forEach(item => {
+                                if (item.str.toLowerCase().includes(position.keyword.toLowerCase())) {
+                                    const transform = item.transform;
+                                    const x = transform[4];
+                                    const y = transform[5];
+                                    const width = item.width;
+                                    const height = item.height;
+                                    
+                                    // Create highlight element
+                                    const highlight = document.createElement('div');
+                                    highlight.className = 'clause-highlight';
+                                    highlight.style.left = x + 'px';
+                                    highlight.style.top = (viewport.height - y - height) + 'px';
+                                    highlight.style.width = width + 'px';
+                                    highlight.style.height = height + 'px';
+                                    highlight.title = issue.name;
+                                    highlight.dataset.issueId = issue.id;
+                                    highlight.dataset.issueIndex = issueIndex;
+                                    
+                                    highlight.addEventListener('click', () => {
+                                        highlightIssueInList(issueIndex);
+                                    });
+                                    
+                                    highlightLayer.appendChild(highlight);
+                                }
+                            });
+                        });
+                    }
+                });
+            }
         }
 
         async function highlightClauses(page, viewport) {
@@ -904,15 +1109,44 @@
             
             const issue = analysisData.analysis.keywordAnalysis.find(i => i.id === issueId);
             if (issue && issue.textPositions && issue.textPositions.length > 0) {
-                // For now, just highlight the issue - in a real implementation,
-                // you'd need to find which page contains the text position
-                const issueElements = document.querySelectorAll(`[data-issue-id="${issueId}"]`);
-                issueElements.forEach(el => {
-                    el.style.animation = 'pulse 2s';
-                    setTimeout(() => {
-                        el.style.animation = '';
-                    }, 2000);
-                });
+                // Find the first highlight element for this issue
+                const highlightElement = document.querySelector(`[data-issue-id="${issueId}"]`);
+                
+                if (highlightElement) {
+                    // Find which page container this highlight belongs to
+                    const pageContainer = highlightElement.closest('div[style*="position: relative"]');
+                    
+                    if (pageContainer) {
+                        // Scroll to the page container
+                        pageContainer.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start',
+                            inline: 'nearest'
+                        });
+                        
+                        // Add pulse animation to the highlight
+                        highlightElement.style.animation = 'pulse 2s';
+                        highlightElement.style.backgroundColor = 'rgba(255, 193, 7, 0.8)';
+                        
+                        setTimeout(() => {
+                            highlightElement.style.animation = '';
+                            highlightElement.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
+                        }, 2000);
+                    }
+                } else {
+                    // If no highlight found, try to find the issue by searching text
+                    // This is a fallback for issues that might not have been highlighted properly
+                    const keyword = issue.textPositions[0].keyword;
+                    const canvases = document.querySelectorAll('.pdf-canvas');
+                    
+                    // For now, just scroll to the first page as a fallback
+                    if (canvases.length > 0) {
+                        canvases[0].scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start' 
+                        });
+                    }
+                }
             }
         }
     </script>
