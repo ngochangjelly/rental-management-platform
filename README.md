@@ -13,20 +13,23 @@ npm start
 ```
 
 Visit http://localhost:3000 and login with:
+
 - Username: `admin`
 - Password: `RentalAdmin2024!@#$`
 
 ## ✨ Features
 
 ### ✅ Available Now
+
 - **Contract Analysis**: AI-powered detection of unfavorable tenancy terms
 - **Risk Assessment**: Categorizes issues by severity (High/Medium/Low)
 - **Detailed Reports**: Generate downloadable analysis reports
 - **Secure Authentication**: Session-based login system
 
 ### 🚧 Coming Soon
+
 - Property Management
-- Tenant Portal  
+- Tenant Portal
 - Payment Processing
 - Maintenance Tracking
 
@@ -34,20 +37,22 @@ Visit http://localhost:3000 and login with:
 
 The system automatically detects:
 
-| Issue Type | Risk Level | Description |
-|------------|------------|-------------|
-| Mandatory AC Service | Medium | Forces tenant to use specific contractor |
-| Excessive Deposits | High | Security deposit > 2 months rent |
-| Subletting Restrictions | Medium | Prohibits subletting/assignment |
-| Early Termination Penalties | High | Excessive penalties for breaking lease |
+| Issue Type                  | Risk Level | Description                              |
+| --------------------------- | ---------- | ---------------------------------------- |
+| Mandatory AC Service        | Medium     | Forces tenant to use specific contractor |
+| Excessive Deposits          | High       | Security deposit > 2 months rent         |
+| Subletting Restrictions     | Medium     | Prohibits subletting/assignment          |
+| Early Termination Penalties | High       | Excessive penalties for breaking lease   |
 
 ## 🛠️ Installation
 
 ### Prerequisites
+
 - Node.js v16+
 - npm or yarn
 
 ### Development Setup
+
 ```bash
 # Clone repository
 git clone https://github.com/ngochangjelly/rental-management-platform.git
@@ -65,6 +70,7 @@ npm run dev
 ```
 
 ### Production Deployment
+
 ```bash
 # Using Docker
 docker-compose up -d
@@ -76,6 +82,7 @@ npm start
 ## 🔒 Security
 
 ⚠️ **Important**: Change default credentials before production:
+
 - Update `ADMIN_PASSWORD` in `.env`
 - Set strong `SESSION_SECRET`
 - Enable HTTPS
@@ -108,7 +115,7 @@ When you upload a tenancy agreement, you might see:
 • Excessive Security Deposit: 3 months required
 • Early Termination Penalty: Full deposit forfeiture
 
-🟡 MEDIUM RISK ISSUES (1) 
+🟡 MEDIUM RISK ISSUES (1)
 • Mandatory AC Service: Must use landlord's contractor
 
 🟢 LOW RISK ISSUES (2)
