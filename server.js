@@ -77,8 +77,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Rental Management Platform running on http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}`);
-  console.log(`🔐 Login: http://localhost:${PORT}/auth/login`);
-});
+// Only start server if not in serverless environment
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Rental Management Platform running on http://localhost:${PORT}`);
+    console.log(`📊 Dashboard: http://localhost:${PORT}`);
+    console.log(`🔐 Login: http://localhost:${PORT}/auth/login`);
+  });
+}
+
+module.exports = app;
