@@ -43,13 +43,6 @@ const ANALYSIS_CRITERIA = {
     severity: 'low',
     category: 'lifestyle'
   },
-  smoking_restrictions: {
-    name: 'Smoking Restrictions',
-    description: 'Tenant prohibited from smoking in premises',
-    keywords: ['not to smoke', 'no smoking', 'smoking inside'],
-    severity: 'low',
-    category: 'lifestyle'
-  },
   drilling_restrictions: {
     name: 'Wall Drilling Restrictions',
     description: 'Tenant prohibited from drilling holes or affixing items to walls',

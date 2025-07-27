@@ -59,18 +59,18 @@
                         <p class="mb-0">Welcome back! Please sign in to continue.</p>
                     </div>
                     <div class="p-4">
-                        <form id="loginForm">
+                        <form id="loginForm" autocomplete="on">
                             <div class="mb-3">
                                 <label for="username" class="form-label">
                                     <i class="bi bi-person me-2"></i>Username
                                 </label>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                                <input type="text" class="form-control" id="username" name="username" autocomplete="username" required>
                             </div>
                             <div class="mb-4">
                                 <label for="password" class="form-label">
                                     <i class="bi bi-lock me-2"></i>Password
                                 </label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
                             </div>
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
@@ -116,6 +116,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // Let browser handle password saving
                     window.location.href = result.redirectUrl || '/';
                 } else {
                     errorMessage.textContent = result.message;
