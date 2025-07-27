@@ -21,9 +21,12 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net"]
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      connectSrc: ["'self'", "blob:"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"]
     }
   }
 }));
@@ -57,6 +60,24 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/analysis', analysisRoutes);
+
+// Serve PDF files
+app.get('/pdf/:filename', (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, 'uploads', filename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline');
+  res.sendFile(filePath);
+});
 
 // Main route
 app.get('/', (req, res) => {

@@ -6,6 +6,11 @@
     <title>Dashboard - Rental Management Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
     <style>
         .sidebar {
             background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
@@ -64,6 +69,45 @@
         .badge-high { background-color: #dc3545; }
         .badge-medium { background-color: #fd7e14; }
         .badge-low { background-color: #ffc107; color: #000; }
+        .pdf-viewer-container {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+            max-height: 600px;
+            overflow-y: auto;
+            position: relative;
+        }
+        .pdf-canvas {
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .pdf-controls {
+            background: #fff;
+            border-bottom: 1px solid #dee2e6;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .clause-highlight {
+            position: absolute;
+            background: rgba(255, 255, 0, 0.3);
+            border: 2px solid #ffc107;
+            pointer-events: none;
+            border-radius: 3px;
+        }
+        .criteria-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .criteria-item:hover {
+            background-color: #f8f9fa;
+        }
+        .criteria-item.highlighted {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
     </style>
 </head>
 <body>
@@ -159,7 +203,7 @@
                         <!-- Feature Cards -->
                         <div class="row">
                             <div class="col-md-4">
-                                <div class="card feature-card h-100" onclick="showSection('contract-analysis')">
+                                <div class="card feature-card h-100" id="contract-analysis-card" style="cursor: pointer;">
                                     <div class="card-body text-center">
                                         <i class="bi bi-file-earmark-text display-3 text-primary mb-3"></i>
                                         <h5>Contract Analysis</h5>
@@ -291,8 +335,44 @@
                                         </div>
                                     </div>
 
-                                    <!-- Issues List -->
-                                    <div id="issuesList"></div>
+                                    <!-- PDF Viewer and Issues -->
+                                    <div class="row">
+                                        <div class="col-lg-6">
+                                            <h6>PDF Document</h6>
+                                            <div class="pdf-viewer-container">
+                                                <div class="pdf-controls">
+                                                    <div>
+                                                        <button class="btn btn-sm btn-outline-secondary" onclick="previousPage()">
+                                                            <i class="bi bi-chevron-left"></i>
+                                                        </button>
+                                                        <span class="mx-2">
+                                                            Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                                                        </span>
+                                                        <button class="btn btn-sm btn-outline-secondary" onclick="nextPage()">
+                                                            <i class="bi bi-chevron-right"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div>
+                                                        <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()">
+                                                            <i class="bi bi-zoom-out"></i>
+                                                        </button>
+                                                        <span class="mx-2" id="zoomLevel">100%</span>
+                                                        <button class="btn btn-sm btn-outline-secondary" onclick="zoomIn()">
+                                                            <i class="bi bi-zoom-in"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div id="pdfContainer">
+                                                    <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
+                                                    <div id="highlightLayer"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-6">
+                                            <h6>Issues Found</h6>
+                                            <div id="issuesList" style="max-height: 600px; overflow-y: auto;"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -307,6 +387,11 @@
         // Global variables
         let uploadedFileName = null;
         let analysisData = null;
+        let pdfDoc = null;
+        let currentPage = 1;
+        let scale = 1.0;
+        let canvas = null;
+        let ctx = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -314,6 +399,7 @@
             setupFileUpload();
             setupNavigation();
             loadUserInfo();
+            setupFeatureCards();
         });
 
         function updateCurrentDate() {
@@ -342,7 +428,20 @@
             });
         }
 
+        function setupFeatureCards() {
+            // Contract Analysis card click handler
+            const contractAnalysisCard = document.getElementById('contract-analysis-card');
+            if (contractAnalysisCard) {
+                contractAnalysisCard.addEventListener('click', function() {
+                    console.log('Contract analysis card clicked');
+                    showSection('contract-analysis');
+                });
+            }
+        }
+
         function showSection(sectionName) {
+            console.log('showSection called with:', sectionName);
+            
             // Hide all sections
             document.querySelectorAll('.content-section').forEach(section => {
                 section.style.display = 'none';
@@ -350,8 +449,19 @@
             
             // Show target section
             const targetSection = document.getElementById(sectionName + '-section');
+            console.log('Target section:', targetSection);
             if (targetSection) {
                 targetSection.style.display = 'block';
+                console.log('Section displayed:', sectionName);
+            } else {
+                console.error('Section not found:', sectionName + '-section');
+            }
+            
+            // Update active nav link
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const navLink = document.querySelector(`.nav-link[data-section="${sectionName}"]`);
+            if (navLink) {
+                navLink.classList.add('active');
             }
         }
 
@@ -491,6 +601,11 @@
             document.getElementById('mediumIssues').textContent = summary.mediumSeverity;
             document.getElementById('lowIssues').textContent = summary.lowSeverity;
 
+            // Load PDF
+            if (data.filename) {
+                loadPDF(data.filename);
+            }
+
             // Display issues
             const issuesList = document.getElementById('issuesList');
             issuesList.innerHTML = '';
@@ -503,9 +618,12 @@
                     </div>
                 `;
             } else {
-                issues.forEach(issue => {
+                issues.forEach((issue, index) => {
                     const issueCard = document.createElement('div');
-                    issueCard.className = `card mb-3 severity-${issue.severity}`;
+                    issueCard.className = `card mb-3 severity-${issue.severity} criteria-item`;
+                    issueCard.dataset.issueIndex = index;
+                    issueCard.dataset.issueId = issue.id;
+                    issueCard.style.cursor = 'pointer';
                     issueCard.innerHTML = `
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start">
@@ -527,6 +645,13 @@
                             ` : ''}
                         </div>
                     `;
+                    
+                    // Add click handler to navigate to clause in PDF
+                    issueCard.addEventListener('click', () => {
+                        navigateToClause(issue.id);
+                        highlightIssueInList(index);
+                    });
+                    
                     issuesList.appendChild(issueCard);
                 });
             }
@@ -618,6 +743,176 @@
             } catch (error) {
                 console.error('Logout failed:', error);
                 window.location.href = '/auth/login';
+            }
+        }
+
+        // PDF Viewer Functions
+        async function loadPDF(filename) {
+            try {
+                console.log('Loading PDF:', filename);
+                canvas = document.getElementById('pdfCanvas');
+                ctx = canvas.getContext('2d');
+                
+                const url = `/pdf/${filename}`;
+                console.log('PDF URL:', url);
+                
+                // Test if PDF endpoint is accessible
+                const response = await fetch(url);
+                console.log('PDF response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load PDF: ${response.status}`);
+                }
+                
+                pdfDoc = await pdfjsLib.getDocument(url).promise;
+                document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                
+                await renderPage(currentPage);
+                console.log('PDF loaded successfully');
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                // Show error message to user
+                const pdfContainer = document.getElementById('pdfContainer');
+                pdfContainer.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Unable to load PDF: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function renderPage(pageNum) {
+            try {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: scale });
+                
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                
+                await page.render(renderContext).promise;
+                document.getElementById('currentPage').textContent = pageNum;
+                document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+                
+                // Clear existing highlights
+                clearHighlights();
+                
+                // Add highlights for current analysis
+                if (analysisData) {
+                    await highlightClauses(page, viewport);
+                }
+            } catch (error) {
+                console.error('Error rendering page:', error);
+            }
+        }
+
+        function previousPage() {
+            if (currentPage <= 1) return;
+            currentPage--;
+            renderPage(currentPage);
+        }
+
+        function nextPage() {
+            if (currentPage >= pdfDoc.numPages) return;
+            currentPage++;
+            renderPage(currentPage);
+        }
+
+        function zoomIn() {
+            scale += 0.2;
+            renderPage(currentPage);
+        }
+
+        function zoomOut() {
+            if (scale <= 0.4) return;
+            scale -= 0.2;
+            renderPage(currentPage);
+        }
+
+        function clearHighlights() {
+            const highlightLayer = document.getElementById('highlightLayer');
+            highlightLayer.innerHTML = '';
+        }
+
+        async function highlightClauses(page, viewport) {
+            if (!analysisData || !analysisData.analysis.keywordAnalysis) return;
+            
+            const textContent = await page.getTextContent();
+            const highlightLayer = document.getElementById('highlightLayer');
+            highlightLayer.style.position = 'absolute';
+            highlightLayer.style.top = '0';
+            highlightLayer.style.left = '0';
+            highlightLayer.style.width = viewport.width + 'px';
+            highlightLayer.style.height = viewport.height + 'px';
+            
+            analysisData.analysis.keywordAnalysis.forEach((issue, issueIndex) => {
+                if (issue.textPositions) {
+                    issue.textPositions.forEach(position => {
+                        // Find text items that contain the keyword
+                        textContent.items.forEach(item => {
+                            if (item.str.toLowerCase().includes(position.keyword.toLowerCase())) {
+                                const transform = item.transform;
+                                const x = transform[4];
+                                const y = transform[5];
+                                const width = item.width;
+                                const height = item.height;
+                                
+                                // Create highlight element
+                                const highlight = document.createElement('div');
+                                highlight.className = 'clause-highlight';
+                                highlight.style.left = x + 'px';
+                                highlight.style.top = (viewport.height - y - height) + 'px';
+                                highlight.style.width = width + 'px';
+                                highlight.style.height = height + 'px';
+                                highlight.title = issue.name;
+                                highlight.dataset.issueId = issue.id;
+                                highlight.dataset.issueIndex = issueIndex;
+                                
+                                highlight.addEventListener('click', () => {
+                                    highlightIssueInList(issueIndex);
+                                });
+                                
+                                highlightLayer.appendChild(highlight);
+                            }
+                        });
+                    });
+                }
+            });
+        }
+
+        function highlightIssueInList(issueIndex) {
+            // Remove existing highlights
+            document.querySelectorAll('.criteria-item').forEach(item => {
+                item.classList.remove('highlighted');
+            });
+            
+            // Highlight the clicked issue
+            const issueElement = document.querySelector(`[data-issue-index="${issueIndex}"]`);
+            if (issueElement) {
+                issueElement.classList.add('highlighted');
+                issueElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function navigateToClause(issueId) {
+            if (!analysisData) return;
+            
+            const issue = analysisData.analysis.keywordAnalysis.find(i => i.id === issueId);
+            if (issue && issue.textPositions && issue.textPositions.length > 0) {
+                // For now, just highlight the issue - in a real implementation,
+                // you'd need to find which page contains the text position
+                const issueElements = document.querySelectorAll(`[data-issue-id="${issueId}"]`);
+                issueElements.forEach(el => {
+                    el.style.animation = 'pulse 2s';
+                    setTimeout(() => {
+                        el.style.animation = '';
+                    }, 2000);
+                });
             }
         }
     </script>
