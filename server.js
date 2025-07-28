@@ -614,9 +614,9 @@ app.get('/', (req, res) => {
                 if (result.success) {
                     successAlert.style.display = 'block';
                     
-                    // Show demo analysis results
+                    // Trigger actual analysis
                     setTimeout(() => {
-                        document.getElementById('analysisResults').style.display = 'block';
+                        analyzeContract(result.file.filename);
                     }, 1000);
                 } else {
                     throw new Error(result.error || 'Upload failed');
@@ -625,6 +625,156 @@ app.get('/', (req, res) => {
                 alert('Upload failed: ' + error.message);
                 progressContainer.style.display = 'none';
             }
+        }
+
+        async function analyzeContract(filename) {
+            try {
+                const response = await fetch('/analysis/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ filename: filename })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayAnalysisResults(result);
+                } else {
+                    throw new Error(result.error || 'Analysis failed');
+                }
+            } catch (error) {
+                console.error('Analysis failed:', error);
+                alert('Analysis failed: ' + error.message);
+            }
+        }
+
+        function displayAnalysisResults(data) {
+            const summary = data.analysis.summary;
+            const issues = data.analysis.keywordAnalysis;
+
+            // Update summary counts
+            document.querySelector('.text-center h4.text-primary').textContent = summary.totalIssues;
+            document.querySelector('.text-center h4.text-danger').textContent = summary.highSeverity;
+            document.querySelector('.text-center h4.text-warning').textContent = summary.mediumSeverity;
+            document.querySelector('.text-center h4.text-info').textContent = summary.lowSeverity;
+
+            // Update issues list
+            const issuesContainer = document.querySelector('#analysisResults .card-body');
+            let issuesHtml = '';
+
+            if (issues.length === 0) {
+                issuesHtml = `
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary">0</h4>
+                                <small class="text-muted">Total Issues</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-danger">0</h4>
+                                <small class="text-muted">High Risk</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning">0</h4>
+                                <small class="text-muted">Medium Risk</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info">0</h4>
+                                <small class="text-muted">Low Risk</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        No major issues found in this tenancy agreement.
+                    </div>
+                `;
+            } else {
+                // Build summary row
+                issuesHtml = `
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary">\${summary.totalIssues}</h4>
+                                <small class="text-muted">Total Issues</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-danger">\${summary.highSeverity}</h4>
+                                <small class="text-muted">High Risk</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning">\${summary.mediumSeverity}</h4>
+                                <small class="text-muted">Medium Risk</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info">\${summary.lowSeverity}</h4>
+                                <small class="text-muted">Low Risk</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> PDF viewing is not available in serverless mode. Files are processed in memory for analysis only.
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>Issues Found</h6>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                `;
+
+                // Add each issue
+                issues.forEach(issue => {
+                    const severityColor = issue.severity === 'high' ? '#dc3545' : 
+                                        issue.severity === 'medium' ? '#fd7e14' : '#ffc107';
+                    
+                    issuesHtml += `
+                        <div class="card mb-3" style="border-left: 4px solid \${severityColor};">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="card-title">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        \${issue.name}
+                                    </h6>
+                                    <span class="badge" style="background-color: \${severityColor};">\${issue.severity.toUpperCase()}</span>
+                                </div>
+                                <p class="card-text">\${issue.description}</p>
+                                <small class="text-muted">Category: \${issue.category.replace('_', ' ').toUpperCase()}</small>
+                                \${issue.snippets && issue.snippets.length > 0 ? `
+                                    <div class="mt-2">
+                                        <strong>Found in contract:</strong>
+                                        <div class="bg-light p-2 rounded mt-1">
+                                            <small>"\${issue.snippets[0].substring(0, 200)}..."</small>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                issuesHtml += `
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            issuesContainer.innerHTML = issuesHtml;
+            document.getElementById('analysisResults').style.display = 'block';
         }
 
         async function logout() {
