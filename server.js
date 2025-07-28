@@ -70,6 +70,15 @@ app.get('/pdf/:filename', (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
   
+  // In serverless environment, files are not persisted after upload
+  // Return a message explaining this limitation
+  if (isServerless) {
+    return res.status(404).json({ 
+      error: 'PDF viewing not available in serverless mode',
+      message: 'Files are processed in memory and not persisted for viewing'
+    });
+  }
+  
   const filename = req.params.filename;
   const filePath = path.join(__dirname, 'uploads', filename);
   
@@ -369,6 +378,12 @@ app.get('/', (req, res) => {
                                                 <small class="text-muted">Low Risk</small>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <!-- Note about serverless limitations -->
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Note:</strong> PDF viewing is not available in serverless mode. Files are processed in memory for analysis only.
                                     </div>
 
                                     <!-- Issues List -->
