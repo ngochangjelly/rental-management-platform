@@ -188,14 +188,16 @@ app.get('/', (req, res) => {
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
-                <div class="p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2>Dashboard</h2>
-                        <div class="text-muted">
-                            <i class="bi bi-calendar me-1"></i>
-                            <span id="currentDate"></span>
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="content-section">
+                    <div class="p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Dashboard</h2>
+                            <div class="text-muted">
+                                <i class="bi bi-calendar me-1"></i>
+                                <span id="currentDate"></span>
+                            </div>
                         </div>
-                    </div>
 
                     <!-- Stats Cards -->
                     <div class="row mb-4">
@@ -240,7 +242,7 @@ app.get('/', (req, res) => {
                     <!-- Feature Cards -->
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="card h-100">
+                            <div class="card h-100" id="contract-analysis-card" style="cursor: pointer;">
                                 <div class="card-body text-center">
                                     <i class="bi bi-file-earmark-text display-3 text-primary mb-3"></i>
                                     <h5>Contract Analysis</h5>
@@ -270,6 +272,24 @@ app.get('/', (req, res) => {
                             </div>
                         </div>
                     </div>
+                    </div>
+                </div>
+
+                <!-- Contract Analysis Section -->
+                <div id="contract-analysis-section" class="content-section" style="display: none;">
+                    <div class="p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Contract Analysis</h2>
+                            <button class="btn btn-outline-secondary" onclick="showSection('dashboard')">
+                                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                            </button>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Contract analysis functionality is available. This is a demo version running in serverless mode.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -277,7 +297,7 @@ app.get('/', (req, res) => {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize date
+        // Initialize date and setup navigation
         document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
             document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
@@ -286,7 +306,61 @@ app.get('/', (req, res) => {
                 month: 'long',
                 day: 'numeric'
             });
+            
+            setupNavigation();
+            setupFeatureCards();
         });
+
+        function setupNavigation() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const section = this.getAttribute('data-section');
+                    if (section) {
+                        showSection(section);
+                        
+                        // Update active nav link
+                        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                        this.classList.add('active');
+                    }
+                });
+            });
+        }
+
+        function setupFeatureCards() {
+            // Contract Analysis card click handler
+            const contractAnalysisCard = document.getElementById('contract-analysis-card');
+            if (contractAnalysisCard) {
+                contractAnalysisCard.addEventListener('click', function() {
+                    showSection('contract-analysis');
+                });
+            }
+        }
+
+        function showSection(sectionName) {
+            console.log('showSection called with:', sectionName);
+            
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Show target section
+            const targetSection = document.getElementById(sectionName + '-section');
+            if (targetSection) {
+                targetSection.style.display = 'block';
+                console.log('Section displayed:', sectionName);
+            } else {
+                console.error('Section not found:', sectionName + '-section');
+            }
+            
+            // Update active nav link
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const navLink = document.querySelector(\`.nav-link[data-section="\${sectionName}"]\`);
+            if (navLink) {
+                navLink.classList.add('active');
+            }
+        }
 
         async function logout() {
             try {
