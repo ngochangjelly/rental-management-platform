@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 
 // Hardcoded admin credentials from environment
@@ -11,7 +12,16 @@ router.get('/login', (req, res) => {
   if (req.session.user) {
     return res.redirect('/');
   }
-  res.sendFile(path.join(__dirname, '../public', 'login.html'));
+  
+  try {
+    const loginHtmlPath = path.join(__dirname, '../public', 'login.html');
+    const loginHtml = fs.readFileSync(loginHtmlPath, 'utf8');
+    res.setHeader('Content-Type', 'text/html');
+    res.send(loginHtml);
+  } catch (error) {
+    console.error('Error serving login page:', error);
+    res.status(500).send('Error loading login page');
+  }
 });
 
 // Login endpoint

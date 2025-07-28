@@ -79,7 +79,14 @@ app.get('/pdf/:filename', (req, res) => {
   
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline');
-  res.sendFile(filePath);
+  
+  try {
+    const pdfBuffer = fs.readFileSync(filePath);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error serving PDF:', error);
+    res.status(500).json({ error: 'Error loading PDF file' });
+  }
 });
 
 // Main route
@@ -87,7 +94,15 @@ app.get('/', (req, res) => {
   if (!req.session.user) {
     return res.redirect('/auth/login');
   }
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  
+  try {
+    const dashboardHtml = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8');
+    res.setHeader('Content-Type', 'text/html');
+    res.send(dashboardHtml);
+  } catch (error) {
+    console.error('Error serving dashboard:', error);
+    res.status(500).send('Error loading dashboard');
+  }
 });
 
 // 404 handler
