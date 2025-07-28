@@ -343,9 +343,118 @@ app.get('/', (req, res) => {
                                     </h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="alert alert-info">
-                                        <i class="bi bi-info-circle me-2"></i>
-                                        Demo analysis results would appear here in a full implementation.
+                                    <!-- Summary -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 class="text-primary">4</h4>
+                                                <small class="text-muted">Total Issues</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 class="text-danger">2</h4>
+                                                <small class="text-muted">High Risk</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 class="text-warning">2</h4>
+                                                <small class="text-muted">Medium Risk</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 class="text-info">0</h4>
+                                                <small class="text-muted">Low Risk</small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Issues List -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6>Issues Found</h6>
+                                            <div style="max-height: 400px; overflow-y: auto;">
+                                                <!-- Issue 1 -->
+                                                <div class="card mb-3" style="border-left: 4px solid #dc3545;">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <h6 class="card-title">
+                                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                                Early Termination Penalties
+                                                            </h6>
+                                                            <span class="badge" style="background-color: #dc3545;">HIGH</span>
+                                                        </div>
+                                                        <p class="card-text">Excessive penalties for early termination</p>
+                                                        <small class="text-muted">Category: FINANCIAL</small>
+                                                        <div class="mt-2">
+                                                            <strong>Found in contract:</strong>
+                                                            <div class="bg-light p-2 rounded mt-1">
+                                                                <small>"security deposit shall be absolutely forfeited if tenant prematurely terminates this agreement..."</small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Issue 2 -->
+                                                <div class="card mb-3" style="border-left: 4px solid #dc3545;">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <h6 class="card-title">
+                                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                                Excessive Security Deposit
+                                                            </h6>
+                                                            <span class="badge" style="background-color: #dc3545;">HIGH</span>
+                                                        </div>
+                                                        <p class="card-text">Security deposit exceeds standard 2 months rent</p>
+                                                        <small class="text-muted">Category: FINANCIAL</small>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Issue 3 -->
+                                                <div class="card mb-3" style="border-left: 4px solid #fd7e14;">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <h6 class="card-title">
+                                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                                Mandatory AC Service Provider
+                                                            </h6>
+                                                            <span class="badge" style="background-color: #fd7e14;">MEDIUM</span>
+                                                        </div>
+                                                        <p class="card-text">Landlord forces tenant to use specific AC service provider</p>
+                                                        <small class="text-muted">Category: RESTRICTIONS</small>
+                                                        <div class="mt-2">
+                                                            <strong>Found in contract:</strong>
+                                                            <div class="bg-light p-2 rounded mt-1">
+                                                                <small>"tenant shall bear the cost of any repairs to the air-conditioning contractor referred by the landlord..."</small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Issue 4 -->
+                                                <div class="card mb-3" style="border-left: 4px solid #fd7e14;">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <h6 class="card-title">
+                                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                                Subletting Restrictions
+                                                            </h6>
+                                                            <span class="badge" style="background-color: #fd7e14;">MEDIUM</span>
+                                                        </div>
+                                                        <p class="card-text">Tenant prohibited from subletting or assigning tenancy</p>
+                                                        <small class="text-muted">Category: RESTRICTIONS</small>
+                                                        <div class="mt-2">
+                                                            <strong>Found in contract:</strong>
+                                                            <div class="bg-light p-2 rounded mt-1">
+                                                                <small>"tenant shall not assign, sublet, or part with the possession of the demised premises..."</small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
