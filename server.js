@@ -285,9 +285,70 @@ app.get('/', (req, res) => {
                             </button>
                         </div>
 
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Contract analysis functionality is available. This is a demo version running in serverless mode.
+                        <!-- Upload Area -->
+                        <div class="row">
+                            <div class="col-lg-8">
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title mb-3">
+                                            <i class="bi bi-cloud-upload me-2"></i>Upload Tenancy Agreement
+                                        </h5>
+                                        <div class="upload-area" id="uploadArea" style="border: 2px dashed #dee2e6; border-radius: 15px; padding: 3rem; text-align: center; cursor: pointer;">
+                                            <i class="bi bi-file-earmark-pdf display-1 text-muted mb-3"></i>
+                                            <h6>Drag & Drop PDF here or click to browse</h6>
+                                            <p class="text-muted mb-3">Maximum file size: 10MB</p>
+                                            <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+                                            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                                <i class="bi bi-folder me-2"></i>Choose File
+                                            </button>
+                                        </div>
+                                        <div id="uploadProgress" class="mt-3" style="display: none;">
+                                            <div class="progress">
+                                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                        <div id="uploadSuccess" class="alert alert-success mt-3" style="display: none;">
+                                            <i class="bi bi-check-circle me-2"></i>
+                                            <span>File uploaded successfully!</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="bi bi-info-circle me-2"></i>Analysis Criteria
+                                        </h6>
+                                        <small class="text-muted">Our AI analyzes contracts for:</small>
+                                        <ul class="list-unstyled mt-2 small">
+                                            <li><i class="bi bi-check text-success me-1"></i> Mandatory service providers</li>
+                                            <li><i class="bi bi-check text-success me-1"></i> Excessive deposits</li>
+                                            <li><i class="bi bi-check text-success me-1"></i> Subletting restrictions</li>
+                                            <li><i class="bi bi-check text-success me-1"></i> Pet policies</li>
+                                            <li><i class="bi bi-check text-success me-1"></i> Modification restrictions</li>
+                                            <li><i class="bi bi-check text-success me-1"></i> Early termination penalties</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analysis Results -->
+                        <div id="analysisResults" style="display: none;">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">
+                                        <i class="bi bi-clipboard-data me-2"></i>Analysis Results
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        Demo analysis results would appear here in a full implementation.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -309,6 +370,7 @@ app.get('/', (req, res) => {
             
             setupNavigation();
             setupFeatureCards();
+            setupFileUpload();
         });
 
         function setupNavigation() {
@@ -359,6 +421,85 @@ app.get('/', (req, res) => {
             const navLink = document.querySelector(\`.nav-link[data-section="\${sectionName}"]\`);
             if (navLink) {
                 navLink.classList.add('active');
+            }
+        }
+
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            if (!uploadArea || !fileInput) return;
+
+            // Click to upload
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+        }
+
+        async function handleFileUpload(file) {
+            if (file.type !== 'application/pdf') {
+                alert('Please upload a PDF file only.');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('agreement', file);
+
+            // Show progress
+            const progressContainer = document.getElementById('uploadProgress');
+            const progressBar = progressContainer.querySelector('.progress-bar');
+            const successAlert = document.getElementById('uploadSuccess');
+            
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            successAlert.style.display = 'none';
+
+            try {
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 10;
+                    progressBar.style.width = progress + '%';
+                    if (progress >= 90) {
+                        clearInterval(progressInterval);
+                    }
+                }, 100);
+
+                const response = await fetch('/upload/tenancy-agreement', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    successAlert.style.display = 'block';
+                    
+                    // Show demo analysis results
+                    setTimeout(() => {
+                        document.getElementById('analysisResults').style.display = 'block';
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+            } catch (error) {
+                alert('Upload failed: ' + error.message);
+                progressContainer.style.display = 'none';
             }
         }
 
