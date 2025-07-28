@@ -8,6 +8,31 @@
 
 [[redirects]]
   from = "/api/*"
+  to = "/.netlify/functions/server/api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/auth/*"
+  to = "/.netlify/functions/server/auth/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/upload/*"
+  to = "/.netlify/functions/server/upload/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/analysis/*"
+  to = "/.netlify/functions/server/analysis/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/"
+  to = "/.netlify/functions/server/"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
 
