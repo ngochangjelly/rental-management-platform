@@ -665,112 +665,53 @@ app.get('/', (req, res) => {
             let issuesHtml = '';
 
             if (issues.length === 0) {
-                issuesHtml = `
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-primary">0</h4>
-                                <small class="text-muted">Total Issues</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-danger">0</h4>
-                                <small class="text-muted">High Risk</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-warning">0</h4>
-                                <small class="text-muted">Medium Risk</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-info">0</h4>
-                                <small class="text-muted">Low Risk</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle me-2"></i>
-                        No major issues found in this tenancy agreement.
-                    </div>
-                `;
+                issuesHtml = '<div class="row mb-4">' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-primary">0</h4><small class="text-muted">Total Issues</small></div></div>' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-danger">0</h4><small class="text-muted">High Risk</small></div></div>' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-warning">0</h4><small class="text-muted">Medium Risk</small></div></div>' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-info">0</h4><small class="text-muted">Low Risk</small></div></div>' +
+                    '</div>' +
+                    '<div class="alert alert-success">' +
+                    '<i class="bi bi-check-circle me-2"></i>No major issues found in this tenancy agreement.' +
+                    '</div>';
             } else {
                 // Build summary row
-                issuesHtml = `
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-primary">\${summary.totalIssues}</h4>
-                                <small class="text-muted">Total Issues</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-danger">\${summary.highSeverity}</h4>
-                                <small class="text-muted">High Risk</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-warning">\${summary.mediumSeverity}</h4>
-                                <small class="text-muted">Medium Risk</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-info">\${summary.lowSeverity}</h4>
-                                <small class="text-muted">Low Risk</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <strong>Note:</strong> PDF viewing is not available in serverless mode. Files are processed in memory for analysis only.
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <h6>Issues Found</h6>
-                            <div style="max-height: 400px; overflow-y: auto;">
-                `;
+                issuesHtml = '<div class="row mb-4">' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-primary">' + summary.totalIssues + '</h4><small class="text-muted">Total Issues</small></div></div>' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-danger">' + summary.highSeverity + '</h4><small class="text-muted">High Risk</small></div></div>' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-warning">' + summary.mediumSeverity + '</h4><small class="text-muted">Medium Risk</small></div></div>' +
+                    '<div class="col-md-3"><div class="text-center"><h4 class="text-info">' + summary.lowSeverity + '</h4><small class="text-muted">Low Risk</small></div></div>' +
+                    '</div>' +
+                    '<div class="alert alert-info">' +
+                    '<i class="bi bi-info-circle me-2"></i><strong>Note:</strong> PDF viewing is not available in serverless mode. Files are processed in memory for analysis only.' +
+                    '</div>' +
+                    '<div class="row"><div class="col-12"><h6>Issues Found</h6><div style="max-height: 400px; overflow-y: auto;">';
 
                 // Add each issue
                 issues.forEach(issue => {
                     const severityColor = issue.severity === 'high' ? '#dc3545' : 
                                         issue.severity === 'medium' ? '#fd7e14' : '#ffc107';
                     
-                    issuesHtml += `
-                        <div class="card mb-3" style="border-left: 4px solid \${severityColor};">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <h6 class="card-title">
-                                        <i class="bi bi-exclamation-triangle me-2"></i>
-                                        \${issue.name}
-                                    </h6>
-                                    <span class="badge" style="background-color: \${severityColor};">\${issue.severity.toUpperCase()}</span>
-                                </div>
-                                <p class="card-text">\${issue.description}</p>
-                                <small class="text-muted">Category: \${issue.category.replace('_', ' ').toUpperCase()}</small>
-                                \${issue.snippets && issue.snippets.length > 0 ? `
-                                    <div class="mt-2">
-                                        <strong>Found in contract:</strong>
-                                        <div class="bg-light p-2 rounded mt-1">
-                                            <small>"\${issue.snippets[0].substring(0, 200)}..."</small>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    `;
+                    issuesHtml += '<div class="card mb-3" style="border-left: 4px solid ' + severityColor + ';">' +
+                        '<div class="card-body">' +
+                        '<div class="d-flex justify-content-between align-items-start">' +
+                        '<h6 class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>' + issue.name + '</h6>' +
+                        '<span class="badge" style="background-color: ' + severityColor + ';">' + issue.severity.toUpperCase() + '</span>' +
+                        '</div>' +
+                        '<p class="card-text">' + issue.description + '</p>' +
+                        '<small class="text-muted">Category: ' + issue.category.replace('_', ' ').toUpperCase() + '</small>';
+                    
+                    if (issue.snippets && issue.snippets.length > 0) {
+                        issuesHtml += '<div class="mt-2"><strong>Found in contract:</strong>' +
+                            '<div class="bg-light p-2 rounded mt-1">' +
+                            '<small>"' + issue.snippets[0].substring(0, 200) + '..."</small>' +
+                            '</div></div>';
+                    }
+                    
+                    issuesHtml += '</div></div>';
                 });
 
-                issuesHtml += `
-                            </div>
-                        </div>
-                    </div>
-                `;
+                issuesHtml += '</div></div></div>';
             }
 
             issuesContainer.innerHTML = issuesHtml;

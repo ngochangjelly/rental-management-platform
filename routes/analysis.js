@@ -195,10 +195,10 @@ function analyzeFallback(text) {
     results.push({
       id: "early_termination_penalties",
       name: "Early Termination Penalties",
-      description: "Excessive penalties for early termination",
+      description: "Excessive penalties for early termination - tenant forfeits entire security deposit",
       severity: "high",
       category: "financial",
-      snippets: ["security deposit shall be absolutely forfeited if tenant prematurely terminates"],
+      snippets: ["Security Deposit shall be absolutely forfeited if tenant prematurely terminates"],
       textPositions: [],
       score: 3
     });
@@ -252,7 +252,7 @@ router.post("/analyze", requireAuth, async (req, res) => {
       SECURITY DEPOSIT
       The tenant shall pay a security deposit equivalent to two (2) months' rent.
 
-      AIR CONDITIONING
+      AIR CONDITIONING - MAINTENANCE OF AIR-CON
       To take up a service contract with a qualified air-conditioning contractor (referred by the Landlord) to service and maintain the air-conditioning units, including the topping-up of gas and chemical cleaning (if required), installed at the said premises, at least once every three (3) months at the expense of the Tenant and to keep them in good and tenantable repair and condition, throughout the term of this Agreement. A copy of the service contract shall be forwarded to the Landlord.
 
       SUBLETTING
@@ -261,8 +261,8 @@ router.post("/analyze", requireAuth, async (req, res) => {
       PROPERTY MODIFICATIONS  
       The tenant may make reasonable modifications with landlord approval for normal residential use.
 
-      EARLY TERMINATION
-      If the tenant terminates early, reasonable notice must be given as per local tenancy laws.
+      EARLY TERMINATION - PENALTY FOR EARLY TERMINATION
+      In case, the Tenant prematurely terminates the tenancy where the Tenant is not eligible to exercise Diplomatic Clause, then in such a case her Security Deposit shall be absolutely forfeited by landlord and TWO (2) months' notice period shall be required by the Tenant to the Landlord.
       `;
       
       console.log('Using mock PDF text extraction for serverless:', filename);
