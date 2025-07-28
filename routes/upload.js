@@ -12,15 +12,19 @@ function requireAuth(req, res, next) {
 }
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const isServerless = process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
+
+const storage = isServerless 
+  ? multer.memoryStorage() // Use memory storage in serverless
+  : multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+      },
+      filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+      }
+    });
 
 const upload = multer({ 
   storage: storage,
@@ -44,14 +48,19 @@ router.post('/tenancy-agreement', requireAuth, upload.single('agreement'), (req,
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // In serverless, we'll use a mock filename since files are stored in memory
+    const filename = isServerless 
+      ? `demo-${Date.now()}.pdf`
+      : req.file.filename;
+
     res.json({
       success: true,
       message: 'File uploaded successfully',
       file: {
-        filename: req.file.filename,
+        filename: filename,
         originalname: req.file.originalname,
         size: req.file.size,
-        path: req.file.path
+        path: isServerless ? 'memory' : req.file.path
       }
     });
   } catch (error) {
