@@ -206,16 +206,16 @@ function analyzeFallback(text) {
 
   if (lowerText.includes("referred by the landlord") && 
       lowerText.includes("air-conditioning contractor") &&
-      lowerText.includes("tenant shall")) {
+      lowerText.includes("expense of the tenant")) {
     results.push({
       id: "aircon_service",
       name: "Mandatory AC Service Provider",
-      description: "Landlord forces tenant to use specific AC service provider",
-      severity: "medium",
+      description: "Landlord forces tenant to use specific AC service provider at tenant's expense",
+      severity: "high",
       category: "restrictions",
-      snippets: ["tenant shall use air-conditioning contractor referred by the landlord"],
+      snippets: ["air-conditioning contractor (referred by the Landlord)...at the expense of the Tenant"],
       textPositions: [],
-      score: 2
+      score: 3
     });
   }
 
@@ -243,7 +243,7 @@ router.post("/analyze", requireAuth, async (req, res) => {
     const isServerless = process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
     
     if (isServerless) {
-      // Use mock text for serverless demo
+      // Use actual problematic text for testing
       extractedText = `
       TENANCY AGREEMENT
 
@@ -253,8 +253,7 @@ router.post("/analyze", requireAuth, async (req, res) => {
       The tenant shall pay a security deposit equivalent to two (2) months' rent.
 
       AIR CONDITIONING
-      The tenant is responsible for the maintenance of air-conditioning units. 
-      Any repairs or servicing may be carried out by qualified contractors.
+      To take up a service contract with a qualified air-conditioning contractor (referred by the Landlord) to service and maintain the air-conditioning units, including the topping-up of gas and chemical cleaning (if required), installed at the said premises, at least once every three (3) months at the expense of the Tenant and to keep them in good and tenantable repair and condition, throughout the term of this Agreement. A copy of the service contract shall be forwarded to the Landlord.
 
       SUBLETTING
       The tenant may sublet the premises with prior written consent from the landlord.
