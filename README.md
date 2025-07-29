@@ -12,10 +12,7 @@ cp .env.example .env
 npm start
 ```
 
-Visit http://localhost:3000 and login with:
-
-- Username: `admin`
-- Password: `RentalAdmin2024!@#$`
+Visit http://localhost:3000 and login with your credential
 
 ## ✨ Features
 
@@ -50,6 +47,7 @@ The system automatically detects:
 
 - Node.js v16+
 - npm or yarn
+- MongoDB Atlas account (or local MongoDB)
 
 ### Development Setup
 
@@ -63,8 +61,33 @@ npm install
 
 # Set up environment
 cp .env.example .env
-# Edit .env with your settings
+```
 
+#### Configure Environment Variables
+
+Edit `.env` file with your settings:
+
+```bash
+# Authentication
+APP_USERNAME=admin
+APP_PASSWORD="your_secure_password_here"
+
+# Database Configuration
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority&appName=YourApp
+DATABASE_NAME=rental_management
+
+# Claude AI Configuration (optional)
+CLAUDE_API_KEY=your_claude_api_key_here
+
+# Session Configuration
+APP_SECRET=your_super_secret_session_key_here
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+```
+
+```bash
 # Start development server
 npm run dev
 ```

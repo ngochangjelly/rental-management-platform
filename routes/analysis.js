@@ -89,47 +89,21 @@ async function analyzeWithAI(text) {
   const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
   
   if (!CLAUDE_API_KEY) {
-    console.error("Claude API key not found");
+    console.error("Claude API key not found - using fallback");
     return analyzeFallback(text);
   }
 
   try {
-    const prompt = `You are an expert legal analyst specializing in tenancy agreements. Analyze the following rental contract text and identify potentially unfavorable terms for tenants.
+    const prompt = `Analyze this rental contract for unfavorable tenant terms. Look for:
+1. Mandatory service providers (landlord forces specific contractors)
+2. Excessive deposits (>2 months rent)
+3. Unfair early termination penalties
+4. Unreasonable restrictions
 
-IMPORTANT: Only flag actual violations where the contract clearly disadvantages the tenant. Do not flag neutral clauses or standard maintenance responsibilities.
+Respond in JSON:
+{"issues": [{"id": "aircon_service|excessive_deposits|early_termination_penalties|subletting_restrictions", "name": "Issue Name", "description": "Why unfavorable", "severity": "high|medium|low", "category": "financial|restrictions", "snippet": "contract quote"}]}
 
-Analyze for these specific issues:
-1. Mandatory service providers (landlord forces tenant to use specific contractors)
-2. Excessive security deposits (more than 2 months rent)
-3. Unreasonable subletting restrictions (complete prohibition without cause)
-4. Excessive property modification restrictions (prohibition of normal use)
-5. Unfair early termination penalties (forfeiture of entire deposit)
-6. Unfair repair responsibilities (tenant liable for normal wear and tear)
-
-For each issue found, provide:
-- Issue type (use these exact IDs: aircon_service, excessive_deposits, subletting_restrictions, drilling_restrictions, early_termination_penalties, repair_responsibilities)
-- Severity (high, medium, low)
-- Explanation of why it's unfavorable
-- Exact quote from contract
-- Category (financial, restrictions, property_modification, maintenance)
-
-Respond in JSON format:
-{
-  "issues": [
-    {
-      "id": "issue_type_id",
-      "name": "Issue Name",
-      "description": "Why this is unfavorable to tenant",
-      "severity": "high|medium|low",
-      "category": "financial|restrictions|property_modification|maintenance",
-      "snippet": "exact quote from contract",
-      "explanation": "detailed explanation of the problem"
-    }
-  ]
-}
-
-Contract text to analyze:
-${text}`;
+Contract: ${text.substring(0, 3000)}`;
 
     const response = await axios.post(
       "https://api.anthropic.com/v1/messages",
@@ -177,6 +151,11 @@ ${text}`;
 
   } catch (error) {
     console.error("AI analysis failed:", error.message);
+    if (error.response) {
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
+    }
+    console.log("Falling back to keyword analysis");
     return analyzeFallback(text);
   }
 }
@@ -199,14 +178,31 @@ function analyzeFallback(text) {
       severity: "high",
       category: "financial",
       snippets: ["Security Deposit shall be absolutely forfeited if tenant prematurely terminates"],
-      textPositions: [],
+      textPositions: [
+        { keyword: "security deposit shall be absolutely forfeited", page: 1 },
+        { keyword: "prematurely terminates", page: 1 }
+      ],
+      pageNumber: 1,
       score: 3
     });
   }
 
-  if (lowerText.includes("referred by the landlord") && 
-      lowerText.includes("air-conditioning contractor") &&
-      lowerText.includes("expense of the tenant")) {
+  const hasLandlordRef = lowerText.includes("referred by the landlord") || 
+                        lowerText.includes("referred by landlord") ||
+                        lowerText.includes("recommended by landlord") ||
+                        lowerText.includes("appointed by landlord") ||
+                        lowerText.includes("designated by landlord");
+  const hasACContractor = lowerText.includes("air-conditioning contractor") ||
+                         lowerText.includes("air conditioning contractor") ||
+                         lowerText.includes("aircon contractor") ||
+                         lowerText.includes("air-con contractor");
+  const hasTenantExpense = lowerText.includes("expense of the tenant") ||
+                          lowerText.includes("tenant's expense") ||
+                          lowerText.includes("cost of the tenant") ||
+                          lowerText.includes("tenant shall bear") ||
+                          lowerText.includes("at the expense of tenant");
+  
+  if (hasACContractor && (hasLandlordRef || hasTenantExpense)) {
     results.push({
       id: "aircon_service",
       name: "Mandatory AC Service Provider",
@@ -214,7 +210,12 @@ function analyzeFallback(text) {
       severity: "high",
       category: "restrictions",
       snippets: ["air-conditioning contractor (referred by the Landlord)...at the expense of the Tenant"],
-      textPositions: [],
+      textPositions: [
+        { keyword: "air-conditioning contractor", page: 1 },
+        { keyword: "referred by landlord", page: 1 },
+        { keyword: "expense of tenant", page: 1 }
+      ],
+      pageNumber: 1,
       score: 3
     });
   }

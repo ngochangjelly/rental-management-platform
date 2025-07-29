@@ -7,23 +7,29 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const cors = require('cors');
+const connectDB = require('./config/database');
 
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const analysisRoutes = require('./routes/analysis');
+const tenantRoutes = require('./routes/tenants');
+const propertyRoutes = require('./routes/properties');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Connect to MongoDB
+connectDB();
 
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://*.cdn.jsdelivr.net"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://*.cdn.jsdelivr.net", "data:"],
       connectSrc: ["'self'", "blob:"],
       workerSrc: ["'self'", "blob:"],
       childSrc: ["'self'", "blob:"]
@@ -63,6 +69,8 @@ if (!isServerless) {
 app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/analysis', analysisRoutes);
+app.use('/api/tenants', tenantRoutes);
+app.use('/api/properties', propertyRoutes);
 
 // Serve PDF files
 app.get('/pdf/:filename', (req, res) => {
