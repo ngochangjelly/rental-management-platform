@@ -138,30 +138,38 @@ app.get('/', (req, res) => {
     return res.redirect('/auth/login');
   }
   
-  // In serverless environment, redirect to static dashboard.html
-  if (isServerless) {
-    return res.redirect('/dashboard.html');
-  }
-  
   try {
-    // Try multiple possible paths for local development
+    // Try to load dashboard.html with improved path resolution
     let dashboardHtml;
-    const possiblePaths = [
+    
+    // In serverless environment, try relative to function location
+    const possiblePaths = isServerless ? [
+      path.resolve(__dirname, '../../public/dashboard.html'),
+      path.resolve(process.cwd(), 'public/dashboard.html'),
+      'public/dashboard.html'
+    ] : [
       path.join(__dirname, 'public', 'dashboard.html'),
       path.join(process.cwd(), 'public', 'dashboard.html'),
       './public/dashboard.html',
       'public/dashboard.html'
     ];
     
+    console.log('Environment:', isServerless ? 'serverless' : 'local');
+    console.log('__dirname:', __dirname);
+    console.log('process.cwd():', process.cwd());
+    
     for (const filePath of possiblePaths) {
       try {
+        console.log('Trying path:', filePath);
         if (fs.existsSync(filePath)) {
           dashboardHtml = fs.readFileSync(filePath, 'utf8');
           console.log('Successfully loaded dashboard.html from:', filePath);
           break;
+        } else {
+          console.log('Path does not exist:', filePath);
         }
       } catch (e) {
-        console.log('Failed to load dashboard from path:', filePath, 'error:', e.message);
+        console.log('Error loading from path:', filePath, 'error:', e.message);
       }
     }
     

@@ -31,11 +31,6 @@
   from = "/"
   to = "/.netlify/functions/server/"
   status = 200
-  
-[[redirects]]
-  from = "/dashboard"
-  to = "/dashboard.html"
-  status = 200
 
 [[redirects]]
   from = "/api/*"
