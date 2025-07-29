@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const cors = require('cors');
-const connectDB = require('./config/database');
+const { connectDB } = require('./config/database');
 
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
@@ -18,8 +18,19 @@ const propertyRoutes = require('./routes/properties');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB
-connectDB();
+// Initialize MongoDB connection
+let dbConnectionPromise = null;
+
+// Function to ensure database connection
+const ensureDBConnection = async () => {
+  if (!dbConnectionPromise) {
+    dbConnectionPromise = connectDB();
+  }
+  return dbConnectionPromise;
+};
+
+// Connect to MongoDB on startup (but don't block server start)
+ensureDBConnection().catch(console.error);
 
 // Security middleware
 app.use(helmet({
@@ -65,12 +76,27 @@ if (!isServerless) {
   }
 }
 
+// Database connection middleware for API routes
+const dbMiddleware = async (req, res, next) => {
+  try {
+    await ensureDBConnection();
+    next();
+  } catch (error) {
+    console.error('Database connection failed in middleware:', error);
+    res.status(503).json({ 
+      success: false, 
+      error: 'Database temporarily unavailable. Please try again in a moment.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Routes
 app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/analysis', analysisRoutes);
-app.use('/api/tenants', tenantRoutes);
-app.use('/api/properties', propertyRoutes);
+app.use('/api/tenants', dbMiddleware, tenantRoutes);
+app.use('/api/properties', dbMiddleware, propertyRoutes);
 
 // Serve PDF files
 app.get('/pdf/:filename', (req, res) => {

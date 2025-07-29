@@ -897,17 +897,41 @@
         let properties = [];
         let currentProperty = null;
 
+        // Utility function for API calls with retry logic
+        async function fetchWithRetry(url, options = {}, maxRetries = 2) {
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const response = await fetch(url, options);
+                    
+                    // If it's a 503 (service unavailable), retry after delay
+                    if (response.status === 503 && attempt < maxRetries) {
+                        console.log(`Database unavailable, retrying in ${(attempt + 1) * 2} seconds...`);
+                        await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
+                        continue;
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    if (attempt === maxRetries) {
+                        throw error;
+                    }
+                    console.log(`Network error, retrying in ${(attempt + 1) * 2} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
+                }
+            }
+        }
+
         // Load dashboard statistics
         async function loadDashboardStats() {
             try {
                 // Load properties count
-                const propertiesResponse = await fetch('/api/properties');
+                const propertiesResponse = await fetchWithRetry('/api/properties');
                 const propertiesResult = await propertiesResponse.json();
                 const propertiesCount = propertiesResult.success ? propertiesResult.properties.length : 0;
                 document.getElementById('propertiesCount').textContent = propertiesCount;
 
                 // Load tenants count and analyze them
-                const tenantsResponse = await fetch('/api/tenants');
+                const tenantsResponse = await fetchWithRetry('/api/tenants');
                 const tenantsResult = await tenantsResponse.json();
                 
                 if (tenantsResult.success) {
@@ -1847,7 +1871,7 @@
                     `;
                 }
                 
-                const response = await fetch('/api/tenants');
+                const response = await fetchWithRetry('/api/tenants');
                 const result = await response.json();
                 
                 if (result.success) {
@@ -1991,7 +2015,7 @@
 
         async function loadPropertiesForDropdown() {
             try {
-                const response = await fetch('/api/properties');
+                const response = await fetchWithRetry('/api/properties');
                 const result = await response.json();
                 
                 const dropdown = document.getElementById('propertiesDropdown');
@@ -2235,7 +2259,7 @@
                     </div>
                 `;
                 
-                const response = await fetch('/api/properties');
+                const response = await fetchWithRetry('/api/properties');
                 const result = await response.json();
                 
                 if (result.success) {
