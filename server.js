@@ -138,27 +138,23 @@ app.get('/', (req, res) => {
     return res.redirect('/auth/login');
   }
   
+  // In serverless environment, redirect to static dashboard.html
+  if (isServerless) {
+    return res.redirect('/dashboard.html');
+  }
+  
   try {
-    // Try multiple possible paths for serverless environment
+    // Try multiple possible paths for local development
     let dashboardHtml;
     const possiblePaths = [
       path.join(__dirname, 'public', 'dashboard.html'),
       path.join(process.cwd(), 'public', 'dashboard.html'),
-      path.resolve(__dirname, '../../public/dashboard.html'), // For Netlify Functions
-      path.resolve(process.cwd(), 'public/dashboard.html'),
       './public/dashboard.html',
       'public/dashboard.html'
     ];
     
-    console.log('Current directory paths:', {
-      __dirname,
-      'process.cwd()': process.cwd(),
-      'Netlify function path': path.resolve(__dirname, '../../public/dashboard.html')
-    });
-    
     for (const filePath of possiblePaths) {
       try {
-        console.log('Trying path:', filePath, 'exists:', fs.existsSync(filePath));
         if (fs.existsSync(filePath)) {
           dashboardHtml = fs.readFileSync(filePath, 'utf8');
           console.log('Successfully loaded dashboard.html from:', filePath);
