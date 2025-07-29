@@ -1,40 +1,40 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const express = require("express");
+const path = require("path");
+const fs = require("fs");
 const router = express.Router();
 
 // Hardcoded admin credentials from environment
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'RentalAdmin2024!@#$';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "RentalAdmin2024!@#$";
 
 // Login page
-router.get('/login', (req, res) => {
+router.get("/login", (req, res) => {
   if (req.session.user) {
-    return res.redirect('/');
+    return res.redirect("/");
   }
-  
+
   try {
     // Try multiple possible paths for serverless environment
     let loginHtml;
     const possiblePaths = [
-      path.join(__dirname, '../public', 'login.html'),
-      path.join(process.cwd(), 'public', 'login.html'),
-      './public/login.html',
-      'public/login.html'
+      path.join(__dirname, "../public", "login.html"),
+      path.join(process.cwd(), "public", "login.html"),
+      "./public/login.html",
+      "public/login.html",
     ];
-    
+
     for (const filePath of possiblePaths) {
       try {
         if (fs.existsSync(filePath)) {
-          loginHtml = fs.readFileSync(filePath, 'utf8');
-          console.log('Successfully loaded login.html from:', filePath);
+          loginHtml = fs.readFileSync(filePath, "utf8");
+          console.log("Successfully loaded login.html from:", filePath);
           break;
         }
       } catch (e) {
-        console.log('Failed to load from path:', filePath);
+        console.log("Failed to load from path:", filePath);
       }
     }
-    
+
     if (!loginHtml) {
       // Fallback to embedded HTML
       loginHtml = `<!DOCTYPE html>
@@ -119,12 +119,6 @@ router.get('/login', (req, res) => {
                             <i class="bi bi-exclamation-triangle me-2"></i>
                             <span id="errorMessage"></span>
                         </div>
-                        <div class="text-center mt-4">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Demo credentials: admin / RentalAdmin2024!@#$
-                            </small>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -175,26 +169,26 @@ router.get('/login', (req, res) => {
     </script>
 </body>
 </html>`;
-      console.log('Using fallback embedded HTML for login page');
+      console.log("Using fallback embedded HTML for login page");
     }
-    
-    res.setHeader('Content-Type', 'text/html');
+
+    res.setHeader("Content-Type", "text/html");
     res.send(loginHtml);
   } catch (error) {
-    console.error('Error serving login page:', error);
-    res.status(500).send('Error loading login page');
+    console.error("Error serving login page:", error);
+    res.status(500).send("Error loading login page");
   }
 });
 
 // Login endpoint
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username and password are required' 
+      return res.status(400).json({
+        success: false,
+        message: "Username and password are required",
       });
     }
 
@@ -203,51 +197,51 @@ router.post('/login', async (req, res) => {
       req.session.user = {
         id: 1,
         username: ADMIN_USERNAME,
-        role: 'admin'
+        role: "admin",
       };
-      
-      return res.json({ 
-        success: true, 
-        message: 'Login successful',
-        redirectUrl: '/'
+
+      return res.json({
+        success: true,
+        message: "Login successful",
+        redirectUrl: "/",
       });
     } else {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid username or password' 
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password",
       });
     }
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error' 
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 });
 
 // Logout endpoint
-router.post('/logout', (req, res) => {
+router.post("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Could not log out' 
+      return res.status(500).json({
+        success: false,
+        message: "Could not log out",
       });
     }
-    res.json({ 
-      success: true, 
-      message: 'Logged out successfully',
-      redirectUrl: '/auth/login'
+    res.json({
+      success: true,
+      message: "Logged out successfully",
+      redirectUrl: "/auth/login",
     });
   });
 });
 
 // Check authentication status
-router.get('/status', (req, res) => {
-  res.json({ 
+router.get("/status", (req, res) => {
+  res.json({
     authenticated: !!req.session.user,
-    user: req.session.user || null
+    user: req.session.user || null,
   });
 });
 

@@ -9,22 +9,22 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/server/api/:splat"
+  to = "/.netlify/functions/server/:splat"
   status = 200
 
 [[redirects]]
   from = "/auth/*"
-  to = "/.netlify/functions/server/auth/:splat"
+  to = "/.netlify/functions/server/:splat"
   status = 200
 
 [[redirects]]
   from = "/upload/*"
-  to = "/.netlify/functions/server/upload/:splat"
+  to = "/.netlify/functions/server/:splat"
   status = 200
 
 [[redirects]]
   from = "/analysis/*"
-  to = "/.netlify/functions/server/analysis/:splat"
+  to = "/.netlify/functions/server/:splat"
   status = 200
 
 [[redirects]]
@@ -33,15 +33,9 @@
   status = 200
 
 [[redirects]]
-  from = "/api/*"
+  from = "/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/login.html"
-  status = 200
-  conditions = {Role = ["admin"]}
 
 [functions]
   node_bundler = "esbuild"
