@@ -144,19 +144,28 @@ app.get('/', (req, res) => {
     const possiblePaths = [
       path.join(__dirname, 'public', 'dashboard.html'),
       path.join(process.cwd(), 'public', 'dashboard.html'),
+      path.resolve(__dirname, '../../public/dashboard.html'), // For Netlify Functions
+      path.resolve(process.cwd(), 'public/dashboard.html'),
       './public/dashboard.html',
       'public/dashboard.html'
     ];
     
+    console.log('Current directory paths:', {
+      __dirname,
+      'process.cwd()': process.cwd(),
+      'Netlify function path': path.resolve(__dirname, '../../public/dashboard.html')
+    });
+    
     for (const filePath of possiblePaths) {
       try {
+        console.log('Trying path:', filePath, 'exists:', fs.existsSync(filePath));
         if (fs.existsSync(filePath)) {
           dashboardHtml = fs.readFileSync(filePath, 'utf8');
           console.log('Successfully loaded dashboard.html from:', filePath);
           break;
         }
       } catch (e) {
-        console.log('Failed to load dashboard from path:', filePath);
+        console.log('Failed to load dashboard from path:', filePath, 'error:', e.message);
       }
     }
     
