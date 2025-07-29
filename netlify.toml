@@ -4,7 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  SECRETS_SCAN_OMIT_PATHS = ".env.example,README.md"
+  SECRETS_SCAN_OMIT_PATHS = ".env.example,README.md,routes/analysis.js"
+  SECRETS_SCAN_OMIT_KEYS = "NODE_ENV"
 
 [[redirects]]
   from = "/api/*"

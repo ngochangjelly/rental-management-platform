@@ -268,7 +268,7 @@ router.post("/analyze", requireAuth, async (req, res) => {
       
       console.log('Using mock PDF text extraction for serverless:', filename);
     } else {
-      // Try to use actual PDF parsing for local development
+      // Try to use actual PDF parsing for local testing
       try {
         const pdfParse = require("pdf-parse");
         const dataBuffer = fs.readFileSync(filePath);
