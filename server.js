@@ -70,12 +70,25 @@ app.get("/pdf/:filename", (req, res) => {
 
 // Main route - redirect to dashboard.html if logged in
 app.get("/", (req, res) => {
-  if (!req.session.user) {
-    return res.redirect("/auth/login");
-  }
+  try {
+    console.log("Main route accessed, session:", req.session ? "exists" : "missing");
+    
+    if (!req.session) {
+      console.log("No session object found");
+      return res.redirect("/auth/login");
+    }
+    
+    if (!req.session.user) {
+      console.log("No user in session, redirecting to login");
+      return res.redirect("/auth/login");
+    }
 
-  // Redirect to static dashboard
-  return res.redirect("/dashboard.html");
+    console.log("User logged in, redirecting to dashboard");
+    return res.redirect("/dashboard.html");
+  } catch (error) {
+    console.error("Error in main route:", error);
+    return res.status(500).json({ error: "Internal server error in main route" });
+  }
 });
 
 // 404 handler
@@ -133,9 +146,14 @@ const basicSessionConfig = {
   },
 };
 
-// Use basic sessions initially to prevent timing issues
-app.use(session(basicSessionConfig));
-console.log("🔧 Basic session middleware initialized");
+try {
+  // Use basic sessions initially to prevent timing issues
+  app.use(session(basicSessionConfig));
+  console.log("🔧 Basic session middleware initialized successfully");
+} catch (error) {
+  console.error("❌ Failed to initialize session middleware:", error);
+  throw error;
+}
 
 // Initialize for serverless or start server
 if (require.main === module) {
