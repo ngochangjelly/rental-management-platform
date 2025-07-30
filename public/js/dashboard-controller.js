@@ -128,7 +128,9 @@ class DashboardController {
     async loadDashboardStats() {
         try {
             // Load properties count
-            const propertiesResponse = await fetch('/api/properties');
+            const propertiesResponse = await fetch('/api/properties', {
+                credentials: 'include'
+            });
             const propertiesResult = await propertiesResponse.json();
             const propertiesCount = propertiesResult.success ? propertiesResult.properties.length : 0;
             
@@ -138,7 +140,9 @@ class DashboardController {
             }
 
             // Load tenants count and analyze them
-            const tenantsResponse = await fetch('/api/tenants');
+            const tenantsResponse = await fetch('/api/tenants', {
+                credentials: 'include'
+            });
             const tenantsResult = await tenantsResponse.json();
             
             if (tenantsResult.success) {

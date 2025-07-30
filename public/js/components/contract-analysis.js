@@ -84,6 +84,7 @@ class ContractAnalysisComponent {
             // Upload file
             const uploadResponse = await fetch('/upload/agreement', {
                 method: 'POST',
+                credentials: 'include',
                 body: formData
             });
 
@@ -100,6 +101,7 @@ class ContractAnalysisComponent {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     filename: uploadResult.filename
                 })
@@ -208,7 +210,9 @@ class ContractAnalysisComponent {
             console.log('PDF URL:', url);
             
             // Test if PDF endpoint is accessible
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                credentials: 'include'
+            });
             console.log('PDF response status:', response.status);
             
             if (!response.ok) {
@@ -372,6 +376,7 @@ class ContractAnalysisComponent {
                         headers: {
                             'Content-Type': 'application/json'
                         },
+                        credentials: 'include',
                         body: JSON.stringify(this.analysisData)
                     });
                     

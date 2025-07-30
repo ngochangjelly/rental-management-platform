@@ -33,7 +33,9 @@ class PropertyManagementComponent {
 
     async loadProperties() {
         try {
-            const response = await fetch('/api/properties');
+            const response = await fetch('/api/properties', {
+                credentials: 'include'
+            });
             const result = await response.json();
             
             if (result.success) {
@@ -185,6 +187,7 @@ class PropertyManagementComponent {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(propertyData)
             });
 
@@ -220,6 +223,7 @@ class PropertyManagementComponent {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(updatedData)
             });
 
@@ -244,7 +248,8 @@ class PropertyManagementComponent {
 
         try {
             const response = await fetch(`/api/properties/${encodeURIComponent(propertyId)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             });
 
             const result = await response.json();

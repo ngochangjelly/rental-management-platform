@@ -33,7 +33,9 @@ class TenantManagementComponent {
 
     async loadTenants() {
         try {
-            const response = await fetch('/api/tenants');
+            const response = await fetch('/api/tenants', {
+                credentials: 'include'
+            });
             const result = await response.json();
             
             if (result.success) {
@@ -196,6 +198,7 @@ class TenantManagementComponent {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(tenantData)
             });
 
@@ -231,6 +234,7 @@ class TenantManagementComponent {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(updatedData)
             });
 
@@ -255,7 +259,8 @@ class TenantManagementComponent {
 
         try {
             const response = await fetch(`/api/tenants/${encodeURIComponent(fin)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             });
 
             const result = await response.json();
@@ -280,6 +285,7 @@ class TenantManagementComponent {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ propertyId })
             });
 
