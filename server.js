@@ -726,7 +726,7 @@ app.get('/', (req, res) => {
                     if (featureCard.classList.contains('feature-card')) {
                         const section = featureCard.getAttribute('data-section');
                         console.log('🎯 PRODUCTION DEBUG (SERVER): Feature card clicked: ' + section);
-                        alert('SERVER.JS FALLBACK: Clicked section: ' + section);
+                        alert('SERVER.JS FALLBACK: Clicked section: ' + section + ' - This should not appear if redirect is working!');
                         showSection(section);
                         
                         // Load data for specific sections

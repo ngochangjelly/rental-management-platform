@@ -32,6 +32,12 @@
   to = "/dashboard.html"
   status = 200
   force = true
+  
+[[redirects]]
+  from = "/dashboard/"
+  to = "/dashboard.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/"
