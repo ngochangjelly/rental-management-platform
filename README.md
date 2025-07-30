@@ -1,5 +1,7 @@
 # Rental Management Platform
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/2f11dcaf-ac86-4f62-b962-9a090b858c28/deploy-status)](https://app.netlify.com/projects/rental-management-platform/deploys)
+
 🏠 AI-powered rental management platform with tenancy agreement analysis and business utilities
 
 ## 🚀 Quick Start
