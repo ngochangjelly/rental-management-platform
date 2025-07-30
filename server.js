@@ -19,6 +19,25 @@ console.log("Running in serverless environment:", isServerless);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Initialize sessions immediately for all environments
+const basicSessionConfig = {
+  secret: process.env.APP_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+};
+
+try {
+  // Use basic sessions initially to prevent timing issues
+  app.use(session(basicSessionConfig));
+  console.log("🔧 Basic session middleware initialized successfully");
+} catch (error) {
+  console.error("❌ Failed to initialize session middleware:", error);
+  throw error;
+}
 
 // Static files
 app.use(express.static("public"));
@@ -71,13 +90,16 @@ app.get("/pdf/:filename", (req, res) => {
 // Main route - redirect to dashboard.html if logged in
 app.get("/", (req, res) => {
   try {
-    console.log("Main route accessed, session:", req.session ? "exists" : "missing");
-    
+    console.log(
+      "Main route accessed, session:",
+      req.session ? "exists" : "missing"
+    );
+
     if (!req.session) {
       console.log("No session object found");
       return res.redirect("/auth/login");
     }
-    
+
     if (!req.session.user) {
       console.log("No user in session, redirecting to login");
       return res.redirect("/auth/login");
@@ -87,7 +109,9 @@ app.get("/", (req, res) => {
     return res.redirect("/dashboard.html");
   } catch (error) {
     console.error("Error in main route:", error);
-    return res.status(500).json({ error: "Internal server error in main route" });
+    return res
+      .status(500)
+      .json({ error: "Internal server error in main route" });
   }
 });
 
@@ -133,26 +157,6 @@ async function startServer() {
     console.error("Failed to start server:", error);
     process.exit(1);
   }
-}
-
-// Initialize sessions immediately for all environments
-const basicSessionConfig = {
-  secret: process.env.APP_SECRET || "your-secret-key-here",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false,
-    maxAge: 24 * 60 * 60 * 1000,
-  },
-};
-
-try {
-  // Use basic sessions initially to prevent timing issues
-  app.use(session(basicSessionConfig));
-  console.log("🔧 Basic session middleware initialized successfully");
-} catch (error) {
-  console.error("❌ Failed to initialize session middleware:", error);
-  throw error;
 }
 
 // Initialize for serverless or start server
