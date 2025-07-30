@@ -1,9 +1,11 @@
+require('dotenv').config();
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
+const { connectDB } = require("./config/database");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,10 +32,14 @@ const sessionConfig = {
 
 // Use MongoDB for session storage if available
 if (process.env.MONGODB_URI) {
-  sessionConfig.store = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    dbName: process.env.DATABASE_NAME,
-  });
+  try {
+    sessionConfig.store = MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      dbName: process.env.DATABASE_NAME || 'rental_management',
+    });
+  } catch (error) {
+    console.warn('⚠️ Could not create MongoDB session store, using memory store:', error.message);
+  }
 }
 
 app.use(session(sessionConfig));
@@ -102,15 +108,39 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Something went wrong!" });
 });
 
-// Only start server if not in serverless environment
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Connect to database if MongoDB URI is provided
+    if (process.env.MONGODB_URI) {
+      try {
+        await connectDB();
+      } catch (dbError) {
+        console.warn('⚠️ Database connection failed, continuing without database:', dbError.message);
+      }
+    } else {
+      console.log('⚠️ No MONGODB_URI provided - running without database');
+    }
+
+    // Only start server if not in serverless environment
+    if (require.main === module) {
+      app.listen(PORT, () => {
+        console.log(
+          `🚀 Rental Management Platform running on http://localhost:${PORT}`
+        );
+        console.log(`📊 Dashboard: http://localhost:${PORT}`);
+        console.log(`🔐 Login: http://localhost:${PORT}/auth/login`);
+      });
+    }
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(
-      `🚀 Rental Management Platform running on http://localhost:${PORT}`
-    );
-    console.log(`📊 Dashboard: http://localhost:${PORT}`);
-    console.log(`🔐 Login: http://localhost:${PORT}/auth/login`);
-  });
+  startServer();
 }
 
 module.exports = app;
