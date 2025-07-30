@@ -50,7 +50,8 @@ const upload = multer({
 
 // Routes
 app.use('/auth', require('./routes/auth'));
-app.use('/api', require('./routes/api'));
+app.use('/api/properties', require('./routes/properties'));
+app.use('/api/tenants', require('./routes/tenants'));
 app.use('/upload', require('./routes/upload'));
 app.use('/analysis', require('./routes/analysis'));
 
