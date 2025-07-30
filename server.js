@@ -230,6 +230,12 @@ app.get('/', (req, res) => {
                         <a class="nav-link" href="#" data-section="contract-analysis">
                             <i class="bi bi-file-text me-2"></i>Contract Analysis
                         </a>
+                        <a class="nav-link" href="#" data-section="property-management">
+                            <i class="bi bi-building me-2"></i>Properties
+                        </a>
+                        <a class="nav-link" href="#" data-section="tenant-portal">
+                            <i class="bi bi-people me-2"></i>Tenants
+                        </a>
                     </nav>
                     <hr class="my-4">
                     <div class="user-info">
@@ -308,22 +314,22 @@ app.get('/', (req, res) => {
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card h-100">
+                            <div class="card h-100" id="property-management-card" style="cursor: pointer;">
                                 <div class="card-body text-center">
-                                    <i class="bi bi-building display-3 text-secondary mb-3"></i>
+                                    <i class="bi bi-building display-3 text-success mb-3"></i>
                                     <h5>Property Management</h5>
                                     <p class="text-muted">Manage your rental properties and track performance</p>
-                                    <span class="badge bg-secondary">Coming Soon</span>
+                                    <span class="badge bg-success">Available Now</span>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card h-100">
+                            <div class="card h-100" id="tenant-portal-card" style="cursor: pointer;">
                                 <div class="card-body text-center">
-                                    <i class="bi bi-people display-3 text-secondary mb-3"></i>
-                                    <h5>Tenant Portal</h5>
-                                    <p class="text-muted">Allow tenants to submit requests and make payments</p>
-                                    <span class="badge bg-secondary">Coming Soon</span>
+                                    <i class="bi bi-people display-3 text-info mb-3"></i>
+                                    <h5>Tenant Management</h5>
+                                    <p class="text-muted">Manage tenant information and property assignments</p>
+                                    <span class="badge bg-info">Available Now</span>
                                 </div>
                             </div>
                         </div>
@@ -523,6 +529,102 @@ app.get('/', (req, res) => {
                         </div>
                     </div>
                 </div>
+
+                <!-- Property Management Section -->
+                <div id="property-management-section" class="content-section" style="display: none;">
+                    <div class="p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Property Management</h2>
+                            <button class="btn btn-outline-secondary" onclick="showSection('dashboard')">
+                                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                            </button>
+                        </div>
+
+                        <!-- Property Management Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <button class="btn btn-primary" onclick="showAddPropertyModal()">
+                                    <i class="bi bi-plus-circle me-2"></i>Add New Property
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="propertySearch" placeholder="Search properties...">
+                                    <button class="btn btn-outline-secondary" onclick="searchProperties()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Properties List -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-building me-2"></i>Properties
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="propertiesContainer">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Loading properties...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tenant Portal Section -->
+                <div id="tenant-portal-section" class="content-section" style="display: none;">
+                    <div class="p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Tenant Management</h2>
+                            <button class="btn btn-outline-secondary" onclick="showSection('dashboard')">
+                                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                            </button>
+                        </div>
+
+                        <!-- Tenant Management Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <button class="btn btn-primary" onclick="showAddTenantModal()">
+                                    <i class="bi bi-person-plus me-2"></i>Add New Tenant
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="tenantSearch" placeholder="Search tenants...">
+                                    <button class="btn btn-outline-secondary" onclick="searchTenants()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tenants List -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-people me-2"></i>Tenants
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="tenantsContainer">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Loading tenants...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -566,6 +668,24 @@ app.get('/', (req, res) => {
             if (contractAnalysisCard) {
                 contractAnalysisCard.addEventListener('click', function() {
                     showSection('contract-analysis');
+                });
+            }
+
+            // Property Management card click handler
+            const propertyManagementCard = document.getElementById('property-management-card');
+            if (propertyManagementCard) {
+                propertyManagementCard.addEventListener('click', function() {
+                    showSection('property-management');
+                    loadProperties();
+                });
+            }
+
+            // Tenant Portal card click handler
+            const tenantPortalCard = document.getElementById('tenant-portal-card');
+            if (tenantPortalCard) {
+                tenantPortalCard.addEventListener('click', function() {
+                    showSection('tenant-portal');
+                    loadTenants();
                 });
             }
         }
@@ -763,6 +883,149 @@ app.get('/', (req, res) => {
 
             issuesContainer.innerHTML = issuesHtml;
             document.getElementById('analysisResults').style.display = 'block';
+        }
+
+        // Property Management Functions
+        async function loadProperties() {
+            try {
+                const response = await fetch('/api/properties');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayProperties(result.properties);
+                } else {
+                    document.getElementById('propertiesContainer').innerHTML = 
+                        '<div class="alert alert-danger">Failed to load properties: ' + result.error + '</div>';
+                }
+            } catch (error) {
+                console.error('Error loading properties:', error);
+                document.getElementById('propertiesContainer').innerHTML = 
+                    '<div class="alert alert-danger">Error loading properties: ' + error.message + '</div>';
+            }
+        }
+
+        function displayProperties(properties) {
+            const container = document.getElementById('propertiesContainer');
+            
+            if (!properties || properties.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No properties found. Add your first property to get started!</div>';
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += '<thead><tr><th>Property ID</th><th>Address</th><th>Unit</th><th>Rent</th><th>Max Pax</th><th>Actions</th></tr></thead><tbody>';
+            
+            properties.forEach(property => {
+                html += '<tr>';
+                html += '<td><strong>' + property.propertyId + '</strong></td>';
+                html += '<td>' + property.address + '</td>';
+                html += '<td>' + property.unit + '</td>';
+                html += '<td>$' + (property.rent || 0).toLocaleString() + '</td>';
+                html += '<td>' + property.maxPax + '</td>';
+                html += '<td>';
+                html += '<button class="btn btn-sm btn-outline-primary me-1" onclick="editProperty(\'' + property.propertyId + '\')">Edit</button>';
+                html += '<button class="btn btn-sm btn-outline-danger" onclick="deleteProperty(\'' + property.propertyId + '\')">Delete</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        // Tenant Management Functions
+        async function loadTenants() {
+            try {
+                const response = await fetch('/api/tenants');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayTenants(result.tenants);
+                } else {
+                    document.getElementById('tenantsContainer').innerHTML = 
+                        '<div class="alert alert-danger">Failed to load tenants: ' + result.error + '</div>';
+                }
+            } catch (error) {
+                console.error('Error loading tenants:', error);
+                document.getElementById('tenantsContainer').innerHTML = 
+                    '<div class="alert alert-danger">Error loading tenants: ' + error.message + '</div>';
+            }
+        }
+
+        function displayTenants(tenants) {
+            const container = document.getElementById('tenantsContainer');
+            
+            if (!tenants || tenants.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No tenants found. Add your first tenant to get started!</div>';
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += '<thead><tr><th>Name</th><th>FIN</th><th>Passport</th><th>Properties</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+            
+            tenants.forEach(tenant => {
+                html += '<tr>';
+                html += '<td><strong>' + tenant.name + '</strong></td>';
+                html += '<td>' + tenant.fin + '</td>';
+                html += '<td>' + tenant.passportNumber + '</td>';
+                html += '<td>' + (tenant.properties && tenant.properties.length > 0 ? tenant.properties.join(', ') : 'None') + '</td>';
+                html += '<td>';
+                if (tenant.isMainTenant) html += '<span class="badge bg-primary me-1">Main Tenant</span>';
+                if (tenant.isRegistered) html += '<span class="badge bg-success">Registered</span>';
+                if (!tenant.isMainTenant && !tenant.isRegistered) html += '<span class="badge bg-secondary">Regular</span>';
+                html += '</td>';
+                html += '<td>';
+                html += '<button class="btn btn-sm btn-outline-primary me-1" onclick="editTenant(\'' + tenant.fin + '\')">Edit</button>';
+                html += '<button class="btn btn-sm btn-outline-danger" onclick="deleteTenant(\'' + tenant.fin + '\')">Delete</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        // Placeholder functions for modal operations
+        function showAddPropertyModal() {
+            alert('Add Property modal would open here. This requires additional modal HTML implementation.');
+        }
+
+        function showAddTenantModal() {
+            alert('Add Tenant modal would open here. This requires additional modal HTML implementation.');
+        }
+
+        function editProperty(propertyId) {
+            alert('Edit property: ' + propertyId + '. This requires additional modal HTML implementation.');
+        }
+
+        function editTenant(fin) {
+            alert('Edit tenant: ' + fin + '. This requires additional modal HTML implementation.');
+        }
+
+        function deleteProperty(propertyId) {
+            if (confirm('Are you sure you want to delete property ' + propertyId + '?')) {
+                // Implementation would go here
+                alert('Delete property functionality needs to be implemented.');
+            }
+        }
+
+        function deleteTenant(fin) {
+            if (confirm('Are you sure you want to delete tenant ' + fin + '?')) {
+                // Implementation would go here
+                alert('Delete tenant functionality needs to be implemented.');
+            }
+        }
+
+        function searchProperties() {
+            const searchTerm = document.getElementById('propertySearch').value.toLowerCase();
+            // Implementation would filter the displayed properties
+            alert('Search properties: ' + searchTerm + '. This feature needs implementation.');
+        }
+
+        function searchTenants() {
+            const searchTerm = document.getElementById('tenantSearch').value.toLowerCase();
+            // Implementation would filter the displayed tenants
+            alert('Search tenants: ' + searchTerm + '. This feature needs implementation.');
         }
 
         async function logout() {
