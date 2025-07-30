@@ -19,54 +19,6 @@ console.log("Running in serverless environment:", isServerless);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize session configuration with async function
-async function setupSessionConfig() {
-  const sessionConfig = {
-    secret: process.env.APP_SECRET || "your-secret-key-here",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false, // Set to true in production with HTTPS
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
-  };
-
-  // Use MongoDB for session storage if available and connection works
-  if (process.env.MONGODB_URI) {
-    try {
-      // Test if we can connect to MongoDB first
-      const mongoose = require('mongoose');
-      await mongoose.connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 3000,
-        socketTimeoutMS: 3000,
-      });
-      
-      sessionConfig.store = MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        dbName: process.env.DATABASE_NAME,
-        touchAfter: 24 * 3600, // lazy session update
-        serverSelectionTimeoutMS: 3000,
-        socketTimeoutMS: 3000,
-      });
-      console.log("✅ MongoDB session store configured successfully");
-      
-      // Close the test connection
-      await mongoose.disconnect();
-    } catch (error) {
-      console.warn(
-        "⚠️ Could not connect to MongoDB for sessions, using memory store:",
-        error.message
-      );
-      // Don't set store, will use default memory store
-    }
-  } else {
-    console.log(
-      "📝 Using memory session store (not suitable for production scaling)"
-    );
-  }
-
-  return sessionConfig;
-}
 
 // Static files
 app.use(express.static("public"));
@@ -140,10 +92,6 @@ app.use((err, req, res, next) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    // Setup session configuration first
-    const sessionConfig = await setupSessionConfig();
-    app.use(session(sessionConfig));
-
     // Connect to database if MongoDB URI is provided
     if (process.env.MONGODB_URI) {
       try {
@@ -174,27 +122,26 @@ async function startServer() {
   }
 }
 
+// Initialize sessions immediately for all environments
+const basicSessionConfig = {
+  secret: process.env.APP_SECRET || "your-secret-key-here",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+};
+
+// Use basic sessions initially to prevent timing issues
+app.use(session(basicSessionConfig));
+console.log("🔧 Basic session middleware initialized");
+
 // Initialize for serverless or start server
 if (require.main === module) {
   startServer();
 } else {
-  // For serverless environments, setup sessions immediately
-  setupSessionConfig().then(sessionConfig => {
-    app.use(session(sessionConfig));
-    console.log("📱 Serverless app initialized with session support");
-  }).catch(error => {
-    console.error("❌ Failed to setup sessions for serverless:", error);
-    // Fallback to basic session config
-    app.use(session({
-      secret: process.env.APP_SECRET || "your-secret-key-here",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: false,
-        maxAge: 24 * 60 * 60 * 1000,
-      },
-    }));
-  });
+  console.log("📱 Serverless environment detected - using memory sessions");
 }
 
 module.exports = app;
