@@ -132,6 +132,15 @@ app.get('/pdf/:filename', (req, res) => {
   }
 });
 
+// Dashboard route - redirect to static file
+app.get('/dashboard', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/auth/login');
+  }
+  // Force redirect to static dashboard.html
+  return res.redirect(301, '/dashboard.html');
+});
+
 // Main route
 app.get('/', (req, res) => {
   if (!req.session.user) {
