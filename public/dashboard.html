@@ -11,6 +11,12 @@
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
+    
+    <!-- Component Scripts -->
+    <script src="/js/components/contract-analysis.js"></script>
+    <script src="/js/components/property-management.js"></script>
+    <script src="/js/components/tenant-management.js"></script>
+    <script src="/js/dashboard-controller.js"></script>
     <style>
         .sidebar {
             background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
@@ -18,264 +24,70 @@
             color: white;
         }
         .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            transition: all 0.3s ease;
+            color: rgba(255,255,255,0.8);
+            border-radius: 0.5rem;
+            margin-bottom: 0.25rem;
         }
-        .nav-link:hover, .nav-link.active {
+        .nav-link:hover {
             color: white;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            background-color: rgba(255,255,255,0.1);
         }
-        .main-content {
-            background: #f8f9fa;
-            min-height: 100vh;
+        .nav-link.active {
+            color: white;
+            background-color: rgba(255,255,255,0.2);
         }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            transition: transform 0.2s ease;
-        }
-        .card:hover {
-            transform: translateY(-2px);
+        .nav-link i {
+            width: 20px;
         }
         .feature-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
         }
         .feature-card:hover {
-            border-color: #667eea;
-        }
-        .upload-area {
-            border: 2px dashed #dee2e6;
-            border-radius: 15px;
-            padding: 3rem;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        .upload-area:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-        .upload-area.dragover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
-        }
-        .severity-high { border-left: 4px solid #dc3545; }
-        .severity-medium { border-left: 4px solid #fd7e14; }
-        .severity-low { border-left: 4px solid #ffc107; }
-        .badge-high { background-color: #dc3545; }
-        .badge-medium { background-color: #fd7e14; }
-        .badge-low { background-color: #ffc107; color: #000; }
-        .pdf-viewer-container {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            background: #f8f9fa;
-            max-height: 800px;
-            overflow-y: auto;
-            position: relative;
-        }
-        .pdf-canvas {
-            display: block;
-            margin: 0 auto;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .pdf-controls {
-            background: #fff;
-            border-bottom: 1px solid #dee2e6;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .clause-highlight {
-            position: absolute;
-            background: rgba(255, 255, 0, 0.3);
-            border: 2px solid #ffc107;
-            pointer-events: none;
-            border-radius: 3px;
-        }
-        .criteria-item {
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .criteria-item:hover {
-            background-color: #f8f9fa;
-        }
-        .criteria-item.highlighted {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        .image-card {
-            position: relative;
-            border-radius: 15px;
-            overflow: hidden;
-            transition: transform 0.2s ease;
-            cursor: pointer;
-        }
-        .image-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         }
-        .image-card img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
+        .stat-card {
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s ease;
         }
-        .image-card .image-overlay {
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .content-section {
+            display: none;
+        }
+        #dashboard-section {
+            display: block;
+        }
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.5rem;
+            transition: border-color 0.2s ease;
+        }
+        .upload-area:hover {
+            border-color: #adb5bd;
+        }
+        .upload-area.dragover {
+            border-color: #0d6efd;
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+        .pdf-canvas {
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        .highlight-layer {
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            pointer-events: none;
         }
-        .image-card:hover .image-overlay {
-            opacity: 1;
-        }
-        .image-title {
+        .highlight-box {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
-            color: white;
-            padding: 20px 15px 15px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .image-title-editable {
-            background: transparent;
-            border: none;
-            color: white;
-            font-size: 14px;
-            font-weight: 500;
-            width: 100%;
-            outline: none;
-        }
-        .image-title-editable:focus {
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-            padding: 2px 4px;
-        }
-        .image-actions {
-            display: flex;
-            gap: 10px;
-        }
-        .image-actions .btn {
-            opacity: 0.9;
-        }
-        
-        /* Multi-select dropdown styling */
-        .multi-select-dropdown {
-            position: relative;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            background: white;
-            min-height: 45px;
-        }
-        
-        .selected-items {
-            padding: 8px 12px;
-            min-height: 45px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            align-items: center;
-            cursor: pointer;
-            border-radius: 6px;
-        }
-        
-        .selected-items:hover {
-            background: #f8f9fa;
-        }
-        
-        .placeholder-text {
-            color: #6c757d;
-            font-style: italic;
-        }
-        
-        .property-tag {
-            background: #667eea;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 15px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        .property-tag .remove-tag {
-            cursor: pointer;
-            font-weight: bold;
-            margin-left: 4px;
-        }
-        
-        .property-tag .remove-tag:hover {
-            color: #ffdddd;
-        }
-        
-        .dropdown-content {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 2px solid #dee2e6;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        }
-        
-        .dropdown-content.show {
-            display: block;
-        }
-        
-        .property-option {
-            padding: 10px 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .property-option:hover {
-            background: #f8f9fa;
-        }
-        
-        .property-option:last-child {
-            border-bottom: none;
-        }
-        
-        .property-option input[type="checkbox"] {
-            margin: 0;
-        }
-        
-        .property-option label {
-            margin: 0;
-            cursor: pointer;
-            flex-grow: 1;
+            background-color: rgba(255, 193, 7, 0.3);
+            border: 2px solid #ffc107;
+            border-radius: 3px;
         }
     </style>
 </head>
@@ -283,39 +95,46 @@
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar">
-                <div class="p-3">
-                    <h4 class="mb-4">
-                        <i class="bi bi-building me-2"></i>
-                        Rental Hub
-                    </h4>
-                    <nav class="nav flex-column">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4">
+                <div class="d-flex align-items-center mb-4">
+                    <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
+                    <h4 class="text-white mb-0">Rental Hub</h4>
+                </div>
+                
+                <ul class="nav nav-pills flex-column">
+                    <li class="nav-item">
                         <a class="nav-link active" href="#" data-section="dashboard">
                             <i class="bi bi-speedometer2 me-2"></i>Dashboard
                         </a>
-                        <a class="nav-link" href="#" data-section="contract-analysis">
-                            <i class="bi bi-file-earmark-text me-2"></i>Contract Analysis
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="analysis">
+                            <i class="bi bi-file-text me-2"></i>Contract Analysis
                         </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-section="properties">
-                            <i class="bi bi-house me-2"></i>Properties
+                            <i class="bi bi-building me-2"></i>Properties
                         </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-section="tenants">
                             <i class="bi bi-people me-2"></i>Tenants
                         </a>
-                    </nav>
-                    <hr class="my-4">
-                    <div class="user-info">
-                        <small class="text-light opacity-75">Logged in as:</small>
-                        <div id="userDisplay" class="fw-bold">Admin User</div>
-                        <button class="btn btn-outline-light btn-sm mt-2" id="logoutBtn">
-                            <i class="bi bi-box-arrow-right me-1"></i>Logout
-                        </button>
-                    </div>
+                    </li>
+                </ul>
+                
+                <div class="mt-auto pt-4">
+                    <p class="text-white-50 mb-2">Logged in as:</p>
+                    <p class="text-white mb-3" id="userInfo">Admin User</p>
+                    <a href="/auth/logout" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-arrow-right me-1"></i>Logout
+                    </a>
                 </div>
-            </div>
-
+            </nav>
+            
             <!-- Main Content -->
-            <div class="col-md-9 col-lg-10 main-content">
+            <main class="col-md-9 col-lg-10 ms-sm-auto px-4">
                 <!-- Dashboard Section -->
                 <div id="dashboard-section" class="content-section">
                     <div class="p-4">
@@ -327,41 +146,81 @@
                             </div>
                         </div>
 
-                        <!-- Stats Cards -->
+                        <!-- Quick Stats -->
                         <div class="row mb-4">
-                            <div class="col-md-3">
-                                <div class="card">
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
                                     <div class="card-body text-center">
-                                        <i class="bi bi-building display-4 text-primary mb-3"></i>
-                                        <h5>Total Properties</h5>
-                                        <h3 class="text-primary" id="propertiesCount">0</h3>
+                                        <i class="bi bi-file-earmark-text text-primary fs-1"></i>
+                                        <h3 class="text-primary mt-2" id="contractsCount">0</h3>
+                                        <p class="text-muted mb-0">Contracts Analyzed</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card">
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
                                     <div class="card-body text-center">
-                                        <i class="bi bi-people display-4 text-success mb-3"></i>
-                                        <h5>Total Tenants</h5>
-                                        <h3 class="text-success" id="tenantsCount">0</h3>
+                                        <i class="bi bi-exclamation-triangle text-warning fs-1"></i>
+                                        <h3 class="text-warning mt-2" id="issuesCount">0</h3>
+                                        <p class="text-muted mb-0">Issues Found</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card">
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
                                     <div class="card-body text-center">
-                                        <i class="bi bi-check-circle display-4 text-info mb-3"></i>
-                                        <h5>Registered Tenants</h5>
-                                        <h3 class="text-info" id="registeredCount">0</h3>
+                                        <i class="bi bi-shield-check text-success fs-1"></i>
+                                        <h3 class="text-success mt-2" id="cleanCount">0</h3>
+                                        <p class="text-muted mb-0">Clean Contracts</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card">
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
                                     <div class="card-body text-center">
-                                        <i class="bi bi-house-check display-4 text-warning mb-3"></i>
-                                        <h5>Occupied Properties</h5>
-                                        <h3 class="text-warning" id="occupiedPropertiesCount">0</h3>
+                                        <i class="bi bi-clock text-info fs-1"></i>
+                                        <h3 class="text-info mt-2" id="avgTime">2.3s</h3>
+                                        <p class="text-muted mb-0">Avg Analysis Time</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Stats Row 2 -->
+                        <div class="row mb-4">
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-building text-info fs-1"></i>
+                                        <h3 class="text-info mt-2" id="propertiesCount">0</h3>
+                                        <p class="text-muted mb-0">Total Properties</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-people text-success fs-1"></i>
+                                        <h3 class="text-success mt-2" id="tenantsCount">0</h3>
+                                        <p class="text-muted mb-0">Total Tenants</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-person-check text-primary fs-1"></i>
+                                        <h3 class="text-primary mt-2" id="registeredTenants">0</h3>
+                                        <p class="text-muted mb-0">Registered Tenants</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-house text-warning fs-1"></i>
+                                        <h3 class="text-warning mt-2" id="occupiedProperties">0</h3>
+                                        <p class="text-muted mb-0">Occupied Properties</p>
                                     </div>
                                 </div>
                             </div>
@@ -369,32 +228,32 @@
 
                         <!-- Feature Cards -->
                         <div class="row">
-                            <div class="col-md-4">
-                                <div class="card feature-card h-100" data-section="contract-analysis" style="cursor: pointer;">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-file-earmark-text display-3 text-primary mb-3"></i>
-                                        <h5>Contract Analysis</h5>
-                                        <p class="text-muted">Upload and analyze tenancy agreements for potentially unfavorable terms</p>
+                            <div class="col-lg-4 mb-4">
+                                <div class="card feature-card h-100" data-section="analysis">
+                                    <div class="card-body text-center p-4">
+                                        <i class="bi bi-file-earmark-text text-primary" style="font-size: 3rem;"></i>
+                                        <h5 class="card-title mt-3">Contract Analysis</h5>
+                                        <p class="card-text text-muted">Upload and analyze tenancy agreements for potentially unfavorable terms</p>
                                         <span class="badge bg-primary">Available Now</span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="card feature-card h-100" data-section="properties" style="cursor: pointer;">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-building display-3 text-success mb-3"></i>
-                                        <h5>Property Management</h5>
-                                        <p class="text-muted">Manage rental properties with comprehensive details including address, rent, agent info, and landlord banking</p>
+                            <div class="col-lg-4 mb-4">
+                                <div class="card feature-card h-100" data-section="properties">
+                                    <div class="card-body text-center p-4">
+                                        <i class="bi bi-building text-success" style="font-size: 3rem;"></i>
+                                        <h5 class="card-title mt-3">Property Management</h5>
+                                        <p class="card-text text-muted">Manage your rental properties and track performance</p>
                                         <span class="badge bg-success">Available Now</span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="card feature-card h-100" data-section="tenants" style="cursor: pointer;">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-people display-3 text-info mb-3"></i>
-                                        <h5>Tenant Management</h5>
-                                        <p class="text-muted">Track tenants with FIN, passport details, registration status, and property assignments with many-to-many relationships</p>
+                            <div class="col-lg-4 mb-4">
+                                <div class="card feature-card h-100" data-section="tenants">
+                                    <div class="card-body text-center p-4">
+                                        <i class="bi bi-people text-info" style="font-size: 3rem;"></i>
+                                        <h5 class="card-title mt-3">Tenant Management</h5>
+                                        <p class="card-text text-muted">Manage tenant information and property assignments</p>
                                         <span class="badge bg-info">Available Now</span>
                                     </div>
                                 </div>
@@ -404,246 +263,92 @@
                 </div>
 
                 <!-- Contract Analysis Section -->
-                <div id="contract-analysis-section" class="content-section" style="display: none;">
+                <div id="analysis-section" class="content-section">
                     <div class="p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Contract Analysis</h2>
-                            <button class="btn btn-outline-secondary back-to-dashboard-btn" data-section="dashboard">
+                            <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
                                 <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
                             </button>
                         </div>
 
-                        <!-- Upload Area -->
                         <div class="row">
-                            <div class="col-lg-8">
+                            <!-- Upload Section -->
+                            <div class="col-lg-6">
                                 <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Upload Tenancy Agreement</h5>
+                                    </div>
                                     <div class="card-body">
-                                        <h5 class="card-title mb-3">
-                                            <i class="bi bi-cloud-upload me-2"></i>Upload Tenancy Agreement
-                                        </h5>
-                                        <div class="upload-area" id="uploadArea">
-                                            <i class="bi bi-file-earmark-pdf display-1 text-muted mb-3"></i>
-                                            <h6>Drag & Drop PDF here or click to browse</h6>
-                                            <p class="text-muted mb-3">Maximum file size: 10MB</p>
-                                            <input type="file" id="fileInput" accept=".pdf" style="display: none;">
-                                            <button class="btn btn-primary" id="fileUploadTrigger">
-                                                <i class="bi bi-folder me-2"></i>Choose File
-                                            </button>
+                                        <div id="uploadArea" class="upload-area p-4 text-center mb-3">
+                                            <i class="bi bi-cloud-upload text-muted" style="font-size: 3rem;"></i>
+                                            <p class="text-muted mt-2 mb-0">Click to upload or drag and drop PDF files here</p>
+                                            <small class="text-muted">Maximum file size: 10MB</small>
                                         </div>
-                                        <div id="uploadProgress" class="mt-3" style="display: none;">
-                                            <div class="progress">
-                                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                        <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+                                        
+                                        <!-- Upload Progress -->
+                                        <div id="uploadProgress" class="progress mb-3" style="display: none;">
+                                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        
+                                        <!-- Analysis Progress -->
+                                        <div id="analysisProgress" style="display: none;">
+                                            <div class="d-flex align-items-center">
+                                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                                <span>Analyzing contract...</span>
                                             </div>
-                                        </div>
-                                        <div id="uploadSuccess" class="alert alert-success mt-3" style="display: none;">
-                                            <i class="bi bi-check-circle me-2"></i>
-                                            <span>File uploaded successfully!</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h6 class="card-title">
-                                            <i class="bi bi-info-circle me-2"></i>Analysis Criteria
-                                        </h6>
-                                        <small class="text-muted">Our AI analyzes contracts for:</small>
-                                        <ul class="list-unstyled mt-2 small">
-                                            <li><i class="bi bi-check text-success me-1"></i> Mandatory service providers</li>
-                                            <li><i class="bi bi-check text-success me-1"></i> Excessive deposits</li>
-                                            <li><i class="bi bi-check text-success me-1"></i> Subletting restrictions</li>
-                                            <li><i class="bi bi-check text-success me-1"></i> Pet policies</li>
-                                            <li><i class="bi bi-check text-success me-1"></i> Modification restrictions</li>
-                                            <li><i class="bi bi-check text-success me-1"></i> Early termination penalties</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Analysis Results -->
-                        <div id="analysisResults" style="display: none;">
-                            <div class="card">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <h5 class="mb-0">
-                                        <i class="bi bi-clipboard-data me-2"></i>Analysis Results
-                                    </h5>
-                                    <button class="btn btn-sm btn-outline-secondary" id="downloadReportBtn">
-                                        <i class="bi bi-download me-1"></i>Download Report
-                                    </button>
-                                </div>
-                                <div class="card-body">
-                                    <!-- Summary -->
-                                    <div class="row mb-4">
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h4 id="totalIssues" class="text-primary">0</h4>
-                                                <small class="text-muted">Total Issues</small>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h4 id="highIssues" class="text-danger">0</h4>
-                                                <small class="text-muted">High Risk</small>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h4 id="mediumIssues" class="text-warning">0</h4>
-                                                <small class="text-muted">Medium Risk</small>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h4 id="lowIssues" class="text-info">0</h4>
-                                                <small class="text-muted">Low Risk</small>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- PDF Viewer and Issues -->
-                                    <div class="row">
-                                        <div class="col-lg-6">
-                                            <h6>PDF Document</h6>
-                                            <div class="pdf-viewer-container">
-                                                <div class="pdf-controls">
-                                                    <div>
-                                                        <span class="mx-2">
-                                                            <span id="totalPages">1</span> pages
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <button class="btn btn-sm btn-outline-secondary" id="zoomOutBtn">
-                                                            <i class="bi bi-zoom-out"></i>
-                                                        </button>
-                                                        <span class="mx-2" id="zoomLevel">100%</span>
-                                                        <button class="btn btn-sm btn-outline-secondary" id="zoomInBtn">
-                                                            <i class="bi bi-zoom-in"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div id="pdfContainer">
-                                                    <!-- All pages will be rendered here -->
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-6">
-                                            <h6>Issues Found</h6>
-                                            <div id="issuesList" style="max-height: 600px; overflow-y: auto;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Image Utils Section -->
-                <div id="image-utils-section" class="content-section" style="display: none;">
-                    <div class="p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2>Image Utils</h2>
-                            <button class="btn btn-outline-secondary back-to-dashboard-btn" data-section="dashboard">
-                                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
-                            </button>
-                        </div>
-
-                        <!-- Upload Area -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h5 class="card-title mb-3">
-                                            <i class="bi bi-cloud-upload me-2"></i>Batch Upload Images
-                                        </h5>
-                                        <div class="upload-area" id="imageUploadArea">
-                                            <i class="bi bi-images display-1 text-muted mb-3"></i>
-                                            <h6>Drag & Drop multiple images here or click to browse</h6>
-                                            <p class="text-muted mb-3">Supports JPG, PNG, GIF, WebP - Max 5MB per image</p>
-                                            <input type="file" id="imageFileInput" accept="image/*" multiple style="display: none;">
-                                            <button class="btn btn-primary" id="imageUploadTrigger">
-                                                <i class="bi bi-folder me-2"></i>Choose Images
-                                            </button>
-                                        </div>
-                                        <div id="imageUploadProgress" class="mt-3" style="display: none;">
-                                            <div class="progress mb-2">
-                                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-                                            </div>
-                                            <small class="text-muted" id="uploadStatusText">Uploading...</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Image Grid -->
-                        <div class="row">
-                            <div class="col-12">
+                            <!-- Results Section -->
+                            <div class="col-lg-6">
                                 <div class="card">
                                     <div class="card-header d-flex justify-content-between align-items-center">
-                                        <h5 class="mb-0">
-                                            <i class="bi bi-grid me-2"></i>Image Gallery
-                                        </h5>
-                                        <div>
-                                            <button class="btn btn-sm btn-primary me-2" id="combineGridBtn" style="display: none;">
-                                                <i class="bi bi-grid-3x3 me-1"></i>Create Grid
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" id="clearAllBtn" style="display: none;">
-                                                <i class="bi bi-trash me-1"></i>Clear All
-                                            </button>
-                                        </div>
+                                        <h5 class="mb-0">Analysis Results</h5>
+                                        <button id="downloadReportBtn" class="btn btn-sm btn-outline-primary" style="display: none;">
+                                            <i class="bi bi-download me-1"></i>Download Report
+                                        </button>
                                     </div>
                                     <div class="card-body">
-                                        <div id="imageGrid" class="row g-3">
-                                            <div class="col-12 text-center text-muted py-5" id="emptyGalleryMessage">
-                                                <i class="bi bi-images display-2 mb-3"></i>
-                                                <p>No images uploaded yet. Upload some images to get started!</p>
+                                        <div id="resultsContainer">
+                                            <div class="text-center text-muted py-5">
+                                                <i class="bi bi-file-earmark-text" style="font-size: 3rem;"></i>
+                                                <p class="mt-2">Upload a PDF to see analysis results</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Tenants Section -->
-                <div id="tenants-section" class="content-section" style="display: none;">
-                    <div class="p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2>Tenant Management</h2>
-                            <div>
-                                <button class="btn btn-primary me-2" id="addTenantBtn">
-                                    <i class="bi bi-plus-circle me-1"></i>Add Tenant
-                                </button>
-                                <button class="btn btn-outline-secondary back-to-dashboard-btn" data-section="dashboard">
-                                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Tenant List -->
-                        <div class="card">
+                        <!-- PDF Viewer Section -->
+                        <div class="card mt-4" id="pdfViewerCard" style="display: none;">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">
-                                    <i class="bi bi-people me-2"></i>All Tenants
-                                </h5>
-                                <div class="input-group" style="width: 300px;">
-                                    <span class="input-group-text">
-                                        <i class="bi bi-search"></i>
-                                    </span>
-                                    <input type="text" class="form-control" id="tenantSearch" placeholder="Search by name, FIN, or passport...">
+                                <h5 class="mb-0">Document Viewer</h5>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" id="prevPageBtn">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="dashboardController.getComponent('contractAnalysis')?.zoomOut()">
+                                        <i class="bi bi-zoom-out"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="dashboardController.getComponent('contractAnalysis')?.zoomIn()">
+                                        <i class="bi bi-zoom-in"></i>
+                                    </button>
                                 </div>
                             </div>
                             <div class="card-body">
-                                <div id="tenantListContainer">
-                                    <div class="text-center py-5" id="loadingTenants">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        <p class="mt-2 text-muted">Loading tenants...</p>
-                                    </div>
+                                <div class="text-center mb-3">
+                                    <small class="text-muted">Page <span id="currentPageNum">1</span> of <span id="totalPages">1</span> | Zoom: <span id="zoomLevel">100%</span></small>
+                                </div>
+                                <div id="pdfContainer" class="text-center" style="max-height: 600px; overflow-y: auto;">
+                                    <!-- PDF will be rendered here -->
                                 </div>
                             </div>
                         </div>
@@ -651,7 +356,7 @@
                 </div>
 
                 <!-- Properties Section -->
-                <div id="properties-section" class="content-section" style="display: none;">
+                <div id="properties-section" class="content-section">
                     <div class="p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Property Management</h2>
@@ -659,7 +364,7 @@
                                 <button class="btn btn-primary me-2" id="addPropertyBtn">
                                     <i class="bi bi-plus-circle me-1"></i>Add Property
                                 </button>
-                                <button class="btn btn-outline-secondary back-to-dashboard-btn" data-section="dashboard">
+                                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
                                     <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
                                 </button>
                             </div>
@@ -668,2753 +373,99 @@
                         <!-- Property List -->
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">
-                                    <i class="bi bi-house me-2"></i>All Properties
-                                </h5>
+                                <h5 class="mb-0">Properties</h5>
                                 <div class="input-group" style="width: 300px;">
-                                    <span class="input-group-text">
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search properties..." id="propertySearchInput">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button">
                                         <i class="bi bi-search"></i>
-                                    </span>
-                                    <input type="text" class="form-control" id="propertySearch" placeholder="Search by ID, address, or unit...">
+                                    </button>
                                 </div>
                             </div>
-                            <div class="card-body">
-                                <div id="propertyListContainer">
-                                    <div class="text-center py-5" id="loadingProperties">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        <p class="mt-2 text-muted">Loading properties...</p>
-                                    </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Property ID</th>
+                                                <th>Address</th>
+                                                <th>Unit</th>
+                                                <th>Max Pax</th>
+                                                <th>Rent</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="propertiesTableBody">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted py-4">
+                                                    <i class="bi bi-building fs-1"></i>
+                                                    <p class="mt-2">No properties found</p>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Property Modal -->
-    <div class="modal fade" id="propertyModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="propertyModalTitle">Add New Property</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="propertyForm">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyId" class="form-label">Property ID *</label>
-                                    <input type="text" class="form-control" id="propertyId" required placeholder="e.g., PROP001">
-                                    <div class="form-text">Unique identifier for the property</div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyUnit" class="form-label">Unit *</label>
-                                    <input type="text" class="form-control" id="propertyUnit" required placeholder="e.g., #12-345">
-                                </div>
+                <!-- Tenants Section -->
+                <div id="tenants-section" class="content-section">
+                    <div class="p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Tenant Management</h2>
+                            <div>
+                                <button class="btn btn-primary me-2" id="addTenantBtn">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Tenant
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+                                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                                </button>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="propertyAddress" class="form-label">Address *</label>
-                            <textarea class="form-control" id="propertyAddress" required rows="2" placeholder="Enter full property address"></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyMaxPax" class="form-label">Max Occupancy</label>
-                                    <input type="number" class="form-control" id="propertyMaxPax" min="1" placeholder="1" value="1">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyRent" class="form-label">Monthly Rent ($)</label>
-                                    <input type="number" class="form-control" id="propertyRent" min="0" step="0.01" placeholder="0.00">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyMoveInDate" class="form-label">Move-in Date</label>
-                                    <input type="date" class="form-control" id="propertyMoveInDate">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyRentPaymentDate" class="form-label">Rent Payment Date</label>
-                                    <select class="form-select" id="propertyRentPaymentDate">
-                                        <option value="">Select day of month</option>
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                        <option value="5">5</option>
-                                        <option value="6">6</option>
-                                        <option value="7">7</option>
-                                        <option value="8">8</option>
-                                        <option value="9">9</option>
-                                        <option value="10">10</option>
-                                        <option value="11">11</option>
-                                        <option value="12">12</option>
-                                        <option value="13">13</option>
-                                        <option value="14">14</option>
-                                        <option value="15">15</option>
-                                        <option value="16">16</option>
-                                        <option value="17">17</option>
-                                        <option value="18">18</option>
-                                        <option value="19">19</option>
-                                        <option value="20">20</option>
-                                        <option value="21">21</option>
-                                        <option value="22">22</option>
-                                        <option value="23">23</option>
-                                        <option value="24">24</option>
-                                        <option value="25">25</option>
-                                        <option value="26">26</option>
-                                        <option value="27">27</option>
-                                        <option value="28">28</option>
-                                        <option value="29">29</option>
-                                        <option value="30">30</option>
-                                        <option value="31">31</option>
-                                    </select>
-                                    <div class="form-text">Day of the month when rent is due</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyAgentName" class="form-label">Agent Name</label>
-                                    <input type="text" class="form-control" id="propertyAgentName" placeholder="Property agent name">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyAgentPhone" class="form-label">Agent Phone</label>
-                                    <input type="tel" class="form-control" id="propertyAgentPhone" placeholder="Agent contact number">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyLandlordBankName" class="form-label">Landlord Bank Name</label>
-                                    <input type="text" class="form-control" id="propertyLandlordBankName" placeholder="e.g., DBS Bank, OCBC Bank">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="propertyLandlordAccountName" class="form-label">Account Holder Name</label>
-                                    <input type="text" class="form-control" id="propertyLandlordAccountName" placeholder="Name on the bank account">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="propertyLandlordBankAccount" class="form-label">Bank Account Number</label>
-                            <input type="text" class="form-control" id="propertyLandlordBankAccount" placeholder="Account number for rent payments">
-                            <div class="form-text">Bank account information for rent collection</div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="savePropertyBtn">Save Property</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Tenant Modal -->
-    <div class="modal fade" id="tenantModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="tenantModalTitle">Add New Tenant</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="tenantForm">
-                        <div class="mb-3">
-                            <label for="tenantName" class="form-label">Full Name *</label>
-                            <input type="text" class="form-control" id="tenantName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="tenantFin" class="form-label">FIN Number *</label>
-                            <input type="text" class="form-control" id="tenantFin" required placeholder="e.g., S1234567A">
-                            <div class="form-text">Enter the tenant's FIN/NRIC number</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="tenantPassport" class="form-label">Passport Number *</label>
-                            <input type="text" class="form-control" id="tenantPassport" required placeholder="e.g., A1234567">
-                        </div>
-                        <div class="mb-3">
-                            <label for="tenantProperties" class="form-label">Properties</label>
-                            <div class="multi-select-dropdown">
-                                <div class="selected-items" id="selectedPropertiesDisplay">
-                                    <span class="placeholder-text">Select properties...</span>
-                                </div>
-                                <div class="dropdown-content" id="propertiesDropdown">
-                                    <!-- Property checkboxes will be loaded here -->
+                        <!-- Tenant List -->
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Tenants</h5>
+                                <div class="input-group" style="width: 300px;">
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search tenants..." id="tenantSearchInput">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button">
+                                        <i class="bi bi-search"></i>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="form-text">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Click to select multiple properties. Selected items will appear as tags above.
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>FIN</th>
+                                                <th>Passport</th>
+                                                <th>Status</th>
+                                                <th>Properties</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tenantsTableBody">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted py-4">
+                                                    <i class="bi bi-people fs-1"></i>
+                                                    <p class="mt-2">No tenants found</p>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="tenantRegistered">
-                                <label class="form-check-label" for="tenantRegistered">
-                                    <i class="bi bi-check-circle me-1"></i>Registered Tenant
-                                </label>
-                                <div class="form-text">Check if tenant is officially registered with authorities</div>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="tenantMainTenant">
-                                <label class="form-check-label" for="tenantMainTenant">
-                                    <i class="bi bi-star me-1"></i>Main Tenant
-                                </label>
-                                <div class="form-text">Check if this is the primary/main tenant</div>
-                            </div>
-                        </div>
-                    </form>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveTenantBtn">Save Tenant</button>
-                </div>
-            </div>
+            </main>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Global variables
-        let uploadedFileName = null;
-        let analysisData = null;
-        let pdfDoc = null;
-        let currentPage = 1;
-        let scale = 1.0;
-        let canvas = null;
-        let ctx = null;
-        let uploadedImages = [];
-        let imageIdCounter = 1;
-        let tenants = [];
-        let currentTenant = null;
-        let properties = [];
-        let currentProperty = null;
-
-        // Utility function for API calls with retry logic
-        async function fetchWithRetry(url, options = {}, maxRetries = 2) {
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                try {
-                    const response = await fetch(url, options);
-                    
-                    // If it's a 503 (service unavailable), retry after delay
-                    if (response.status === 503 && attempt < maxRetries) {
-                        console.log(`Database unavailable, retrying in ${(attempt + 1) * 2} seconds...`);
-                        await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
-                        continue;
-                    }
-                    
-                    return response;
-                } catch (error) {
-                    if (attempt === maxRetries) {
-                        throw error;
-                    }
-                    console.log(`Network error, retrying in ${(attempt + 1) * 2} seconds...`);
-                    await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
-                }
-            }
-        }
-
-        // Load dashboard statistics
-        async function loadDashboardStats() {
-            try {
-                // Load properties count
-                const propertiesResponse = await fetchWithRetry('/api/properties');
-                const propertiesResult = await propertiesResponse.json();
-                const propertiesCount = propertiesResult.success ? propertiesResult.properties.length : 0;
-                document.getElementById('propertiesCount').textContent = propertiesCount;
-
-                // Load tenants count and analyze them
-                const tenantsResponse = await fetchWithRetry('/api/tenants');
-                const tenantsResult = await tenantsResponse.json();
-                
-                if (tenantsResult.success) {
-                    const tenants = tenantsResult.tenants;
-                    const totalTenants = tenants.length;
-                    const registeredTenants = tenants.filter(t => t.isRegistered).length;
-                    
-                    // Calculate occupied properties (properties that have at least one tenant)
-                    const occupiedPropertyIds = new Set();
-                    tenants.forEach(tenant => {
-                        if (tenant.properties && tenant.properties.length > 0) {
-                            tenant.properties.forEach(propId => occupiedPropertyIds.add(propId));
-                        }
-                    });
-                    const occupiedPropertiesCount = occupiedPropertyIds.size;
-
-                    document.getElementById('tenantsCount').textContent = totalTenants;
-                    document.getElementById('registeredCount').textContent = registeredTenants;
-                    document.getElementById('occupiedPropertiesCount').textContent = occupiedPropertiesCount;
-                } else {
-                    document.getElementById('tenantsCount').textContent = '0';
-                    document.getElementById('registeredCount').textContent = '0';
-                    document.getElementById('occupiedPropertiesCount').textContent = '0';
-                }
-            } catch (error) {
-                console.error('Error loading dashboard stats:', error);
-                // Set fallback values
-                document.getElementById('propertiesCount').textContent = '0';
-                document.getElementById('tenantsCount').textContent = '0';
-                document.getElementById('registeredCount').textContent = '0';
-                document.getElementById('occupiedPropertiesCount').textContent = '0';
-            }
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            updateCurrentDate();
-            setupFileUpload();
-            setupNavigation();
-            loadUserInfo();
-            setupFeatureCards();
-            setupPDFControls();
-            setupImageUpload();
-            setupTenantManagement();
-            setupPropertyManagement();
-            setupEventListeners();
-            loadDashboardStats();
-        });
-
-        function updateCurrentDate() {
-            const now = new Date();
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        }
-
-        function setupNavigation() {
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const section = this.getAttribute('data-section');
-                    if (section) {
-                        showSection(section);
-                        
-                        // Update active nav link
-                        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                        this.classList.add('active');
-                    }
-                });
-            });
-        }
-
-        function setupFeatureCards() {
-            // Add click handlers for feature cards using event delegation
-            document.addEventListener('click', function(e) {
-                const featureCard = e.target.closest('[data-section]');
-                
-                if (featureCard && featureCard.classList.contains('feature-card')) {
-                    const section = featureCard.getAttribute('data-section');
-                    showSection(section);
-                }
-            });
-        }
-
-        function setupPDFControls() {
-            // Add event listeners to PDF navigation buttons
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('#nextPageBtn')) {
-                    console.log('Next page button clicked via event listener');
-                    nextPage();
-                }
-                if (e.target.closest('#prevPageBtn')) {
-                    console.log('Previous page button clicked via event listener');
-                    previousPage();
-                }
-            });
-        }
-
-        function showSection(sectionName) {
-            // Hide all sections
-            document.querySelectorAll('.content-section').forEach(section => {
-                section.style.display = 'none';
-            });
-            
-            // Show target section
-            const targetSectionId = sectionName + '-section';
-            const targetSection = document.getElementById(targetSectionId);
-            
-            if (targetSection) {
-                targetSection.style.display = 'block';
-            }
-            
-            // Update active nav link
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            const navLink = document.querySelector(`.nav-link[data-section="${sectionName}"]`);
-            if (navLink) {
-                navLink.classList.add('active');
-            }
-        }
-
-        function setupFileUpload() {
-            const uploadArea = document.getElementById('uploadArea');
-            const fileInput = document.getElementById('fileInput');
-
-            // Click to upload
-            uploadArea.addEventListener('click', () => {
-                fileInput.click();
-            });
-
-            // Drag and drop
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
-            });
-
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleFileUpload(files[0]);
-                }
-            });
-
-            // File input change
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    handleFileUpload(e.target.files[0]);
-                }
-            });
-        }
-
-        async function handleFileUpload(file) {
-            if (file.type !== 'application/pdf') {
-                alert('Please upload a PDF file only.');
-                return;
-            }
-
-            if (file.size > 10 * 1024 * 1024) {
-                alert('File size must be less than 10MB.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('agreement', file);
-
-            // Show progress
-            const progressContainer = document.getElementById('uploadProgress');
-            const progressBar = progressContainer.querySelector('.progress-bar');
-            const successAlert = document.getElementById('uploadSuccess');
-            
-            progressContainer.style.display = 'block';
-            progressBar.style.width = '0%';
-            successAlert.style.display = 'none';
-
-            try {
-                // Simulate progress
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += 10;
-                    progressBar.style.width = progress + '%';
-                    if (progress >= 90) {
-                        clearInterval(progressInterval);
-                    }
-                }, 100);
-
-                const response = await fetch('/upload/tenancy-agreement', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                clearInterval(progressInterval);
-                progressBar.style.width = '100%';
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    uploadedFileName = result.file.filename;
-                    successAlert.style.display = 'block';
-                    
-                    // Auto-analyze after upload
-                    setTimeout(() => {
-                        analyzeContract();
-                    }, 1000);
-                } else {
-                    throw new Error(result.error || 'Upload failed');
-                }
-            } catch (error) {
-                alert('Upload failed: ' + error.message);
-                progressContainer.style.display = 'none';
-            }
-        }
-
-        async function analyzeContract() {
-            if (!uploadedFileName) {
-                alert('Please upload a file first.');
-                return;
-            }
-
-            try {
-                const response = await fetch('/analysis/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ filename: uploadedFileName })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    analysisData = result;
-                    displayAnalysisResults(result);
-                } else {
-                    throw new Error(result.error || 'Analysis failed');
-                }
-            } catch (error) {
-                alert('Analysis failed: ' + error.message);
-            }
-        }
-
-        function displayAnalysisResults(data) {
-            const resultsDiv = document.getElementById('analysisResults');
-            const summary = data.analysis.summary;
-            const issues = data.analysis.keywordAnalysis;
-
-            // Update summary
-            document.getElementById('totalIssues').textContent = summary.totalIssues;
-            document.getElementById('highIssues').textContent = summary.highSeverity;
-            document.getElementById('mediumIssues').textContent = summary.mediumSeverity;
-            document.getElementById('lowIssues').textContent = summary.lowSeverity;
-
-            // Load PDF
-            if (data.filename) {
-                loadPDF(data.filename);
-            }
-
-            // Display issues
-            const issuesList = document.getElementById('issuesList');
-            issuesList.innerHTML = '';
-
-            if (issues.length === 0) {
-                issuesList.innerHTML = `
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle me-2"></i>
-                        No major issues found in this tenancy agreement.
-                    </div>
-                `;
-            } else {
-                issues.forEach((issue, index) => {
-                    const issueCard = document.createElement('div');
-                    issueCard.className = `card mb-3 severity-${issue.severity} criteria-item`;
-                    issueCard.dataset.issueIndex = index;
-                    issueCard.dataset.issueId = issue.id;
-                    issueCard.style.cursor = 'pointer';
-                    issueCard.innerHTML = `
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <h6 class="card-title">
-                                    <i class="bi bi-exclamation-triangle me-2"></i>
-                                    ${issue.name}
-                                </h6>
-                                <span class="badge badge-${issue.severity}">${issue.severity.toUpperCase()}</span>
-                            </div>
-                            <p class="card-text">${issue.description}</p>
-                            <small class="text-muted">Category: ${issue.category.replace('_', ' ').toUpperCase()}</small>
-                            ${issue.snippets && issue.snippets.length > 0 ? `
-                                <div class="mt-2">
-                                    <strong>Found in contract ${issue.pageNumber ? `(Page ${issue.pageNumber})` : ''}:</strong>
-                                    <div class="bg-light p-2 rounded mt-1">
-                                        <small>"${issue.snippets[0].substring(0, 200)}..."</small>
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                    
-                    // Add click handler to navigate to clause in PDF
-                    issueCard.addEventListener('click', () => {
-                        navigateToClause(issue.id);
-                        highlightIssueInList(index);
-                    });
-                    
-                    issuesList.appendChild(issueCard);
-                });
-            }
-
-            resultsDiv.style.display = 'block';
-            updateDashboardStats();
-        }
-
-        function updateDashboardStats() {
-            const contractsCount = parseInt(localStorage.getItem('contractsAnalyzed') || '0') + 1;
-            localStorage.setItem('contractsAnalyzed', contractsCount);
-            
-            document.getElementById('contractsCount').textContent = contractsCount;
-            
-            if (analysisData) {
-                const issuesCount = analysisData.analysis.summary.totalIssues;
-                document.getElementById('issuesCount').textContent = issuesCount;
-                document.getElementById('cleanCount').textContent = issuesCount === 0 ? '1' : '0';
-            }
-        }
-
-        function downloadReport() {
-            if (!analysisData) return;
-            
-            const report = generateReport(analysisData);
-            const blob = new Blob([report], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `contract-analysis-${new Date().toISOString().split('T')[0]}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function generateReport(data) {
-            const summary = data.analysis.summary;
-            const issues = data.analysis.keywordAnalysis;
-            
-            let report = `TENANCY AGREEMENT ANALYSIS REPORT\n`;
-            report += `Generated: ${new Date().toLocaleString()}\n`;
-            report += `File: ${data.filename}\n\n`;
-            
-            report += `SUMMARY\n========\n`;
-            report += `Total Issues Found: ${summary.totalIssues}\n`;
-            report += `High Risk: ${summary.highSeverity}\n`;
-            report += `Medium Risk: ${summary.mediumSeverity}\n`;
-            report += `Low Risk: ${summary.lowSeverity}\n\n`;
-            
-            if (issues.length > 0) {
-                report += `DETAILED FINDINGS\n=================\n\n`;
-                
-                issues.forEach((issue, index) => {
-                    report += `${index + 1}. ${issue.name} [${issue.severity.toUpperCase()}]\n`;
-                    report += `   ${issue.description}\n`;
-                    report += `   Category: ${issue.category}\n`;
-                    if (issue.snippets && issue.snippets.length > 0) {
-                        report += `   Found: "${issue.snippets[0].substring(0, 150)}..."\n`;
-                    }
-                    report += `\n`;
-                });
-            }
-            
-            return report;
-        }
-
-        async function loadUserInfo() {
-            try {
-                const response = await fetch('/auth/status');
-                const result = await response.json();
-                
-                if (result.authenticated && result.user) {
-                    document.getElementById('userDisplay').textContent = result.user.username;
-                }
-            } catch (error) {
-                console.error('Failed to load user info:', error);
-            }
-        }
-
-        async function logout() {
-            try {
-                const response = await fetch('/auth/logout', { method: 'POST' });
-                const result = await response.json();
-                
-                if (result.success) {
-                    window.location.href = result.redirectUrl;
-                }
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/auth/login';
-            }
-        }
-
-        // PDF Viewer Functions
-        async function loadPDF(filename) {
-            try {
-                console.log('Loading PDF:', filename);
-                
-                const url = `/pdf/${filename}`;
-                console.log('PDF URL:', url);
-                
-                // Test if PDF endpoint is accessible
-                const response = await fetch(url);
-                console.log('PDF response status:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`Failed to load PDF: ${response.status}`);
-                }
-                
-                pdfDoc = await pdfjsLib.getDocument(url).promise;
-                document.getElementById('totalPages').textContent = pdfDoc.numPages;
-                
-                await renderAllPages();
-                console.log('PDF loaded successfully');
-            } catch (error) {
-                console.error('Error loading PDF:', error);
-                // Show error message to user
-                const pdfContainer = document.getElementById('pdfContainer');
-                pdfContainer.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Unable to load PDF: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        async function renderAllPages() {
-            try {
-                if (!pdfDoc) {
-                    throw new Error('PDF document not loaded');
-                }
-                
-                const pdfContainer = document.getElementById('pdfContainer');
-                pdfContainer.innerHTML = ''; // Clear existing content
-                
-                console.log(`Rendering all ${pdfDoc.numPages} pages`);
-                
-                for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                    console.log(`Rendering page ${pageNum} of ${pdfDoc.numPages}`);
-                    
-                    const page = await pdfDoc.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: scale });
-                    
-                    // Create canvas for this page
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.className = 'pdf-canvas';
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    canvas.style.marginBottom = '20px';
-                    canvas.style.border = '1px solid #ddd';
-                    
-                    // Create container for page and highlights
-                    const pageContainer = document.createElement('div');
-                    pageContainer.style.position = 'relative';
-                    pageContainer.style.marginBottom = '20px';
-                    
-                    // Create highlight layer for this page
-                    const highlightLayer = document.createElement('div');
-                    highlightLayer.className = 'highlight-layer';
-                    highlightLayer.style.position = 'absolute';
-                    highlightLayer.style.top = '0';
-                    highlightLayer.style.left = '0';
-                    highlightLayer.style.width = viewport.width + 'px';
-                    highlightLayer.style.height = viewport.height + 'px';
-                    highlightLayer.style.pointerEvents = 'none';
-                    
-                    // Add page number label
-                    const pageLabel = document.createElement('div');
-                    pageLabel.textContent = `Page ${pageNum}`;
-                    pageLabel.style.textAlign = 'center';
-                    pageLabel.style.marginBottom = '10px';
-                    pageLabel.style.fontWeight = 'bold';
-                    pageLabel.style.color = '#666';
-                    
-                    // Render the page
-                    const renderContext = {
-                        canvasContext: ctx,
-                        viewport: viewport
-                    };
-                    
-                    await page.render(renderContext).promise;
-                    
-                    // Assemble the page
-                    pageContainer.appendChild(pageLabel);
-                    pageContainer.appendChild(canvas);
-                    pageContainer.appendChild(highlightLayer);
-                    pdfContainer.appendChild(pageContainer);
-                    
-                    console.log(`Page ${pageNum} rendered successfully`);
-                }
-                
-                // Update zoom level display
-                document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-                
-                // Add highlights for all pages
-                if (analysisData) {
-                    await highlightAllPages();
-                }
-                
-                console.log('All pages rendered successfully');
-            } catch (error) {
-                console.error('Error rendering pages:', error);
-                const pdfContainer = document.getElementById('pdfContainer');
-                pdfContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Error rendering pages: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        async function renderPage(pageNum) {
-            try {
-                console.log(`Rendering page ${pageNum} of ${pdfDoc ? pdfDoc.numPages : 'unknown'}`);
-                
-                if (!pdfDoc) {
-                    throw new Error('PDF document not loaded');
-                }
-                
-                if (pageNum < 1 || pageNum > pdfDoc.numPages) {
-                    throw new Error(`Invalid page number: ${pageNum}`);
-                }
-                
-                const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: scale });
-                
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                
-                // Clear canvas before rendering
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                const renderContext = {
-                    canvasContext: ctx,
-                    viewport: viewport
-                };
-                
-                await page.render(renderContext).promise;
-                
-                // Update UI
-                document.getElementById('currentPage').textContent = pageNum;
-                document.getElementById('totalPages').textContent = pdfDoc.numPages;
-                document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-                
-                // Update navigation buttons
-                const prevBtn = document.getElementById('prevPageBtn');
-                const nextBtn = document.getElementById('nextPageBtn');
-                
-                if (prevBtn) prevBtn.disabled = pageNum <= 1;
-                if (nextBtn) nextBtn.disabled = pageNum >= pdfDoc.numPages;
-                
-                // Clear existing highlights
-                clearHighlights();
-                
-                // Add highlights for current analysis
-                if (analysisData) {
-                    await highlightClauses(page, viewport);
-                }
-                
-                console.log(`Page ${pageNum} rendered successfully`);
-            } catch (error) {
-                console.error('Error rendering page:', error);
-                const pdfContainer = document.getElementById('pdfContainer');
-                if (pdfContainer) {
-                    pdfContainer.innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            Error rendering page: ${error.message}
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        function previousPage() {
-            console.log('Previous page clicked, current:', currentPage);
-            if (!pdfDoc) {
-                console.error('PDF not loaded');
-                return;
-            }
-            if (currentPage <= 1) {
-                console.log('Already on first page');
-                return;
-            }
-            currentPage--;
-            console.log('Navigating to page:', currentPage);
-            renderPage(currentPage);
-        }
-
-        function nextPage() {
-            console.log('Next page clicked, current:', currentPage, 'total:', pdfDoc ? pdfDoc.numPages : 'unknown');
-            if (!pdfDoc) {
-                console.error('PDF not loaded');
-                alert('PDF not loaded yet. Please wait for the PDF to load completely.');
-                return;
-            }
-            if (currentPage >= pdfDoc.numPages) {
-                console.log('Already on last page');
-                alert('Already on the last page');
-                return;
-            }
-            currentPage++;
-            console.log('Navigating to page:', currentPage);
-            renderPage(currentPage);
-        }
-
-        function zoomIn() {
-            scale += 0.2;
-            renderAllPages();
-        }
-
-        function zoomOut() {
-            if (scale <= 0.4) return;
-            scale -= 0.2;
-            renderAllPages();
-        }
-
-        function clearHighlights() {
-            const highlightLayers = document.querySelectorAll('.highlight-layer');
-            highlightLayers.forEach(layer => layer.innerHTML = '');
-        }
-
-        async function highlightAllPages() {
-            if (!analysisData || !analysisData.analysis.keywordAnalysis || !pdfDoc) return;
-            
-            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: scale });
-                const textContent = await page.getTextContent();
-                
-                const highlightLayers = document.querySelectorAll('.highlight-layer');
-                const highlightLayer = highlightLayers[pageNum - 1]; // 0-indexed
-                
-                if (!highlightLayer) continue;
-                
-                // Create full page text for better matching
-                const fullPageText = textContent.items.map(item => item.str).join(' ').toLowerCase();
-                
-                analysisData.analysis.keywordAnalysis.forEach((issue, issueIndex) => {
-                    if (issue.textPositions) {
-                        // Use a simpler but more targeted approach for all issues
-                        issue.textPositions.forEach(position => {
-                            const searchTerms = position.keyword.toLowerCase().split(' ');
-                            
-                            // For AC service issue, look for proximity of key terms
-                            if (issue.id === 'aircon_service') {
-                                // Look for sections that contain multiple key terms within reasonable proximity
-                                for (let i = 0; i < textContent.items.length - 20; i++) {
-                                    const textWindow = textContent.items.slice(i, i + 20)
-                                        .map(item => item.str).join(' ').toLowerCase();
-                                    
-                                    // Check if this window contains air-conditioning AND contractor
-                                    if (textWindow.includes('air-conditioning') && textWindow.includes('contractor')) {
-                                        // Highlight relevant items in this window
-                                        for (let j = i; j < Math.min(i + 20, textContent.items.length); j++) {
-                                            const item = textContent.items[j];
-                                            const itemText = item.str.toLowerCase();
-                                            
-                                            // Highlight items that contain key terms
-                                            if (itemText.includes('air-conditioning') || 
-                                                itemText.includes('contractor') ||
-                                                itemText.includes('landlord') ||
-                                                itemText.includes('expense') ||
-                                                itemText.includes('tenant')) {
-                                                
-                                                const transform = item.transform;
-                                                const x = transform[4];
-                                                const y = transform[5];
-                                                const width = Math.max(item.width, 40);
-                                                const height = Math.max(item.height, 14);
-                                                
-                                                const highlight = document.createElement('div');
-                                                highlight.className = 'clause-highlight';
-                                                highlight.style.left = x + 'px';
-                                                highlight.style.top = (viewport.height - y - height) + 'px';
-                                                highlight.style.width = width + 'px';
-                                                highlight.style.height = height + 'px';
-                                                highlight.title = issue.name;
-                                                highlight.dataset.issueId = issue.id;
-                                                highlight.dataset.issueIndex = issueIndex;
-                                                highlight.dataset.pageNum = pageNum;
-                                                
-                                                highlight.addEventListener('click', () => {
-                                                    highlightIssueInList(issueIndex);
-                                                });
-                                                
-                                                highlightLayer.appendChild(highlight);
-                                            }
-                                        }
-                                        i += 15; // Skip ahead to avoid overlaps
-                                        break; // Found the section, move on
-                                    }
-                                }
-                            } else {
-                                // For other issues, use standard keyword matching
-                                textContent.items.forEach((item, itemIndex) => {
-                                    const itemText = item.str.toLowerCase();
-                                    
-                                    const matchesKeyword = searchTerms.some(keyword => {
-                                        return itemText.includes(keyword) && keyword.length > 4;
-                                    });
-                                    
-                                    if (matchesKeyword) {
-                                        const transform = item.transform;
-                                        const x = transform[4];
-                                        const y = transform[5];
-                                        const width = Math.max(item.width, 40);
-                                        const height = Math.max(item.height, 14);
-                                        
-                                        const highlight = document.createElement('div');
-                                        highlight.className = 'clause-highlight';
-                                        highlight.style.left = x + 'px';
-                                        highlight.style.top = (viewport.height - y - height) + 'px';
-                                        highlight.style.width = width + 'px';
-                                        highlight.style.height = height + 'px';
-                                        highlight.title = issue.name;
-                                        highlight.dataset.issueId = issue.id;
-                                        highlight.dataset.issueIndex = issueIndex;
-                                        highlight.dataset.pageNum = pageNum;
-                                        
-                                        highlight.addEventListener('click', () => {
-                                            highlightIssueInList(issueIndex);
-                                        });
-                                        
-                                        highlightLayer.appendChild(highlight);
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-        }
-
-        async function highlightClauses(page, viewport) {
-            if (!analysisData || !analysisData.analysis.keywordAnalysis) return;
-            
-            const textContent = await page.getTextContent();
-            const highlightLayer = document.getElementById('highlightLayer');
-            highlightLayer.style.position = 'absolute';
-            highlightLayer.style.top = '0';
-            highlightLayer.style.left = '0';
-            highlightLayer.style.width = viewport.width + 'px';
-            highlightLayer.style.height = viewport.height + 'px';
-            
-            analysisData.analysis.keywordAnalysis.forEach((issue, issueIndex) => {
-                if (issue.textPositions) {
-                    issue.textPositions.forEach(position => {
-                        // Find text items that contain the keyword
-                        textContent.items.forEach(item => {
-                            if (item.str.toLowerCase().includes(position.keyword.toLowerCase())) {
-                                const transform = item.transform;
-                                const x = transform[4];
-                                const y = transform[5];
-                                const width = item.width;
-                                const height = item.height;
-                                
-                                // Create highlight element
-                                const highlight = document.createElement('div');
-                                highlight.className = 'clause-highlight';
-                                highlight.style.left = x + 'px';
-                                highlight.style.top = (viewport.height - y - height) + 'px';
-                                highlight.style.width = width + 'px';
-                                highlight.style.height = height + 'px';
-                                highlight.title = issue.name;
-                                highlight.dataset.issueId = issue.id;
-                                highlight.dataset.issueIndex = issueIndex;
-                                
-                                highlight.addEventListener('click', () => {
-                                    highlightIssueInList(issueIndex);
-                                });
-                                
-                                highlightLayer.appendChild(highlight);
-                            }
-                        });
-                    });
-                }
-            });
-        }
-
-        function highlightIssueInList(issueIndex) {
-            // Remove existing highlights
-            document.querySelectorAll('.criteria-item').forEach(item => {
-                item.classList.remove('highlighted');
-            });
-            
-            // Highlight the clicked issue
-            const issueElement = document.querySelector(`[data-issue-index="${issueIndex}"]`);
-            if (issueElement) {
-                issueElement.classList.add('highlighted');
-                issueElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-
-        function navigateToClause(issueId) {
-            console.log('Navigating to clause:', issueId);
-            
-            if (!analysisData) {
-                console.log('No analysis data available');
-                return;
-            }
-            
-            const issue = analysisData.analysis.keywordAnalysis.find(i => i.id === issueId);
-            if (!issue) {
-                console.log('Issue not found:', issueId);
-                return;
-            }
-            
-            console.log('Found issue:', issue);
-            
-            // Find all highlight elements for this issue
-            const highlightElements = document.querySelectorAll(`[data-issue-id="${issueId}"]`);
-            console.log('Found highlight elements:', highlightElements.length);
-            
-            if (highlightElements.length > 0) {
-                // Find the first highlight element
-                const firstHighlight = highlightElements[0];
-                console.log('First highlight element:', firstHighlight);
-                
-                // Scroll directly to the highlight element
-                firstHighlight.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center',
-                    inline: 'nearest'
-                });
-                
-                // Highlight all related elements for this issue
-                highlightElements.forEach(element => {
-                    element.style.animation = 'pulse 2s';
-                    element.style.backgroundColor = 'rgba(255, 193, 7, 0.8)';
-                    element.style.borderColor = '#ffc107';
-                    element.style.borderWidth = '3px';
-                    element.style.zIndex = '1000';
-                });
-                
-                setTimeout(() => {
-                    highlightElements.forEach(element => {
-                        element.style.animation = '';
-                        element.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
-                        element.style.borderColor = '#ffc107';
-                        element.style.borderWidth = '2px';
-                        element.style.zIndex = '';
-                    });
-                }, 2000);
-            } else {
-                console.log('No highlights found, using fallback');
-                
-                // Fallback: scroll to the PDF viewer and show message
-                const pdfContainer = document.getElementById('pdfContainer');
-                if (pdfContainer) {
-                    pdfContainer.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                    
-                    // Show a temporary message
-                    const message = document.createElement('div');
-                    message.className = 'alert alert-warning position-fixed';
-                    message.style.top = '20px';
-                    message.style.left = '50%';
-                    message.style.transform = 'translateX(-50%)';
-                    message.style.zIndex = '9999';
-                    message.innerHTML = `
-                        <i class="bi bi-search me-2"></i>
-                        Could not locate "${issue.name}" highlights. Check the PDF manually for AC service clauses.
-                    `;
-                    
-                    document.body.appendChild(message);
-                    
-                    setTimeout(() => {
-                        if (message.parentNode) {
-                            message.parentNode.removeChild(message);
-                        }
-                    }, 4000);
-                }
-            }
-        }
-
-        // Tenant Management Functions
-        function setupTenantManagement() {
-            // Load tenants when tenants section is shown
-            document.addEventListener('click', function(e) {
-                if (e.target.matches('[data-section="tenants"]')) {
-                    loadTenants();
-                }
-                
-                // Handle tenant action buttons
-                const button = e.target.closest('[data-action]');
-                if (button) {
-                    const action = button.getAttribute('data-action');
-                    const fin = button.getAttribute('data-fin');
-                    
-                    if (action === 'edit-tenant') {
-                        editTenant(fin);
-                    } else if (action === 'delete-tenant') {
-                        deleteTenant(fin);
-                    }
-                }
-            });
-        }
-
-        async function loadTenants() {
-            const loadingElement = document.getElementById('loadingTenants');
-            const container = document.getElementById('tenantListContainer');
-            
-            try {
-                // Show loading state
-                if (loadingElement) {
-                    loadingElement.style.display = 'block';
-                    container.innerHTML = loadingElement.outerHTML;
-                } else {
-                    container.innerHTML = `
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="mt-2 text-muted">Loading tenants...</p>
-                        </div>
-                    `;
-                }
-                
-                const response = await fetchWithRetry('/api/tenants');
-                const result = await response.json();
-                
-                if (result.success) {
-                    tenants = result.tenants;
-                    displayTenants(tenants);
-                } else {
-                    throw new Error(result.error || 'Failed to load tenants');
-                }
-            } catch (error) {
-                console.error('Error loading tenants:', error);
-                container.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Failed to load tenants: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        function displayTenants(tenantsToShow) {
-            const container = document.getElementById('tenantListContainer');
-            
-            if (tenantsToShow.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-5 text-muted">
-                        <i class="bi bi-people display-2 mb-3"></i>
-                        <p>No tenants found. Add your first tenant to get started!</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const tenantsHtml = `
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Name</th>
-                                <th>FIN</th>
-                                <th>Passport</th>
-                                <th>Properties</th>
-                                <th>Status</th>
-                                <th>Added</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${tenantsToShow.map(tenant => `
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="avatar-circle bg-primary text-white me-2" style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">
-                                                ${tenant.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <strong>${tenant.name}</strong>
-                                        </div>
-                                    </td>
-                                    <td><code>${tenant.fin}</code></td>
-                                    <td><code>${tenant.passportNumber}</code></td>
-                                    <td>
-                                        ${tenant.properties && tenant.properties.length > 0 ?
-                                            tenant.properties.map(propId => `<span class="badge bg-info me-1">${propId}</span>`).join('') :
-                                            '<span class="text-muted">No properties</span>'
-                                        }
-                                    </td>
-                                    <td>
-                                        <div class="d-flex flex-column gap-1">
-                                            ${tenant.isRegistered ? 
-                                                '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Registered</span>' : 
-                                                '<span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Unregistered</span>'
-                                            }
-                                            ${tenant.isMainTenant ? 
-                                                '<span class="badge bg-primary"><i class="bi bi-star me-1"></i>Main Tenant</span>' : 
-                                                ''
-                                            }
-                                        </div>
-                                    </td>
-                                    <td><small class="text-muted">${new Date(tenant.createdAt).toLocaleDateString()}</small></td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary" data-action="edit-tenant" data-fin="${tenant.fin}" title="Edit">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button class="btn btn-outline-danger" data-action="delete-tenant" data-fin="${tenant.fin}" title="Delete">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-            
-            container.innerHTML = tenantsHtml;
-        }
-
-        async function showTenantModal(tenant = null) {
-            currentTenant = tenant;
-            const modal = new bootstrap.Modal(document.getElementById('tenantModal'));
-            const modalTitle = document.getElementById('tenantModalTitle');
-            const form = document.getElementById('tenantForm');
-            
-            // Load properties for the dropdown
-            await loadPropertiesForDropdown();
-            
-            if (tenant) {
-                modalTitle.textContent = 'Edit Tenant';
-                document.getElementById('tenantName').value = tenant.name;
-                document.getElementById('tenantFin').value = tenant.fin;
-                document.getElementById('tenantFin').disabled = true; // Don't allow FIN changes
-                document.getElementById('tenantPassport').value = tenant.passportNumber;
-                const dropdown = document.getElementById('propertiesDropdown');
-                if (tenant.properties && tenant.properties.length > 0) {
-                    dropdown.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                        checkbox.checked = tenant.properties.includes(checkbox.value);
-                    });
-                } else {
-                    dropdown.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-                }
-                updateSelectedProperties();
-                document.getElementById('tenantRegistered').checked = tenant.isRegistered || false;
-                document.getElementById('tenantMainTenant').checked = tenant.isMainTenant || false;
-            } else {
-                modalTitle.textContent = 'Add New Tenant';
-                form.reset();
-                // Reset property checkboxes
-                const dropdown = document.getElementById('propertiesDropdown');
-                dropdown.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                    checkbox.checked = false;
-                });
-                updateSelectedProperties();
-                document.getElementById('tenantFin').disabled = false;
-            }
-            
-            modal.show();
-        }
-
-        async function loadPropertiesForDropdown() {
-            try {
-                const response = await fetchWithRetry('/api/properties');
-                const result = await response.json();
-                
-                const dropdown = document.getElementById('propertiesDropdown');
-                dropdown.innerHTML = '';
-                
-                if (result.success && result.properties) {
-                    result.properties.forEach(property => {
-                        const option = document.createElement('div');
-                        option.className = 'property-option';
-                        option.innerHTML = `
-                            <input type="checkbox" id="prop_${property.propertyId}" value="${property.propertyId}">
-                            <label for="prop_${property.propertyId}">${property.address} - ${property.unit}</label>
-                        `;
-                        dropdown.appendChild(option);
-                        
-                        // Add click event to the option
-                        option.addEventListener('click', function(e) {
-                            if (e.target.type !== 'checkbox') {
-                                const checkbox = option.querySelector('input[type="checkbox"]');
-                                checkbox.checked = !checkbox.checked;
-                            }
-                            updateSelectedProperties();
-                        });
-                        
-                        // Add change event to checkbox
-                        const checkbox = option.querySelector('input[type="checkbox"]');
-                        checkbox.addEventListener('change', updateSelectedProperties);
-                    });
-                }
-                
-                // Add dropdown toggle functionality
-                const selectedDisplay = document.getElementById('selectedPropertiesDisplay');
-                selectedDisplay.addEventListener('click', function() {
-                    dropdown.classList.toggle('show');
-                });
-                
-                // Close dropdown when clicking outside
-                document.addEventListener('click', function(e) {
-                    if (!e.target.closest('.multi-select-dropdown')) {
-                        dropdown.classList.remove('show');
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Error loading properties for dropdown:', error);
-            }
-        }
-
-        function updateSelectedProperties() {
-            const selectedDisplay = document.getElementById('selectedPropertiesDisplay');
-            const dropdown = document.getElementById('propertiesDropdown');
-            const checkedBoxes = dropdown.querySelectorAll('input[type="checkbox"]:checked');
-            
-            selectedDisplay.innerHTML = '';
-            
-            if (checkedBoxes.length === 0) {
-                selectedDisplay.innerHTML = '<span class="placeholder-text">Select properties...</span>';
-            } else {
-                checkedBoxes.forEach(checkbox => {
-                    const label = checkbox.nextElementSibling.textContent;
-                    const tag = document.createElement('span');
-                    tag.className = 'property-tag';
-                    tag.innerHTML = `
-                        ${label}
-                        <span class="remove-tag" data-property-id="${checkbox.value}">×</span>
-                    `;
-                    selectedDisplay.appendChild(tag);
-                    
-                    // Add remove functionality
-                    const removeBtn = tag.querySelector('.remove-tag');
-                    removeBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        checkbox.checked = false;
-                        updateSelectedProperties();
-                    });
-                });
-            }
-        }
-
-        function getSelectedProperties() {
-            const dropdown = document.getElementById('propertiesDropdown');
-            const checkedBoxes = dropdown.querySelectorAll('input[type="checkbox"]:checked');
-            return Array.from(checkedBoxes).map(checkbox => checkbox.value);
-        }
-
-        async function saveTenant() {
-            const name = document.getElementById('tenantName').value.trim();
-            const fin = document.getElementById('tenantFin').value.trim();
-            const passportNumber = document.getElementById('tenantPassport').value.trim();
-            const properties = getSelectedProperties();
-            const isRegistered = document.getElementById('tenantRegistered').checked;
-            const isMainTenant = document.getElementById('tenantMainTenant').checked;
-            
-            if (!name || !fin || !passportNumber) {
-                alert('Please fill in all required fields.');
-                return;
-            }
-
-            const tenantData = {
-                name,
-                fin,
-                passportNumber,
-                properties: properties, // Array of selected property IDs
-                isRegistered,
-                isMainTenant
-            };
-
-            try {
-                const url = currentTenant ? `/api/tenants/${currentTenant.fin}` : '/api/tenants';
-                const method = currentTenant ? 'PUT' : 'POST';
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(tenantData)
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Close modal
-                    bootstrap.Modal.getInstance(document.getElementById('tenantModal')).hide();
-                    
-                    // Reload tenants
-                    await loadTenants();
-                    
-                    // Show success message
-                    showAlert('success', currentTenant ? 'Tenant updated successfully!' : 'Tenant added successfully!');
-                } else {
-                    throw new Error(result.error || 'Failed to save tenant');
-                }
-            } catch (error) {
-                console.error('Error saving tenant:', error);
-                showAlert('error', 'Failed to save tenant: ' + error.message);
-            }
-        }
-
-        async function editTenant(fin) {
-            const tenant = tenants.find(t => t.fin === fin);
-            if (tenant) {
-                showTenantModal(tenant);
-            }
-        }
-
-        async function deleteTenant(fin) {
-            const tenant = tenants.find(t => t.fin === fin);
-            if (!tenant) return;
-            
-            if (!confirm(`Are you sure you want to delete tenant ${tenant.name} (${fin})?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/tenants/${fin}`, {
-                    method: 'DELETE'
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    await loadTenants();
-                    showAlert('success', 'Tenant deleted successfully!');
-                } else {
-                    throw new Error(result.error || 'Failed to delete tenant');
-                }
-            } catch (error) {
-                console.error('Error deleting tenant:', error);
-                showAlert('error', 'Failed to delete tenant: ' + error.message);
-            }
-        }
-
-        function searchTenants() {
-            const searchTerm = document.getElementById('tenantSearch').value.toLowerCase();
-            
-            if (!searchTerm) {
-                displayTenants(tenants);
-                return;
-            }
-
-            const filteredTenants = tenants.filter(tenant => 
-                tenant.name.toLowerCase().includes(searchTerm) ||
-                tenant.fin.toLowerCase().includes(searchTerm) ||
-                tenant.passportNumber.toLowerCase().includes(searchTerm)
-            );
-            
-            displayTenants(filteredTenants);
-        }
-
-        function showAlert(type, message) {
-            const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-            const alertIcon = type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
-            
-            const alert = document.createElement('div');
-            alert.className = `alert ${alertClass} alert-dismissible position-fixed`;
-            alert.style.top = '20px';
-            alert.style.right = '20px';
-            alert.style.zIndex = '9999';
-            alert.innerHTML = `
-                <i class="bi ${alertIcon} me-2"></i>
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            document.body.appendChild(alert);
-            
-            setTimeout(() => {
-                if (alert.parentNode) {
-                    alert.remove();
-                }
-            }, 5000);
-        }
-
-        // Property Management Functions
-        function setupPropertyManagement() {
-            // Load properties when properties section is shown
-            document.addEventListener('click', function(e) {
-                if (e.target.matches('[data-section="properties"]')) {
-                    loadProperties();
-                }
-            });
-        }
-
-        async function loadProperties() {
-            const container = document.getElementById('propertyListContainer');
-            
-            if (!container) {
-                console.error('Property list container not found');
-                return;
-            }
-            
-            try {
-                // Show loading state
-                container.innerHTML = `
-                    <div class="text-center py-5" id="loadingProperties">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2 text-muted">Loading properties...</p>
-                    </div>
-                `;
-                
-                const response = await fetchWithRetry('/api/properties');
-                const result = await response.json();
-                
-                if (result.success) {
-                    properties = result.properties;
-                    await displayProperties(properties);
-                } else {
-                    throw new Error(result.error || 'Failed to load properties');
-                }
-            } catch (error) {
-                console.error('Error loading properties:', error);
-                container.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Failed to load properties: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        async function displayProperties(propertiesToShow) {
-            const container = document.getElementById('propertyListContainer');
-            
-            if (!container) {
-                console.error('Property list container not found');
-                return;
-            }
-            
-            if (propertiesToShow.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-5 text-muted">
-                        <i class="bi bi-house display-2 mb-3"></i>
-                        <p>No properties found. Add your first property to get started!</p>
-                    </div>
-                `;
-                return;
-            }
-
-            // Get tenant counts for each property
-            let propertyWithTenants = [];
-            for (const property of propertiesToShow) {
-                try {
-                    const response = await fetch(`/api/properties/${property.propertyId}/tenants`);
-                    const result = await response.json();
-                    propertyWithTenants.push({
-                        ...property,
-                        currentTenants: result.success ? result.tenants : []
-                    });
-                } catch (error) {
-                    console.error('Error loading tenants for property:', property.propertyId, error);
-                    propertyWithTenants.push({
-                        ...property,
-                        currentTenants: []
-                    });
-                }
-            }
-
-            const propertiesHtml = `
-                <div class="row">
-                    ${propertyWithTenants.map(property => `
-                        <div class="col-lg-6 col-xl-4 mb-4">
-                            <div class="card h-100">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">
-                                        <i class="bi bi-house me-2"></i>
-                                        <strong>${property.propertyId}</strong>
-                                    </h6>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                                            <i class="bi bi-three-dots"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#" data-action="edit-property" data-property-id="${property.propertyId}">
-                                                <i class="bi bi-pencil me-2"></i>Edit
-                                            </a></li>
-                                            <li><a class="dropdown-item text-danger" href="#" data-action="delete-property" data-property-id="${property.propertyId}">
-                                                <i class="bi bi-trash me-2"></i>Delete
-                                            </a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-2">
-                                        <strong>${property.unit}</strong>
-                                        <br>
-                                        <small class="text-muted">${property.address}</small>
-                                    </div>
-                                    
-                                    <div class="row mb-2">
-                                        <div class="col-6">
-                                            <small class="text-muted">Max Occupancy:</small>
-                                            <div><strong>${property.maxPax || 1}</strong> pax</div>
-                                        </div>
-                                        <div class="col-6">
-                                            <small class="text-muted">Monthly Rent:</small>
-                                            <div><strong>$${property.rent ? property.rent.toLocaleString() : 'TBD'}</strong></div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="row mb-2">
-                                        <div class="col-6">
-                                            <small class="text-muted">Move-in Date:</small>
-                                            <div>${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString() : 'TBD'}</div>
-                                        </div>
-                                        <div class="col-6">
-                                            <small class="text-muted">Payment Date:</small>
-                                            <div>Day ${property.rentPaymentDate || 1}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    ${property.agentName || property.agentPhone ? `
-                                    <div class="mb-2">
-                                        <small class="text-muted">Agent:</small>
-                                        <div>${property.agentName || 'N/A'}${property.agentPhone ? ' • ' + property.agentPhone : ''}</div>
-                                    </div>
-                                    ` : ''}
-                                    
-                                    ${property.landlordBankName || property.landlordAccountName || property.landlordBankAccount ? `
-                                    <div class="mb-2">
-                                        <small class="text-muted">Bank Details:</small>
-                                        <div class="small">
-                                            ${property.landlordBankName ? `<div><strong>Bank:</strong> ${property.landlordBankName}</div>` : ''}
-                                            ${property.landlordAccountName ? `<div><strong>Account Name:</strong> ${property.landlordAccountName}</div>` : ''}
-                                            ${property.landlordBankAccount ? `<div><strong>Account:</strong> ${property.landlordBankAccount}</div>` : ''}
-                                        </div>
-                                    </div>
-                                    ` : ''}
-                                    
-                                    <div class="mb-3">
-                                        <small class="text-muted">Current Tenants:</small>
-                                        <div>
-                                            ${property.currentTenants.length > 0 ? 
-                                                `<span class="badge bg-primary">${property.currentTenants.length}/${property.maxPax} occupied</span>
-                                                <div class="mt-1">
-                                                    ${property.currentTenants.map(tenant => `
-                                                        <small class="d-block text-primary">• ${tenant.name} (${tenant.fin})</small>
-                                                    `).join('')}
-                                                </div>` :
-                                                '<span class="badge bg-secondary">Vacant</span>'
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card-footer bg-transparent">
-                                    <small class="text-muted">
-                                        <i class="bi bi-calendar me-1"></i>
-                                        Added ${new Date(property.createdAt).toLocaleDateString()}
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            container.innerHTML = propertiesHtml;
-        }
-
-        function showPropertyModal(property = null) {
-            currentProperty = property;
-            const modal = new bootstrap.Modal(document.getElementById('propertyModal'));
-            const modalTitle = document.getElementById('propertyModalTitle');
-            const form = document.getElementById('propertyForm');
-            
-            if (property) {
-                modalTitle.textContent = 'Edit Property';
-                document.getElementById('propertyId').value = property.propertyId;
-                document.getElementById('propertyId').disabled = true; // Don't allow ID changes
-                document.getElementById('propertyAddress').value = property.address;
-                document.getElementById('propertyUnit').value = property.unit;
-                document.getElementById('propertyMaxPax').value = property.maxPax;
-                document.getElementById('propertyMoveInDate').value = property.moveInDate.split('T')[0];
-                document.getElementById('propertyRentPaymentDate').value = property.rentPaymentDate;
-                document.getElementById('propertyRent').value = property.rent;
-                document.getElementById('propertyAgentName').value = property.agentName;
-                document.getElementById('propertyAgentPhone').value = property.agentPhone;
-                document.getElementById('propertyLandlordBankName').value = property.landlordBankName || '';
-                document.getElementById('propertyLandlordAccountName').value = property.landlordAccountName || '';
-                document.getElementById('propertyLandlordBankAccount').value = property.landlordBankAccount;
-            } else {
-                modalTitle.textContent = 'Add New Property';
-                form.reset();
-                document.getElementById('propertyId').disabled = false;
-                // Set default values for optional fields
-                document.getElementById('propertyMaxPax').value = '1';
-                document.getElementById('propertyRentPaymentDate').value = '1';
-            }
-            
-            modal.show();
-        }
-
-        async function saveProperty() {
-            const propertyId = document.getElementById('propertyId').value.trim();
-            const address = document.getElementById('propertyAddress').value.trim();
-            const unit = document.getElementById('propertyUnit').value.trim();
-            const maxPax = parseInt(document.getElementById('propertyMaxPax').value);
-            const moveInDate = document.getElementById('propertyMoveInDate').value;
-            const rentPaymentDate = parseInt(document.getElementById('propertyRentPaymentDate').value);
-            const rent = parseFloat(document.getElementById('propertyRent').value);
-            const agentName = document.getElementById('propertyAgentName').value.trim();
-            const agentPhone = document.getElementById('propertyAgentPhone').value.trim();
-            const landlordBankName = document.getElementById('propertyLandlordBankName').value.trim();
-            const landlordAccountName = document.getElementById('propertyLandlordAccountName').value.trim();
-            const landlordBankAccount = document.getElementById('propertyLandlordBankAccount').value.trim();
-            
-            if (!propertyId || !address || !unit) {
-                alert('Please fill in the required fields: Property ID, Address, and Unit.');
-                return;
-            }
-
-            const propertyData = {
-                propertyId,
-                address,
-                unit,
-                maxPax,
-                moveInDate,
-                rentPaymentDate,
-                rent,
-                agentName,
-                agentPhone,
-                landlordBankName,
-                landlordAccountName,
-                landlordBankAccount
-            };
-
-            try {
-                const url = currentProperty ? `/api/properties/${currentProperty.propertyId}` : '/api/properties';
-                const method = currentProperty ? 'PUT' : 'POST';
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(propertyData)
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Close modal
-                    bootstrap.Modal.getInstance(document.getElementById('propertyModal')).hide();
-                    
-                    // Reload properties if we're currently on the properties section
-                    const propertiesSection = document.getElementById('properties-section');
-                    if (propertiesSection && propertiesSection.style.display !== 'none') {
-                        await loadProperties();
-                    }
-                    
-                    // Show success message
-                    showAlert('success', currentProperty ? 'Property updated successfully!' : 'Property added successfully!');
-                } else {
-                    throw new Error(result.error || 'Failed to save property');
-                }
-            } catch (error) {
-                console.error('Error saving property:', error);
-                showAlert('error', 'Failed to save property: ' + error.message);
-            }
-        }
-
-        async function editProperty(propertyId) {
-            const property = properties.find(p => p.propertyId === propertyId);
-            if (property) {
-                showPropertyModal(property);
-            }
-        }
-
-        async function deleteProperty(propertyId) {
-            const property = properties.find(p => p.propertyId === propertyId);
-            if (!property) return;
-            
-            if (!confirm(`Are you sure you want to delete property ${property.propertyId} (${property.unit})?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/properties/${propertyId}`, {
-                    method: 'DELETE'
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Reload properties if we're currently on the properties section
-                    const propertiesSection = document.getElementById('properties-section');
-                    if (propertiesSection && propertiesSection.style.display !== 'none') {
-                        await loadProperties();
-                    }
-                    showAlert('success', 'Property deleted successfully!');
-                } else {
-                    throw new Error(result.error || 'Failed to delete property');
-                }
-            } catch (error) {
-                console.error('Error deleting property:', error);
-                showAlert('error', 'Failed to delete property: ' + error.message);
-            }
-        }
-
-        function searchProperties() {
-            const searchTerm = document.getElementById('propertySearch').value.toLowerCase();
-            
-            if (!searchTerm) {
-                displayProperties(properties);
-                return;
-            }
-
-            const filteredProperties = properties.filter(property => 
-                property.propertyId.toLowerCase().includes(searchTerm) ||
-                property.address.toLowerCase().includes(searchTerm) ||
-                property.unit.toLowerCase().includes(searchTerm)
-            );
-            
-            displayProperties(filteredProperties);
-        }
-
-        // Image Utils Functions
-        function setupImageUpload() {
-            const imageUploadArea = document.getElementById('imageUploadArea');
-            const imageFileInput = document.getElementById('imageFileInput');
-
-            // Click to upload
-            imageUploadArea.addEventListener('click', (e) => {
-                if (e.target.tagName !== 'BUTTON') {
-                    imageFileInput.click();
-                }
-            });
-
-            // Drag and drop
-            imageUploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                imageUploadArea.classList.add('dragover');
-            });
-
-            imageUploadArea.addEventListener('dragleave', () => {
-                imageUploadArea.classList.remove('dragover');
-            });
-
-            imageUploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                imageUploadArea.classList.remove('dragover');
-                const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
-                if (files.length > 0) {
-                    handleImageUpload(files);
-                }
-            });
-
-            // File input change
-            imageFileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    const files = Array.from(e.target.files).filter(file => file.type.startsWith('image/'));
-                    handleImageUpload(files);
-                }
-            });
-        }
-
-        async function handleImageUpload(files) {
-            if (files.length === 0) {
-                alert('Please select valid image files.');
-                return;
-            }
-
-            // Validate file sizes
-            const maxSize = 5 * 1024 * 1024; // 5MB
-            const invalidFiles = files.filter(file => file.size > maxSize);
-            if (invalidFiles.length > 0) {
-                alert(`Some files are too large. Maximum size is 5MB per image.`);
-                return;
-            }
-
-            const progressContainer = document.getElementById('imageUploadProgress');
-            const progressBar = progressContainer.querySelector('.progress-bar');
-            const statusText = document.getElementById('uploadStatusText');
-            
-            progressContainer.style.display = 'block';
-            progressBar.style.width = '0%';
-
-            try {
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    const progress = ((i + 1) / files.length) * 100;
-                    
-                    statusText.textContent = `Uploading ${i + 1} of ${files.length}...`;
-                    progressBar.style.width = progress + '%';
-
-                    // Create image object and add to gallery
-                    await processImageFile(file);
-                }
-
-                statusText.textContent = 'Upload complete!';
-                setTimeout(() => {
-                    progressContainer.style.display = 'none';
-                }, 1000);
-
-                // Clear file input
-                document.getElementById('imageFileInput').value = '';
-                
-            } catch (error) {
-                alert('Upload failed: ' + error.message);
-                progressContainer.style.display = 'none';
-            }
-        }
-
-        function processImageFile(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const imageData = {
-                        id: imageIdCounter++,
-                        name: file.name,
-                        title: file.name.replace(/\.[^/.]+$/, "").toUpperCase(), // Remove extension and apply uppercase
-                        url: e.target.result,
-                        size: file.size,
-                        type: file.type,
-                        uploadDate: new Date(),
-                        isGrid: false
-                    };
-
-                    uploadedImages.push(imageData);
-                    addImageToGrid(imageData);
-                    updateGalleryDisplay();
-                    resolve();
-                };
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function addImageToGrid(imageData) {
-            const imageGrid = document.getElementById('imageGrid');
-            const emptyMessage = document.getElementById('emptyGalleryMessage');
-            
-            // Hide empty message
-            if (emptyMessage) {
-                emptyMessage.style.display = 'none';
-            }
-
-            const imageCol = document.createElement('div');
-            imageCol.className = 'col-lg-3 col-md-4 col-sm-6';
-            imageCol.dataset.imageId = imageData.id;
-
-            const gridBadge = imageData.isGrid ? '<span class="badge bg-success position-absolute" style="top: 8px; right: 8px; z-index: 10;"><i class="bi bi-grid-3x3 me-1"></i>Grid</span>' : '';
-            
-            imageCol.innerHTML = `
-                <div class="image-card" data-image-id="${imageData.id}" data-action="view">
-                    <img src="${imageData.url}" alt="${imageData.title}" loading="lazy">
-                    ${gridBadge}
-                    <div class="image-overlay">
-                        <div class="image-actions">
-                            <button class="btn btn-sm btn-light" data-action="download" data-image-id="${imageData.id}" title="Download">
-                                <i class="bi bi-download"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" data-action="delete" data-image-id="${imageData.id}" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="image-title">
-                        <input type="text" class="image-title-editable" value="${imageData.title}" 
-                               data-image-id="${imageData.id}"
-                               placeholder="Enter image title..."
-                               style="text-transform: uppercase;">
-                    </div>
-                </div>
-            `;
-
-            imageGrid.appendChild(imageCol);
-        }
-
-        function updateGalleryDisplay() {
-            const clearAllBtn = document.getElementById('clearAllBtn');
-            const combineGridBtn = document.getElementById('combineGridBtn');
-            const emptyMessage = document.getElementById('emptyGalleryMessage');
-            const originalImages = uploadedImages.filter(img => !img.isGrid);
-            
-            if (uploadedImages.length > 0) {
-                clearAllBtn.style.display = 'inline-block';
-                // Show combine button only if there are 2 or more original images
-                combineGridBtn.style.display = originalImages.length >= 2 ? 'inline-block' : 'none';
-                if (emptyMessage) {
-                    emptyMessage.style.display = 'none';
-                }
-            } else {
-                clearAllBtn.style.display = 'none';
-                combineGridBtn.style.display = 'none';
-                if (emptyMessage) {
-                    emptyMessage.style.display = 'block';
-                }
-            }
-        }
-
-        function updateImageTitle(imageId, newTitle) {
-            const image = uploadedImages.find(img => img.id === imageId);
-            if (image) {
-                image.title = newTitle;
-            }
-        }
-
-        function viewImage(imageId) {
-            const image = uploadedImages.find(img => img.id === imageId);
-            if (!image) return;
-
-            // Create modal for image viewing
-            const modal = document.createElement('div');
-            modal.className = 'modal fade';
-            modal.innerHTML = `
-                <div class="modal-dialog modal-lg modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">${image.title}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body text-center">
-                            <img src="${image.url}" class="img-fluid" alt="${image.title}">
-                            <div class="mt-3">
-                                <small class="text-muted">
-                                    ${image.name} • ${(image.size / 1024 / 1024).toFixed(2)} MB • 
-                                    Uploaded ${image.uploadDate.toLocaleDateString()}
-                                </small>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary" data-action="download" data-image-id="${imageId}">
-                                <i class="bi bi-download me-1"></i>Download
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-            const bootstrapModal = new bootstrap.Modal(modal);
-            bootstrapModal.show();
-
-            // Remove modal from DOM when hidden
-            modal.addEventListener('hidden.bs.modal', () => {
-                modal.remove();
-            });
-        }
-
-        function downloadImage(imageId) {
-            const image = uploadedImages.find(img => img.id === imageId);
-            if (!image) return;
-
-            const link = document.createElement('a');
-            link.href = image.url;
-            link.download = image.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function deleteImage(imageId) {
-            if (!confirm('Are you sure you want to delete this image?')) return;
-
-            // Remove from array
-            uploadedImages = uploadedImages.filter(img => img.id !== imageId);
-
-            // Remove from DOM
-            const imageElement = document.querySelector(`[data-image-id="${imageId}"]`);
-            if (imageElement) {
-                imageElement.remove();
-            }
-
-            updateGalleryDisplay();
-        }
-
-        function clearAllImages() {
-            if (uploadedImages.length === 0) return;
-            
-            if (!confirm(`Are you sure you want to delete all ${uploadedImages.length} images?`)) return;
-
-            uploadedImages = [];
-            const imageGrid = document.getElementById('imageGrid');
-            const emptyMessage = document.getElementById('emptyGalleryMessage');
-            
-            // Clear grid
-            imageGrid.innerHTML = `
-                <div class="col-12 text-center text-muted py-5" id="emptyGalleryMessage">
-                    <i class="bi bi-images display-2 mb-3"></i>
-                    <p>No images uploaded yet. Upload some images to get started!</p>
-                </div>
-            `;
-            
-            updateGalleryDisplay();
-        }
-
-        function toTitleCase(str) {
-            return str.toLowerCase().split(' ').map(function(word) {
-                // Don't capitalize certain small words unless they're the first word
-                const smallWords = ['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 'nor', 'of', 'on', 'or', 'so', 'the', 'to', 'up', 'yet'];
-                const words = str.toLowerCase().split(' ');
-                const isFirstWord = words.indexOf(word.toLowerCase()) === 0;
-                const isLastWord = words.indexOf(word.toLowerCase()) === words.length - 1;
-                
-                if ((isFirstWord || isLastWord) || !smallWords.includes(word.toLowerCase())) {
-                    return word.charAt(0).toUpperCase() + word.slice(1);
-                }
-                return word;
-            }).join(' ');
-        }
-
-        function setupEventListeners() {
-            // Logout button
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) {
-                logoutBtn.addEventListener('click', logout);
-            }
-
-            // Back to dashboard buttons
-            document.querySelectorAll('.back-to-dashboard-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const section = this.getAttribute('data-section');
-                    if (section) {
-                        showSection(section);
-                    }
-                });
-            });
-
-            // File upload trigger
-            const fileUploadTrigger = document.getElementById('fileUploadTrigger');
-            if (fileUploadTrigger) {
-                fileUploadTrigger.addEventListener('click', function() {
-                    document.getElementById('fileInput').click();
-                });
-            }
-
-            // Image upload trigger
-            const imageUploadTrigger = document.getElementById('imageUploadTrigger');
-            if (imageUploadTrigger) {
-                imageUploadTrigger.addEventListener('click', function() {
-                    document.getElementById('imageFileInput').click();
-                });
-            }
-
-            // Download report button
-            const downloadReportBtn = document.getElementById('downloadReportBtn');
-            if (downloadReportBtn) {
-                downloadReportBtn.addEventListener('click', downloadReport);
-            }
-
-            // Zoom buttons
-            const zoomInBtn = document.getElementById('zoomInBtn');
-            const zoomOutBtn = document.getElementById('zoomOutBtn');
-            if (zoomInBtn) {
-                zoomInBtn.addEventListener('click', zoomIn);
-            }
-            if (zoomOutBtn) {
-                zoomOutBtn.addEventListener('click', zoomOut);
-            }
-
-            // Combine grid button
-            const combineGridBtn = document.getElementById('combineGridBtn');
-            if (combineGridBtn) {
-                combineGridBtn.addEventListener('click', combineImagesIntoGrid);
-            }
-
-            // Clear all images button
-            const clearAllBtn = document.getElementById('clearAllBtn');
-            if (clearAllBtn) {
-                clearAllBtn.addEventListener('click', clearAllImages);
-            }
-
-            // Image gallery event delegation
-            const imageGrid = document.getElementById('imageGrid');
-            if (imageGrid) {
-                imageGrid.addEventListener('click', function(e) {
-                    const target = e.target.closest('[data-action]');
-                    if (!target) return;
-
-                    const action = target.getAttribute('data-action');
-                    const imageId = parseInt(target.getAttribute('data-image-id'));
-
-                    switch (action) {
-                        case 'view':
-                            viewImage(imageId);
-                            break;
-                        case 'download':
-                            e.stopPropagation();
-                            downloadImage(imageId);
-                            break;
-                        case 'delete':
-                            e.stopPropagation();
-                            deleteImage(imageId);
-                            break;
-                    }
-                });
-
-                // Handle image title input changes
-                imageGrid.addEventListener('change', function(e) {
-                    if (e.target.classList.contains('image-title-editable')) {
-                        const imageId = parseInt(e.target.getAttribute('data-image-id'));
-                        updateImageTitle(imageId, e.target.value);
-                    }
-                });
-
-                // Handle image title input auto-capitalization
-                imageGrid.addEventListener('input', function(e) {
-                    if (e.target.classList.contains('image-title-editable')) {
-                        const cursorPosition = e.target.selectionStart;
-                        const originalLength = e.target.value.length;
-                        
-                        // Convert to uppercase
-                        e.target.value = e.target.value.toUpperCase();
-                        
-                        // Restore cursor position (adjust for length changes)
-                        const lengthDifference = e.target.value.length - originalLength;
-                        e.target.setSelectionRange(cursorPosition + lengthDifference, cursorPosition + lengthDifference);
-                    }
-                });
-
-                // Prevent propagation on title input clicks
-                imageGrid.addEventListener('click', function(e) {
-                    if (e.target.classList.contains('image-title-editable')) {
-                        e.stopPropagation();
-                    }
-                });
-            }
-
-            // Modal event delegation for download buttons
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('[data-action="download"]')) {
-                    const target = e.target.closest('[data-action="download"]');
-                    const imageId = parseInt(target.getAttribute('data-image-id'));
-                    downloadImage(imageId);
-                }
-            });
-
-            // Tenant management event listeners
-            const addTenantBtn = document.getElementById('addTenantBtn');
-            if (addTenantBtn) {
-                addTenantBtn.addEventListener('click', () => showTenantModal());
-            }
-
-            const saveTenantBtn = document.getElementById('saveTenantBtn');
-            if (saveTenantBtn) {
-                saveTenantBtn.addEventListener('click', saveTenant);
-            }
-
-            const tenantSearch = document.getElementById('tenantSearch');
-            if (tenantSearch) {
-                tenantSearch.addEventListener('input', searchTenants);
-            }
-
-            // Property management event listeners
-            const addPropertyBtn = document.getElementById('addPropertyBtn');
-            if (addPropertyBtn) {
-                addPropertyBtn.addEventListener('click', () => showPropertyModal());
-            }
-
-            const savePropertyBtn = document.getElementById('savePropertyBtn');
-            if (savePropertyBtn) {
-                savePropertyBtn.addEventListener('click', saveProperty);
-            }
-
-            const propertySearch = document.getElementById('propertySearch');
-            if (propertySearch) {
-                propertySearch.addEventListener('input', searchProperties);
-            }
-
-            // Property action event delegation
-            document.addEventListener('click', function(e) {
-                const target = e.target.closest('[data-action]');
-                if (!target) return;
-
-                const action = target.getAttribute('data-action');
-                const propertyId = target.getAttribute('data-property-id');
-
-                if (action === 'edit-property' && propertyId) {
-                    e.preventDefault();
-                    editProperty(propertyId);
-                } else if (action === 'delete-property' && propertyId) {
-                    e.preventDefault();
-                    deleteProperty(propertyId);
-                }
-            });
-        }
-
-        function combineImagesIntoGrid() {
-            const originalImages = uploadedImages.filter(img => !img.isGrid);
-            
-            if (originalImages.length < 2) {
-                alert('You need at least 2 original images to create a grid.');
-                return;
-            }
-
-            // Show modal to configure grid settings
-            const modal = document.createElement('div');
-            modal.className = 'modal fade';
-            modal.innerHTML = `
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Create Image Grid</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label for="mainHeader" class="form-label">Main Header (optional):</label>
-                                <input type="text" class="form-control" id="mainHeader" placeholder="Enter main title for the grid..." style="text-transform: uppercase;">
-                                <small class="form-text text-muted">This will appear at the top of the entire grid</small>
-                            </div>
-                            <div class="mb-3">
-                                <label for="gridColumns" class="form-label">Grid Columns:</label>
-                                <select class="form-select" id="gridColumns">
-                                    <option value="2">2 columns</option>
-                                    <option value="3" selected>3 columns</option>
-                                    <option value="4">4 columns</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="cellSize" class="form-label">Cell Size (pixels):</label>
-                                <input type="number" class="form-control" id="cellSize" value="500" min="200" max="1200">
-                                <small class="form-text text-muted">Higher values = better quality but larger file size</small>
-                            </div>
-                            <div class="mb-3">
-                                <label for="backgroundColor" class="form-label">Background Color:</label>
-                                <input type="color" class="form-control form-control-color" id="backgroundColor" value="#ffffff">
-                            </div>
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="includeHeaders" checked>
-                                    <label class="form-check-label" for="includeHeaders">
-                                        Include image titles as headers
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="mb-3" id="headerStyleOptions">
-                                <label for="headerFontSize" class="form-label">Header Font Size:</label>
-                                <select class="form-select" id="headerFontSize">
-                                    <option value="16">Small (16px)</option>
-                                    <option value="20" selected>Medium (20px)</option>
-                                    <option value="24">Large (24px)</option>
-                                    <option value="32">Extra Large (32px)</option>
-                                </select>
-                            </div>
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle me-2"></i>
-                                Grid will combine ${originalImages.length} original images into a single image.
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="gridGenerateBtn">Create Grid</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-            const bootstrapModal = new bootstrap.Modal(modal);
-            bootstrapModal.show();
-
-            // Add event listener for the generate button
-            const gridGenerateBtn = modal.querySelector('#gridGenerateBtn');
-            if (gridGenerateBtn) {
-                gridGenerateBtn.addEventListener('click', generateImageGrid);
-            }
-
-            // Add event listener for header checkbox
-            const includeHeadersCheckbox = modal.querySelector('#includeHeaders');
-            const headerStyleOptions = modal.querySelector('#headerStyleOptions');
-            if (includeHeadersCheckbox && headerStyleOptions) {
-                includeHeadersCheckbox.addEventListener('change', function() {
-                    headerStyleOptions.style.display = this.checked ? 'block' : 'none';
-                });
-            }
-
-            // Add auto-capitalization for main header input
-            const mainHeaderInput = modal.querySelector('#mainHeader');
-            if (mainHeaderInput) {
-                mainHeaderInput.addEventListener('input', function() {
-                    const cursorPosition = this.selectionStart;
-                    const originalLength = this.value.length;
-                    
-                    // Convert to uppercase
-                    this.value = this.value.toUpperCase();
-                    
-                    // Restore cursor position (adjust for length changes)
-                    const lengthDifference = this.value.length - originalLength;
-                    this.setSelectionRange(cursorPosition + lengthDifference, cursorPosition + lengthDifference);
-                });
-            }
-
-            // Store modal reference globally for cleanup
-            window.currentGridModal = modal;
-
-            // Remove modal from DOM when hidden
-            modal.addEventListener('hidden.bs.modal', () => {
-                modal.remove();
-                window.currentGridModal = null;
-            });
-        }
-
-        function generateImageGrid() {
-            const columns = parseInt(document.getElementById('gridColumns').value);
-            const cellSize = parseInt(document.getElementById('cellSize').value);
-            const backgroundColor = document.getElementById('backgroundColor').value;
-            const includeHeaders = document.getElementById('includeHeaders').checked;
-            const headerFontSize = parseInt(document.getElementById('headerFontSize').value);
-            const mainHeader = document.getElementById('mainHeader').value.trim();
-
-            // Filter out existing grid images to only include original images
-            const originalImages = uploadedImages.filter(img => !img.isGrid);
-            
-            console.log('DEBUG: Total uploaded images:', uploadedImages.length);
-            console.log('DEBUG: Original images to include in grid:', originalImages.length);
-            console.log('DEBUG: All images in uploadedImages:');
-            uploadedImages.forEach((img, index) => {
-                console.log(`  ${index + 1}. "${img.title}" (isGrid: ${img.isGrid}, id: ${img.id})`);
-            });
-            console.log('DEBUG: Original images being used for grid:');
-            originalImages.forEach((img, index) => {
-                console.log(`  ${index + 1}. "${img.title}" (id: ${img.id})`);
-            });
-            
-            if (originalImages.length < 2) {
-                alert('You need at least 2 original images to create a grid.');
-                return;
-            }
-
-            // Calculate grid dimensions with higher resolution for better quality
-            const pixelRatio = window.devicePixelRatio || 1;
-            const rows = Math.ceil(originalImages.length / columns);
-            const headerHeight = includeHeaders ? headerFontSize + 10 : 0; // Font size + padding
-            const mainHeaderHeight = mainHeader ? (headerFontSize * 1.5) + 20 : 0; // Larger font + padding
-            const canvasWidth = columns * cellSize;
-            const canvasHeight = mainHeaderHeight + (rows * (cellSize + headerHeight));
-
-            // Create high-resolution canvas
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Set actual canvas size for high DPI displays
-            canvas.width = canvasWidth * pixelRatio;
-            canvas.height = canvasHeight * pixelRatio;
-            
-            // Scale the canvas back down for CSS display
-            canvas.style.width = canvasWidth + 'px';
-            canvas.style.height = canvasHeight + 'px';
-            
-            // Scale the drawing context so everything draws at the higher resolution
-            ctx.scale(pixelRatio, pixelRatio);
-            
-            // Improve image quality settings
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-
-            // Fill background
-            ctx.fillStyle = backgroundColor;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-            // Draw main header if provided
-            if (mainHeader) {
-                ctx.save();
-                ctx.fillStyle = '#000000'; // Black text
-                ctx.font = `bold ${Math.round(headerFontSize * 1.5)}px Arial, sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                
-                const mainHeaderX = canvasWidth / 2;
-                const mainHeaderY = mainHeaderHeight / 2;
-                
-                // Add text shadow for better readability
-                ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-                ctx.shadowBlur = 3;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 2;
-                
-                ctx.fillText(mainHeader.toUpperCase(), mainHeaderX, mainHeaderY);
-                ctx.restore();
-            }
-
-            let loadedImages = 0;
-            const totalImages = originalImages.length;
-
-            // Load all images and draw them
-            originalImages.forEach((imageData, index) => {
-                console.log(`Loading image ${index + 1}/${originalImages.length}: ${imageData.title}`);
-                const img = new Image();
-                img.crossOrigin = 'anonymous'; // Allow cross-origin images if needed
-                img.onload = function() {
-                    console.log(`Successfully loaded image: ${imageData.title}`);
-                    const row = Math.floor(index / columns);
-                    const col = index % columns;
-                    
-                    const x = col * cellSize;
-                    const y = mainHeaderHeight + row * (cellSize + headerHeight) + headerHeight;
-
-                    // Calculate scaling to fit image in cell while maintaining aspect ratio
-                    const imgAspect = img.width / img.height;
-                    let drawWidth = cellSize;
-                    let drawHeight = cellSize;
-                    let offsetX = 0;
-                    let offsetY = 0;
-
-                    if (imgAspect > 1) {
-                        // Landscape image - fit width, center vertically
-                        drawHeight = cellSize / imgAspect;
-                        offsetY = (cellSize - drawHeight) / 2;
-                    } else if (imgAspect < 1) {
-                        // Portrait image - fit height, center horizontally
-                        drawWidth = cellSize * imgAspect;
-                        offsetX = (cellSize - drawWidth) / 2;
-                    }
-                    // Square images (imgAspect === 1) use full cellSize for both dimensions
-
-                    // Use high-quality rendering with proper pixel alignment
-                    const finalX = Math.round(x + offsetX);
-                    const finalY = Math.round(y + offsetY);
-                    const finalWidth = Math.round(drawWidth);
-                    const finalHeight = Math.round(drawHeight);
-
-                    // Save context state
-                    ctx.save();
-                    
-                    // Create clipping region for the cell to prevent overflow
-                    ctx.beginPath();
-                    ctx.rect(x, y, cellSize, cellSize);
-                    ctx.clip();
-                    
-                    // Draw image with improved quality
-                    ctx.drawImage(img, finalX, finalY, finalWidth, finalHeight);
-                    
-                    // Restore context state
-                    ctx.restore();
-
-                    // Draw header text if enabled
-                    if (includeHeaders && imageData.title) {
-                        ctx.save();
-                        ctx.fillStyle = '#000000'; // Black text
-                        ctx.font = `${headerFontSize}px Arial, sans-serif`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        
-                        const headerX = x + (cellSize / 2);
-                        const headerY = mainHeaderHeight + row * (cellSize + headerHeight) + (headerHeight / 2);
-                        
-                        // Add text shadow for better readability
-                        ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-                        ctx.shadowBlur = 2;
-                        ctx.shadowOffsetX = 1;
-                        ctx.shadowOffsetY = 1;
-                        
-                        // Truncate long titles and apply uppercase
-                        let displayTitle = imageData.title.toUpperCase();
-                        const maxWidth = cellSize - 20; // Leave some padding
-                        const textMetrics = ctx.measureText(displayTitle);
-                        if (textMetrics.width > maxWidth) {
-                            // Truncate and add ellipsis
-                            while (ctx.measureText(displayTitle + '...').width > maxWidth && displayTitle.length > 0) {
-                                displayTitle = displayTitle.slice(0, -1);
-                            }
-                            displayTitle += '...';
-                        }
-                        
-                        ctx.fillText(displayTitle, headerX, headerY);
-                        ctx.restore();
-                    }
-                    
-                    loadedImages++;
-                    console.log(`Images loaded so far: ${loadedImages}/${totalImages}`);
-                    if (loadedImages === totalImages) {
-                        // All images loaded, create the final grid image
-                        console.log('All images loaded successfully, creating grid');
-                        createGridImageResult(canvas, totalImages, mainHeader);
-                    }
-                };
-                img.onerror = function() {
-                    console.error('Failed to load image:', imageData.name, 'Title:', imageData.title);
-                    loadedImages++;
-                    if (loadedImages === totalImages) {
-                        console.log('All images processed (some failed), creating grid with', loadedImages, 'total attempts');
-                        createGridImageResult(canvas, totalImages, mainHeader);
-                    }
-                };
-                img.src = imageData.url;
-            });
-        }
-
-        function createGridImageResult(canvas, imageCount, mainHeader) {
-            // Convert canvas to blob with maximum quality
-            canvas.toBlob(function(blob) {
-                const gridImageUrl = URL.createObjectURL(blob);
-                
-                // Generate filename from main header or use default
-                let filename;
-                if (mainHeader && mainHeader.trim()) {
-                    // Sanitize the main header for use as filename
-                    filename = mainHeader.trim()
-                        .replace(/[^a-zA-Z0-9\s\-_]/g, '') // Remove special characters
-                        .replace(/\s+/g, '-') // Replace spaces with hyphens
-                        .toLowerCase() // Convert to lowercase
-                        .substring(0, 50); // Limit length
-                    
-                    // Ensure filename is not empty after sanitization
-                    if (filename) {
-                        filename += '.png';
-                    } else {
-                        filename = `grid-${new Date().getTime()}.png`;
-                    }
-                } else {
-                    filename = `grid-${new Date().getTime()}.png`;
-                }
-                
-                const gridImageData = {
-                    id: imageIdCounter++,
-                    name: filename,
-                    title: mainHeader || `Image Grid (${imageCount} images)`,
-                    url: gridImageUrl,
-                    size: blob.size,
-                    type: 'image/png',
-                    uploadDate: new Date(),
-                    isGrid: true
-                };
-
-                // Add to uploaded images
-                uploadedImages.push(gridImageData);
-                addImageToGrid(gridImageData);
-                updateGalleryDisplay();
-
-                // Close modal
-                if (window.currentGridModal) {
-                    bootstrap.Modal.getInstance(window.currentGridModal).hide();
-                }
-
-                // Show success message
-                const successAlert = document.createElement('div');
-                successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed';
-                successAlert.style.top = '20px';
-                successAlert.style.right = '20px';
-                successAlert.style.zIndex = '9999';
-                successAlert.innerHTML = `
-                    <i class="bi bi-check-circle me-2"></i>
-                    Image grid created successfully!
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                document.body.appendChild(successAlert);
-
-                // Auto-remove after 5 seconds
-                setTimeout(() => {
-                    if (successAlert.parentNode) {
-                        successAlert.remove();
-                    }
-                }, 5000);
-
-            }, 'image/png', 1.0);
-        }
-    </script>
 </body>
 </html>
