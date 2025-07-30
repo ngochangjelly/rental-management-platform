@@ -180,7 +180,7 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Rental Management Platform</title>
+    <title>Dashboard - Rental Management Platform [SERVER.JS FALLBACK]</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -254,7 +254,7 @@ app.get('/', (req, res) => {
                 <div id="dashboard-section" class="content-section">
                     <div class="p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2>Dashboard</h2>
+                            <h2>Dashboard <small class="text-danger">[SERVER.JS FALLBACK VERSION]</small></h2>
                             <div class="text-muted">
                                 <i class="bi bi-calendar me-1"></i>
                                 <span id="currentDate"></span>
@@ -717,6 +717,7 @@ app.get('/', (req, res) => {
                     if (featureCard.classList.contains('feature-card')) {
                         const section = featureCard.getAttribute('data-section');
                         console.log('🎯 PRODUCTION DEBUG (SERVER): Feature card clicked: ' + section);
+                        alert('SERVER.JS FALLBACK: Clicked section: ' + section);
                         showSection(section);
                         
                         // Load data for specific sections
