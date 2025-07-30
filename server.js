@@ -633,6 +633,11 @@ app.get('/', (req, res) => {
     <script>
         // Initialize date and setup navigation
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 PRODUCTION DEBUG (SERVER): DOMContentLoaded fired');
+            console.log('🚀 PRODUCTION DEBUG (SERVER): Current URL:', window.location.href);
+            console.log('🚀 PRODUCTION DEBUG (SERVER): User Agent:', navigator.userAgent);
+            console.log('🚀 PRODUCTION DEBUG (SERVER): Starting setup functions...');
+            
             const now = new Date();
             document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
                 weekday: 'long',
@@ -641,9 +646,28 @@ app.get('/', (req, res) => {
                 day: 'numeric'
             });
             
-            setupNavigation();
-            setupFeatureCards();
-            setupFileUpload();
+            try {
+                setupNavigation();
+                console.log('✅ PRODUCTION DEBUG (SERVER): setupNavigation completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG (SERVER): setupNavigation failed:', e);
+            }
+            
+            try {
+                setupFeatureCards();
+                console.log('✅ PRODUCTION DEBUG (SERVER): setupFeatureCards completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG (SERVER): setupFeatureCards failed:', e);
+            }
+            
+            try {
+                setupFileUpload();
+                console.log('✅ PRODUCTION DEBUG (SERVER): setupFileUpload completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG (SERVER): setupFileUpload failed:', e);
+            }
+            
+            console.log('🚀 PRODUCTION DEBUG (SERVER): All setup functions completed');
         });
 
         function setupNavigation() {
@@ -663,22 +687,53 @@ app.get('/', (req, res) => {
         }
 
         function setupFeatureCards() {
+            console.log('🎯 PRODUCTION DEBUG (SERVER): setupFeatureCards called');
+            
+            // Check if feature cards exist
+            const featureCards = document.querySelectorAll('[data-section].feature-card');
+            console.log('🎯 PRODUCTION DEBUG (SERVER): Found feature cards:', featureCards.length);
+            featureCards.forEach(function(card, index) {
+                console.log('🎯 PRODUCTION DEBUG (SERVER): Card ' + index + ':', {
+                    section: card.getAttribute('data-section'),
+                    hasFeatureCardClass: card.classList.contains('feature-card'),
+                    classList: Array.from(card.classList)
+                });
+            });
+            
             // Add click handlers for feature cards using event delegation
             document.addEventListener('click', function(e) {
+                console.log('🎯 PRODUCTION DEBUG (SERVER): Click detected on:', e.target);
+                
                 const featureCard = e.target.closest('[data-section]');
-                if (featureCard && featureCard.classList.contains('feature-card')) {
-                    const section = featureCard.getAttribute('data-section');
-                    console.log(\`Feature card clicked: \${section}\`);
-                    showSection(section);
+                console.log('🎯 PRODUCTION DEBUG (SERVER): Closest data-section element:', featureCard);
+                
+                if (featureCard) {
+                    console.log('🎯 PRODUCTION DEBUG (SERVER): Feature card found:', {
+                        section: featureCard.getAttribute('data-section'),
+                        hasFeatureCardClass: featureCard.classList.contains('feature-card'),
+                        classList: Array.from(featureCard.classList)
+                    });
                     
-                    // Load data for specific sections
-                    if (section === 'properties') {
-                        loadProperties();
-                    } else if (section === 'tenants') {
-                        loadTenants();
+                    if (featureCard.classList.contains('feature-card')) {
+                        const section = featureCard.getAttribute('data-section');
+                        console.log('🎯 PRODUCTION DEBUG (SERVER): Feature card clicked: ' + section);
+                        showSection(section);
+                        
+                        // Load data for specific sections
+                        if (section === 'properties') {
+                            loadProperties();
+                        } else if (section === 'tenants') {
+                            loadTenants();
+                        }
+                    } else {
+                        console.log('🎯 PRODUCTION DEBUG (SERVER): Element has data-section but not feature-card class');
                     }
+                } else {
+                    console.log('🎯 PRODUCTION DEBUG (SERVER): No data-section element found in click path');
                 }
             });
+            
+            console.log('🎯 PRODUCTION DEBUG (SERVER): Event delegation listener added');
         }
 
         function showSection(sectionName) {

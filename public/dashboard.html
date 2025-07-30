@@ -981,17 +981,89 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            updateCurrentDate();
-            setupFileUpload();
-            setupNavigation();
-            loadUserInfo();
-            setupFeatureCards();
-            setupPDFControls();
-            setupImageUpload();
-            setupTenantManagement();
-            setupPropertyManagement();
-            setupEventListeners();
-            loadDashboardStats(); // Load the stats
+            console.log('🚀 PRODUCTION DEBUG: DOMContentLoaded fired');
+            console.log('🚀 PRODUCTION DEBUG: Current URL:', window.location.href);
+            console.log('🚀 PRODUCTION DEBUG: User Agent:', navigator.userAgent);
+            console.log('🚀 PRODUCTION DEBUG: Starting setup functions...');
+            
+            try {
+                updateCurrentDate();
+                console.log('✅ PRODUCTION DEBUG: updateCurrentDate completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: updateCurrentDate failed:', e);
+            }
+            
+            try {
+                setupFileUpload();
+                console.log('✅ PRODUCTION DEBUG: setupFileUpload completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupFileUpload failed:', e);
+            }
+            
+            try {
+                setupNavigation();
+                console.log('✅ PRODUCTION DEBUG: setupNavigation completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupNavigation failed:', e);
+            }
+            
+            try {
+                loadUserInfo();
+                console.log('✅ PRODUCTION DEBUG: loadUserInfo completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: loadUserInfo failed:', e);
+            }
+            
+            try {
+                setupFeatureCards();
+                console.log('✅ PRODUCTION DEBUG: setupFeatureCards completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupFeatureCards failed:', e);
+            }
+            
+            try {
+                setupPDFControls();
+                console.log('✅ PRODUCTION DEBUG: setupPDFControls completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupPDFControls failed:', e);
+            }
+            
+            try {
+                setupImageUpload();
+                console.log('✅ PRODUCTION DEBUG: setupImageUpload completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupImageUpload failed:', e);
+            }
+            
+            try {
+                setupTenantManagement();
+                console.log('✅ PRODUCTION DEBUG: setupTenantManagement completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupTenantManagement failed:', e);
+            }
+            
+            try {
+                setupPropertyManagement();
+                console.log('✅ PRODUCTION DEBUG: setupPropertyManagement completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupPropertyManagement failed:', e);
+            }
+            
+            try {
+                setupEventListeners();
+                console.log('✅ PRODUCTION DEBUG: setupEventListeners completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: setupEventListeners failed:', e);
+            }
+            
+            try {
+                loadDashboardStats();
+                console.log('✅ PRODUCTION DEBUG: loadDashboardStats completed');
+            } catch (e) {
+                console.error('❌ PRODUCTION DEBUG: loadDashboardStats failed:', e);
+            }
+            
+            console.log('🚀 PRODUCTION DEBUG: All setup functions completed');
         });
 
         function updateCurrentDate() {
@@ -1021,15 +1093,46 @@
         }
 
         function setupFeatureCards() {
+            console.log('🎯 PRODUCTION DEBUG: setupFeatureCards called');
+            
+            // Check if feature cards exist
+            const featureCards = document.querySelectorAll('[data-section].feature-card');
+            console.log('🎯 PRODUCTION DEBUG: Found feature cards:', featureCards.length);
+            featureCards.forEach((card, index) => {
+                console.log(`🎯 PRODUCTION DEBUG: Card ${index}:`, {
+                    section: card.getAttribute('data-section'),
+                    hasFeatureCardClass: card.classList.contains('feature-card'),
+                    classList: Array.from(card.classList)
+                });
+            });
+            
             // Add click handlers for feature cards using event delegation
             document.addEventListener('click', function(e) {
+                console.log('🎯 PRODUCTION DEBUG: Click detected on:', e.target);
+                
                 const featureCard = e.target.closest('[data-section]');
-                if (featureCard && featureCard.classList.contains('feature-card')) {
-                    const section = featureCard.getAttribute('data-section');
-                    console.log(`Feature card clicked: ${section}`);
-                    showSection(section);
+                console.log('🎯 PRODUCTION DEBUG: Closest data-section element:', featureCard);
+                
+                if (featureCard) {
+                    console.log('🎯 PRODUCTION DEBUG: Feature card found:', {
+                        section: featureCard.getAttribute('data-section'),
+                        hasFeatureCardClass: featureCard.classList.contains('feature-card'),
+                        classList: Array.from(featureCard.classList)
+                    });
+                    
+                    if (featureCard.classList.contains('feature-card')) {
+                        const section = featureCard.getAttribute('data-section');
+                        console.log('🎯 PRODUCTION DEBUG: Feature card clicked:', section);
+                        showSection(section);
+                    } else {
+                        console.log('🎯 PRODUCTION DEBUG: Element has data-section but not feature-card class');
+                    }
+                } else {
+                    console.log('🎯 PRODUCTION DEBUG: No data-section element found in click path');
                 }
             });
+            
+            console.log('🎯 PRODUCTION DEBUG: Event delegation listener added');
         }
 
         function setupPDFControls() {
@@ -1047,28 +1150,55 @@
         }
 
         function showSection(sectionName) {
-            console.log('showSection called with:', sectionName);
+            console.log('🏠 PRODUCTION DEBUG: showSection called with:', sectionName);
+            
+            // Check all available sections
+            const allSections = document.querySelectorAll('.content-section');
+            console.log('🏠 PRODUCTION DEBUG: All content sections found:', allSections.length);
+            allSections.forEach((section, index) => {
+                console.log(`🏠 PRODUCTION DEBUG: Section ${index}:`, {
+                    id: section.id,
+                    display: section.style.display,
+                    visible: section.offsetParent !== null
+                });
+            });
             
             // Hide all sections
             document.querySelectorAll('.content-section').forEach(section => {
                 section.style.display = 'none';
             });
+            console.log('🏠 PRODUCTION DEBUG: All sections hidden');
             
             // Show target section
-            const targetSection = document.getElementById(sectionName + '-section');
-            console.log('Target section:', targetSection);
+            const targetSectionId = sectionName + '-section';
+            const targetSection = document.getElementById(targetSectionId);
+            console.log('🏠 PRODUCTION DEBUG: Looking for section ID:', targetSectionId);
+            console.log('🏠 PRODUCTION DEBUG: Target section found:', targetSection);
+            
             if (targetSection) {
                 targetSection.style.display = 'block';
-                console.log('Section displayed:', sectionName);
+                console.log('🏠 PRODUCTION DEBUG: Section displayed:', sectionName);
+                console.log('🏠 PRODUCTION DEBUG: Section visibility after show:', {
+                    display: targetSection.style.display,
+                    offsetParent: targetSection.offsetParent,
+                    getBoundingClientRect: targetSection.getBoundingClientRect()
+                });
             } else {
-                console.error('Section not found:', sectionName + '-section');
+                console.error('❌ PRODUCTION DEBUG: Section not found:', targetSectionId);
+                console.log('🏠 PRODUCTION DEBUG: Available section IDs:', 
+                    Array.from(document.querySelectorAll('.content-section')).map(s => s.id)
+                );
             }
             
             // Update active nav link
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             const navLink = document.querySelector(`.nav-link[data-section="${sectionName}"]`);
+            console.log('🏠 PRODUCTION DEBUG: Nav link found:', navLink);
             if (navLink) {
                 navLink.classList.add('active');
+                console.log('🏠 PRODUCTION DEBUG: Nav link activated for:', sectionName);
+            } else {
+                console.log('🏠 PRODUCTION DEBUG: No nav link found for section:', sectionName);
             }
         }
 
