@@ -228,12 +228,12 @@ app.get('/', (req, res) => {
                             <i class="bi bi-speedometer2 me-2"></i>Dashboard
                         </a>
                         <a class="nav-link" href="#" data-section="contract-analysis">
-                            <i class="bi bi-file-text me-2"></i>Contract Analysis
+                            <i class="bi bi-file-earmark-text me-2"></i>Contract Analysis
                         </a>
-                        <a class="nav-link" href="#" data-section="property-management">
+                        <a class="nav-link" href="#" data-section="properties">
                             <i class="bi bi-building me-2"></i>Properties
                         </a>
-                        <a class="nav-link" href="#" data-section="tenant-portal">
+                        <a class="nav-link" href="#" data-section="tenants">
                             <i class="bi bi-people me-2"></i>Tenants
                         </a>
                     </nav>
@@ -304,7 +304,7 @@ app.get('/', (req, res) => {
                     <!-- Feature Cards -->
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="card h-100" id="contract-analysis-card" style="cursor: pointer;">
+                            <div class="card feature-card h-100" data-section="contract-analysis" style="cursor: pointer;">
                                 <div class="card-body text-center">
                                     <i class="bi bi-file-earmark-text display-3 text-primary mb-3"></i>
                                     <h5>Contract Analysis</h5>
@@ -314,7 +314,7 @@ app.get('/', (req, res) => {
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card h-100" id="property-management-card" style="cursor: pointer;">
+                            <div class="card feature-card h-100" data-section="properties" style="cursor: pointer;">
                                 <div class="card-body text-center">
                                     <i class="bi bi-building display-3 text-success mb-3"></i>
                                     <h5>Property Management</h5>
@@ -324,7 +324,7 @@ app.get('/', (req, res) => {
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card h-100" id="tenant-portal-card" style="cursor: pointer;">
+                            <div class="card feature-card h-100" data-section="tenants" style="cursor: pointer;">
                                 <div class="card-body text-center">
                                     <i class="bi bi-people display-3 text-info mb-3"></i>
                                     <h5>Tenant Management</h5>
@@ -531,7 +531,7 @@ app.get('/', (req, res) => {
                 </div>
 
                 <!-- Property Management Section -->
-                <div id="property-management-section" class="content-section" style="display: none;">
+                <div id="properties-section" class="content-section" style="display: none;">
                     <div class="p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Property Management</h2>
@@ -579,7 +579,7 @@ app.get('/', (req, res) => {
                 </div>
 
                 <!-- Tenant Portal Section -->
-                <div id="tenant-portal-section" class="content-section" style="display: none;">
+                <div id="tenants-section" class="content-section" style="display: none;">
                     <div class="p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Tenant Management</h2>
@@ -663,31 +663,22 @@ app.get('/', (req, res) => {
         }
 
         function setupFeatureCards() {
-            // Contract Analysis card click handler
-            const contractAnalysisCard = document.getElementById('contract-analysis-card');
-            if (contractAnalysisCard) {
-                contractAnalysisCard.addEventListener('click', function() {
-                    showSection('contract-analysis');
-                });
-            }
-
-            // Property Management card click handler
-            const propertyManagementCard = document.getElementById('property-management-card');
-            if (propertyManagementCard) {
-                propertyManagementCard.addEventListener('click', function() {
-                    showSection('property-management');
-                    loadProperties();
-                });
-            }
-
-            // Tenant Portal card click handler
-            const tenantPortalCard = document.getElementById('tenant-portal-card');
-            if (tenantPortalCard) {
-                tenantPortalCard.addEventListener('click', function() {
-                    showSection('tenant-portal');
-                    loadTenants();
-                });
-            }
+            // Add click handlers for feature cards using event delegation
+            document.addEventListener('click', function(e) {
+                const featureCard = e.target.closest('[data-section]');
+                if (featureCard && featureCard.classList.contains('feature-card')) {
+                    const section = featureCard.getAttribute('data-section');
+                    console.log(\`Feature card clicked: \${section}\`);
+                    showSection(section);
+                    
+                    // Load data for specific sections
+                    if (section === 'properties') {
+                        loadProperties();
+                    } else if (section === 'tenants') {
+                        loadTenants();
+                    }
+                }
+            });
         }
 
         function showSection(sectionName) {
