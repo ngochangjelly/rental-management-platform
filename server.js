@@ -765,7 +765,7 @@ app.get('/', (req, res) => {
             
             // Update active nav link
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            const navLink = document.querySelector(\`.nav-link[data-section="\${sectionName}"]\`);
+            const navLink = document.querySelector('.nav-link[data-section="' + sectionName + '"]');
             if (navLink) {
                 navLink.classList.add('active');
             }
