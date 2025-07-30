@@ -220,7 +220,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Logout endpoint
+// Logout endpoint (POST)
 router.post("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
@@ -234,6 +234,17 @@ router.post("/logout", (req, res) => {
       message: "Logged out successfully",
       redirectUrl: "/auth/login",
     });
+  });
+});
+
+// Logout endpoint (GET) - for direct links
+router.get("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Logout error:", err);
+      return res.redirect("/auth/login?error=logout_failed");
+    }
+    res.redirect("/auth/login");
   });
 });
 
