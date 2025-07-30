@@ -19,21 +19,31 @@ console.log("Running in serverless environment:", isServerless);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize sessions immediately for all environments
-const basicSessionConfig = {
-  secret: process.env.APP_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false,
-    maxAge: 24 * 60 * 60 * 1000,
-  },
+// Initialize sessions with fallback for production
+const initSessionConfig = () => {
+  const config = {
+    secret: process.env.APP_SECRET || "your-secret-key-here",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  };
+
+  // In serverless, use memory sessions but ensure they work
+  if (isServerless) {
+    config.cookie.httpOnly = true;
+    config.cookie.sameSite = 'lax';
+  }
+
+  return config;
 };
 
 try {
-  // Use basic sessions initially to prevent timing issues
-  app.use(session(basicSessionConfig));
-  console.log("🔧 Basic session middleware initialized successfully");
+  // Use session config with serverless optimizations
+  app.use(session(initSessionConfig()));
+  console.log("🔧 Session middleware initialized successfully");
 } catch (error) {
   console.error("❌ Failed to initialize session middleware:", error);
   throw error;
@@ -55,12 +65,37 @@ const upload = multer({
   },
 });
 
+// Database connection middleware for API routes
+const ensureDBConnection = async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection failed in middleware:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Database connection failed' 
+    });
+  }
+};
+
+// Authentication middleware for API routes
+const requireAuth = (req, res, next) => {
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Authentication required' 
+    });
+  }
+  next();
+};
+
 // Routes
 app.use("/auth", require("./routes/auth"));
-app.use("/api/properties", require("./routes/properties"));
-app.use("/api/tenants", require("./routes/tenants"));
-app.use("/upload", require("./routes/upload"));
-app.use("/analysis", require("./routes/analysis"));
+app.use("/api/properties", requireAuth, ensureDBConnection, require("./routes/properties"));
+app.use("/api/tenants", requireAuth, ensureDBConnection, require("./routes/tenants"));
+app.use("/upload", requireAuth, require("./routes/upload"));
+app.use("/analysis", requireAuth, require("./routes/analysis"));
 
 // Serve PDF files
 app.get("/pdf/:filename", (req, res) => {
