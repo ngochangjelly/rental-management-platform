@@ -42,6 +42,34 @@ const upload = multer({
 });
 
 // Upload tenancy agreement
+router.post('/agreement', requireAuth, upload.single('agreement'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // In serverless, we'll use a mock filename since files are stored in memory
+    const filename = isServerless 
+      ? `demo-${Date.now()}.pdf`
+      : req.file.filename;
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      filename: filename,
+      file: {
+        filename: filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        path: isServerless ? 'memory' : req.file.path
+      }
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'File upload failed' });
+  }
+});
+
 router.post('/tenancy-agreement', requireAuth, upload.single('agreement'), (req, res) => {
   try {
     if (!req.file) {

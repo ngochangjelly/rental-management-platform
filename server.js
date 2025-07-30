@@ -47,9 +47,12 @@ app.use(session(sessionConfig));
 // Static files
 app.use(express.static("public"));
 
-// Upload configuration
+// Upload configuration - use memory storage in serverless environments
+const uploadDir = isServerless ? "/tmp" : "uploads/";
 const upload = multer({
-  dest: "uploads/",
+  storage: isServerless ? multer.memoryStorage() : multer.diskStorage({
+    destination: uploadDir
+  }),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
@@ -70,7 +73,7 @@ app.get("/pdf/:filename", (req, res) => {
 
   try {
     const filename = req.params.filename;
-    const filePath = path.join(__dirname, "uploads", filename);
+    const filePath = path.join(uploadDir, filename);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "PDF file not found" });
