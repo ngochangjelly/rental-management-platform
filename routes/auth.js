@@ -4,8 +4,8 @@ const fs = require("fs");
 const router = express.Router();
 
 // Hardcoded admin credentials from environment
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "RentalAdmin2024!@#$";
+const ADMIN_USERNAME = process.env.APP_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.APP_PASSWORD || "RentalAdmin2024!@#$";
 
 // Login page
 router.get("/login", (req, res) => {
@@ -181,7 +181,7 @@ router.get("/login", (req, res) => {
 });
 
 // Login endpoint
-router.post("/login", async (req, res) => {
+router.post("/login", (req, res) => {
   try {
     const { username, password } = req.body;
 

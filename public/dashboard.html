@@ -467,5 +467,33 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Initialize dashboard and check authentication
+        let dashboardController;
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Check authentication status
+                const response = await fetch('/auth/status', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (!result.authenticated) {
+                    // Redirect to login if not authenticated
+                    window.location.href = '/auth/login';
+                    return;
+                }
+                
+                // Initialize dashboard controller if authenticated
+                dashboardController = new DashboardController();
+            } catch (error) {
+                console.error('Authentication check failed:', error);
+                // Redirect to login on error
+                window.location.href = '/auth/login';
+            }
+        });
+    </script>
 </body>
 </html>
