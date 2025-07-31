@@ -111,7 +111,7 @@
                 
                 if (result.success) {
                     // Let browser handle password saving
-                    window.location.href = result.redirectUrl || '/';
+                    window.location.href = result.redirectUrl || '/dashboard.html';
                 } else {
                     errorMessage.textContent = result.message;
                     errorAlert.style.display = 'block';

@@ -13,6 +13,11 @@
   status = 200
 
 [[redirects]]
+  from = "/auth/login"
+  to = "/login.html"
+  status = 200
+
+[[redirects]]
   from = "/auth/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
@@ -39,10 +44,6 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/"
-  to = "/.netlify/functions/server/"
-  status = 200
 
 [functions]
   node_bundler = "esbuild"
