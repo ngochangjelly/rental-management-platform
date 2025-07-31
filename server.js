@@ -26,15 +26,15 @@ const initSessionMiddleware = () => {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: 'lax'
     },
   };
 
-  // Use MongoDB connection string directly for serverless
-  if (isServerless && process.env.MONGODB_URI) {
+  // Always try to use MongoDB store if URI is available
+  if (process.env.MONGODB_URI) {
     try {
       config.store = MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
@@ -43,13 +43,19 @@ const initSessionMiddleware = () => {
         ttl: 24 * 60 * 60, // 24 hours
         touchAfter: 24 * 3600, // lazy session update
         stringify: false,
-        autoRemove: 'native'
+        autoRemove: 'native',
+        // Additional options for serverless
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 10000,
+        family: 4
       });
-      console.log("🔧 MongoDB session store configured for serverless");
+      console.log("🔧 MongoDB session store configured");
     } catch (error) {
       console.warn("⚠️ Failed to configure MongoDB session store:", error.message);
       console.log("📝 Using memory sessions as fallback");
     }
+  } else {
+    console.warn("⚠️ No MONGODB_URI found, using memory sessions");
   }
 
   return session(config);

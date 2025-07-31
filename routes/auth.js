@@ -183,29 +183,65 @@ router.get("/login", (req, res) => {
 // Login endpoint
 router.post("/login", (req, res) => {
   try {
+    console.log("Login attempt received");
+    console.log("Request headers:", Object.keys(req.headers));
+    console.log("Session available:", !!req.session);
+    console.log("Body received:", !!req.body);
+    
+    // Check if session middleware is working
+    if (!req.session) {
+      console.error("Session middleware not working");
+      return res.status(500).json({
+        success: false,
+        message: "Session middleware not initialized",
+      });
+    }
+    
     const { username, password } = req.body;
+    console.log("Credentials received:", { username: !!username, password: !!password });
 
     if (!username || !password) {
+      console.log("Missing credentials");
       return res.status(400).json({
         success: false,
         message: "Username and password are required",
       });
     }
 
+    console.log("Expected credentials:", { 
+      username: ADMIN_USERNAME, 
+      hasPassword: !!ADMIN_PASSWORD 
+    });
+
     // Simple authentication against hardcoded credentials
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      console.log("Authentication successful, setting session");
+      
       req.session.user = {
         id: 1,
         username: ADMIN_USERNAME,
         role: "admin",
       };
-
-      return res.json({
-        success: true,
-        message: "Login successful",
-        redirectUrl: "/",
+      
+      // Save session explicitly
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to save session",
+          });
+        }
+        
+        console.log("Session saved successfully");
+        return res.json({
+          success: true,
+          message: "Login successful",
+          redirectUrl: "/dashboard.html",
+        });
       });
     } else {
+      console.log("Invalid credentials provided");
       return res.status(401).json({
         success: false,
         message: "Invalid username or password",
@@ -213,9 +249,10 @@ router.post("/login", (req, res) => {
     }
   } catch (error) {
     console.error("Login error:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Internal server error: " + error.message,
     });
   }
 });
@@ -251,8 +288,33 @@ router.get("/logout", (req, res) => {
 // Check authentication status
 router.get("/status", (req, res) => {
   res.json({
-    authenticated: !!req.session.user,
-    user: req.session.user || null,
+    authenticated: !!req.session?.user,
+    user: req.session?.user || null,
+    sessionExists: !!req.session,
+    sessionId: req.sessionID,
+  });
+});
+
+// Debug endpoint for serverless environment
+router.get("/debug", (req, res) => {
+  res.json({
+    environment: {
+      isServerless: process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME,
+      nodeEnv: process.env.NODE_ENV,
+      hasMongoUri: !!process.env.MONGODB_URI,
+      hasAppSecret: !!process.env.APP_SECRET,
+      hasCredentials: !!(process.env.APP_USERNAME && process.env.APP_PASSWORD)
+    },
+    session: {
+      exists: !!req.session,
+      id: req.sessionID,
+      cookie: req.session?.cookie
+    },
+    request: {
+      headers: Object.keys(req.headers),
+      method: req.method,
+      path: req.path
+    }
   });
 });
 
