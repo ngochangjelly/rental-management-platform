@@ -41,6 +41,11 @@ class TenantManagementComponent {
             if (result.success) {
                 this.tenants = result.tenants;
                 this.renderTenantsTable();
+                
+                // Update sidebar badges
+                if (window.updateSidebarBadges) {
+                    window.updateSidebarBadges();
+                }
             } else {
                 console.error('Failed to load tenants:', result.error);
                 this.showEmptyState();

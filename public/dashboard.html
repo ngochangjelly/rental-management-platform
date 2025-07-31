@@ -22,7 +22,72 @@
             background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: white;
+            transition: transform 0.3s ease;
         }
+        
+        /* Mobile sidebar styles */
+        @media (max-width: 767.98px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 280px;
+                z-index: 1000;
+                transform: translateX(-100%);
+                box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 999;
+                display: none;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: none !important;
+            }
+            .mobile-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 1rem;
+                margin: -1.5rem -1.5rem 1rem -1.5rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .mobile-toggle {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.5rem;
+                padding: 0.5rem;
+                cursor: pointer;
+            }
+        }
+        
+        /* Desktop - hide mobile elements */
+        @media (min-width: 768px) {
+            .mobile-header {
+                display: none !important;
+            }
+            .sidebar-overlay {
+                display: none !important;
+            }
+        }
+        
         .nav-link {
             color: rgba(255,255,255,0.8);
             border-radius: 0.5rem;
@@ -39,6 +104,23 @@
         .nav-link i {
             width: 20px;
         }
+        
+        /* Sidebar badge styles */
+        .sidebar .badge {
+            font-size: 0.7rem;
+            min-width: 1.5rem;
+            opacity: 0.9;
+        }
+        
+        .nav-link:hover .badge {
+            opacity: 1;
+        }
+        
+        .nav-link.active .badge {
+            background-color: white !important;
+            color: #667eea !important;
+            opacity: 1;
+        }
         .feature-card {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             cursor: pointer;
@@ -50,6 +132,7 @@
         .stat-card {
             border-left: 4px solid #667eea;
             transition: transform 0.2s ease;
+            margin-bottom: 1rem;
         }
         .stat-card:hover {
             transform: translateY(-2px);
@@ -59,6 +142,50 @@
         }
         #dashboard-section {
             display: block;
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 576px) {
+            .stat-card h3 {
+                font-size: 1.5rem;
+            }
+            .stat-card i {
+                font-size: 2rem !important;
+            }
+            .feature-card {
+                margin-bottom: 1rem;
+            }
+            .feature-card i {
+                font-size: 2.5rem !important;
+            }
+            .card-body {
+                padding: 1rem;
+            }
+            h2 {
+                font-size: 1.5rem;
+            }
+            .btn {
+                font-size: 0.875rem;
+            }
+            
+            /* Mobile badge adjustments */
+            .sidebar .badge {
+                font-size: 0.65rem;
+                min-width: 1.3rem;
+                height: 1.3rem;
+                line-height: 1.1;
+            }
+        }
+        
+        /* Improve mobile spacing */
+        @media (max-width: 767.98px) {
+            .px-4 {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+            .p-4 {
+                padding: 1rem !important;
+            }
         }
         .upload-area {
             border: 2px dashed #dee2e6;
@@ -93,9 +220,12 @@
 </head>
 <body>
     <div class="container-fluid">
+        <!-- Mobile Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
         <div class="row">
             <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4" id="sidebar">
                 <div class="d-flex align-items-center mb-4">
                     <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
                     <h4 class="text-white mb-0">Rental Hub</h4>
@@ -113,13 +243,19 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" data-section="properties">
-                            <i class="bi bi-building me-2"></i>Properties
+                        <a class="nav-link d-flex justify-content-between align-items-center" href="#" data-section="properties">
+                            <span>
+                                <i class="bi bi-building me-2"></i>Properties
+                            </span>
+                            <span class="badge bg-light text-dark rounded-pill" id="propertiesBadge">0</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" data-section="tenants">
-                            <i class="bi bi-people me-2"></i>Tenants
+                        <a class="nav-link d-flex justify-content-between align-items-center" href="#" data-section="tenants">
+                            <span>
+                                <i class="bi bi-people me-2"></i>Tenants
+                            </span>
+                            <span class="badge bg-light text-dark rounded-pill" id="tenantsBadge">0</span>
                         </a>
                     </li>
                 </ul>
@@ -134,7 +270,17 @@
             </nav>
             
             <!-- Main Content -->
-            <main class="col-md-9 col-lg-10 ms-sm-auto px-4">
+            <main class="col-md-9 col-lg-10 ms-sm-auto px-4 main-content">
+                <!-- Mobile Header -->
+                <div class="mobile-header">
+                    <button class="mobile-toggle" id="mobileToggle">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-house-door-fill me-2"></i>
+                        <span>Rental Hub</span>
+                    </div>
+                </div>
                 <!-- Dashboard Section -->
                 <div id="dashboard-section" class="content-section">
                     <div class="p-4">
@@ -148,7 +294,7 @@
 
                         <!-- Quick Stats -->
                         <div class="row mb-4">
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-file-earmark-text text-primary fs-1"></i>
@@ -157,7 +303,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-exclamation-triangle text-warning fs-1"></i>
@@ -166,7 +312,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-shield-check text-success fs-1"></i>
@@ -175,7 +321,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-clock text-info fs-1"></i>
@@ -186,9 +332,9 @@
                             </div>
                         </div>
 
-                        <!-- Quick Stats Row 2 -->
+                        <!-- Property & Tenant Stats -->
                         <div class="row mb-4">
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-building text-info fs-1"></i>
@@ -197,7 +343,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-people text-success fs-1"></i>
@@ -206,7 +352,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-person-check text-primary fs-1"></i>
@@ -215,7 +361,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-sm-6 col-lg-3 mb-3">
                                 <div class="card stat-card">
                                     <div class="card-body text-center">
                                         <i class="bi bi-house text-warning fs-1"></i>
@@ -228,7 +374,7 @@
 
                         <!-- Feature Cards -->
                         <div class="row">
-                            <div class="col-lg-4 mb-4">
+                            <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card feature-card h-100" data-section="analysis">
                                     <div class="card-body text-center p-4">
                                         <i class="bi bi-file-earmark-text text-primary" style="font-size: 3rem;"></i>
@@ -238,7 +384,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4 mb-4">
+                            <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card feature-card h-100" data-section="properties">
                                     <div class="card-body text-center p-4">
                                         <i class="bi bi-building text-success" style="font-size: 3rem;"></i>
@@ -248,7 +394,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4 mb-4">
+                            <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card feature-card h-100" data-section="tenants">
                                     <div class="card-body text-center p-4">
                                         <i class="bi bi-people text-info" style="font-size: 3rem;"></i>
@@ -488,12 +634,106 @@
                 
                 // Initialize dashboard controller if authenticated
                 dashboardController = new DashboardController();
+                
+                // Initialize mobile navigation
+                initializeMobileNavigation();
+                
+                // Update sidebar badges
+                updateSidebarBadges();
+                
+                // Make badge update function globally accessible
+                window.updateSidebarBadges = updateSidebarBadges;
             } catch (error) {
                 console.error('Authentication check failed:', error);
                 // Redirect to login on error
                 window.location.href = '/auth/login';
             }
         });
+        
+        function initializeMobileNavigation() {
+            const mobileToggle = document.getElementById('mobileToggle');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            if (mobileToggle && sidebar && sidebarOverlay) {
+                // Toggle sidebar on mobile
+                mobileToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('show');
+                    sidebarOverlay.classList.toggle('show');
+                });
+                
+                // Close sidebar when clicking overlay
+                sidebarOverlay.addEventListener('click', function() {
+                    sidebar.classList.remove('show');
+                    sidebarOverlay.classList.remove('show');
+                });
+                
+                // Close sidebar when clicking nav links on mobile
+                const navLinks = sidebar.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 768) {
+                            sidebar.classList.remove('show');
+                            sidebarOverlay.classList.remove('show');
+                        }
+                    });
+                });
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth >= 768) {
+                        sidebar.classList.remove('show');
+                        sidebarOverlay.classList.remove('show');
+                    }
+                });
+            }
+        }
+        
+        // Function to update sidebar badges
+        async function updateSidebarBadges() {
+            try {
+                // Fetch properties count
+                const propertiesResponse = await fetch('/api/properties', {
+                    credentials: 'include'
+                });
+                
+                if (propertiesResponse.ok) {
+                    const propertiesResult = await propertiesResponse.json();
+                    const propertiesCount = propertiesResult.success ? propertiesResult.properties.length : 0;
+                    
+                    const propertiesBadge = document.getElementById('propertiesBadge');
+                    if (propertiesBadge) {
+                        propertiesBadge.textContent = propertiesCount;
+                        // Hide badge if count is 0
+                        propertiesBadge.style.display = propertiesCount > 0 ? 'inline-block' : 'none';
+                    }
+                }
+                
+                // Fetch tenants count
+                const tenantsResponse = await fetch('/api/tenants', {
+                    credentials: 'include'
+                });
+                
+                if (tenantsResponse.ok) {
+                    const tenantsResult = await tenantsResponse.json();
+                    const tenantsCount = tenantsResult.success ? tenantsResult.tenants.length : 0;
+                    
+                    const tenantsBadge = document.getElementById('tenantsBadge');
+                    if (tenantsBadge) {
+                        tenantsBadge.textContent = tenantsCount;
+                        // Hide badge if count is 0
+                        tenantsBadge.style.display = tenantsCount > 0 ? 'inline-block' : 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating sidebar badges:', error);
+                // Hide badges on error
+                const propertiesBadge = document.getElementById('propertiesBadge');
+                const tenantsBadge = document.getElementById('tenantsBadge');
+                if (propertiesBadge) propertiesBadge.style.display = 'none';
+                if (tenantsBadge) tenantsBadge.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>

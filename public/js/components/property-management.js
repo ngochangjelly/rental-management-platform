@@ -41,6 +41,11 @@ class PropertyManagementComponent {
             if (result.success) {
                 this.properties = result.properties;
                 this.renderPropertiesTable();
+                
+                // Update sidebar badges
+                if (window.updateSidebarBadges) {
+                    window.updateSidebarBadges();
+                }
             } else {
                 console.error('Failed to load properties:', result.error);
                 this.showEmptyState();
