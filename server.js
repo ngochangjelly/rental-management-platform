@@ -19,8 +19,8 @@ console.log("Running in serverless environment:", isServerless);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize sessions with fallback for production
-const initSessionConfig = () => {
+// Initialize sessions with MongoDB store for production
+const initSessionMiddleware = () => {
   const config = {
     secret: process.env.APP_SECRET || "your-secret-key-here",
     resave: false,
@@ -28,26 +28,36 @@ const initSessionConfig = () => {
     cookie: {
       secure: false,
       maxAge: 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: 'lax'
     },
   };
 
-  // In serverless, use memory sessions but ensure they work
-  if (isServerless) {
-    config.cookie.httpOnly = true;
-    config.cookie.sameSite = 'lax';
+  // Use MongoDB connection string directly for serverless
+  if (isServerless && process.env.MONGODB_URI) {
+    try {
+      config.store = MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        dbName: 'test',
+        collectionName: 'sessions',
+        ttl: 24 * 60 * 60, // 24 hours
+        touchAfter: 24 * 3600, // lazy session update
+        stringify: false,
+        autoRemove: 'native'
+      });
+      console.log("🔧 MongoDB session store configured for serverless");
+    } catch (error) {
+      console.warn("⚠️ Failed to configure MongoDB session store:", error.message);
+      console.log("📝 Using memory sessions as fallback");
+    }
   }
 
-  return config;
+  return session(config);
 };
 
-try {
-  // Use session config with serverless optimizations
-  app.use(session(initSessionConfig()));
-  console.log("🔧 Session middleware initialized successfully");
-} catch (error) {
-  console.error("❌ Failed to initialize session middleware:", error);
-  throw error;
-}
+// Initialize session middleware
+app.use(initSessionMiddleware());
+console.log("🔧 Session middleware initialized");
 
 // Static files
 app.use(express.static("public"));
@@ -81,12 +91,29 @@ const ensureDBConnection = async (req, res, next) => {
 
 // Authentication middleware for API routes
 const requireAuth = (req, res, next) => {
-  if (!req.session || !req.session.user) {
+  // Debug logging for serverless environments
+  if (isServerless) {
+    console.log('Auth check - Session exists:', !!req.session);
+    console.log('Auth check - User in session:', !!req.session?.user);
+    console.log('Auth check - Session ID:', req.sessionID);
+  }
+  
+  if (!req.session) {
+    console.warn('Authentication failed: No session object');
     return res.status(401).json({ 
       success: false, 
-      error: 'Authentication required' 
+      error: 'Authentication required - no session' 
     });
   }
+  
+  if (!req.session.user) {
+    console.warn('Authentication failed: No user in session');
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Authentication required - not logged in' 
+    });
+  }
+  
   next();
 };
 
