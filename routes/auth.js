@@ -1,11 +1,16 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 // Hardcoded admin credentials from environment
 const ADMIN_USERNAME = process.env.APP_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.APP_PASSWORD || "RentalAdmin2024!@#$";
+
+// JWT secret for serverless authentication
+const JWT_SECRET = process.env.JWT_SECRET || process.env.APP_SECRET || "your-jwt-secret-key-here";
+const isServerless = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 // Login page
 router.get("/login", (req, res) => {
@@ -184,18 +189,8 @@ router.get("/login", (req, res) => {
 router.post("/login", (req, res) => {
   try {
     console.log("Login attempt received");
-    console.log("Request headers:", Object.keys(req.headers));
-    console.log("Session available:", !!req.session);
+    console.log("Environment:", { isServerless, hasJWT: !!JWT_SECRET });
     console.log("Body received:", !!req.body);
-    
-    // Check if session middleware is working
-    if (!req.session) {
-      console.error("Session middleware not working");
-      return res.status(500).json({
-        success: false,
-        message: "Session middleware not initialized",
-      });
-    }
     
     const { username, password } = req.body;
     console.log("Credentials received:", { username: !!username, password: !!password });
@@ -215,31 +210,53 @@ router.post("/login", (req, res) => {
 
     // Simple authentication against hardcoded credentials
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      console.log("Authentication successful, setting session");
+      console.log("Authentication successful");
       
-      req.session.user = {
+      const userPayload = {
         id: 1,
         username: ADMIN_USERNAME,
         role: "admin",
       };
-      
-      // Save session explicitly
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to save session",
-          });
-        }
+
+      if (isServerless) {
+        // Use JWT for serverless environments
+        console.log("Using JWT authentication for serverless");
+        const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '24h' });
         
-        console.log("Session saved successfully");
+        res.cookie('auth_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        });
+        
+        console.log("JWT token set, responding immediately");
         return res.json({
           success: true,
           message: "Login successful",
           redirectUrl: "/dashboard.html",
         });
-      });
+      } else {
+        // Use sessions for local development
+        console.log("Using session authentication for local");
+        
+        if (!req.session) {
+          console.error("Session middleware not working");
+          return res.status(500).json({
+            success: false,
+            message: "Session middleware not initialized",
+          });
+        }
+        
+        req.session.user = userPayload;
+        
+        console.log("Session user set, responding immediately");
+        return res.json({
+          success: true,
+          message: "Login successful",
+          redirectUrl: "/dashboard.html",
+        });
+      }
     } else {
       console.log("Invalid credentials provided");
       return res.status(401).json({
@@ -259,40 +276,87 @@ router.post("/login", (req, res) => {
 
 // Logout endpoint (POST)
 router.post("/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        message: "Could not log out",
-      });
-    }
+  if (isServerless) {
+    // Clear JWT cookie
+    res.clearCookie('auth_token');
     res.json({
       success: true,
       message: "Logged out successfully",
       redirectUrl: "/auth/login",
     });
-  });
+  } else {
+    // Destroy session
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: "Could not log out",
+        });
+      }
+      res.json({
+        success: true,
+        message: "Logged out successfully",
+        redirectUrl: "/auth/login",
+      });
+    });
+  }
 });
 
 // Logout endpoint (GET) - for direct links
 router.get("/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("Logout error:", err);
-      return res.redirect("/auth/login?error=logout_failed");
-    }
+  if (isServerless) {
+    // Clear JWT cookie
+    res.clearCookie('auth_token');
     res.redirect("/auth/login");
-  });
+  } else {
+    // Destroy session
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.redirect("/auth/login?error=logout_failed");
+      }
+      res.redirect("/auth/login");
+    });
+  }
 });
 
 // Check authentication status
 router.get("/status", (req, res) => {
-  res.json({
-    authenticated: !!req.session?.user,
-    user: req.session?.user || null,
-    sessionExists: !!req.session,
-    sessionId: req.sessionID,
-  });
+  if (isServerless) {
+    // Check JWT token
+    const token = req.cookies.auth_token;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        res.json({
+          authenticated: true,
+          user: decoded,
+          tokenExists: true,
+        });
+      } catch (error) {
+        res.json({
+          authenticated: false,
+          user: null,
+          tokenExists: false,
+          error: 'Invalid token'
+        });
+      }
+    } else {
+      res.json({
+        authenticated: false,
+        user: null,
+        tokenExists: false,
+      });
+    }
+  } else {
+    // Check session
+    res.json({
+      authenticated: !!req.session?.user,
+      user: req.session?.user || null,
+      sessionExists: !!req.session,
+      sessionId: req.sessionID,
+    });
+  }
 });
 
 // Debug endpoint for serverless environment

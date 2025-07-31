@@ -5,6 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
+const cookieParser = require("cookie-parser");
 const { connectDB } = require("./config/database");
 
 const app = express();
@@ -18,13 +19,15 @@ console.log("Running in serverless environment:", isServerless);
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Initialize sessions with MongoDB store for production
+// Initialize sessions with optimized configuration for serverless
 const initSessionMiddleware = () => {
   const config = {
     secret: process.env.APP_SECRET || "your-secret-key-here",
     resave: false,
     saveUninitialized: false,
+    rolling: false, // Don't extend expiry on every request
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000,
@@ -33,8 +36,12 @@ const initSessionMiddleware = () => {
     },
   };
 
-  // Always try to use MongoDB store if URI is available
-  if (process.env.MONGODB_URI) {
+  // For serverless, use simpler session handling
+  if (isServerless) {
+    console.log("🔧 Using memory sessions for serverless");
+    // Use memory store for serverless to avoid connection timeouts
+    // Sessions will be lost on function restart but that's acceptable
+  } else if (process.env.MONGODB_URI) {
     try {
       config.store = MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
@@ -44,9 +51,10 @@ const initSessionMiddleware = () => {
         touchAfter: 24 * 3600, // lazy session update
         stringify: false,
         autoRemove: 'native',
-        // Additional options for serverless
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 10000,
+        // Optimized for serverless - very short timeouts
+        serverSelectionTimeoutMS: 2000,
+        socketTimeoutMS: 3000,
+        connectTimeoutMS: 2000,
         family: 4
       });
       console.log("🔧 MongoDB session store configured");
@@ -97,33 +105,63 @@ const ensureDBConnection = async (req, res, next) => {
 
 // Authentication middleware for API routes
 const requireAuth = (req, res, next) => {
-  // Debug logging for serverless environments
+  const jwt = require('jsonwebtoken');
+  const JWT_SECRET = process.env.JWT_SECRET || process.env.APP_SECRET || "your-jwt-secret-key-here";
+  
   if (isServerless) {
+    // JWT authentication for serverless
+    console.log('Auth check - Using JWT for serverless');
+    const token = req.cookies.auth_token;
+    console.log('Auth check - Token exists:', !!token);
+    
+    if (!token) {
+      console.warn('Authentication failed: No JWT token');
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required - no token' 
+      });
+    }
+    
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+      console.log('Auth check - JWT valid:', decoded.username);
+      next();
+    } catch (error) {
+      console.warn('Authentication failed: Invalid JWT token:', error.message);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required - invalid token' 
+      });
+    }
+  } else {
+    // Session authentication for local development
+    console.log('Auth check - Using sessions for local');
     console.log('Auth check - Session exists:', !!req.session);
     console.log('Auth check - User in session:', !!req.session?.user);
-    console.log('Auth check - Session ID:', req.sessionID);
+    
+    if (!req.session) {
+      console.warn('Authentication failed: No session object');
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required - no session' 
+      });
+    }
+    
+    if (!req.session.user) {
+      console.warn('Authentication failed: No user in session');
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required - not logged in' 
+      });
+    }
+    
+    req.user = req.session.user;
+    next();
   }
-  
-  if (!req.session) {
-    console.warn('Authentication failed: No session object');
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Authentication required - no session' 
-    });
-  }
-  
-  if (!req.session.user) {
-    console.warn('Authentication failed: No user in session');
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Authentication required - not logged in' 
-    });
-  }
-  
-  next();
 };
 
-// Routes
+// Routes - remove DB middleware for auth routes to avoid timeout
 app.use("/auth", require("./routes/auth"));
 app.use("/api/properties", requireAuth, ensureDBConnection, require("./routes/properties"));
 app.use("/api/tenants", requireAuth, ensureDBConnection, require("./routes/tenants"));
@@ -158,23 +196,44 @@ app.get("/pdf/:filename", (req, res) => {
 // Main route - redirect to dashboard.html if logged in
 app.get("/", (req, res) => {
   try {
-    console.log(
-      "Main route accessed, session:",
-      req.session ? "exists" : "missing"
-    );
+    if (isServerless) {
+      console.log("Main route accessed in serverless");
+      const jwt = require('jsonwebtoken');
+      const JWT_SECRET = process.env.JWT_SECRET || process.env.APP_SECRET || "your-jwt-secret-key-here";
+      const token = req.cookies.auth_token;
+      
+      if (!token) {
+        console.log("No JWT token found, redirecting to login");
+        return res.redirect("/auth/login");
+      }
+      
+      try {
+        jwt.verify(token, JWT_SECRET);
+        console.log("Valid JWT token, redirecting to dashboard");
+        return res.redirect("/dashboard.html");
+      } catch (error) {
+        console.log("Invalid JWT token, redirecting to login");
+        return res.redirect("/auth/login");
+      }
+    } else {
+      console.log(
+        "Main route accessed, session:",
+        req.session ? "exists" : "missing"
+      );
 
-    if (!req.session) {
-      console.log("No session object found");
-      return res.redirect("/auth/login");
+      if (!req.session) {
+        console.log("No session object found");
+        return res.redirect("/auth/login");
+      }
+
+      if (!req.session.user) {
+        console.log("No user in session, redirecting to login");
+        return res.redirect("/auth/login");
+      }
+
+      console.log("User logged in, redirecting to dashboard");
+      return res.redirect("/dashboard.html");
     }
-
-    if (!req.session.user) {
-      console.log("No user in session, redirecting to login");
-      return res.redirect("/auth/login");
-    }
-
-    console.log("User logged in, redirecting to dashboard");
-    return res.redirect("/dashboard.html");
   } catch (error) {
     console.error("Error in main route:", error);
     return res

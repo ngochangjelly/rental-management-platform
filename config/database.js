@@ -17,15 +17,15 @@ const connectDB = async () => {
       throw new Error('MONGODB_URI environment variable is not defined');
     }
 
-    // Optimized connection options for serverless
+    // Optimized connection options for serverless - very fast timeouts
     const connectionOptions = {
-      serverSelectionTimeoutMS: 10000, // Reduced from 30s to 10s
-      socketTimeoutMS: 20000, // 20 second socket timeout
-      maxPoolSize: 5, // Smaller pool for serverless
-      minPoolSize: 1,
-      maxIdleTimeMS: 30000, // Close connections after 30s idle
+      serverSelectionTimeoutMS: 3000, // Very short timeout for serverless
+      socketTimeoutMS: 5000, // Short socket timeout
+      maxPoolSize: 2, // Minimal pool for serverless
+      minPoolSize: 0, // No minimum connections
+      maxIdleTimeMS: 10000, // Close connections quickly
       bufferCommands: false, // Disable mongoose buffering
-      connectTimeoutMS: 10000, // 10 second connection timeout
+      connectTimeoutMS: 3000, // Very short connection timeout
       family: 4, // Use IPv4, skip IPv6
     };
 
