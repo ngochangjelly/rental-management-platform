@@ -127,38 +127,34 @@ class DashboardController {
 
     async loadDashboardStats() {
         try {
-            // Load properties count
-            const propertiesResponse = await fetch('/api/properties', {
-                credentials: 'include'
-            });
+            // Load properties stats
+            const propertiesResponse = await API.get(API_CONFIG.ENDPOINTS.PROPERTY_STATS);
             const propertiesResult = await propertiesResponse.json();
-            const propertiesCount = propertiesResult.success ? propertiesResult.properties.length : 0;
             
-            const propertiesCountEl = document.getElementById('propertiesCount');
-            if (propertiesCountEl) {
-                propertiesCountEl.textContent = propertiesCount;
+            if (propertiesResult.success) {
+                const propertiesCountEl = document.getElementById('propertiesCount');
+                if (propertiesCountEl) {
+                    propertiesCountEl.textContent = propertiesResult.stats.totalProperties || 0;
+                }
             }
 
-            // Load tenants count and analyze them
-            const tenantsResponse = await fetch('/api/tenants', {
-                credentials: 'include'
-            });
+            // Load tenants stats
+            const tenantsResponse = await API.get(API_CONFIG.ENDPOINTS.TENANT_STATS);
             const tenantsResult = await tenantsResponse.json();
             
             if (tenantsResult.success) {
-                const tenants = tenantsResult.tenants;
-                const registeredCount = tenants.filter(t => t.isRegistered).length;
-                const occupiedPropertiesCount = new Set(
-                    tenants.flatMap(t => t.properties || [])
-                ).size;
+                const stats = tenantsResult.stats;
+                const totalTenants = stats.totalTenants || 0;
+                const registeredCount = stats.registeredTenants || 0;
+                const tenantsWithProperties = stats.tenantsWithProperties || 0;
 
                 const tenantsCountEl = document.getElementById('tenantsCount');
                 const registeredTenantsEl = document.getElementById('registeredTenants');
                 const occupiedPropertiesEl = document.getElementById('occupiedProperties');
 
-                if (tenantsCountEl) tenantsCountEl.textContent = tenants.length;
+                if (tenantsCountEl) tenantsCountEl.textContent = totalTenants;
                 if (registeredTenantsEl) registeredTenantsEl.textContent = registeredCount;
-                if (occupiedPropertiesEl) occupiedPropertiesEl.textContent = occupiedPropertiesCount;
+                if (occupiedPropertiesEl) occupiedPropertiesEl.textContent = tenantsWithProperties;
             }
 
             // Update contracts analyzed count (placeholder)

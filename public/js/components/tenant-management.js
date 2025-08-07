@@ -33,9 +33,7 @@ class TenantManagementComponent {
 
     async loadTenants() {
         try {
-            const response = await fetch('/api/tenants', {
-                credentials: 'include'
-            });
+            const response = await API.get(API_CONFIG.ENDPOINTS.TENANTS);
             const result = await response.json();
             
             if (result.success) {
@@ -198,14 +196,7 @@ class TenantManagementComponent {
 
     async addTenant(tenantData) {
         try {
-            const response = await fetch('/api/tenants', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(tenantData)
-            });
+            const response = await API.post(API_CONFIG.ENDPOINTS.TENANTS, tenantData);
 
             const result = await response.json();
             
@@ -234,14 +225,7 @@ class TenantManagementComponent {
         if (!updatedData) return;
 
         try {
-            const response = await fetch(`/api/tenants/${encodeURIComponent(fin)}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(updatedData)
-            });
+            const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_FIN(fin), updatedData);
 
             const result = await response.json();
             
@@ -263,10 +247,7 @@ class TenantManagementComponent {
         }
 
         try {
-            const response = await fetch(`/api/tenants/${encodeURIComponent(fin)}`, {
-                method: 'DELETE',
-                credentials: 'include'
-            });
+            const response = await API.delete(API_CONFIG.ENDPOINTS.TENANT_BY_FIN(fin));
 
             const result = await response.json();
             
@@ -285,14 +266,7 @@ class TenantManagementComponent {
     // Method to assign tenant to property
     async assignToProperty(fin, propertyId) {
         try {
-            const response = await fetch(`/api/tenants/${encodeURIComponent(fin)}/assign-property`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({ propertyId })
-            });
+            const response = await API.post(`/api/tenants/${encodeURIComponent(fin)}/assign-property`, { propertyId });
 
             const result = await response.json();
             

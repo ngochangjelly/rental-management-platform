@@ -19,11 +19,14 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     </script>
 
+    <!-- API Configuration -->
+    <script src="/js/config.js?v=3"></script>
+    
     <!-- Component Scripts -->
-    <script src="/js/components/contract-analysis.js"></script>
-    <script src="/js/components/property-management.js"></script>
-    <script src="/js/components/tenant-management.js"></script>
-    <script src="/js/dashboard-controller.js"></script>
+    <script src="/js/components/contract-analysis.js?v=3"></script>
+    <script src="/js/components/property-management.js?v=3"></script>
+    <script src="/js/components/tenant-management.js?v=3"></script>
+    <script src="/js/dashboard-controller.js?v=3"></script>
     <style>
       .sidebar {
         background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
@@ -722,14 +725,12 @@
       document.addEventListener("DOMContentLoaded", async function () {
         try {
           // Check authentication status
-          const response = await fetch("/auth/status", {
-            credentials: "include",
-          });
+          const response = await API.get(API_CONFIG.ENDPOINTS.STATUS);
           const result = await response.json();
 
           if (!result.authenticated) {
             // Redirect to login if not authenticated
-            window.location.href = "/auth/login";
+            window.location.href = "/login.html";
             return;
           }
 

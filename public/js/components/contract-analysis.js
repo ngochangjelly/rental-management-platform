@@ -82,7 +82,7 @@ class ContractAnalysisComponent {
 
         try {
             // Upload file
-            const uploadResponse = await fetch('/upload/agreement', {
+            const uploadResponse = await fetch(buildApiUrl('/upload/agreement'), {
                 method: 'POST',
                 credentials: 'include',
                 body: formData
@@ -96,15 +96,8 @@ class ContractAnalysisComponent {
             console.log('File uploaded:', uploadResult.filename);
 
             // Analyze uploaded file
-            const analysisResponse = await fetch('/analysis/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    filename: uploadResult.filename
-                })
+            const analysisResponse = await API.post('/analysis/analyze', {
+                filename: uploadResult.filename
             });
 
             if (!analysisResponse.ok) {
@@ -371,14 +364,7 @@ class ContractAnalysisComponent {
                 }
                 
                 try {
-                    const response = await fetch('/analysis/report', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'include',
-                        body: JSON.stringify(this.analysisData)
-                    });
+                    const response = await API.post('/analysis/report', this.analysisData);
                     
                     if (response.ok) {
                         const blob = await response.blob();

@@ -33,9 +33,7 @@ class PropertyManagementComponent {
 
     async loadProperties() {
         try {
-            const response = await fetch('/api/properties', {
-                credentials: 'include'
-            });
+            const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
             const result = await response.json();
             
             if (result.success) {
@@ -187,15 +185,7 @@ class PropertyManagementComponent {
 
     async addProperty(propertyData) {
         try {
-            const response = await fetch('/api/properties', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(propertyData)
-            });
-
+            const response = await API.post(API_CONFIG.ENDPOINTS.PROPERTIES, propertyData);
             const result = await response.json();
             
             if (result.success) {

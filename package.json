@@ -1,18 +1,17 @@
 {
   "name": "rental-management-platform",
   "version": "1.0.0",
-  "description": "AI-powered rental management platform with tenancy agreement analysis and business utilities",
-  "main": "server.js",
+  "description": "AI-powered rental management platform frontend - SPA client",
+  "main": "public/index.html",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "echo 'Build completed - static files ready'",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint . --ext .js",
-    "lint:fix": "eslint . --ext .js --fix",
-    "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh"
+    "prestart": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
+    "start": "npx serve public -l 3000",
+    "predev": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
+    "dev": "npx serve public -l 3000",
+    "build": "echo 'SPA build completed - static files ready'",
+    "preview": "npx serve public",
+    "lint": "eslint public/js --ext .js",
+    "lint:fix": "eslint public/js --ext .js --fix"
   },
   "keywords": [
     "rental",
@@ -29,26 +28,12 @@
     "node": ">=16.0.0",
     "npm": ">=8.0.0"
   },
-  "dependencies": {
-    "axios": "^1.6.0",
-    "bcryptjs": "^2.4.3",
-    "connect-mongo": "^5.1.0",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-session": "^1.17.3",
-    "helmet": "^7.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.16.5",
-    "multer": "^2.0.2",
-    "pdf-parse": "^1.1.1",
-    "serverless-http": "^3.2.0"
+  "dependencies": {},
+  "optionalDependencies": {
+    "serve": "^14.2.0"
   },
   "devDependencies": {
     "eslint": "^8.55.0",
-    "jest": "^29.7.0",
-    "nodemon": "^3.0.1",
-    "supertest": "^6.3.3"
+    "serve": "^14.2.0"
   }
 }
