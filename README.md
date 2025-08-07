@@ -10,7 +10,6 @@
 git clone https://github.com/ngochangjelly/rental-management-platform.git
 cd rental-management-platform
 npm install
-cp .env.example .env
 npm start
 ```
 
