@@ -76,7 +76,7 @@ APP_PASSWORD="your_secure_password_here"
 
 # Database Configuration
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority&appName=YourApp
-DATABASE_NAME=rental_management
+DATABASE_NAME=your_database_name
 
 # Claude AI Configuration (optional)
 CLAUDE_API_KEY=your_claude_api_key_here
@@ -86,7 +86,7 @@ APP_SECRET=your_super_secret_session_key_here
 
 # Server Configuration
 PORT=3000
-NODE_ENV=development
+NODE_ENV=your_environment_here
 ```
 
 ```bash
