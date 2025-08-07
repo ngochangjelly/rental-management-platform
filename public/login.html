@@ -142,6 +142,8 @@
                     
                     const result = await response.json();
                     console.log('Response result:', result);
+                    console.log('Token in response:', result.token);
+                    console.log('Response keys:', Object.keys(result));
                     
                     if (result.success) {
                         console.log('Login successful, redirecting to:', result.redirectUrl || '/dashboard.html');
