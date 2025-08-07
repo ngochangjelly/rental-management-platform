@@ -85,7 +85,6 @@ APP_SECRET=your_super_secret_session_key_here
 
 # Server Configuration
 PORT=3000
-NODE_ENV=your_environment_here
 ```
 
 ```bash
