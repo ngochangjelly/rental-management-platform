@@ -4,7 +4,7 @@ const API_CONFIG = {
   BASE_URL:
     window.location.hostname === "localhost"
       ? "http://localhost:3001" // Local development - start your rental-management-backend here
-      : "https://rental-management-backend.vercel.app", // Production backend URL
+      : "https://rental-management-backend-mocha.vercel.app", // Production backend URL - Vercel deployment
 
   // API endpoints
   ENDPOINTS: {

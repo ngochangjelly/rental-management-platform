@@ -22,6 +22,21 @@ class PropertyManagementComponent {
             });
         }
 
+        // Property form submission (add/edit)
+        const propertyForm = document.getElementById('propertyForm');
+        if (propertyForm) {
+            propertyForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handlePropertySubmit(e);
+            });
+        }
+
+        // Set default move-in date to today
+        const moveInDateInput = document.getElementById('moveInDate');
+        if (moveInDateInput && !moveInDateInput.value) {
+            moveInDateInput.value = new Date().toISOString().split('T')[0];
+        }
+
         // Search functionality
         const searchInput = document.getElementById('propertySearchInput');
         if (searchInput) {
@@ -146,11 +161,91 @@ class PropertyManagementComponent {
     }
 
     showAddPropertyModal() {
-        // For now, show a simple prompt - in a real app, you'd show a proper modal
-        const propertyData = this.getPropertyDataFromUser();
-        if (propertyData) {
-            this.addProperty(propertyData);
+        this.showPropertyModal();
+    }
+
+    showPropertyModal(property = null) {
+        // Update modal title and button text
+        const isEdit = !!property;
+        document.getElementById('propertyModalTitle').textContent = isEdit ? 'Edit Property' : 'Add New Property';
+        const submitBtn = document.getElementById('propertySubmitBtn');
+        submitBtn.innerHTML = isEdit 
+            ? '<i class="bi bi-pencil-square me-1"></i><span id="propertySubmitText">Update Property</span>'
+            : '<i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">Add Property</span>';
+
+        // Reset and populate form
+        const form = document.getElementById('propertyForm');
+        if (form) {
+            form.reset();
+            
+            // Store the property being edited (if any)
+            form.setAttribute('data-property-id', property?.propertyId || '');
+            form.setAttribute('data-mode', isEdit ? 'edit' : 'add');
+            
+            if (isEdit && property) {
+                // Populate form with existing data
+                document.getElementById('propertyId').value = property.propertyId || '';
+                document.getElementById('address').value = property.address || '';
+                document.getElementById('unit').value = property.unit || '';
+                document.getElementById('maxPax').value = property.maxPax || 1;
+                
+                // Format date for input
+                if (property.moveInDate) {
+                    const date = new Date(property.moveInDate);
+                    document.getElementById('moveInDate').value = date.toISOString().split('T')[0];
+                } else {
+                    document.getElementById('moveInDate').value = new Date().toISOString().split('T')[0];
+                }
+                
+                document.getElementById('rentPaymentDate').value = property.rentPaymentDate || 1;
+                document.getElementById('rent').value = property.rent || 0;
+                document.getElementById('agentName').value = property.agentName || '';
+                document.getElementById('agentPhone').value = property.agentPhone || '';
+                document.getElementById('landlordBankAccount').value = property.landlordBankAccount || '';
+                document.getElementById('landlordBankName').value = property.landlordBankName || '';
+                document.getElementById('landlordAccountName').value = property.landlordAccountName || '';
+                
+                // Make propertyId readonly in edit mode
+                document.getElementById('propertyId').readOnly = true;
+                document.getElementById('propertyId').classList.add('bg-light');
+            } else {
+                // Set default values for add mode
+                const moveInDateInput = document.getElementById('moveInDate');
+                if (moveInDateInput) {
+                    moveInDateInput.value = new Date().toISOString().split('T')[0];
+                }
+                
+                document.getElementById('maxPax').value = '1';
+                document.getElementById('rentPaymentDate').value = '1';
+                document.getElementById('rent').value = '0';
+                
+                // Make propertyId editable in add mode
+                document.getElementById('propertyId').readOnly = false;
+                document.getElementById('propertyId').classList.remove('bg-light');
+            }
         }
+        
+        // Show modal
+        const modalEl = document.getElementById('propertyModal');
+        const modal = new bootstrap.Modal(modalEl);
+        
+        // Add event listener for when modal is fully hidden
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            this.cleanupModal();
+        }, { once: true });
+        
+        modal.show();
+    }
+
+    cleanupModal() {
+        // Remove any remaining backdrop
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+        
+        // Remove modal classes from body
+        document.body.classList.remove('modal-open');
+        document.body.style.paddingRight = '';
+        document.body.style.overflow = '';
     }
 
     getPropertyDataFromUser(existingProperty = null) {
@@ -183,6 +278,102 @@ class PropertyManagementComponent {
         };
     }
 
+    async handlePropertySubmit(event) {
+        try {
+            const form = event.target;
+            const formData = new FormData(form);
+            const isEdit = form.getAttribute('data-mode') === 'edit';
+            const originalPropertyId = form.getAttribute('data-property-id');
+
+            const propertyData = {
+                propertyId: formData.get('propertyId').trim().toUpperCase(),
+                address: formData.get('address').trim(),
+                unit: formData.get('unit').trim(),
+                maxPax: parseInt(formData.get('maxPax')) || 1,
+                moveInDate: formData.get('moveInDate') || new Date().toISOString().split('T')[0],
+                rentPaymentDate: parseInt(formData.get('rentPaymentDate')) || 1,
+                rent: parseFloat(formData.get('rent')) || 0,
+                agentName: formData.get('agentName')?.trim() || '',
+                agentPhone: formData.get('agentPhone')?.trim() || '',
+                landlordBankAccount: formData.get('landlordBankAccount')?.trim() || '',
+                landlordBankName: formData.get('landlordBankName')?.trim() || '',
+                landlordAccountName: formData.get('landlordAccountName')?.trim() || ''
+            };
+
+            // Validate required fields
+            if (!propertyData.propertyId || !propertyData.address || !propertyData.unit) {
+                alert('Please fill in all required fields (Property ID, Address, Unit)');
+                return;
+            }
+
+            // Validate numeric fields
+            if (propertyData.maxPax < 1 || propertyData.maxPax > 20) {
+                alert('Maximum occupancy must be between 1 and 20');
+                return;
+            }
+
+            if (propertyData.rentPaymentDate < 1 || propertyData.rentPaymentDate > 31) {
+                alert('Rent payment date must be between 1 and 31');
+                return;
+            }
+
+            if (propertyData.rent < 0) {
+                alert('Rent cannot be negative');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = isEdit 
+                ? '<i class="bi bi-hourglass-split me-1"></i>Updating Property...'
+                : '<i class="bi bi-hourglass-split me-1"></i>Adding Property...';
+
+            // Add or update the property
+            if (isEdit) {
+                await this.updateProperty(originalPropertyId, propertyData);
+            } else {
+                await this.addProperty(propertyData);
+            }
+
+            // Close modal on success
+            const modal = bootstrap.Modal.getInstance(document.getElementById('propertyModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Ensure backdrop is removed
+            setTimeout(() => {
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+            }, 300);
+
+            // Reset button state
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+
+        } catch (error) {
+            console.error('Error in handlePropertySubmit:', error);
+            const isEdit = event.target.getAttribute('data-mode') === 'edit';
+            alert(`An error occurred while ${isEdit ? 'updating' : 'adding'} the property. Please try again.`);
+            
+            // Reset button state
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                const isEdit = event.target.getAttribute('data-mode') === 'edit';
+                submitBtn.innerHTML = isEdit 
+                    ? '<i class="bi bi-pencil-square me-1"></i>Update Property'
+                    : '<i class="bi bi-plus-circle me-1"></i>Add Property';
+            }
+        }
+    }
+
     async addProperty(propertyData) {
         try {
             const response = await API.post(API_CONFIG.ENDPOINTS.PROPERTIES, propertyData);
@@ -208,20 +399,13 @@ class PropertyManagementComponent {
             return;
         }
 
-        // Get updated data from user
-        const updatedData = this.getPropertyDataFromUser(property);
-        if (!updatedData) return;
+        // Show the modal with property data
+        this.showPropertyModal(property);
+    }
 
+    async updateProperty(propertyId, propertyData) {
         try {
-            const response = await fetch(`/api/properties/${encodeURIComponent(propertyId)}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(updatedData)
-            });
-
+            const response = await API.put(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId), propertyData);
             const result = await response.json();
             
             if (result.success) {
@@ -232,7 +416,8 @@ class PropertyManagementComponent {
             }
         } catch (error) {
             console.error('Error updating property:', error);
-            alert('Error updating property. Please try again.');
+            alert('Error updating property: ' + error.message);
+            throw error; // Re-throw to handle in form submission
         }
     }
 
