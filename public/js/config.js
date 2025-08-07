@@ -48,7 +48,7 @@ const buildApiUrl = (endpoint) => {
   return `${API_CONFIG.BASE_URL}${endpoint}`;
 };
 
-// Default fetch options with credentials for cookies
+// Default fetch options with credentials for cookies and auth token
 const defaultFetchOptions = {
   credentials: "include",
   headers: {
@@ -56,12 +56,23 @@ const defaultFetchOptions = {
   },
 };
 
+// Function to get auth headers including token
+const getAuthHeaders = () => {
+  const headers = { "Content-Type": "application/json" };
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 // API helper functions
 const API = {
   get: async (endpoint, options = {}) => {
     const response = await fetch(buildApiUrl(endpoint), {
       method: "GET",
-      ...defaultFetchOptions,
+      credentials: "include",
+      headers: { ...getAuthHeaders(), ...(options.headers || {}) },
       ...options,
     });
     return response;
@@ -70,7 +81,8 @@ const API = {
   post: async (endpoint, data = null, options = {}) => {
     const response = await fetch(buildApiUrl(endpoint), {
       method: "POST",
-      ...defaultFetchOptions,
+      credentials: "include",
+      headers: { ...getAuthHeaders(), ...(options.headers || {}) },
       body: data ? JSON.stringify(data) : null,
       ...options,
     });
@@ -80,7 +92,8 @@ const API = {
   put: async (endpoint, data = null, options = {}) => {
     const response = await fetch(buildApiUrl(endpoint), {
       method: "PUT",
-      ...defaultFetchOptions,
+      credentials: "include",
+      headers: { ...getAuthHeaders(), ...(options.headers || {}) },
       body: data ? JSON.stringify(data) : null,
       ...options,
     });
@@ -90,14 +103,23 @@ const API = {
   delete: async (endpoint, options = {}) => {
     const response = await fetch(buildApiUrl(endpoint), {
       method: "DELETE",
-      ...defaultFetchOptions,
+      credentials: "include",
+      headers: { ...getAuthHeaders(), ...(options.headers || {}) },
       ...options,
     });
     return response;
   },
 };
 
+// Helper function to clear authentication
+const clearAuth = () => {
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('user');
+};
+
 // Export for use in other files
 window.API_CONFIG = API_CONFIG;
 window.buildApiUrl = buildApiUrl;
 window.API = API;
+window.getAuthHeaders = getAuthHeaders;
+window.clearAuth = clearAuth;
