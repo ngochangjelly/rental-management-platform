@@ -25,7 +25,8 @@
     <!-- Component Scripts -->
     <script src="/js/components/contract-analysis.js?v=7"></script>
     <script src="/js/components/property-management.js?v=8"></script>
-    <script src="/js/components/tenant-management.js?v=15"></script>
+    <script src="/js/components/tenant-management.js?v=16"></script>
+    <script src="/js/components/financial-reports.js?v=1"></script>
     <script src="/js/dashboard-controller.js?v=7"></script>
     <style>
       .sidebar {
@@ -283,6 +284,11 @@
                 >
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="financial">
+                <i class="bi bi-graph-up me-2"></i>Financial Reports
+              </a>
+            </li>
           </ul>
 
           <div class="mt-auto pt-4">
@@ -411,6 +417,21 @@
                         Manage tenant information and property assignments
                       </p>
                       <span class="badge bg-info">Available Now</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div class="card feature-card h-100" data-section="financial">
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-graph-up text-warning"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Financial Reports</h5>
+                      <p class="card-text text-muted">
+                        Track monthly income, expenses, and investor profits
+                      </p>
+                      <span class="badge bg-warning">New Feature</span>
                     </div>
                   </div>
                 </div>
@@ -712,6 +733,139 @@
               </div>
             </div>
           </div>
+
+          <!-- Financial Reports Section -->
+          <div id="financial-section" class="content-section">
+            <div class="p-4">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Financial Reports</h2>
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="dashboardController.goToDashboard()"
+                >
+                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
+              </div>
+
+              <!-- Property Selection -->
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h5 class="mb-0"><i class="bi bi-building me-2"></i>Select Property</h5>
+                </div>
+                <div class="card-body">
+                  <select id="propertySelector" class="form-select">
+                    <option value="">Select a property...</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Financial Report Content -->
+              <div id="financialReportContent" style="display: none;">
+                <!-- Month Navigation -->
+                <div class="card mb-4">
+                  <div class="card-body">
+                    <div class="row align-items-center">
+                      <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                          <button id="prevMonth" class="btn btn-outline-primary btn-sm me-2">
+                            <i class="bi bi-chevron-left"></i>
+                          </button>
+                          <h4 id="currentMonth" class="mb-0 mx-3">January 2024</h4>
+                          <button id="nextMonth" class="btn btn-outline-primary btn-sm ms-2">
+                            <i class="bi bi-chevron-right"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="col-md-6 text-end">
+                        <span class="badge bg-info fs-6" id="currentMonthBadge">Current Month</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Income and Expenses -->
+                <div class="row">
+                  <!-- Income Section -->
+                  <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                      <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Income</h5>
+                        <button class="btn btn-sm btn-light text-success" id="addIncomeBtn">
+                          <i class="bi bi-plus"></i> Add Item
+                        </button>
+                      </div>
+                      <div class="card-body">
+                        <div id="incomeList">
+                          <div class="text-center text-muted py-4" id="noIncomeMessage">
+                            <i class="bi bi-plus-circle fs-1"></i>
+                            <p class="mt-2">No income items added</p>
+                          </div>
+                        </div>
+                        <div class="border-top pt-3 mt-3">
+                          <div class="d-flex justify-content-between">
+                            <strong>Total Income:</strong>
+                            <strong class="text-success" id="totalIncome">$0.00</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Expenses Section -->
+                  <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                      <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-dash-circle me-2"></i>Expenses</h5>
+                        <button class="btn btn-sm btn-light text-danger" id="addExpenseBtn">
+                          <i class="bi bi-plus"></i> Add Item
+                        </button>
+                      </div>
+                      <div class="card-body">
+                        <div id="expenseList">
+                          <div class="text-center text-muted py-4" id="noExpenseMessage">
+                            <i class="bi bi-dash-circle fs-1"></i>
+                            <p class="mt-2">No expense items added</p>
+                          </div>
+                        </div>
+                        <div class="border-top pt-3 mt-3">
+                          <div class="d-flex justify-content-between">
+                            <strong>Total Expenses:</strong>
+                            <strong class="text-danger" id="totalExpenses">$0.00</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Summary and Investor Calculations -->
+                <div class="card mb-4">
+                  <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Summary & Investor Calculations</h5>
+                  </div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-4 mb-3">
+                        <div class="text-center">
+                          <h6 class="text-muted">Net Profit</h6>
+                          <h3 id="netProfit" class="mb-0">$0.00</h3>
+                        </div>
+                      </div>
+                      <div class="col-md-8">
+                        <h6 class="mb-3">Investor Distribution</h6>
+                        <div id="investorDistribution">
+                          <div class="text-center text-muted py-3" id="noInvestorsMessage">
+                            <i class="bi bi-person-lines-fill fs-1"></i>
+                            <p class="mt-2">No investors configured for this property</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>
@@ -907,13 +1061,37 @@
                   <div class="col-md-4 mb-3">
                     <label for="rentPaymentDate" class="form-label">Rent Payment Date</label>
                     <select class="form-select" id="rentPaymentDate" name="rentPaymentDate">
-                      <option value="1" selected>1st of month</option>
-                      <option value="5">5th of month</option>
-                      <option value="10">10th of month</option>
-                      <option value="15">15th of month</option>
-                      <option value="20">20th of month</option>
-                      <option value="25">25th of month</option>
-                      <option value="30">30th of month</option>
+                      <option value="1" selected>1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                      <option value="11">11</option>
+                      <option value="12">12</option>
+                      <option value="13">13</option>
+                      <option value="14">14</option>
+                      <option value="15">15</option>
+                      <option value="16">16</option>
+                      <option value="17">17</option>
+                      <option value="18">18</option>
+                      <option value="19">19</option>
+                      <option value="20">20</option>
+                      <option value="21">21</option>
+                      <option value="22">22</option>
+                      <option value="23">23</option>
+                      <option value="24">24</option>
+                      <option value="25">25</option>
+                      <option value="26">26</option>
+                      <option value="27">27</option>
+                      <option value="28">28</option>
+                      <option value="29">29</option>
+                      <option value="30">30</option>
+                      <option value="31">31</option>
                     </select>
                   </div>
                 </div>

@@ -114,6 +114,13 @@ class DashboardController {
                     window.tenantManager = this.components.tenantManagement;
                 }
                 break;
+            case 'financial':
+                if (!this.components.financialReports) {
+                    this.components.financialReports = new FinancialReportsComponent();
+                    // Make it globally accessible for button onclick handlers
+                    window.financialReports = this.components.financialReports;
+                }
+                break;
         }
     }
 

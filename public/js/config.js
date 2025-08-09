@@ -38,6 +38,17 @@ const API_CONFIG = {
     PROPERTY_PERFORMANCE: "/api/analysis/property-performance",
     TENANT_INSIGHTS: "/api/analysis/tenant-insights",
 
+    // Investors
+    INVESTORS: "/api/investors",
+    INVESTOR_BY_ID: (id) => `/api/investors/${id}`,
+    INVESTORS_BY_PROPERTY: (propertyId) => `/api/investors/property/${propertyId}`,
+
+    // Financial Reports
+    FINANCIAL_REPORTS_BY_PROPERTY: (propertyId) => `/api/financial-reports/property/${propertyId}`,
+    FINANCIAL_REPORT: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}`,
+    FINANCIAL_REPORT_INCOME: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/income`,
+    FINANCIAL_REPORT_EXPENSES: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/expenses`,
+
     // Health Check
     HEALTH: "/health",
   },

@@ -6,6 +6,9 @@ class TenantManagementComponent {
     constructor() {
         this.tenants = [];
         this.selectedProperties = [];
+        this.propertiesCache = null; // Cache for properties
+        this.propertiesCacheTime = null;
+        this.cacheTimeout = 30000; // Cache for 30 seconds
         this.init();
     }
 
@@ -253,58 +256,24 @@ class TenantManagementComponent {
 
     async loadPropertiesForSelect() {
         try {
+            // Check cache first
+            const now = Date.now();
+            if (this.propertiesCache && this.propertiesCacheTime && (now - this.propertiesCacheTime) < this.cacheTimeout) {
+                console.log('Using cached properties data');
+                this.populatePropertyCheckboxes(this.propertiesCache);
+                return;
+            }
+            
             const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
             const result = await response.json();
             
-            const checkboxList = document.getElementById('propertyCheckboxList');
-            if (checkboxList && result.success) {
-                // Clear existing items
-                checkboxList.innerHTML = '';
-                
-                if (result.properties.length === 0) {
-                    checkboxList.innerHTML = '<li class="px-3 py-2 text-muted">No properties available</li>';
-                    return;
-                }
-                
-                result.properties.forEach(property => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'px-3 py-2';
-                    
-                    const checkboxId = `property-${property.propertyId}`;
-                    const isChecked = this.selectedProperties.includes(property.propertyId);
-                    
-                    listItem.innerHTML = `
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="${checkboxId}" 
-                                   value="${property.propertyId}" ${isChecked ? 'checked' : ''}>
-                            <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
-                                <strong>${property.propertyId}</strong> - ${property.address}, ${property.unit}
-                            </label>
-                        </div>
-                    `;
-                    
-                    // Add click handler to the checkbox
-                    const checkbox = listItem.querySelector('input[type="checkbox"]');
-                    checkbox.addEventListener('change', (e) => {
-                        this.handleCheckboxChange(e.target.value, e.target.checked);
-                    });
-                    
-                    // Prevent dropdown from closing when clicking on list items
-                    listItem.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        // If clicking on the item (not checkbox), toggle the checkbox
-                        if (e.target.tagName !== 'INPUT') {
-                            checkbox.checked = !checkbox.checked;
-                            this.handleCheckboxChange(checkbox.value, checkbox.checked);
-                        }
-                    });
-                    
-                    checkboxList.appendChild(listItem);
-                });
-                
-                // Update dropdown text
-                this.updateDropdownText();
+            // Cache the result
+            if (result.success) {
+                this.propertiesCache = result;
+                this.propertiesCacheTime = now;
             }
+            
+            this.populatePropertyCheckboxes(result);
         } catch (error) {
             console.error('Error loading properties:', error);
             const checkboxList = document.getElementById('propertyCheckboxList');
@@ -312,6 +281,58 @@ class TenantManagementComponent {
                 checkboxList.innerHTML = '<li class="px-3 py-2 text-danger">Error loading properties</li>';
             }
         }
+    }
+
+    populatePropertyCheckboxes(result) {
+        const checkboxList = document.getElementById('propertyCheckboxList');
+        if (!checkboxList || !result.success) return;
+        
+        // Clear existing items
+        checkboxList.innerHTML = '';
+        
+        if (result.properties.length === 0) {
+            checkboxList.innerHTML = '<li class="px-3 py-2 text-muted">No properties available</li>';
+            return;
+        }
+        
+        result.properties.forEach(property => {
+            const listItem = document.createElement('li');
+            listItem.className = 'px-3 py-2';
+            
+            const checkboxId = `property-${property.propertyId}`;
+            const isChecked = this.selectedProperties.includes(property.propertyId);
+            
+            listItem.innerHTML = `
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="${checkboxId}" 
+                           value="${property.propertyId}" ${isChecked ? 'checked' : ''}>
+                    <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
+                        <strong>${property.propertyId}</strong> - ${property.address}, ${property.unit}
+                    </label>
+                </div>
+            `;
+            
+            // Add click handler to the checkbox
+            const checkbox = listItem.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', (e) => {
+                this.handleCheckboxChange(e.target.value, e.target.checked);
+            });
+            
+            // Prevent dropdown from closing when clicking on list items
+            listItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // If clicking on the item (not checkbox), toggle the checkbox
+                if (e.target.tagName !== 'INPUT') {
+                    checkbox.checked = !checkbox.checked;
+                    this.handleCheckboxChange(checkbox.value, checkbox.checked);
+                }
+            });
+            
+            checkboxList.appendChild(listItem);
+        });
+        
+        // Update dropdown text
+        this.updateDropdownText();
     }
 
     handleCheckboxChange(propertyId, isChecked) {
