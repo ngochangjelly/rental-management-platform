@@ -20,12 +20,12 @@
     </script>
 
     <!-- API Configuration -->
-    <script src="/js/config.js?v=8"></script>
+    <script src="/js/config.js?v=9"></script>
     
     <!-- Component Scripts -->
     <script src="/js/components/contract-analysis.js?v=7"></script>
-    <script src="/js/components/property-management.js?v=7"></script>
-    <script src="/js/components/tenant-management.js?v=7"></script>
+    <script src="/js/components/property-management.js?v=8"></script>
+    <script src="/js/components/tenant-management.js?v=15"></script>
     <script src="/js/dashboard-controller.js?v=7"></script>
     <style>
       .sidebar {
@@ -800,13 +800,13 @@
         }
       }
 
-      // Function to update sidebar badges
+      // Function to update sidebar badges (v3 - cache busted)
       async function updateSidebarBadges() {
         try {
+          console.log('🔄 Updating sidebar badges - using API:', buildApiUrl(API_CONFIG.ENDPOINTS.PROPERTIES));
+          
           // Fetch properties count
-          const propertiesResponse = await fetch("/api/properties", {
-            credentials: "include",
-          });
+          const propertiesResponse = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
 
           if (propertiesResponse.ok) {
             const propertiesResult = await propertiesResponse.json();
@@ -824,9 +824,7 @@
           }
 
           // Fetch tenants count
-          const tenantsResponse = await fetch("/api/tenants", {
-            credentials: "include",
-          });
+          const tenantsResponse = await API.get(API_CONFIG.ENDPOINTS.TENANTS);
 
           if (tenantsResponse.ok) {
             const tenantsResult = await tenantsResponse.json();
@@ -1021,9 +1019,9 @@
                   <div class="col-md-6 mb-3">
                     <label for="tenantFin" class="form-label">FIN/NRIC <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="tenantFin" name="fin" required 
-                           pattern="[STFG][0-9]{7}[A-Z]" style="text-transform: uppercase;"
-                           placeholder="e.g., S1234567A, T9876543B">
-                    <div class="form-text">Singapore FIN format (will be converted to uppercase)</div>
+                           maxlength="20" style="text-transform: uppercase;"
+                           placeholder="Enter FIN/ID number">
+                    <div class="form-text">FIN/ID number (will be converted to uppercase, max 20 characters)</div>
                   </div>
                 </div>
                 <div class="mb-3">
@@ -1069,15 +1067,15 @@
                 </h6>
                 <div class="mb-3">
                   <label for="tenantProperties" class="form-label">Assigned Properties</label>
-                  <div class="input-group">
-                    <select class="form-select" id="propertySelect">
-                      <option value="">Select a property to add</option>
-                    </select>
-                    <button type="button" class="btn btn-outline-primary" id="addPropertyBtn" onclick="tenantManager.addPropertyToTenant()">
-                      <i class="bi bi-plus"></i> Add
+                  <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" id="propertyDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                      <span id="propertyDropdownText">Select properties...</span>
                     </button>
+                    <ul class="dropdown-menu w-100" id="propertyCheckboxList" style="max-height: 300px; overflow-y: auto;">
+                      <li class="px-3 py-2 text-muted">Loading properties...</li>
+                    </ul>
                   </div>
-                  <div class="form-text">Properties assigned to this tenant</div>
+                  <div class="form-text">Click to select/deselect multiple properties</div>
                 </div>
                 
                 <!-- Selected Properties List -->

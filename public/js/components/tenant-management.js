@@ -1,5 +1,5 @@
 /**
- * Tenant Management Component
+ * Tenant Management Component (v2 - fixed update endpoint)
  * Handles tenant CRUD operations
  */
 class TenantManagementComponent {
@@ -82,7 +82,7 @@ class TenantManagementComponent {
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
                     <td>
                         <span class="badge bg-${tenant.isRegistered ? 'success' : 'secondary'}">
-                            ${tenant.isRegistered ? 'Active' : 'Inactive'}
+                            ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
                         </span>
                         ${tenant.isMainTenant ? '<span class="badge bg-primary ms-1">Main</span>' : ''}
                     </td>
@@ -149,7 +149,7 @@ class TenantManagementComponent {
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
                     <td>
                         <span class="badge bg-${tenant.isRegistered ? 'success' : 'secondary'}">
-                            ${tenant.isRegistered ? 'Active' : 'Inactive'}
+                            ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
                         </span>
                         ${tenant.isMainTenant ? '<span class="badge bg-primary ms-1">Main</span>' : ''}
                     </td>
@@ -203,8 +203,10 @@ class TenantManagementComponent {
                 document.getElementById('tenantIsRegistered').checked = tenant.isRegistered || false;
                 document.getElementById('tenantIsMainTenant').checked = tenant.isMainTenant || false;
                 
-                // Set up properties
-                this.selectedProperties = tenant.properties || [];
+                // Set up properties - extract property IDs only
+                this.selectedProperties = (tenant.properties || []).map(prop => 
+                    typeof prop === 'string' ? prop : prop.propertyId || prop._id
+                );
                 
                 // Make FIN readonly in edit mode
                 document.getElementById('tenantFin').readOnly = true;
@@ -254,45 +256,109 @@ class TenantManagementComponent {
             const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
             const result = await response.json();
             
-            const propertySelect = document.getElementById('propertySelect');
-            if (propertySelect && result.success) {
-                // Clear existing options except the first one
-                propertySelect.innerHTML = '<option value="">Select a property to add</option>';
+            const checkboxList = document.getElementById('propertyCheckboxList');
+            if (checkboxList && result.success) {
+                // Clear existing items
+                checkboxList.innerHTML = '';
+                
+                if (result.properties.length === 0) {
+                    checkboxList.innerHTML = '<li class="px-3 py-2 text-muted">No properties available</li>';
+                    return;
+                }
                 
                 result.properties.forEach(property => {
-                    const option = document.createElement('option');
-                    option.value = property.propertyId;
-                    option.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
-                    propertySelect.appendChild(option);
+                    const listItem = document.createElement('li');
+                    listItem.className = 'px-3 py-2';
+                    
+                    const checkboxId = `property-${property.propertyId}`;
+                    const isChecked = this.selectedProperties.includes(property.propertyId);
+                    
+                    listItem.innerHTML = `
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="${checkboxId}" 
+                                   value="${property.propertyId}" ${isChecked ? 'checked' : ''}>
+                            <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
+                                <strong>${property.propertyId}</strong> - ${property.address}, ${property.unit}
+                            </label>
+                        </div>
+                    `;
+                    
+                    // Add click handler to the checkbox
+                    const checkbox = listItem.querySelector('input[type="checkbox"]');
+                    checkbox.addEventListener('change', (e) => {
+                        this.handleCheckboxChange(e.target.value, e.target.checked);
+                    });
+                    
+                    // Prevent dropdown from closing when clicking on list items
+                    listItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // If clicking on the item (not checkbox), toggle the checkbox
+                        if (e.target.tagName !== 'INPUT') {
+                            checkbox.checked = !checkbox.checked;
+                            this.handleCheckboxChange(checkbox.value, checkbox.checked);
+                        }
+                    });
+                    
+                    checkboxList.appendChild(listItem);
                 });
+                
+                // Update dropdown text
+                this.updateDropdownText();
             }
         } catch (error) {
             console.error('Error loading properties:', error);
+            const checkboxList = document.getElementById('propertyCheckboxList');
+            if (checkboxList) {
+                checkboxList.innerHTML = '<li class="px-3 py-2 text-danger">Error loading properties</li>';
+            }
         }
     }
 
-    addPropertyToTenant() {
-        const propertySelect = document.getElementById('propertySelect');
-        const selectedPropertyId = propertySelect.value;
-        
-        if (!selectedPropertyId) {
-            alert('Please select a property to add');
-            return;
+    handleCheckboxChange(propertyId, isChecked) {
+        if (isChecked) {
+            // Add property if not already selected
+            if (!this.selectedProperties.includes(propertyId)) {
+                this.selectedProperties.push(propertyId);
+            }
+        } else {
+            // Remove property from selection
+            this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
         }
         
-        if (this.selectedProperties.includes(selectedPropertyId)) {
-            alert('Property is already assigned to this tenant');
-            return;
-        }
-        
-        this.selectedProperties.push(selectedPropertyId);
         this.updateSelectedPropertiesList();
-        propertySelect.value = ''; // Reset selection
+        this.updateDropdownText();
+    }
+
+    updateDropdownText() {
+        const dropdownText = document.getElementById('propertyDropdownText');
+        if (!dropdownText) return;
+        
+        const count = this.selectedProperties.length;
+        if (count === 0) {
+            dropdownText.textContent = 'Select properties...';
+        } else if (count === 1) {
+            dropdownText.textContent = '1 property selected';
+        } else {
+            dropdownText.textContent = `${count} properties selected`;
+        }
+    }
+
+    // Keep old function for backward compatibility but redirect to new logic
+    addPropertyToTenant() {
+        // This function is no longer used with multiselect, but keeping for safety
+        console.log('addPropertyToTenant called - now handled by handlePropertySelectionChange');
     }
 
     removePropertyFromTenant(propertyId) {
         this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
         this.updateSelectedPropertiesList();
+        this.updateDropdownText();
+        
+        // Update checkbox to reflect removal
+        const checkbox = document.getElementById(`property-${propertyId}`);
+        if (checkbox) {
+            checkbox.checked = false;
+        }
     }
 
     updateSelectedPropertiesList() {
@@ -317,6 +383,9 @@ class TenantManagementComponent {
             listContainer.innerHTML = html;
             hiddenInput.value = this.selectedProperties.join(',');
         }
+        
+        // Update dropdown text when list changes
+        this.updateDropdownText();
     }
 
     async handleTenantSubmit(event) {
@@ -335,16 +404,22 @@ class TenantManagementComponent {
                 properties: this.selectedProperties
             };
 
+            // Debug: log the properties being sent
+            console.log('🔄 Tenant update data:', { 
+                ...tenantData, 
+                propertiesType: typeof this.selectedProperties[0],
+                propertiesContent: this.selectedProperties 
+            });
+
             // Validate required fields
             if (!tenantData.name || !tenantData.fin || !tenantData.passportNumber) {
                 alert('Please fill in all required fields (Name, FIN, Passport Number)');
                 return;
             }
 
-            // Validate FIN format
-            const finPattern = /^[STFG][0-9]{7}[A-Z]$/;
-            if (!finPattern.test(tenantData.fin)) {
-                alert('Invalid FIN format. Please use format: S1234567A');
+            // Validate FIN length
+            if (tenantData.fin.length > 20) {
+                alert('FIN cannot exceed 20 characters');
                 return;
             }
 
@@ -436,7 +511,6 @@ class TenantManagementComponent {
             const result = await response.json();
             
             if (result.success) {
-                alert('Tenant added successfully!');
                 await this.loadTenants(); // Reload the list
             } else {
                 alert('Failed to add tenant: ' + result.error);
@@ -459,13 +533,18 @@ class TenantManagementComponent {
         this.showTenantModal(tenant);
     }
 
-    async updateTenant(fin, tenantData) {
+    async updateTenant(originalFin, tenantData) {
         try {
-            const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_FIN(fin), tenantData);
+            // Find the tenant to get the ID
+            const tenant = this.tenants.find(t => t.fin === originalFin);
+            if (!tenant || !tenant._id) {
+                throw new Error('Tenant ID not found');
+            }
+            
+            const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id), tenantData);
             const result = await response.json();
             
             if (result.success) {
-                alert('Tenant updated successfully!');
                 await this.loadTenants(); // Reload the list
             } else {
                 alert('Failed to update tenant: ' + result.error);
@@ -483,12 +562,17 @@ class TenantManagementComponent {
         }
 
         try {
-            const response = await API.delete(API_CONFIG.ENDPOINTS.TENANT_BY_FIN(fin));
+            // Find the tenant to get the ID
+            const tenant = this.tenants.find(t => t.fin === fin);
+            if (!tenant || !tenant._id) {
+                throw new Error('Tenant ID not found');
+            }
+            
+            const response = await API.delete(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id));
 
             const result = await response.json();
             
             if (result.success) {
-                alert('Tenant deleted successfully!');
                 await this.loadTenants(); // Reload the list
             } else {
                 alert('Failed to delete tenant: ' + result.error);
@@ -502,12 +586,11 @@ class TenantManagementComponent {
     // Method to assign tenant to property
     async assignToProperty(fin, propertyId) {
         try {
-            const response = await API.post(`/api/tenants/${encodeURIComponent(fin)}/assign-property`, { propertyId });
+            const response = await API.post(API_CONFIG.ENDPOINTS.TENANT_ADD_PROPERTY(fin), { propertyId });
 
             const result = await response.json();
             
             if (result.success) {
-                alert('Tenant assigned to property successfully!');
                 await this.loadTenants(); // Reload the list
             } else {
                 alert('Failed to assign tenant to property: ' + result.error);

@@ -380,7 +380,6 @@ class PropertyManagementComponent {
             const result = await response.json();
             
             if (result.success) {
-                alert('Property added successfully!');
                 await this.loadProperties(); // Reload the list
             } else {
                 alert('Failed to add property: ' + result.error);
@@ -409,7 +408,6 @@ class PropertyManagementComponent {
             const result = await response.json();
             
             if (result.success) {
-                alert('Property updated successfully!');
                 await this.loadProperties(); // Reload the list
             } else {
                 alert('Failed to update property: ' + result.error);
@@ -427,15 +425,11 @@ class PropertyManagementComponent {
         }
 
         try {
-            const response = await fetch(`/api/properties/${encodeURIComponent(propertyId)}`, {
-                method: 'DELETE',
-                credentials: 'include'
-            });
+            const response = await API.delete(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId));
 
             const result = await response.json();
             
             if (result.success) {
-                alert('Property deleted successfully!');
                 await this.loadProperties(); // Reload the list
             } else {
                 alert('Failed to delete property: ' + result.error);
