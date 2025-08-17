@@ -71,16 +71,20 @@ class PropertyManagementComponent {
 
   renderPropertiesTable() {
     const tbody = document.getElementById("propertiesTableBody");
+    const mobileList = document.getElementById("mobilePropertyList");
+    
     if (!tbody) return;
 
     if (this.properties.length === 0) {
       this.showEmptyState();
+      this.showMobileEmptyState();
       return;
     }
 
-    let html = "";
+    // Render desktop table
+    let tableHtml = "";
     this.properties.forEach((property) => {
-      html += `
+      tableHtml += `
                 <tr>
                     <td>${this.escapeHtml(property.propertyId)}</td>
                     <td>${this.escapeHtml(property.address)}</td>
@@ -102,8 +106,37 @@ class PropertyManagementComponent {
                 </tr>
             `;
     });
+    tbody.innerHTML = tableHtml;
 
-    tbody.innerHTML = html;
+    // Render mobile cards
+    if (mobileList) {
+      let mobileHtml = "";
+      this.properties.forEach((property) => {
+        mobileHtml += `
+                  <div class="mobile-property-card">
+                      <div class="mobile-property-header">
+                          <div class="mobile-property-info">
+                              <div class="mobile-property-id">${this.escapeHtml(property.propertyId)}</div>
+                              <div class="mobile-property-address">${this.escapeHtml(property.address)}</div>
+                          </div>
+                      </div>
+                      <div class="mobile-property-details">
+                          <div><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</div>
+                          <div><strong>Rent:</strong> $${(property.rent || 0).toLocaleString()}</div>
+                      </div>
+                      <div class="mobile-property-actions">
+                          <button class="btn btn-outline-primary btn-sm" onclick="propertyManager.editProperty('${property.propertyId}')">
+                              <i class="bi bi-pencil"></i> Edit
+                          </button>
+                          <button class="btn btn-outline-danger btn-sm" onclick="propertyManager.deleteProperty('${property.propertyId}')">
+                              <i class="bi bi-trash"></i> Delete
+                          </button>
+                      </div>
+                  </div>
+              `;
+      });
+      mobileList.innerHTML = mobileHtml;
+    }
   }
 
   showEmptyState(message = "No properties found") {
@@ -117,6 +150,18 @@ class PropertyManagementComponent {
                     <p class="mt-2">${message}</p>
                 </td>
             </tr>
+        `;
+  }
+
+  showMobileEmptyState(message = "No properties found") {
+    const mobileList = document.getElementById("mobilePropertyList");
+    if (!mobileList) return;
+
+    mobileList.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-building fs-1"></i>
+                <p class="mt-2">${message}</p>
+            </div>
         `;
   }
 
@@ -134,16 +179,19 @@ class PropertyManagementComponent {
     );
 
     const tbody = document.getElementById("propertiesTableBody");
+    const mobileList = document.getElementById("mobilePropertyList");
     if (!tbody) return;
 
     if (filteredProperties.length === 0) {
       this.showEmptyState(`No properties match "${searchTerm}"`);
+      this.showMobileEmptyState(`No properties match "${searchTerm}"`);
       return;
     }
 
-    let html = "";
+    // Render filtered desktop table
+    let tableHtml = "";
     filteredProperties.forEach((property) => {
-      html += `
+      tableHtml += `
                 <tr>
                     <td>${this.escapeHtml(property.propertyId)}</td>
                     <td>${this.escapeHtml(property.address)}</td>
@@ -165,8 +213,37 @@ class PropertyManagementComponent {
                 </tr>
             `;
     });
+    tbody.innerHTML = tableHtml;
 
-    tbody.innerHTML = html;
+    // Render filtered mobile cards
+    if (mobileList) {
+      let mobileHtml = "";
+      filteredProperties.forEach((property) => {
+        mobileHtml += `
+                  <div class="mobile-property-card">
+                      <div class="mobile-property-header">
+                          <div class="mobile-property-info">
+                              <div class="mobile-property-id">${this.escapeHtml(property.propertyId)}</div>
+                              <div class="mobile-property-address">${this.escapeHtml(property.address)}</div>
+                          </div>
+                      </div>
+                      <div class="mobile-property-details">
+                          <div><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</div>
+                          <div><strong>Rent:</strong> $${(property.rent || 0).toLocaleString()}</div>
+                      </div>
+                      <div class="mobile-property-actions">
+                          <button class="btn btn-outline-primary btn-sm" onclick="propertyManager.editProperty('${property.propertyId}')">
+                              <i class="bi bi-pencil"></i> Edit
+                          </button>
+                          <button class="btn btn-outline-danger btn-sm" onclick="propertyManager.deleteProperty('${property.propertyId}')">
+                              <i class="bi bi-trash"></i> Delete
+                          </button>
+                      </div>
+                  </div>
+              `;
+      });
+      mobileList.innerHTML = mobileHtml;
+    }
   }
 
   showAddPropertyModal() {

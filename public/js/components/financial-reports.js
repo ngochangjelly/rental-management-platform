@@ -17,6 +17,9 @@ class FinancialReportsComponent {
   init() {
     this.bindEvents();
     this.loadProperties();
+    
+    // Initial cleanup to ensure no leftover modals from previous sessions
+    this.forceCleanupModalBackdrops();
   }
 
   bindEvents() {
@@ -148,6 +151,11 @@ class FinancialReportsComponent {
   }
 
   async selectProperty(propertyId) {
+    // Cleanup any open modals when switching properties
+    this.forceCleanupModalBackdrops();
+    this.isModalOpen = false;
+    this.isIncomeExpenseModalOpen = false;
+    
     if (!propertyId) {
       this.selectedProperty = null;
       document.getElementById("financialReportContent").style.display = "none";
@@ -468,14 +476,68 @@ class FinancialReportsComponent {
       html += `
                 <div class="card mb-2">
                     <div class="card-body py-2">
-                        <div class="row align-items-center">
-                            <div class="col-md-2">
-                                <h6 class="mb-0">${escapeHtml(
-                                  investor.name
-                                )}</h6>
-                                <small class="text-muted">${
-                                  investor.investorId
-                                }</small>
+                        <!-- Mobile layout -->
+                        <div class="d-md-none">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1">${escapeHtml(investor.name)}</h6>
+                                    <small class="text-muted">${investor.investorId}</small>
+                                    ${
+                                      investor.phone
+                                        ? `<br><small class="text-muted">${escapeHtml(
+                                            investor.phone
+                                          )}</small>`
+                                        : ""
+                                    }
+                                </div>
+                                <div class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="window.financialReports.editInvestor('${
+                                      investor.investorId
+                                    }')" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="window.financialReports.removeInvestor('${
+                                      investor.investorId
+                                    }')" title="Remove">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="fw-bold">${percentage}%</div>
+                                    <small class="text-muted">Share</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold text-primary">$${investorShare.toFixed(2)}</div>
+                                    <small class="text-muted">Profit Share</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-bold text-warning">$${expensesPaidByInvestor.toFixed(2)}</div>
+                                    <small class="text-muted">Paid</small>
+                                </div>
+                            </div>
+                            <div class="row text-center mt-2">
+                                <div class="col-6">
+                                    <div class="fw-bold text-info">$${incomeReceivedByInvestor.toFixed(2)}</div>
+                                    <small class="text-muted">Received</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fw-bold ${
+                                      finalAmount >= 0 ? "text-success" : "text-danger"
+                                    }">
+                                        $${finalAmount.toFixed(2)}
+                                    </div>
+                                    <small class="text-muted">Final</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Desktop layout -->
+                        <div class="row align-items-center d-none d-md-flex">
+                            <div class="col-md-3 col-lg-2">
+                                <h6 class="mb-0">${escapeHtml(investor.name)}</h6>
+                                <small class="text-muted">${investor.investorId}</small>
                                 ${
                                   investor.phone
                                     ? `<br><small class="text-muted">${escapeHtml(
@@ -484,39 +546,31 @@ class FinancialReportsComponent {
                                     : ""
                                 }
                             </div>
-                            <div class="col-md-2 text-center">
+                            <div class="col-md-1 col-lg-1 text-center">
                                 <div class="fw-bold">${percentage}%</div>
                                 <small class="text-muted">Share</small>
                             </div>
-                            <div class="col-md-2 text-center">
-                                <div class="fw-bold text-primary">$${investorShare.toFixed(
-                                  2
-                                )}</div>
+                            <div class="col-md-2 col-lg-2 text-center">
+                                <div class="fw-bold text-primary">$${investorShare.toFixed(2)}</div>
                                 <small class="text-muted">Profit Share</small>
                             </div>
-                            <div class="col-md-2 text-center">
-                                <div class="fw-bold text-warning">$${expensesPaidByInvestor.toFixed(
-                                  2
-                                )}</div>
+                            <div class="col-md-2 col-lg-2 text-center">
+                                <div class="fw-bold text-warning">$${expensesPaidByInvestor.toFixed(2)}</div>
                                 <small class="text-muted">Paid</small>
                             </div>
-                            <div class="col-md-2 text-center">
-                                <div class="fw-bold text-info">$${incomeReceivedByInvestor.toFixed(
-                                  2
-                                )}</div>
+                            <div class="col-md-2 col-lg-2 text-center">
+                                <div class="fw-bold text-info">$${incomeReceivedByInvestor.toFixed(2)}</div>
                                 <small class="text-muted">Received</small>
                             </div>
-                            <div class="col-md-1 text-center">
+                            <div class="col-md-1 col-lg-2 text-center">
                                 <div class="fw-bold ${
-                                  finalAmount >= 0
-                                    ? "text-success"
-                                    : "text-danger"
+                                  finalAmount >= 0 ? "text-success" : "text-danger"
                                 }">
                                     $${finalAmount.toFixed(2)}
                                 </div>
                                 <small class="text-muted">Final</small>
                             </div>
-                            <div class="col-md-1 text-end">
+                            <div class="col-md-1 col-lg-1 text-end">
                                 <button class="btn btn-sm btn-outline-primary me-1" onclick="window.financialReports.editInvestor('${
                                   investor.investorId
                                 }')" title="Edit">
@@ -571,9 +625,14 @@ class FinancialReportsComponent {
       currentMonthBadge.textContent = isCurrentMonth
         ? "Current Month"
         : "Historical";
+      
+      // Use smaller font size for better mobile display
+      const isMobile = window.innerWidth < 768;
+      const fontSizeClass = isMobile ? "" : "fs-6"; // No fs-6 on mobile, use CSS instead
+      
       currentMonthBadge.className = isCurrentMonth
-        ? "badge bg-info fs-6"
-        : "badge bg-secondary fs-6";
+        ? `badge bg-info ${fontSizeClass}`.trim()
+        : `badge bg-secondary ${fontSizeClass}`.trim();
     }
   }
 
@@ -681,6 +740,11 @@ class FinancialReportsComponent {
       console.log("Income/Expense modal hidden event fired");
       this.isIncomeExpenseModalOpen = false;
       modalElement.remove();
+      
+      // Force cleanup of backdrops after a short delay
+      setTimeout(() => {
+        this.forceCleanupModalBackdrops();
+      }, 100);
     });
 
     modal.show();
@@ -817,11 +881,13 @@ class FinancialReportsComponent {
 
       if (result.success) {
         // Force close modal and cleanup
+        this.isIncomeExpenseModalOpen = false;
         modal.hide();
+        
+        // Use a more aggressive cleanup approach
         setTimeout(() => {
-          this.isIncomeExpenseModalOpen = false;
-          this.cleanupExistingModals();
-        }, 100);
+          this.forceCleanupModalBackdrops();
+        }, 150);
 
         await this.loadFinancialReport();
         this.showSuccess(
@@ -910,6 +976,11 @@ class FinancialReportsComponent {
       console.log("Investor modal hidden event fired");
       this.isModalOpen = false;
       modalElement.remove();
+      
+      // Force cleanup of backdrops after a short delay
+      setTimeout(() => {
+        this.forceCleanupModalBackdrops();
+      }, 100);
     });
 
     modal.show();
@@ -969,7 +1040,8 @@ class FinancialReportsComponent {
         try {
           const bootstrapModal = bootstrap.Modal.getInstance(existingModal);
           if (bootstrapModal) {
-            console.log(`Disposing Bootstrap modal instance for ${modalId}`);
+            console.log(`Hiding and disposing Bootstrap modal instance for ${modalId}`);
+            bootstrapModal.hide();
             bootstrapModal.dispose();
           }
         } catch (e) {
@@ -981,17 +1053,35 @@ class FinancialReportsComponent {
       }
     });
 
+    // Force cleanup of all modal-related elements
+    this.forceCleanupModalBackdrops();
+  }
+
+  forceCleanupModalBackdrops() {
     // Clear any backdrop elements that might be left behind
     const backdrops = document.querySelectorAll(".modal-backdrop");
     backdrops.forEach((backdrop) => {
-      console.log("Removing orphaned backdrop");
+      console.log("Removing modal backdrop");
       backdrop.remove();
     });
 
-    // Reset body classes that Bootstrap might have added
+    // Also check for any Bootstrap modal classes and elements
+    const modalElements = document.querySelectorAll(".modal");
+    modalElements.forEach((modal) => {
+      if (modal.id === "investorModal" || modal.id === "incomeExpenseModal") {
+        console.log("Force removing modal element:", modal.id);
+        modal.remove();
+      }
+    });
+
+    // Reset body classes and styles that Bootstrap might have added
     document.body.classList.remove("modal-open");
     document.body.style.removeProperty("overflow");
     document.body.style.removeProperty("padding-right");
+    document.body.style.removeProperty("margin-right");
+
+    // Force reflow to ensure changes take effect
+    document.body.offsetHeight;
   }
 
   createInvestorModalHtml(investorId) {
@@ -1168,11 +1258,13 @@ class FinancialReportsComponent {
       }
 
       // Force close modal and cleanup
+      this.isModalOpen = false;
       modal.hide();
+      
+      // Use a more aggressive cleanup approach
       setTimeout(() => {
-        this.isModalOpen = false;
-        this.cleanupExistingModals();
-      }, 100);
+        this.forceCleanupModalBackdrops();
+      }, 150);
 
       await this.loadInvestors(this.selectedProperty);
       
@@ -1366,7 +1458,7 @@ class FinancialReportsComponent {
 
   editItem(type, index) {
     // TODO: Implement edit functionality
-    this.showInfo("Edit functionality coming soon!");
+    this.showInfo(`Edit functionality for ${type} item #${index + 1} coming soon!`);
   }
 
   async deleteItem(type, index) {
