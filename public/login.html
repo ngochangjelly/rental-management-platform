@@ -66,11 +66,19 @@
                                 </label>
                                 <input type="text" class="form-control" id="username" name="username" autocomplete="username" required>
                             </div>
-                            <div class="mb-4">
+                            <div class="mb-3">
                                 <label for="password" class="form-label">
                                     <i class="bi bi-lock me-2"></i>Password
                                 </label>
                                 <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
+                            </div>
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="rememberMe" name="rememberMe" checked>
+                                    <label class="form-check-label" for="rememberMe">
+                                        <i class="bi bi-bookmark-heart me-1"></i>Remember me for 30 days
+                                    </label>
+                                </div>
                             </div>
                             <button type="submit" class="btn btn-primary w-100" id="loginButton">
                                 <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
@@ -91,8 +99,30 @@
     <script>
         console.log('Login page JavaScript loaded');
         
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('DOM loaded, setting up login form');
+            
+            // Check if user is already logged in
+            const existingToken = getAuthToken();
+            if (existingToken) {
+                console.log('Existing token found, checking validity...');
+                try {
+                    const response = await API.get(API_CONFIG.ENDPOINTS.STATUS);
+                    const result = await response.json();
+                    
+                    if (result.authenticated) {
+                        console.log('Already authenticated, redirecting to dashboard');
+                        window.location.href = '/dashboard.html';
+                        return;
+                    } else {
+                        console.log('Token invalid, clearing and continuing with login');
+                        clearAuth();
+                    }
+                } catch (error) {
+                    console.log('Token validation failed, clearing and continuing with login');
+                    clearAuth();
+                }
+            }
             
             const loginForm = document.getElementById('loginForm');
             const errorAlert = document.getElementById('errorAlert');
@@ -120,6 +150,7 @@
                 const formData = new FormData(e.target);
                 const username = formData.get('username');
                 const password = formData.get('password');
+                const rememberMe = formData.get('rememberMe') === 'on';
                 
                 console.log('Attempting login with username:', username);
                 
@@ -148,10 +179,41 @@
                     if (result.success) {
                         console.log('Login successful, redirecting to:', result.redirectUrl || '/dashboard.html');
                         
-                        // Store auth token for cross-domain authentication
+                        // Store auth token with persistence based on remember me
                         if (result.token) {
-                            localStorage.setItem('authToken', result.token);
-                            localStorage.setItem('user', JSON.stringify(result.user || {}));
+                            console.log('User data being stored:', result.user);
+                            
+                            if (rememberMe) {
+                                // Use localStorage for persistent storage (survives browser restart)
+                                localStorage.setItem('authToken', result.token);
+                                localStorage.setItem('user', JSON.stringify(result.user || {}));
+                                localStorage.setItem('rememberMe', 'true');
+                                localStorage.setItem('loginTime', Date.now().toString());
+                                
+                                console.log('Stored in localStorage - user:', localStorage.getItem('user'));
+                                
+                                // Also set expiration (30 days)
+                                const expiration = Date.now() + (30 * 24 * 60 * 60 * 1000);
+                                localStorage.setItem('authExpiration', expiration.toString());
+                                
+                                console.log('Auth stored with 30-day persistence');
+                            } else {
+                                // Use sessionStorage for temporary storage (cleared on browser close)
+                                sessionStorage.setItem('authToken', result.token);
+                                sessionStorage.setItem('user', JSON.stringify(result.user || {}));
+                                sessionStorage.setItem('rememberMe', 'false');
+                                
+                                console.log('Stored in sessionStorage - user:', sessionStorage.getItem('user'));
+                                
+                                // Clear any existing persistent storage
+                                localStorage.removeItem('authToken');
+                                localStorage.removeItem('user');
+                                localStorage.removeItem('rememberMe');
+                                localStorage.removeItem('loginTime');
+                                localStorage.removeItem('authExpiration');
+                                
+                                console.log('Auth stored for session only');
+                            }
                         }
                         
                         if (loginButton) {

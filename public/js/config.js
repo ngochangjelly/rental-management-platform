@@ -42,6 +42,8 @@ const API_CONFIG = {
     INVESTORS: "/api/investors",
     INVESTOR_BY_ID: (id) => `/api/investors/${id}`,
     INVESTORS_BY_PROPERTY: (propertyId) => `/api/investors/property/${propertyId}`,
+    INVESTOR_ADD_PROPERTY: (investorId) => `/api/investors/${investorId}/properties`,
+    INVESTOR_REMOVE_PROPERTY: (investorId, propertyId) => `/api/investors/${investorId}/properties/${propertyId}`,
 
     // Financial Reports
     FINANCIAL_REPORTS_BY_PROPERTY: (propertyId) => `/api/financial-reports/property/${propertyId}`,
@@ -67,10 +69,33 @@ const defaultFetchOptions = {
   },
 };
 
+// Function to get auth token from storage (checks both localStorage and sessionStorage)
+const getAuthToken = () => {
+  // First check localStorage (persistent storage)
+  let token = localStorage.getItem('authToken');
+  
+  // Check if localStorage token is expired
+  if (token) {
+    const expiration = localStorage.getItem('authExpiration');
+    if (expiration && Date.now() > parseInt(expiration)) {
+      // Token expired, clear it
+      clearAuth();
+      token = null;
+    }
+  }
+  
+  // If no persistent token, check sessionStorage (temporary storage)
+  if (!token) {
+    token = sessionStorage.getItem('authToken');
+  }
+  
+  return token;
+};
+
 // Function to get auth headers including token
 const getAuthHeaders = () => {
   const headers = { "Content-Type": "application/json" };
-  const token = localStorage.getItem('authToken');
+  const token = getAuthToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -124,13 +149,23 @@ const API = {
 
 // Helper function to clear authentication
 const clearAuth = () => {
+  // Clear localStorage
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
+  localStorage.removeItem('rememberMe');
+  localStorage.removeItem('loginTime');
+  localStorage.removeItem('authExpiration');
+  
+  // Clear sessionStorage
+  sessionStorage.removeItem('authToken');
+  sessionStorage.removeItem('user');
+  sessionStorage.removeItem('rememberMe');
 };
 
 // Export for use in other files
 window.API_CONFIG = API_CONFIG;
 window.buildApiUrl = buildApiUrl;
 window.API = API;
+window.getAuthToken = getAuthToken;
 window.getAuthHeaders = getAuthHeaders;
 window.clearAuth = clearAuth;

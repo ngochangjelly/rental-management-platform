@@ -21,12 +21,15 @@
 
     <!-- API Configuration -->
     <script src="/js/config.js?v=9"></script>
-    
+
+    <!-- Toast Component -->
+    <script src="/js/components/toast/toast.js?v=1"></script>
+
     <!-- Component Scripts -->
     <script src="/js/components/contract-analysis.js?v=7"></script>
     <script src="/js/components/property-management.js?v=8"></script>
     <script src="/js/components/tenant-management.js?v=16"></script>
-    <script src="/js/components/financial-reports.js?v=1"></script>
+    <script src="/js/components/financial-reports.js?v=12"></script>
     <script src="/js/dashboard-controller.js?v=7"></script>
     <style>
       .sidebar {
@@ -289,14 +292,19 @@
                 <i class="bi bi-graph-up me-2"></i>Financial Reports
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/investor-management.html">
+                <i class="bi bi-person-badge me-2"></i>Investors
+              </a>
+            </li>
           </ul>
 
           <div class="mt-auto pt-4">
             <p class="text-white-50 mb-2">Logged in as:</p>
             <p class="text-white mb-3" id="userInfo">Admin User</p>
-            <a href="/auth/logout" class="btn btn-outline-light btn-sm">
+            <button onclick="logout()" class="btn btn-outline-light btn-sm">
               <i class="bi bi-box-arrow-right me-1"></i>Logout
-            </a>
+            </button>
           </div>
         </nav>
 
@@ -322,50 +330,6 @@
                 <div class="text-muted">
                   <i class="bi bi-calendar me-1"></i>
                   <span id="currentDate"></span>
-                </div>
-              </div>
-
-              <!-- Property & Tenant Stats -->
-              <div class="row mb-4">
-                <div class="col-sm-6 col-lg-3 mb-3">
-                  <div class="card stat-card">
-                    <div class="card-body text-center">
-                      <i class="bi bi-building text-info fs-1"></i>
-                      <h3 class="text-info mt-2" id="propertiesCount">0</h3>
-                      <p class="text-muted mb-0">Total Properties</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-sm-6 col-lg-3 mb-3">
-                  <div class="card stat-card">
-                    <div class="card-body text-center">
-                      <i class="bi bi-people text-success fs-1"></i>
-                      <h3 class="text-success mt-2" id="tenantsCount">0</h3>
-                      <p class="text-muted mb-0">Total Tenants</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-sm-6 col-lg-3 mb-3">
-                  <div class="card stat-card">
-                    <div class="card-body text-center">
-                      <i class="bi bi-person-check text-primary fs-1"></i>
-                      <h3 class="text-primary mt-2" id="registeredTenants">
-                        0
-                      </h3>
-                      <p class="text-muted mb-0">Registered Tenants</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-sm-6 col-lg-3 mb-3">
-                  <div class="card stat-card">
-                    <div class="card-body text-center">
-                      <i class="bi bi-house text-warning fs-1"></i>
-                      <h3 class="text-warning mt-2" id="occupiedProperties">
-                        0
-                      </h3>
-                      <p class="text-muted mb-0">Occupied Properties</p>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -432,6 +396,25 @@
                         Track monthly income, expenses, and investor profits
                       </p>
                       <span class="badge bg-warning">New Feature</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div
+                    class="card feature-card h-100"
+                    onclick="window.location.href='/investor-management.html'"
+                  >
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-person-badge text-info"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Investor Management</h5>
+                      <p class="card-text text-muted">
+                        Manage investors, their property investments and
+                        percentages
+                      </p>
+                      <span class="badge bg-info">New</span>
                     </div>
                   </div>
                 </div>
@@ -737,7 +720,9 @@
           <!-- Financial Reports Section -->
           <div id="financial-section" class="content-section">
             <div class="p-4">
-              <div class="d-flex justify-content-between align-items-center mb-4">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4"
+              >
                 <h2>Financial Reports</h2>
                 <button
                   class="btn btn-outline-secondary"
@@ -750,7 +735,9 @@
               <!-- Property Selection -->
               <div class="card mb-4">
                 <div class="card-header">
-                  <h5 class="mb-0"><i class="bi bi-building me-2"></i>Select Property</h5>
+                  <h5 class="mb-0">
+                    <i class="bi bi-building me-2"></i>Select Property
+                  </h5>
                 </div>
                 <div class="card-body">
                   <select id="propertySelector" class="form-select">
@@ -760,24 +747,34 @@
               </div>
 
               <!-- Financial Report Content -->
-              <div id="financialReportContent" style="display: none;">
+              <div id="financialReportContent" style="display: none">
                 <!-- Month Navigation -->
                 <div class="card mb-4">
                   <div class="card-body">
                     <div class="row align-items-center">
                       <div class="col-md-6">
                         <div class="d-flex align-items-center">
-                          <button id="prevMonth" class="btn btn-outline-primary btn-sm me-2">
+                          <button
+                            id="prevMonth"
+                            class="btn btn-outline-primary btn-sm me-2"
+                          >
                             <i class="bi bi-chevron-left"></i>
                           </button>
-                          <h4 id="currentMonth" class="mb-0 mx-3">January 2024</h4>
-                          <button id="nextMonth" class="btn btn-outline-primary btn-sm ms-2">
+                          <h4 id="currentMonth" class="mb-0 mx-3">
+                            January 2024
+                          </h4>
+                          <button
+                            id="nextMonth"
+                            class="btn btn-outline-primary btn-sm ms-2"
+                          >
                             <i class="bi bi-chevron-right"></i>
                           </button>
                         </div>
                       </div>
                       <div class="col-md-6 text-end">
-                        <span class="badge bg-info fs-6" id="currentMonthBadge">Current Month</span>
+                        <span class="badge bg-info fs-6" id="currentMonthBadge"
+                          >Current Month</span
+                        >
                       </div>
                     </div>
                   </div>
@@ -788,15 +785,25 @@
                   <!-- Income Section -->
                   <div class="col-lg-6 mb-4">
                     <div class="card h-100">
-                      <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Income</h5>
-                        <button class="btn btn-sm btn-light text-success" id="addIncomeBtn">
+                      <div
+                        class="card-header bg-success text-white d-flex justify-content-between align-items-center"
+                      >
+                        <h5 class="mb-0">
+                          <i class="bi bi-plus-circle me-2"></i>Income
+                        </h5>
+                        <button
+                          class="btn btn-sm btn-light text-success"
+                          id="addIncomeBtn"
+                        >
                           <i class="bi bi-plus"></i> Add Item
                         </button>
                       </div>
                       <div class="card-body">
                         <div id="incomeList">
-                          <div class="text-center text-muted py-4" id="noIncomeMessage">
+                          <div
+                            class="text-center text-muted py-4"
+                            id="noIncomeMessage"
+                          >
                             <i class="bi bi-plus-circle fs-1"></i>
                             <p class="mt-2">No income items added</p>
                           </div>
@@ -804,7 +811,9 @@
                         <div class="border-top pt-3 mt-3">
                           <div class="d-flex justify-content-between">
                             <strong>Total Income:</strong>
-                            <strong class="text-success" id="totalIncome">$0.00</strong>
+                            <strong class="text-success" id="totalIncome"
+                              >$0.00</strong
+                            >
                           </div>
                         </div>
                       </div>
@@ -814,15 +823,25 @@
                   <!-- Expenses Section -->
                   <div class="col-lg-6 mb-4">
                     <div class="card h-100">
-                      <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-dash-circle me-2"></i>Expenses</h5>
-                        <button class="btn btn-sm btn-light text-danger" id="addExpenseBtn">
+                      <div
+                        class="card-header bg-danger text-white d-flex justify-content-between align-items-center"
+                      >
+                        <h5 class="mb-0">
+                          <i class="bi bi-dash-circle me-2"></i>Expenses
+                        </h5>
+                        <button
+                          class="btn btn-sm btn-light text-danger"
+                          id="addExpenseBtn"
+                        >
                           <i class="bi bi-plus"></i> Add Item
                         </button>
                       </div>
                       <div class="card-body">
                         <div id="expenseList">
-                          <div class="text-center text-muted py-4" id="noExpenseMessage">
+                          <div
+                            class="text-center text-muted py-4"
+                            id="noExpenseMessage"
+                          >
                             <i class="bi bi-dash-circle fs-1"></i>
                             <p class="mt-2">No expense items added</p>
                           </div>
@@ -830,7 +849,9 @@
                         <div class="border-top pt-3 mt-3">
                           <div class="d-flex justify-content-between">
                             <strong>Total Expenses:</strong>
-                            <strong class="text-danger" id="totalExpenses">$0.00</strong>
+                            <strong class="text-danger" id="totalExpenses"
+                              >$0.00</strong
+                            >
                           </div>
                         </div>
                       </div>
@@ -841,7 +862,10 @@
                 <!-- Summary and Investor Calculations -->
                 <div class="card mb-4">
                   <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Summary & Investor Calculations</h5>
+                    <h5 class="mb-0">
+                      <i class="bi bi-calculator me-2"></i>Summary & Investor
+                      Calculations
+                    </h5>
                   </div>
                   <div class="card-body">
                     <div class="row">
@@ -852,11 +876,26 @@
                         </div>
                       </div>
                       <div class="col-md-8">
-                        <h6 class="mb-3">Investor Distribution</h6>
+                        <div
+                          class="d-flex justify-content-between align-items-center mb-3"
+                        >
+                          <h6 class="mb-0">Investor Distribution</h6>
+                          <button
+                            class="btn btn-sm btn-outline-primary"
+                            id="addInvestorBtn"
+                          >
+                            <i class="bi bi-person-plus"></i> Add Investor
+                          </button>
+                        </div>
                         <div id="investorDistribution">
-                          <div class="text-center text-muted py-3" id="noInvestorsMessage">
+                          <div
+                            class="text-center text-muted py-3"
+                            id="noInvestorsMessage"
+                          >
                             <i class="bi bi-person-lines-fill fs-1"></i>
-                            <p class="mt-2">No investors configured for this property</p>
+                            <p class="mt-2">
+                              No investors configured for this property
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -879,23 +918,35 @@
       document.addEventListener("DOMContentLoaded", async function () {
         try {
           // Check authentication status
+          const token = getAuthToken();
+
+          if (!token) {
+            // No valid token found, redirect to login
+            console.log("No authentication token found, redirecting to login");
+            window.location.href = "/login.html";
+            return;
+          }
+
+          // Verify token with server
           const response = await API.get(API_CONFIG.ENDPOINTS.STATUS);
           const result = await response.json();
 
           if (!result.authenticated) {
-            // Check if we have a token in localStorage as fallback
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-              // No token, redirect to login
-              window.location.href = "/login.html";
-              return;
-            }
-            
-            console.log('Session check failed but token exists, attempting token validation...');
-            // Token exists but session check failed - this is the cross-domain issue
-            // Continue with dashboard load but log the issue
-            console.warn('Cross-domain session issue detected - relying on token authentication');
+            // Token invalid or expired, clear auth and redirect
+            console.log(
+              "Authentication failed, clearing auth and redirecting to login"
+            );
+            clearAuth();
+            window.location.href = "/login.html";
+            return;
           }
+
+          console.log(
+            "Authentication successful, token valid for",
+            localStorage.getItem("rememberMe") === "true"
+              ? "30 days"
+              : "this session"
+          );
 
           // Initialize dashboard controller if authenticated
           dashboardController = new DashboardController();
@@ -908,6 +959,11 @@
 
           // Make badge update function globally accessible
           window.updateSidebarBadges = updateSidebarBadges;
+
+          // Update user info display after everything else is initialized
+          setTimeout(() => {
+            updateUserInfo();
+          }, 100);
         } catch (error) {
           console.error("Authentication check failed:", error);
           // Redirect to login on error
@@ -957,10 +1013,15 @@
       // Function to update sidebar badges (v3 - cache busted)
       async function updateSidebarBadges() {
         try {
-          console.log('🔄 Updating sidebar badges - using API:', buildApiUrl(API_CONFIG.ENDPOINTS.PROPERTIES));
-          
+          console.log(
+            "🔄 Updating sidebar badges - using API:",
+            buildApiUrl(API_CONFIG.ENDPOINTS.PROPERTIES)
+          );
+
           // Fetch properties count
-          const propertiesResponse = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
+          const propertiesResponse = await API.get(
+            API_CONFIG.ENDPOINTS.PROPERTIES
+          );
 
           if (propertiesResponse.ok) {
             const propertiesResult = await propertiesResponse.json();
@@ -1003,17 +1064,118 @@
           if (tenantsBadge) tenantsBadge.style.display = "none";
         }
       }
+
+      // Function to update user info in the sidebar
+      function updateUserInfo() {
+        console.log("=== updateUserInfo called ===");
+        const userInfoElement = document.getElementById("userInfo");
+        if (!userInfoElement) {
+          console.log("userInfo element not found");
+          console.log(
+            "All elements with ID userInfo:",
+            document.querySelectorAll("#userInfo")
+          );
+          console.log(
+            'All elements with text "Admin User":',
+            document.querySelectorAll('*:contains("Admin User")')
+          );
+          return;
+        }
+
+        console.log("Found userInfo element:", userInfoElement);
+        console.log(
+          "Current content before update:",
+          userInfoElement.textContent
+        );
+
+        // Try to get user info from stored data
+        let username = "Unknown User";
+
+        try {
+          const storedUser =
+            localStorage.getItem("user") || sessionStorage.getItem("user");
+          console.log("Stored user data:", storedUser);
+
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            console.log("Parsed user data:", userData);
+
+            if (userData.username) {
+              username = userData.username;
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing stored user data:", error);
+        }
+
+        userInfoElement.textContent = username;
+        console.log("Updated user info display to:", username);
+        console.log("Element after update:", userInfoElement.textContent);
+
+        // Check again after a short delay to see if something overwrites it
+        setTimeout(() => {
+          console.log(
+            "Element content after 1 second:",
+            userInfoElement.textContent
+          );
+        }, 1000);
+      }
+
+      // Test function to manually update user info (can be called from console)
+      window.testUserInfoUpdate = function (testName) {
+        const userInfoElement = document.getElementById("userInfo");
+        if (userInfoElement) {
+          userInfoElement.textContent = testName || "TEST USER";
+          console.log(
+            "Test update applied, element now shows:",
+            userInfoElement.textContent
+          );
+        } else {
+          console.log("userInfo element not found for test");
+        }
+      };
+
+      // Logout function
+      async function logout() {
+        try {
+          // Call logout API
+          await API.post(API_CONFIG.ENDPOINTS.LOGOUT);
+
+          // Clear local storage
+          clearAuth();
+
+          // Redirect to login page
+          window.location.href = "/login.html";
+        } catch (error) {
+          console.error("Logout error:", error);
+          // Even if API call fails, clear local storage and redirect
+          clearAuth();
+          window.location.href = "/login.html";
+        }
+      }
     </script>
 
     <!-- Property Modal (Add/Edit) -->
-    <div class="modal fade" id="propertyModal" tabindex="-1" aria-labelledby="propertyModalLabel" aria-hidden="true">
+    <div
+      class="modal fade"
+      id="propertyModal"
+      tabindex="-1"
+      aria-labelledby="propertyModalLabel"
+      aria-hidden="true"
+    >
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="propertyModalLabel">
-              <i class="bi bi-building me-2"></i><span id="propertyModalTitle">Add New Property</span>
+              <i class="bi bi-building me-2"></i
+              ><span id="propertyModalTitle">Add New Property</span>
             </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
           </div>
           <form id="propertyForm">
             <div class="modal-body">
@@ -1024,21 +1186,49 @@
                 </h6>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="propertyId" class="form-label">Property ID <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="propertyId" name="propertyId" required 
-                           placeholder="e.g., PROP001, BLK123A" style="text-transform: uppercase;">
-                    <div class="form-text">Unique identifier for the property (will be converted to uppercase)</div>
+                    <label for="propertyId" class="form-label"
+                      >Property ID <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="propertyId"
+                      name="propertyId"
+                      required
+                      placeholder="e.g., PROP001, BLK123A"
+                      style="text-transform: uppercase"
+                    />
+                    <div class="form-text">
+                      Unique identifier for the property (will be converted to
+                      uppercase)
+                    </div>
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="unit" class="form-label">Unit <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="unit" name="unit" required 
-                           placeholder="e.g., #12-34, Unit A">
+                    <label for="unit" class="form-label"
+                      >Unit <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="unit"
+                      name="unit"
+                      required
+                      placeholder="e.g., #12-34, Unit A"
+                    />
                   </div>
                 </div>
                 <div class="mb-3">
-                  <label for="address" class="form-label">Address <span class="text-danger">*</span></label>
-                  <textarea class="form-control" id="address" name="address" rows="2" required 
-                            placeholder="Full property address"></textarea>
+                  <label for="address" class="form-label"
+                    >Address <span class="text-danger">*</span></label
+                  >
+                  <textarea
+                    class="form-control"
+                    id="address"
+                    name="address"
+                    rows="2"
+                    required
+                    placeholder="Full property address"
+                  ></textarea>
                 </div>
               </div>
 
@@ -1049,18 +1239,40 @@
                 </h6>
                 <div class="row">
                   <div class="col-md-4 mb-3">
-                    <label for="maxPax" class="form-label">Maximum Occupancy</label>
-                    <input type="number" class="form-control" id="maxPax" name="maxPax" 
-                           min="1" max="20" value="1">
+                    <label for="maxPax" class="form-label"
+                      >Maximum Occupancy</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="maxPax"
+                      name="maxPax"
+                      min="1"
+                      max="20"
+                      value="1"
+                    />
                     <div class="form-text">Number of people allowed (1-20)</div>
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="moveInDate" class="form-label">Move-in Date</label>
-                    <input type="date" class="form-control" id="moveInDate" name="moveInDate">
+                    <label for="moveInDate" class="form-label"
+                      >Move-in Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="moveInDate"
+                      name="moveInDate"
+                    />
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="rentPaymentDate" class="form-label">Rent Payment Date</label>
-                    <select class="form-select" id="rentPaymentDate" name="rentPaymentDate">
+                    <label for="rentPaymentDate" class="form-label"
+                      >Rent Payment Date</label
+                    >
+                    <select
+                      class="form-select"
+                      id="rentPaymentDate"
+                      name="rentPaymentDate"
+                    >
                       <option value="1" selected>1</option>
                       <option value="2">2</option>
                       <option value="3">3</option>
@@ -1096,11 +1308,21 @@
                   </div>
                 </div>
                 <div class="mb-3">
-                  <label for="rent" class="form-label">Monthly Rent (SGD)</label>
+                  <label for="rent" class="form-label"
+                    >Monthly Rent (SGD)</label
+                  >
                   <div class="input-group">
                     <span class="input-group-text">$</span>
-                    <input type="number" class="form-control" id="rent" name="rent" 
-                           min="0" step="0.01" value="0" placeholder="0.00">
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="rent"
+                      name="rent"
+                      min="0"
+                      step="0.01"
+                      value="0"
+                      placeholder="0.00"
+                    />
                   </div>
                 </div>
               </div>
@@ -1113,13 +1335,25 @@
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="agentName" class="form-label">Agent Name</label>
-                    <input type="text" class="form-control" id="agentName" name="agentName" 
-                           placeholder="Property agent name">
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="agentName"
+                      name="agentName"
+                      placeholder="Property agent name"
+                    />
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="agentPhone" class="form-label">Agent Phone</label>
-                    <input type="tel" class="form-control" id="agentPhone" name="agentPhone" 
-                           placeholder="+65 9123 4567">
+                    <label for="agentPhone" class="form-label"
+                      >Agent Phone</label
+                    >
+                    <input
+                      type="tel"
+                      class="form-control"
+                      id="agentPhone"
+                      name="agentPhone"
+                      placeholder="+65 9123 4567"
+                    />
                   </div>
                 </div>
               </div>
@@ -1131,38 +1365,108 @@
                 </h6>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="landlordBankName" class="form-label">Bank Name</label>
-                    <select class="form-select" id="landlordBankName" name="landlordBankName">
+                    <label for="landlordBankName" class="form-label"
+                      >Bank Name</label
+                    >
+                    <select
+                      class="form-select"
+                      id="landlordBankName"
+                      name="landlordBankName"
+                    >
                       <option value="">Select bank (optional)</option>
                       <option value="DBS">DBS Bank</option>
                       <option value="OCBC">OCBC Bank</option>
                       <option value="UOB">United Overseas Bank (UOB)</option>
                       <option value="Citibank">Citibank Singapore</option>
-                      <option value="Standard Chartered">Standard Chartered Bank</option>
+                      <option value="Standard Chartered">
+                        Standard Chartered Bank
+                      </option>
                       <option value="HSBC">HSBC Singapore</option>
                       <option value="Maybank">Maybank Singapore</option>
                       <option value="Other">Other</option>
                     </select>
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="landlordAccountName" class="form-label">Account Holder Name</label>
-                    <input type="text" class="form-control" id="landlordAccountName" name="landlordAccountName" 
-                           placeholder="Name on bank account">
+                    <label for="landlordAccountName" class="form-label"
+                      >Account Holder Name</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="landlordAccountName"
+                      name="landlordAccountName"
+                      placeholder="Name on bank account"
+                    />
                   </div>
                 </div>
                 <div class="mb-3">
-                  <label for="landlordBankAccount" class="form-label">Bank Account Number</label>
-                  <input type="text" class="form-control" id="landlordBankAccount" name="landlordBankAccount" 
-                         placeholder="Account number for rent payments">
+                  <label for="landlordBankAccount" class="form-label"
+                    >Bank Account Number</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="landlordBankAccount"
+                    name="landlordBankAccount"
+                    placeholder="Account number for rent payments"
+                  />
+                </div>
+              </div>
+
+              <!-- Telegram Bot Configuration Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-telegram me-1"></i>Telegram Bot Configuration
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="telegramBotToken" class="form-label"
+                      >Telegram Bot Token</label
+                    >
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="telegramBotToken"
+                      name="telegramBotToken"
+                      placeholder="Bot token for notifications"
+                    />
+                    <div class="form-text">
+                      Token for sending automated notifications via Telegram
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="telegramChannelId" class="form-label"
+                      >Telegram Channel ID</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="telegramChannelId"
+                      name="telegramChannelId"
+                      placeholder="Channel ID for notifications"
+                    />
+                    <div class="form-text">
+                      Channel or chat ID where notifications will be sent
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
                 <i class="bi bi-x-circle me-1"></i>Cancel
               </button>
-              <button type="submit" class="btn btn-primary" id="propertySubmitBtn">
-                <i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">Add Property</span>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="propertySubmitBtn"
+              >
+                <i class="bi bi-plus-circle me-1"></i
+                ><span id="propertySubmitText">Add Property</span>
               </button>
             </div>
           </form>
@@ -1171,14 +1475,26 @@
     </div>
 
     <!-- Tenant Modal (Add/Edit) -->
-    <div class="modal fade" id="tenantModal" tabindex="-1" aria-labelledby="tenantModalLabel" aria-hidden="true">
+    <div
+      class="modal fade"
+      id="tenantModal"
+      tabindex="-1"
+      aria-labelledby="tenantModalLabel"
+      aria-hidden="true"
+    >
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="tenantModalLabel">
-              <i class="bi bi-person-plus me-2"></i><span id="tenantModalTitle">Add New Tenant</span>
+              <i class="bi bi-person-plus me-2"></i
+              ><span id="tenantModalTitle">Add New Tenant</span>
             </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
           </div>
           <form id="tenantForm">
             <div class="modal-body">
@@ -1189,25 +1505,59 @@
                 </h6>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="tenantName" class="form-label">Full Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="tenantName" name="name" required 
-                           minlength="2" maxlength="100" placeholder="Enter full name">
+                    <label for="tenantName" class="form-label"
+                      >Full Name <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantName"
+                      name="name"
+                      required
+                      minlength="2"
+                      maxlength="100"
+                      placeholder="Enter full name"
+                    />
                     <div class="form-text">2-100 characters</div>
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="tenantFin" class="form-label">FIN/NRIC <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="tenantFin" name="fin" required 
-                           maxlength="20" style="text-transform: uppercase;"
-                           placeholder="Enter FIN/ID number">
-                    <div class="form-text">FIN/ID number (will be converted to uppercase, max 20 characters)</div>
+                    <label for="tenantFin" class="form-label"
+                      >FIN/NRIC <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantFin"
+                      name="fin"
+                      required
+                      maxlength="20"
+                      style="text-transform: uppercase"
+                      placeholder="Enter FIN/ID number"
+                    />
+                    <div class="form-text">
+                      FIN/ID number (will be converted to uppercase, max 20
+                      characters)
+                    </div>
                   </div>
                 </div>
                 <div class="mb-3">
-                  <label for="tenantPassport" class="form-label">Passport Number <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control" id="tenantPassport" name="passportNumber" required 
-                         minlength="6" maxlength="15" style="text-transform: uppercase;"
-                         placeholder="Enter passport number">
-                  <div class="form-text">6-15 characters (will be converted to uppercase)</div>
+                  <label for="tenantPassport" class="form-label"
+                    >Passport Number <span class="text-danger">*</span></label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="tenantPassport"
+                    name="passportNumber"
+                    required
+                    minlength="6"
+                    maxlength="15"
+                    style="text-transform: uppercase"
+                    placeholder="Enter passport number"
+                  />
+                  <div class="form-text">
+                    6-15 characters (will be converted to uppercase)
+                  </div>
                 </div>
               </div>
 
@@ -1219,20 +1569,34 @@
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="tenantIsRegistered" name="isRegistered">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="tenantIsRegistered"
+                        name="isRegistered"
+                      />
                       <label class="form-check-label" for="tenantIsRegistered">
                         <i class="bi bi-check-circle me-1"></i>Registered Tenant
                       </label>
-                      <div class="form-text">Check if tenant is officially registered</div>
+                      <div class="form-text">
+                        Check if tenant is officially registered
+                      </div>
                     </div>
                   </div>
                   <div class="col-md-6 mb-3">
                     <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="tenantIsMainTenant" name="isMainTenant">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="tenantIsMainTenant"
+                        name="isMainTenant"
+                      />
                       <label class="form-check-label" for="tenantIsMainTenant">
                         <i class="bi bi-star me-1"></i>Main Tenant
                       </label>
-                      <div class="form-text">Check if this is the primary tenant</div>
+                      <div class="form-text">
+                        Check if this is the primary tenant
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1244,39 +1608,67 @@
                   <i class="bi bi-building me-1"></i>Property Assignment
                 </h6>
                 <div class="mb-3">
-                  <label for="tenantProperties" class="form-label">Assigned Properties</label>
+                  <label for="tenantProperties" class="form-label"
+                    >Assigned Properties</label
+                  >
                   <div class="dropdown">
-                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" id="propertyDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                      <span id="propertyDropdownText">Select properties...</span>
+                    <button
+                      class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
+                      type="button"
+                      id="propertyDropdown"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                    >
+                      <span id="propertyDropdownText"
+                        >Select properties...</span
+                      >
                     </button>
-                    <ul class="dropdown-menu w-100" id="propertyCheckboxList" style="max-height: 300px; overflow-y: auto;">
-                      <li class="px-3 py-2 text-muted">Loading properties...</li>
+                    <ul
+                      class="dropdown-menu w-100"
+                      id="propertyCheckboxList"
+                      style="max-height: 300px; overflow-y: auto"
+                    >
+                      <li class="px-3 py-2 text-muted">
+                        Loading properties...
+                      </li>
                     </ul>
                   </div>
-                  <div class="form-text">Click to select/deselect multiple properties</div>
+                  <div class="form-text">
+                    Click to select/deselect multiple properties
+                  </div>
                 </div>
-                
+
                 <!-- Selected Properties List -->
                 <div id="selectedPropertiesList" class="mt-2">
-                  <div class="text-muted" id="noPropertiesMessage">No properties assigned</div>
+                  <div class="text-muted" id="noPropertiesMessage">
+                    No properties assigned
+                  </div>
                 </div>
-                
+
                 <!-- Hidden input for form submission -->
-                <input type="hidden" id="tenantProperties" name="properties">
+                <input type="hidden" id="tenantProperties" name="properties" />
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
                 <i class="bi bi-x-circle me-1"></i>Cancel
               </button>
-              <button type="submit" class="btn btn-primary" id="tenantSubmitBtn">
-                <i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">Add Tenant</span>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="tenantSubmitBtn"
+              >
+                <i class="bi bi-person-plus me-1"></i
+                ><span id="tenantSubmitText">Add Tenant</span>
               </button>
             </div>
           </form>
         </div>
       </div>
     </div>
-
   </body>
 </html>
