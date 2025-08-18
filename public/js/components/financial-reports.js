@@ -989,25 +989,6 @@ class FinancialReportsComponent {
     const form = document.getElementById("investorForm");
     console.log("Form found for event binding:", !!form);
 
-    // Add a test button to manually check if inputs work
-    const testBtn = document.createElement("button");
-    testBtn.textContent = "Test Form Values";
-    testBtn.type = "button";
-    testBtn.className = "btn btn-warning btn-sm";
-    testBtn.onclick = () => {
-      console.log("=== Manual Form Test ===");
-      const inputs = form.querySelectorAll("input");
-      inputs.forEach((input, i) => {
-        console.log(`Input ${i}: ${input.name} = "${input.value}"`);
-      });
-    };
-
-    // Add test button to modal footer
-    const modalFooter = modalElement.querySelector(".modal-footer");
-    if (modalFooter) {
-      modalFooter.insertBefore(testBtn, modalFooter.firstChild);
-    }
-
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       console.log("Form submit event triggered");
