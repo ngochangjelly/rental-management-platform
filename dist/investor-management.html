@@ -1,0 +1,184 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Investor Management - Rental Management Platform</title><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23667eea' d='M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z'/><path fill='%23667eea' d='m8 3.293 6 6V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V9.293l6-6Z'/></svg>"/><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#667eea"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Rental Hub"><meta name="msapplication-TileColor" content="#667eea"><meta name="msapplication-config" content="/browserconfig.xml"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet"/><style>.sidebar {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: white;
+        transition: transform 0.3s ease;
+      }
+
+      /* Mobile sidebar styles */
+      @media (max-width: 767.98px) {
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 280px;
+          z-index: 1000;
+          transform: translateX(-100%);
+        }
+        .sidebar.show {
+          transform: translateX(0);
+        }
+        .sidebar-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.5);
+          z-index: 999;
+          display: none;
+        }
+        .sidebar-overlay.show {
+          display: block;
+        }
+        .main-content {
+          margin-left: 0 !important;
+        }
+      }
+
+      @media (min-width: 768px) {
+        .sidebar-overlay {
+          display: none !important;
+        }
+      }
+      
+      .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 0.5rem;
+        margin-bottom: 0.25rem;
+      }
+      .nav-link:hover {
+        color: white;
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      .nav-link.active {
+        color: white;
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      .nav-link i {
+        width: 20px;
+      }
+
+      .investor-card {
+        border-left: 4px solid #667eea;
+        transition: all 0.3s ease;
+      }
+      .investor-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .property-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+      }
+
+      .percentage-display {
+        font-weight: bold;
+        color: #667eea;
+      }</style></head><body class="bg-light"><div class="container-fluid"><div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index: 9999"></div><div class="sidebar-overlay" id="sidebarOverlay"></div><div class="row"><nav class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4" id="sidebar"><div class="d-flex align-items-center mb-4"><i class="bi bi-house-door-fill text-white me-2 fs-4"></i><h5 class="mb-0 text-white">RentFlow</h5></div><ul class="nav nav-pills flex-column"><li class="nav-item"><a class="nav-link" href="/dashboard.html"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li><li class="nav-item"><a class="nav-link" href="/dashboard.html#analysis"><i class="bi bi-file-text me-2"></i>Contract Analysis</a></li><li class="nav-item"><a class="nav-link" href="/dashboard.html#properties"><i class="bi bi-building me-2"></i>Properties</a></li><li class="nav-item"><a class="nav-link" href="/dashboard.html#tenants"><i class="bi bi-people me-2"></i>Tenants</a></li><li class="nav-item"><a class="nav-link" href="/dashboard.html#financial"><i class="bi bi-graph-up me-2"></i>Financial Reports</a></li><li class="nav-item"><a class="nav-link active" href="/investor-management.html"><i class="bi bi-person-badge me-2"></i>Investors</a></li></ul><div class="mt-auto pt-4"><p class="text-white-50 mb-2">Logged in as:</p><p class="text-white mb-3" id="userInfo">Admin User</p><button onclick="logout()" class="btn btn-outline-light btn-sm"><i class="bi bi-box-arrow-right me-1"></i>Logout</button></div></nav><main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content"><div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom"><div class="d-flex align-items-center"><button class="btn btn-outline-secondary d-md-none me-3" type="button" id="mobileToggle"><i class="bi bi-list"></i></button><h1 class="h2 mb-0">Investor Management</h1></div><div class="btn-toolbar mb-2 mb-md-0"><button type="button" class="btn btn-primary" id="addInvestorBtn"><i class="bi bi-plus-circle me-1"></i>Add Investor</button></div></div><div id="investorContent"><div class="row mb-4"><div class="col-12"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>All Investors</h5><span class="badge bg-primary" id="investorCount">Loading...</span></div><div class="card-body"><div id="investorsList"><div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Loading investors...</p></div></div></div></div></div></div></div></main></div></div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script><script>document.addEventListener("DOMContentLoaded", function () {
+        // Initialize investor management component
+        window.investorManagement = new InvestorManagementComponent();
+
+        // Update user info display
+        updateUserInfo();
+
+        // Mobile navigation handling
+        const mobileToggle = document.getElementById("mobileToggle");
+        const sidebar = document.getElementById("sidebar");
+        const sidebarOverlay = document.getElementById("sidebarOverlay");
+        
+        if (mobileToggle && sidebar && sidebarOverlay) {
+          // Toggle sidebar on mobile
+          mobileToggle.addEventListener("click", function () {
+            sidebar.classList.toggle("show");
+            sidebarOverlay.classList.toggle("show");
+          });
+          
+          // Close sidebar when clicking overlay
+          sidebarOverlay.addEventListener("click", function () {
+            sidebar.classList.remove("show");
+            sidebarOverlay.classList.remove("show");
+          });
+          
+          // Close sidebar when clicking nav links on mobile
+          const navLinks = sidebar.querySelectorAll(".nav-link");
+          navLinks.forEach((link) => {
+            link.addEventListener("click", function () {
+              if (window.innerWidth < 768) {
+                sidebar.classList.remove("show");
+                sidebarOverlay.classList.remove("show");
+              }
+            });
+          });
+          
+          // Handle window resize
+          window.addEventListener("resize", function () {
+            if (window.innerWidth >= 768) {
+              sidebar.classList.remove("show");
+              sidebarOverlay.classList.remove("show");
+            }
+          });
+        }
+
+        // Function to update user info in the sidebar
+        function updateUserInfo() {
+          const userInfoElement = document.getElementById('userInfo');
+          if (!userInfoElement) {
+            console.log('userInfo element not found');
+            return;
+          }
+
+          // Try to get user info from stored data
+          let username = 'Unknown User';
+          
+          try {
+            const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+            console.log('Stored user data:', storedUser);
+            
+            if (storedUser) {
+              const userData = JSON.parse(storedUser);
+              console.log('Parsed user data:', userData);
+              
+              if (userData.username) {
+                username = userData.username;
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing stored user data:', error);
+          }
+
+          userInfoElement.textContent = username;
+          console.log('Updated user info display to:', username);
+        }
+
+        // Logout function
+        async function logout() {
+          try {
+            // Call logout API
+            await API.post(API_CONFIG.ENDPOINTS.LOGOUT);
+            
+            // Clear local storage
+            clearAuth();
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+          } catch (error) {
+            console.error('Logout error:', error);
+            // Even if API call fails, clear local storage and redirect
+            clearAuth();
+            window.location.href = '/login.html';
+          }
+        }
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch(function(error) {
+              console.log('ServiceWorker registration failed: ', error);
+            });
+        }
+      });</script><script defer="defer" src="/js/investor-management.ad41b9fb7e2e3982265f.js"></script></body></html>

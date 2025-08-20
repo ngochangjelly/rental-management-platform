@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+    <msapplication>
+        <tile>
+            <square70x70logo src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 70'><rect width='70' height='70' fill='%23667eea'/><path fill='white' d='M35 17.5L17.5 35h6v17.5h23V35h6L35 17.5zm0 6l11.5 11.5v14.5h-6v-6H29v6h-6V35l11.5-11.5z'/></svg>"/>
+            <square150x150logo src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23667eea'/><path fill='white' d='M75 37.5L37.5 75h12.5v37.5h50V75h12.5L75 37.5zm0 12.5l25 25v30h-12.5v-12.5H62.5v12.5H50V75l25-25z'/></svg>"/>
+            <wide310x150logo src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 310 150'><rect width='310' height='150' fill='%23667eea'/><path fill='white' d='M155 37.5L117.5 75h12.5v37.5h50V75h12.5L155 37.5zm0 12.5l25 25v30h-12.5v-12.5H142.5v12.5H130V75l25-25z'/><text x='50' y='100' fill='white' font-size='16' font-family='Arial'>Rental Hub</text></svg>"/>
+            <square310x310logo src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 310 310'><rect width='310' height='310' fill='%23667eea'/><path fill='white' d='M155 77.5L77.5 155h25v77.5h100V155h25L155 77.5zm0 25l50 50v60h-25v-25H130v25h-25V155l50-50z'/></svg>"/>
+            <TileColor>#667eea</TileColor>
+        </tile>
+    </msapplication>
+</browserconfig>

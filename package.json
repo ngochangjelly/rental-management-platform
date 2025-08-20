@@ -5,13 +5,17 @@
   "main": "public/index.html",
   "scripts": {
     "prestart": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
-    "start": "npx serve public -l 3000",
-    "predev": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
-    "dev": "npx serve public -l 3000",
-    "build": "echo 'SPA build completed - static files ready'",
-    "preview": "npx serve public",
-    "lint": "eslint public/js --ext .js",
-    "lint:fix": "eslint public/js --ext .js --fix"
+    "start": "webpack serve --mode development",
+    "predev": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true", 
+    "dev": "webpack serve --mode development",
+    "build": "webpack --mode production",
+    "build:dev": "webpack --mode development",
+    "preview": "npx serve dist -l 3000",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/js --ext .js",
+    "lint:fix": "eslint src/js --ext .js --fix",
+    "legacy:start": "npx serve public -l 3000",
+    "legacy:preview": "npx serve public"
   },
   "keywords": [
     "rental",
@@ -28,12 +32,21 @@
     "node": ">=16.0.0",
     "npm": ">=8.0.0"
   },
-  "dependencies": {},
   "optionalDependencies": {
     "serve": "^14.2.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "babel-loader": "^10.0.0",
+    "copy-webpack-plugin": "^13.0.1",
+    "css-loader": "^7.1.2",
     "eslint": "^8.55.0",
-    "serve": "^14.2.0"
+    "html-webpack-plugin": "^5.6.4",
+    "serve": "^14.2.0",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
   }
 }

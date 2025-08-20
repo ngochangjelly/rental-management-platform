@@ -1,5 +1,5 @@
 [build]
-  publish = "public"
+  publish = "dist"
   command = "npm run build"
   
 [build.environment]
@@ -14,6 +14,30 @@
 [[redirects]]
   from = "/dashboard/"
   to = "/dashboard.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/investor-management"
+  to = "/investor-management.html"
+  status = 200
+  force = true
+  
+[[redirects]]
+  from = "/investor-management/"
+  to = "/investor-management.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+  force = true
+  
+[[redirects]]
+  from = "/login/"
+  to = "/login.html"
   status = 200
   force = true
 
