@@ -9,6 +9,8 @@ class TenantManagementComponent {
         this.propertiesCache = null; // Cache for properties
         this.propertiesCacheTime = null;
         this.cacheTimeout = 30000; // Cache for 30 seconds
+        this.passportPics = []; // Array of passport image URLs
+        this.visaPics = []; // Array of visa image URLs
         this.init();
     }
 
@@ -78,9 +80,14 @@ class TenantManagementComponent {
 
         let html = '';
         this.tenants.forEach(tenant => {
+            const moveinDate = tenant.moveinDate ? new Date(tenant.moveinDate).toLocaleDateString() : 'N/A';
+            const moveoutDate = tenant.moveoutDate ? new Date(tenant.moveoutDate).toLocaleDateString() : 'Current';
             html += `
                 <tr>
-                    <td>${this.escapeHtml(tenant.name)}</td>
+                    <td>
+                        <div>${this.escapeHtml(tenant.name)}</div>
+                        <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                    </td>
                     <td>${this.escapeHtml(tenant.fin)}</td>
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
                     <td>
@@ -88,6 +95,10 @@ class TenantManagementComponent {
                             ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
                         </span>
                         ${tenant.isMainTenant ? '<span class="badge bg-primary ms-1">Main</span>' : ''}
+                    </td>
+                    <td>
+                        <div><strong>Room:</strong> ${this.escapeHtml(tenant.room || 'N/A')}</div>
+                        <small class="text-muted">In: ${moveinDate} | Out: ${moveoutDate}</small>
                     </td>
                     <td>
                         <span class="badge bg-info">
@@ -115,7 +126,7 @@ class TenantManagementComponent {
         
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-muted py-4">
+                <td colspan="7" class="text-center text-muted py-4">
                     <i class="bi bi-people fs-1"></i>
                     <p class="mt-2">${message}</p>
                 </td>
@@ -132,7 +143,9 @@ class TenantManagementComponent {
         const filteredTenants = this.tenants.filter(tenant => 
             tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tenant.passportNumber.toLowerCase().includes(searchTerm.toLowerCase())
+            tenant.passportNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (tenant.phoneNumber && tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (tenant.room && tenant.room.toLowerCase().includes(searchTerm.toLowerCase()))
         );
 
         const tbody = document.getElementById('tenantsTableBody');
@@ -145,9 +158,14 @@ class TenantManagementComponent {
 
         let html = '';
         filteredTenants.forEach(tenant => {
+            const moveinDate = tenant.moveinDate ? new Date(tenant.moveinDate).toLocaleDateString() : 'N/A';
+            const moveoutDate = tenant.moveoutDate ? new Date(tenant.moveoutDate).toLocaleDateString() : 'Current';
             html += `
                 <tr>
-                    <td>${this.escapeHtml(tenant.name)}</td>
+                    <td>
+                        <div>${this.escapeHtml(tenant.name)}</div>
+                        <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                    </td>
                     <td>${this.escapeHtml(tenant.fin)}</td>
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
                     <td>
@@ -155,6 +173,10 @@ class TenantManagementComponent {
                             ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
                         </span>
                         ${tenant.isMainTenant ? '<span class="badge bg-primary ms-1">Main</span>' : ''}
+                    </td>
+                    <td>
+                        <div><strong>Room:</strong> ${this.escapeHtml(tenant.room || 'N/A')}</div>
+                        <small class="text-muted">In: ${moveinDate} | Out: ${moveoutDate}</small>
                     </td>
                     <td>
                         <span class="badge bg-info">
@@ -203,8 +225,18 @@ class TenantManagementComponent {
                 document.getElementById('tenantName').value = tenant.name || '';
                 document.getElementById('tenantFin').value = tenant.fin || '';
                 document.getElementById('tenantPassport').value = tenant.passportNumber || '';
+                document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
+                document.getElementById('tenantRoom').value = tenant.room || '';
+                document.getElementById('tenantMoveinDate').value = tenant.moveinDate ? tenant.moveinDate.split('T')[0] : '';
+                document.getElementById('tenantMoveoutDate').value = tenant.moveoutDate ? tenant.moveoutDate.split('T')[0] : '';
                 document.getElementById('tenantIsRegistered').checked = tenant.isRegistered || false;
                 document.getElementById('tenantIsMainTenant').checked = tenant.isMainTenant || false;
+                
+                // Handle multiple images (with backward compatibility)
+                this.passportPics = tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []);
+                this.visaPics = tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
+                this.updateImageGallery('passport');
+                this.updateImageGallery('visa');
                 
                 // Set up properties - extract property IDs only
                 this.selectedProperties = (tenant.properties || []).map(prop => 
@@ -217,6 +249,10 @@ class TenantManagementComponent {
             } else {
                 // Reset for add mode
                 this.selectedProperties = [];
+                this.passportPics = [];
+                this.visaPics = [];
+                this.updateImageGallery('passport');
+                this.updateImageGallery('visa');
                 
                 // Make FIN editable in add mode
                 document.getElementById('tenantFin').readOnly = false;
@@ -227,6 +263,9 @@ class TenantManagementComponent {
         // Load available properties and populate select
         await this.loadPropertiesForSelect();
         this.updateSelectedPropertiesList();
+        
+        // Add event listeners for image URL inputs
+        this.setupImageUrlListeners();
         
         // Show modal
         const modalEl = document.getElementById('tenantModal');
@@ -420,9 +459,15 @@ class TenantManagementComponent {
                 name: formData.get('name').trim(),
                 fin: formData.get('fin').trim().toUpperCase(),
                 passportNumber: formData.get('passportNumber').trim().toUpperCase(),
+                phoneNumber: formData.get('phoneNumber').trim(),
+                room: formData.get('room'),
+                moveinDate: formData.get('moveinDate'),
+                moveoutDate: formData.get('moveoutDate') || null,
                 isRegistered: formData.get('isRegistered') === 'on',
                 isMainTenant: formData.get('isMainTenant') === 'on',
-                properties: this.selectedProperties
+                properties: this.selectedProperties,
+                passportPics: this.passportPics,
+                visaPics: this.visaPics
             };
 
             // Debug: log the properties being sent
@@ -447,6 +492,18 @@ class TenantManagementComponent {
             // Validate passport length
             if (tenantData.passportNumber.length < 6 || tenantData.passportNumber.length > 15) {
                 alert('Passport number must be between 6 and 15 characters');
+                return;
+            }
+
+            // Validate phone number length (only if provided)
+            if (tenantData.phoneNumber && (tenantData.phoneNumber.length < 8 || tenantData.phoneNumber.length > 20)) {
+                alert('Phone number must be between 8 and 20 characters');
+                return;
+            }
+
+            // Validate move-out date is after move-in date (only if both dates are provided)
+            if (tenantData.moveoutDate && tenantData.moveinDate && new Date(tenantData.moveoutDate) <= new Date(tenantData.moveinDate)) {
+                alert('Move-out date must be after move-in date');
                 return;
             }
 
@@ -637,6 +694,219 @@ class TenantManagementComponent {
     // Public method to refresh the tenants list
     refresh() {
         this.loadTenants();
+    }
+
+    // Multiple image upload methods
+    openImageUpload(type) {
+        this.currentUploadType = type;
+        const fileInput = document.getElementById('imageUploadInput');
+        fileInput.click();
+        
+        // Add event listener for file selection (supports multiple files)
+        fileInput.onchange = (e) => {
+            if (e.target.files.length > 0) {
+                this.uploadMultipleImages(Array.from(e.target.files), type);
+            }
+        };
+    }
+
+    async uploadMultipleImages(files, type) {
+        const uploadButton = document.querySelector(`button[onclick="tenantManager.openImageUpload('${type}')"]`);
+        const originalText = uploadButton.innerHTML;
+        
+        try {
+            // Show loading state
+            uploadButton.disabled = true;
+            uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> Uploading ${files.length} image(s)...`;
+            
+            const uploadPromises = files.map(file => this.uploadSingleImage(file));
+            const results = await Promise.all(uploadPromises);
+            
+            // Add successful uploads to the image array
+            const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
+            results.forEach(result => {
+                if (result.success) {
+                    console.log('🔗 Received image URL from upload:', result.url);
+                    console.log('🔧 Original URL from backend:', result.originalUrl);
+                    console.log('🔧 Public ID from backend:', result.publicId);
+                    
+                    // Ensure URL is properly formatted
+                    let imageUrl = result.url;
+                    if (imageUrl && !imageUrl.startsWith('http')) {
+                        imageUrl = 'https://' + imageUrl;
+                    }
+                    
+                    console.log('🔗 Final image URL to store:', imageUrl);
+                    imageArray.push(imageUrl);
+                }
+            });
+            
+            // Update gallery display
+            this.updateImageGallery(type);
+            
+            const successCount = results.filter(r => r.success).length;
+            console.log(`✅ ${successCount}/${files.length} ${type} images uploaded successfully`);
+            
+            if (successCount < files.length) {
+                alert(`${successCount}/${files.length} images uploaded successfully. Some uploads failed.`);
+            }
+            
+        } catch (error) {
+            console.error(`Error uploading ${type} images:`, error);
+            alert(`Error uploading ${type} images. Please try again.`);
+        } finally {
+            // Restore button state
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = originalText;
+        }
+    }
+
+    async uploadSingleImage(file) {
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            const uploadUrl = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT);
+            console.log('🔧 Upload URL:', uploadUrl);
+            console.log('🔧 Base URL:', API_CONFIG.BASE_URL);
+            
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: formData
+            });
+            
+            return await response.json();
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+
+    addImageFromUrl(type) {
+        const urlInput = document.getElementById(`tenant${type.charAt(0).toUpperCase() + type.slice(1)}PicUrl`);
+        const url = urlInput.value.trim();
+        
+        if (!url) {
+            alert('Please enter a valid image URL');
+            return;
+        }
+        
+        // Add to appropriate array
+        const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
+        if (!imageArray.includes(url)) {
+            imageArray.push(url);
+            this.updateImageGallery(type);
+            urlInput.value = ''; // Clear input after adding
+        } else {
+            alert('This image URL is already added');
+        }
+    }
+
+    removeImage(type, index) {
+        const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
+        imageArray.splice(index, 1);
+        this.updateImageGallery(type);
+    }
+
+    handleImageError(imgElement, proxyUrl, type, index) {
+        console.error('❌ Image failed to load via proxy:', proxyUrl);
+        console.error('Image element:', imgElement);
+        console.error('Current src attribute:', imgElement.src);
+        console.error('Has fallback been attempted?', imgElement.hasAttribute('data-fallback-attempted'));
+        
+        // Try to extract Cloudinary path from proxy URL and create direct Cloudinary URL
+        try {
+            // Extract the path after image-proxy/
+            const match = proxyUrl.match(/image-proxy\/(.+)$/);
+            if (match) {
+                const cloudinaryPath = match[1];
+                const directUrl = `https://res.cloudinary.com/djye0w3gi/image/upload/${cloudinaryPath}`;
+                console.log('🔄 Trying direct Cloudinary URL as fallback:', directUrl);
+                
+                // Set a flag to prevent infinite recursion
+                if (!imgElement.hasAttribute('data-fallback-attempted')) {
+                    imgElement.setAttribute('data-fallback-attempted', 'true');
+                    imgElement.src = directUrl;
+                    
+                    // Test if the direct URL is accessible by making a fetch request
+                    fetch(directUrl, { method: 'HEAD' })
+                        .then(response => {
+                            console.log('🧪 Direct URL test result:', response.status, response.statusText);
+                            if (!response.ok) {
+                                console.error('🚨 Direct URL also failed:', response.status);
+                            }
+                        })
+                        .catch(err => {
+                            console.error('🚨 Direct URL fetch test failed:', err);
+                        });
+                    
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error('Error creating fallback URL:', error);
+        }
+        
+        // Final fallback: show error placeholder
+        console.log('🚨 All fallback attempts failed, showing error placeholder');
+        imgElement.style.objectFit = 'cover';
+        imgElement.style.backgroundColor = '#e9ecef';
+        imgElement.src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23e9ecef'/><text x='75' y='75' text-anchor='middle' dy='.3em' fill='%236c757d'>Image Failed</text></svg>";
+    }
+
+    updateImageGallery(type) {
+        const gallery = document.getElementById(`${type}Gallery`);
+        const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
+        const hiddenInput = document.getElementById(`tenant${type.charAt(0).toUpperCase() + type.slice(1)}Pics`);
+        
+        // Update hidden input
+        hiddenInput.value = JSON.stringify(imageArray);
+        
+        console.log(`🖼️ Updating ${type} gallery with ${imageArray.length} images:`, imageArray);
+        
+        if (imageArray.length === 0) {
+            gallery.innerHTML = '<div class="text-muted small">No images uploaded yet</div>';
+            return;
+        }
+        
+        // Create images with proper loading handling
+        let html = '<div class="row g-2">';
+        imageArray.forEach((url, index) => {
+            const icon = type === 'passport' ? 'bi-passport' : 'bi-credit-card';
+            html += `
+                <div class="col-6 col-md-4 mb-3">
+                    <div class="position-relative border rounded overflow-hidden">
+                        <img src="${url}" alt="${type} ${index + 1}" 
+                             class="img-fluid w-100" 
+                             style="height: 150px; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
+                             onclick="window.open('${url}', '_blank')"
+                             onload="console.log('✅ Image loaded successfully:', '${url}'); console.log('Image natural dimensions:', this.naturalWidth + 'x' + this.naturalHeight); console.log('Image complete:', this.complete); this.style.backgroundColor='#f8f9fa'; this.style.objectFit='contain';"
+                             onerror="console.error('❌ Image load error for:', '${url}'); this.style.objectFit='cover'; this.style.backgroundColor='#e9ecef'; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'150\\' height=\\'150\\' viewBox=\\'0 0 150 150\\'><rect width=\\'150\\' height=\\'150\\' fill=\\'%23e9ecef\\'/><text x=\\'75\\' y=\\'75\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%236c757d\\'>Loading...</text></svg>';"
+                        <button type="button" 
+                                class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
+                                onclick="tenantManager.removeImage('${type}', ${index})"
+                                style="padding: 4px 8px; font-size: 0.75rem; opacity: 0.9;"
+                                onmouseover="this.style.opacity='1'"
+                                onmouseout="this.style.opacity='0.9'">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
+                            <small><i class="bi ${icon} me-1"></i>${type.charAt(0).toUpperCase() + type.slice(1)} ${index + 1}</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        gallery.innerHTML = html;
+    }
+
+    setupImageUrlListeners() {
+        // These are no longer needed with the new multiple image approach
+        // The URL inputs now have dedicated "Add" buttons
     }
 }
 

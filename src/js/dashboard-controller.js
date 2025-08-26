@@ -121,6 +121,13 @@ class DashboardController {
                     window.financialReports = this.components.financialReports;
                 }
                 break;
+            case 'investors':
+                if (!this.components.investorManagement) {
+                    this.components.investorManagement = new InvestorManagementComponent();
+                    // Make it globally accessible for button onclick handlers
+                    window.investorManager = this.components.investorManagement;
+                }
+                break;
         }
     }
 
@@ -224,6 +231,10 @@ class DashboardController {
 
     goToTenants() {
         this.showSection('tenants');
+    }
+
+    goToInvestors() {
+        this.showSection('investors');
     }
 }
 

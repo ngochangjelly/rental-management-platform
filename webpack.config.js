@@ -88,7 +88,16 @@ module.exports = {
         { from: /^\/login/, to: '/login.html' },
         { from: /^\/investor-management/, to: '/investor-management.html' }
       ]
-    }
+    },
+    proxy: [
+      {
+        context: ['/api'],
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        logLevel: 'debug'
+      }
+    ]
   },
   resolve: {
     alias: {

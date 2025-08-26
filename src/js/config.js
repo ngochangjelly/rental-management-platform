@@ -3,7 +3,7 @@ const API_CONFIG = {
   // Backend API base URL - Update these URLs to point to your backend
   BASE_URL:
     window.location.hostname === "localhost"
-      ? "http://localhost:3001" // Local development - start your rental-management-backend here
+      ? "" // Local development - use webpack dev server proxy
       : "https://rental-management-backend-mocha.vercel.app", // Production backend URL - Vercel deployment
 
   // API endpoints
@@ -32,6 +32,7 @@ const API_CONFIG = {
     // File Upload
     UPLOAD: "/api/upload",
     UPLOAD_MULTIPLE: "/api/upload/multiple",
+    UPLOAD_TENANT_DOCUMENT: "/api/upload/tenant-document",
 
     // Analytics
     DASHBOARD_ANALYTICS: "/api/analysis/dashboard",

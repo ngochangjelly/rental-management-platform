@@ -55,12 +55,23 @@ class InvestorManagementComponent {
 
   async loadProperties() {
     try {
+      console.log("Loading properties from:", API_CONFIG.BASE_URL + API_CONFIG.ENDPOINTS.PROPERTIES);
       const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
+      
+      if (!response.ok) {
+        console.warn(`Properties API returned ${response.status}: ${response.statusText}`);
+        this.properties = [];
+        return;
+      }
+      
       const result = await response.json();
+      console.log("Properties API response:", result);
 
-      if (result.success) {
-        this.properties = result.data || [];
+      if (result.success && Array.isArray(result.properties)) {
+        this.properties = result.properties;
+        console.log(`Loaded ${this.properties.length} properties:`, this.properties);
       } else {
+        console.warn("Properties API response format issue:", result);
         this.properties = [];
       }
     } catch (error) {
@@ -85,7 +96,7 @@ class InvestorManagementComponent {
         <div class="text-center py-5">
           <i class="bi bi-person-badge fs-1 text-muted"></i>
           <p class="mt-3 text-muted">No investors found</p>
-          <button class="btn btn-primary" onclick="window.investorManagement.showInvestorModal()">
+          <button class="btn btn-primary" onclick="window.investorManager.showInvestorModal()">
             <i class="bi bi-plus-circle me-1"></i>Add First Investor
           </button>
         </div>
@@ -113,10 +124,10 @@ class InvestorManagementComponent {
                   <i class="bi bi-three-dots"></i>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item" href="#" onclick="window.investorManagement.editInvestor('${investor.investorId}')">
+                  <li><a class="dropdown-item" href="#" onclick="window.investorManager.editInvestor('${investor.investorId}')">
                     <i class="bi bi-pencil me-2"></i>Edit
                   </a></li>
-                  <li><a class="dropdown-item text-danger" href="#" onclick="window.investorManagement.deleteInvestor('${investor.investorId}')">
+                  <li><a class="dropdown-item text-danger" href="#" onclick="window.investorManager.deleteInvestor('${investor.investorId}')">
                     <i class="bi bi-trash me-2"></i>Delete
                   </a></li>
                 </ul>
@@ -153,10 +164,10 @@ class InvestorManagementComponent {
             </div>
             <div class="card-footer bg-transparent">
               <div class="btn-group w-100" role="group">
-                <button class="btn btn-sm btn-outline-primary" onclick="window.investorManagement.addPropertyToInvestor('${investor.investorId}')">
+                <button class="btn btn-sm btn-outline-primary" onclick="window.investorManager.addPropertyToInvestor('${investor.investorId}')">
                   <i class="bi bi-plus me-1"></i>Add Property
                 </button>
-                <button class="btn btn-sm btn-outline-info" onclick="window.investorManagement.viewInvestorDetails('${investor.investorId}')">
+                <button class="btn btn-sm btn-outline-info" onclick="window.investorManager.viewInvestorDetails('${investor.investorId}')">
                   <i class="bi bi-eye me-1"></i>Details
                 </button>
               </div>
@@ -282,31 +293,53 @@ class InvestorManagementComponent {
     const propertiesList = document.getElementById('propertiesList');
     if (!propertiesList) return;
 
-    if (this.properties.length === 0) {
-      propertiesList.innerHTML = '<div class="alert alert-warning">No properties available. Add properties first.</div>';
-      return;
-    }
+    console.log("Rendering properties modal with:", {
+      investorProperties,
+      systemProperties: this.properties
+    });
 
     let html = '<div class="property-investments">';
     
     // Show existing investments
     investorProperties.forEach((investment, index) => {
-      const property = this.properties.find(p => p.propertyId === investment.propertyId);
-      const propertyName = property ? `${property.address}, ${property.unit}` : investment.propertyId;
+      const property = this.properties.find(p => 
+        p.propertyId === investment.propertyId || 
+        p.propertyId === String(investment.propertyId) ||
+        String(p.propertyId) === String(investment.propertyId)
+      );
+      
+      console.log(`Investment ${index}:`, { investment, foundProperty: property });
       
       html += `
-        <div class="row align-items-center mb-2 property-row" data-index="${index}">
-          <div class="col-md-6">
-            <select class="form-select" name="properties[${index}][propertyId]" required>
-              <option value="">Select Property</option>
-              ${this.properties.map(prop => `
-                <option value="${prop.propertyId}" ${prop.propertyId === investment.propertyId ? 'selected' : ''}>
-                  ${prop.propertyId} - ${prop.address}, ${prop.unit}
-                </option>
-              `).join('')}
-            </select>
+        <div class="row align-items-center mb-3 property-row border rounded p-3" data-index="${index}">
+          <div class="col-12 mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <h6 class="mb-0 text-primary">Property ID: ${investment.propertyId}</h6>
+              <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.property-row').remove()">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
           </div>
+          
+          <div class="col-md-8 mb-2">
+            <label class="form-label small text-muted">Property Details</label>
+            ${property ? `
+              <div class="p-2 bg-light rounded">
+                <div><strong>Name:</strong> ${escapeHtml(property.name || 'Unknown Property')}</div>
+                <div><strong>Address:</strong> <i class="bi bi-geo-alt me-1"></i>${escapeHtml(property.address || 'Address not available')}${property.unit ? `, Unit: ${escapeHtml(property.unit)}` : ''}</div>
+                ${property.type ? `<div><strong>Type:</strong> ${escapeHtml(property.type)}</div>` : ''}
+              </div>
+            ` : `
+              <div class="p-2 bg-warning bg-opacity-10 rounded">
+                <div><i class="bi bi-exclamation-triangle me-2 text-warning"></i><strong>Property Details Unavailable</strong></div>
+                <small class="text-muted">Property data could not be loaded from the system. The investment record shows Property ID: ${investment.propertyId}</small>
+              </div>
+            `}
+            <input type="hidden" name="properties[${index}][propertyId]" value="${investment.propertyId}">
+          </div>
+          
           <div class="col-md-4">
+            <label class="form-label small text-muted">Investment %</label>
             <div class="input-group">
               <input type="number" class="form-control" name="properties[${index}][percentage]" 
                      placeholder="Percentage" min="0" max="100" step="0.1" 
@@ -314,16 +347,19 @@ class InvestorManagementComponent {
               <span class="input-group-text">%</span>
             </div>
           </div>
-          <div class="col-md-2">
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.property-row').remove()">
-              <i class="bi bi-trash"></i>
-            </button>
-          </div>
         </div>
       `;
     });
 
     html += '</div>';
+    
+    // Add informational message based on properties loading status
+    if (this.properties.length === 0 && investorProperties.length === 0) {
+      html += '<div class="alert alert-info mt-2"><small><i class="bi bi-info-circle me-1"></i>No properties or investments to display. Add properties to the system first, then assign them to investors.</small></div>';
+    } else if (this.properties.length === 0 && investorProperties.length > 0) {
+      html += '<div class="alert alert-warning mt-2"><small><i class="bi bi-exclamation-triangle me-1"></i>Unable to load property details from the system (check authentication or API connection). Investment records are preserved and shown above.</small></div>';
+    }
+    
     propertiesList.innerHTML = html;
   }
 
@@ -349,6 +385,12 @@ class InvestorManagementComponent {
   addPropertyRowToModal() {
     const propertiesList = document.getElementById('propertiesList');
     if (!propertiesList) return;
+
+    // Check if there are any properties available to add
+    if (this.properties.length === 0) {
+      this.showError('No properties available to add. Please add properties to the system first.');
+      return;
+    }
 
     const propertyInvestments = propertiesList.querySelector('.property-investments');
     if (!propertyInvestments) {
@@ -404,9 +446,15 @@ class InvestorManagementComponent {
 
       // Collect property investments
       const propertyRows = form.querySelectorAll('.property-row');
-      propertyRows.forEach(row => {
-        const propertyId = row.querySelector('select').value;
+      console.log("Found property rows:", propertyRows.length);
+      
+      propertyRows.forEach((row, index) => {
+        const selectElement = row.querySelector('select[name*="propertyId"]');
+        const hiddenElement = row.querySelector('input[name*="propertyId"][type="hidden"]');
+        const propertyId = selectElement ? selectElement.value : (hiddenElement ? hiddenElement.value : null);
         const percentage = parseFloat(row.querySelector('input[type="number"]').value);
+        
+        console.log(`Row ${index}:`, { propertyId, percentage, hasSelect: !!selectElement, hasHidden: !!hiddenElement });
         
         if (propertyId && !isNaN(percentage)) {
           investorData.properties.push({

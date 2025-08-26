@@ -1,92 +1,161 @@
-const CACHE_NAME = 'rental-hub-v1';
-const urlsToCache = [
-  '/',
+const CACHE_NAME = 'rental-hub-v2';
+const RUNTIME_CACHE = 'rental-hub-runtime-v2';
+
+const STATIC_ASSETS = [
   '/dashboard.html',
   '/login.html',
   '/investor-management.html',
-  '/js/config.js',
-  '/js/dashboard-controller.js',
-  '/js/components/contract-analysis.js',
-  '/js/components/property-management.js',
-  '/js/components/tenant-management.js',
-  '/js/components/financial-reports.js',
-  '/js/components/toast/toast.js',
+  '/manifest.json'
+];
+
+const CDN_ASSETS = [
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js'
 ];
 
-// Install event - cache resources
+// Install event - cache essential resources only
 self.addEventListener('install', event => {
+  console.log('Service Worker installing...');
+  self.skipWaiting();
+  
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+    Promise.all([
+      caches.open(CACHE_NAME).then(cache => {
+        console.log('Caching static assets');
+        return cache.addAll(STATIC_ASSETS);
+      }),
+      caches.open(RUNTIME_CACHE).then(cache => {
+        console.log('Caching CDN assets');
+        return cache.addAll(CDN_ASSETS);
       })
-      .catch(error => {
-        console.error('Failed to cache resources during install:', error);
-      })
-  );
-});
-
-// Fetch event - serve from cache when offline
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return cached version or fetch from network
-        if (response) {
-          return response;
-        }
-        
-        // Clone the request for fetch
-        const fetchRequest = event.request.clone();
-        
-        return fetch(fetchRequest).then(response => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          
-          // Clone response for cache
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              // Only cache GET requests and supported URL schemes
-              if (event.request.method === 'GET' && 
-                  (event.request.url.startsWith('http://') || 
-                   event.request.url.startsWith('https://') ||
-                   event.request.url.startsWith('/'))) {
-                cache.put(event.request, responseToCache);
-              }
-            });
-          
-          return response;
-        }).catch(() => {
-          // Return offline page if available
-          if (event.request.destination === 'document') {
-            return caches.match('/dashboard.html');
-          }
-        });
-      })
-  );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
+    ]).catch(error => {
+      console.error('Failed to cache resources during install:', error);
     })
+  );
+});
+
+// Network First strategy for API calls, Cache First for static assets
+self.addEventListener('fetch', event => {
+  const { request } = event;
+  const url = new URL(request.url);
+  
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
+    return;
+  }
+  
+  // Skip Chrome extension and other non-HTTP requests
+  if (!request.url.startsWith('http')) {
+    return;
+  }
+  
+  event.respondWith(handleFetch(request, url));
+});
+
+async function handleFetch(request, url) {
+  try {
+    // Network First for API calls and dynamic content
+    if (url.pathname.includes('/api/') || 
+        url.pathname.includes('/tenants') ||
+        url.pathname.includes('localhost:3000')) {
+      return await networkFirstStrategy(request);
+    }
+    
+    // Cache First for CDN assets
+    if (url.origin !== location.origin) {
+      return await cacheFirstStrategy(request, RUNTIME_CACHE);
+    }
+    
+    // Stale While Revalidate for static assets
+    return await staleWhileRevalidateStrategy(request);
+    
+  } catch (error) {
+    console.error('Fetch error:', error);
+    return await getOfflineFallback(request);
+  }
+}
+
+async function networkFirstStrategy(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      return response;
+    }
+  } catch (error) {
+    console.log('Network request failed, trying cache');
+  }
+  
+  const cachedResponse = await caches.match(request);
+  return cachedResponse || new Response('Network unavailable', { status: 503 });
+}
+
+async function cacheFirstStrategy(request, cacheName) {
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+      return response;
+    }
+  } catch (error) {
+    console.error('Cache first strategy failed:', error);
+  }
+  
+  return new Response('Resource unavailable', { status: 404 });
+}
+
+async function staleWhileRevalidateStrategy(request) {
+  const cachedResponse = await caches.match(request);
+  
+  const fetchPromise = fetch(request).then(response => {
+    if (response.ok) {
+      const cache = caches.open(CACHE_NAME);
+      cache.then(c => c.put(request, response.clone()));
+    }
+    return response;
+  }).catch(error => {
+    console.error('Revalidation failed:', error);
+    return cachedResponse;
+  });
+  
+  return cachedResponse || fetchPromise;
+}
+
+async function getOfflineFallback(request) {
+  if (request.destination === 'document') {
+    return await caches.match('/dashboard.html') || 
+           new Response('Offline', { status: 503 });
+  }
+  
+  return new Response('Offline', { status: 503 });
+}
+
+// Activate event - clean up old caches and take control
+self.addEventListener('activate', event => {
+  console.log('Service Worker activating...');
+  
+  event.waitUntil(
+    Promise.all([
+      // Clean up old caches
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      }),
+      // Take control of all clients immediately
+      self.clients.claim()
+    ])
   );
 });
 

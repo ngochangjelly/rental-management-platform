@@ -32,6 +32,7 @@ const API_CONFIG = {
     // File Upload
     UPLOAD: "/api/upload",
     UPLOAD_MULTIPLE: "/api/upload/multiple",
+    UPLOAD_TENANT_DOCUMENT: "/api/upload/tenant-document",
 
     // Analytics
     DASHBOARD_ANALYTICS: "/api/analysis/dashboard",

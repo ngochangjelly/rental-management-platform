@@ -88,8 +88,21 @@ class DashboardController {
     }
 
     initializeComponentsLazily() {
-        // Components will be initialized when their sections are first shown
-        // This improves initial page load performance
+        // Auto-initialize properties and financial reports components on app load
+        this.initializeComponentForSection('properties');
+        this.initializeComponentForSection('financial');
+        
+        // Load properties data immediately
+        if (this.components.propertyManagement) {
+            this.components.propertyManagement.loadProperties();
+        }
+        
+        // Load financial reports data if available
+        if (this.components.financialReports) {
+            this.components.financialReports.loadProperties();
+            // Also preload investors data for faster financial reports performance
+            this.preloadInvestorsData();
+        }
     }
 
     initializeComponentForSection(sectionName) {
@@ -119,6 +132,13 @@ class DashboardController {
                     this.components.financialReports = new FinancialReportsComponent();
                     // Make it globally accessible for button onclick handlers
                     window.financialReports = this.components.financialReports;
+                }
+                break;
+            case 'investors':
+                if (!this.components.investorManagement) {
+                    this.components.investorManagement = new InvestorManagementComponent();
+                    // Make it globally accessible for button onclick handlers
+                    window.investorManager = this.components.investorManagement;
                 }
                 break;
         }
@@ -205,6 +225,33 @@ class DashboardController {
         this.loadDashboardStats();
     }
 
+    async preloadInvestorsData() {
+        try {
+            // Load all investors to cache them for faster financial reports
+            const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                // Store investors data in the dashboard controller for quick access
+                this.cachedInvestors = result.data;
+                console.log(`Preloaded ${result.data.length} investors for faster access`);
+                
+                // If financial reports component exists, provide it with the cached data
+                if (this.components.financialReports && this.components.financialReports.setCachedInvestors) {
+                    this.components.financialReports.setCachedInvestors(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Error preloading investors data:', error);
+            // Don't show error to user as this is background loading
+        }
+    }
+
+    // Data access methods
+    getCachedInvestors() {
+        return this.cachedInvestors || [];
+    }
+
     // Navigation helper methods
     goToSection(sectionName) {
         this.showSection(sectionName);
@@ -224,6 +271,10 @@ class DashboardController {
 
     goToTenants() {
         this.showSection('tenants');
+    }
+
+    goToInvestors() {
+        this.showSection('investors');
     }
 }
 
