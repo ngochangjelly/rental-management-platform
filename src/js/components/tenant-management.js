@@ -783,8 +783,14 @@ class TenantManagementComponent {
                     
                     // Ensure URL is properly formatted
                     let imageUrl = result.url;
-                    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-                        imageUrl = 'https://' + imageUrl;
+                    if (imageUrl && !imageUrl.startsWith('http')) {
+                        // If it's a relative URL starting with /, prepend the API base URL
+                        if (imageUrl.startsWith('/')) {
+                            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+                        } else {
+                            // Otherwise assume it needs https:// prefix
+                            imageUrl = 'https://' + imageUrl;
+                        }
                     }
                     
                     console.log('🔗 Final image URL to store:', imageUrl);
@@ -991,8 +997,14 @@ class TenantManagementComponent {
                 
                 // Ensure URL is properly formatted
                 let imageUrl = result.url;
-                if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-                    imageUrl = 'https://' + imageUrl;
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    // If it's a relative URL starting with /, prepend the API base URL
+                    if (imageUrl.startsWith('/')) {
+                        imageUrl = API_CONFIG.BASE_URL + imageUrl;
+                    } else {
+                        // Otherwise assume it needs https:// prefix
+                        imageUrl = 'https://' + imageUrl;
+                    }
                 }
                 
                 this.avatar = imageUrl;
