@@ -36,7 +36,7 @@ module.exports = {
   plugins: [
     // Dashboard page
     new HtmlWebpackPlugin({
-      template: './public/dashboard.html',
+      template: './src/dashboard.html',
       filename: 'dashboard.html',
       chunks: ['dashboard'],
       inject: 'body'

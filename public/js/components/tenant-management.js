@@ -51,17 +51,27 @@ class TenantManagementComponent {
             const response = await API.get(API_CONFIG.ENDPOINTS.TENANTS);
             const result = await response.json();
             
-            if (result.success) {
+            // Handle different response formats
+            if (result.success && result.tenants) {
+                // Standard API response format
                 this.tenants = result.tenants;
-                this.renderTenantsTable();
-                
-                // Update sidebar badges
-                if (window.updateSidebarBadges) {
-                    window.updateSidebarBadges();
-                }
+            } else if (result.tenants && Array.isArray(result.tenants)) {
+                // Direct tenant array format
+                this.tenants = result.tenants;
+            } else if (Array.isArray(result)) {
+                // Direct array response
+                this.tenants = result;
             } else {
-                console.error('Failed to load tenants:', result.error);
+                console.error('Failed to load tenants:', result.error || 'Unknown format');
                 this.showEmptyState();
+                return;
+            }
+            
+            this.renderTenantsTable();
+            
+            // Update sidebar badges
+            if (window.updateSidebarBadges) {
+                window.updateSidebarBadges();
             }
         } catch (error) {
             console.error('Error loading tenants:', error);
@@ -85,8 +95,18 @@ class TenantManagementComponent {
             html += `
                 <tr>
                     <td>
-                        <div>${this.escapeHtml(tenant.name)}</div>
-                        <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                ${tenant.avatar ? 
+                                    `<img src="${tenant.avatar}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">` :
+                                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; color: white; font-weight: bold;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                }
+                            </div>
+                            <div>
+                                <div>${this.escapeHtml(tenant.name)}</div>
+                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                            </div>
+                        </div>
                     </td>
                     <td>${this.escapeHtml(tenant.fin)}</td>
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
@@ -163,8 +183,18 @@ class TenantManagementComponent {
             html += `
                 <tr>
                     <td>
-                        <div>${this.escapeHtml(tenant.name)}</div>
-                        <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                ${tenant.avatar ? 
+                                    `<img src="${tenant.avatar}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">` :
+                                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; color: white; font-weight: bold;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                }
+                            </div>
+                            <div>
+                                <div>${this.escapeHtml(tenant.name)}</div>
+                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                            </div>
+                        </div>
                     </td>
                     <td>${this.escapeHtml(tenant.fin)}</td>
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
@@ -237,6 +267,9 @@ class TenantManagementComponent {
                 this.visaPics = tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
                 this.updateImageGallery('passport');
                 this.updateImageGallery('visa');
+                
+                // Handle avatar
+                document.getElementById('tenantAvatar').value = tenant.avatar || '';
                 
                 // Set up properties - extract property IDs only
                 this.selectedProperties = (tenant.properties || []).map(prop => 
@@ -467,7 +500,8 @@ class TenantManagementComponent {
                 isMainTenant: formData.get('isMainTenant') === 'on',
                 properties: this.selectedProperties,
                 passportPics: this.passportPics,
-                visaPics: this.visaPics
+                visaPics: this.visaPics,
+                avatar: formData.get('avatar').trim()
             };
 
             // Debug: log the properties being sent
@@ -832,12 +866,13 @@ class TenantManagementComponent {
                              onload="console.log('✅ Image loaded successfully:', '${url}')"
                              onerror="console.error('❌ Image failed to load:', '${url}'); this.style.objectFit='cover'; this.style.backgroundColor='#e9ecef'; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'150\\' height=\\'150\\' viewBox=\\'0 0 150 150\\'><rect width=\\'150\\' height=\\'150\\' fill=\\'%23e9ecef\\'/><text x=\\'75\\' y=\\'75\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%236c757d\\'>Image Failed</text></svg>'">
                         <button type="button" 
-                                class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
+                                class="btn btn-danger position-absolute top-0 end-0 m-1"
                                 onclick="tenantManager.removeImage('${type}', ${index})"
-                                style="padding: 4px 8px; font-size: 0.75rem; opacity: 0.9;"
-                                onmouseover="this.style.opacity='1'"
-                                onmouseout="this.style.opacity='0.9'">
-                            <i class="bi bi-x"></i>
+                                style="padding: 6px 10px; font-size: 0.8rem; opacity: 0.9; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+                                onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'"
+                                onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'"
+                                title="Delete image">
+                            <i class="bi bi-trash-fill"></i>
                         </button>
                         <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
                             <small><i class="bi ${icon} me-1"></i>${type.charAt(0).toUpperCase() + type.slice(1)} ${index + 1}</small>

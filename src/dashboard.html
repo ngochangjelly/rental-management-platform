@@ -267,14 +267,17 @@
 
       /* Extra small mobile improvements */
       @media (max-width: 480px) {
-        /* Stack table content vertically for very small screens */
-        .table-responsive {
+        /* Hide only property table on mobile, show mobile property cards instead */
+        #properties-section .table-responsive {
           display: none;
         }
 
         .mobile-property-list {
           display: block !important;
         }
+
+        /* Tenants table should always be visible - no hiding rule */
+        /* .mobile-tenant-list can be used if needed, but table remains visible */
 
         .mobile-property-card {
           border: 1px solid #dee2e6;
@@ -329,11 +332,155 @@
           font-size: 0.8rem;
           padding: 0.375rem 0.5rem;
         }
+
+        .mobile-tenant-card {
+          border: 1px solid #dee2e6;
+          border-radius: 0.375rem;
+          margin-bottom: 1rem;
+          padding: 1rem;
+          background: white;
+        }
+
+        .mobile-tenant-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.75rem;
+          border-bottom: 1px solid #dee2e6;
+        }
+
+        .mobile-tenant-info {
+          flex: 1;
+        }
+
+        .mobile-tenant-name {
+          font-weight: 600;
+          color: #212529;
+          margin-bottom: 0.25rem;
+        }
+
+        .mobile-tenant-phone {
+          font-size: 0.85rem;
+          color: #6c757d;
+          margin-bottom: 0.25rem;
+        }
+
+        .mobile-tenant-details {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          margin-bottom: 0.75rem;
+          font-size: 0.9rem;
+        }
+
+        .mobile-tenant-actions {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .mobile-tenant-actions .btn {
+          flex: 1;
+          min-width: auto;
+          font-size: 0.8rem;
+          padding: 0.375rem 0.5rem;
+        }
       }
 
       /* Mobile property list - hidden by default */
       .mobile-property-list {
         display: none;
+      }
+
+      /* Tenant card styles */
+      .tenant-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .tenant-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+
+      .tenant-card-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 0.375rem 0.375rem 0 0;
+      }
+
+      .tenant-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+      }
+
+      .tenant-fin {
+        font-size: 0.9rem;
+        opacity: 0.9;
+      }
+
+      .tenant-card-body {
+        padding: 1rem;
+      }
+
+      .tenant-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f1f3f4;
+      }
+
+      .tenant-info-row:last-child {
+        border-bottom: none;
+      }
+
+      .tenant-info-label {
+        font-weight: 500;
+        color: #6c757d;
+        font-size: 0.9rem;
+      }
+
+      .tenant-info-value {
+        color: #212529;
+        font-size: 0.9rem;
+      }
+
+      .tenant-actions {
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0 0 0.375rem 0.375rem;
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+      }
+
+      .tenant-status-badges {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      @media (max-width: 768px) {
+        .tenant-actions {
+          flex-direction: column;
+        }
+        
+        .tenant-actions .btn {
+          width: 100%;
+        }
+
+        .tenant-info-row {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.25rem;
+        }
       }
 
       /* Improve mobile spacing */
@@ -1806,6 +1953,35 @@
                     <div class="form-text">8-20 characters (optional)</div>
                   </div>
                   <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                      <i class="bi bi-person-circle me-1"></i>Avatar Image
+                    </label>
+                    <div class="input-group mb-2">
+                      <input
+                        type="url"
+                        class="form-control"
+                        id="tenantAvatarUrl"
+                        placeholder="Paste Cloudinary URL here"
+                      />
+                      <button class="btn btn-outline-secondary" type="button" onclick="tenantManager.addAvatarFromUrl()">
+                        <i class="bi bi-plus"></i> Add
+                      </button>
+                    </div>
+                    <div class="d-grid gap-2">
+                      <button class="btn btn-outline-primary" type="button" onclick="tenantManager.openAvatarUpload()">
+                        <i class="bi bi-cloud-upload"></i> Upload Avatar
+                      </button>
+                    </div>
+                    <div class="form-text">
+                      Upload tenant's avatar image - upload or paste URL
+                    </div>
+                    <div id="avatarPreview" class="mt-3">
+                      <!-- Avatar preview will be displayed here -->
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
                     <label for="tenantRoom" class="form-label"
                       >Room</label
                     >
@@ -1923,8 +2099,10 @@
 
               <!-- Hidden file inputs for uploads -->
               <input type="file" id="imageUploadInput" accept="image/*" multiple style="display: none;" />
+              <input type="file" id="avatarUploadInput" accept="image/*" style="display: none;" />
               <input type="hidden" id="tenantPassportPics" name="passportPics" />
               <input type="hidden" id="tenantVisaPics" name="visaPics" />
+              <input type="hidden" id="tenantAvatar" name="avatar" />
 
               <!-- Status Information Section -->
               <div class="mb-4">

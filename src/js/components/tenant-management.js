@@ -11,12 +11,14 @@ class TenantManagementComponent {
         this.cacheTimeout = 30000; // Cache for 30 seconds
         this.passportPics = []; // Array of passport image URLs
         this.visaPics = []; // Array of visa image URLs
+        this.avatar = ''; // Single avatar image URL
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        this.loadTenants();
+        // Don't load tenants immediately - wait until section is visible
+        // this.loadTenants();
     }
 
     setupEventListeners() {
@@ -51,17 +53,28 @@ class TenantManagementComponent {
             const response = await API.get(API_CONFIG.ENDPOINTS.TENANTS);
             const result = await response.json();
             
-            if (result.success) {
+            // Handle different response formats
+            if (result.success && result.tenants) {
+                // Standard API response format
                 this.tenants = result.tenants;
-                this.renderTenantsTable();
-                
-                // Update sidebar badges
-                if (window.updateSidebarBadges) {
-                    window.updateSidebarBadges();
-                }
+            } else if (result.tenants && Array.isArray(result.tenants)) {
+                // Direct tenant array format
+                this.tenants = result.tenants;
+            } else if (Array.isArray(result)) {
+                // Direct array response
+                this.tenants = result;
             } else {
-                console.error('Failed to load tenants:', result.error);
+                console.error('Failed to load tenants:', result.error || 'Unknown format');
                 this.showEmptyState();
+                return;
+            }
+            
+            console.log('✅ Loaded', this.tenants.length, 'tenants');
+            this.renderTenantsTable();
+            
+            // Update sidebar badges
+            if (window.updateSidebarBadges) {
+                window.updateSidebarBadges();
             }
         } catch (error) {
             console.error('Error loading tenants:', error);
@@ -71,7 +84,10 @@ class TenantManagementComponent {
 
     renderTenantsTable() {
         const tbody = document.getElementById('tenantsTableBody');
-        if (!tbody) return;
+        if (!tbody) {
+            console.error('tenantsTableBody element not found!');
+            return;
+        }
         
         if (this.tenants.length === 0) {
             this.showEmptyState();
@@ -85,8 +101,18 @@ class TenantManagementComponent {
             html += `
                 <tr>
                     <td>
-                        <div>${this.escapeHtml(tenant.name)}</div>
-                        <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                ${tenant.avatar ? 
+                                    `<img src="${tenant.avatar}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                }
+                            </div>
+                            <div>
+                                <div>${this.escapeHtml(tenant.name)}</div>
+                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                            </div>
+                        </div>
                     </td>
                     <td>${this.escapeHtml(tenant.fin)}</td>
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
@@ -163,8 +189,18 @@ class TenantManagementComponent {
             html += `
                 <tr>
                     <td>
-                        <div>${this.escapeHtml(tenant.name)}</div>
-                        <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                ${tenant.avatar ? 
+                                    `<img src="${tenant.avatar}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                }
+                            </div>
+                            <div>
+                                <div>${this.escapeHtml(tenant.name)}</div>
+                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                            </div>
+                        </div>
                     </td>
                     <td>${this.escapeHtml(tenant.fin)}</td>
                     <td>${this.escapeHtml(tenant.passportNumber)}</td>
@@ -235,8 +271,13 @@ class TenantManagementComponent {
                 // Handle multiple images (with backward compatibility)
                 this.passportPics = tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []);
                 this.visaPics = tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
-                this.updateImageGallery('passport');
-                this.updateImageGallery('visa');
+                console.log('📋 Set passportPics:', this.passportPics);
+                console.log('📋 Set visaPics:', this.visaPics);
+                // Don't update gallery here - wait until modal is shown
+                
+                // Handle avatar
+                this.avatar = tenant.avatar || '';
+                this.updateAvatarPreview();
                 
                 // Set up properties - extract property IDs only
                 this.selectedProperties = (tenant.properties || []).map(prop => 
@@ -251,8 +292,10 @@ class TenantManagementComponent {
                 this.selectedProperties = [];
                 this.passportPics = [];
                 this.visaPics = [];
+                this.avatar = '';
                 this.updateImageGallery('passport');
                 this.updateImageGallery('visa');
+                this.updateAvatarPreview();
                 
                 // Make FIN editable in add mode
                 document.getElementById('tenantFin').readOnly = false;
@@ -274,6 +317,13 @@ class TenantManagementComponent {
         // Add event listener for when modal is fully hidden
         modalEl.addEventListener('hidden.bs.modal', () => {
             this.cleanupModal();
+        }, { once: true });
+        
+        // Add event listener for when modal is fully shown
+        modalEl.addEventListener('shown.bs.modal', () => {
+            this.updateImageGallery('passport');
+            this.updateImageGallery('visa');
+            this.updateAvatarPreview();
         }, { once: true });
         
         modal.show();
@@ -467,7 +517,8 @@ class TenantManagementComponent {
                 isMainTenant: formData.get('isMainTenant') === 'on',
                 properties: this.selectedProperties,
                 passportPics: this.passportPics,
-                visaPics: this.visaPics
+                visaPics: this.visaPics,
+                avatar: this.avatar
             };
 
             // Debug: log the properties being sent
@@ -732,7 +783,7 @@ class TenantManagementComponent {
                     
                     // Ensure URL is properly formatted
                     let imageUrl = result.url;
-                    if (imageUrl && !imageUrl.startsWith('http')) {
+                    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
                         imageUrl = 'https://' + imageUrl;
                     }
                     
@@ -861,10 +912,12 @@ class TenantManagementComponent {
         const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
         const hiddenInput = document.getElementById(`tenant${type.charAt(0).toUpperCase() + type.slice(1)}Pics`);
         
+        if (!gallery || !hiddenInput) {
+            return;
+        }
+        
         // Update hidden input
         hiddenInput.value = JSON.stringify(imageArray);
-        
-        console.log(`🖼️ Updating ${type} gallery with ${imageArray.length} images:`, imageArray);
         
         if (imageArray.length === 0) {
             gallery.innerHTML = '<div class="text-muted small">No images uploaded yet</div>';
@@ -875,22 +928,21 @@ class TenantManagementComponent {
         let html = '<div class="row g-2">';
         imageArray.forEach((url, index) => {
             const icon = type === 'passport' ? 'bi-passport' : 'bi-credit-card';
-            html += `
+            const imageHtml = `
                 <div class="col-6 col-md-4 mb-3">
                     <div class="position-relative border rounded overflow-hidden">
                         <img src="${url}" alt="${type} ${index + 1}" 
                              class="img-fluid w-100" 
                              style="height: 150px; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
-                             onclick="window.open('${url}', '_blank')"
-                             onload="console.log('✅ Image loaded successfully:', '${url}'); console.log('Image natural dimensions:', this.naturalWidth + 'x' + this.naturalHeight); console.log('Image complete:', this.complete); this.style.backgroundColor='#f8f9fa'; this.style.objectFit='contain';"
-                             onerror="console.error('❌ Image load error for:', '${url}'); this.style.objectFit='cover'; this.style.backgroundColor='#e9ecef'; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'150\\' height=\\'150\\' viewBox=\\'0 0 150 150\\'><rect width=\\'150\\' height=\\'150\\' fill=\\'%23e9ecef\\'/><text x=\\'75\\' y=\\'75\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%236c757d\\'>Loading...</text></svg>';"
+                             onclick="window.open('${url}', '_blank')" />
                         <button type="button" 
-                                class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
+                                class="btn btn-danger position-absolute top-0 end-0 m-1"
                                 onclick="tenantManager.removeImage('${type}', ${index})"
-                                style="padding: 4px 8px; font-size: 0.75rem; opacity: 0.9;"
-                                onmouseover="this.style.opacity='1'"
-                                onmouseout="this.style.opacity='0.9'">
-                            <i class="bi bi-x"></i>
+                                style="padding: 2px; font-size: 0.8rem; opacity: 0.9; border-radius: 50%; width: 28px; height: 28px; display: flex !important; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 1000; background-color: #dc3545 !important; border: 2px solid white; line-height: 1;"
+                                onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'"
+                                onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'"
+                                title="Delete image">
+                            ✕
                         </button>
                         <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
                             <small><i class="bi ${icon} me-1"></i>${type.charAt(0).toUpperCase() + type.slice(1)} ${index + 1}</small>
@@ -898,6 +950,7 @@ class TenantManagementComponent {
                     </div>
                 </div>
             `;
+            html += imageHtml;
         });
         html += '</div>';
         
@@ -907,6 +960,115 @@ class TenantManagementComponent {
     setupImageUrlListeners() {
         // These are no longer needed with the new multiple image approach
         // The URL inputs now have dedicated "Add" buttons
+    }
+
+    // Avatar upload methods
+    openAvatarUpload() {
+        const fileInput = document.getElementById('avatarUploadInput');
+        fileInput.click();
+        
+        // Add event listener for file selection
+        fileInput.onchange = (e) => {
+            if (e.target.files.length > 0) {
+                this.uploadAvatar(e.target.files[0]);
+            }
+        };
+    }
+
+    async uploadAvatar(file) {
+        const uploadButton = document.querySelector("button[onclick=\"tenantManager.openAvatarUpload()\"]");
+        const originalText = uploadButton.innerHTML;
+        
+        try {
+            // Show loading state
+            uploadButton.disabled = true;
+            uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading avatar...';
+            
+            const result = await this.uploadSingleImage(file);
+            
+            if (result.success) {
+                console.log('🔗 Avatar uploaded successfully:', result.url);
+                
+                // Ensure URL is properly formatted
+                let imageUrl = result.url;
+                if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+                    imageUrl = 'https://' + imageUrl;
+                }
+                
+                this.avatar = imageUrl;
+                this.updateAvatarPreview();
+                
+                console.log('✅ Avatar set to:', this.avatar);
+            } else {
+                alert('Failed to upload avatar: ' + result.error);
+            }
+            
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            alert('Error uploading avatar. Please try again.');
+        } finally {
+            // Restore button state
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = originalText;
+        }
+    }
+
+    addAvatarFromUrl() {
+        const urlInput = document.getElementById('tenantAvatarUrl');
+        const url = urlInput.value.trim();
+        
+        if (!url) {
+            alert('Please enter a valid image URL');
+            return;
+        }
+        
+        this.avatar = url;
+        this.updateAvatarPreview();
+        urlInput.value = ''; // Clear input after adding
+        
+        console.log('✅ Avatar set from URL:', this.avatar);
+    }
+
+    removeAvatar() {
+        this.avatar = '';
+        this.updateAvatarPreview();
+        console.log('🗑️ Avatar removed');
+    }
+
+    updateAvatarPreview() {
+        const preview = document.getElementById('avatarPreview');
+        const hiddenInput = document.getElementById('tenantAvatar');
+        
+        if (!preview || !hiddenInput) {
+            return;
+        }
+        
+        // Update hidden input
+        hiddenInput.value = this.avatar;
+        
+        if (!this.avatar) {
+            preview.innerHTML = '<div class="text-muted small">No avatar selected</div>';
+            return;
+        }
+        
+        preview.innerHTML = `
+            <div class="position-relative d-inline-block">
+                <img src="${this.avatar}" alt="Avatar preview" 
+                     class="rounded-circle border" 
+                     style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
+                     onclick="window.open('${this.avatar}', '_blank')" />
+                <button type="button" 
+                        class="btn btn-danger position-absolute top-0 end-0"
+                        onclick="tenantManager.removeAvatar()"
+                        style="padding: 2px; font-size: 0.7rem; border-radius: 50%; width: 24px; height: 24px; display: flex !important; align-items: center; justify-content: center; transform: translate(25%, -25%);"
+                        title="Remove avatar">
+                    ✕
+                </button>
+                <div class="text-center mt-2">
+                    <small class="text-muted">Avatar Preview</small>
+                </div>
+            </div>
+        `;
     }
 }
 

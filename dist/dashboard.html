@@ -1,6 +1,40 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Dashboard - Rental Management Platform</title><link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23667eea' d='M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z'/><path fill='%23667eea' d='m8 3.293 6 6V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V9.293l6-6Z'/></svg>"/><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#667eea"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Rental Hub"><meta name="msapplication-TileColor" content="#667eea"><meta name="msapplication-config" content="/browserconfig.xml"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet"/><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script>// Configure PDF.js worker
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Rental Management Platform</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23667eea' d='M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z'/><path fill='%23667eea' d='m8 3.293 6 6V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V9.293l6-6Z'/></svg>"
+    />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Rental Hub">
+    <meta name="msapplication-TileColor" content="#667eea">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      // Configure PDF.js worker
       pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";</script><style>.sidebar {
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    </script>
+
+    <!-- Webpack will inject scripts here automatically -->
+    <style>
+      .sidebar {
         background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
         color: white;
@@ -343,7 +377,759 @@
         background-color: rgba(255, 193, 7, 0.3);
         border: 2px solid #ffc107;
         border-radius: 3px;
-      }</style></head><body><div class="container-fluid"><div class="sidebar-overlay" id="sidebarOverlay"></div><div class="row"><nav class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4" id="sidebar"><a class="d-flex align-items-center mb-4" href="#" data-section="dashboard"><i class="bi bi-house-door-fill text-white me-2 fs-4"></i><h4 class="text-white mb-0">Rental Hub</h4></a><ul class="nav nav-pills flex-column"><li class="nav-item"><a class="nav-link active" href="#" data-section="dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li><li class="nav-item"><a class="nav-link" href="#" data-section="analysis"><i class="bi bi-file-text me-2"></i>Contract Analysis</a></li><li class="nav-item"><a class="nav-link d-flex justify-content-between align-items-center" href="#" data-section="properties"><span><i class="bi bi-building me-2"></i>Properties </span><span class="badge bg-light text-dark rounded-pill" id="propertiesBadge">0</span></a></li><li class="nav-item"><a class="nav-link d-flex justify-content-between align-items-center" href="#" data-section="tenants"><span><i class="bi bi-people me-2"></i>Tenants </span><span class="badge bg-light text-dark rounded-pill" id="tenantsBadge">0</span></a></li><li class="nav-item"><a class="nav-link" href="#" data-section="financial"><i class="bi bi-graph-up me-2"></i>Financial Reports</a></li><li class="nav-item"><a class="nav-link" href="#" data-section="investors"><i class="bi bi-person-badge me-2"></i>Investors</a></li></ul><div class="mt-auto pt-4"><p class="text-white-50 mb-2">Logged in as:</p><p class="text-white mb-3" id="userInfo">Admin User</p><button onclick="logout()" class="btn btn-outline-light btn-sm"><i class="bi bi-box-arrow-right me-1"></i>Logout</button></div></nav><main class="col-md-9 col-lg-10 ms-sm-auto px-4 main-content"><div class="mobile-header"><button class="mobile-toggle" id="mobileToggle"><i class="bi bi-list"></i></button><div class="d-flex align-items-center" onclick="dashboardController.goToDashboard()"><i class="bi bi-house-door-fill me-2"></i> <span>Rental Hub</span></div></div><div id="dashboard-section" class="content-section"><div class="p-4"><div class="d-flex justify-content-between align-items-center mb-4"><h2>Dashboard</h2><div class="text-muted"><i class="bi bi-calendar me-1"></i> <span id="currentDate"></span></div></div><div class="row"><div class="col-md-6 col-lg-4 mb-4"><div class="card feature-card h-100" data-section="analysis"><div class="card-body text-center p-4"><i class="bi bi-file-earmark-text text-primary" style="font-size: 3rem"></i><h5 class="card-title mt-3">Contract Analysis</h5><p class="card-text text-muted">Upload and analyze tenancy agreements for potentially unfavorable terms</p><span class="badge bg-primary">Available Now</span></div></div></div><div class="col-md-6 col-lg-4 mb-4"><div class="card feature-card h-100" data-section="properties"><div class="card-body text-center p-4"><i class="bi bi-building text-success" style="font-size: 3rem"></i><h5 class="card-title mt-3">Property Management</h5><p class="card-text text-muted">Manage your rental properties and track performance</p><span class="badge bg-success">Available Now</span></div></div></div><div class="col-md-6 col-lg-4 mb-4"><div class="card feature-card h-100" data-section="tenants"><div class="card-body text-center p-4"><i class="bi bi-people text-info" style="font-size: 3rem"></i><h5 class="card-title mt-3">Tenant Management</h5><p class="card-text text-muted">Manage tenant information and property assignments</p><span class="badge bg-info">Available Now</span></div></div></div><div class="col-md-6 col-lg-4 mb-4"><div class="card feature-card h-100" data-section="financial"><div class="card-body text-center p-4"><i class="bi bi-graph-up text-warning" style="font-size: 3rem"></i><h5 class="card-title mt-3">Financial Reports</h5><p class="card-text text-muted">Track monthly income, expenses, and investor profits</p><span class="badge bg-warning">New Feature</span></div></div></div><div class="col-md-6 col-lg-4 mb-4"><div class="card feature-card h-100" data-section="investors"><div class="card-body text-center p-4"><i class="bi bi-person-badge text-info" style="font-size: 3rem"></i><h5 class="card-title mt-3">Investor Management</h5><p class="card-text text-muted">Manage investors, their property investments and percentages</p><span class="badge bg-info">New</span></div></div></div></div></div></div><div id="analysis-section" class="content-section"><div class="p-4"><div class="d-flex justify-content-between align-items-center mb-4"><h2>Contract Analysis</h2><button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</button></div><div class="row"><div class="col-lg-6"><div class="card mb-4"><div class="card-header"><h5 class="mb-0">Upload Tenancy Agreement</h5></div><div class="card-body"><div id="uploadArea" class="upload-area p-4 text-center mb-3"><i class="bi bi-cloud-upload text-muted" style="font-size: 3rem"></i><p class="text-muted mt-2 mb-0">Click to upload or drag and drop PDF files here</p><small class="text-muted">Maximum file size: 10MB</small></div><input type="file" id="fileInput" accept=".pdf" style="display: none"/><div id="uploadProgress" class="progress mb-3" style="display: none"><div class="progress-bar" role="progressbar" style="width: 0%"></div></div><div id="analysisProgress" style="display: none"><div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div><span>Analyzing contract...</span></div></div></div></div></div><div class="col-lg-6"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0">Analysis Results</h5><button id="downloadReportBtn" class="btn btn-sm btn-outline-primary" style="display: none"><i class="bi bi-download me-1"></i>Download Report</button></div><div class="card-body"><div id="resultsContainer"><div class="text-center text-muted py-5"><i class="bi bi-file-earmark-text" style="font-size: 3rem"></i><p class="mt-2">Upload a PDF to see analysis results</p></div></div></div></div></div></div><div class="card mt-4" id="pdfViewerCard" style="display: none"><div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0">Document Viewer</h5><div class="btn-group"><button class="btn btn-sm btn-outline-secondary" id="prevPageBtn"><i class="bi bi-chevron-left"></i></button> <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn"><i class="bi bi-chevron-right"></i></button> <button class="btn btn-sm btn-outline-secondary" onclick="dashboardController.getComponent('contractAnalysis')?.zoomOut()"><i class="bi bi-zoom-out"></i></button> <button class="btn btn-sm btn-outline-secondary" onclick="dashboardController.getComponent('contractAnalysis')?.zoomIn()"><i class="bi bi-zoom-in"></i></button></div></div><div class="card-body"><div class="text-center mb-3"><small class="text-muted">Page <span id="currentPageNum">1</span> of <span id="totalPages">1</span> | Zoom: <span id="zoomLevel">100%</span></small></div><div id="pdfContainer" class="text-center" style="max-height: 600px; overflow-y: auto"></div></div></div></div></div><div id="properties-section" class="content-section"><div class="p-4"><div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4"><h2 class="mb-2 mb-md-0">Property Management</h2><div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" id="addPropertyBtn"><i class="bi bi-plus-circle me-1"></i>Add Property</button> <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</button></div></div><div class="card"><div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3"><h5 class="mb-0">Properties</h5><div class="input-group" style="max-width: 300px; width: 100%"><input class="form-control form-control-sm" placeholder="Search properties..." id="propertySearchInput"/> <button class="btn btn-outline-secondary btn-sm" type="button"><i class="bi bi-search"></i></button></div></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Property ID</th><th>Address</th><th>Unit</th><th>Max Pax</th><th>Rent</th><th>Actions</th></tr></thead><tbody id="propertiesTableBody"><tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-building fs-1"></i><p class="mt-2">No properties found</p></td></tr></tbody></table></div><div class="mobile-property-list p-3" id="mobilePropertyList"><div class="text-center text-muted py-4"><i class="bi bi-building fs-1"></i><p class="mt-2">No properties found</p></div></div></div></div></div></div><div id="tenants-section" class="content-section"><div class="p-4"><div class="d-flex justify-content-between align-items-center mb-4"><h2>Tenant Management</h2><div><button class="btn btn-primary me-2" id="addTenantBtn"><i class="bi bi-plus-circle me-1"></i>Add Tenant</button> <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</button></div></div><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0">Tenants</h5><div class="input-group" style="width: 300px"><input class="form-control form-control-sm" placeholder="Search tenants..." id="tenantSearchInput"/> <button class="btn btn-outline-secondary btn-sm" type="button"><i class="bi bi-search"></i></button></div></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Name & Phone</th><th>FIN</th><th>Passport</th><th>Status</th><th>Room & Dates</th><th>Properties</th><th>Actions</th></tr></thead><tbody id="tenantsTableBody"><tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-people fs-1"></i><p class="mt-2">No tenants found</p></td></tr></tbody></table></div></div></div></div></div><div id="financial-section" class="content-section"><div class="p-4"><div class="d-flex justify-content-between align-items-center mb-4"><h2>Financial Reports</h2><button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</button></div><div class="card mb-4"><div class="card-header"><h5 class="mb-0"><i class="bi bi-building me-2"></i>Select Property</h5></div><div class="card-body"><select id="propertySelector" class="form-select"><option value="">Select a property...</option></select></div></div><div id="financialReportContent" style="display: none"><div class="card mb-4"><div class="card-body"><div class="row align-items-center"><div class="col-md-6"><div class="d-flex align-items-center"><button id="prevMonth" class="btn btn-outline-primary btn-sm me-2"><i class="bi bi-chevron-left"></i></button><h4 id="currentMonth" class="mb-0 mx-3">January 2024</h4><button id="nextMonth" class="btn btn-outline-primary btn-sm ms-2"><i class="bi bi-chevron-right"></i></button></div></div><div class="col-md-6 text-end"><span class="badge bg-info fs-6" id="currentMonthBadge">Current Month</span></div></div></div></div><div class="row"><div class="col-lg-6 mb-4"><div class="card h-100"><div class="card-header bg-success text-white d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Income</h5><button class="btn btn-sm btn-light text-success" id="addIncomeBtn"><i class="bi bi-plus"></i> Add Item</button></div><div class="card-body"><div id="incomeList"><div class="text-center text-muted py-4" id="noIncomeMessage"><i class="bi bi-plus-circle fs-1"></i><p class="mt-2">No income items added</p></div></div><div class="border-top pt-3 mt-3"><div class="d-flex justify-content-between"><strong>Total Income:</strong> <strong class="text-success" id="totalIncome">$0.00</strong></div></div></div></div></div><div class="col-lg-6 mb-4"><div class="card h-100"><div class="card-header bg-danger text-white d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-dash-circle me-2"></i>Expenses</h5><button class="btn btn-sm btn-light text-danger" id="addExpenseBtn"><i class="bi bi-plus"></i> Add Item</button></div><div class="card-body"><div id="expenseList"><div class="text-center text-muted py-4" id="noExpenseMessage"><i class="bi bi-dash-circle fs-1"></i><p class="mt-2">No expense items added</p></div></div><div class="border-top pt-3 mt-3"><div class="d-flex justify-content-between"><strong>Total Expenses:</strong> <strong class="text-danger" id="totalExpenses">$0.00</strong></div></div></div></div></div></div><div class="card mb-4"><div class="card-header bg-primary text-white"><h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Summary & Investor Calculations</h5></div><div class="card-body"><div class="row"><div class="col-md-4 mb-3"><div class="text-center"><h6 class="text-muted">Net Profit</h6><h3 id="netProfit" class="mb-0">$0.00</h3></div></div><div class="col-md-8"><div class="d-flex justify-content-between align-items-center mb-3"><h6 class="mb-0">Investor Distribution</h6><button class="btn btn-sm btn-outline-primary" id="addInvestorBtn"><i class="bi bi-person-plus"></i> Add Investor</button></div><div id="investorDistribution"><div class="text-center text-muted py-3" id="noInvestorsMessage"><i class="bi bi-person-lines-fill fs-1"></i><p class="mt-2">No investors configured for this property</p></div></div></div></div></div></div></div></div></div><div id="investors-section" class="content-section"><div class="p-4"><div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4"><h2>Investor Management</h2><div class="btn-toolbar mb-2 mb-md-0"><button type="button" class="btn btn-primary me-2" id="addInvestorBtn"><i class="bi bi-plus-circle me-1"></i>Add Investor</button> <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</button></div></div><div id="investorContent"><div class="row mb-4"><div class="col-12"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>All Investors</h5><span class="badge bg-primary" id="investorCount">Loading...</span></div><div class="card-body"><div id="investorsList"><div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Loading investors...</p></div></div></div></div></div></div></div></div></div></main></div></div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script><script>// Initialize dashboard and check authentication
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <!-- Mobile Overlay -->
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <div class="row">
+        <!-- Sidebar -->
+        <nav
+          class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4"
+          id="sidebar"
+        >
+          <a class="d-flex align-items-center mb-4" href="#" data-section="dashboard">
+            <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
+            <h4 class="text-white mb-0">Rental Hub</h4>
+          </a>
+
+          <ul class="nav nav-pills flex-column">
+            <li class="nav-item">
+              <a class="nav-link active" href="#" data-section="dashboard">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="analysis">
+                <i class="bi bi-file-text me-2"></i>Contract Analysis
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link d-flex justify-content-between align-items-center"
+                href="#"
+                data-section="properties"
+              >
+                <span> <i class="bi bi-building me-2"></i>Properties </span>
+                <span
+                  class="badge bg-light text-dark rounded-pill"
+                  id="propertiesBadge"
+                  >0</span
+                >
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link d-flex justify-content-between align-items-center"
+                href="#"
+                data-section="tenants"
+              >
+                <span> <i class="bi bi-people me-2"></i>Tenants </span>
+                <span
+                  class="badge bg-light text-dark rounded-pill"
+                  id="tenantsBadge"
+                  >0</span
+                >
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="financial">
+                <i class="bi bi-graph-up me-2"></i>Financial Reports
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="investors">
+                <i class="bi bi-person-badge me-2"></i>Investors
+              </a>
+            </li>
+          </ul>
+
+          <div class="mt-auto pt-4">
+            <p class="text-white-50 mb-2">Logged in as:</p>
+            <p class="text-white mb-3" id="userInfo">Admin User</p>
+            <button onclick="logout()" class="btn btn-outline-light btn-sm">
+              <i class="bi bi-box-arrow-right me-1"></i>Logout
+            </button>
+          </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="col-md-9 col-lg-10 ms-sm-auto px-4 main-content">
+          <!-- Mobile Header -->
+          <div class="mobile-header">
+            <button class="mobile-toggle" id="mobileToggle">
+              <i class="bi bi-list"></i>
+            </button>
+            <div
+              class="d-flex align-items-center"
+              onclick="dashboardController.goToDashboard()"
+            >
+              <i class="bi bi-house-door-fill me-2"></i>
+              <span>Rental Hub</span>
+            </div>
+          </div>
+          <!-- Dashboard Section -->
+          <div id="dashboard-section" class="content-section">
+            <div class="p-4">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4"
+              >
+                <h2>Dashboard</h2>
+                <div class="text-muted">
+                  <i class="bi bi-calendar me-1"></i>
+                  <span id="currentDate"></span>
+                </div>
+              </div>
+
+              <!-- Feature Cards -->
+              <div class="row">
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div class="card feature-card h-100" data-section="analysis">
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-file-earmark-text text-primary"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Contract Analysis</h5>
+                      <p class="card-text text-muted">
+                        Upload and analyze tenancy agreements for potentially
+                        unfavorable terms
+                      </p>
+                      <span class="badge bg-primary">Available Now</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div
+                    class="card feature-card h-100"
+                    data-section="properties"
+                  >
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-building text-success"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Property Management</h5>
+                      <p class="card-text text-muted">
+                        Manage your rental properties and track performance
+                      </p>
+                      <span class="badge bg-success">Available Now</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div class="card feature-card h-100" data-section="tenants">
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-people text-info"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Tenant Management</h5>
+                      <p class="card-text text-muted">
+                        Manage tenant information and property assignments
+                      </p>
+                      <span class="badge bg-info">Available Now</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div class="card feature-card h-100" data-section="financial">
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-graph-up text-warning"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Financial Reports</h5>
+                      <p class="card-text text-muted">
+                        Track monthly income, expenses, and investor profits
+                      </p>
+                      <span class="badge bg-warning">New Feature</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-4">
+                  <div
+                    class="card feature-card h-100"
+                    data-section="investors"
+                  >
+                    <div class="card-body text-center p-4">
+                      <i
+                        class="bi bi-person-badge text-info"
+                        style="font-size: 3rem"
+                      ></i>
+                      <h5 class="card-title mt-3">Investor Management</h5>
+                      <p class="card-text text-muted">
+                        Manage investors, their property investments and
+                        percentages
+                      </p>
+                      <span class="badge bg-info">New</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contract Analysis Section -->
+          <div id="analysis-section" class="content-section">
+            <div class="p-4">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4"
+              >
+                <h2>Contract Analysis</h2>
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="dashboardController.goToDashboard()"
+                >
+                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
+              </div>
+
+              <div class="row">
+                <!-- Upload Section -->
+                <div class="col-lg-6">
+                  <div class="card mb-4">
+                    <div class="card-header">
+                      <h5 class="mb-0">Upload Tenancy Agreement</h5>
+                    </div>
+                    <div class="card-body">
+                      <div
+                        id="uploadArea"
+                        class="upload-area p-4 text-center mb-3"
+                      >
+                        <i
+                          class="bi bi-cloud-upload text-muted"
+                          style="font-size: 3rem"
+                        ></i>
+                        <p class="text-muted mt-2 mb-0">
+                          Click to upload or drag and drop PDF files here
+                        </p>
+                        <small class="text-muted"
+                          >Maximum file size: 10MB</small
+                        >
+                      </div>
+                      <input
+                        type="file"
+                        id="fileInput"
+                        accept=".pdf"
+                        style="display: none"
+                      />
+
+                      <!-- Upload Progress -->
+                      <div
+                        id="uploadProgress"
+                        class="progress mb-3"
+                        style="display: none"
+                      >
+                        <div
+                          class="progress-bar"
+                          role="progressbar"
+                          style="width: 0%"
+                        ></div>
+                      </div>
+
+                      <!-- Analysis Progress -->
+                      <div id="analysisProgress" style="display: none">
+                        <div class="d-flex align-items-center">
+                          <div
+                            class="spinner-border spinner-border-sm me-2"
+                            role="status"
+                          ></div>
+                          <span>Analyzing contract...</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="col-lg-6">
+                  <div class="card">
+                    <div
+                      class="card-header d-flex justify-content-between align-items-center"
+                    >
+                      <h5 class="mb-0">Analysis Results</h5>
+                      <button
+                        id="downloadReportBtn"
+                        class="btn btn-sm btn-outline-primary"
+                        style="display: none"
+                      >
+                        <i class="bi bi-download me-1"></i>Download Report
+                      </button>
+                    </div>
+                    <div class="card-body">
+                      <div id="resultsContainer">
+                        <div class="text-center text-muted py-5">
+                          <i
+                            class="bi bi-file-earmark-text"
+                            style="font-size: 3rem"
+                          ></i>
+                          <p class="mt-2">
+                            Upload a PDF to see analysis results
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PDF Viewer Section -->
+              <div class="card mt-4" id="pdfViewerCard" style="display: none">
+                <div
+                  class="card-header d-flex justify-content-between align-items-center"
+                >
+                  <h5 class="mb-0">Document Viewer</h5>
+                  <div class="btn-group">
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      id="prevPageBtn"
+                    >
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      id="nextPageBtn"
+                    >
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      onclick="dashboardController.getComponent('contractAnalysis')?.zoomOut()"
+                    >
+                      <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      onclick="dashboardController.getComponent('contractAnalysis')?.zoomIn()"
+                    >
+                      <i class="bi bi-zoom-in"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="text-center mb-3">
+                    <small class="text-muted"
+                      >Page <span id="currentPageNum">1</span> of
+                      <span id="totalPages">1</span> | Zoom:
+                      <span id="zoomLevel">100%</span></small
+                    >
+                  </div>
+                  <div
+                    id="pdfContainer"
+                    class="text-center"
+                    style="max-height: 600px; overflow-y: auto"
+                  >
+                    <!-- PDF will be rendered here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Properties Section -->
+          <div id="properties-section" class="content-section">
+            <div class="p-4">
+              <div
+                class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4"
+              >
+                <h2 class="mb-2 mb-md-0">Property Management</h2>
+                <div class="d-flex flex-wrap gap-2">
+                  <button class="btn btn-primary" id="addPropertyBtn">
+                    <i class="bi bi-plus-circle me-1"></i>Add Property
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary"
+                    onclick="dashboardController.goToDashboard()"
+                  >
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                  </button>
+                </div>
+              </div>
+
+              <!-- Property List -->
+              <div class="card">
+                <div
+                  class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3"
+                >
+                  <h5 class="mb-0">Properties</h5>
+                  <div
+                    class="input-group"
+                    style="max-width: 300px; width: 100%"
+                  >
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="Search properties..."
+                      id="propertySearchInput"
+                    />
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      type="button"
+                    >
+                      <i class="bi bi-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <!-- Desktop/Tablet Table View -->
+                  <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Property ID</th>
+                          <th>Address</th>
+                          <th>Unit</th>
+                          <th>Max Pax</th>
+                          <th>Rent</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="propertiesTableBody">
+                        <tr>
+                          <td colspan="6" class="text-center text-muted py-4">
+                            <i class="bi bi-building fs-1"></i>
+                            <p class="mt-2">No properties found</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Mobile Card View -->
+                  <div class="mobile-property-list p-3" id="mobilePropertyList">
+                    <div class="text-center text-muted py-4">
+                      <i class="bi bi-building fs-1"></i>
+                      <p class="mt-2">No properties found</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tenants Section -->
+          <div id="tenants-section" class="content-section">
+            <div class="p-4">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4"
+              >
+                <h2>Tenant Management</h2>
+                <div>
+                  <button class="btn btn-primary me-2" id="addTenantBtn">
+                    <i class="bi bi-plus-circle me-1"></i>Add Tenant
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary"
+                    onclick="dashboardController.goToDashboard()"
+                  >
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tenant List -->
+              <div class="card">
+                <div
+                  class="card-header d-flex justify-content-between align-items-center"
+                >
+                  <h5 class="mb-0">Tenants</h5>
+                  <div class="input-group" style="width: 300px">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="Search tenants..."
+                      id="tenantSearchInput"
+                    />
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      type="button"
+                    >
+                      <i class="bi bi-search"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Name & Phone</th>
+                          <th>FIN</th>
+                          <th>Passport</th>
+                          <th>Status</th>
+                          <th>Room & Dates</th>
+                          <th>Properties</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tenantsTableBody">
+                        <tr>
+                          <td colspan="7" class="text-center text-muted py-4">
+                            <i class="bi bi-people fs-1"></i>
+                            <p class="mt-2">No tenants found</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Reports Section -->
+          <div id="financial-section" class="content-section">
+            <div class="p-4">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4"
+              >
+                <h2>Financial Reports</h2>
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="dashboardController.goToDashboard()"
+                >
+                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
+              </div>
+
+              <!-- Property Selection -->
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h5 class="mb-0">
+                    <i class="bi bi-building me-2"></i>Select Property
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <select id="propertySelector" class="form-select">
+                    <option value="">Select a property...</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Financial Report Content -->
+              <div id="financialReportContent" style="display: none">
+                <!-- Month Navigation -->
+                <div class="card mb-4">
+                  <div class="card-body">
+                    <div class="row align-items-center">
+                      <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                          <button
+                            id="prevMonth"
+                            class="btn btn-outline-primary btn-sm me-2"
+                          >
+                            <i class="bi bi-chevron-left"></i>
+                          </button>
+                          <h4 id="currentMonth" class="mb-0 mx-3">
+                            January 2024
+                          </h4>
+                          <button
+                            id="nextMonth"
+                            class="btn btn-outline-primary btn-sm ms-2"
+                          >
+                            <i class="bi bi-chevron-right"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="col-md-6 text-end">
+                        <span class="badge bg-info fs-6" id="currentMonthBadge"
+                          >Current Month</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Income and Expenses -->
+                <div class="row">
+                  <!-- Income Section -->
+                  <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                      <div
+                        class="card-header bg-success text-white d-flex justify-content-between align-items-center"
+                      >
+                        <h5 class="mb-0">
+                          <i class="bi bi-plus-circle me-2"></i>Income
+                        </h5>
+                        <button
+                          class="btn btn-sm btn-light text-success"
+                          id="addIncomeBtn"
+                        >
+                          <i class="bi bi-plus"></i> Add Item
+                        </button>
+                      </div>
+                      <div class="card-body">
+                        <div id="incomeList">
+                          <div
+                            class="text-center text-muted py-4"
+                            id="noIncomeMessage"
+                          >
+                            <i class="bi bi-plus-circle fs-1"></i>
+                            <p class="mt-2">No income items added</p>
+                          </div>
+                        </div>
+                        <div class="border-top pt-3 mt-3">
+                          <div class="d-flex justify-content-between">
+                            <strong>Total Income:</strong>
+                            <strong class="text-success" id="totalIncome"
+                              >$0.00</strong
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Expenses Section -->
+                  <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                      <div
+                        class="card-header bg-danger text-white d-flex justify-content-between align-items-center"
+                      >
+                        <h5 class="mb-0">
+                          <i class="bi bi-dash-circle me-2"></i>Expenses
+                        </h5>
+                        <button
+                          class="btn btn-sm btn-light text-danger"
+                          id="addExpenseBtn"
+                        >
+                          <i class="bi bi-plus"></i> Add Item
+                        </button>
+                      </div>
+                      <div class="card-body">
+                        <div id="expenseList">
+                          <div
+                            class="text-center text-muted py-4"
+                            id="noExpenseMessage"
+                          >
+                            <i class="bi bi-dash-circle fs-1"></i>
+                            <p class="mt-2">No expense items added</p>
+                          </div>
+                        </div>
+                        <div class="border-top pt-3 mt-3">
+                          <div class="d-flex justify-content-between">
+                            <strong>Total Expenses:</strong>
+                            <strong class="text-danger" id="totalExpenses"
+                              >$0.00</strong
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Summary and Investor Calculations -->
+                <div class="card mb-4">
+                  <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                      <i class="bi bi-calculator me-2"></i>Summary & Investor
+                      Calculations
+                    </h5>
+                  </div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-4 mb-3">
+                        <div class="text-center">
+                          <h6 class="text-muted">Net Profit</h6>
+                          <h3 id="netProfit" class="mb-0">$0.00</h3>
+                        </div>
+                      </div>
+                      <div class="col-md-8">
+                        <div
+                          class="d-flex justify-content-between align-items-center mb-3"
+                        >
+                          <h6 class="mb-0">Investor Distribution</h6>
+                          <button
+                            class="btn btn-sm btn-outline-primary"
+                            id="addInvestorBtn"
+                          >
+                            <i class="bi bi-person-plus"></i> Add Investor
+                          </button>
+                        </div>
+                        <div id="investorDistribution">
+                          <div
+                            class="text-center text-muted py-3"
+                            id="noInvestorsMessage"
+                          >
+                            <i class="bi bi-person-lines-fill fs-1"></i>
+                            <p class="mt-2">
+                              No investors configured for this property
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Investors Section -->
+          <div id="investors-section" class="content-section">
+            <div class="p-4">
+              <!-- Header -->
+              <div
+                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4"
+              >
+                <h2>Investor Management</h2>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                  <button
+                    type="button"
+                    class="btn btn-primary me-2"
+                    id="addInvestorBtn"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i>Add Investor
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary"
+                    onclick="dashboardController.goToDashboard()"
+                  >
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                  </button>
+                </div>
+              </div>
+
+              <!-- Investors Content -->
+              <div id="investorContent">
+                <div class="row mb-4">
+                  <div class="col-12">
+                    <div class="card">
+                      <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                          <i class="bi bi-person-badge me-2"></i>All Investors
+                        </h5>
+                        <span class="badge bg-primary" id="investorCount">Loading...</span>
+                      </div>
+                      <div class="card-body">
+                        <div id="investorsList">
+                          <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                              <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading investors...</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // Initialize dashboard and check authentication
       let dashboardController;
 
       document.addEventListener("DOMContentLoaded", async function () {
@@ -596,4 +1382,658 @@
           clearAuth();
           window.location.href = "/login.html";
         }
-      }</script><div class="modal fade" id="propertyModal" tabindex="-1" aria-labelledby="propertyModalLabel" aria-hidden="true"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="propertyModalLabel"><i class="bi bi-building me-2"></i><span id="propertyModalTitle">Add New Property</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form id="propertyForm"><div class="modal-body"><div class="mb-4"><h6 class="text-primary mb-3"><i class="bi bi-asterisk me-1"></i>Required Information</h6><div class="row"><div class="col-md-6 mb-3"><label for="propertyId" class="form-label">Property ID <span class="text-danger">*</span></label> <input class="form-control" id="propertyId" name="propertyId" required placeholder="e.g., PROP001, BLK123A" style="text-transform: uppercase"/><div class="form-text">Unique identifier for the property (will be converted to uppercase)</div></div><div class="col-md-6 mb-3"><label for="unit" class="form-label">Unit <span class="text-danger">*</span></label> <input class="form-control" id="unit" name="unit" required placeholder="e.g., #12-34, Unit A"/></div></div><div class="mb-3"><label for="address" class="form-label">Address <span class="text-danger">*</span></label> <textarea class="form-control" id="address" name="address" rows="2" required placeholder="Full property address"></textarea></div></div><div class="mb-4"><h6 class="text-secondary mb-3"><i class="bi bi-house-door me-1"></i>Property Details</h6><div class="row"><div class="col-md-4 mb-3"><label for="maxPax" class="form-label">Maximum Occupancy</label> <input type="number" class="form-control" id="maxPax" name="maxPax" min="1" max="20" value="1"/><div class="form-text">Number of people allowed (1-20)</div></div><div class="col-md-4 mb-3"><label for="moveInDate" class="form-label">Move-in Date</label> <input type="date" class="form-control" id="moveInDate" name="moveInDate"/></div><div class="col-md-4 mb-3"><label for="rentPaymentDate" class="form-label">Rent Payment Date</label> <select class="form-select" id="rentPaymentDate" name="rentPaymentDate"><option value="1" selected="selected">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select></div></div><div class="mb-3"><label for="rent" class="form-label">Monthly Rent (SGD)</label><div class="input-group"><span class="input-group-text">$</span> <input type="number" class="form-control" id="rent" name="rent" min="0" step="0.01" value="0" placeholder="0.00"/></div></div></div><div class="mb-4"><h6 class="text-secondary mb-3"><i class="bi bi-person-badge me-1"></i>Agent Information</h6><div class="row"><div class="col-md-6 mb-3"><label for="agentName" class="form-label">Agent Name</label> <input class="form-control" id="agentName" name="agentName" placeholder="Property agent name"/></div><div class="col-md-6 mb-3"><label for="agentPhone" class="form-label">Agent Phone</label> <input type="tel" class="form-control" id="agentPhone" name="agentPhone" placeholder="+65 9123 4567"/></div></div></div><div class="mb-4"><h6 class="text-secondary mb-3"><i class="bi bi-bank me-1"></i>Landlord Banking Details</h6><div class="row"><div class="col-md-6 mb-3"><label for="landlordBankName" class="form-label">Bank Name</label> <select class="form-select" id="landlordBankName" name="landlordBankName"><option value="">Select bank (optional)</option><option value="DBS">DBS Bank</option><option value="OCBC">OCBC Bank</option><option value="UOB">United Overseas Bank (UOB)</option><option value="Citibank">Citibank Singapore</option><option value="Standard Chartered">Standard Chartered Bank</option><option value="HSBC">HSBC Singapore</option><option value="Maybank">Maybank Singapore</option><option value="Other">Other</option></select></div><div class="col-md-6 mb-3"><label for="landlordAccountName" class="form-label">Account Holder Name</label> <input class="form-control" id="landlordAccountName" name="landlordAccountName" placeholder="Name on bank account"/></div></div><div class="mb-3"><label for="landlordBankAccount" class="form-label">Bank Account Number</label> <input class="form-control" id="landlordBankAccount" name="landlordBankAccount" placeholder="Account number for rent payments"/></div></div><div class="mb-4"><h6 class="text-secondary mb-3"><i class="bi bi-telegram me-1"></i>Telegram Bot Configuration</h6><div class="row"><div class="col-md-6 mb-3"><label for="telegramBotToken" class="form-label">Telegram Bot Token</label> <input type="password" class="form-control" id="telegramBotToken" name="telegramBotToken" placeholder="Bot token for notifications"/><div class="form-text">Token for sending automated notifications via Telegram</div></div><div class="col-md-6 mb-3"><label for="telegramChannelId" class="form-label">Telegram Channel ID</label> <input class="form-control" id="telegramChannelId" name="telegramChannelId" placeholder="Channel ID for notifications"/><div class="form-text">Channel or chat ID where notifications will be sent</div></div></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Cancel</button> <button type="submit" class="btn btn-primary" id="propertySubmitBtn"><i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">Add Property</span></button></div></form></div></div></div><div class="modal fade" id="tenantModal" tabindex="-1" aria-labelledby="tenantModalLabel" aria-hidden="true"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="tenantModalLabel"><i class="bi bi-person-plus me-2"></i><span id="tenantModalTitle">Add New Tenant</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><form id="tenantForm"><div class="modal-body"><div class="mb-4"><h6 class="text-primary mb-3"><i class="bi bi-asterisk me-1"></i>Required Information</h6><div class="row"><div class="col-md-6 mb-3"><label for="tenantName" class="form-label">Full Name <span class="text-danger">*</span></label> <input class="form-control" id="tenantName" name="name" required minlength="2" maxlength="100" placeholder="Enter full name"/><div class="form-text">2-100 characters</div></div><div class="col-md-6 mb-3"><label for="tenantFin" class="form-label">FIN/NRIC <span class="text-danger">*</span></label> <input class="form-control" id="tenantFin" name="fin" required maxlength="20" style="text-transform: uppercase" placeholder="Enter FIN/ID number"/><div class="form-text">FIN/ID number (will be converted to uppercase, max 20 characters)</div></div></div><div class="mb-3"><label for="tenantPassport" class="form-label">Passport Number <span class="text-danger">*</span></label> <input class="form-control" id="tenantPassport" name="passportNumber" required minlength="6" maxlength="15" style="text-transform: uppercase" placeholder="Enter passport number"/><div class="form-text">6-15 characters (will be converted to uppercase)</div></div><div class="row"><div class="col-md-6 mb-3"><label for="tenantPhoneNumber" class="form-label">Phone Number</label> <input type="tel" class="form-control" id="tenantPhoneNumber" name="phoneNumber" minlength="8" maxlength="20" placeholder="Enter phone number (optional)"/><div class="form-text">8-20 characters (optional)</div></div><div class="col-md-6 mb-3"><label for="tenantRoom" class="form-label">Room</label> <select class="form-select" id="tenantRoom" name="room"><option value="">Select room type (optional)...</option><option value="COMMON1">Common Room 1</option><option value="COMMON2">Common Room 2</option><option value="MASTER">Master Room</option><option value="COMPARTMENT1">Compartment 1</option><option value="COMPARTMENT2">Compartment 2</option><option value="STORE">Store Room</option></select><div class="form-text">Optional - select which room tenant rents</div></div></div><div class="row"><div class="col-md-6 mb-3"><label for="tenantMoveinDate" class="form-label">Move-in Date</label> <input type="date" class="form-control" id="tenantMoveinDate" name="moveinDate"/><div class="form-text">Optional - tenant's move-in date</div></div><div class="col-md-6 mb-3"><label for="tenantMoveoutDate" class="form-label">Move-out Date</label> <input type="date" class="form-control" id="tenantMoveoutDate" name="moveoutDate"/><div class="form-text">Optional - leave blank if still residing</div></div></div></div><div class="mb-4"><h6 class="text-secondary mb-3"><i class="bi bi-person-check me-1"></i>Status Information</h6><div class="row"><div class="col-md-6 mb-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="tenantIsRegistered" name="isRegistered"/> <label class="form-check-label" for="tenantIsRegistered"><i class="bi bi-check-circle me-1"></i>Registered Tenant</label><div class="form-text">Check if tenant is officially registered</div></div></div><div class="col-md-6 mb-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="tenantIsMainTenant" name="isMainTenant"/> <label class="form-check-label" for="tenantIsMainTenant"><i class="bi bi-star me-1"></i>Main Tenant</label><div class="form-text">Check if this is the primary tenant</div></div></div></div></div><div class="mb-4"><h6 class="text-secondary mb-3"><i class="bi bi-building me-1"></i>Property Assignment</h6><div class="mb-3"><label for="tenantProperties" class="form-label">Assigned Properties</label><div class="dropdown"><button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" id="propertyDropdown" data-bs-toggle="dropdown" aria-expanded="false"><span id="propertyDropdownText">Select properties...</span></button><ul class="dropdown-menu w-100" id="propertyCheckboxList" style="max-height: 300px; overflow-y: auto"><li class="px-3 py-2 text-muted">Loading properties...</li></ul></div><div class="form-text">Click to select/deselect multiple properties</div></div><div id="selectedPropertiesList" class="mt-2"><div class="text-muted" id="noPropertiesMessage">No properties assigned</div></div><input type="hidden" id="tenantProperties" name="properties"/></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Cancel</button> <button type="submit" class="btn btn-primary" id="tenantSubmitBtn"><i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">Add Tenant</span></button></div></form></div></div></div><script defer="defer" src="/js/dashboard.0d31b858cda49a20bf42.js"></script></body></html>
+      }
+    </script>
+
+    <!-- Property Modal (Add/Edit) -->
+    <div
+      class="modal fade"
+      id="propertyModal"
+      tabindex="-1"
+      aria-labelledby="propertyModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="propertyModalLabel">
+              <i class="bi bi-building me-2"></i
+              ><span id="propertyModalTitle">Add New Property</span>
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <form id="propertyForm">
+            <div class="modal-body">
+              <!-- Required Fields Section -->
+              <div class="mb-4">
+                <h6 class="text-primary mb-3">
+                  <i class="bi bi-asterisk me-1"></i>Required Information
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="propertyId" class="form-label"
+                      >Property ID <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="propertyId"
+                      name="propertyId"
+                      required
+                      placeholder="e.g., PROP001, BLK123A"
+                      style="text-transform: uppercase"
+                    />
+                    <div class="form-text">
+                      Unique identifier for the property (will be converted to
+                      uppercase)
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="unit" class="form-label"
+                      >Unit <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="unit"
+                      name="unit"
+                      required
+                      placeholder="e.g., #12-34, Unit A"
+                    />
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="address" class="form-label"
+                    >Address <span class="text-danger">*</span></label
+                  >
+                  <textarea
+                    class="form-control"
+                    id="address"
+                    name="address"
+                    rows="2"
+                    required
+                    placeholder="Full property address"
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Property Details Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-house-door me-1"></i>Property Details
+                </h6>
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label for="maxPax" class="form-label"
+                      >Maximum Occupancy</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="maxPax"
+                      name="maxPax"
+                      min="1"
+                      max="20"
+                      value="1"
+                    />
+                    <div class="form-text">Number of people allowed (1-20)</div>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label for="moveInDate" class="form-label"
+                      >Move-in Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="moveInDate"
+                      name="moveInDate"
+                    />
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label for="rentPaymentDate" class="form-label"
+                      >Rent Payment Date</label
+                    >
+                    <select
+                      class="form-select"
+                      id="rentPaymentDate"
+                      name="rentPaymentDate"
+                    >
+                      <option value="1" selected>1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                      <option value="11">11</option>
+                      <option value="12">12</option>
+                      <option value="13">13</option>
+                      <option value="14">14</option>
+                      <option value="15">15</option>
+                      <option value="16">16</option>
+                      <option value="17">17</option>
+                      <option value="18">18</option>
+                      <option value="19">19</option>
+                      <option value="20">20</option>
+                      <option value="21">21</option>
+                      <option value="22">22</option>
+                      <option value="23">23</option>
+                      <option value="24">24</option>
+                      <option value="25">25</option>
+                      <option value="26">26</option>
+                      <option value="27">27</option>
+                      <option value="28">28</option>
+                      <option value="29">29</option>
+                      <option value="30">30</option>
+                      <option value="31">31</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="rent" class="form-label"
+                    >Monthly Rent (SGD)</label
+                  >
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="rent"
+                      name="rent"
+                      min="0"
+                      step="0.01"
+                      value="0"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Agent Information Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-person-badge me-1"></i>Agent Information
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="agentName" class="form-label">Agent Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="agentName"
+                      name="agentName"
+                      placeholder="Property agent name"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="agentPhone" class="form-label"
+                      >Agent Phone</label
+                    >
+                    <input
+                      type="tel"
+                      class="form-control"
+                      id="agentPhone"
+                      name="agentPhone"
+                      placeholder="+65 9123 4567"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Landlord Banking Details Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-bank me-1"></i>Landlord Banking Details
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="landlordBankName" class="form-label"
+                      >Bank Name</label
+                    >
+                    <select
+                      class="form-select"
+                      id="landlordBankName"
+                      name="landlordBankName"
+                    >
+                      <option value="">Select bank (optional)</option>
+                      <option value="DBS">DBS Bank</option>
+                      <option value="OCBC">OCBC Bank</option>
+                      <option value="UOB">United Overseas Bank (UOB)</option>
+                      <option value="Citibank">Citibank Singapore</option>
+                      <option value="Standard Chartered">
+                        Standard Chartered Bank
+                      </option>
+                      <option value="HSBC">HSBC Singapore</option>
+                      <option value="Maybank">Maybank Singapore</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="landlordAccountName" class="form-label"
+                      >Account Holder Name</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="landlordAccountName"
+                      name="landlordAccountName"
+                      placeholder="Name on bank account"
+                    />
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="landlordBankAccount" class="form-label"
+                    >Bank Account Number</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="landlordBankAccount"
+                    name="landlordBankAccount"
+                    placeholder="Account number for rent payments"
+                  />
+                </div>
+              </div>
+
+              <!-- Telegram Bot Configuration Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-telegram me-1"></i>Telegram Bot Configuration
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="telegramBotToken" class="form-label"
+                      >Telegram Bot Token</label
+                    >
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="telegramBotToken"
+                      name="telegramBotToken"
+                      placeholder="Bot token for notifications"
+                    />
+                    <div class="form-text">
+                      Token for sending automated notifications via Telegram
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="telegramChannelId" class="form-label"
+                      >Telegram Channel ID</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="telegramChannelId"
+                      name="telegramChannelId"
+                      placeholder="Channel ID for notifications"
+                    />
+                    <div class="form-text">
+                      Channel or chat ID where notifications will be sent
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                <i class="bi bi-x-circle me-1"></i>Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="propertySubmitBtn"
+              >
+                <i class="bi bi-plus-circle me-1"></i
+                ><span id="propertySubmitText">Add Property</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tenant Modal (Add/Edit) -->
+    <div
+      class="modal fade"
+      id="tenantModal"
+      tabindex="-1"
+      aria-labelledby="tenantModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tenantModalLabel">
+              <i class="bi bi-person-plus me-2"></i
+              ><span id="tenantModalTitle">Add New Tenant</span>
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <form id="tenantForm">
+            <div class="modal-body">
+              <!-- Required Fields Section -->
+              <div class="mb-4">
+                <h6 class="text-primary mb-3">
+                  <i class="bi bi-asterisk me-1"></i>Required Information
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantName" class="form-label"
+                      >Full Name <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantName"
+                      name="name"
+                      required
+                      minlength="2"
+                      maxlength="100"
+                      placeholder="Enter full name"
+                    />
+                    <div class="form-text">2-100 characters</div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantFin" class="form-label"
+                      >FIN/NRIC <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantFin"
+                      name="fin"
+                      required
+                      maxlength="20"
+                      style="text-transform: uppercase"
+                      placeholder="Enter FIN/ID number"
+                    />
+                    <div class="form-text">
+                      FIN/ID number (will be converted to uppercase, max 20
+                      characters)
+                    </div>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="tenantPassport" class="form-label"
+                    >Passport Number <span class="text-danger">*</span></label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="tenantPassport"
+                    name="passportNumber"
+                    required
+                    minlength="6"
+                    maxlength="15"
+                    style="text-transform: uppercase"
+                    placeholder="Enter passport number"
+                  />
+                  <div class="form-text">
+                    6-15 characters (will be converted to uppercase)
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantPhoneNumber" class="form-label"
+                      >Phone Number</label
+                    >
+                    <input
+                      type="tel"
+                      class="form-control"
+                      id="tenantPhoneNumber"
+                      name="phoneNumber"
+                      minlength="8"
+                      maxlength="20"
+                      placeholder="Enter phone number (optional)"
+                    />
+                    <div class="form-text">8-20 characters (optional)</div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantRoom" class="form-label"
+                      >Room</label
+                    >
+                    <select
+                      class="form-select"
+                      id="tenantRoom"
+                      name="room"
+                    >
+                      <option value="">Select room type (optional)...</option>
+                      <option value="COMMON1">Common Room 1</option>
+                      <option value="COMMON2">Common Room 2</option>
+                      <option value="MASTER">Master Room</option>
+                      <option value="COMPARTMENT1">Compartment 1</option>
+                      <option value="COMPARTMENT2">Compartment 2</option>
+                      <option value="STORE">Store Room</option>
+                    </select>
+                    <div class="form-text">Optional - select which room tenant rents</div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantMoveinDate" class="form-label"
+                      >Move-in Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="tenantMoveinDate"
+                      name="moveinDate"
+                    />
+                    <div class="form-text">Optional - tenant's move-in date</div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantMoveoutDate" class="form-label"
+                      >Move-out Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="tenantMoveoutDate"
+                      name="moveoutDate"
+                    />
+                    <div class="form-text">Optional - leave blank if still residing</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Document Images Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-images me-1"></i>Document Images (Optional)
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                      <i class="bi bi-passport me-1"></i>Passport Pictures
+                    </label>
+                    <div class="input-group mb-2">
+                      <input
+                        type="url"
+                        class="form-control"
+                        id="tenantPassportPicUrl"
+                        placeholder="Paste Cloudinary URL here"
+                      />
+                      <button class="btn btn-outline-secondary" type="button" onclick="tenantManager.addImageFromUrl('passport')">
+                        <i class="bi bi-plus"></i> Add
+                      </button>
+                    </div>
+                    <div class="d-grid gap-2">
+                      <button class="btn btn-outline-primary" type="button" onclick="tenantManager.openImageUpload('passport')">
+                        <i class="bi bi-cloud-upload"></i> Upload Images
+                      </button>
+                    </div>
+                    <div class="form-text">
+                      Multiple passport pages supported - upload or paste URLs
+                    </div>
+                    <div id="passportGallery" class="mt-3">
+                      <!-- Passport images will be displayed here -->
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                      <i class="bi bi-credit-card me-1"></i>Visa Pictures  
+                    </label>
+                    <div class="input-group mb-2">
+                      <input
+                        type="url"
+                        class="form-control"
+                        id="tenantVisaPicUrl"
+                        placeholder="Paste Cloudinary URL here"
+                      />
+                      <button class="btn btn-outline-secondary" type="button" onclick="tenantManager.addImageFromUrl('visa')">
+                        <i class="bi bi-plus"></i> Add
+                      </button>
+                    </div>
+                    <div class="d-grid gap-2">
+                      <button class="btn btn-outline-primary" type="button" onclick="tenantManager.openImageUpload('visa')">
+                        <i class="bi bi-cloud-upload"></i> Upload Images
+                      </button>
+                    </div>
+                    <div class="form-text">
+                      Multiple visa pages supported - upload or paste URLs
+                    </div>
+                    <div id="visaGallery" class="mt-3">
+                      <!-- Visa images will be displayed here -->
+                    </div>
+                  </div>
+                </div>
+                <div class="alert alert-info">
+                  <i class="bi bi-info-circle me-2"></i>
+                  <strong>Multiple Images:</strong> Upload multiple passport/visa pages or sides. Click "Upload Images" to select multiple files at once, 
+                  or paste individual Cloudinary URLs. Images are automatically resized and optimized.
+                </div>
+              </div>
+
+              <!-- Hidden file inputs for uploads -->
+              <input type="file" id="imageUploadInput" accept="image/*" multiple style="display: none;" />
+              <input type="hidden" id="tenantPassportPics" name="passportPics" />
+              <input type="hidden" id="tenantVisaPics" name="visaPics" />
+
+              <!-- Status Information Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-person-check me-1"></i>Status Information
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="tenantIsRegistered"
+                        name="isRegistered"
+                      />
+                      <label class="form-check-label" for="tenantIsRegistered">
+                        <i class="bi bi-check-circle me-1"></i>Registered Tenant
+                      </label>
+                      <div class="form-text">
+                        Check if tenant is officially registered
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="tenantIsMainTenant"
+                        name="isMainTenant"
+                      />
+                      <label class="form-check-label" for="tenantIsMainTenant">
+                        <i class="bi bi-star me-1"></i>Main Tenant
+                      </label>
+                      <div class="form-text">
+                        Check if this is the primary tenant
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Property Assignment Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-building me-1"></i>Property Assignment
+                </h6>
+                <div class="mb-3">
+                  <label for="tenantProperties" class="form-label"
+                    >Assigned Properties</label
+                  >
+                  <div class="dropdown">
+                    <button
+                      class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
+                      type="button"
+                      id="propertyDropdown"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                    >
+                      <span id="propertyDropdownText"
+                        >Select properties...</span
+                      >
+                    </button>
+                    <ul
+                      class="dropdown-menu w-100"
+                      id="propertyCheckboxList"
+                      style="max-height: 300px; overflow-y: auto"
+                    >
+                      <li class="px-3 py-2 text-muted">
+                        Loading properties...
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="form-text">
+                    Click to select/deselect multiple properties
+                  </div>
+                </div>
+
+                <!-- Selected Properties List -->
+                <div id="selectedPropertiesList" class="mt-2">
+                  <div class="text-muted" id="noPropertiesMessage">
+                    No properties assigned
+                  </div>
+                </div>
+
+                <!-- Hidden input for form submission -->
+                <input type="hidden" id="tenantProperties" name="properties" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                <i class="bi bi-x-circle me-1"></i>Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                id="tenantSubmitBtn"
+              >
+                <i class="bi bi-person-plus me-1"></i
+                ><span id="tenantSubmitText">Add Tenant</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  <script defer src="/js/dashboard.ee4a29326db571a8f611.js"></script></body>
+</html>
