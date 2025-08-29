@@ -11,6 +11,8 @@ class FinancialReportsComponent {
     this.investors = [];
     this.isModalOpen = false;
     this.isIncomeExpenseModalOpen = false;
+    this.editingItem = null;
+    this.editingItemIndex = null;
     this.init();
   }
 
@@ -155,6 +157,8 @@ class FinancialReportsComponent {
     this.forceCleanupModalBackdrops();
     this.isModalOpen = false;
     this.isIncomeExpenseModalOpen = false;
+    this.editingItem = null;
+    this.editingItemIndex = null;
 
     if (!propertyId) {
       this.selectedProperty = null;
@@ -669,7 +673,7 @@ class FinancialReportsComponent {
     this.loadFinancialReport();
   }
 
-  async showIncomeExpenseModal(type) {
+  async showIncomeExpenseModal(type, existingItem = null, itemIndex = null) {
     // Prevent multiple modal creations
     if (this.isIncomeExpenseModalOpen) {
       return;
@@ -684,12 +688,14 @@ class FinancialReportsComponent {
     }
 
     this.isIncomeExpenseModalOpen = true;
+    this.editingItem = existingItem;
+    this.editingItemIndex = itemIndex;
 
     // Force cleanup any existing modals
     this.cleanupExistingModals();
 
     // Create modal HTML dynamically
-    const modalHtml = this.createIncomeExpenseModalHtml(type);
+    const modalHtml = this.createIncomeExpenseModalHtml(type, existingItem);
 
     // Add modal to page
     document.body.insertAdjacentHTML("beforeend", modalHtml);
@@ -752,6 +758,8 @@ class FinancialReportsComponent {
     // Clean up modal when hidden
     modalElement.addEventListener("hidden.bs.modal", () => {
       this.isIncomeExpenseModalOpen = false;
+      this.editingItem = null;
+      this.editingItemIndex = null;
       modalElement.remove();
 
       // Force cleanup of backdrops after a short delay
@@ -781,25 +789,37 @@ class FinancialReportsComponent {
     }
   }
 
-  generateInvestorOptions() {
+  generateInvestorOptions(selectedValue = '') {
     if (!this.investors || this.investors.length === 0) {
       return '<option value="" disabled>No investors available for this property</option>';
     }
 
     return this.investors
       .map((investor) => {
-        return `<option value="${investor.investorId}">${escapeHtml(
+        const isSelected = investor.investorId === selectedValue ? ' selected' : '';
+        return `<option value="${investor.investorId}"${isSelected}>${escapeHtml(
           investor.name
         )} (ID: ${investor.investorId})</option>`;
       })
       .join("");
   }
 
-  createIncomeExpenseModalHtml(type) {
+  createIncomeExpenseModalHtml(type, existingItem = null) {
     const isIncome = type === "income";
-    const title = isIncome ? "Add Income Item" : "Add Expense Item";
+    const isEditing = existingItem !== null;
+    const title = isEditing 
+      ? (isIncome ? "Edit Income Item" : "Edit Expense Item")
+      : (isIncome ? "Add Income Item" : "Add Expense Item");
     const icon = isIncome ? "plus-circle" : "dash-circle";
+    const editIcon = "pencil";
     const color = isIncome ? "success" : "danger";
+    const buttonText = isEditing ? "Update" : "Add";
+    const buttonIcon = isEditing ? editIcon : icon;
+
+    const itemValue = existingItem ? escapeHtml(existingItem.item) : '';
+    const amountValue = existingItem ? existingItem.amount : '';
+    const personInChargeValue = existingItem ? existingItem.personInCharge : '';
+    const accountDetailValue = existingItem ? escapeHtml(existingItem.recipientAccountDetail || '') : '';
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -807,7 +827,7 @@ class FinancialReportsComponent {
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="incomeExpenseModalLabel">
-                                <i class="bi bi-${icon} me-2"></i>${title}
+                                <i class="bi bi-${isEditing ? editIcon : icon} me-2"></i>${title}
                             </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
@@ -815,33 +835,33 @@ class FinancialReportsComponent {
                             <div class="modal-body">
                                 <div class="mb-3">
                                     <label class="form-label">Item Description <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="item" required placeholder="e.g., Rent, Utilities, Repairs" autocomplete="off">
+                                    <input type="text" class="form-control" name="item" required placeholder="e.g., Rent, Utilities, Repairs" autocomplete="off" value="${itemValue}">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Amount (SGD) <span class="text-danger">*</span></label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" class="form-control" name="amount" required min="0" step="0.01" placeholder="0.00" autocomplete="off">
+                                        <input type="number" class="form-control" name="amount" required min="0" step="0.01" placeholder="0.00" autocomplete="off" value="${amountValue}">
                                     </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Person in Charge <span class="text-danger">*</span></label>
                                     <select class="form-select" name="personInCharge" required>
                                         <option value="">Select investor...</option>
-                                        ${this.generateInvestorOptions()}
+                                        ${this.generateInvestorOptions(personInChargeValue)}
                                     </select>
                                     <div class="form-text">Select the investor responsible for this ${type}</div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Account Details</label>
-                                    <input type="text" class="form-control" name="recipientAccountDetail" placeholder="Bank or payment details (optional)" autocomplete="off">
+                                    <input type="text" class="form-control" name="recipientAccountDetail" placeholder="Bank or payment details (optional)" autocomplete="off" value="${accountDetailValue}">
                                     <div class="form-text">Optional: Add bank account or payment method details</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="submit" class="btn btn-${color}">
-                                    <i class="bi bi-${icon} me-1"></i>Add ${
+                                    <i class="bi bi-${buttonIcon} me-1"></i>${buttonText} ${
       isIncome ? "Income" : "Expense"
     }
                                 </button>
@@ -867,9 +887,28 @@ class FinancialReportsComponent {
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
+      const isEditing = this.editingItem !== null;
 
-      const endpoint =
-        type === "income"
+      let endpoint;
+      let httpMethod;
+      
+      if (isEditing) {
+        // For editing, we need to include the item index in the endpoint
+        endpoint = (type === "income"
+          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
+              this.selectedProperty,
+              year,
+              month
+            )
+          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
+              this.selectedProperty,
+              year,
+              month
+            )) + `/${this.editingItemIndex}`;
+        httpMethod = 'PUT';
+      } else {
+        // For adding new items
+        endpoint = type === "income"
           ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
               this.selectedProperty,
               year,
@@ -880,14 +919,20 @@ class FinancialReportsComponent {
               year,
               month
             );
+        httpMethod = 'POST';
+      }
 
-      const response = await API.post(endpoint, itemData);
+      const response = httpMethod === 'PUT' 
+        ? await API.put(endpoint, itemData)
+        : await API.post(endpoint, itemData);
 
       const result = await response.json();
 
       if (result.success) {
         // Force close modal and cleanup
         this.isIncomeExpenseModalOpen = false;
+        this.editingItem = null;
+        this.editingItemIndex = null;
         modal.hide();
 
         // Use a more aggressive cleanup approach
@@ -899,14 +944,14 @@ class FinancialReportsComponent {
         this.showSuccess(
           `${
             type.charAt(0).toUpperCase() + type.slice(1)
-          } item added successfully`
+          } item ${isEditing ? 'updated' : 'added'} successfully`
         );
       } else {
-        throw new Error(result.message || `Failed to add ${type} item`);
+        throw new Error(result.message || `Failed to ${isEditing ? 'update' : 'add'} ${type} item`);
       }
     } catch (error) {
       console.error(`Error saving ${type} item:`, error);
-      this.showError(error.message || `Failed to add ${type} item`);
+      this.showError(error.message || `Failed to ${isEditing ? 'update' : 'add'} ${type} item`);
     }
   }
 
@@ -1349,10 +1394,13 @@ class FinancialReportsComponent {
   }
 
   editItem(type, index) {
-    // TODO: Implement edit functionality
-    this.showInfo(
-      `Edit functionality for ${type} item #${index + 1} coming soon!`
-    );
+    if (!this.currentReport || !this.currentReport[type] || !this.currentReport[type][index]) {
+      this.showError('Item not found');
+      return;
+    }
+
+    const item = this.currentReport[type][index];
+    this.showIncomeExpenseModal(type, item, index);
   }
 
   async deleteItem(type, index) {
