@@ -3,7 +3,7 @@ const API_CONFIG = {
   // Backend API base URL - Update these URLs to point to your backend
   BASE_URL:
     window.location.hostname === "localhost"
-      ? "http://localhost:3001" // Local development - start your rental-management-backend here
+      ? "" // Local development - use webpack dev server proxy
       : "https://rental-management-backend-mocha.vercel.app", // Production backend URL - Vercel deployment
 
   // API endpoints
@@ -103,6 +103,32 @@ const getAuthHeaders = () => {
   return headers;
 };
 
+// Helper function to handle auth failures
+const handleAuthResponse = async (response) => {
+  if (response.status === 401) {
+    // Check if response has JSON content indicating auth failure
+    try {
+      const data = await response.clone().json();
+      if (data.authenticated === false || data.error === 'Invalid token') {
+        clearAuth();
+        // Only redirect if we're not already on login page
+        if (!window.location.pathname.includes('login')) {
+          window.location.href = '/login.html';
+          return response;
+        }
+      }
+    } catch (e) {
+      // Response might not be JSON, still handle 401
+      clearAuth();
+      if (!window.location.pathname.includes('login')) {
+        window.location.href = '/login.html';
+        return response;
+      }
+    }
+  }
+  return response;
+};
+
 // API helper functions
 const API = {
   get: async (endpoint, options = {}) => {
@@ -112,7 +138,7 @@ const API = {
       headers: { ...getAuthHeaders(), ...(options.headers || {}) },
       ...options,
     });
-    return response;
+    return handleAuthResponse(response);
   },
 
   post: async (endpoint, data = null, options = {}) => {
@@ -123,7 +149,7 @@ const API = {
       body: data ? JSON.stringify(data) : null,
       ...options,
     });
-    return response;
+    return handleAuthResponse(response);
   },
 
   put: async (endpoint, data = null, options = {}) => {
@@ -134,7 +160,7 @@ const API = {
       body: data ? JSON.stringify(data) : null,
       ...options,
     });
-    return response;
+    return handleAuthResponse(response);
   },
 
   delete: async (endpoint, options = {}) => {
@@ -144,7 +170,7 @@ const API = {
       headers: { ...getAuthHeaders(), ...(options.headers || {}) },
       ...options,
     });
-    return response;
+    return handleAuthResponse(response);
   },
 };
 
