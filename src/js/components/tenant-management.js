@@ -104,7 +104,7 @@ class TenantManagementComponent {
                         <div class="d-flex align-items-center">
                             <div class="me-3">
                                 ${tenant.avatar ? 
-                                    `<img src="${tenant.avatar}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                                    `<img src="${this.normalizeImageUrl(tenant.avatar)}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
                                     `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
                                 }
                             </div>
@@ -192,7 +192,7 @@ class TenantManagementComponent {
                         <div class="d-flex align-items-center">
                             <div class="me-3">
                                 ${tenant.avatar ? 
-                                    `<img src="${tenant.avatar}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                                    `<img src="${this.normalizeImageUrl(tenant.avatar)}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
                                     `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
                                 }
                             </div>
@@ -742,6 +742,52 @@ class TenantManagementComponent {
         return text.replace(/[&<>"']/g, (m) => map[m]);
     }
 
+    // Normalize image URL to ensure it uses the proxy endpoint
+    normalizeImageUrl(url) {
+        if (!url) return url;
+        
+        // If it's already a full URL (http/https), return as-is
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+        }
+        
+        // If it's already a proxy URL, convert to full URL if needed
+        if (url.startsWith('/api/upload/image-proxy/')) {
+            // In production, use the full backend URL
+            if (API_CONFIG.BASE_URL) {
+                return `${API_CONFIG.BASE_URL}${url}`;
+            }
+            return url; // localhost case
+        }
+        
+        // Build the proxy URL
+        let proxyPath;
+        
+        // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
+        // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
+        if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
+            // Check if it already includes the folder path
+            if (url.includes('/')) {
+                proxyPath = `/api/upload/image-proxy/${url}`;
+            } else {
+                // Assume it's a tenant document image
+                proxyPath = `/api/upload/image-proxy/tenant-documents/${url}`;
+            }
+        } else if (url.startsWith('/')) {
+            // If it starts with / but not our proxy path, assume it's a relative proxy URL
+            proxyPath = url;
+        } else {
+            // Default: assume it needs the proxy prefix
+            proxyPath = `/api/upload/image-proxy/${url}`;
+        }
+        
+        // In production, use the full backend URL
+        if (API_CONFIG.BASE_URL) {
+            return `${API_CONFIG.BASE_URL}${proxyPath}`;
+        }
+        return proxyPath; // localhost case
+    }
+
     // Public method to refresh the tenants list
     refresh() {
         this.loadTenants();
@@ -937,7 +983,7 @@ class TenantManagementComponent {
             const imageHtml = `
                 <div class="col-6 col-md-4 mb-3">
                     <div class="position-relative border rounded overflow-hidden">
-                        <img src="${url}" alt="${type} ${index + 1}" 
+                        <img src="${this.normalizeImageUrl(url)}" alt="${type} ${index + 1}" 
                              class="img-fluid w-100" 
                              style="height: 150px; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
                              onclick="window.open('${url}', '_blank')" />
@@ -1065,7 +1111,7 @@ class TenantManagementComponent {
         
         preview.innerHTML = `
             <div class="position-relative d-inline-block">
-                <img src="${this.avatar}" alt="Avatar preview" 
+                <img src="${this.normalizeImageUrl(this.avatar)}" alt="Avatar preview" 
                      class="rounded-circle border" 
                      style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
                      onclick="window.open('${this.avatar}', '_blank')" />
