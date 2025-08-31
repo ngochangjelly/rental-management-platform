@@ -84,7 +84,7 @@ class FinancialReportsComponent {
     }
 
     if (addInvestorBtn) {
-      addInvestorBtn.addEventListener("click", (e) => {
+      addInvestorBtn.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -93,7 +93,12 @@ class FinancialReportsComponent {
           return;
         }
 
-        this.showInvestorModal();
+        try {
+          await this.showInvestorModal();
+        } catch (error) {
+          console.error('Error showing investor modal:', error);
+          this.isModalOpen = false;
+        }
       });
     }
   }
@@ -846,6 +851,9 @@ class FinancialReportsComponent {
     const amountValue = existingItem ? existingItem.amount : '';
     const personInChargeValue = existingItem ? existingItem.personInCharge : '';
     const accountDetailValue = existingItem ? escapeHtml(existingItem.recipientAccountDetail || '') : '';
+    const dateValue = existingItem && existingItem.date 
+      ? new Date(existingItem.date).toISOString().split('T')[0] 
+      : new Date().toISOString().split('T')[0]; // Default to today
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -869,6 +877,11 @@ class FinancialReportsComponent {
                                         <span class="input-group-text">$</span>
                                         <input type="number" class="form-control" name="amount" required min="0" step="0.01" placeholder="0.00" autocomplete="off" value="${amountValue}">
                                     </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="date" required value="${dateValue}">
+                                    <div class="form-text">Date when this ${type} occurred</div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Person in Charge <span class="text-danger">*</span></label>
@@ -906,6 +919,7 @@ class FinancialReportsComponent {
     const itemData = {
       item: formData.get("item"),
       amount: parseFloat(formData.get("amount")),
+      date: formData.get("date"),
       personInCharge: formData.get("personInCharge"),
       recipientAccountDetail: formData.get("recipientAccountDetail"),
     };
@@ -981,7 +995,7 @@ class FinancialReportsComponent {
     }
   }
 
-  showInvestorModal(investorId = null) {
+  async showInvestorModal(investorId = null) {
     // Prevent multiple modal creations
     if (this.isModalOpen) {
       return;
@@ -998,8 +1012,17 @@ class FinancialReportsComponent {
     // Add modal to page
     document.body.insertAdjacentHTML("beforeend", modalHtml);
 
+    // Wait a tick to ensure DOM is updated
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // Show modal
     const modalElement = document.getElementById("investorModal");
+    
+    if (!modalElement) {
+      console.error("Investor modal element not found in DOM");
+      this.isModalOpen = false;
+      return;
+    }
 
     const modal = new bootstrap.Modal(modalElement, {
       backdrop: true,
@@ -1377,8 +1400,8 @@ class FinancialReportsComponent {
     }
   }
 
-  editInvestor(investorId) {
-    this.showInvestorModal(investorId);
+  async editInvestor(investorId) {
+    await this.showInvestorModal(investorId);
   }
 
   async removeInvestor(investorId) {

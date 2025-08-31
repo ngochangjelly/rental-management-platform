@@ -13,7 +13,7 @@ class InvestorManagementComponent {
 
   init() {
     // Check if required DOM elements exist before proceeding
-    const requiredElements = ['investorsList', 'addInvestorBtn', 'investorCount'];
+    const requiredElements = ['investorsList', 'addInvestorMainBtn', 'investorCount'];
     const missingElements = requiredElements.filter(id => !document.getElementById(id));
     
     if (missingElements.length > 0) {
@@ -29,7 +29,7 @@ class InvestorManagementComponent {
 
   bindEvents() {
     // Add investor button
-    const addInvestorBtn = document.getElementById("addInvestorBtn");
+    const addInvestorBtn = document.getElementById("addInvestorMainBtn");
     if (addInvestorBtn) {
       addInvestorBtn.addEventListener("click", () => {
         this.showInvestorModal();
