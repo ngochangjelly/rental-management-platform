@@ -322,8 +322,11 @@ class FinancialReportsComponent {
                         </div>
                     </div>
                     <div class="mt-2">
-                        <button class="btn btn-sm btn-outline-primary me-2" onclick="window.financialReports.editItem('income', ${index})">
-                            <i class="bi bi-pencil"></i>
+                        <button class="btn btn-sm btn-outline-primary me-2" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})">
+                            <span class="edit-icon"><i class="bi bi-pencil"></i></span>
+                            <span class="loading-spinner d-none">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            </span>
                         </button>
                         ${isPendingDelete 
                           ? `<button class="btn btn-sm btn-success" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Click to confirm deletion">
@@ -400,8 +403,11 @@ class FinancialReportsComponent {
                         </div>
                     </div>
                     <div class="mt-2">
-                        <button class="btn btn-sm btn-outline-primary me-2" onclick="window.financialReports.editItem('expense', ${index})">
-                            <i class="bi bi-pencil"></i>
+                        <button class="btn btn-sm btn-outline-primary me-2" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})">
+                            <span class="edit-icon"><i class="bi bi-pencil"></i></span>
+                            <span class="loading-spinner d-none">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            </span>
                         </button>
                         ${isPendingDelete 
                           ? `<button class="btn btn-sm btn-success" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Click to confirm deletion">
@@ -788,6 +794,12 @@ class FinancialReportsComponent {
 
     // Clean up modal when hidden
     modalElement.addEventListener("hidden.bs.modal", () => {
+      // Clear any loading states only if we didn't just successfully save
+      if (this.editingItemIndex !== null && !this._modalClosedBySuccess) {
+        this.setEditButtonLoading(type, this.editingItemIndex, false);
+      }
+      this._modalClosedBySuccess = false;
+      
       this.isIncomeExpenseModalOpen = false;
       this.editingItem = null;
       this.editingItemIndex = null;
@@ -969,6 +981,9 @@ class FinancialReportsComponent {
       const result = await response.json();
 
       if (result.success) {
+        // Mark that modal is being closed due to success
+        this._modalClosedBySuccess = true;
+        
         // Force close modal and cleanup
         this.isIncomeExpenseModalOpen = false;
         this.editingItem = null;
@@ -992,6 +1007,11 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error(`Error saving ${type} item:`, error);
       this.showError(error.message || `Failed to ${isEditing ? 'update' : 'add'} ${type} item`);
+    } finally {
+      // Hide loading state when done (whether success or error)
+      if (this.editingItemIndex !== null) {
+        this.setEditButtonLoading(type, this.editingItemIndex, false);
+      }
     }
   }
 
@@ -1443,12 +1463,17 @@ class FinancialReportsComponent {
   }
 
   editItem(type, index) {
-    if (!this.currentReport || !this.currentReport[type] || !this.currentReport[type][index]) {
+    // Map singular type names to plural property names in currentReport
+    const propertyName = type === 'expense' ? 'expenses' : type === 'income' ? 'income' : type;
+    
+    if (!this.currentReport || !this.currentReport[propertyName] || !this.currentReport[propertyName][index]) {
       this.showError('Item not found');
       return;
     }
 
-    const item = this.currentReport[type][index];
+    // Show loading state
+    this.setEditButtonLoading(type, index, true);
+    const item = this.currentReport[propertyName][index];
     this.showIncomeExpenseModal(type, item, index);
   }
 
@@ -1531,6 +1556,27 @@ class FinancialReportsComponent {
 
   showInfo(message) {
     this.showToast(message, "info");
+  }
+
+  // Set loading state for edit button
+  setEditButtonLoading(type, index, isLoading) {
+    const buttonId = type === 'income' ? `editIncomeBtn-${index}` : `editExpenseBtn-${index}`;
+    const button = document.getElementById(buttonId);
+    
+    if (button) {
+      const editIcon = button.querySelector('.edit-icon');
+      const loadingSpinner = button.querySelector('.loading-spinner');
+      
+      if (isLoading) {
+        button.disabled = true;
+        if (editIcon) editIcon.classList.add('d-none');
+        if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+      } else {
+        button.disabled = false;
+        if (editIcon) editIcon.classList.remove('d-none');
+        if (loadingSpinner) loadingSpinner.classList.add('d-none');
+      }
+    }
   }
 
   // Public method to refresh the component

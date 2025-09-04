@@ -46,6 +46,9 @@ class TenantManagementComponent {
                 this.filterTenants(e.target.value);
             });
         }
+
+        // Set up clipboard paste functionality for image URL fields
+        this.setupClipboardPasteListeners();
     }
 
     async loadTenants() {
@@ -96,8 +99,6 @@ class TenantManagementComponent {
 
         let html = '';
         this.tenants.forEach(tenant => {
-            const moveinDate = tenant.moveinDate ? new Date(tenant.moveinDate).toLocaleDateString() : 'N/A';
-            const moveoutDate = tenant.moveoutDate ? new Date(tenant.moveoutDate).toLocaleDateString() : 'Current';
             html += `
                 <tr>
                     <td>
@@ -120,11 +121,10 @@ class TenantManagementComponent {
                         <span class="badge bg-${tenant.isRegistered ? 'success' : 'secondary'}">
                             ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
                         </span>
-                        ${tenant.isMainTenant ? '<span class="badge bg-primary ms-1">Main</span>' : ''}
+                        ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
                     </td>
                     <td>
-                        <div><strong>Room:</strong> ${this.escapeHtml(tenant.room || 'N/A')}</div>
-                        <small class="text-muted">In: ${moveinDate} | Out: ${moveoutDate}</small>
+                        ${this.renderPropertyDetails(tenant)}
                     </td>
                     <td>
                         <span class="badge bg-info">
@@ -166,13 +166,24 @@ class TenantManagementComponent {
             return;
         }
 
-        const filteredTenants = this.tenants.filter(tenant => 
-            tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tenant.passportNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (tenant.phoneNumber && tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (tenant.room && tenant.room.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+        const filteredTenants = this.tenants.filter(tenant => {
+            const basicMatch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tenant.passportNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (tenant.phoneNumber && tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            // Search in property rooms if using new format
+            const roomMatch = tenant.properties && Array.isArray(tenant.properties) 
+                ? tenant.properties.some(prop => {
+                    if (typeof prop === 'object' && prop.room) {
+                        return prop.room.toLowerCase().includes(searchTerm.toLowerCase());
+                    }
+                    return false;
+                })
+                : (tenant.room && tenant.room.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            return basicMatch || roomMatch;
+        });
 
         const tbody = document.getElementById('tenantsTableBody');
         if (!tbody) return;
@@ -184,8 +195,6 @@ class TenantManagementComponent {
 
         let html = '';
         filteredTenants.forEach(tenant => {
-            const moveinDate = tenant.moveinDate ? new Date(tenant.moveinDate).toLocaleDateString() : 'N/A';
-            const moveoutDate = tenant.moveoutDate ? new Date(tenant.moveoutDate).toLocaleDateString() : 'Current';
             html += `
                 <tr>
                     <td>
@@ -208,11 +217,10 @@ class TenantManagementComponent {
                         <span class="badge bg-${tenant.isRegistered ? 'success' : 'secondary'}">
                             ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
                         </span>
-                        ${tenant.isMainTenant ? '<span class="badge bg-primary ms-1">Main</span>' : ''}
+                        ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
                     </td>
                     <td>
-                        <div><strong>Room:</strong> ${this.escapeHtml(tenant.room || 'N/A')}</div>
-                        <small class="text-muted">In: ${moveinDate} | Out: ${moveoutDate}</small>
+                        ${this.renderPropertyDetails(tenant)}
                     </td>
                     <td>
                         <span class="badge bg-info">
@@ -262,11 +270,7 @@ class TenantManagementComponent {
                 document.getElementById('tenantFin').value = tenant.fin || '';
                 document.getElementById('tenantPassport').value = tenant.passportNumber || '';
                 document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
-                document.getElementById('tenantRoom').value = tenant.room || '';
-                document.getElementById('tenantMoveinDate').value = tenant.moveinDate ? tenant.moveinDate.split('T')[0] : '';
-                document.getElementById('tenantMoveoutDate').value = tenant.moveoutDate ? tenant.moveoutDate.split('T')[0] : '';
                 document.getElementById('tenantIsRegistered').checked = tenant.isRegistered || false;
-                document.getElementById('tenantIsMainTenant').checked = tenant.isMainTenant || false;
                 
                 // Handle multiple images (with backward compatibility)
                 this.passportPics = tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []);
@@ -279,10 +283,27 @@ class TenantManagementComponent {
                 this.avatar = tenant.avatar || '';
                 this.updateAvatarPreview();
                 
-                // Set up properties - extract property IDs only
-                this.selectedProperties = (tenant.properties || []).map(prop => 
-                    typeof prop === 'string' ? prop : prop.propertyId || prop._id
-                );
+                // Set up properties - store full property objects with details
+                this.selectedPropertiesDetails = (tenant.properties || []).map(prop => {
+                    if (typeof prop === 'object' && prop.propertyId) {
+                        return {
+                            propertyId: prop.propertyId,
+                            isMainTenant: prop.isMainTenant || false,
+                            room: prop.room || '',
+                            moveinDate: prop.moveinDate || '',
+                            moveoutDate: prop.moveoutDate || ''
+                        };
+                    } else {
+                        return {
+                            propertyId: typeof prop === 'string' ? prop : (prop.propertyId || prop._id),
+                            isMainTenant: false,
+                            room: '',
+                            moveinDate: '',
+                            moveoutDate: ''
+                        };
+                    }
+                });
+                this.selectedProperties = this.selectedPropertiesDetails.map(p => p.propertyId);
                 
                 // Make FIN readonly in edit mode
                 document.getElementById('tenantFin').readOnly = true;
@@ -290,6 +311,7 @@ class TenantManagementComponent {
             } else {
                 // Reset for add mode
                 this.selectedProperties = [];
+                this.selectedPropertiesDetails = [];
                 this.passportPics = [];
                 this.visaPics = [];
                 this.avatar = '';
@@ -324,6 +346,8 @@ class TenantManagementComponent {
             this.updateImageGallery('passport');
             this.updateImageGallery('visa');
             this.updateAvatarPreview();
+            // Set up clipboard paste listeners after modal is shown
+            this.setupModalClipboardListeners();
         }, { once: true });
         
         modal.show();
@@ -429,10 +453,27 @@ class TenantManagementComponent {
             // Add property if not already selected
             if (!this.selectedProperties.includes(propertyId)) {
                 this.selectedProperties.push(propertyId);
+                // Initialize details if not exists
+                if (!this.selectedPropertiesDetails) {
+                    this.selectedPropertiesDetails = [];
+                }
+                // Add property details with defaults
+                if (!this.selectedPropertiesDetails.find(p => p.propertyId === propertyId)) {
+                    this.selectedPropertiesDetails.push({
+                        propertyId,
+                        isMainTenant: false,
+                        room: '',
+                        moveinDate: '',
+                        moveoutDate: ''
+                    });
+                }
             }
         } else {
             // Remove property from selection
             this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
+            if (this.selectedPropertiesDetails) {
+                this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(p => p.propertyId !== propertyId);
+            }
         }
         
         this.updateSelectedPropertiesList();
@@ -473,29 +514,124 @@ class TenantManagementComponent {
 
     updateSelectedPropertiesList() {
         const listContainer = document.getElementById('selectedPropertiesList');
-        const noPropertiesMessage = document.getElementById('noPropertiesMessage');
         const hiddenInput = document.getElementById('tenantProperties');
         
+        if (!this.selectedPropertiesDetails) {
+            this.selectedPropertiesDetails = [];
+        }
+        
         if (this.selectedProperties.length === 0) {
-            listContainer.innerHTML = '<div class="text-muted" id="noPropertiesMessage">No properties assigned</div>';
+            listContainer.innerHTML = '<div class="text-muted">No properties assigned</div>';
             hiddenInput.value = '';
         } else {
             let html = '';
             this.selectedProperties.forEach(propertyId => {
+                const propertyDetails = this.selectedPropertiesDetails.find(p => p.propertyId === propertyId) || {
+                    propertyId,
+                    isMainTenant: false,
+                    room: '',
+                    moveinDate: '',
+                    moveoutDate: ''
+                };
+                
+                // Get property info from cache
+                const propertyInfo = this.getPropertyInfo(propertyId);
+                const propertyTitle = propertyInfo 
+                    ? `${propertyId} - ${propertyInfo.address}, ${propertyInfo.unit}`
+                    : propertyId;
+                
                 html += `
-                    <div class="badge bg-secondary me-2 mb-2 p-2">
-                        <i class="bi bi-building me-1"></i>${propertyId}
-                        <button type="button" class="btn-close btn-close-white ms-2" aria-label="Remove" 
-                                onclick="tenantManager.removePropertyFromTenant('${propertyId}')" style="font-size: 0.7em;"></button>
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-building me-2"></i>${propertyTitle}
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="tenantManager.removePropertyFromTenant('${propertyId}')" 
+                                        title="Remove property">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="mainTenant_${propertyId}" 
+                                               ${propertyDetails.isMainTenant ? 'checked' : ''}
+                                               onchange="tenantManager.updatePropertyDetail('${propertyId}', 'isMainTenant', this.checked)">
+                                        <label class="form-check-label" for="mainTenant_${propertyId}">
+                                            Main Tenant for this property
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Room</label>
+                                    <select class="form-select form-select-sm" 
+                                            onchange="tenantManager.updatePropertyDetail('${propertyId}', 'room', this.value)"
+                                            value="${propertyDetails.room}">
+                                        <option value="">Select room</option>
+                                        <option value="COMMON1" ${propertyDetails.room === 'COMMON1' ? 'selected' : ''}>Common 1</option>
+                                        <option value="COMMON2" ${propertyDetails.room === 'COMMON2' ? 'selected' : ''}>Common 2</option>
+                                        <option value="MASTER" ${propertyDetails.room === 'MASTER' ? 'selected' : ''}>Master</option>
+                                        <option value="COMPARTMENT1" ${propertyDetails.room === 'COMPARTMENT1' ? 'selected' : ''}>Compartment 1</option>
+                                        <option value="COMPARTMENT2" ${propertyDetails.room === 'COMPARTMENT2' ? 'selected' : ''}>Compartment 2</option>
+                                        <option value="STORE" ${propertyDetails.room === 'STORE' ? 'selected' : ''}>Store</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Move-in Date</label>
+                                    <input type="date" class="form-control form-control-sm" 
+                                           value="${propertyDetails.moveinDate ? propertyDetails.moveinDate.split('T')[0] : ''}"
+                                           onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveinDate', this.value)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Move-out Date</label>
+                                    <input type="date" class="form-control form-control-sm" 
+                                           value="${propertyDetails.moveoutDate ? propertyDetails.moveoutDate.split('T')[0] : ''}"
+                                           onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveoutDate', this.value)">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
             });
             listContainer.innerHTML = html;
-            hiddenInput.value = this.selectedProperties.join(',');
+            hiddenInput.value = JSON.stringify(this.selectedPropertiesDetails);
         }
         
         // Update dropdown text when list changes
         this.updateDropdownText();
+    }
+
+    getPropertyInfo(propertyId) {
+        if (!this.propertiesCache || !this.propertiesCache.properties) {
+            return null;
+        }
+        
+        return this.propertiesCache.properties.find(prop => prop.propertyId === propertyId);
+    }
+
+    updatePropertyDetail(propertyId, field, value) {
+        if (!this.selectedPropertiesDetails) {
+            this.selectedPropertiesDetails = [];
+        }
+        
+        let property = this.selectedPropertiesDetails.find(p => p.propertyId === propertyId);
+        if (!property) {
+            property = {
+                propertyId,
+                isMainTenant: false,
+                room: '',
+                moveinDate: '',
+                moveoutDate: ''
+            };
+            this.selectedPropertiesDetails.push(property);
+        }
+        
+        property[field] = value;
+        console.log(`Updated property ${propertyId} ${field} to:`, value);
     }
 
     async handleTenantSubmit(event) {
@@ -510,12 +646,14 @@ class TenantManagementComponent {
                 fin: formData.get('fin').trim().toUpperCase(),
                 passportNumber: formData.get('passportNumber').trim().toUpperCase(),
                 phoneNumber: formData.get('phoneNumber').trim(),
-                room: formData.get('room'),
-                moveinDate: formData.get('moveinDate'),
-                moveoutDate: formData.get('moveoutDate') || null,
                 isRegistered: formData.get('isRegistered') === 'on',
-                isMainTenant: formData.get('isMainTenant') === 'on',
-                properties: this.selectedProperties,
+                properties: this.selectedPropertiesDetails || this.selectedProperties.map(propertyId => ({
+                    propertyId,
+                    isMainTenant: false,
+                    room: '',
+                    moveinDate: '',
+                    moveoutDate: ''
+                })),
                 passportPics: this.passportPics,
                 visaPics: this.visaPics,
                 avatar: this.avatar
@@ -913,7 +1051,7 @@ class TenantManagementComponent {
         this.updateImageGallery(type);
     }
 
-    handleImageError(imgElement, proxyUrl, type, index) {
+    handleImageError(imgElement, proxyUrl) {
         console.error('❌ Image failed to load via proxy:', proxyUrl);
         console.error('Image element:', imgElement);
         console.error('Current src attribute:', imgElement.src);
@@ -1127,6 +1265,234 @@ class TenantManagementComponent {
                 </div>
             </div>
         `;
+    }
+
+    // Helper method to check if tenant has any main tenant properties
+    hasMainTenantProperty(tenant) {
+        if (!tenant.properties || !Array.isArray(tenant.properties)) {
+            return false;
+        }
+        return tenant.properties.some(prop => {
+            // Handle both new object format and old string format
+            return typeof prop === 'object' && prop.isMainTenant;
+        });
+    }
+
+    // Helper method to render property details for each tenant
+    renderPropertyDetails(tenant) {
+        if (!tenant.properties || tenant.properties.length === 0) {
+            return '<div class="text-muted small">No properties assigned</div>';
+        }
+        
+        let html = '';
+        tenant.properties.forEach((prop, index) => {
+            if (typeof prop === 'object' && prop.propertyId) {
+                // New format with detailed property info
+                const propertyId = this.escapeHtml(prop.propertyId);
+                const room = this.escapeHtml(prop.room || 'N/A');
+                const moveinDate = prop.moveinDate ? new Date(prop.moveinDate).toLocaleDateString() : 'N/A';
+                const moveoutDate = prop.moveoutDate ? new Date(prop.moveoutDate).toLocaleDateString() : 'Current';
+                const isMain = prop.isMainTenant ? '<span class="badge bg-primary ms-1" style="font-size: 0.6em;">Main</span>' : '';
+                
+                html += `
+                    <div class="mb-1 ${index > 0 ? 'border-top pt-1' : ''}">
+                        <div><strong>${propertyId}</strong> ${isMain}</div>
+                        <small class="text-muted">Room: ${room} | In: ${moveinDate} | Out: ${moveoutDate}</small>
+                    </div>
+                `;
+            } else {
+                // Old format - just property ID string
+                const propertyId = typeof prop === 'string' ? prop : (prop.propertyId || prop._id || 'Unknown');
+                html += `
+                    <div class="mb-1 ${index > 0 ? 'border-top pt-1' : ''}">
+                        <div><strong>${this.escapeHtml(propertyId)}</strong></div>
+                        <small class="text-muted">Legacy format - no details</small>
+                    </div>
+                `;
+            }
+        });
+        
+        return html || '<div class="text-muted small">No properties assigned</div>';
+    }
+
+    // Setup clipboard paste functionality for image URL input fields
+    setupClipboardPasteListeners() {
+        // This will be called during init, but actual setup happens when modal is shown
+        console.log('📋 Clipboard paste listeners initialized');
+    }
+
+    // Set up clipboard listeners specifically when modal is shown
+    setupModalClipboardListeners() {
+        const imageUrlFields = [
+            'tenantAvatarUrl',
+            'tenantPassportPicUrl', 
+            'tenantVisaPicUrl'
+        ];
+
+        imageUrlFields.forEach(fieldId => {
+            this.setupPasteListenerForField(fieldId);
+        });
+        
+        console.log('📋 Modal clipboard listeners set up for tenant dialog');
+    }
+
+    setupPasteListenerForField(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field && !field.hasAttribute('data-paste-listener-added')) {
+            field.setAttribute('data-paste-listener-added', 'true');
+            
+            // Add paste event listener
+            field.addEventListener('paste', async (e) => {
+                e.preventDefault();
+                await this.handleImagePaste(e, fieldId);
+            });
+
+            // Add visual feedback for paste capability
+            const currentPlaceholder = field.placeholder || 'Paste Cloudinary URL here';
+            if (!currentPlaceholder.includes('Ctrl+V')) {
+                field.placeholder = currentPlaceholder + ' (Ctrl+V to paste from clipboard)';
+            }
+            field.title = 'You can paste images from clipboard here (Ctrl+V)';
+            
+            // Add a visual indicator
+            field.style.borderLeft = '3px solid #0d6efd';
+            field.setAttribute('data-clipboard-enabled', 'true');
+            
+            console.log(`✅ Clipboard paste listener added to ${fieldId}`);
+        }
+    }
+
+    async handleImagePaste(event, fieldId) {
+        try {
+            const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
+            if (!items) {
+                console.log('No clipboard items found');
+                return;
+            }
+
+            let imageFound = false;
+            
+            // Check all clipboard items for images
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                
+                if (item.type.indexOf('image') !== -1) {
+                    imageFound = true;
+                    const file = item.getAsFile();
+                    
+                    if (file) {
+                        console.log(`📋 Image pasted from clipboard to ${fieldId}:`, file.name, file.type);
+                        await this.uploadClipboardImage(file, fieldId);
+                        break; // Handle only the first image found
+                    }
+                }
+            }
+
+            if (!imageFound) {
+                // Check if there's text content that might be an image URL
+                const text = event.clipboardData?.getData('text') || event.originalEvent?.clipboardData?.getData('text');
+                if (text && this.isImageUrl(text)) {
+                    console.log(`📋 Image URL pasted from clipboard to ${fieldId}:`, text);
+                    document.getElementById(fieldId).value = text;
+                } else {
+                    console.log('No image found in clipboard');
+                    // Show a brief message to user
+                    this.showPasteMessage(fieldId, 'No image found in clipboard', 'warning');
+                }
+            }
+        } catch (error) {
+            console.error('Error handling clipboard paste:', error);
+            this.showPasteMessage(fieldId, 'Error pasting from clipboard', 'error');
+        }
+    }
+
+    async uploadClipboardImage(file, fieldId) {
+        const field = document.getElementById(fieldId);
+        const originalPlaceholder = field.placeholder;
+        
+        try {
+            // Show uploading state
+            field.placeholder = 'Uploading image from clipboard...';
+            field.disabled = true;
+
+            // Upload the image using existing upload method
+            const result = await this.uploadSingleImage(file);
+            
+            if (result.success) {
+                // Ensure URL is properly formatted
+                let imageUrl = result.url;
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    if (imageUrl.startsWith('/')) {
+                        imageUrl = API_CONFIG.BASE_URL + imageUrl;
+                    } else {
+                        imageUrl = 'https://' + imageUrl;
+                    }
+                }
+
+                // Set the URL in the input field
+                field.value = imageUrl;
+                
+                // Auto-add the image based on the field type
+                if (fieldId === 'tenantAvatarUrl') {
+                    this.addAvatarFromUrl();
+                } else if (fieldId === 'tenantPassportPicUrl') {
+                    this.addImageFromUrl('passport');
+                } else if (fieldId === 'tenantVisaPicUrl') {
+                    this.addImageFromUrl('visa');
+                }
+
+                this.showPasteMessage(fieldId, 'Image uploaded successfully!', 'success');
+                console.log(`✅ Clipboard image uploaded successfully to ${fieldId}:`, imageUrl);
+            } else {
+                this.showPasteMessage(fieldId, 'Failed to upload image: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error uploading clipboard image:', error);
+            this.showPasteMessage(fieldId, 'Error uploading image', 'error');
+        } finally {
+            // Restore field state
+            field.placeholder = originalPlaceholder;
+            field.disabled = false;
+        }
+    }
+
+    isImageUrl(url) {
+        // Simple check for image URL patterns
+        return /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url) || 
+               url.includes('cloudinary.com') || 
+               url.includes('imgur.com') ||
+               url.includes('drive.google.com');
+    }
+
+    showPasteMessage(fieldId, message, type) {
+        // Create a temporary message element
+        const field = document.getElementById(fieldId);
+        const messageId = `paste-message-${fieldId}`;
+        
+        // Remove any existing message
+        const existingMessage = document.getElementById(messageId);
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.id = messageId;
+        messageDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} alert-dismissible fade show mt-2`;
+        messageDiv.style.fontSize = '0.875rem';
+        messageDiv.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'x-circle'} me-1"></i>
+            ${message}
+        `;
+
+        // Insert after the field
+        field.parentNode.insertBefore(messageDiv, field.nextSibling);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 3000);
     }
 }
 
