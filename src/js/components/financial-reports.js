@@ -101,6 +101,28 @@ class FinancialReportsComponent {
         }
       });
     }
+
+    // Export functionality
+    const exportBtn = document.getElementById("exportFinancialReportBtn");
+    const copyBtn = document.getElementById("copyFinancialReportBtn");
+
+    if (exportBtn) {
+      exportBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!exportBtn.disabled) {
+          this.exportFinancialReport();
+        }
+      });
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!copyBtn.disabled) {
+          this.copyFinancialReportToClipboard();
+        }
+      });
+    }
   }
 
   async loadProperties() {
@@ -277,17 +299,32 @@ class FinancialReportsComponent {
       this.currentReport.income.length === 0
     ) {
       incomeList.innerHTML = `
-                <div class="text-center text-muted py-4" id="noIncomeMessage">
-                    <i class="bi bi-plus-circle fs-1"></i>
-                    <p class="mt-2">No income items added</p>
+                <div class="text-center text-muted py-2" id="noIncomeMessage">
+                    <i class="bi bi-plus-circle fs-4"></i>
+                    <p class="mt-1 mb-0 small">No income items added</p>
                 </div>
             `;
       if (totalIncomeEl) totalIncomeEl.textContent = "$0.00";
       return;
     }
 
-    let html = "";
     let total = 0;
+
+    // Create compact table format
+    let html = `
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr class="table-success">
+              <th class="border-0 small">Item</th>
+              <th class="border-0 small">Date</th>
+              <th class="border-0 small">Person</th>
+              <th class="border-0 small text-end">Amount</th>
+              <th class="border-0 small text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
 
     this.currentReport.income.forEach((item, index) => {
       total += item.amount;
@@ -302,47 +339,51 @@ class FinancialReportsComponent {
       const itemKey = `income-${index}`;
       const isPendingDelete = this.pendingDeletes.has(itemKey);
 
+      // Format date for display
+      const transactionDate = item.date ? new Date(item.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      }) : 'No date';
+
       html += `
-                <div class="border-bottom py-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">${escapeHtml(item.item)}</h6>
-                            <small class="text-muted">
-                                Person: ${escapeHtml(investorName)}${
-        item.recipientAccountDetail
-          ? " | Account: " + escapeHtml(item.recipientAccountDetail)
-          : ""
-      }
-                            </small>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold text-success">$${item.amount.toFixed(
-                              2
-                            )}</div>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <button class="btn btn-sm btn-outline-primary me-2" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})">
-                            <span class="edit-icon"><i class="bi bi-pencil"></i></span>
-                            <span class="loading-spinner d-none">
-                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            </span>
-                        </button>
-                        ${isPendingDelete 
-                          ? `<button class="btn btn-sm btn-success" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Click to confirm deletion">
-                               <i class="bi bi-check-circle"></i>
-                             </button>
-                             <button class="btn btn-sm btn-outline-secondary ms-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel deletion">
-                               <i class="bi bi-x-circle"></i>
-                             </button>`
-                          : `<button class="btn btn-sm btn-outline-danger" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})">
-                               <i class="bi bi-trash"></i>
-                             </button>`
-                        }
-                    </div>
-                </div>
-            `;
+        <tr>
+          <td class="small border-0 align-middle">
+            <i class="bi bi-plus-circle-fill text-success me-1"></i>
+            ${escapeHtml(item.item)}
+          </td>
+          <td class="small border-0 align-middle">${transactionDate}</td>
+          <td class="small border-0 align-middle">${escapeHtml(investorName)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(2)}</td>
+          <td class="border-0 align-middle text-center">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-primary btn-sm p-1" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})" title="Edit">
+                <span class="edit-icon"><i class="bi bi-pencil"></i></span>
+                <span class="loading-spinner d-none">
+                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+              </button>
+              ${isPendingDelete 
+                ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Confirm delete">
+                     <i class="bi bi-check"></i>
+                   </button>
+                   <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel">
+                     <i class="bi bi-x"></i>
+                   </button>`
+                : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete">
+                     <i class="bi bi-trash"></i>
+                   </button>`
+              }
+            </div>
+          </td>
+        </tr>
+      `;
     });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
 
     incomeList.innerHTML = html;
     if (totalIncomeEl) totalIncomeEl.textContent = `$${total.toFixed(2)}`;
@@ -358,17 +399,32 @@ class FinancialReportsComponent {
       this.currentReport.expenses.length === 0
     ) {
       expenseList.innerHTML = `
-                <div class="text-center text-muted py-4">
-                    <i class="bi bi-dash-circle fs-1"></i>
-                    <p class="mt-2">No expense items added</p>
+                <div class="text-center text-muted py-2">
+                    <i class="bi bi-dash-circle fs-4"></i>
+                    <p class="mt-1 mb-0 small">No expense items added</p>
                 </div>
             `;
       if (totalExpensesEl) totalExpensesEl.textContent = "$0.00";
       return;
     }
 
-    let html = "";
     let total = 0;
+
+    // Create compact table format
+    let html = `
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr class="table-danger">
+              <th class="border-0 small">Item</th>
+              <th class="border-0 small">Date</th>
+              <th class="border-0 small">Person</th>
+              <th class="border-0 small text-end">Amount</th>
+              <th class="border-0 small text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
 
     this.currentReport.expenses.forEach((item, index) => {
       total += item.amount;
@@ -383,47 +439,51 @@ class FinancialReportsComponent {
       const itemKey = `expense-${index}`;
       const isPendingDelete = this.pendingDeletes.has(itemKey);
 
+      // Format date for display
+      const transactionDate = item.date ? new Date(item.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      }) : 'No date';
+
       html += `
-                <div class="border-bottom py-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">${escapeHtml(item.item)}</h6>
-                            <small class="text-muted">
-                                Person: ${escapeHtml(investorName)}${
-        item.recipientAccountDetail
-          ? " | Account: " + escapeHtml(item.recipientAccountDetail)
-          : ""
-      }
-                            </small>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold text-danger">$${item.amount.toFixed(
-                              2
-                            )}</div>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <button class="btn btn-sm btn-outline-primary me-2" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})">
-                            <span class="edit-icon"><i class="bi bi-pencil"></i></span>
-                            <span class="loading-spinner d-none">
-                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            </span>
-                        </button>
-                        ${isPendingDelete 
-                          ? `<button class="btn btn-sm btn-success" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Click to confirm deletion">
-                               <i class="bi bi-check-circle"></i>
-                             </button>
-                             <button class="btn btn-sm btn-outline-secondary ms-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel deletion">
-                               <i class="bi bi-x-circle"></i>
-                             </button>`
-                          : `<button class="btn btn-sm btn-outline-danger" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})">
-                               <i class="bi bi-trash"></i>
-                             </button>`
-                        }
-                    </div>
-                </div>
-            `;
+        <tr>
+          <td class="small border-0 align-middle">
+            <i class="bi bi-dash-circle-fill text-danger me-1"></i>
+            ${escapeHtml(item.item)}
+          </td>
+          <td class="small border-0 align-middle">${transactionDate}</td>
+          <td class="small border-0 align-middle">${escapeHtml(investorName)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(2)}</td>
+          <td class="border-0 align-middle text-center">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-primary btn-sm p-1" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})" title="Edit">
+                <span class="edit-icon"><i class="bi bi-pencil"></i></span>
+                <span class="loading-spinner d-none">
+                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+              </button>
+              ${isPendingDelete 
+                ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Confirm delete">
+                     <i class="bi bi-check"></i>
+                   </button>
+                   <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel">
+                     <i class="bi bi-x"></i>
+                   </button>`
+                : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete">
+                     <i class="bi bi-trash"></i>
+                   </button>`
+              }
+            </div>
+          </td>
+        </tr>
+      `;
     });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
 
     expenseList.innerHTML = html;
     if (totalExpensesEl) totalExpensesEl.textContent = `$${total.toFixed(2)}`;
@@ -464,7 +524,23 @@ class FinancialReportsComponent {
         (this.currentReport.totalExpenses || 0)
       : 0;
 
-    let html = "";
+    // Create compact table format
+    let html = `
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr class="table-info">
+              <th class="border-0 small">Investor</th>
+              <th class="border-0 small text-center">Share %</th>
+              <th class="border-0 small text-end">Profit Share</th>
+              <th class="border-0 small text-end">Paid</th>
+              <th class="border-0 small text-end">Received</th>
+              <th class="border-0 small text-end">Final</th>
+              <th class="border-0 small text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
 
     this.investors.forEach((investor) => {
       const propertyData = investor.properties.find(
@@ -515,143 +591,35 @@ class FinancialReportsComponent {
         incomeReceivedByInvestor;
 
       html += `
-                <div class="card mb-2">
-                    <div class="card-body py-2">
-                        <!-- Mobile layout -->
-                        <div class="d-md-none">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <h6 class="mb-1">${escapeHtml(
-                                      investor.name
-                                    )}</h6>
-                                    <small class="text-muted">${
-                                      investor.investorId
-                                    }</small>
-                                    ${
-                                      investor.phone
-                                        ? `<br><small class="text-muted">${escapeHtml(
-                                            investor.phone
-                                          )}</small>`
-                                        : ""
-                                    }
-                                </div>
-                                <div class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="window.financialReports.editInvestor('${
-                                      investor.investorId
-                                    }')" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="window.financialReports.removeInvestor('${
-                                      investor.investorId
-                                    }')" title="Remove">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="row text-center">
-                                <div class="col-4">
-                                    <div class="fw-bold">${percentage}%</div>
-                                    <small class="text-muted">Share</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fw-bold text-primary">$${investorShare.toFixed(
-                                      2
-                                    )}</div>
-                                    <small class="text-muted">Profit Share</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fw-bold text-warning">$${expensesPaidByInvestor.toFixed(
-                                      2
-                                    )}</div>
-                                    <small class="text-muted">Paid</small>
-                                </div>
-                            </div>
-                            <div class="row text-center mt-2">
-                                <div class="col-6">
-                                    <div class="fw-bold text-info">$${incomeReceivedByInvestor.toFixed(
-                                      2
-                                    )}</div>
-                                    <small class="text-muted">Received</small>
-                                </div>
-                                <div class="col-6">
-                                    <div class="fw-bold ${
-                                      finalAmount >= 0
-                                        ? "text-success"
-                                        : "text-danger"
-                                    }">
-                                        $${finalAmount.toFixed(2)}
-                                    </div>
-                                    <small class="text-muted">Final</small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Desktop layout -->
-                        <div class="row align-items-center d-none d-md-flex">
-                            <div class="col-md-3 col-lg-2">
-                                <h6 class="mb-0">${escapeHtml(
-                                  investor.name
-                                )}</h6>
-                                <small class="text-muted">${
-                                  investor.investorId
-                                }</small>
-                                ${
-                                  investor.phone
-                                    ? `<br><small class="text-muted">${escapeHtml(
-                                        investor.phone
-                                      )}</small>`
-                                    : ""
-                                }
-                            </div>
-                            <div class="col-md-1 col-lg-1 text-center">
-                                <div class="fw-bold">${percentage}%</div>
-                                <small class="text-muted">Share</small>
-                            </div>
-                            <div class="col-md-2 col-lg-2 text-center">
-                                <div class="fw-bold text-primary">$${investorShare.toFixed(
-                                  2
-                                )}</div>
-                                <small class="text-muted">Profit Share</small>
-                            </div>
-                            <div class="col-md-2 col-lg-2 text-center">
-                                <div class="fw-bold text-warning">$${expensesPaidByInvestor.toFixed(
-                                  2
-                                )}</div>
-                                <small class="text-muted">Paid</small>
-                            </div>
-                            <div class="col-md-2 col-lg-2 text-center">
-                                <div class="fw-bold text-info">$${incomeReceivedByInvestor.toFixed(
-                                  2
-                                )}</div>
-                                <small class="text-muted">Received</small>
-                            </div>
-                            <div class="col-md-1 col-lg-2 text-center">
-                                <div class="fw-bold ${
-                                  finalAmount >= 0
-                                    ? "text-success"
-                                    : "text-danger"
-                                }">
-                                    $${finalAmount.toFixed(2)}
-                                </div>
-                                <small class="text-muted">Final</small>
-                            </div>
-                            <div class="col-md-1 col-lg-1 text-end">
-                                <button class="btn btn-sm btn-outline-primary me-1" onclick="window.financialReports.editInvestor('${
-                                  investor.investorId
-                                }')" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="window.financialReports.removeInvestor('${
-                                  investor.investorId
-                                }')" title="Remove">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+        <tr>
+          <td class="small border-0 align-middle">
+            <strong>${escapeHtml(investor.name)}</strong><br>
+            <small class="text-muted">${investor.investorId}</small>
+          </td>
+          <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
+          <td class="small border-0 align-middle text-end fw-bold text-primary">$${investorShare.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-warning">$${expensesPaidByInvestor.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-info">$${incomeReceivedByInvestor.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold ${finalAmount >= 0 ? "text-success" : "text-danger"}">$${finalAmount.toFixed(2)}</td>
+          <td class="border-0 align-middle text-center">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${investor.investorId}')" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${investor.investorId}')" title="Remove">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
     });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
 
     investorDistribution.innerHTML = html;
   }
@@ -863,6 +831,7 @@ class FinancialReportsComponent {
     const amountValue = existingItem ? existingItem.amount : '';
     const personInChargeValue = existingItem ? existingItem.personInCharge : '';
     const accountDetailValue = existingItem ? escapeHtml(existingItem.recipientAccountDetail || '') : '';
+    const paidByValue = existingItem ? existingItem.paidBy : '';
     const dateValue = existingItem && existingItem.date 
       ? new Date(existingItem.date).toISOString().split('T')[0] 
       : new Date().toISOString().split('T')[0]; // Default to today
@@ -903,6 +872,16 @@ class FinancialReportsComponent {
                                     </select>
                                     <div class="form-text">Select the investor responsible for this ${type}</div>
                                 </div>
+                                ${isIncome ? `
+                                <div class="mb-3">
+                                    <label class="form-label">Paid By</label>
+                                    <select class="form-select" name="paidBy">
+                                        <option value="">Select who paid (optional)...</option>
+                                        ${this.generateInvestorOptions(paidByValue)}
+                                    </select>
+                                    <div class="form-text">Optional: Select who actually paid/initiated this transaction</div>
+                                </div>
+                                ` : ''}
                                 <div class="mb-3">
                                     <label class="form-label">Account Details</label>
                                     <input type="text" class="form-control" name="recipientAccountDetail" placeholder="Bank or payment details (optional)" autocomplete="off" value="${accountDetailValue}">
@@ -935,6 +914,14 @@ class FinancialReportsComponent {
       personInCharge: formData.get("personInCharge"),
       recipientAccountDetail: formData.get("recipientAccountDetail"),
     };
+
+    // Add paidBy field only for income transactions
+    if (type === "income") {
+      const paidBy = formData.get("paidBy");
+      if (paidBy) {
+        itemData.paidBy = paidBy;
+      }
+    }
 
     try {
       const year = this.currentDate.getFullYear();
@@ -1584,6 +1571,458 @@ class FinancialReportsComponent {
     if (this.selectedProperty) {
       this.loadFinancialReport();
     }
+  }
+
+  async exportFinancialReport() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+
+    // Check if html2canvas is available
+    if (typeof html2canvas === 'undefined') {
+      this.showError("Export library not loaded. Please refresh the page and try again.");
+      return;
+    }
+
+    // Prevent duplicate calls
+    if (this._isExporting) {
+      return;
+    }
+    this._isExporting = true;
+
+    try {
+      // Show loading state
+      const exportBtn = document.getElementById("exportFinancialReportBtn");
+      exportBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Exporting...';
+      exportBtn.disabled = true;
+
+      // Update export header with property info and current data
+      await this.prepareExportData();
+      
+      // Show the header for export
+      const reportHeader = document.getElementById("reportHeader");
+      reportHeader.classList.remove("d-none");
+
+      // Hide navigation and action buttons for export
+      const elementsToHide = [
+        '.btn', '.modal', '.modal-backdrop', 
+        '#prevMonth', '#nextMonth', '#addIncomeBtn', '#addExpenseBtn', '#addInvestorBtn',
+        '.edit-icon', '.loading-spinner', '[onclick]'
+      ];
+      
+      const hiddenElements = [];
+      elementsToHide.forEach(selector => {
+        const elements = document.querySelectorAll(`#exportableFinancialReport ${selector}`);
+        elements.forEach(el => {
+          if (!el.id.includes('export') && !el.id.includes('Export')) {
+            el.style.display = 'none';
+            hiddenElements.push({ element: el, originalDisplay: el.style.display });
+          }
+        });
+      });
+
+      // Wait longer for DOM to fully update and render
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Get the element and calculate optimal dimensions
+      const exportElement = document.getElementById('exportableFinancialReport');
+      
+      // Force layout recalculation and ensure all content is rendered
+      exportElement.style.height = 'auto';
+      exportElement.style.minHeight = 'auto';
+      exportElement.offsetHeight; // Force reflow
+      
+      // Scroll to bottom to ensure all lazy content is rendered
+      const originalScrollTop = window.scrollY;
+      exportElement.scrollIntoView({ behavior: 'instant', block: 'end' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Calculate dimensions with more comprehensive approach
+      const computedStyle = window.getComputedStyle(exportElement);
+      const paddingTop = parseInt(computedStyle.paddingTop) || 0;
+      const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
+      const marginTop = parseInt(computedStyle.marginTop) || 0;
+      const marginBottom = parseInt(computedStyle.marginBottom) || 0;
+      
+      const contentHeight = exportElement.scrollHeight;
+      const clientHeight = exportElement.clientHeight;
+      const offsetHeight = exportElement.offsetHeight;
+      
+      // Use the largest calculated height plus generous buffer
+      const elementHeight = Math.max(contentHeight, clientHeight, offsetHeight) + paddingTop + paddingBottom + marginTop + marginBottom;
+      const elementWidth = Math.max(exportElement.scrollWidth, exportElement.offsetWidth, 1000); // Force wider canvas for full content
+      
+      // Add buffer to ensure no content is cut off (reduced for compact layout - 25% of content height, minimum 200px)
+      const heightBuffer = Math.max(200, Math.floor(elementHeight * 0.25));
+      const totalHeight = elementHeight + heightBuffer;
+      
+      console.log('Export dimensions:', { 
+        contentHeight, 
+        clientHeight, 
+        offsetHeight, 
+        elementHeight, 
+        heightBuffer, 
+        totalHeight, 
+        elementWidth 
+      });
+      
+      // Restore original scroll position
+      window.scrollTo(0, originalScrollTop);
+      
+      // Create the canvas with very generous height buffer to prevent cut-off
+      const canvas = await html2canvas(exportElement, {
+        backgroundColor: '#ffffff',
+        scale: 2.0, // High scale for maximum quality
+        useCORS: true,
+        allowTaint: false, // Better quality with strict CORS
+        height: totalHeight,
+        width: elementWidth,
+        windowWidth: elementWidth,
+        windowHeight: totalHeight,
+        logging: true, // Enable logging to debug issues
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0,
+        removeContainer: true, // Remove container padding
+        letterRendering: true, // Better text rendering
+        imageTimeout: 15000, // Allow time for high-quality rendering
+        onclone: function(clonedDocument) {
+          // Ensure cloned document has proper dimensions
+          const clonedElement = clonedDocument.getElementById('exportableFinancialReport');
+          if (clonedElement) {
+            clonedElement.style.height = 'auto';
+            clonedElement.style.minHeight = totalHeight + 'px';
+            clonedElement.style.width = elementWidth + 'px';
+            clonedElement.style.minWidth = elementWidth + 'px';
+            clonedElement.style.maxWidth = 'none';
+            clonedElement.style.overflow = 'visible';
+            clonedElement.style.margin = '0';
+            clonedElement.style.padding = '0';
+          }
+        }
+      });
+
+      // Restore hidden elements
+      hiddenElements.forEach(({ element, originalDisplay }) => {
+        element.style.display = originalDisplay;
+      });
+      
+      // Hide header again
+      reportHeader.classList.add("d-none");
+
+      // Crop canvas to remove white space
+      const croppedCanvas = this.cropCanvasToContent(canvas);
+
+      // Create high-quality download link
+      const link = document.createElement('a');
+      link.download = this.generateFileName();
+      // Use maximum PNG quality
+      link.href = croppedCanvas.toDataURL('image/png', 1.0);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      this.showSuccess("Financial report exported successfully!");
+    } catch (error) {
+      console.error('Export error:', error);
+      this.showError(`Failed to export financial report: ${error.message}`);
+    } finally {
+      // Restore button state
+      const exportBtn = document.getElementById("exportFinancialReportBtn");
+      exportBtn.innerHTML = '<i class="bi bi-camera me-1"></i>Export Image';
+      exportBtn.disabled = false;
+      // Reset the export flag
+      this._isExporting = false;
+    }
+  }
+
+  async copyFinancialReportToClipboard() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+
+    // Check if html2canvas is available
+    if (typeof html2canvas === 'undefined') {
+      this.showError("Export library not loaded. Please refresh the page and try again.");
+      return;
+    }
+
+    // Prevent duplicate calls
+    if (this._isCopiingToClipboard) {
+      return;
+    }
+    this._isCopiingToClipboard = true;
+
+    try {
+      // Show loading state
+      const copyBtn = document.getElementById("copyFinancialReportBtn");
+      copyBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+      copyBtn.disabled = true;
+
+      // Prepare export data and show header
+      await this.prepareExportData();
+      const reportHeader = document.getElementById("reportHeader");
+      reportHeader.classList.remove("d-none");
+
+      // Hide navigation and action buttons for export
+      const elementsToHide = [
+        '.btn', '.modal', '.modal-backdrop', 
+        '#prevMonth', '#nextMonth', '#addIncomeBtn', '#addExpenseBtn', '#addInvestorBtn',
+        '.edit-icon', '.loading-spinner', '[onclick]'
+      ];
+      
+      const hiddenElements = [];
+      elementsToHide.forEach(selector => {
+        const elements = document.querySelectorAll(`#exportableFinancialReport ${selector}`);
+        elements.forEach(el => {
+          if (!el.id.includes('export') && !el.id.includes('Export')) {
+            el.style.display = 'none';
+            hiddenElements.push({ element: el, originalDisplay: el.style.display });
+          }
+        });
+      });
+
+      // Wait longer for DOM to fully update and render
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Get the element and calculate optimal dimensions for clipboard
+      const exportElement = document.getElementById('exportableFinancialReport');
+      
+      // Force layout recalculation and ensure all content is rendered
+      exportElement.style.height = 'auto';
+      exportElement.style.minHeight = 'auto';
+      exportElement.offsetHeight; // Force reflow
+      
+      // Scroll to bottom to ensure all lazy content is rendered
+      const originalScrollTop = window.scrollY;
+      exportElement.scrollIntoView({ behavior: 'instant', block: 'end' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Calculate dimensions with more comprehensive approach
+      const computedStyle = window.getComputedStyle(exportElement);
+      const paddingTop = parseInt(computedStyle.paddingTop) || 0;
+      const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
+      const marginTop = parseInt(computedStyle.marginTop) || 0;
+      const marginBottom = parseInt(computedStyle.marginBottom) || 0;
+      
+      const contentHeight = exportElement.scrollHeight;
+      const clientHeight = exportElement.clientHeight;
+      const offsetHeight = exportElement.offsetHeight;
+      
+      // Use the largest calculated height plus generous buffer
+      const elementHeight = Math.max(contentHeight, clientHeight, offsetHeight) + paddingTop + paddingBottom + marginTop + marginBottom;
+      const elementWidth = Math.max(exportElement.scrollWidth, exportElement.offsetWidth, 1000); // Force wider canvas for full content
+      
+      // Add buffer to ensure no content is cut off (reduced for compact layout - 25% of content height, minimum 200px)
+      const heightBuffer = Math.max(200, Math.floor(elementHeight * 0.25));
+      const totalHeight = elementHeight + heightBuffer;
+      
+      console.log('Clipboard export dimensions:', { 
+        contentHeight, 
+        clientHeight, 
+        offsetHeight, 
+        elementHeight, 
+        heightBuffer, 
+        totalHeight, 
+        elementWidth 
+      });
+      
+      // Restore original scroll position
+      window.scrollTo(0, originalScrollTop);
+      
+      // Create canvas with very generous height buffer to prevent cut-off
+      const canvas = await html2canvas(exportElement, {
+        backgroundColor: '#ffffff',
+        scale: 2.0, // High scale for maximum quality
+        useCORS: true,
+        allowTaint: false, // Better quality with strict CORS
+        height: totalHeight,
+        width: elementWidth,
+        windowWidth: elementWidth,
+        windowHeight: totalHeight,
+        logging: false, // Keep logging off for clipboard to avoid console spam
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0,
+        removeContainer: true, // Remove container padding
+        letterRendering: true, // Better text rendering
+        imageTimeout: 15000, // Allow time for high-quality rendering
+        onclone: function(clonedDocument) {
+          // Ensure cloned document has proper dimensions
+          const clonedElement = clonedDocument.getElementById('exportableFinancialReport');
+          if (clonedElement) {
+            clonedElement.style.height = 'auto';
+            clonedElement.style.minHeight = totalHeight + 'px';
+            clonedElement.style.width = elementWidth + 'px';
+            clonedElement.style.minWidth = elementWidth + 'px';
+            clonedElement.style.maxWidth = 'none';
+            clonedElement.style.overflow = 'visible';
+            clonedElement.style.margin = '0';
+            clonedElement.style.padding = '0';
+          }
+        }
+      });
+
+      // Restore hidden elements first
+      hiddenElements.forEach(({ element, originalDisplay }) => {
+        element.style.display = originalDisplay;
+      });
+      
+      // Hide header again
+      reportHeader.classList.add("d-none");
+
+      // Crop canvas to remove white space
+      const croppedCanvas = this.cropCanvasToContent(canvas);
+
+      // Convert to high-quality blob and copy to clipboard
+      const blob = await new Promise((resolve) => {
+        croppedCanvas.toBlob(resolve, 'image/png', 1.0); // Maximum PNG quality
+      });
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.write) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          this.showSuccess("Financial report copied to clipboard!");
+        } else {
+          this.showError("Clipboard functionality not supported in this browser.");
+        }
+      } catch (clipboardError) {
+        console.error('Clipboard error:', clipboardError);
+        this.showError("Failed to copy to clipboard. Your browser may not support this feature.");
+      }
+
+    } catch (error) {
+      console.error('Copy error:', error);
+      this.showError(`Failed to copy financial report: ${error.message}`);
+    } finally {
+      // Always restore button state and reset flag
+      const copyBtn = document.getElementById("copyFinancialReportBtn");
+      if (copyBtn) {
+        copyBtn.innerHTML = '<i class="bi bi-clipboard" style="color: #ffffff !important;"></i>';
+        copyBtn.disabled = false;
+      }
+      // Reset the copying flag
+      this._isCopiingToClipboard = false;
+    }
+  }
+
+  async prepareExportData() {
+    // Update export header with current property and date info
+    const exportPropertyInfo = document.getElementById("exportPropertyInfo");
+    const exportDateRange = document.getElementById("exportDateRange");
+    
+    if (exportPropertyInfo && this.selectedProperty) {
+      try {
+        // Get property details
+        const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
+        const result = await response.json();
+        
+        if (result.success) {
+          const property = result.properties.find(p => p.propertyId === this.selectedProperty);
+          if (property) {
+            exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
+          } else {
+            exportPropertyInfo.textContent = `Property ID: ${this.selectedProperty}`;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching property details for export:', error);
+        exportPropertyInfo.textContent = `Property ID: ${this.selectedProperty}`;
+      }
+    }
+    
+    if (exportDateRange) {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      
+      const month = monthNames[this.currentDate.getMonth()];
+      const year = this.currentDate.getFullYear();
+      exportDateRange.textContent = `${month} ${year} Financial Report`;
+    }
+  }
+
+  generateFileName() {
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    
+    const month = monthNames[this.currentDate.getMonth()];
+    const year = this.currentDate.getFullYear();
+    const propertyId = this.selectedProperty;
+    
+    return `Financial_Report_${propertyId}_${month}_${year}.png`;
+  }
+
+  // Crop canvas to remove white space around content
+  cropCanvasToContent(sourceCanvas) {
+    const ctx = sourceCanvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+    const data = imageData.data;
+    
+    let minX = sourceCanvas.width;
+    let minY = sourceCanvas.height;
+    let maxX = 0;
+    let maxY = 0;
+    
+    // Find the bounds of non-white content
+    for (let y = 0; y < sourceCanvas.height; y++) {
+      for (let x = 0; x < sourceCanvas.width; x++) {
+        const index = (y * sourceCanvas.width + x) * 4;
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        const a = data[index + 3];
+        
+        // Check if pixel is not white/transparent (allow for slight variations)
+        if (!(r >= 250 && g >= 250 && b >= 250) || a < 250) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+    
+    // Add small padding to ensure content isn't too tight
+    const padding = 10;
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX = Math.min(sourceCanvas.width, maxX + padding);
+    maxY = Math.min(sourceCanvas.height, maxY + padding);
+    
+    // Calculate cropped dimensions
+    const croppedWidth = maxX - minX;
+    const croppedHeight = maxY - minY;
+    
+    console.log('Cropping canvas:', { 
+      original: { width: sourceCanvas.width, height: sourceCanvas.height },
+      bounds: { minX, minY, maxX, maxY },
+      cropped: { width: croppedWidth, height: croppedHeight }
+    });
+    
+    // Create new canvas with cropped dimensions
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = croppedWidth;
+    croppedCanvas.height = croppedHeight;
+    const croppedCtx = croppedCanvas.getContext('2d');
+    
+    // Copy the cropped region
+    croppedCtx.drawImage(
+      sourceCanvas, 
+      minX, minY, croppedWidth, croppedHeight,
+      0, 0, croppedWidth, croppedHeight
+    );
+    
+    return croppedCanvas;
   }
 }
 

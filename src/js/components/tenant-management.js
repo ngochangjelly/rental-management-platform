@@ -12,6 +12,15 @@ class TenantManagementComponent {
         this.passportPics = []; // Array of passport image URLs
         this.visaPics = []; // Array of visa image URLs
         this.avatar = ''; // Single avatar image URL
+        this.signature = ''; // Signature image URL (for main tenants)
+        this.originalTenantData = null; // Store original tenant data for change detection
+        
+        // Pagination properties
+        this.currentPage = 1;
+        this.pageSize = 50;
+        this.totalTenants = 0;
+        this.hasNextPage = false;
+        
         this.init();
     }
 
@@ -19,6 +28,15 @@ class TenantManagementComponent {
         this.setupEventListeners();
         // Don't load tenants immediately - wait until section is visible
         // this.loadTenants();
+    }
+
+    // Helper method to get correct colspan based on screen size
+    getTableColspan() {
+        // Check if we're on mobile where 2 columns are hidden
+        if (window.innerWidth <= 767.98) {
+            return "5"; // 7 total columns - 2 hidden columns = 5 visible columns
+        }
+        return "7"; // Desktop: all columns visible
     }
 
     setupEventListeners() {
@@ -49,31 +67,54 @@ class TenantManagementComponent {
 
         // Set up clipboard paste functionality for image URL fields
         this.setupClipboardPasteListeners();
+
+        // Set up change detection for edit mode
+        this.setupChangeDetection();
+
+        // Listen for window resize to update table colspan
+        window.addEventListener('resize', () => {
+            // Re-render the table when window size changes
+            if (this.tenants && this.tenants.length > 0) {
+                this.renderTenantsTable();
+            }
+        });
     }
 
-    async loadTenants() {
+    async loadTenants(page = 1) {
         try {
-            const response = await API.get(API_CONFIG.ENDPOINTS.TENANTS);
+            this.currentPage = page;
+            const offset = (page - 1) * this.pageSize;
+            
+            // Build URL with pagination parameters
+            const url = `${API_CONFIG.ENDPOINTS.TENANTS}?limit=${this.pageSize}&offset=${offset}`;
+            const response = await API.get(url);
             const result = await response.json();
             
             // Handle different response formats
             if (result.success && result.tenants) {
-                // Standard API response format
+                // Standard API response format with pagination info
                 this.tenants = result.tenants;
+                this.totalTenants = result.total || result.tenants.length;
+                this.hasNextPage = result.hasMore || (result.tenants.length === this.pageSize);
             } else if (result.tenants && Array.isArray(result.tenants)) {
                 // Direct tenant array format
                 this.tenants = result.tenants;
+                this.totalTenants = result.total || result.tenants.length;
+                this.hasNextPage = result.tenants.length === this.pageSize;
             } else if (Array.isArray(result)) {
                 // Direct array response
                 this.tenants = result;
+                this.totalTenants = result.length;
+                this.hasNextPage = result.length === this.pageSize;
             } else {
                 console.error('Failed to load tenants:', result.error || 'Unknown format');
                 this.showEmptyState();
                 return;
             }
             
-            console.log('✅ Loaded', this.tenants.length, 'tenants');
-            this.renderTenantsTable();
+            console.log('✅ Loaded', this.tenants.length, 'tenants for page', this.currentPage);
+            await this.renderTenantsTable();
+            this.updatePaginationControls();
             
             // Update sidebar badges
             if (window.updateSidebarBadges) {
@@ -85,7 +126,7 @@ class TenantManagementComponent {
         }
     }
 
-    renderTenantsTable() {
+    async renderTenantsTable() {
         const tbody = document.getElementById('tenantsTableBody');
         if (!tbody) {
             console.error('tenantsTableBody element not found!');
@@ -97,53 +138,126 @@ class TenantManagementComponent {
             return;
         }
 
+        // Ensure properties cache is loaded for property details
+        if (!this.propertiesCache) {
+            await this.loadPropertiesCache();
+        }
+
+        // Group tenants by property
+        const groupedTenants = this.groupTenantsByProperty(this.tenants);
+        
         let html = '';
-        this.tenants.forEach(tenant => {
+        Object.keys(groupedTenants).sort().forEach(propertyId => {
+            const tenantsInProperty = groupedTenants[propertyId];
+            
+            // Get property details for the header
+            const propertyInfo = this.getPropertyInfo(propertyId);
+            const propertyDisplay = propertyInfo 
+                ? `${this.escapeHtml(propertyId)} - ${this.escapeHtml(propertyInfo.address)}, ${this.escapeHtml(propertyInfo.unit)}`
+                : this.escapeHtml(propertyId);
+            
+            // Add property header row with copy button
             html += `
-                <tr>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="me-3">
-                                ${tenant.avatar ? 
-                                    `<img src="${this.normalizeImageUrl(tenant.avatar)}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
-                                }
-                            </div>
+                <tr class="table-primary">
+                    <td colspan="${this.getTableColspan()}" class="fw-bold" style="width: 100%; padding: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             <div>
-                                <div>${this.escapeHtml(tenant.name)}</div>
-                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                                <i class="bi bi-building me-2"></i>
+                                Property: ${propertyDisplay}
+                                <span class="badge bg-primary ms-2">${tenantsInProperty.length} tenant${tenantsInProperty.length !== 1 ? 's' : ''}</span>
                             </div>
+                            <button type="button" class="btn btn-sm btn-outline-light" 
+                                    onclick="tenantManager.copyTenantList('${propertyId}')" 
+                                    title="Copy tenant list to clipboard">
+                                <i class="bi bi-clipboard me-1"></i>Copy List
+                            </button>
                         </div>
-                    </td>
-                    <td>${this.escapeHtml(tenant.fin)}</td>
-                    <td>${this.escapeHtml(tenant.passportNumber)}</td>
-                    <td>
-                        <span class="badge bg-${tenant.isRegistered ? 'success' : 'secondary'}">
-                            ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
-                        </span>
-                        ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
-                    </td>
-                    <td>
-                        ${this.renderPropertyDetails(tenant)}
-                    </td>
-                    <td>
-                        <span class="badge bg-info">
-                            ${tenant.properties ? tenant.properties.length : 0} properties
-                        </span>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="tenantManager.editTenant('${tenant.fin}')">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.fin}')">
-                            <i class="bi bi-trash"></i> Delete
-                        </button>
                     </td>
                 </tr>
             `;
+            
+            // Add tenants for this property
+            tenantsInProperty.forEach(tenant => {
+                html += `
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    ${tenant.avatar ? 
+                                        `<img src="${this.normalizeImageUrl(tenant.avatar)}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                                        `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                    }
+                                </div>
+                                <div>
+                                    <div>${this.escapeHtml(tenant.name)}</div>
+                                    <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${this.escapeHtml(tenant.fin) || '-'}</td>
+                        <td>${this.escapeHtml(tenant.passportNumber)}</td>
+                        <td>
+                            ${this.getRegistrationStatusBadge(tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'))}
+                            ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
+                        </td>
+                        <td>
+                            ${this.renderPropertyDetails(tenant)}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">
+                                ${tenant.properties ? tenant.properties.length : 0} properties
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
         });
         
         tbody.innerHTML = html;
+    }
+
+    groupTenantsByProperty(tenants) {
+        const grouped = {};
+        
+        tenants.forEach(tenant => {
+            const tenantProperties = tenant.properties || [];
+            
+            if (tenantProperties.length === 0) {
+                // Handle tenants with no properties
+                if (!grouped['No Property Assigned']) {
+                    grouped['No Property Assigned'] = [];
+                }
+                grouped['No Property Assigned'].push(tenant);
+            } else {
+                // Group by each property the tenant is assigned to
+                tenantProperties.forEach(prop => {
+                    let propertyId;
+                    
+                    if (typeof prop === 'object' && prop.propertyId) {
+                        propertyId = prop.propertyId;
+                    } else if (typeof prop === 'string') {
+                        propertyId = prop;
+                    } else {
+                        propertyId = prop._id || 'Unknown Property';
+                    }
+                    
+                    if (!grouped[propertyId]) {
+                        grouped[propertyId] = [];
+                    }
+                    grouped[propertyId].push(tenant);
+                });
+            }
+        });
+        
+        return grouped;
     }
 
     showEmptyState(message = 'No tenants found') {
@@ -152,7 +266,7 @@ class TenantManagementComponent {
         
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="${this.getTableColspan()}" class="text-center text-muted py-4">
                     <i class="bi bi-people fs-1"></i>
                     <p class="mt-2">${message}</p>
                 </td>
@@ -160,10 +274,15 @@ class TenantManagementComponent {
         `;
     }
 
-    filterTenants(searchTerm) {
+    async filterTenants(searchTerm) {
         if (!searchTerm.trim()) {
-            this.renderTenantsTable();
+            await this.renderTenantsTable();
             return;
+        }
+
+        // Ensure properties cache is loaded for property details
+        if (!this.propertiesCache) {
+            await this.loadPropertiesCache();
         }
 
         const filteredTenants = this.tenants.filter(tenant => {
@@ -182,7 +301,15 @@ class TenantManagementComponent {
                 })
                 : (tenant.room && tenant.room.toLowerCase().includes(searchTerm.toLowerCase()));
             
-            return basicMatch || roomMatch;
+            // Search in property IDs
+            const propertyMatch = tenant.properties && Array.isArray(tenant.properties)
+                ? tenant.properties.some(prop => {
+                    const propertyId = typeof prop === 'object' ? prop.propertyId : prop;
+                    return propertyId && propertyId.toLowerCase().includes(searchTerm.toLowerCase());
+                })
+                : false;
+            
+            return basicMatch || roomMatch || propertyMatch;
         });
 
         const tbody = document.getElementById('tenantsTableBody');
@@ -193,50 +320,82 @@ class TenantManagementComponent {
             return;
         }
 
+        // Group filtered tenants by property
+        const groupedTenants = this.groupTenantsByProperty(filteredTenants);
+        
         let html = '';
-        filteredTenants.forEach(tenant => {
+        Object.keys(groupedTenants).sort().forEach(propertyId => {
+            const tenantsInProperty = groupedTenants[propertyId];
+            
+            // Get property details for the header
+            const propertyInfo = this.getPropertyInfo(propertyId);
+            const propertyDisplay = propertyInfo 
+                ? `${this.escapeHtml(propertyId)} - ${this.escapeHtml(propertyInfo.address)}, ${this.escapeHtml(propertyInfo.unit)}`
+                : this.escapeHtml(propertyId);
+            
+            // Add property header row with copy button
             html += `
-                <tr>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="me-3">
-                                ${tenant.avatar ? 
-                                    `<img src="${this.normalizeImageUrl(tenant.avatar)}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                                    `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
-                                }
-                            </div>
+                <tr class="table-primary">
+                    <td colspan="${this.getTableColspan()}" class="fw-bold" style="width: 100%; padding: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             <div>
-                                <div>${this.escapeHtml(tenant.name)}</div>
-                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                                <i class="bi bi-building me-2"></i>
+                                Property: ${propertyDisplay}
+                                <span class="badge bg-primary ms-2">${tenantsInProperty.length} tenant${tenantsInProperty.length !== 1 ? 's' : ''}</span>
                             </div>
+                            <button type="button" class="btn btn-sm btn-outline-light" 
+                                    onclick="tenantManager.copyTenantList('${propertyId}')" 
+                                    title="Copy tenant list to clipboard">
+                                <i class="bi bi-clipboard me-1"></i>Copy List
+                            </button>
                         </div>
-                    </td>
-                    <td>${this.escapeHtml(tenant.fin)}</td>
-                    <td>${this.escapeHtml(tenant.passportNumber)}</td>
-                    <td>
-                        <span class="badge bg-${tenant.isRegistered ? 'success' : 'secondary'}">
-                            ${tenant.isRegistered ? 'Registered' : 'Unregistered'}
-                        </span>
-                        ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
-                    </td>
-                    <td>
-                        ${this.renderPropertyDetails(tenant)}
-                    </td>
-                    <td>
-                        <span class="badge bg-info">
-                            ${tenant.properties ? tenant.properties.length : 0} properties
-                        </span>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="tenantManager.editTenant('${tenant.fin}')">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.fin}')">
-                            <i class="bi bi-trash"></i> Delete
-                        </button>
                     </td>
                 </tr>
             `;
+            
+            // Add tenants for this property
+            tenantsInProperty.forEach(tenant => {
+                html += `
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    ${tenant.avatar ? 
+                                        `<img src="${this.normalizeImageUrl(tenant.avatar)}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                                        `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                    }
+                                </div>
+                                <div>
+                                    <div>${this.escapeHtml(tenant.name)}</div>
+                                    <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${this.escapeHtml(tenant.fin) || '-'}</td>
+                        <td>${this.escapeHtml(tenant.passportNumber)}</td>
+                        <td>
+                            ${this.getRegistrationStatusBadge(tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'))}
+                            ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
+                        </td>
+                        <td>
+                            ${this.renderPropertyDetails(tenant)}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">
+                                ${tenant.properties ? tenant.properties.length : 0} properties
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
         });
         
         tbody.innerHTML = html;
@@ -261,22 +420,41 @@ class TenantManagementComponent {
             form.reset();
             
             // Store the tenant being edited (if any)
-            form.setAttribute('data-tenant-fin', tenant?.fin || '');
+            form.setAttribute('data-tenant-passport', tenant?.passportNumber || '');
             form.setAttribute('data-mode', isEdit ? 'edit' : 'add');
             
             if (isEdit && tenant) {
+                // Store original tenant data for change detection
+                this.originalTenantData = {
+                    name: tenant.name || '',
+                    fin: tenant.fin || '',
+                    passportNumber: tenant.passportNumber || '',
+                    phoneNumber: tenant.phoneNumber || '',
+                    registrationStatus: tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'),
+                    properties: JSON.parse(JSON.stringify(tenant.properties || [])), // Deep copy
+                    passportPics: [...(tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []))], // Copy array
+                    visaPics: [...(tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []))], // Copy array
+                    avatar: tenant.avatar || '',
+                    signature: tenant.signature || ''
+                };
+                
                 // Populate form with existing data
                 document.getElementById('tenantName').value = tenant.name || '';
                 document.getElementById('tenantFin').value = tenant.fin || '';
                 document.getElementById('tenantPassport').value = tenant.passportNumber || '';
                 document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
-                document.getElementById('tenantIsRegistered').checked = tenant.isRegistered || false;
+                
+                // Set registration status (support backward compatibility)
+                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+                this.setRegistrationStatus(registrationStatus);
                 
                 // Handle multiple images (with backward compatibility)
                 this.passportPics = tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []);
                 this.visaPics = tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
+                this.signature = tenant.signature || '';
                 console.log('📋 Set passportPics:', this.passportPics);
                 console.log('📋 Set visaPics:', this.visaPics);
+                console.log('📋 Set signature:', this.signature);
                 // Don't update gallery here - wait until modal is shown
                 
                 // Handle avatar
@@ -315,9 +493,14 @@ class TenantManagementComponent {
                 this.passportPics = [];
                 this.visaPics = [];
                 this.avatar = '';
+                this.signature = '';
                 this.updateImageGallery('passport');
                 this.updateImageGallery('visa');
                 this.updateAvatarPreview();
+                this.updateSignaturePreview();
+                
+                // Reset registration status to unregistered
+                this.setRegistrationStatus('unregistered');
                 
                 // Make FIN editable in add mode
                 document.getElementById('tenantFin').readOnly = false;
@@ -346,11 +529,35 @@ class TenantManagementComponent {
             this.updateImageGallery('passport');
             this.updateImageGallery('visa');
             this.updateAvatarPreview();
+            this.updateSignaturePreview();
+            
+            // Show/hide signature section based on main tenant status
+            this.toggleSignatureSection();
+            
             // Set up clipboard paste listeners after modal is shown
             this.setupModalClipboardListeners();
+            
+            // Set up signature URL input listener
+            this.setupSignatureUrlListener();
         }, { once: true });
         
         modal.show();
+        
+        // For new tenants, clear original data and enable button
+        if (!isEdit) {
+            this.originalTenantData = null;
+            const submitBtn = document.getElementById('tenantSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('btn-secondary');
+                submitBtn.classList.add('btn-primary');
+            }
+        } else {
+            // For edit mode, check for changes after modal is shown
+            setTimeout(() => {
+                this.checkForChanges();
+            }, 100);
+        }
     }
 
     cleanupModal() {
@@ -367,13 +574,12 @@ class TenantManagementComponent {
         this.selectedProperties = [];
     }
 
-    async loadPropertiesForSelect() {
+    async loadPropertiesCache() {
         try {
             // Check cache first
             const now = Date.now();
             if (this.propertiesCache && this.propertiesCacheTime && (now - this.propertiesCacheTime) < this.cacheTimeout) {
                 console.log('Using cached properties data');
-                this.populatePropertyCheckboxes(this.propertiesCache);
                 return;
             }
             
@@ -384,9 +590,19 @@ class TenantManagementComponent {
             if (result.success) {
                 this.propertiesCache = result;
                 this.propertiesCacheTime = now;
+                console.log('✅ Properties cache loaded:', result.properties?.length || 0, 'properties');
             }
-            
-            this.populatePropertyCheckboxes(result);
+        } catch (error) {
+            console.error('Error loading properties cache:', error);
+        }
+    }
+
+    async loadPropertiesForSelect() {
+        // First load the cache
+        await this.loadPropertiesCache();
+        
+        try {
+            this.populatePropertyCheckboxes(this.propertiesCache || { success: false, properties: [] });
         } catch (error) {
             console.error('Error loading properties:', error);
             const checkboxList = document.getElementById('propertyCheckboxList');
@@ -478,6 +694,7 @@ class TenantManagementComponent {
         
         this.updateSelectedPropertiesList();
         this.updateDropdownText();
+        this.checkForChanges();
     }
 
     updateDropdownText() {
@@ -504,6 +721,7 @@ class TenantManagementComponent {
         this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
         this.updateSelectedPropertiesList();
         this.updateDropdownText();
+        this.checkForChanges();
         
         // Update checkbox to reflect removal
         const checkbox = document.getElementById(`property-${propertyId}`);
@@ -632,6 +850,11 @@ class TenantManagementComponent {
         
         property[field] = value;
         console.log(`Updated property ${propertyId} ${field} to:`, value);
+        
+        // If main tenant status changed, toggle signature section
+        if (field === 'isMainTenant') {
+            this.toggleSignatureSection();
+        }
     }
 
     async handleTenantSubmit(event) {
@@ -639,14 +862,16 @@ class TenantManagementComponent {
             const form = event.target;
             const formData = new FormData(form);
             const isEdit = form.getAttribute('data-mode') === 'edit';
-            const originalFin = form.getAttribute('data-tenant-fin');
+            const originalPassport = form.getAttribute('data-tenant-passport');
 
             const tenantData = {
                 name: formData.get('name').trim(),
-                fin: formData.get('fin').trim().toUpperCase(),
+                fin: formData.get('fin').trim().toUpperCase() || null,
                 passportNumber: formData.get('passportNumber').trim().toUpperCase(),
-                phoneNumber: formData.get('phoneNumber').trim(),
-                isRegistered: formData.get('isRegistered') === 'on',
+                phoneNumber: formData.get('phoneNumber').trim() || null,
+                registrationStatus: document.getElementById('tenantRegistrationStatusHidden').value || 'unregistered',
+                // Keep backward compatibility with isRegistered field
+                isRegistered: document.getElementById('tenantRegistrationStatusHidden').value === 'registered',
                 properties: this.selectedPropertiesDetails || this.selectedProperties.map(propertyId => ({
                     propertyId,
                     isMainTenant: false,
@@ -656,7 +881,8 @@ class TenantManagementComponent {
                 })),
                 passportPics: this.passportPics,
                 visaPics: this.visaPics,
-                avatar: this.avatar
+                avatar: this.avatar || null,
+                signature: this.signature || null // Send null instead of empty string
             };
 
             // Debug: log the properties being sent
@@ -667,13 +893,13 @@ class TenantManagementComponent {
             });
 
             // Validate required fields
-            if (!tenantData.name || !tenantData.fin || !tenantData.passportNumber) {
-                alert('Please fill in all required fields (Name, FIN, Passport Number)');
+            if (!tenantData.name || !tenantData.passportNumber) {
+                alert('Please fill in all required fields (Name, Passport Number)');
                 return;
             }
 
-            // Validate FIN length
-            if (tenantData.fin.length > 20) {
+            // Validate FIN length if provided
+            if (tenantData.fin && tenantData.fin.length > 20) {
                 alert('FIN cannot exceed 20 characters');
                 return;
             }
@@ -706,7 +932,7 @@ class TenantManagementComponent {
 
             // Add or update the tenant
             if (isEdit) {
-                await this.updateTenant(originalFin, tenantData);
+                await this.updateTenant(originalPassport, tenantData);
             } else {
                 await this.addTenant(tenantData);
             }
@@ -788,9 +1014,9 @@ class TenantManagementComponent {
         }
     }
 
-    async editTenant(fin) {
+    async editTenant(passportNumber) {
         // Find the tenant to edit
-        const tenant = this.tenants.find(t => t.fin === fin);
+        const tenant = this.tenants.find(t => t.passportNumber === passportNumber);
         if (!tenant) {
             alert('Tenant not found');
             return;
@@ -800,10 +1026,10 @@ class TenantManagementComponent {
         this.showTenantModal(tenant);
     }
 
-    async updateTenant(originalFin, tenantData) {
+    async updateTenant(originalPassport, tenantData) {
         try {
             // Find the tenant to get the ID
-            const tenant = this.tenants.find(t => t.fin === originalFin);
+            const tenant = this.tenants.find(t => t.passportNumber === originalPassport);
             if (!tenant || !tenant._id) {
                 throw new Error('Tenant ID not found');
             }
@@ -823,14 +1049,14 @@ class TenantManagementComponent {
         }
     }
 
-    async deleteTenant(fin) {
-        if (!confirm(`Are you sure you want to delete tenant ${fin}?`)) {
+    async deleteTenant(passportNumber) {
+        if (!confirm(`Are you sure you want to delete tenant ${passportNumber}?`)) {
             return;
         }
 
         try {
             // Find the tenant to get the ID
-            const tenant = this.tenants.find(t => t.fin === fin);
+            const tenant = this.tenants.find(t => t.passportNumber === passportNumber);
             if (!tenant || !tenant._id) {
                 throw new Error('Tenant ID not found');
             }
@@ -870,6 +1096,9 @@ class TenantManagementComponent {
 
     // Utility method to escape HTML to prevent XSS
     escapeHtml(text) {
+        if (text == null || text === undefined) {
+            return '';
+        }
         const map = {
             '&': '&amp;',
             '<': '&lt;',
@@ -877,7 +1106,73 @@ class TenantManagementComponent {
             '"': '&quot;',
             "'": '&#039;'
         };
-        return text.replace(/[&<>"']/g, (m) => map[m]);
+        return String(text).replace(/[&<>"']/g, (m) => map[m]);
+    }
+
+    // Method to get registration status badge
+    getRegistrationStatusBadge(status) {
+        switch (status) {
+            case 'registered':
+                return '<span class="badge bg-success">Registered</span>';
+            case 'pending':
+                return '<span class="badge bg-warning">Pending Registration</span>';
+            case 'unregistered':
+            default:
+                return '<span class="badge bg-secondary">Unregistered</span>';
+        }
+    }
+
+    // 3-state toggle button methods
+    toggleRegistrationStatus() {
+        const button = document.getElementById('tenantRegistrationStatus');
+        const hiddenInput = document.getElementById('tenantRegistrationStatusHidden');
+        
+        if (!button || !hiddenInput) return;
+        
+        const currentStatus = button.getAttribute('data-status');
+        let nextStatus;
+        
+        // Cycle through states: unregistered → pending → registered → unregistered
+        switch (currentStatus) {
+            case 'unregistered':
+                nextStatus = 'pending';
+                break;
+            case 'pending':
+                nextStatus = 'registered';
+                break;
+            case 'registered':
+                nextStatus = 'unregistered';
+                break;
+            default:
+                nextStatus = 'unregistered';
+        }
+        
+        this.setRegistrationStatus(nextStatus);
+    }
+
+    setRegistrationStatus(status) {
+        const button = document.getElementById('tenantRegistrationStatus');
+        const hiddenInput = document.getElementById('tenantRegistrationStatusHidden');
+        const statusText = button.querySelector('.status-text');
+        
+        if (!button || !hiddenInput || !statusText) return;
+        
+        // Update button attributes
+        button.setAttribute('data-status', status);
+        hiddenInput.value = status;
+        
+        // Update button text
+        switch (status) {
+            case 'registered':
+                statusText.textContent = 'Registered';
+                break;
+            case 'pending':
+                statusText.textContent = 'Pending Registration';
+                break;
+            case 'unregistered':
+            default:
+                statusText.textContent = 'Unregistered';
+        }
     }
 
     // Normalize image URL to ensure it uses the proxy endpoint
@@ -1040,6 +1335,7 @@ class TenantManagementComponent {
             imageArray.push(url);
             this.updateImageGallery(type);
             urlInput.value = ''; // Clear input after adding
+            this.checkForChanges();
         } else {
             alert('This image URL is already added');
         }
@@ -1049,6 +1345,7 @@ class TenantManagementComponent {
         const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
         imageArray.splice(index, 1);
         this.updateImageGallery(type);
+        this.checkForChanges();
     }
 
     handleImageError(imgElement, proxyUrl) {
@@ -1193,6 +1490,7 @@ class TenantManagementComponent {
                 
                 this.avatar = imageUrl;
                 this.updateAvatarPreview();
+                this.checkForChanges();
                 
                 console.log('✅ Avatar set to:', this.avatar);
             } else {
@@ -1267,6 +1565,165 @@ class TenantManagementComponent {
         `;
     }
 
+    // ==================== SIGNATURE METHODS ====================
+    
+    openSignatureUpload() {
+        const fileInput = document.getElementById('signatureUploadInput');
+        if (!fileInput) {
+            // Create file input if it doesn't exist
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.id = 'signatureUploadInput';
+            input.accept = 'image/*';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+        }
+        
+        document.getElementById('signatureUploadInput').click();
+        
+        // Add event listener for file selection
+        document.getElementById('signatureUploadInput').onchange = (e) => {
+            if (e.target.files.length > 0) {
+                this.uploadSignature(e.target.files[0]);
+            }
+        };
+    }
+
+    async uploadSignature(file) {
+        const uploadButton = document.querySelector("button[onclick=\"tenantManager.openSignatureUpload()\"]");
+        const originalText = uploadButton.innerHTML;
+        
+        try {
+            // Show loading state
+            uploadButton.disabled = true;
+            uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading signature...';
+            
+            const result = await this.uploadSingleImage(file);
+            
+            if (result.success) {
+                let imageUrl = result.url;
+                
+                // Normalize the URL
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    if (imageUrl.startsWith('/')) {
+                        imageUrl = API_CONFIG.BASE_URL + imageUrl;
+                    } else {
+                        imageUrl = 'https://' + imageUrl;
+                    }
+                }
+                
+                this.signature = imageUrl;
+                this.updateSignaturePreview();
+                this.checkForChanges();
+                
+                console.log('✅ Signature set to:', this.signature);
+            } else {
+                alert('Failed to upload signature: ' + result.error);
+            }
+            
+        } catch (error) {
+            console.error('Error uploading signature:', error);
+            alert('Error uploading signature. Please try again.');
+        } finally {
+            // Reset button state
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = originalText;
+        }
+    }
+
+    setSignatureFromUrl() {
+        const urlInput = document.getElementById('tenantSignatureUrl');
+        const url = urlInput.value.trim();
+        
+        if (!url) {
+            alert('Please enter a valid image URL');
+            return;
+        }
+        
+        this.signature = this.normalizeImageUrl(url);
+        this.updateSignaturePreview();
+        urlInput.value = ''; // Clear input after adding
+        this.checkForChanges();
+        
+        console.log('✅ Signature set from URL:', this.signature);
+    }
+
+    removeSignature() {
+        this.signature = '';
+        this.updateSignaturePreview();
+        this.checkForChanges();
+        console.log('🗑️ Signature removed');
+    }
+
+    updateSignaturePreview() {
+        const preview = document.getElementById('signaturePreview');
+        
+        if (!preview) {
+            return;
+        }
+        
+        if (!this.signature) {
+            preview.innerHTML = '<p class="text-muted fst-italic">No signature uploaded</p>';
+            return;
+        }
+        
+        preview.innerHTML = `
+            <div class="position-relative d-inline-block">
+                <img src="${this.signature}" 
+                     alt="Signature Preview" 
+                     class="img-thumbnail" 
+                     style="max-width: 200px; max-height: 100px; cursor: pointer;"
+                     onclick="window.open('${this.signature}', '_blank')" />
+                <button type="button" 
+                        class="btn btn-danger position-absolute top-0 end-0"
+                        onclick="tenantManager.removeSignature()"
+                        style="padding: 2px; font-size: 0.7rem; border-radius: 50%; width: 24px; height: 24px; display: flex !important; align-items: center; justify-content: center; transform: translate(25%, -25%);"
+                        title="Remove signature">
+                    ✕
+                </button>
+                <div class="text-center mt-2">
+                    <small class="text-muted">Signature Preview</small>
+                </div>
+            </div>
+        `;
+    }
+
+    toggleSignatureSection() {
+        const signatureSection = document.getElementById('signatureSection');
+        if (!signatureSection) return;
+        
+        // Check if any selected property has this tenant as main tenant
+        const isMainTenant = this.selectedPropertiesDetails.some(prop => prop.isMainTenant);
+        
+        if (isMainTenant) {
+            signatureSection.style.display = '';
+            console.log('📝 Showing signature section for main tenant');
+        } else {
+            signatureSection.style.display = 'none';
+            // Clear signature if not main tenant
+            this.signature = '';
+            this.updateSignaturePreview();
+            console.log('🚫 Hiding signature section (not main tenant)');
+        }
+    }
+
+    setupSignatureUrlListener() {
+        const urlInput = document.getElementById('tenantSignatureUrl');
+        if (urlInput) {
+            // Remove existing event listener to avoid duplicates
+            urlInput.removeEventListener('keypress', this.signatureUrlHandler);
+            
+            this.signatureUrlHandler = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.setSignatureFromUrl();
+                }
+            };
+            
+            urlInput.addEventListener('keypress', this.signatureUrlHandler);
+        }
+    }
+
     // Helper method to check if tenant has any main tenant properties
     hasMainTenantProperty(tenant) {
         if (!tenant.properties || !Array.isArray(tenant.properties)) {
@@ -1313,6 +1770,113 @@ class TenantManagementComponent {
         });
         
         return html || '<div class="text-muted small">No properties assigned</div>';
+    }
+
+    setupChangeDetection() {
+        // Set up event listeners for form fields to detect changes
+        const form = document.getElementById('tenantForm');
+        if (!form) return;
+
+        const fieldsToWatch = [
+            'tenantName', 'tenantFin', 'tenantPassport', 'tenantPhoneNumber'
+        ];
+
+        fieldsToWatch.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', () => this.checkForChanges());
+            }
+        });
+
+        // Also listen for registration status changes
+        const registrationButtons = form.querySelectorAll('input[name="registrationStatus"]');
+        registrationButtons.forEach(button => {
+            button.addEventListener('change', () => this.checkForChanges());
+        });
+    }
+
+    checkForChanges() {
+        if (!this.originalTenantData) {
+            return; // No original data to compare against
+        }
+
+        const currentData = this.getCurrentFormData();
+        const hasChanges = this.hasDataChanged(this.originalTenantData, currentData);
+        
+        const submitBtn = document.getElementById('tenantSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = !hasChanges;
+            if (hasChanges) {
+                submitBtn.classList.remove('btn-secondary');
+                submitBtn.classList.add('btn-primary');
+            } else {
+                submitBtn.classList.remove('btn-primary');
+                submitBtn.classList.add('btn-secondary');
+            }
+        }
+    }
+
+    getCurrentFormData() {
+        return {
+            name: (document.getElementById('tenantName')?.value || '').trim(),
+            fin: (document.getElementById('tenantFin')?.value || '').trim(),
+            passportNumber: (document.getElementById('tenantPassport')?.value || '').trim(),
+            phoneNumber: (document.getElementById('tenantPhoneNumber')?.value || '').trim(),
+            registrationStatus: document.getElementById('tenantRegistrationStatusHidden')?.value || 'unregistered',
+            properties: this.selectedPropertiesDetails || [],
+            passportPics: this.passportPics || [],
+            visaPics: this.visaPics || [],
+            avatar: this.avatar || '',
+            signature: this.signature || ''
+        };
+    }
+
+    hasDataChanged(original, current) {
+        // Compare basic fields
+        const fieldsToCompare = ['name', 'fin', 'passportNumber', 'phoneNumber', 'registrationStatus', 'avatar', 'signature'];
+        
+        for (const field of fieldsToCompare) {
+            const originalValue = (original[field] || '').toString().trim();
+            const currentValue = (current[field] || '').toString().trim();
+            if (originalValue !== currentValue) {
+                return true;
+            }
+        }
+
+        // Compare arrays (passportPics, visaPics)
+        if (!this.arraysEqual(original.passportPics || [], current.passportPics || [])) {
+            return true;
+        }
+        if (!this.arraysEqual(original.visaPics || [], current.visaPics || [])) {
+            return true;
+        }
+
+        // Compare properties array
+        if (!this.propertiesEqual(original.properties || [], current.properties || [])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    arraysEqual(arr1, arr2) {
+        if (arr1.length !== arr2.length) return false;
+        return arr1.every((item, index) => item === arr2[index]);
+    }
+
+    propertiesEqual(props1, props2) {
+        if (props1.length !== props2.length) return false;
+        
+        return props1.every((prop1, index) => {
+            const prop2 = props2[index];
+            if (!prop2) return false;
+            
+            return prop1.propertyId === prop2.propertyId &&
+                   prop1.isMainTenant === prop2.isMainTenant &&
+                   (prop1.room || '') === (prop2.room || '') &&
+                   (prop1.moveinDate || '') === (prop2.moveinDate || '') &&
+                   (prop1.moveoutDate || '') === (prop2.moveoutDate || '');
+        });
     }
 
     // Setup clipboard paste functionality for image URL input fields
@@ -1493,6 +2057,125 @@ class TenantManagementComponent {
                 messageDiv.remove();
             }
         }, 3000);
+    }
+
+    copyTenantList(propertyId) {
+        try {
+            // Find tenants for this property
+            const groupedTenants = this.groupTenantsByProperty(this.tenants);
+            const tenantsInProperty = groupedTenants[propertyId];
+            
+            if (!tenantsInProperty || tenantsInProperty.length === 0) {
+                alert('No tenants found for this property');
+                return;
+            }
+
+            // Get property info for display
+            const propertyInfo = this.getPropertyInfo(propertyId);
+            const propertyDisplay = propertyInfo 
+                ? `${propertyInfo.address}, ${propertyInfo.unit}`
+                : propertyId;
+
+            // Format tenant list
+            let copyText = `Property: ${propertyDisplay}\n\n`;
+            
+            tenantsInProperty.forEach((tenant, index) => {
+                const ordinalNumber = index + 1;
+                const isMainTenant = this.hasMainTenantProperty(tenant);
+                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
+                
+                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+                copyText += `   FIN: ${tenant.fin}\n`;
+                copyText += `   Passport: ${tenant.passportNumber}\n\n`;
+            });
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(copyText).then(() => {
+                // Show success message
+                this.showCopySuccessMessage(tenantsInProperty.length);
+            }).catch(err => {
+                console.error('Failed to copy to clipboard:', err);
+                // Fallback: show the text in an alert
+                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
+            });
+            
+        } catch (error) {
+            console.error('Error copying tenant list:', error);
+            alert('Error copying tenant list. Please try again.');
+        }
+    }
+
+    showCopySuccessMessage(tenantCount) {
+        // Create a temporary success message
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        messageDiv.style.cssText = `
+            top: 20px; 
+            right: 20px; 
+            z-index: 9999; 
+            min-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        messageDiv.innerHTML = `
+            <i class="bi bi-check-circle me-2"></i>
+            Copied ${tenantCount} tenant${tenantCount !== 1 ? 's' : ''} to clipboard!
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+
+        document.body.appendChild(messageDiv);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 3000);
+    }
+
+    // Pagination methods
+    updatePaginationControls() {
+        const paginationDiv = document.getElementById('tenantsPagination');
+        const pageInfo = document.getElementById('tenantsPageInfo');
+        const currentPageSpan = document.getElementById('tenantsCurrentPage');
+        const prevButton = document.getElementById('tenantsPrevPage');
+        const nextButton = document.getElementById('tenantsNextPage');
+        
+        if (!paginationDiv || !pageInfo || !currentPageSpan || !prevButton || !nextButton) {
+            return;
+        }
+        
+        // Show pagination only if there are tenants or we're not on page 1
+        if (this.tenants.length > 0 || this.currentPage > 1) {
+            paginationDiv.style.display = 'flex';
+            
+            // Update page info
+            const startIndex = (this.currentPage - 1) * this.pageSize + 1;
+            const endIndex = Math.min(startIndex + this.tenants.length - 1, this.totalTenants);
+            pageInfo.textContent = this.tenants.length > 0 
+                ? `${startIndex}-${endIndex} of ${this.totalTenants || 'many'}`
+                : '0';
+            
+            // Update current page
+            currentPageSpan.textContent = this.currentPage;
+            
+            // Update button states
+            prevButton.classList.toggle('disabled', this.currentPage <= 1);
+            nextButton.classList.toggle('disabled', !this.hasNextPage);
+        } else {
+            paginationDiv.style.display = 'none';
+        }
+    }
+    
+    async goToNextPage() {
+        if (this.hasNextPage) {
+            await this.loadTenants(this.currentPage + 1);
+        }
+    }
+    
+    async goToPreviousPage() {
+        if (this.currentPage > 1) {
+            await this.loadTenants(this.currentPage - 1);
+        }
     }
 }
 

@@ -134,6 +134,28 @@ class DashboardController {
           console.log('♻️ Using preloaded TenantManagementComponent - data already available');
         }
         break;
+      case "contracts":
+        if (!this.components.contractManagement) {
+          console.log('🏗️ Creating ContractManagementComponent...');
+          this.components.contractManagement = new ContractManagementComponent();
+          // Make it globally accessible for button onclick handlers
+          window.contractManager = this.components.contractManagement;
+          console.log('✅ ContractManagementComponent created');
+          
+          // Set up contract form after section is shown
+          setTimeout(async () => {
+            console.log('⏰ Setting up contract form...');
+            await Promise.all([
+              this.components.contractManagement.loadTenants(),
+              this.components.contractManagement.loadProperties()
+            ]);
+            this.components.contractManagement.populateTenantsDropdown();
+            this.components.contractManagement.populatePropertiesDropdown();
+            this.components.contractManagement.setupContractInputs();
+            this.components.contractManagement.updateContractPreview();
+          }, 100);
+        }
+        break;
       case "financial":
         if (!this.components.financialReports) {
           this.components.financialReports = new FinancialReportsComponent();
