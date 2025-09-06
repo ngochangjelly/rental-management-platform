@@ -121,7 +121,8 @@ class ContractManagementComponent {
       '<option value="">Select Tenant A (Main Tenant)</option>';
     tenantBSelect.innerHTML = '<option value="">Select Tenant B</option>';
     
-    // Add "Add New Tenant" option for Tenant B
+    // Add "Add New Tenant" options
+    tenantASelect.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
     tenantBSelect.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
 
     // Check if we have tenants
@@ -226,10 +227,10 @@ class ContractManagementComponent {
   handleTenantSelection(tenantType, identifier) {
     console.log(`🔄 Handling tenant selection: ${tenantType} = ${identifier}`);
     
-    // Handle "Add New Tenant" option for Tenant B
-    if (tenantType === "B" && identifier === "ADD_NEW_TENANT") {
-      console.log('🆕 Showing new tenant input fields for Tenant B');
-      this.showNewTenantFields();
+    // Handle "Add New Tenant" option
+    if (identifier === "ADD_NEW_TENANT") {
+      console.log(`🆕 Showing new tenant input fields for Tenant ${tenantType}`);
+      this.showNewTenantFields(tenantType);
       return;
     }
     
@@ -268,20 +269,24 @@ class ContractManagementComponent {
       console.log('✅ Set selectedTenantB:', this.selectedTenantB);
       
       // Hide new tenant fields if a different tenant is selected
-      this.hideNewTenantFields();
+      this.hideNewTenantFields(tenantType);
     }
 
     this.updateContractPreview();
   }
 
-  showNewTenantFields() {
-    const newTenantFields = document.getElementById('newTenantFields');
+  showNewTenantFields(tenantType) {
+    const fieldsId = tenantType === 'A' ? 'newTenantAFields' : 'newTenantFields';
+    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
+    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
+    
+    const newTenantFields = document.getElementById(fieldsId);
     if (newTenantFields) {
       newTenantFields.style.display = 'block';
       
       // Clear the fields
-      const nameInput = document.getElementById('newTenantBName');
-      const passportInput = document.getElementById('newTenantBPassport');
+      const nameInput = document.getElementById(nameInputId);
+      const passportInput = document.getElementById(passportInputId);
       
       if (nameInput) {
         nameInput.value = '';
@@ -292,51 +297,102 @@ class ContractManagementComponent {
         passportInput.classList.remove('is-invalid');
       }
       
+      // For Tenant A, also clear email field
+      if (tenantType === 'A') {
+        const emailInput = document.getElementById('newTenantAEmail');
+        if (emailInput) {
+          emailInput.value = '';
+          emailInput.classList.remove('is-invalid');
+        }
+      }
+      
       // Focus on the name field
       if (nameInput) {
         nameInput.focus();
       }
       
+      // Hide the other tenant's fields if they are open
+      if (tenantType === 'A') {
+        this.hideNewTenantFields('B');
+      } else {
+        this.hideNewTenantFields('A');
+      }
+      
       // Setup event listeners for the input fields
-      this.setupNewTenantInputListeners();
+      this.setupNewTenantInputListeners(tenantType);
     }
   }
   
-  hideNewTenantFields() {
-    const newTenantFields = document.getElementById('newTenantFields');
+  hideNewTenantFields(tenantType = 'B') {
+    const fieldsId = tenantType === 'A' ? 'newTenantAFields' : 'newTenantFields';
+    const newTenantFields = document.getElementById(fieldsId);
     if (newTenantFields) {
       newTenantFields.style.display = 'none';
+      
+      // Clear any temporary tenant selection 
+      if (tenantType === 'A') {
+        this.selectedTenantA = null;
+      } else {
+        this.selectedTenantB = null;
+      }
+      this.updateContractPreview();
     }
   }
   
-  setupNewTenantInputListeners() {
-    const nameInput = document.getElementById('newTenantBName');
-    const passportInput = document.getElementById('newTenantBPassport');
+  setupNewTenantInputListeners(tenantType) {
+    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
+    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
+    const emailInputId = tenantType === 'A' ? 'newTenantAEmail' : null;
+    
+    const nameInput = document.getElementById(nameInputId);
+    const passportInput = document.getElementById(passportInputId);
+    const emailInput = emailInputId ? document.getElementById(emailInputId) : null;
     
     if (!nameInput || !passportInput) {
       return;
     }
     
-    // Remove existing listeners
-    nameInput.removeEventListener('input', this.newTenantInputHandler);
-    passportInput.removeEventListener('input', this.newTenantInputHandler);
-    nameInput.removeEventListener('blur', this.newTenantBlurHandler);
-    passportInput.removeEventListener('blur', this.newTenantBlurHandler);
+    // Create unique handler names for each tenant type
+    const inputHandlerProp = `newTenant${tenantType}InputHandler`;
+    const blurHandlerProp = `newTenant${tenantType}BlurHandler`;
+    
+    // Remove existing listeners if they exist
+    if (this[inputHandlerProp]) {
+      nameInput.removeEventListener('input', this[inputHandlerProp]);
+      passportInput.removeEventListener('input', this[inputHandlerProp]);
+      if (emailInput) emailInput.removeEventListener('input', this[inputHandlerProp]);
+    }
+    if (this[blurHandlerProp]) {
+      nameInput.removeEventListener('blur', this[blurHandlerProp]);
+      passportInput.removeEventListener('blur', this[blurHandlerProp]);
+      if (emailInput) emailInput.removeEventListener('blur', this[blurHandlerProp]);
+    }
     
     // Create bound handlers
-    this.newTenantInputHandler = () => this.handleNewTenantInput();
-    this.newTenantBlurHandler = () => this.handleNewTenantBlur();
+    this[inputHandlerProp] = () => this.handleNewTenantInput(tenantType);
+    this[blurHandlerProp] = () => this.handleNewTenantBlur(tenantType);
     
     // Add event listeners
-    nameInput.addEventListener('input', this.newTenantInputHandler);
-    passportInput.addEventListener('input', this.newTenantInputHandler);
-    nameInput.addEventListener('blur', this.newTenantBlurHandler);
-    passportInput.addEventListener('blur', this.newTenantBlurHandler);
+    nameInput.addEventListener('input', this[inputHandlerProp]);
+    passportInput.addEventListener('input', this[inputHandlerProp]);
+    nameInput.addEventListener('blur', this[blurHandlerProp]);
+    passportInput.addEventListener('blur', this[blurHandlerProp]);
+    
+    // Add listeners for email input if it exists (Tenant A only)
+    if (emailInput) {
+      emailInput.addEventListener('input', this[inputHandlerProp]);
+      emailInput.addEventListener('blur', this[blurHandlerProp]);
+    }
   }
   
-  handleNewTenantInput() {
-    const nameInput = document.getElementById('newTenantBName');
-    const passportInput = document.getElementById('newTenantBPassport');
+  handleNewTenantInput(tenantType) {
+    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
+    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
+    const emailInputId = tenantType === 'A' ? 'newTenantAEmail' : null;
+    
+    const nameInput = document.getElementById(nameInputId);
+    const passportInput = document.getElementById(passportInputId);
+    const emailInput = emailInputId ? document.getElementById(emailInputId) : null;
     
     if (!nameInput || !passportInput) {
       return;
@@ -344,6 +400,7 @@ class ContractManagementComponent {
     
     const name = nameInput.value.trim();
     const passport = passportInput.value.trim();
+    const email = emailInput ? emailInput.value.trim() : '';
     
     // Clear error states when user starts typing
     if (name && nameInput.classList.contains('is-invalid')) {
@@ -352,17 +409,23 @@ class ContractManagementComponent {
     if (passport && passportInput.classList.contains('is-invalid')) {
       passportInput.classList.remove('is-invalid');
     }
+    if (emailInput && email && emailInput.classList.contains('is-invalid')) {
+      emailInput.classList.remove('is-invalid');
+    }
     
-    // If both fields have values, create the temporary tenant
+    // If both required fields have values, create the temporary tenant
     if (name && passport) {
-      this.createTemporaryTenant(name, passport);
+      this.createTemporaryTenant(tenantType, name, passport, email);
     }
   }
   
-  handleNewTenantBlur() {
+  handleNewTenantBlur(tenantType) {
+    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
+    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
+    
     // Validate on blur
-    const nameInput = document.getElementById('newTenantBName');
-    const passportInput = document.getElementById('newTenantBPassport');
+    const nameInput = document.getElementById(nameInputId);
+    const passportInput = document.getElementById(passportInputId);
     
     if (nameInput && !nameInput.value.trim()) {
       nameInput.classList.add('is-invalid');
@@ -373,19 +436,25 @@ class ContractManagementComponent {
     }
   }
   
-  createTemporaryTenant(name, passport) {
+  createTemporaryTenant(tenantType, name, passport, email = '') {
     // Create a temporary tenant object for the contract
     const newTenant = {
-      id: `temp_tenant_${Date.now()}`,
+      id: `temp_tenant_${tenantType}_${Date.now()}`,
       name: name,
       passportNumber: passport,
+      email: email,
       isTemporary: true,
       createdAt: new Date().toISOString()
     };
     
-    // Set this as the selected tenant B
-    this.selectedTenantB = newTenant;
-    console.log('✅ Created temporary tenant B:', this.selectedTenantB);
+    // Set this as the selected tenant
+    if (tenantType === 'A') {
+      this.selectedTenantA = newTenant;
+      console.log('✅ Created temporary tenant A:', this.selectedTenantA);
+    } else {
+      this.selectedTenantB = newTenant;
+      console.log('✅ Created temporary tenant B:', this.selectedTenantB);
+    }
     
     // Update the contract preview
     this.updateContractPreview();
