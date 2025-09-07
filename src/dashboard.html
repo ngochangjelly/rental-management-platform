@@ -1678,6 +1678,7 @@
                         <select class="form-select" id="contractRoom">
                           <option value="">Select room type</option>
                           <option value="Common Room">Common Room</option>
+                          <option value="Common Share 2 pax">Common Share 2 pax</option>
                           <option value="Master Room">Master Room</option>
                           <option value="Single Room">Single Room</option>
                         </select>
@@ -2723,6 +2724,64 @@
                   </div>
                 </div>
               </div>
+
+              <!-- WiFi Router Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-wifi me-1"></i>WiFi Router
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="wifiAccountNumber" class="form-label"
+                      >WiFi Account Number</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="wifiAccountNumber"
+                      name="wifiAccountNumber"
+                      placeholder="WiFi account number"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="wifiAccountHolderName" class="form-label"
+                      >WiFi Account Holder Name</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="wifiAccountHolderName"
+                      name="wifiAccountHolderName"
+                      placeholder="Name on WiFi account"
+                    />
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">WiFi Images</label>
+                  <div class="d-flex gap-2 mb-2">
+                    <button
+                      class="btn btn-outline-primary"
+                      type="button"
+                      onclick="propertyManager.openWifiImagesUpload()"
+                    >
+                      <i class="bi bi-cloud-upload"></i> Upload Images
+                    </button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      onclick="propertyManager.addWifiImageUrl()"
+                    >
+                      <i class="bi bi-link-45deg"></i> Add URL
+                    </button>
+                  </div>
+                  <div class="form-text">
+                    Multiple WiFi router images supported - upload or paste URLs
+                  </div>
+                  <div id="wifiImagesGallery" class="mt-3">
+                    <!-- WiFi images will be displayed here -->
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="modal-footer">
               <button
@@ -2919,6 +2978,7 @@
                       <option value="">Select room type (optional)...</option>
                       <option value="COMMON1">Common Room 1</option>
                       <option value="COMMON2">Common Room 2</option>
+                      <option value="COMMON_SHARE_2PAX">Common Share 2 pax</option>
                       <option value="MASTER">Master Room</option>
                       <option value="COMPARTMENT1">Compartment 1</option>
                       <option value="COMPARTMENT2">Compartment 2</option>
@@ -3059,6 +3119,13 @@
                 type="file"
                 id="avatarUploadInput"
                 accept="image/*"
+                style="display: none"
+              />
+              <input
+                type="file"
+                id="wifiImagesUploadInput"
+                accept="image/*"
+                multiple
                 style="display: none"
               />
               <input

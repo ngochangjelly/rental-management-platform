@@ -5,6 +5,7 @@
 class PropertyManagementComponent {
   constructor() {
     this.properties = [];
+    this.currentWifiImages = [];
     this.init();
   }
 
@@ -304,6 +305,18 @@ class PropertyManagementComponent {
           property.telegramBotToken || "";
         document.getElementById("telegramChannelId").value =
           property.telegramChannelId || "";
+        document.getElementById("wifiAccountNumber").value =
+          property.wifiAccountNumber || "";
+        document.getElementById("wifiAccountHolderName").value =
+          property.wifiAccountHolderName || "";
+
+        // Handle WiFi images
+        if (property.wifiImages && property.wifiImages.length > 0) {
+          this.currentWifiImages = [...property.wifiImages];
+          this.renderWifiImagesGallery();
+        } else {
+          this.currentWifiImages = [];
+        }
 
         // Make propertyId readonly in edit mode
         document.getElementById("propertyId").readOnly = true;
@@ -318,6 +331,10 @@ class PropertyManagementComponent {
         document.getElementById("maxPax").value = "1";
         document.getElementById("rentPaymentDate").value = "1";
         document.getElementById("rent").value = "0";
+
+        // Clear WiFi images for add mode
+        this.currentWifiImages = [];
+        this.renderWifiImagesGallery();
 
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
@@ -412,6 +429,9 @@ class PropertyManagementComponent {
         landlordAccountName: formData.get("landlordAccountName")?.trim() || "",
         telegramBotToken: formData.get("telegramBotToken")?.trim() || "",
         telegramChannelId: formData.get("telegramChannelId")?.trim() || "",
+        wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
+        wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
+        wifiImages: this.currentWifiImages || [],
       };
 
       // Validate required fields
@@ -573,6 +593,110 @@ class PropertyManagementComponent {
     } catch (error) {
       console.error("Error deleting property:", error);
       alert("Error deleting property. Please try again.");
+    }
+  }
+
+  // WiFi Images Upload Methods
+  openWifiImagesUpload() {
+    const fileInput = document.getElementById('wifiImagesUploadInput');
+    fileInput.click();
+    
+    // Add event listener for file selection
+    fileInput.onchange = async (event) => {
+      const files = event.target.files;
+      if (files.length > 0) {
+        await this.uploadWifiImages(files);
+      }
+    };
+  }
+
+  async uploadWifiImages(files) {
+    const uploadButton = document.querySelector("button[onclick=\"propertyManager.openWifiImagesUpload()\"]");
+    const originalText = uploadButton.innerHTML;
+    
+    try {
+      uploadButton.disabled = true;
+      uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+      
+      for (const file of files) {
+        const result = await API.uploadImage(file);
+        
+        if (result.success) {
+          console.log('🔗 WiFi image uploaded successfully:', result.url);
+          
+          // Ensure URL is properly formatted
+          let imageUrl = result.url;
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = `https://res.cloudinary.com/your-cloud-name/image/upload/${imageUrl}`;
+          }
+          
+          // Add to current WiFi images array
+          if (!this.currentWifiImages.includes(imageUrl)) {
+            this.currentWifiImages.push(imageUrl);
+          }
+        } else {
+          throw new Error(result.error || 'Upload failed');
+        }
+      }
+      
+      // Update the gallery display
+      this.renderWifiImagesGallery();
+      
+    } catch (error) {
+      console.error('Error uploading WiFi images:', error);
+      alert(`Error uploading images: ${error.message}`);
+    } finally {
+      uploadButton.disabled = false;
+      uploadButton.innerHTML = originalText;
+    }
+  }
+
+  addWifiImageUrl() {
+    const url = prompt('Enter WiFi image URL:');
+    if (url && url.trim()) {
+      const trimmedUrl = url.trim();
+      if (!this.currentWifiImages.includes(trimmedUrl)) {
+        this.currentWifiImages.push(trimmedUrl);
+        this.renderWifiImagesGallery();
+      } else {
+        alert('This URL is already added.');
+      }
+    }
+  }
+
+  renderWifiImagesGallery() {
+    const gallery = document.getElementById('wifiImagesGallery');
+    if (!gallery) return;
+
+    if (!this.currentWifiImages || this.currentWifiImages.length === 0) {
+      gallery.innerHTML = '<p class="text-muted">No WiFi images added yet.</p>';
+      return;
+    }
+
+    let galleryHtml = '<div class="row g-2">';
+    this.currentWifiImages.forEach((imageUrl, index) => {
+      galleryHtml += `
+        <div class="col-md-3 col-sm-4 col-6">
+          <div class="position-relative">
+            <img src="${imageUrl}" class="img-thumbnail w-100" style="height: 120px; object-fit: cover;" 
+                 alt="WiFi Image ${index + 1}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDUiIGZpbGw9IiNmOGY5ZmEiIHN0cm9rZT0iI2RlZTJlNiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iNTAiIHk9IjU1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmM3NTdkIiBmb250LXNpemU9IjEyIj5JbWFnZTwvdGV4dD48L3N2Zz4='">
+            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle p-1" 
+                    onclick="propertyManager.removeWifiImage(${index})" style="width: 24px; height: 24px; font-size: 0.7rem;">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+    galleryHtml += '</div>';
+    
+    gallery.innerHTML = galleryHtml;
+  }
+
+  removeWifiImage(index) {
+    if (confirm('Are you sure you want to remove this WiFi image?')) {
+      this.currentWifiImages.splice(index, 1);
+      this.renderWifiImagesGallery();
     }
   }
 

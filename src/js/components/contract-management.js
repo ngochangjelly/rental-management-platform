@@ -111,8 +111,13 @@ class ContractManagementComponent {
     const tenantASelect = document.getElementById("contractTenantA");
     const tenantBSelect = document.getElementById("contractTenantB");
 
+    console.log('🔧 tenantASelect found:', !!tenantASelect, tenantASelect);
+    console.log('🔧 tenantBSelect found:', !!tenantBSelect, tenantBSelect);
+
     if (!tenantASelect || !tenantBSelect) {
       console.error("❌ Tenant select elements not found");
+      console.error('❌ tenantASelect:', tenantASelect);
+      console.error('❌ tenantBSelect:', tenantBSelect);
       return;
     }
 
@@ -155,16 +160,23 @@ class ContractManagementComponent {
     console.log("✅ Populated tenant dropdowns successfully");
 
     // Add event listeners for tenant selection (remove existing first)
+    console.log('🔧 Setting up event listeners...');
     tenantASelect.removeEventListener("change", this.tenantAChangeHandler);
     tenantBSelect.removeEventListener("change", this.tenantBChangeHandler);
 
-    this.tenantAChangeHandler = (e) =>
+    this.tenantAChangeHandler = (e) => {
+      console.log('🔧 Tenant A change event triggered with value:', e.target.value);
       this.handleTenantSelection("A", e.target.value);
-    this.tenantBChangeHandler = (e) =>
+    };
+    this.tenantBChangeHandler = (e) => {
+      console.log('🔧 Tenant B change event triggered with value:', e.target.value);
       this.handleTenantSelection("B", e.target.value);
+    };
 
     tenantASelect.addEventListener("change", this.tenantAChangeHandler);
     tenantBSelect.addEventListener("change", this.tenantBChangeHandler);
+    
+    console.log('✅ Event listeners attached successfully');
   }
 
   populatePropertiesDropdown() {
@@ -235,24 +247,61 @@ class ContractManagementComponent {
     }
     
     console.log('🔧 Available tenants:', this.tenants);
+    console.log('🔧 Tenants array length:', this.tenants.length);
     
     let tenant = null;
     
-    // Try to find by fin or id first
-    tenant = this.tenants.find((t) => t.fin === identifier || t.id === identifier);
+    // Get the select element to access data attributes
+    const selectElement = tenantType === "A" ? 
+      document.getElementById("contractTenantA") : 
+      document.getElementById("contractTenantB");
     
-    // If not found and identifier starts with "tenant_", use index
-    if (!tenant && identifier.startsWith('tenant_')) {
-      const index = parseInt(identifier.replace('tenant_', ''));
-      tenant = this.tenants[index];
+    console.log('🔧 Select element found:', !!selectElement);
+    
+    if (selectElement) {
+      const selectedOption = selectElement.selectedOptions[0];
+      console.log('🔧 Selected option:', selectedOption);
+      
+      if (selectedOption) {
+        const tenantIndex = selectedOption.dataset.index;
+        console.log('🔧 Tenant index from dataset:', tenantIndex);
+        
+        if (tenantIndex !== undefined && tenantIndex !== '') {
+          const index = parseInt(tenantIndex);
+          console.log('🔧 Parsed index:', index, 'Valid range:', index >= 0 && index < this.tenants.length);
+          
+          if (!isNaN(index) && index >= 0 && index < this.tenants.length) {
+            tenant = this.tenants[index];
+            console.log(`🎯 Found tenant by index ${index}:`, tenant);
+            console.log('🎯 Tenant name:', tenant?.name);
+            console.log('🎯 Tenant passport:', tenant?.passportNumber);
+            console.log('🎯 Tenant fin:', tenant?.fin);
+          }
+        }
+      }
     }
     
-    // If still not found, try by name as last resort
-    if (!tenant && identifier) {
-      tenant = this.tenants.find((t) => t.name === identifier);
+    // Fallback to original logic if index-based lookup fails
+    if (!tenant) {
+      console.log('🔄 Using fallback logic to find tenant');
+      // Try to find by fin or id first
+      tenant = this.tenants.find((t) => t.fin === identifier || t.id === identifier);
+      
+      // If not found and identifier starts with "tenant_", use index
+      if (!tenant && identifier.startsWith('tenant_')) {
+        const index = parseInt(identifier.replace('tenant_', ''));
+        tenant = this.tenants[index];
+      }
+      
+      // If still not found, try by name as last resort
+      if (!tenant && identifier) {
+        tenant = this.tenants.find((t) => t.name === identifier);
+      }
+      
+      console.log('🎯 Fallback result:', tenant);
     }
     
-    console.log(`🎯 Found tenant for ${tenantType}:`, tenant);
+    console.log(`🎯 Final tenant for ${tenantType}:`, tenant);
 
     if (tenantType === "A") {
       this.selectedTenantA = tenant;
@@ -272,7 +321,9 @@ class ContractManagementComponent {
       this.hideNewTenantFields(tenantType);
     }
 
+    console.log('🔄 Calling updateContractPreview...');
     this.updateContractPreview();
+    console.log('✅ updateContractPreview called');
   }
 
   showNewTenantFields(tenantType) {
@@ -329,13 +380,18 @@ class ContractManagementComponent {
     if (newTenantFields) {
       newTenantFields.style.display = 'none';
       
-      // Clear any temporary tenant selection 
-      if (tenantType === 'A') {
+      // Only clear temporary tenant selections (those created from "Add New Tenant")
+      if (tenantType === 'A' && this.selectedTenantA?.isTemporary) {
         this.selectedTenantA = null;
-      } else {
+      } else if (tenantType === 'B' && this.selectedTenantB?.isTemporary) {
         this.selectedTenantB = null;
       }
-      this.updateContractPreview();
+      
+      // Only update contract preview if we actually cleared a temporary tenant
+      if ((tenantType === 'A' && this.selectedTenantA?.isTemporary) || 
+          (tenantType === 'B' && this.selectedTenantB?.isTemporary)) {
+        this.updateContractPreview();
+      }
     }
   }
   
@@ -714,13 +770,20 @@ class ContractManagementComponent {
   }
 
   updateContractPreview() {
+    console.log('🔄 updateContractPreview called');
     const preview = document.getElementById("contractPreview");
-    if (!preview) return;
+    if (!preview) {
+      console.log('❌ Contract preview element not found');
+      return;
+    }
+
+    console.log('🔧 selectedTenantA:', this.selectedTenantA);
+    console.log('🔧 selectedTenantB:', this.selectedTenantB);
 
     const tenantAInfo = this.selectedTenantA
       ? {
           name: this.selectedTenantA.name,
-          passport: this.selectedTenantA.passportNumber,
+          passport: this.selectedTenantA.passportNumber || this.selectedTenantA.passport || this.selectedTenantA.fin,
           email: this.selectedTenantA.email || "",
         }
       : {
@@ -732,9 +795,12 @@ class ContractManagementComponent {
     const tenantBInfo = this.selectedTenantB
       ? {
           name: this.selectedTenantB.name,
-          passport: this.selectedTenantB.passportNumber,
+          passport: this.selectedTenantB.passportNumber || this.selectedTenantB.passport || this.selectedTenantB.fin,
         }
       : { name: "[Tenant B Name]", passport: "[Tenant B Passport]" };
+      
+    console.log('🔧 tenantAInfo:', tenantAInfo);
+    console.log('🔧 tenantBInfo:', tenantBInfo);
 
     // Generate additional clauses HTML
     let additionalClausesHtml = "";
@@ -1497,7 +1563,7 @@ class ContractManagementComponent {
     const tenantAInfo = this.selectedTenantA
       ? {
           name: this.selectedTenantA.name,
-          passport: this.selectedTenantA.passportNumber,
+          passport: this.selectedTenantA.passportNumber || this.selectedTenantA.passport || this.selectedTenantA.fin,
           email: this.selectedTenantA.email || "",
         }
       : {
@@ -1509,7 +1575,7 @@ class ContractManagementComponent {
     const tenantBInfo = this.selectedTenantB
       ? {
           name: this.selectedTenantB.name,
-          passport: this.selectedTenantB.passportNumber,
+          passport: this.selectedTenantB.passportNumber || this.selectedTenantB.passport || this.selectedTenantB.fin,
         }
       : { name: "[Tenant B Name]", passport: "[Tenant B Passport]" };
 
