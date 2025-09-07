@@ -18,12 +18,13 @@ class ContractManagementComponent {
       room: "",
       agreementDate: new Date().toISOString().split("T")[0],
       leasePeriod: "",
-      tenancyPeriod: "",
+      moveInDate: "",
+      moveOutDate: "",
       monthlyRental: "",
       securityDeposit: "",
       electricityBudget: "400",
       cleaningFee: "20",
-      paymentMethod: "CASH",
+      paymentMethod: "BANK_TRANSFER",
     };
     this.init();
   }
@@ -521,7 +522,8 @@ class ContractManagementComponent {
       "contractRoom",
       "contractAgreementDate",
       "contractLeasePeriod",
-      "contractTenancyPeriod",
+      "contractMoveInDate",
+      "contractMoveOutDate",
       "contractMonthlyRental",
       "contractSecurityDeposit",
       "contractElectricityBudget",
@@ -853,7 +855,7 @@ class ContractManagementComponent {
                 </div>
 
                 <p><strong>Payment method:</strong> ${
-                  this.contractData.paymentMethod || "CASH"
+                  this.formatPaymentMethod(this.contractData.paymentMethod)
                 }</p>
 
                 <div style="margin: 30px 0;">
@@ -865,7 +867,7 @@ class ContractManagementComponent {
                         }</p>
                         
                         <p><strong>Tenancy Period:</strong> ${
-                          this.contractData.tenancyPeriod || "[Tenancy Period]"
+                          this.formatTenancyPeriod()
                         }</p>
                         
                         <p><strong>Moving Time:</strong> Move in after 15:00, Move out before 11:00</p>
@@ -1005,6 +1007,50 @@ class ContractManagementComponent {
     return tenant.properties.some(prop => {
       return typeof prop === 'object' && prop.isMainTenant;
     });
+  }
+
+  formatTenancyPeriod() {
+    const moveInDate = this.contractData.moveInDate;
+    const moveOutDate = this.contractData.moveOutDate;
+    
+    if (!moveInDate && !moveOutDate) {
+      return "[Tenancy Period]";
+    }
+    
+    if (!moveInDate) {
+      return `[Move-in Date] - ${this.formatDate(moveOutDate)}`;
+    }
+    
+    if (!moveOutDate) {
+      return `${this.formatDate(moveInDate)} - [Move-out Date]`;
+    }
+    
+    return `${this.formatDate(moveInDate)} - ${this.formatDate(moveOutDate)}`;
+  }
+  
+  formatDate(dateString) {
+    if (!dateString) return "[Date]";
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  }
+  
+  formatPaymentMethod(method) {
+    const paymentMethods = {
+      'CASH': 'Cash',
+      'BANK_TRANSFER': 'Bank Transfer',
+      'CHECK': 'Check'
+    };
+    
+    return paymentMethods[method] || method || 'Cash';
   }
 
   numberToWords(num) {
@@ -1271,7 +1317,7 @@ class ContractManagementComponent {
         { indent: true, spacing: 10 }
       );
 
-      addText(`Payment method: ${this.contractData.paymentMethod || "CASH"}`, {
+      addText(`Payment method: ${this.formatPaymentMethod(this.contractData.paymentMethod)}`, {
         spacing: 15,
       });
 
@@ -1287,9 +1333,7 @@ class ContractManagementComponent {
         { bold: true, spacing: 8 }
       );
       addText(
-        `Tenancy Period: ${
-          this.contractData.tenancyPeriod || "[Tenancy Period]"
-        }`,
+        `Tenancy Period: ${this.formatTenancyPeriod()}`,
         { bold: true, spacing: 8 }
       );
       addText("Moving Time: Move in after 15:00, Move out before 11:00", {
@@ -1638,7 +1682,7 @@ class ContractManagementComponent {
                 </div>
 
                 <p style="margin-bottom: 30px;"><strong>Payment method:</strong> ${
-                  this.contractData.paymentMethod || "CASH"
+                  this.formatPaymentMethod(this.contractData.paymentMethod)
                 }</p>
 
                 <!-- Agreement Terms -->
@@ -1652,7 +1696,7 @@ class ContractManagementComponent {
                         }</p>
                         
                         <p style="margin-bottom: 12px;"><strong>Tenancy Period:</strong> ${
-                          this.contractData.tenancyPeriod || "[Tenancy Period]"
+                          this.formatTenancyPeriod()
                         }</p>
                         
                         <p style="margin-bottom: 12px;"><strong>Moving Time:</strong> Move in after 15:00, Move out before 11:00</p>

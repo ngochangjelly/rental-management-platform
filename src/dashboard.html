@@ -1696,8 +1696,17 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractTenancyPeriod" class="form-label">Tenancy Period (Start - End)</label>
-                        <input type="text" class="form-control" id="contractTenancyPeriod" placeholder="e.g., Jan 2024 - Jun 2024">
+                        <label class="form-label">Tenancy Period</label>
+                        <div class="row">
+                          <div class="col-md-6">
+                            <label for="contractMoveInDate" class="form-label">Move-in Date</label>
+                            <input type="date" class="form-control" id="contractMoveInDate">
+                          </div>
+                          <div class="col-md-6">
+                            <label for="contractMoveOutDate" class="form-label">Move-out Date</label>
+                            <input type="date" class="form-control" id="contractMoveOutDate">
+                          </div>
+                        </div>
                       </div>
 
                       <!-- Financial Details -->
@@ -1725,7 +1734,7 @@
                         <label for="contractPaymentMethod" class="form-label">Payment Method</label>
                         <select class="form-select" id="contractPaymentMethod">
                           <option value="CASH">Cash</option>
-                          <option value="BANK_TRANSFER">Bank Transfer</option>
+                          <option value="BANK_TRANSFER" selected>Bank Transfer</option>
                           <option value="CHECK">Check</option>
                         </select>
                       </div>

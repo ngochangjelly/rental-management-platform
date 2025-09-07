@@ -855,6 +855,9 @@ class TenantManagementComponent {
         if (field === 'isMainTenant') {
             this.toggleSignatureSection();
         }
+        
+        // Check for changes to enable/disable submit button
+        this.checkForChanges();
     }
 
     async handleTenantSubmit(event) {
@@ -1173,6 +1176,9 @@ class TenantManagementComponent {
             default:
                 statusText.textContent = 'Unregistered';
         }
+        
+        // Check for changes to update the submit button state
+        this.checkForChanges();
     }
 
     // Normalize image URL to ensure it uses the proxy endpoint
@@ -1519,6 +1525,7 @@ class TenantManagementComponent {
         this.avatar = url;
         this.updateAvatarPreview();
         urlInput.value = ''; // Clear input after adding
+        this.checkForChanges(); // Check for changes to enable submit button
         
         console.log('✅ Avatar set from URL:', this.avatar);
     }
@@ -1526,6 +1533,7 @@ class TenantManagementComponent {
     removeAvatar() {
         this.avatar = '';
         this.updateAvatarPreview();
+        this.checkForChanges(); // Check for changes to enable submit button
         console.log('🗑️ Avatar removed');
     }
 

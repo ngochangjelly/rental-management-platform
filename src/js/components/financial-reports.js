@@ -334,6 +334,7 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge
       );
       const investorName = investor ? investor.name : item.personInCharge;
+      const investorAvatar = investor?.avatar;
       
       // Check if this item is pending deletion confirmation
       const itemKey = `income-${index}`;
@@ -352,7 +353,15 @@ class FinancialReportsComponent {
             ${escapeHtml(item.item)}
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
-          <td class="small border-0 align-middle">${escapeHtml(investorName)}</td>
+          <td class="small border-0 align-middle">
+            <div class="d-flex align-items-center">
+              ${investorAvatar ? 
+                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">` :
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold me-2" style="width: 24px; height: 24px; font-size: 10px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
+              }
+              <span>${escapeHtml(investorName)}</span>
+            </div>
+          </td>
           <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center">
             <div class="btn-group btn-group-sm">
@@ -434,6 +443,7 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge
       );
       const investorName = investor ? investor.name : item.personInCharge;
+      const investorAvatar = investor?.avatar;
       
       // Check if this item is pending deletion confirmation
       const itemKey = `expense-${index}`;
@@ -452,7 +462,15 @@ class FinancialReportsComponent {
             ${escapeHtml(item.item)}
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
-          <td class="small border-0 align-middle">${escapeHtml(investorName)}</td>
+          <td class="small border-0 align-middle">
+            <div class="d-flex align-items-center">
+              ${investorAvatar ? 
+                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">` :
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold me-2" style="width: 24px; height: 24px; font-size: 10px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
+              }
+              <span>${escapeHtml(investorName)}</span>
+            </div>
+          </td>
           <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center">
             <div class="btn-group btn-group-sm">
@@ -2023,6 +2041,52 @@ class FinancialReportsComponent {
     );
     
     return croppedCanvas;
+  }
+
+  // Normalize image URL to ensure it uses the proxy endpoint
+  normalizeImageUrl(url) {
+    if (!url) return url;
+    
+    // If it's already a full URL (http/https), return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // If it's already a proxy URL, convert to full URL if needed
+    if (url.startsWith('/api/upload/image-proxy/')) {
+      // In production, use the full backend URL
+      if (API_CONFIG.BASE_URL) {
+        return `${API_CONFIG.BASE_URL}${url}`;
+      }
+      return url; // localhost case
+    }
+    
+    // Build the proxy URL
+    let proxyPath;
+    
+    // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
+    // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
+    if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
+      // Check if it already includes the folder path
+      if (url.includes('/')) {
+        proxyPath = `/api/upload/image-proxy/${url}`;
+      } else {
+        // Assume it's a tenant document image
+        proxyPath = `/api/upload/image-proxy/tenant-documents/${url}`;
+      }
+    } else if (url.startsWith('/')) {
+      // If it starts with / but not our proxy path, assume it's a relative proxy URL
+      proxyPath = url;
+    } else {
+      // Default: assume it needs the proxy prefix
+      proxyPath = `/api/upload/image-proxy/${url}`;
+    }
+    
+    // In production, use the full backend URL
+    if (API_CONFIG.BASE_URL) {
+      return `${API_CONFIG.BASE_URL}${proxyPath}`;
+    }
+    return proxyPath; // localhost case
   }
 }
 

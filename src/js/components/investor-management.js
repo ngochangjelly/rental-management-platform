@@ -8,6 +8,7 @@ class InvestorManagementComponent {
     this.properties = [];
     this.isModalOpen = false;
     this.editingInvestorId = null;
+    this.avatar = ''; // Avatar image URL
     this.init();
   }
 
@@ -255,6 +256,40 @@ class InvestorManagementComponent {
                 </div>
                 
                 <hr>
+                <h6><i class="bi bi-person-circle me-2"></i>Avatar</h6>
+                <div class="row">
+                  <div class="col-md-8">
+                    <div class="mb-3">
+                      <label class="form-label">Avatar Image</label>
+                      <div class="input-group">
+                        <input type="text" class="form-control" id="investorAvatarUrl" placeholder="Paste Cloudinary URL here (Ctrl+V to paste from clipboard)">
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.investorManager.addAvatarFromUrl()">
+                          <i class="bi bi-plus"></i> Add
+                        </button>
+                      </div>
+                      <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="window.investorManager.openAvatarUpload()">
+                          <i class="bi bi-cloud-upload me-1"></i>Upload Image
+                        </button>
+                        <small class="text-muted ms-2">or paste URL above</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Preview</label>
+                    <div id="avatarPreview" class="text-center">
+                      <div class="text-muted small">No avatar selected</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Hidden file input for avatar upload -->
+                <input type="file" id="avatarUploadInput" accept="image/*" style="display: none;">
+                
+                <!-- Hidden input to store avatar URL -->
+                <input type="hidden" id="investorAvatar" name="avatar" value="">
+                
+                <hr>
                 <h6><i class="bi bi-building me-2"></i>Property Investments</h6>
                 <div id="propertiesList">
                   <div class="text-muted">Loading properties...</div>
@@ -283,11 +318,19 @@ class InvestorManagementComponent {
     if (isEdit) {
       this.populateInvestorForm(investorId);
     } else {
+      // Reset for new investor
+      this.avatar = '';
+      this.updateAvatarPreview();
       this.renderPropertiesInModal([]);
     }
 
     // Bind form events
     this.bindModalEvents();
+
+    // Set up clipboard paste functionality after modal is shown
+    document.getElementById('investorModal').addEventListener('shown.bs.modal', () => {
+      this.setupClipboardPasteForAvatar();
+    }, { once: true });
 
     // Clean up on close
     document.getElementById('investorModal').addEventListener('hidden.bs.modal', () => {
@@ -308,6 +351,10 @@ class InvestorManagementComponent {
     form.querySelector('[name="name"]').value = investor.name || '';
     form.querySelector('[name="email"]').value = investor.email || '';
     form.querySelector('[name="phone"]').value = investor.phone || '';
+
+    // Handle avatar
+    this.avatar = investor.avatar || '';
+    this.updateAvatarPreview();
 
     this.renderPropertiesInModal(investor.properties || []);
   }
@@ -485,6 +532,7 @@ class InvestorManagementComponent {
         name: formData.get('name'),
         email: formData.get('email'),
         phone: formData.get('phone'),
+        avatar: this.avatar || null,
         properties: []
       };
       
@@ -642,6 +690,344 @@ class InvestorManagementComponent {
 
   showInfo(message) {
     this.showToast(message, "info");
+  }
+
+  // Avatar upload methods
+  openAvatarUpload() {
+    const fileInput = document.getElementById('avatarUploadInput');
+    fileInput.click();
+    
+    // Add event listener for file selection
+    fileInput.onchange = (e) => {
+      if (e.target.files.length > 0) {
+        this.uploadAvatar(e.target.files[0]);
+      }
+    };
+  }
+
+  async uploadAvatar(file) {
+    const uploadButton = document.querySelector("button[onclick=\"window.investorManager.openAvatarUpload()\"]");
+    const originalText = uploadButton.innerHTML;
+    
+    try {
+      // Show loading state
+      uploadButton.disabled = true;
+      uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading avatar...';
+      
+      const result = await this.uploadSingleImage(file);
+      
+      if (result.success) {
+        console.log('🔗 Avatar uploaded successfully:', result.url);
+        
+        // Ensure URL is properly formatted
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          // If it's a relative URL starting with /, prepend the API base URL
+          if (imageUrl.startsWith('/')) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            // Otherwise assume it needs https:// prefix
+            imageUrl = 'https://' + imageUrl;
+          }
+        }
+        
+        this.avatar = imageUrl;
+        this.updateAvatarPreview();
+        
+        console.log('✅ Avatar set to:', this.avatar);
+      } else {
+        alert('Failed to upload avatar: ' + result.error);
+      }
+      
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      alert('Error uploading avatar. Please try again.');
+    } finally {
+      // Restore button state
+      uploadButton.disabled = false;
+      uploadButton.innerHTML = originalText;
+    }
+  }
+
+  async uploadSingleImage(file) {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const uploadUrl = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT);
+      console.log('🔧 Upload URL:', uploadUrl);
+      console.log('🔧 Base URL:', API_CONFIG.BASE_URL);
+      
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: formData
+      });
+      
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  addAvatarFromUrl() {
+    const urlInput = document.getElementById('investorAvatarUrl');
+    const url = urlInput.value.trim();
+    
+    if (!url) {
+      alert('Please enter a valid image URL');
+      return;
+    }
+    
+    this.avatar = url;
+    this.updateAvatarPreview();
+    urlInput.value = ''; // Clear input after adding
+    
+    console.log('✅ Avatar set from URL:', this.avatar);
+  }
+
+  removeAvatar() {
+    this.avatar = '';
+    this.updateAvatarPreview();
+    console.log('🗑️ Avatar removed');
+  }
+
+  updateAvatarPreview() {
+    const preview = document.getElementById('avatarPreview');
+    const hiddenInput = document.getElementById('investorAvatar');
+    
+    if (!preview || !hiddenInput) {
+      return;
+    }
+    
+    // Update hidden input
+    hiddenInput.value = this.avatar;
+    
+    if (!this.avatar) {
+      preview.innerHTML = '<div class="text-muted small">No avatar selected</div>';
+      return;
+    }
+    
+    preview.innerHTML = `
+      <div class="position-relative d-inline-block">
+        <img src="${this.normalizeImageUrl(this.avatar)}" alt="Avatar preview" 
+             class="rounded-circle border" 
+             style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
+             onclick="window.open('${this.avatar}', '_blank')" />
+        <button type="button" 
+                class="btn btn-danger position-absolute top-0 end-0"
+                onclick="window.investorManager.removeAvatar()"
+                style="padding: 2px; font-size: 0.7rem; border-radius: 50%; width: 24px; height: 24px; display: flex !important; align-items: center; justify-content: center; transform: translate(25%, -25%);"
+                title="Remove avatar">
+          ✕
+        </button>
+        <div class="text-center mt-2">
+          <small class="text-muted">Avatar Preview</small>
+        </div>
+      </div>
+    `;
+  }
+
+  // Normalize image URL to ensure it uses the proxy endpoint
+  normalizeImageUrl(url) {
+    if (!url) return url;
+    
+    // If it's already a full URL (http/https), return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // If it's already a proxy URL, convert to full URL if needed
+    if (url.startsWith('/api/upload/image-proxy/')) {
+      // In production, use the full backend URL
+      if (API_CONFIG.BASE_URL) {
+        return `${API_CONFIG.BASE_URL}${url}`;
+      }
+      return url; // localhost case
+    }
+    
+    // Build the proxy URL
+    let proxyPath;
+    
+    // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
+    // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
+    if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
+      // Check if it already includes the folder path
+      if (url.includes('/')) {
+        proxyPath = `/api/upload/image-proxy/${url}`;
+      } else {
+        // Assume it's a tenant document image
+        proxyPath = `/api/upload/image-proxy/tenant-documents/${url}`;
+      }
+    } else if (url.startsWith('/')) {
+      // If it starts with / but not our proxy path, assume it's a relative proxy URL
+      proxyPath = url;
+    } else {
+      // Default: assume it needs the proxy prefix
+      proxyPath = `/api/upload/image-proxy/${url}`;
+    }
+    
+    // In production, use the full backend URL
+    if (API_CONFIG.BASE_URL) {
+      return `${API_CONFIG.BASE_URL}${proxyPath}`;
+    }
+    return proxyPath; // localhost case
+  }
+
+  // Clipboard paste functionality
+  setupClipboardPasteForAvatar() {
+    const avatarUrlField = document.getElementById('investorAvatarUrl');
+    if (avatarUrlField && !avatarUrlField.hasAttribute('data-paste-listener-added')) {
+      avatarUrlField.setAttribute('data-paste-listener-added', 'true');
+      
+      // Add paste event listener
+      avatarUrlField.addEventListener('paste', async (e) => {
+        e.preventDefault();
+        await this.handleImagePaste(e);
+      });
+
+      // Add visual feedback for paste capability
+      const currentPlaceholder = avatarUrlField.placeholder || 'Paste Cloudinary URL here';
+      if (!currentPlaceholder.includes('Ctrl+V')) {
+        avatarUrlField.placeholder = currentPlaceholder + ' (Ctrl+V to paste from clipboard)';
+      }
+      avatarUrlField.title = 'You can paste images from clipboard here (Ctrl+V)';
+      
+      // Add a visual indicator
+      avatarUrlField.style.borderLeft = '3px solid #0d6efd';
+      avatarUrlField.setAttribute('data-clipboard-enabled', 'true');
+      
+      console.log('✅ Clipboard paste listener added to investor avatar field');
+    }
+  }
+
+  async handleImagePaste(event) {
+    try {
+      const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
+      if (!items) {
+        console.log('No clipboard items found');
+        return;
+      }
+
+      let imageFound = false;
+      
+      // Check all clipboard items for images
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        if (item.type.indexOf('image') !== -1) {
+          imageFound = true;
+          const file = item.getAsFile();
+          
+          if (file) {
+            console.log('📋 Image pasted from clipboard:', file.name, file.type);
+            await this.uploadClipboardImage(file);
+            break; // Handle only the first image found
+          }
+        }
+      }
+
+      if (!imageFound) {
+        // Check if there's text content that might be an image URL
+        const text = event.clipboardData?.getData('text') || event.originalEvent?.clipboardData?.getData('text');
+        if (text && this.isImageUrl(text)) {
+          console.log('📋 Image URL pasted from clipboard:', text);
+          document.getElementById('investorAvatarUrl').value = text;
+        } else {
+          console.log('No image found in clipboard');
+          // Show a brief message to user
+          this.showPasteMessage('No image found in clipboard', 'warning');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling clipboard paste:', error);
+      this.showPasteMessage('Error pasting from clipboard', 'error');
+    }
+  }
+
+  async uploadClipboardImage(file) {
+    const field = document.getElementById('investorAvatarUrl');
+    const originalPlaceholder = field.placeholder;
+    
+    try {
+      // Show uploading state
+      field.placeholder = 'Uploading image from clipboard...';
+      field.disabled = true;
+
+      // Upload the image using existing upload method
+      const result = await this.uploadSingleImage(file);
+      
+      if (result.success) {
+        // Ensure URL is properly formatted
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          if (imageUrl.startsWith('/')) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            imageUrl = 'https://' + imageUrl;
+          }
+        }
+
+        // Set the URL in the input field
+        field.value = imageUrl;
+        
+        // Auto-add the avatar
+        this.addAvatarFromUrl();
+
+        this.showPasteMessage('Image uploaded successfully!', 'success');
+        console.log('✅ Clipboard image uploaded successfully:', imageUrl);
+      } else {
+        this.showPasteMessage('Failed to upload image: ' + result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error uploading clipboard image:', error);
+      this.showPasteMessage('Error uploading image', 'error');
+    } finally {
+      // Restore field state
+      field.placeholder = originalPlaceholder;
+      field.disabled = false;
+    }
+  }
+
+  isImageUrl(url) {
+    // Simple check for image URL patterns
+    return /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url) || 
+           url.includes('cloudinary.com') || 
+           url.includes('imgur.com') ||
+           url.includes('drive.google.com');
+  }
+
+  showPasteMessage(message, type) {
+    // Create a temporary message element
+    const field = document.getElementById('investorAvatarUrl');
+    const messageId = 'paste-message-avatar';
+    
+    // Remove any existing message
+    const existingMessage = document.getElementById(messageId);
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+
+    const messageDiv = document.createElement('div');
+    messageDiv.id = messageId;
+    messageDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} alert-dismissible fade show mt-2`;
+    messageDiv.style.fontSize = '0.875rem';
+    messageDiv.innerHTML = `
+      <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'x-circle'} me-1"></i>
+      ${message}
+    `;
+
+    // Insert after the field's parent div
+    field.closest('.mb-3').insertAdjacentElement('afterend', messageDiv);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.remove();
+      }
+    }, 3000);
   }
 
 }
