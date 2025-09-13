@@ -305,6 +305,13 @@ class PropertyManagementComponent {
           property.telegramBotToken || "";
         document.getElementById("telegramChannelId").value =
           property.telegramChannelId || "";
+        
+        // Set Telegram integration checkbox
+        const telegramIntegrationCheckbox = document.getElementById("telegramIntegrationEnabled");
+        if (telegramIntegrationCheckbox) {
+          telegramIntegrationCheckbox.checked = property.telegramIntegrationEnabled === true;
+        }
+        
         document.getElementById("wifiAccountNumber").value =
           property.wifiAccountNumber || "";
         document.getElementById("wifiAccountHolderName").value =
@@ -427,6 +434,7 @@ class PropertyManagementComponent {
         landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",
         landlordBankName: formData.get("landlordBankName")?.trim() || "",
         landlordAccountName: formData.get("landlordAccountName")?.trim() || "",
+        telegramIntegrationEnabled: formData.get("telegramIntegrationEnabled") === "true",
         telegramBotToken: formData.get("telegramBotToken")?.trim() || "",
         telegramChannelId: formData.get("telegramChannelId")?.trim() || "",
         wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",

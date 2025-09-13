@@ -20,6 +20,10 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 
+# build
+dist/
+build/
+
 # Uploaded files
 uploads/
 temp/

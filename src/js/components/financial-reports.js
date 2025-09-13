@@ -9,11 +9,13 @@ class FinancialReportsComponent {
     this.currentDate = new Date();
     this.currentReport = null;
     this.investors = [];
+    this.tenants = []; // Store tenants for selected property
     this.isModalOpen = false;
     this.isIncomeExpenseModalOpen = false;
     this.editingItem = null;
     this.editingItemIndex = null;
     this.pendingDeletes = new Set(); // Track items pending deletion confirmation
+    this.pendingClose = false; // Track month close confirmation
     this.init();
   }
 
@@ -38,14 +40,20 @@ class FinancialReportsComponent {
     const prevMonthBtn = document.getElementById("prevMonth");
     const nextMonthBtn = document.getElementById("nextMonth");
 
+    console.log('Financial Reports - Binding month navigation buttons:');
+    console.log('  prevMonthBtn found:', !!prevMonthBtn);
+    console.log('  nextMonthBtn found:', !!nextMonthBtn);
+
     if (prevMonthBtn) {
       prevMonthBtn.addEventListener("click", () => {
+        console.log('Previous month button clicked');
         this.changeMonth(-1);
       });
     }
 
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener("click", () => {
+        console.log('Next month button clicked');
         this.changeMonth(1);
       });
     }
@@ -120,6 +128,28 @@ class FinancialReportsComponent {
         e.preventDefault();
         if (!copyBtn.disabled) {
           this.copyFinancialReportToClipboard();
+        }
+      });
+    }
+
+    // Close/Reopen functionality
+    const closeBtn = document.getElementById("closeMonthBtn");
+    const reopenBtn = document.getElementById("reopenMonthBtn");
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!closeBtn.disabled) {
+          this.toggleCloseConfirm();
+        }
+      });
+    }
+
+    if (reopenBtn) {
+      reopenBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!reopenBtn.disabled) {
+          this.reopenMonth();
         }
       });
     }
@@ -201,6 +231,9 @@ class FinancialReportsComponent {
     // Load investors for this property
     await this.loadInvestors(propertyId);
 
+    // Load tenants for this property
+    await this.loadTenants(propertyId);
+
     // Load financial report for current month
     await this.loadFinancialReport();
 
@@ -226,12 +259,35 @@ class FinancialReportsComponent {
     }
   }
 
+  async loadTenants(propertyId) {
+    try {
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        this.tenants = result.tenants || [];
+      } else {
+        this.tenants = [];
+      }
+    } catch (error) {
+      console.error("Error loading tenants:", error);
+      this.tenants = [];
+    }
+  }
+
   async loadFinancialReport() {
-    if (!this.selectedProperty) return;
+    if (!this.selectedProperty) {
+      console.log('loadFinancialReport: No selected property');
+      return;
+    }
 
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
+
+      console.log(`loadFinancialReport: Loading data for ${this.selectedProperty} - ${year}/${month}`);
 
       const response = await API.get(
         API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
@@ -245,8 +301,10 @@ class FinancialReportsComponent {
         const result = await response.json();
         if (result.success) {
           this.currentReport = result.data;
+          console.log(`loadFinancialReport: Loaded existing report:`, this.currentReport);
         } else {
           this.currentReport = null;
+          console.log(`loadFinancialReport: API returned error:`, result);
         }
       } else if (response.status === 404) {
         // No report exists for this month - start fresh
@@ -261,8 +319,10 @@ class FinancialReportsComponent {
           totalExpenses: 0,
           netProfit: 0,
         };
+        console.log(`loadFinancialReport: Created empty report for ${year}/${month}`);
       }
 
+      console.log(`loadFinancialReport: Calling updateDisplays with:`, this.currentReport);
       this.updateDisplays();
     } catch (error) {
       console.error("Error loading financial report:", error);
@@ -287,6 +347,7 @@ class FinancialReportsComponent {
     this.updateExpenseDisplay();
     this.updateSummaryDisplay();
     this.updateInvestorDisplay();
+    this.updateClosedStatus();
   }
 
   updateIncomeDisplay() {
@@ -320,7 +381,7 @@ class FinancialReportsComponent {
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
               <th class="border-0 small text-end">Amount</th>
-              <th class="border-0 small text-center">Actions</th>
+              <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -329,7 +390,7 @@ class FinancialReportsComponent {
     this.currentReport.income.forEach((item, index) => {
       total += item.amount;
 
-      // Find investor name by ID
+      // Find investor name by ID (for income, show investor responsible instead of tenant)
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge
       );
@@ -346,25 +407,37 @@ class FinancialReportsComponent {
         day: 'numeric'
       }) : 'No date';
 
+      // Check if item has additional details or evidence
+      const hasDetails = item.details && item.details.trim() !== '';
+      const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
+      const hasAdditionalInfo = hasDetails || hasEvidence;
+
       html += `
         <tr>
           <td class="small border-0 align-middle">
-            <i class="bi bi-plus-circle-fill text-success me-1"></i>
-            ${escapeHtml(item.item)}
+            <div class="d-flex align-items-center gap-1">
+              <i class="bi bi-plus-circle-fill text-success me-1"></i>
+              <span>${escapeHtml(item.item)}</span>
+              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>` : ''}
+            </div>
+            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? '...' : ''}</div>` : ''}
+            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ''}
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center">
+            <div class="d-flex align-items-center justify-content-center">
               ${investorAvatar ? 
-                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">` :
-                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold me-2" style="width: 24px; height: 24px; font-size: 10px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
+                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
               }
-              <span>${escapeHtml(investorName)}</span>
             </div>
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(2)}</td>
-          <td class="border-0 align-middle text-center">
+          <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
+              ${hasEvidence ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('income', ${index})" title="View Evidence">
+                <i class="bi bi-eye"></i>
+              </button>` : ''}
               <button class="btn btn-outline-primary btn-sm p-1" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})" title="Edit">
                 <span class="edit-icon"><i class="bi bi-pencil"></i></span>
                 <span class="loading-spinner d-none">
@@ -429,7 +502,7 @@ class FinancialReportsComponent {
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
               <th class="border-0 small text-end">Amount</th>
-              <th class="border-0 small text-center">Actions</th>
+              <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -455,25 +528,37 @@ class FinancialReportsComponent {
         day: 'numeric'
       }) : 'No date';
 
+      // Check if item has additional details or evidence
+      const hasDetails = item.details && item.details.trim() !== '';
+      const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
+      const hasAdditionalInfo = hasDetails || hasEvidence;
+
       html += `
         <tr>
           <td class="small border-0 align-middle">
-            <i class="bi bi-dash-circle-fill text-danger me-1"></i>
-            ${escapeHtml(item.item)}
+            <div class="d-flex align-items-center gap-1">
+              <i class="bi bi-dash-circle-fill text-danger me-1"></i>
+              <span>${escapeHtml(item.item)}</span>
+              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>` : ''}
+            </div>
+            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? '...' : ''}</div>` : ''}
+            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ''}
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center">
+            <div class="d-flex align-items-center justify-content-center">
               ${investorAvatar ? 
-                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">` :
-                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold me-2" style="width: 24px; height: 24px; font-size: 10px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
+                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
               }
-              <span>${escapeHtml(investorName)}</span>
             </div>
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(2)}</td>
-          <td class="border-0 align-middle text-center">
+          <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
+              ${hasEvidence ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('expense', ${index})" title="View Evidence">
+                <i class="bi bi-eye"></i>
+              </button>` : ''}
               <button class="btn btn-outline-primary btn-sm p-1" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})" title="Edit">
                 <span class="edit-icon"><i class="bi bi-pencil"></i></span>
                 <span class="loading-spinner d-none">
@@ -554,7 +639,7 @@ class FinancialReportsComponent {
               <th class="border-0 small text-end">Paid</th>
               <th class="border-0 small text-end">Received</th>
               <th class="border-0 small text-end">Final</th>
-              <th class="border-0 small text-center">Actions</th>
+              <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -611,15 +696,19 @@ class FinancialReportsComponent {
       html += `
         <tr>
           <td class="small border-0 align-middle">
-            <strong>${escapeHtml(investor.name)}</strong><br>
-            <small class="text-muted">${investor.investorId}</small>
+            <div class="d-flex align-items-center justify-content-center">
+              ${investor.avatar ? 
+                `<img src="${this.normalizeImageUrl(investor.avatar)}" alt="${escapeHtml(investor.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investor.name.charAt(0).toUpperCase())}</div>`
+              }
+            </div>
           </td>
           <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
           <td class="small border-0 align-middle text-end fw-bold text-primary">$${investorShare.toFixed(2)}</td>
           <td class="small border-0 align-middle text-end fw-bold text-warning">$${expensesPaidByInvestor.toFixed(2)}</td>
           <td class="small border-0 align-middle text-end fw-bold text-info">$${incomeReceivedByInvestor.toFixed(2)}</td>
           <td class="small border-0 align-middle text-end fw-bold ${finalAmount >= 0 ? "text-success" : "text-danger"}">$${finalAmount.toFixed(2)}</td>
-          <td class="border-0 align-middle text-center">
+          <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${investor.investorId}')" title="Edit">
                 <i class="bi bi-pencil"></i>
@@ -643,54 +732,23 @@ class FinancialReportsComponent {
   }
 
   updateMonthDisplay() {
-    const currentMonthEl = document.getElementById("currentMonth");
-    const currentMonthBadge = document.getElementById("currentMonthBadge");
-
-    if (currentMonthEl) {
-      const monthNames = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ];
-
-      const month = monthNames[this.currentDate.getMonth()];
-      const year = this.currentDate.getFullYear();
-      currentMonthEl.textContent = `${month} ${year}`;
-    }
-
-    if (currentMonthBadge) {
-      const now = new Date();
-      const isCurrentMonth =
-        this.currentDate.getMonth() === now.getMonth() &&
-        this.currentDate.getFullYear() === now.getFullYear();
-
-      currentMonthBadge.textContent = isCurrentMonth
-        ? "Current Month"
-        : "Historical";
-
-      // Use smaller font size for better mobile display
-      const isMobile = window.innerWidth < 768;
-      const fontSizeClass = isMobile ? "" : "fs-6"; // No fs-6 on mobile, use CSS instead
-
-      currentMonthBadge.className = isCurrentMonth
-        ? `badge bg-info ${fontSizeClass}`.trim()
-        : `badge bg-secondary ${fontSizeClass}`.trim();
-    }
+    // Call the enhanced version that includes closed status
+    this.updateMonthDisplayWithClosedStatus();
   }
 
   changeMonth(direction) {
+    console.log(`changeMonth called with direction: ${direction}`);
+    console.log(`Current date before change:`, this.currentDate);
+    
     const newDate = new Date(this.currentDate);
     newDate.setMonth(newDate.getMonth() + direction);
     this.currentDate = newDate;
+
+    console.log(`Current date after change:`, this.currentDate);
+    console.log(`Selected property:`, this.selectedProperty);
+
+    // Reset any pending close state when changing months
+    this.pendingClose = false;
 
     this.updateMonthDisplay();
     this.loadFinancialReport();
@@ -702,10 +760,23 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Check if there are investors for this property
-    if (!this.investors || this.investors.length === 0) {
+    // Check if month is closed (only for new items)
+    if (!existingItem && this.currentReport && this.currentReport.isClosed) {
+      this.showError('Cannot add items - this month has been closed');
+      return;
+    }
+
+    // Check if there are required people for this property (investors for both income and expenses)
+    if (type === "income" && (!this.investors || this.investors.length === 0)) {
       this.showError(
-        `Please add investors to this property before adding ${type} items.`
+        "Please add investors to this property before adding income items."
+      );
+      return;
+    }
+    
+    if (type === "expense" && (!this.investors || this.investors.length === 0)) {
+      this.showError(
+        "Please add investors to this property before adding expense items."
       );
       return;
     }
@@ -776,6 +847,14 @@ class FinancialReportsComponent {
           firstInput.select();
         }, 300);
       }
+
+      // Setup file upload handling
+      this.setupFileUploadHandling();
+      
+      // Display existing bill evidence if editing
+      if (existingItem && existingItem.billEvidence && existingItem.billEvidence.length > 0) {
+        this.displayExistingBillEvidence(existingItem.billEvidence);
+      }
     });
 
     // Clean up modal when hidden
@@ -789,6 +868,8 @@ class FinancialReportsComponent {
       this.isIncomeExpenseModalOpen = false;
       this.editingItem = null;
       this.editingItemIndex = null;
+      // Reset uploaded bill evidence
+      this.uploadedBillEvidence = [];
       modalElement.remove();
 
       // Force cleanup of backdrops after a short delay
@@ -833,6 +914,20 @@ class FinancialReportsComponent {
       .join("");
   }
 
+  generateTenantOptions(selectedValue = '') {
+    if (!this.tenants || this.tenants.length === 0) {
+      return '<option value="" disabled>No tenants available for this property</option>';
+    }
+
+    return this.tenants
+      .map((tenant) => {
+        const isSelected = tenant.tenantId === selectedValue ? ' selected' : '';
+        const displayName = tenant.name || 'Unknown Tenant';
+        return `<option value="${tenant.tenantId}"${isSelected}>${escapeHtml(displayName)}</option>`;
+      })
+      .join("");
+  }
+
   createIncomeExpenseModalHtml(type, existingItem = null) {
     const isIncome = type === "income";
     const isEditing = existingItem !== null;
@@ -850,6 +945,8 @@ class FinancialReportsComponent {
     const personInChargeValue = existingItem ? existingItem.personInCharge : '';
     const accountDetailValue = existingItem ? escapeHtml(existingItem.recipientAccountDetail || '') : '';
     const paidByValue = existingItem ? existingItem.paidBy : '';
+    const detailsValue = existingItem ? escapeHtml(existingItem.details || '') : '';
+    const billEvidenceValue = existingItem ? existingItem.billEvidence || [] : [];
     const dateValue = existingItem && existingItem.date 
       ? new Date(existingItem.date).toISOString().split('T')[0] 
       : new Date().toISOString().split('T')[0]; // Default to today
@@ -888,7 +985,7 @@ class FinancialReportsComponent {
                                         <option value="">Select investor...</option>
                                         ${this.generateInvestorOptions(personInChargeValue)}
                                     </select>
-                                    <div class="form-text">Select the investor responsible for this ${type}</div>
+                                    <div class="form-text">Select the ${isIncome ? 'investor responsible for collecting this income' : 'investor responsible for this expense'}</div>
                                 </div>
                                 ${isIncome ? `
                                 <div class="mb-3">
@@ -904,6 +1001,23 @@ class FinancialReportsComponent {
                                     <label class="form-label">Account Details</label>
                                     <input type="text" class="form-control" name="recipientAccountDetail" placeholder="Bank or payment details (optional)" autocomplete="off" value="${accountDetailValue}">
                                     <div class="form-text">Optional: Add bank account or payment method details</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Details</label>
+                                    <textarea class="form-control" name="details" rows="3" placeholder="Additional details about this ${type} (optional)" maxlength="500">${detailsValue}</textarea>
+                                    <div class="form-text">Optional: Add any additional details or notes (max 500 characters)</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Bill Evidence</label>
+                                    <input type="file" class="form-control" id="billEvidenceFiles" multiple accept="image/*,.pdf" style="display: none;">
+                                    <div class="d-grid gap-2">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('billEvidenceFiles').click()">
+                                            <i class="bi bi-cloud-upload"></i> Upload Files (Optional)
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Optional: Upload receipts, bills, or other evidence (images or PDFs, max 10 files)</div>
+                                    <div id="billEvidencePreview" class="mt-2"></div>
+                                    <div id="existingBillEvidence" class="mt-2"></div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -931,6 +1045,7 @@ class FinancialReportsComponent {
       date: formData.get("date"),
       personInCharge: formData.get("personInCharge"),
       recipientAccountDetail: formData.get("recipientAccountDetail"),
+      details: formData.get("details") || "",
     };
 
     // Add paidBy field only for income transactions
@@ -939,6 +1054,14 @@ class FinancialReportsComponent {
       if (paidBy) {
         itemData.paidBy = paidBy;
       }
+    }
+
+    // Add uploaded bill evidence URLs
+    if (this.uploadedBillEvidence && this.uploadedBillEvidence.length > 0) {
+      itemData.billEvidence = this.uploadedBillEvidence;
+    } else if (this.editingItem && this.editingItem.billEvidence) {
+      // Keep existing evidence if no new files uploaded
+      itemData.billEvidence = this.editingItem.billEvidence;
     }
 
     try {
@@ -1001,6 +1124,8 @@ class FinancialReportsComponent {
         }, 150);
 
         await this.loadFinancialReport();
+        // Force a display refresh to ensure indices are correct
+        this.updateDisplays();
         this.showSuccess(
           `${
             type.charAt(0).toUpperCase() + type.slice(1)
@@ -1057,16 +1182,25 @@ class FinancialReportsComponent {
 
     // Focus on first input after modal is shown
     modalElement.addEventListener("shown.bs.modal", () => {
+      console.log('Investor modal shown event triggered');
+      console.log('investorId passed to modal:', investorId);
+      
       // Pre-fill form if editing existing investor (do this after modal is shown)
       if (investorId) {
-        this.fillInvestorForm(investorId);
+        console.log('About to fill investor form...');
+        // Add a small delay to ensure DOM is fully ready
+        setTimeout(() => {
+          this.fillInvestorForm(investorId);
+        }, 50);
       }
 
       const firstInput = modalElement.querySelector('input[name="username"]');
 
       if (firstInput) {
         // Test if input is focusable and typable immediately
-        firstInput.focus();
+        setTimeout(() => {
+          firstInput.focus();
+        }, 100);
       }
     });
 
@@ -1209,11 +1343,24 @@ class FinancialReportsComponent {
   }
 
   fillInvestorForm(investorId) {
+    console.log('fillInvestorForm called with investorId:', investorId);
+    console.log('Available investors:', this.investors);
+    console.log('Selected property:', this.selectedProperty);
+    
     const investor = this.investors.find(
       (inv) => inv.investorId === investorId
     );
+    
+    console.log('Found investor:', investor);
+    
     if (investor) {
       const form = document.getElementById("investorForm");
+      console.log('Form element found:', !!form);
+
+      if (!form) {
+        console.error('Investor form not found in DOM');
+        return;
+      }
 
       const usernameInput = form.querySelector('input[name="username"]');
       const nameInput = form.querySelector('input[name="name"]');
@@ -1221,25 +1368,60 @@ class FinancialReportsComponent {
       const emailInput = form.querySelector('input[name="email"]');
       const percentageInput = form.querySelector('input[name="percentage"]');
 
+      console.log('Input elements found:', {
+        username: !!usernameInput,
+        name: !!nameInput,
+        phone: !!phoneInput,
+        email: !!emailInput,
+        percentage: !!percentageInput
+      });
+
       if (usernameInput) {
         usernameInput.value = investor.username || "";
+        console.log('Set username:', investor.username);
+        // Trigger change event to ensure any validation or listeners are notified
+        usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
       if (nameInput) {
         nameInput.value = investor.name || "";
+        console.log('Set name:', investor.name);
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
       if (phoneInput) {
         phoneInput.value = investor.phone || "";
+        console.log('Set phone:', investor.phone);
+        phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
       if (emailInput) {
         emailInput.value = investor.email || "";
+        console.log('Set email:', investor.email);
+        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
 
+      // Find the property data for this specific property
+      // Try both the original and uppercase versions since backend normalizes to uppercase
       const propertyData = investor.properties.find(
-        (p) => p.propertyId === this.selectedProperty
+        (p) => p.propertyId === this.selectedProperty || 
+               p.propertyId === this.selectedProperty?.toUpperCase() ||
+               p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase()
       );
+      console.log('Property data found:', propertyData);
+      console.log('Looking for propertyId:', this.selectedProperty);
+      console.log('Looking for propertyId (uppercase):', this.selectedProperty?.toUpperCase());
+      console.log('Investor properties:', investor.properties);
+      
       if (propertyData && percentageInput) {
         percentageInput.value = propertyData.percentage;
+        console.log('Set percentage:', propertyData.percentage);
+        percentageInput.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (percentageInput) {
+        console.warn('No property data found or percentage input missing');
+        // Set a default value if no property data found
+        percentageInput.value = "";
       }
+    } else {
+      console.error('Investor not found with ID:', investorId);
+      console.log('Available investor IDs:', this.investors.map(inv => inv.investorId));
     }
   }
 
@@ -1468,21 +1650,74 @@ class FinancialReportsComponent {
   }
 
   editItem(type, index) {
-    // Map singular type names to plural property names in currentReport
-    const propertyName = type === 'expense' ? 'expenses' : type === 'income' ? 'income' : type;
-    
-    if (!this.currentReport || !this.currentReport[propertyName] || !this.currentReport[propertyName][index]) {
-      this.showError('Item not found');
+    // Check if month is closed
+    if (this.currentReport && this.currentReport.isClosed) {
+      this.showError('Cannot edit items - this month has been closed');
       return;
     }
 
+    // Validate inputs first
+    if (typeof index !== 'number' || index < 0) {
+      console.error('Invalid index provided to editItem:', index);
+      this.showError('Invalid item index');
+      return;
+    }
+
+    // Map singular type names to plural property names in currentReport
+    const propertyName = type === 'expense' ? 'expenses' : type === 'income' ? 'income' : type;
+    
+    // More detailed validation
+    if (!this.currentReport) {
+      console.error('No current report loaded');
+      this.showError('No financial report loaded. Please select a property and month.');
+      return;
+    }
+
+    if (!this.currentReport[propertyName]) {
+      console.error(`Property '${propertyName}' not found in current report:`, this.currentReport);
+      this.showError(`No ${type} data found in current report`);
+      return;
+    }
+
+    if (!Array.isArray(this.currentReport[propertyName])) {
+      console.error(`Property '${propertyName}' is not an array:`, this.currentReport[propertyName]);
+      this.showError(`Invalid ${type} data format`);
+      return;
+    }
+
+    if (index >= this.currentReport[propertyName].length) {
+      console.error(`Index ${index} is out of bounds for ${propertyName} array of length ${this.currentReport[propertyName].length}`);
+      console.error(`Current ${propertyName} array:`, this.currentReport[propertyName]);
+      this.showError(`Item not found - index out of bounds. Refreshing data...`);
+      // Refresh the financial report to fix the display
+      this.loadFinancialReport();
+      return;
+    }
+
+    const item = this.currentReport[propertyName][index];
+    if (!item) {
+      console.error(`Item at index ${index} is null/undefined in ${propertyName}`);
+      console.error(`Current ${propertyName} array:`, this.currentReport[propertyName]);
+      this.showError('Item not found - item is empty. Refreshing data...');
+      // Refresh the financial report to fix the display
+      this.loadFinancialReport();
+      return;
+    }
+
+    console.log(`Editing ${type} item at index ${index}:`, item);
+
     // Show loading state
     this.setEditButtonLoading(type, index, true);
-    const item = this.currentReport[propertyName][index];
     this.showIncomeExpenseModal(type, item, index);
   }
 
   toggleDeleteConfirm(type, index) {
+    // Check if month is closed
+    if (this.currentReport && this.currentReport.isClosed) {
+      this.showError('Cannot delete items - this month has been closed');
+      return;
+    }
+
     const itemKey = `${type}-${index}`;
     this.pendingDeletes.add(itemKey);
     
@@ -1507,6 +1742,12 @@ class FinancialReportsComponent {
   }
 
   async confirmDeleteItem(type, index) {
+    // Check if month is closed
+    if (this.currentReport && this.currentReport.isClosed) {
+      this.showError('Cannot delete items - this month has been closed');
+      return;
+    }
+
     const itemKey = `${type}-${index}`;
     this.pendingDeletes.delete(itemKey);
 
@@ -1533,6 +1774,8 @@ class FinancialReportsComponent {
 
       if (result.success) {
         await this.loadFinancialReport();
+        // Force a display refresh to ensure indices are correct
+        this.updateDisplays();
         this.showSuccess(
           `${
             type.charAt(0).toUpperCase() + type.slice(1)
@@ -1584,6 +1827,242 @@ class FinancialReportsComponent {
     }
   }
 
+  // Toggle close month confirmation
+  toggleCloseConfirm() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+
+    if (this.currentReport.isClosed) {
+      this.showError("This month is already closed");
+      return;
+    }
+
+    // Add to pending closes set
+    this.pendingClose = true;
+    this.updateClosedStatus();
+  }
+
+  // Cancel close confirmation
+  cancelCloseConfirm() {
+    this.pendingClose = false;
+    this.updateClosedStatus();
+  }
+
+  // Confirm close month
+  async confirmCloseMonth() {
+    this.pendingClose = false;
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_CLOSE(
+          this.selectedProperty,
+          year,
+          month
+        )
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.currentReport = result.data;
+        this.updateClosedStatus();
+        this.showSuccess("Month closed successfully!");
+      } else {
+        throw new Error(result.message || "Failed to close month");
+      }
+    } catch (error) {
+      console.error("Error closing month:", error);
+      this.showError(error.message || "Failed to close month");
+      this.updateClosedStatus();
+    }
+  }
+
+  // Reopen current month
+  async reopenMonth() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+
+    if (!this.currentReport.isClosed) {
+      this.showError("This month is not closed");
+      return;
+    }
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_REOPEN(
+          this.selectedProperty,
+          year,
+          month
+        )
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.currentReport = result.data;
+        this.updateClosedStatus();
+        this.showSuccess("Month reopened successfully!");
+      } else {
+        throw new Error(result.message || "Failed to reopen month");
+      }
+    } catch (error) {
+      console.error("Error reopening month:", error);
+      this.showError(error.message || "Failed to reopen month");
+    }
+  }
+
+  // Update UI based on closed status
+  updateClosedStatus() {
+    const isClosed = this.currentReport && this.currentReport.isClosed;
+    const isPendingClose = this.pendingClose;
+    
+    // Update button visibility and state
+    const closeBtn = document.getElementById("closeMonthBtn");
+    const reopenBtn = document.getElementById("reopenMonthBtn");
+    
+    if (closeBtn) {
+      if (isClosed) {
+        closeBtn.style.display = "none";
+      } else {
+        closeBtn.style.display = "inline-block";
+        
+        // Update button based on pending state
+        if (isPendingClose) {
+          // Show confirmation buttons (like delete confirmation)
+          closeBtn.innerHTML = `
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmCloseMonth()" title="Confirm close month">
+                <i class="bi bi-check" style="color: #ffffff !important"></i>
+              </button>
+              <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelCloseConfirm()" title="Cancel">
+                <i class="bi bi-x"></i>
+              </button>
+            </div>
+          `;
+          closeBtn.className = "btn btn-sm";
+          closeBtn.style.backgroundColor = "transparent";
+          closeBtn.style.border = "none";
+          closeBtn.style.padding = "0";
+        } else {
+          // Show normal close button
+          closeBtn.innerHTML = '<i class="bi bi-lock" style="color: #ffffff !important"></i>';
+          closeBtn.className = "btn btn-sm btn-warning";
+          closeBtn.style.backgroundColor = "#ff6b35";
+          closeBtn.style.borderColor = "#ff6b35";
+          closeBtn.style.color = "#ffffff !important";
+          closeBtn.style.padding = "";
+          closeBtn.title = "Close this month (prevents further editing)";
+        }
+      }
+    }
+    
+    if (reopenBtn) {
+      reopenBtn.style.display = isClosed ? "inline-block" : "none";
+    }
+
+    // Update month display with closed indicator
+    this.updateMonthDisplayWithClosedStatus();
+
+    // Disable/enable action buttons
+    this.toggleActionButtons(!isClosed);
+  }
+
+  // Update month display to show closed status
+  updateMonthDisplayWithClosedStatus() {
+    const currentMonthEl = document.getElementById("currentMonth");
+    const currentMonthBadge = document.getElementById("currentMonthBadge");
+
+    if (currentMonthEl) {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+      ];
+
+      const month = monthNames[this.currentDate.getMonth()];
+      const year = this.currentDate.getFullYear();
+      const isClosed = this.currentReport && this.currentReport.isClosed;
+      
+      currentMonthEl.textContent = `${month} ${year}${isClosed ? " 🔒" : ""}`;
+    }
+
+    if (currentMonthBadge) {
+      const now = new Date();
+      const isCurrentMonth =
+        this.currentDate.getMonth() === now.getMonth() &&
+        this.currentDate.getFullYear() === now.getFullYear();
+      
+      const isClosed = this.currentReport && this.currentReport.isClosed;
+      
+      let badgeText, badgeClass;
+      
+      if (isClosed) {
+        badgeText = "Closed";
+        badgeClass = "badge bg-danger";
+      } else if (isCurrentMonth) {
+        badgeText = "Current Month";
+        badgeClass = "badge bg-info";
+      } else {
+        badgeText = "Historical";
+        badgeClass = "badge bg-secondary";
+      }
+
+      currentMonthBadge.textContent = badgeText;
+      currentMonthBadge.className = badgeClass;
+    }
+  }
+
+  // Toggle action buttons (add/edit/delete) based on closed status
+  toggleActionButtons(enabled) {
+    // Disable/enable add buttons
+    const addIncomeBtn = document.getElementById("addIncomeBtn");
+    const addExpenseBtn = document.getElementById("addExpenseBtn");
+    const addInvestorBtn = document.getElementById("addInvestorBtn");
+
+    if (addIncomeBtn) {
+      addIncomeBtn.disabled = !enabled;
+      addIncomeBtn.style.opacity = enabled ? "1" : "0.5";
+      addIncomeBtn.title = enabled ? "Add Income Item" : "Cannot add items - month is closed";
+    }
+
+    if (addExpenseBtn) {
+      addExpenseBtn.disabled = !enabled;
+      addExpenseBtn.style.opacity = enabled ? "1" : "0.5";
+      addExpenseBtn.title = enabled ? "Add Expense Item" : "Cannot add items - month is closed";
+    }
+
+    if (addInvestorBtn) {
+      addInvestorBtn.disabled = !enabled;
+      addInvestorBtn.style.opacity = enabled ? "1" : "0.5";
+      addInvestorBtn.title = enabled ? "Add Investor" : "Cannot add investors - month is closed";
+    }
+
+    // Update existing action buttons in the tables
+    const editButtons = document.querySelectorAll('[id^="editIncomeBtn-"], [id^="editExpenseBtn-"]');
+    const deleteButtons = document.querySelectorAll('button[onclick*="toggleDeleteConfirm"], button[onclick*="confirmDeleteItem"]');
+
+    editButtons.forEach(btn => {
+      btn.disabled = !enabled;
+      btn.style.opacity = enabled ? "1" : "0.5";
+      btn.title = enabled ? "Edit" : "Cannot edit - month is closed";
+    });
+
+    deleteButtons.forEach(btn => {
+      btn.disabled = !enabled;
+      btn.style.opacity = enabled ? "1" : "0.5";
+      btn.title = enabled ? "Delete" : "Cannot delete - month is closed";
+    });
+  }
+
   // Public method to refresh the component
   refresh() {
     if (this.selectedProperty) {
@@ -1626,7 +2105,7 @@ class FinancialReportsComponent {
       const elementsToHide = [
         '.btn', '.modal', '.modal-backdrop', 
         '#prevMonth', '#nextMonth', '#addIncomeBtn', '#addExpenseBtn', '#addInvestorBtn',
-        '.edit-icon', '.loading-spinner', '[onclick]'
+        '.edit-icon', '.loading-spinner', '[onclick]', '.actions-column', '.month-navigation-section'
       ];
       
       const hiddenElements = [];
@@ -1789,7 +2268,7 @@ class FinancialReportsComponent {
       const elementsToHide = [
         '.btn', '.modal', '.modal-backdrop', 
         '#prevMonth', '#nextMonth', '#addIncomeBtn', '#addExpenseBtn', '#addInvestorBtn',
-        '.edit-icon', '.loading-spinner', '[onclick]'
+        '.edit-icon', '.loading-spinner', '[onclick]', '.actions-column', '.month-navigation-section'
       ];
       
       const hiddenElements = [];
@@ -2043,6 +2522,163 @@ class FinancialReportsComponent {
     return croppedCanvas;
   }
 
+  // Setup file upload handling
+  setupFileUploadHandling() {
+    const fileInput = document.getElementById('billEvidenceFiles');
+    const previewContainer = document.getElementById('billEvidencePreview');
+    
+    if (fileInput && previewContainer) {
+      fileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        // Validate file count
+        if (files.length > 10) {
+          this.showError('Maximum 10 files allowed');
+          e.target.value = '';
+          return;
+        }
+        
+        // Validate file sizes and types
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+        
+        for (const file of files) {
+          if (file.size > maxSize) {
+            this.showError(`File "${file.name}" is too large. Maximum size is 10MB.`);
+            e.target.value = '';
+            return;
+          }
+          
+          if (!allowedTypes.includes(file.type)) {
+            this.showError(`File "${file.name}" is not supported. Only images and PDFs are allowed.`);
+            e.target.value = '';
+            return;
+          }
+        }
+        
+        // Upload files
+        try {
+          await this.uploadBillEvidenceFiles(files);
+          this.displayFilePreview(files);
+        } catch (error) {
+          this.showError(`Failed to upload files: ${error.message}`);
+          e.target.value = '';
+        }
+      });
+    }
+  }
+
+  // Upload bill evidence files to backend
+  async uploadBillEvidenceFiles(files) {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+    
+    try {
+      const response = await API.post('/api/upload/bill-evidence', formData, {
+        'Content-Type': 'multipart/form-data'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Store uploaded file URLs for later use
+        this.uploadedBillEvidence = result.files.map(file => file.url);
+        console.log('Bill evidence uploaded successfully:', this.uploadedBillEvidence);
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading bill evidence:', error);
+      throw error;
+    }
+  }
+
+  // Display file preview for newly uploaded files
+  displayFilePreview(files) {
+    const previewContainer = document.getElementById('billEvidencePreview');
+    if (!previewContainer) return;
+    
+    previewContainer.innerHTML = '';
+    
+    if (files.length > 0) {
+      const previewHtml = `
+        <div class="alert alert-success">
+          <i class="bi bi-check-circle"></i> ${files.length} file(s) uploaded successfully:
+          <ul class="mb-0 mt-1">
+            ${files.map(file => `<li class="small">${escapeHtml(file.name)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+      previewContainer.innerHTML = previewHtml;
+    }
+  }
+
+  // Display existing bill evidence for editing
+  displayExistingBillEvidence(billEvidence) {
+    const existingContainer = document.getElementById('existingBillEvidence');
+    if (!existingContainer || !billEvidence || billEvidence.length === 0) return;
+    
+    const evidenceHtml = `
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> Existing evidence (${billEvidence.length} file(s)):
+        <div class="mt-2">
+          ${billEvidence.map((url, index) => {
+            const fileName = this.extractFileNameFromUrl(url);
+            const isImage = this.isImageFile(url);
+            const normalizedUrl = this.normalizeImageUrl(url);
+            
+            return `
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <small class="text-muted">${index + 1}.</small>
+                ${isImage ? `<img src="${normalizedUrl}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">` : `<i class="bi bi-file-earmark-pdf text-danger"></i>`}
+                <a href="${normalizedUrl}" target="_blank" class="small text-decoration-none">${fileName}</a>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <small class="text-muted">Upload new files to replace existing evidence, or leave empty to keep current files.</small>
+      </div>
+    `;
+    existingContainer.innerHTML = evidenceHtml;
+  }
+
+  // Extract file name from URL
+  extractFileNameFromUrl(url) {
+    if (!url) return 'Unknown file';
+    
+    try {
+      // Extract filename from Cloudinary URL or path
+      const parts = url.split('/');
+      const lastPart = parts[parts.length - 1];
+      
+      // Remove query parameters if present
+      const cleanName = lastPart.split('?')[0];
+      
+      // If it's a Cloudinary public_id with extension
+      if (cleanName.includes('.')) {
+        return cleanName;
+      }
+      
+      // If it's just a public_id, add generic extension
+      return `${cleanName}.file`;
+    } catch (error) {
+      return 'File';
+    }
+  }
+
+  // Check if file is an image based on URL
+  isImageFile(url) {
+    if (!url) return false;
+    
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    const extension = url.toLowerCase().split('.').pop()?.split('?')[0];
+    
+    return imageExtensions.includes(extension);
+  }
+
   // Normalize image URL to ensure it uses the proxy endpoint
   normalizeImageUrl(url) {
     if (!url) return url;
@@ -2087,6 +2723,108 @@ class FinancialReportsComponent {
       return `${API_CONFIG.BASE_URL}${proxyPath}`;
     }
     return proxyPath; // localhost case
+  }
+
+  // Show bill evidence in a modal
+  showBillEvidence(type, index) {
+    // Validate inputs
+    if (!this.currentReport) {
+      this.showError('No financial report loaded');
+      return;
+    }
+
+    const propertyName = type === 'expense' ? 'expenses' : type === 'income' ? 'income' : type;
+    
+    if (!this.currentReport[propertyName] || index >= this.currentReport[propertyName].length) {
+      this.showError('Item not found');
+      return;
+    }
+
+    const item = this.currentReport[propertyName][index];
+    if (!item.billEvidence || item.billEvidence.length === 0) {
+      this.showError('No bill evidence available');
+      return;
+    }
+
+    // Create evidence modal HTML
+    const modalHtml = this.createBillEvidenceModalHtml(item, type);
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+    
+    // Show modal
+    const modalElement = document.getElementById("billEvidenceModal");
+    const modal = new bootstrap.Modal(modalElement, {
+      backdrop: true,
+      keyboard: true,
+    });
+
+    // Clean up modal when hidden
+    modalElement.addEventListener("hidden.bs.modal", () => {
+      modalElement.remove();
+    });
+
+    modal.show();
+  }
+
+  // Create bill evidence modal HTML
+  createBillEvidenceModalHtml(item, type) {
+    const isIncome = type === "income";
+    const title = `${isIncome ? "Income" : "Expense"} Evidence - ${item.item}`;
+    
+    const evidenceHtml = item.billEvidence.map((url, index) => {
+      const fileName = this.extractFileNameFromUrl(url);
+      const isImage = this.isImageFile(url);
+      const normalizedUrl = this.normalizeImageUrl(url);
+      
+      return `
+        <div class="mb-3 p-3 border rounded">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold">File ${index + 1}: ${fileName}</span>
+            <a href="${normalizedUrl}" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-download"></i> Open
+            </a>
+          </div>
+          ${isImage ? 
+            `<img src="${normalizedUrl}" class="img-fluid rounded" style="max-height: 400px; width: 100%; object-fit: contain;">` : 
+            `<div class="text-center p-4 bg-light rounded">
+              <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 3rem;"></i>
+              <p class="mt-2 mb-0">PDF File</p>
+              <small class="text-muted">Click "Open" to view</small>
+            </div>`
+          }
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="modal fade" id="billEvidenceModal" tabindex="-1" aria-labelledby="billEvidenceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="billEvidenceModalLabel">
+                <i class="bi bi-paperclip me-2"></i>${title}
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <strong>Item:</strong> ${escapeHtml(item.item)}<br>
+                <strong>Amount:</strong> $${item.amount.toFixed(2)}<br>
+                ${item.date ? `<strong>Date:</strong> ${new Date(item.date).toLocaleDateString()}<br>` : ''}
+                ${item.details ? `<strong>Details:</strong> ${escapeHtml(item.details)}<br>` : ''}
+              </div>
+              <hr>
+              <h6>Bill Evidence (${item.billEvidence.length} files):</h6>
+              ${evidenceHtml}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }
 

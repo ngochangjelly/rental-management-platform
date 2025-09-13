@@ -136,46 +136,75 @@ class InvestorManagementComponent {
         investor.properties.reduce((sum, prop) => sum + prop.percentage, 0) : 0;
 
       html += `
-        <div class="col-md-6 col-lg-4 mb-4">
+        <div class="col-md-6 col-lg-4 mb-3">
           <div class="card investor-card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <div>
-                <h6 class="mb-0">${escapeHtml(investor.name)}</h6>
-                <small class="text-muted">ID: ${investor.investorId}</small>
+              <div class="d-flex align-items-center">
+                <div class="me-3">
+                  ${investor.avatar ? `
+                    <img src="${this.normalizeImageUrl(investor.avatar)}" alt="Avatar" 
+                         class="rounded-circle border" 
+                         style="width: 40px; height: 40px; object-fit: cover;" 
+                         onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 40 40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%23667eea\\'/><text x=\\'20\\' y=\\'25\\' text-anchor=\\'middle\\' fill=\\'white\\' font-size=\\'16\\' font-family=\\'Arial\\'>${investor.name.charAt(0).toUpperCase()}</text></svg>';" />
+                  ` : `
+                    <div class="rounded-circle border d-flex align-items-center justify-content-center" 
+                         style="width: 40px; height: 40px; background-color: #667eea; color: white; font-weight: bold; font-size: 16px;">
+                      ${investor.name.charAt(0).toUpperCase()}
+                    </div>
+                  `}
+                </div>
+                <div>
+                  <h6 class="mb-0">${escapeHtml(investor.name)}</h6>
+                  <small class="text-muted">ID: ${investor.investorId}</small>
+                </div>
               </div>
-              <div class="dropdown">
-                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                  <i class="bi bi-three-dots"></i>
+              <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-primary" onclick="window.investorManager.editInvestor('${investor.investorId}')" title="Edit Investor">
+                  <i class="bi bi-pencil"></i>
                 </button>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item" href="#" onclick="window.investorManager.editInvestor('${investor.investorId}')">
-                    <i class="bi bi-pencil me-2"></i>Edit
-                  </a></li>
-                  <li><a class="dropdown-item text-danger" href="#" onclick="window.investorManager.deleteInvestor('${investor.investorId}')">
-                    <i class="bi bi-trash me-2"></i>Delete
-                  </a></li>
-                </ul>
+                <button class="btn btn-sm btn-outline-danger" onclick="window.investorManager.deleteInvestor('${investor.investorId}')" title="Delete Investor">
+                  <i class="bi bi-trash"></i>
+                </button>
               </div>
             </div>
-            <div class="card-body">
-              ${investor.username ? `<p class="mb-2"><strong>Username:</strong> ${escapeHtml(investor.username)}</p>` : ''}
-              ${investor.email ? `<p class="mb-2"><strong>Email:</strong> ${escapeHtml(investor.email)}</p>` : ''}
-              ${investor.phone ? `<p class="mb-2"><strong>Phone:</strong> ${escapeHtml(investor.phone)}</p>` : ''}
+            <div class="card-body py-2">
+              ${investor.username ? `<p class="mb-1 small"><strong>Username:</strong> ${escapeHtml(investor.username)}</p>` : ''}
+              ${investor.email ? `<p class="mb-1 small"><strong>Email:</strong> ${escapeHtml(investor.email)}</p>` : ''}
+              ${investor.phone ? `<p class="mb-1 small"><strong>Phone:</strong> ${escapeHtml(investor.phone)}</p>` : ''}
+              ${investor.fin ? `<p class="mb-1 small"><strong>FIN:</strong> ${escapeHtml(investor.fin)}</p>` : ''}
+              ${investor.passport ? `<p class="mb-1 small"><strong>Passport:</strong> ${escapeHtml(investor.passport)}</p>` : ''}
               
-              <hr>
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <span><strong>Properties:</strong></span>
+              <hr class="my-2">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small"><strong>Properties:</strong></span>
                 <span class="badge bg-primary">${totalProperties}</span>
               </div>
               
               ${totalProperties > 0 ? `
                 <div class="properties-list">
-                  ${investor.properties.map(property => `
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                      <span class="property-badge badge bg-light text-dark">${property.propertyId}</span>
-                      <span class="percentage-display">${property.percentage}%</span>
-                    </div>
-                  `).join('')}
+                  ${investor.properties.map(property => {
+                    // Look up full property details
+                    const fullProperty = this.properties.find(p => 
+                      p.propertyId === property.propertyId || 
+                      String(p.propertyId) === String(property.propertyId)
+                    );
+                    
+                    const displayText = fullProperty ? 
+                      `${fullProperty.address || 'Address N/A'}${fullProperty.unit ? `, ${fullProperty.unit}` : ''}` :
+                      property.propertyId;
+                    
+                    return `
+                      <div class="mb-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div class="flex-grow-1 me-2">
+                            <div class="small text-dark fw-medium">${displayText}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">ID: ${property.propertyId}</div>
+                          </div>
+                          <span class="badge bg-primary">${property.percentage}%</span>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
                 </div>
                 <div class="mt-2 pt-2 border-top">
                   <small class="text-muted">Total Investment: <strong class="percentage-display">${totalPercentage}%</strong></small>
@@ -185,16 +214,6 @@ class InvestorManagementComponent {
                   <small>No property investments</small>
                 </div>
               `}
-            </div>
-            <div class="card-footer bg-transparent">
-              <div class="btn-group w-100" role="group">
-                <button class="btn btn-sm btn-outline-primary" onclick="window.investorManager.addPropertyToInvestor('${investor.investorId}')">
-                  <i class="bi bi-plus me-1"></i>Add Property
-                </button>
-                <button class="btn btn-sm btn-outline-info" onclick="window.investorManager.viewInvestorDetails('${investor.investorId}')">
-                  <i class="bi bi-eye me-1"></i>Details
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -251,6 +270,21 @@ class InvestorManagementComponent {
                     <div class="mb-3">
                       <label class="form-label">Phone</label>
                       <input type="tel" class="form-control" name="phone">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">FIN Number</label>
+                      <input type="text" class="form-control" name="fin" placeholder="e.g. S1234567A">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Passport Number</label>
+                      <input type="text" class="form-control" name="passport" placeholder="e.g. E1234567">
                     </div>
                   </div>
                 </div>
@@ -324,12 +358,13 @@ class InvestorManagementComponent {
       this.renderPropertiesInModal([]);
     }
 
-    // Bind form events
-    this.bindModalEvents();
-
     // Set up clipboard paste functionality after modal is shown
     document.getElementById('investorModal').addEventListener('shown.bs.modal', () => {
       this.setupClipboardPasteForAvatar();
+      // Update avatar preview after modal is fully shown
+      this.updateAvatarPreview();
+      // Bind modal events after modal is fully shown
+      this.bindModalEvents();
     }, { once: true });
 
     // Clean up on close
@@ -351,6 +386,8 @@ class InvestorManagementComponent {
     form.querySelector('[name="name"]').value = investor.name || '';
     form.querySelector('[name="email"]').value = investor.email || '';
     form.querySelector('[name="phone"]').value = investor.phone || '';
+    form.querySelector('[name="fin"]').value = investor.fin || '';
+    form.querySelector('[name="passport"]').value = investor.passport || '';
 
     // Handle avatar
     this.avatar = investor.avatar || '';
@@ -438,11 +475,36 @@ class InvestorManagementComponent {
   }
 
   bindModalEvents() {
-    // Add property button
+    // Add property button - direct binding
     const addPropertyBtn = document.getElementById('addPropertyBtn');
+    console.log('bindModalEvents: addPropertyBtn found:', !!addPropertyBtn);
     if (addPropertyBtn) {
-      addPropertyBtn.addEventListener('click', () => {
+      console.log('Adding click event listener to addPropertyBtn');
+      addPropertyBtn.addEventListener('click', (e) => {
+        console.log('Add Property button clicked!');
+        e.preventDefault();
+        e.stopPropagation();
         this.addPropertyRowToModal();
+      });
+      
+      // Test button properties
+      console.log('Button disabled:', addPropertyBtn.disabled);
+      console.log('Button style.display:', addPropertyBtn.style.display);
+      console.log('Button classList:', Array.from(addPropertyBtn.classList));
+    } else {
+      console.error('addPropertyBtn not found in DOM');
+    }
+
+    // Add event delegation as fallback for Add Property button
+    const modal = document.getElementById('investorModal');
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target.id === 'addPropertyBtn' || e.target.closest('#addPropertyBtn')) {
+          console.log('Add Property button clicked via delegation!');
+          e.preventDefault();
+          e.stopPropagation();
+          this.addPropertyRowToModal();
+        }
       });
     }
 
@@ -457,17 +519,23 @@ class InvestorManagementComponent {
   }
 
   addPropertyRowToModal() {
+    console.log('addPropertyRowToModal called!');
     const propertiesList = document.getElementById('propertiesList');
+    console.log('propertiesList found:', !!propertiesList);
     if (!propertiesList) return;
 
     // Check if there are any properties available to add
+    console.log('Available properties count:', this.properties.length);
     if (this.properties.length === 0) {
+      console.warn('No properties available to add');
       this.showError('No properties available to add. Please add properties to the system first.');
       return;
     }
 
     const propertyInvestments = propertiesList.querySelector('.property-investments');
+    console.log('propertyInvestments found:', !!propertyInvestments);
     if (!propertyInvestments) {
+      console.log('No propertyInvestments container found, rendering new structure');
       this.renderPropertiesInModal([]);
       return;
     }
@@ -532,6 +600,8 @@ class InvestorManagementComponent {
         name: formData.get('name'),
         email: formData.get('email'),
         phone: formData.get('phone'),
+        fin: formData.get('fin'),
+        passport: formData.get('passport'),
         avatar: this.avatar || null,
         properties: []
       };
@@ -832,20 +902,20 @@ class InvestorManagementComponent {
 
   // Normalize image URL to ensure it uses the proxy endpoint
   normalizeImageUrl(url) {
+    console.log('🔗 normalizeImageUrl called with:', url);
+    
     if (!url) return url;
     
     // If it's already a full URL (http/https), return as-is
     if (url.startsWith('http://') || url.startsWith('https://')) {
+      console.log('🔗 URL is already full URL, returning as-is:', url);
       return url;
     }
     
-    // If it's already a proxy URL, convert to full URL if needed
+    // If it's already a proxy URL, return as-is - let the proxy handle it
     if (url.startsWith('/api/upload/image-proxy/')) {
-      // In production, use the full backend URL
-      if (API_CONFIG.BASE_URL) {
-        return `${API_CONFIG.BASE_URL}${url}`;
-      }
-      return url; // localhost case
+      console.log('🔗 Keeping proxy URL as relative path:', url);
+      return url;
     }
     
     // Build the proxy URL
@@ -869,11 +939,9 @@ class InvestorManagementComponent {
       proxyPath = `/api/upload/image-proxy/${url}`;
     }
     
-    // In production, use the full backend URL
-    if (API_CONFIG.BASE_URL) {
-      return `${API_CONFIG.BASE_URL}${proxyPath}`;
-    }
-    return proxyPath; // localhost case
+    // Return relative path - webpack dev server proxy will handle routing to backend
+    console.log('🔗 Final normalized URL (relative):', proxyPath);
+    return proxyPath;
   }
 
   // Clipboard paste functionality
@@ -922,8 +990,8 @@ class InvestorManagementComponent {
           const file = item.getAsFile();
           
           if (file) {
-            console.log('📋 Image pasted from clipboard:', file.name, file.type);
-            await this.uploadClipboardImage(file);
+            console.log('📋 Image pasted from clipboard to investorAvatarUrl:', file.name, file.type);
+            await this.uploadClipboardImage(file, 'investorAvatarUrl');
             break; // Handle only the first image found
           }
         }
@@ -938,17 +1006,17 @@ class InvestorManagementComponent {
         } else {
           console.log('No image found in clipboard');
           // Show a brief message to user
-          this.showPasteMessage('No image found in clipboard', 'warning');
+          this.showPasteMessage('investorAvatarUrl', 'No image found in clipboard', 'warning');
         }
       }
     } catch (error) {
       console.error('Error handling clipboard paste:', error);
-      this.showPasteMessage('Error pasting from clipboard', 'error');
+      this.showPasteMessage('investorAvatarUrl', 'Error pasting from clipboard', 'error');
     }
   }
 
-  async uploadClipboardImage(file) {
-    const field = document.getElementById('investorAvatarUrl');
+  async uploadClipboardImage(file, fieldId) {
+    const field = document.getElementById(fieldId);
     const originalPlaceholder = field.placeholder;
     
     try {
@@ -960,7 +1028,7 @@ class InvestorManagementComponent {
       const result = await this.uploadSingleImage(file);
       
       if (result.success) {
-        // Ensure URL is properly formatted
+        // Ensure URL is properly formatted (exact same logic as tenant management)
         let imageUrl = result.url;
         if (imageUrl && !imageUrl.startsWith('http')) {
           if (imageUrl.startsWith('/')) {
@@ -973,17 +1041,19 @@ class InvestorManagementComponent {
         // Set the URL in the input field
         field.value = imageUrl;
         
-        // Auto-add the avatar
-        this.addAvatarFromUrl();
+        // Auto-add the avatar (exact same pattern as tenant management)
+        if (fieldId === 'investorAvatarUrl') {
+          this.addAvatarFromUrl();
+        }
 
-        this.showPasteMessage('Image uploaded successfully!', 'success');
-        console.log('✅ Clipboard image uploaded successfully:', imageUrl);
+        this.showPasteMessage(fieldId, 'Image uploaded successfully!', 'success');
+        console.log(`✅ Clipboard image uploaded successfully to ${fieldId}:`, imageUrl);
       } else {
-        this.showPasteMessage('Failed to upload image: ' + result.error, 'error');
+        this.showPasteMessage(fieldId, 'Failed to upload image: ' + result.error, 'error');
       }
     } catch (error) {
       console.error('Error uploading clipboard image:', error);
-      this.showPasteMessage('Error uploading image', 'error');
+      this.showPasteMessage(fieldId, 'Error uploading image', 'error');
     } finally {
       // Restore field state
       field.placeholder = originalPlaceholder;
@@ -999,10 +1069,10 @@ class InvestorManagementComponent {
            url.includes('drive.google.com');
   }
 
-  showPasteMessage(message, type) {
+  showPasteMessage(fieldId, message, type) {
     // Create a temporary message element
-    const field = document.getElementById('investorAvatarUrl');
-    const messageId = 'paste-message-avatar';
+    const field = document.getElementById(fieldId);
+    const messageId = `paste-message-${fieldId}`;
     
     // Remove any existing message
     const existingMessage = document.getElementById(messageId);

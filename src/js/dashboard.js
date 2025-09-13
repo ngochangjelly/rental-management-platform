@@ -2,6 +2,7 @@
 import './config.js';
 import './lib/html2canvas-loader.js'; // Load html2canvas locally
 import './lib/jspdf-loader.js'; // Load jsPDF for PDF export
+import './services/storage-service.js'; // Storage service for contract templates
 import './components/toast/toast.js';
 import './components/contract-analysis.js';
 import './components/property-management.js';

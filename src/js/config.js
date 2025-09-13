@@ -51,6 +51,8 @@ const API_CONFIG = {
     FINANCIAL_REPORT: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}`,
     FINANCIAL_REPORT_INCOME: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/income`,
     FINANCIAL_REPORT_EXPENSES: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/expenses`,
+    FINANCIAL_REPORT_CLOSE: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/close`,
+    FINANCIAL_REPORT_REOPEN: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/reopen`,
 
     // Health Check
     HEALTH: "/health",

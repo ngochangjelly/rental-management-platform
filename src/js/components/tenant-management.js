@@ -435,7 +435,11 @@ class TenantManagementComponent {
                     passportPics: [...(tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []))], // Copy array
                     visaPics: [...(tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []))], // Copy array
                     avatar: tenant.avatar || '',
-                    signature: tenant.signature || ''
+                    signature: tenant.signature || '',
+                    // New financial fields
+                    rent: tenant.rent || null,
+                    deposit: tenant.deposit || null,
+                    depositReceiver: tenant.depositReceiver || ''
                 };
                 
                 // Populate form with existing data
@@ -443,6 +447,10 @@ class TenantManagementComponent {
                 document.getElementById('tenantFin').value = tenant.fin || '';
                 document.getElementById('tenantPassport').value = tenant.passportNumber || '';
                 document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
+                
+                // Populate financial fields (except depositReceiver which is populated after investors are loaded)
+                document.getElementById('tenantRent').value = tenant.rent || '';
+                document.getElementById('tenantDeposit').value = tenant.deposit || '';
                 
                 // Set registration status (support backward compatibility)
                 const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
@@ -483,9 +491,6 @@ class TenantManagementComponent {
                 });
                 this.selectedProperties = this.selectedPropertiesDetails.map(p => p.propertyId);
                 
-                // Make FIN readonly in edit mode
-                document.getElementById('tenantFin').readOnly = true;
-                document.getElementById('tenantFin').classList.add('bg-light');
             } else {
                 // Reset for add mode
                 this.selectedProperties = [];
@@ -502,14 +507,19 @@ class TenantManagementComponent {
                 // Reset registration status to unregistered
                 this.setRegistrationStatus('unregistered');
                 
-                // Make FIN editable in add mode
-                document.getElementById('tenantFin').readOnly = false;
-                document.getElementById('tenantFin').classList.remove('bg-light');
             }
         }
         
         // Load available properties and populate select
         await this.loadPropertiesForSelect();
+        // Load available investors for deposit receiver dropdown
+        await this.loadInvestorsForSelect();
+        
+        // After investors are loaded, populate the depositReceiver field if in edit mode
+        if (isEdit && tenant && tenant.depositReceiver) {
+            document.getElementById('tenantDepositReceiver').value = tenant.depositReceiver;
+        }
+        
         this.updateSelectedPropertiesList();
         
         // Add event listeners for image URL inputs
@@ -610,6 +620,48 @@ class TenantManagementComponent {
                 checkboxList.innerHTML = '<li class="px-3 py-2 text-danger">Error loading properties</li>';
             }
         }
+    }
+
+    async loadInvestorsForSelect() {
+        try {
+            const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                this.populateInvestorDropdown(result.data);
+                console.log('✅ Investors loaded for dropdown:', result.data.length, 'investors');
+            } else {
+                console.error('Failed to load investors:', result.error || 'Unknown error');
+                this.populateInvestorDropdown([]);
+            }
+        } catch (error) {
+            console.error('Error loading investors:', error);
+            this.populateInvestorDropdown([]);
+        }
+    }
+
+    populateInvestorDropdown(investors) {
+        const dropdown = document.getElementById('tenantDepositReceiver');
+        if (!dropdown) return;
+        
+        // Clear existing options except the first one
+        dropdown.innerHTML = '<option value="">Select investor who receives deposit...</option>';
+        
+        if (investors.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No investors available';
+            option.disabled = true;
+            dropdown.appendChild(option);
+            return;
+        }
+        
+        investors.forEach(investor => {
+            const option = document.createElement('option');
+            option.value = investor.investorId;
+            option.textContent = `${investor.investorId} - ${investor.name}`;
+            dropdown.appendChild(option);
+        });
     }
 
     populatePropertyCheckboxes(result) {
@@ -885,7 +937,11 @@ class TenantManagementComponent {
                 passportPics: this.passportPics,
                 visaPics: this.visaPics,
                 avatar: this.avatar || null,
-                signature: this.signature || null // Send null instead of empty string
+                signature: this.signature || null, // Send null instead of empty string
+                // New financial fields
+                rent: formData.get('rent') ? parseFloat(formData.get('rent')) : null,
+                deposit: formData.get('deposit') ? parseFloat(formData.get('deposit')) : null,
+                depositReceiver: formData.get('depositReceiver').trim() || null
             };
 
             // Debug: log the properties being sent
@@ -1786,7 +1842,8 @@ class TenantManagementComponent {
         if (!form) return;
 
         const fieldsToWatch = [
-            'tenantName', 'tenantFin', 'tenantPassport', 'tenantPhoneNumber'
+            'tenantName', 'tenantFin', 'tenantPassport', 'tenantPhoneNumber',
+            'tenantRent', 'tenantDeposit', 'tenantDepositReceiver'
         ];
 
         fieldsToWatch.forEach(fieldId => {
@@ -1835,13 +1892,17 @@ class TenantManagementComponent {
             passportPics: this.passportPics || [],
             visaPics: this.visaPics || [],
             avatar: this.avatar || '',
-            signature: this.signature || ''
+            signature: this.signature || '',
+            // New financial fields
+            rent: document.getElementById('tenantRent')?.value ? parseFloat(document.getElementById('tenantRent').value) : null,
+            deposit: document.getElementById('tenantDeposit')?.value ? parseFloat(document.getElementById('tenantDeposit').value) : null,
+            depositReceiver: (document.getElementById('tenantDepositReceiver')?.value || '').trim()
         };
     }
 
     hasDataChanged(original, current) {
         // Compare basic fields
-        const fieldsToCompare = ['name', 'fin', 'passportNumber', 'phoneNumber', 'registrationStatus', 'avatar', 'signature'];
+        const fieldsToCompare = ['name', 'fin', 'passportNumber', 'phoneNumber', 'registrationStatus', 'avatar', 'signature', 'rent', 'deposit', 'depositReceiver'];
         
         for (const field of fieldsToCompare) {
             const originalValue = (original[field] || '').toString().trim();

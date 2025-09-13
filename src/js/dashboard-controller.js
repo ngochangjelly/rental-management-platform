@@ -152,6 +152,10 @@ class DashboardController {
             this.components.contractManagement.populateTenantsDropdown();
             this.components.contractManagement.populatePropertiesDropdown();
             this.components.contractManagement.setupContractInputs();
+            
+            // Initialize template section
+            console.log('🔧 Initializing contract templates...');
+            await this.components.contractManagement.initializeTemplateSection();
             this.components.contractManagement.updateContractPreview();
           }, 100);
         }

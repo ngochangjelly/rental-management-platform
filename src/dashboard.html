@@ -1076,8 +1076,17 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#" data-section="investors">
-                <i class="bi bi-person-badge me-2"></i>Investors
+              <a
+                class="nav-link d-flex justify-content-between align-items-center"
+                href="#"
+                data-section="investors"
+              >
+                <span> <i class="bi bi-person-badge me-2"></i>Investors </span>
+                <span
+                  class="badge bg-light text-dark rounded-pill"
+                  id="investorsBadge"
+                  >0</span
+                >
               </a>
             </li>
           </ul>
@@ -1572,6 +1581,28 @@
                       <h5 class="mb-0">Contract Details</h5>
                     </div>
                     <div class="card-body">
+                      <!-- Template Section -->
+                      <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                          <h6 class="mb-0">
+                            <i class="bi bi-bookmark me-1"></i>Contract Templates
+                          </h6>
+                          <div class="btn-group">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="contractManager.resetForm()">
+                              <i class="bi bi-arrow-clockwise me-1"></i>Reset Form
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" id="saveTemplateBtn" onclick="contractManager.showSaveTemplateModal()">
+                              <i class="bi bi-save me-1"></i>Save Template
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <!-- Saved Templates List -->
+                        <div id="templatesList" class="mb-3">
+                          <!-- Templates will be populated here -->
+                        </div>
+                      </div>
+
                       <!-- Export PDF Button -->
                       <div class="mb-4">
                         <button class="btn btn-success w-100" onclick="contractManager.exportToPDF()">
@@ -1602,13 +1633,26 @@
                             </div>
                             <div class="col-md-6 mb-3">
                               <label for="newTenantAPassport" class="form-label">
-                                <i class="bi bi-card-text me-1"></i>Passport Number <span class="text-danger">*</span>
+                                <i class="bi bi-card-text me-1"></i>Passport Number
                               </label>
                               <input
                                 type="text"
                                 class="form-control"
                                 id="newTenantAPassport"
                                 placeholder="Enter passport number"
+                              />
+                            </div>
+                          </div>
+                          <div class="row">
+                            <div class="col-md-6 mb-3">
+                              <label for="newTenantAFin" class="form-label">
+                                <i class="bi bi-credit-card me-1"></i>FIN Number
+                              </label>
+                              <input
+                                type="text"
+                                class="form-control"
+                                id="newTenantAFin"
+                                placeholder="Enter FIN number"
                               />
                             </div>
                           </div>
@@ -1652,13 +1696,26 @@
                             </div>
                             <div class="col-md-6 mb-3">
                               <label for="newTenantBPassport" class="form-label">
-                                <i class="bi bi-card-text me-1"></i>Passport Number <span class="text-danger">*</span>
+                                <i class="bi bi-card-text me-1"></i>Passport Number
                               </label>
                               <input
                                 type="text"
                                 class="form-control"
                                 id="newTenantBPassport"
                                 placeholder="Enter passport number"
+                              />
+                            </div>
+                          </div>
+                          <div class="row">
+                            <div class="col-md-6 mb-3">
+                              <label for="newTenantBFin" class="form-label">
+                                <i class="bi bi-credit-card me-1"></i>FIN Number
+                              </label>
+                              <input
+                                type="text"
+                                class="form-control"
+                                id="newTenantBFin"
+                                placeholder="Enter FIN number"
                               />
                             </div>
                           </div>
@@ -1671,6 +1728,25 @@
                         <select class="form-select" id="contractAddress">
                           <option value="">Select property address</option>
                         </select>
+                        
+                        <!-- New Property Fields (initially hidden) -->
+                        <div id="newPropertyFields" class="mt-3" style="display: none;">
+                          <div class="mb-3">
+                            <label for="newPropertyAddress" class="form-label">
+                              <i class="bi bi-geo-alt me-1"></i>Property Address <span class="text-danger">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              class="form-control"
+                              id="newPropertyAddress"
+                              placeholder="Enter property address"
+                            />
+                          </div>
+                          <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <small>This property will be used for this contract only. Complete property information can be added later in Property Management.</small>
+                          </div>
+                        </div>
                       </div>
 
                       <div class="mb-3">
@@ -1713,6 +1789,12 @@
                       <div class="mb-3">
                         <label for="contractMonthlyRental" class="form-label">Monthly Rental (S$)</label>
                         <input type="number" class="form-control" id="contractMonthlyRental" placeholder="1350">
+                        <div class="form-check mt-2">
+                          <input class="form-check-input" type="checkbox" id="contractFullPaymentReceived">
+                          <label class="form-check-label" for="contractFullPaymentReceived">
+                            <small class="text-muted">Tenant A has fully received rent for the entire tenancy period</small>
+                          </label>
+                        </div>
                       </div>
 
                       <div class="mb-3">
@@ -1873,7 +1955,7 @@
                   </div>
 
                   <!-- Month Navigation -->
-                  <div class="card mb-4">
+                  <div class="card mb-4 month-navigation-section">
                     <div class="card-body">
                       <div class="row align-items-center">
                         <div class="col-md-6">
@@ -2042,6 +2124,32 @@
                                 class="bi bi-clipboard"
                                 style="color: #ffffff !important"
                               ></i>
+                            </button>
+                            <button
+                              class="btn btn-sm btn-warning"
+                              id="closeMonthBtn"
+                              title="Close this month (prevents further editing)"
+                              style="
+                                background-color: #ff6b35;
+                                border-color: #ff6b35;
+                                color: #ffffff !important;
+                                display: none;
+                              "
+                            >
+                              <i class="bi bi-lock" style="color: #ffffff !important"></i>
+                            </button>
+                            <button
+                              class="btn btn-sm btn-success"
+                              id="reopenMonthBtn"
+                              title="Reopen this month (allows editing again)"
+                              style="
+                                background-color: #28a745;
+                                border-color: #28a745;
+                                color: #ffffff !important;
+                                display: none;
+                              "
+                            >
+                              <i class="bi bi-unlock" style="color: #ffffff !important"></i>
                             </button>
                           </div>
                         </div>
@@ -2320,13 +2428,40 @@
                 tenantsCount > 0 ? "inline-block" : "none";
             }
           }
+
+          // Fetch investors count
+          const investorsResponse = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+
+          if (investorsResponse.ok) {
+            const investorsResult = await investorsResponse.json();
+            let investorsCount = 0;
+            
+            // Handle different possible response structures
+            if (investorsResult.success && investorsResult.investors && Array.isArray(investorsResult.investors)) {
+              investorsCount = investorsResult.investors.length;
+            } else if (Array.isArray(investorsResult)) {
+              investorsCount = investorsResult.length;
+            } else if (investorsResult.data && Array.isArray(investorsResult.data)) {
+              investorsCount = investorsResult.data.length;
+            }
+
+            const investorsBadge = document.getElementById("investorsBadge");
+            if (investorsBadge) {
+              investorsBadge.textContent = investorsCount;
+              // Hide badge if count is 0
+              investorsBadge.style.display =
+                investorsCount > 0 ? "inline-block" : "none";
+            }
+          }
         } catch (error) {
           console.error("Error updating sidebar badges:", error);
           // Hide badges on error
           const propertiesBadge = document.getElementById("propertiesBadge");
           const tenantsBadge = document.getElementById("tenantsBadge");
+          const investorsBadge = document.getElementById("investorsBadge");
           if (propertiesBadge) propertiesBadge.style.display = "none";
           if (tenantsBadge) tenantsBadge.style.display = "none";
+          if (investorsBadge) investorsBadge.style.display = "none";
         }
       }
 
@@ -2791,6 +2926,33 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Integration Settings Section -->
+              <div class="mb-4">
+                <h6 class="text-info mb-3">
+                  <i class="bi bi-telegram me-1"></i>Integration Settings
+                </h6>
+                <div class="row">
+                  <div class="col-12 mb-3">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="telegramIntegrationEnabled"
+                        name="telegramIntegrationEnabled"
+                        value="true"
+                      />
+                      <label class="form-check-label" for="telegramIntegrationEnabled">
+                        <i class="bi bi-telegram text-primary me-1"></i>
+                        Enable Telegram Notifications
+                      </label>
+                    </div>
+                    <div class="form-text ms-4">
+                      When enabled, income and expense notifications will be sent to the configured Telegram channel for this property
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="modal-footer">
               <button
@@ -2980,52 +3142,54 @@
                   </div>
                 </div>
                 
+                <!-- Financial Information -->
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="tenantRoom" class="form-label">Room</label>
-                    <select class="form-select" id="tenantRoom" name="room">
-                      <option value="">Select room type (optional)...</option>
-                      <option value="COMMON1">Common Room 1</option>
-                      <option value="COMMON2">Common Room 2</option>
-                      <option value="COMMON_SHARE_2PAX">Common Share 2 pax</option>
-                      <option value="MASTER">Master Room</option>
-                      <option value="COMPARTMENT1">Compartment 1</option>
-                      <option value="COMPARTMENT2">Compartment 2</option>
-                      <option value="STORE">Store Room</option>
-                    </select>
-                    <div class="form-text">
-                      Optional - select which room tenant rents
+                    <label for="tenantRent" class="form-label">
+                      <i class="bi bi-currency-dollar me-1"></i>Monthly Rent
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="tenantRent"
+                        name="rent"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                      />
                     </div>
+                    <div class="form-text">Monthly rental amount in SGD</div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantDeposit" class="form-label">
+                      <i class="bi bi-shield-check me-1"></i>Deposit Amount
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="tenantDeposit"
+                        name="deposit"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div class="form-text">Security deposit amount in SGD</div>
                   </div>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="tenantMoveinDate" class="form-label"
-                      >Move-in Date</label
-                    >
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="tenantMoveinDate"
-                      name="moveinDate"
-                    />
-                    <div class="form-text">
-                      Optional - tenant's move-in date
-                    </div>
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label for="tenantMoveoutDate" class="form-label"
-                      >Move-out Date</label
-                    >
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="tenantMoveoutDate"
-                      name="moveoutDate"
-                    />
-                    <div class="form-text">
-                      Optional - leave blank if still residing
-                    </div>
+                    <label for="tenantDepositReceiver" class="form-label">
+                      <i class="bi bi-person-badge me-1"></i>Deposit Receiver
+                    </label>
+                    <select class="form-select" id="tenantDepositReceiver" name="depositReceiver">
+                      <option value="">Select investor who receives deposit...</option>
+                    </select>
+                    <div class="form-text">Investor who will receive and manage the deposit</div>
                   </div>
                 </div>
               </div>
