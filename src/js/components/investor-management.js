@@ -142,7 +142,7 @@ class InvestorManagementComponent {
               <div class="d-flex align-items-center">
                 <div class="me-3">
                   ${investor.avatar ? `
-                    <img src="${this.normalizeImageUrl(investor.avatar)}" alt="Avatar" 
+                    <img src="${this.getOptimizedAvatarUrl(investor.avatar, 'small')}" alt="Avatar" 
                          class="rounded-circle border" 
                          style="width: 40px; height: 40px; object-fit: cover;" 
                          onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 40 40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%23667eea\\'/><text x=\\'20\\' y=\\'25\\' text-anchor=\\'middle\\' fill=\\'white\\' font-size=\\'16\\' font-family=\\'Arial\\'>${investor.name.charAt(0).toUpperCase()}</text></svg>';" />
@@ -882,10 +882,10 @@ class InvestorManagementComponent {
     
     preview.innerHTML = `
       <div class="position-relative d-inline-block">
-        <img src="${this.normalizeImageUrl(this.avatar)}" alt="Avatar preview" 
+        <img src="${this.getOptimizedAvatarUrl(this.avatar, 'medium')}" alt="Avatar preview" 
              class="rounded-circle border" 
              style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
-             onclick="window.open('${this.avatar}', '_blank')" />
+             onclick="window.open('${this.normalizeImageUrl(this.avatar)}', '_blank')" />
         <button type="button" 
                 class="btn btn-danger position-absolute top-0 end-0"
                 onclick="window.investorManager.removeAvatar()"
@@ -944,6 +944,34 @@ class InvestorManagementComponent {
       return `${API_CONFIG.BASE_URL}${proxyPath}`;
     }
     return proxyPath; // localhost case
+  }
+
+  // Get optimized avatar URL with size transformations
+  getOptimizedAvatarUrl(url, size = 'small') {
+    if (!url) return url;
+
+    const baseUrl = this.normalizeImageUrl(url);
+    
+    // If it's not a Cloudinary URL through our proxy, return as-is
+    if (!baseUrl.includes('/api/upload/image-proxy/')) {
+      return baseUrl;
+    }
+
+    // Define size presets
+    const sizePresets = {
+      small: 'w_80,h_80,c_fill,f_auto,q_auto', // 40px display size, 2x for retina
+      medium: 'w_160,h_160,c_fill,f_auto,q_auto', // 80px display size, 2x for retina  
+      large: 'w_200,h_200,c_fill,f_auto,q_auto'  // Larger preview size
+    };
+
+    const transformation = sizePresets[size] || sizePresets.small;
+    
+    // Add transformation to Cloudinary URL
+    // Replace /image-proxy/ with /image-proxy/w_80,h_80,c_fill,f_auto,q_auto/
+    const optimizedUrl = baseUrl.replace('/api/upload/image-proxy/', `/api/upload/image-proxy/${transformation}/`);
+    
+    console.log(`🎨 Optimized avatar URL (${size}):`, optimizedUrl);
+    return optimizedUrl;
   }
 
   // Clipboard paste functionality

@@ -427,7 +427,7 @@ class FinancialReportsComponent {
           <td class="small border-0 align-middle">
             <div class="d-flex align-items-center justify-content-center">
               ${investorAvatar ? 
-                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                `<img src="${this.getOptimizedAvatarUrl(investorAvatar, 'small')}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
                 `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
               }
             </div>
@@ -548,7 +548,7 @@ class FinancialReportsComponent {
           <td class="small border-0 align-middle">
             <div class="d-flex align-items-center justify-content-center">
               ${investorAvatar ? 
-                `<img src="${this.normalizeImageUrl(investorAvatar)}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                `<img src="${this.getOptimizedAvatarUrl(investorAvatar, 'small')}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
                 `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
               }
             </div>
@@ -698,7 +698,7 @@ class FinancialReportsComponent {
           <td class="small border-0 align-middle">
             <div class="d-flex align-items-center justify-content-center">
               ${investor.avatar ? 
-                `<img src="${this.normalizeImageUrl(investor.avatar)}" alt="${escapeHtml(investor.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
+                `<img src="${this.getOptimizedAvatarUrl(investor.avatar, 'small')}" alt="${escapeHtml(investor.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
                 `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investor.name.charAt(0).toUpperCase())}</div>`
               }
             </div>
@@ -2723,6 +2723,34 @@ class FinancialReportsComponent {
       return `${API_CONFIG.BASE_URL}${proxyPath}`;
     }
     return proxyPath; // localhost case
+  }
+
+  // Get optimized avatar URL with size transformations
+  getOptimizedAvatarUrl(url, size = 'small') {
+    if (!url) return url;
+
+    const baseUrl = this.normalizeImageUrl(url);
+    
+    // If it's not a Cloudinary URL through our proxy, return as-is
+    if (!baseUrl.includes('/api/upload/image-proxy/')) {
+      return baseUrl;
+    }
+
+    // Define size presets
+    const sizePresets = {
+      small: 'w_80,h_80,c_fill,f_auto,q_auto', // 40px display size, 2x for retina
+      medium: 'w_160,h_160,c_fill,f_auto,q_auto', // 80px display size, 2x for retina  
+      large: 'w_200,h_200,c_fill,f_auto,q_auto'  // Larger preview size
+    };
+
+    const transformation = sizePresets[size] || sizePresets.small;
+    
+    // Add transformation to Cloudinary URL
+    // Replace /image-proxy/ with /image-proxy/w_80,h_80,c_fill,f_auto,q_auto/
+    const optimizedUrl = baseUrl.replace('/api/upload/image-proxy/', `/api/upload/image-proxy/${transformation}/`);
+    
+    console.log(`🎨 Optimized avatar URL (${size}):`, optimizedUrl);
+    return optimizedUrl;
   }
 
   // Show bill evidence in a modal
