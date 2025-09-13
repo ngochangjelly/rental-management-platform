@@ -939,9 +939,11 @@ class InvestorManagementComponent {
       proxyPath = `/api/upload/image-proxy/${url}`;
     }
     
-    // Return relative path - webpack dev server proxy will handle routing to backend
-    console.log('🔗 Final normalized URL (relative):', proxyPath);
-    return proxyPath;
+    // In production, use the full backend URL
+    if (API_CONFIG.BASE_URL) {
+      return `${API_CONFIG.BASE_URL}${proxyPath}`;
+    }
+    return proxyPath; // localhost case
   }
 
   // Clipboard paste functionality
