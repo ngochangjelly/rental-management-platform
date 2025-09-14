@@ -28,10 +28,10 @@ class ContractManagementComponent {
       paymentMethod: "BANK_TRANSFER",
       fullPaymentReceived: false,
     };
-    
+
     // Initialize template service
     this.templateService = new ContractTemplateService();
-    
+
     this.init();
   }
 
@@ -71,7 +71,7 @@ class ContractManagementComponent {
         this.tenants.length,
         "tenants for contract creation"
       );
-      
+
       // Populate dropdowns when data is loaded
       this.populateDropdowns();
     } catch (error) {
@@ -100,7 +100,7 @@ class ContractManagementComponent {
         this.investors.length,
         "investors for contract creation"
       );
-      
+
       // Populate dropdowns when data is loaded
       this.populateDropdowns();
     } catch (error) {
@@ -161,13 +161,13 @@ class ContractManagementComponent {
     const tenantASelect = document.getElementById("contractTenantA");
     const tenantBSelect = document.getElementById("contractTenantB");
 
-    console.log('🔧 tenantASelect found:', !!tenantASelect, tenantASelect);
-    console.log('🔧 tenantBSelect found:', !!tenantBSelect, tenantBSelect);
+    console.log("🔧 tenantASelect found:", !!tenantASelect, tenantASelect);
+    console.log("🔧 tenantBSelect found:", !!tenantBSelect, tenantBSelect);
 
     if (!tenantASelect || !tenantBSelect) {
       console.error("❌ Tenant select elements not found");
-      console.error('❌ tenantASelect:', tenantASelect);
-      console.error('❌ tenantBSelect:', tenantBSelect);
+      console.error("❌ tenantASelect:", tenantASelect);
+      console.error("❌ tenantBSelect:", tenantBSelect);
       return;
     }
 
@@ -175,13 +175,18 @@ class ContractManagementComponent {
     tenantASelect.innerHTML =
       '<option value="">Select Tenant A (Main Tenant)</option>';
     tenantBSelect.innerHTML = '<option value="">Select Tenant B</option>';
-    
+
     // Add "Add New Tenant" options
-    tenantASelect.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
-    tenantBSelect.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
+    tenantASelect.innerHTML +=
+      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
+    tenantBSelect.innerHTML +=
+      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
 
     // Check if we have tenants or investors
-    if ((!this.tenants || this.tenants.length === 0) && (!this.investors || this.investors.length === 0)) {
+    if (
+      (!this.tenants || this.tenants.length === 0) &&
+      (!this.investors || this.investors.length === 0)
+    ) {
       console.warn("⚠️ No tenants or investors available to populate dropdown");
       tenantASelect.innerHTML +=
         '<option value="" disabled>No tenants or investors available</option>';
@@ -198,11 +203,14 @@ class ContractManagementComponent {
         const fin = tenant.fin || tenant.id || "";
         const passport = tenant.passportNumber || tenant.passport || "";
         const name = tenant.name || "Unnamed Tenant";
-        
+
         // Use index as a fallback identifier to ensure we can always find the tenant
         const identifier = fin || `tenant_${index}`;
-        
-        console.log(`🔧 Adding tenant option: ${name} with identifier: ${identifier}`, tenant);
+
+        console.log(
+          `🔧 Adding tenant option: ${name} with identifier: ${identifier}`,
+          tenant
+        );
 
         const option = `<option value="${identifier}" data-type="tenant" data-passport="${passport}" data-name="${name}" data-index="${index}">
                   ${name} ${fin ? `(FIN: ${fin})` : ""}
@@ -212,8 +220,8 @@ class ContractManagementComponent {
         tenantBSelect.innerHTML += option;
       });
 
-      tenantASelect.innerHTML += '</optgroup>';
-      tenantBSelect.innerHTML += '</optgroup>';
+      tenantASelect.innerHTML += "</optgroup>";
+      tenantBSelect.innerHTML += "</optgroup>";
     }
 
     // Add section header for investors (only if we have investors)
@@ -227,11 +235,14 @@ class ContractManagementComponent {
         const passport = investor.passport || "";
         const name = investor.name || "Unnamed Investor";
         const investorId = investor.investorId;
-        
+
         // Use investorId as identifier with investor prefix
         const identifier = `investor_${investorId}`;
-        
-        console.log(`🔧 Adding investor option: ${name} with identifier: ${identifier}`, investor);
+
+        console.log(
+          `🔧 Adding investor option: ${name} with identifier: ${identifier}`,
+          investor
+        );
 
         const option = `<option value="${identifier}" data-type="investor" data-passport="${passport}" data-name="${name}" data-index="${index}" data-investor-id="${investorId}">
                   ${name} ${fin ? `(FIN: ${fin})` : ""} [Investor]
@@ -241,30 +252,36 @@ class ContractManagementComponent {
         tenantBSelect.innerHTML += option;
       });
 
-      tenantASelect.innerHTML += '</optgroup>';
-      tenantBSelect.innerHTML += '</optgroup>';
+      tenantASelect.innerHTML += "</optgroup>";
+      tenantBSelect.innerHTML += "</optgroup>";
     }
 
     console.log("✅ Populated tenant dropdowns successfully");
 
     // Add event listeners for tenant selection (remove existing first)
-    console.log('🔧 Setting up event listeners...');
+    console.log("🔧 Setting up event listeners...");
     tenantASelect.removeEventListener("change", this.tenantAChangeHandler);
     tenantBSelect.removeEventListener("change", this.tenantBChangeHandler);
 
     this.tenantAChangeHandler = (e) => {
-      console.log('🔧 Tenant A change event triggered with value:', e.target.value);
+      console.log(
+        "🔧 Tenant A change event triggered with value:",
+        e.target.value
+      );
       this.handleTenantSelection("A", e.target.value);
     };
     this.tenantBChangeHandler = (e) => {
-      console.log('🔧 Tenant B change event triggered with value:', e.target.value);
+      console.log(
+        "🔧 Tenant B change event triggered with value:",
+        e.target.value
+      );
       this.handleTenantSelection("B", e.target.value);
     };
 
     tenantASelect.addEventListener("change", this.tenantAChangeHandler);
     tenantBSelect.addEventListener("change", this.tenantBChangeHandler);
-    
-    console.log('✅ Event listeners attached successfully');
+
+    console.log("✅ Event listeners attached successfully");
   }
 
   populatePropertiesDropdown() {
@@ -284,9 +301,10 @@ class ContractManagementComponent {
     // Clear existing options
     addressSelect.innerHTML =
       '<option value="">Select property address</option>';
-      
+
     // Add "Add New Property" option
-    addressSelect.innerHTML += '<option value="ADD_NEW_PROPERTY" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-building-plus me-1"></i>+ Add New Property</option>';
+    addressSelect.innerHTML +=
+      '<option value="ADD_NEW_PROPERTY" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-building-plus me-1"></i>+ Add New Property</option>';
 
     // Check if we have properties
     if (!this.properties || this.properties.length === 0) {
@@ -323,9 +341,9 @@ class ContractManagementComponent {
 
   handleAddressSelection(address) {
     console.log(`🏠 Address selected: ${address}`);
-    
+
     const newPropertyFields = document.getElementById("newPropertyFields");
-    
+
     if (address === "ADD_NEW_PROPERTY") {
       // Show custom property fields
       if (newPropertyFields) {
@@ -341,329 +359,369 @@ class ContractManagementComponent {
       // Set selected address
       this.contractData.address = address;
     }
-    
+
     this.updateContractPreview();
   }
 
   handleTenantSelection(tenantType, identifier) {
     console.log(`🔄 Handling tenant selection: ${tenantType} = ${identifier}`);
-    
+
     // Handle "Add New Tenant" option
     if (identifier === "ADD_NEW_TENANT") {
-      console.log(`🆕 Showing new tenant input fields for Tenant ${tenantType}`);
+      console.log(
+        `🆕 Showing new tenant input fields for Tenant ${tenantType}`
+      );
       this.showNewTenantFields(tenantType);
       return;
     }
-    
-    console.log('🔧 Available tenants:', this.tenants);
-    console.log('🔧 Available investors:', this.investors);
-    console.log('🔧 Tenants array length:', this.tenants.length);
-    console.log('🔧 Investors array length:', this.investors.length);
-    
+
+    console.log("🔧 Available tenants:", this.tenants);
+    console.log("🔧 Available investors:", this.investors);
+    console.log("🔧 Tenants array length:", this.tenants.length);
+    console.log("🔧 Investors array length:", this.investors.length);
+
     let tenant = null;
-    
+
     // Get the select element to access data attributes
-    const selectElement = tenantType === "A" ? 
-      document.getElementById("contractTenantA") : 
-      document.getElementById("contractTenantB");
-    
-    console.log('🔧 Select element found:', !!selectElement);
-    
+    const selectElement =
+      tenantType === "A"
+        ? document.getElementById("contractTenantA")
+        : document.getElementById("contractTenantB");
+
+    console.log("🔧 Select element found:", !!selectElement);
+
     if (selectElement) {
       const selectedOption = selectElement.selectedOptions[0];
-      console.log('🔧 Selected option:', selectedOption);
-      
+      console.log("🔧 Selected option:", selectedOption);
+
       if (selectedOption) {
         const dataType = selectedOption.dataset.type;
         const index = selectedOption.dataset.index;
-        console.log('🔧 Data type:', dataType, 'Index from dataset:', index);
-        
-        if (index !== undefined && index !== '') {
+        console.log("🔧 Data type:", dataType, "Index from dataset:", index);
+
+        if (index !== undefined && index !== "") {
           const parsedIndex = parseInt(index);
-          console.log('🔧 Parsed index:', parsedIndex);
-          
+          console.log("🔧 Parsed index:", parsedIndex);
+
           if (!isNaN(parsedIndex) && parsedIndex >= 0) {
-            if (dataType === 'investor' && parsedIndex < this.investors.length) {
+            if (
+              dataType === "investor" &&
+              parsedIndex < this.investors.length
+            ) {
               // Handle investor selection
               tenant = this.investors[parsedIndex];
               console.log(`🎯 Found investor by index ${parsedIndex}:`, tenant);
-              console.log('🎯 Investor name:', tenant?.name);
-              console.log('🎯 Investor passport:', tenant?.passport);
-              console.log('🎯 Investor fin:', tenant?.fin);
-            } else if (dataType === 'tenant' && parsedIndex < this.tenants.length) {
+              console.log("🎯 Investor name:", tenant?.name);
+              console.log("🎯 Investor passport:", tenant?.passport);
+              console.log("🎯 Investor fin:", tenant?.fin);
+            } else if (
+              dataType === "tenant" &&
+              parsedIndex < this.tenants.length
+            ) {
               // Handle tenant selection
               tenant = this.tenants[parsedIndex];
               console.log(`🎯 Found tenant by index ${parsedIndex}:`, tenant);
-              console.log('🎯 Tenant name:', tenant?.name);
-              console.log('🎯 Tenant passport:', tenant?.passportNumber);
-              console.log('🎯 Tenant fin:', tenant?.fin);
+              console.log("🎯 Tenant name:", tenant?.name);
+              console.log("🎯 Tenant passport:", tenant?.passportNumber);
+              console.log("🎯 Tenant fin:", tenant?.fin);
             }
           }
         }
       }
     }
-    
+
     // Fallback to original logic if index-based lookup fails
     if (!tenant) {
-      console.log('🔄 Using fallback logic to find tenant or investor');
-      
+      console.log("🔄 Using fallback logic to find tenant or investor");
+
       // Check if identifier is for an investor
-      if (identifier.startsWith('investor_')) {
-        const investorId = identifier.replace('investor_', '');
+      if (identifier.startsWith("investor_")) {
+        const investorId = identifier.replace("investor_", "");
         tenant = this.investors.find((i) => i.investorId === investorId);
-        console.log('🎯 Found investor by ID:', tenant);
+        console.log("🎯 Found investor by ID:", tenant);
       } else {
         // Try to find tenant by fin or id first
-        tenant = this.tenants.find((t) => t.fin === identifier || t.id === identifier);
-        
+        tenant = this.tenants.find(
+          (t) => t.fin === identifier || t.id === identifier
+        );
+
         // If not found and identifier starts with "tenant_", use index
-        if (!tenant && identifier.startsWith('tenant_')) {
-          const index = parseInt(identifier.replace('tenant_', ''));
+        if (!tenant && identifier.startsWith("tenant_")) {
+          const index = parseInt(identifier.replace("tenant_", ""));
           tenant = this.tenants[index];
         }
-        
+
         // If still not found, try by name as last resort
         if (!tenant && identifier) {
           tenant = this.tenants.find((t) => t.name === identifier);
         }
       }
-      
-      console.log('🎯 Fallback result:', tenant);
+
+      console.log("🎯 Fallback result:", tenant);
     }
-    
+
     console.log(`🎯 Final tenant for ${tenantType}:`, tenant);
 
     if (tenantType === "A") {
       this.selectedTenantA = tenant;
-      console.log('✅ Set selectedTenantA:', this.selectedTenantA);
-      
+      console.log("✅ Set selectedTenantA:", this.selectedTenantA);
+
       // Auto-populate signature if this is a main tenant with signature
       if (tenant && tenant.signature && this.isMainTenant(tenant)) {
-        console.log('🖋️ Auto-populating Tenant A signature from tenant data');
+        console.log("🖋️ Auto-populating Tenant A signature from tenant data");
         this.signatures.tenantA = tenant.signature;
-        this.updateSignaturePreview('A');
+        this.updateSignaturePreview("A");
       }
-      
+
       // Hide new tenant fields if a real tenant is selected (not ADD_NEW_TENANT or empty)
       if (identifier && identifier !== "ADD_NEW_TENANT" && identifier !== "") {
         this.hideNewTenantFields(tenantType);
       }
     } else {
       this.selectedTenantB = tenant;
-      console.log('✅ Set selectedTenantB:', this.selectedTenantB);
-      
+      console.log("✅ Set selectedTenantB:", this.selectedTenantB);
+
       // Hide new tenant fields if a real tenant is selected (not ADD_NEW_TENANT or empty)
       if (identifier && identifier !== "ADD_NEW_TENANT" && identifier !== "") {
         this.hideNewTenantFields(tenantType);
       }
     }
 
-    console.log('🔄 Calling updateContractPreview...');
+    console.log("🔄 Calling updateContractPreview...");
     this.updateContractPreview();
-    console.log('✅ updateContractPreview called');
+    console.log("✅ updateContractPreview called");
   }
 
   showNewTenantFields(tenantType) {
-    const fieldsId = tenantType === 'A' ? 'newTenantAFields' : 'newTenantFields';
-    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
-    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
-    const finInputId = tenantType === 'A' ? 'newTenantAFin' : 'newTenantBFin';
-    
+    const fieldsId =
+      tenantType === "A" ? "newTenantAFields" : "newTenantFields";
+    const nameInputId =
+      tenantType === "A" ? "newTenantAName" : "newTenantBName";
+    const passportInputId =
+      tenantType === "A" ? "newTenantAPassport" : "newTenantBPassport";
+    const finInputId = tenantType === "A" ? "newTenantAFin" : "newTenantBFin";
+
     const newTenantFields = document.getElementById(fieldsId);
     if (newTenantFields) {
-      newTenantFields.style.display = 'block';
-      
+      newTenantFields.style.display = "block";
+
       // Clear the fields
       const nameInput = document.getElementById(nameInputId);
       const passportInput = document.getElementById(passportInputId);
       const finInput = document.getElementById(finInputId);
-      
+
       if (nameInput) {
-        nameInput.value = '';
-        nameInput.classList.remove('is-invalid');
+        nameInput.value = "";
+        nameInput.classList.remove("is-invalid");
       }
       if (passportInput) {
-        passportInput.value = '';
-        passportInput.classList.remove('is-invalid');
+        passportInput.value = "";
+        passportInput.classList.remove("is-invalid");
       }
       if (finInput) {
-        finInput.value = '';
-        finInput.classList.remove('is-invalid');
+        finInput.value = "";
+        finInput.classList.remove("is-invalid");
       }
-      
+
       // For Tenant A, also clear email field
-      if (tenantType === 'A') {
-        const emailInput = document.getElementById('newTenantAEmail');
+      if (tenantType === "A") {
+        const emailInput = document.getElementById("newTenantAEmail");
         if (emailInput) {
-          emailInput.value = '';
-          emailInput.classList.remove('is-invalid');
+          emailInput.value = "";
+          emailInput.classList.remove("is-invalid");
         }
       }
-      
+
       // Focus on the name field
       if (nameInput) {
         nameInput.focus();
       }
-      
+
       // Setup event listeners for the input fields
       this.setupNewTenantInputListeners(tenantType);
     }
   }
-  
-  hideNewTenantFields(tenantType = 'B') {
-    const fieldsId = tenantType === 'A' ? 'newTenantAFields' : 'newTenantFields';
+
+  hideNewTenantFields(tenantType = "B") {
+    const fieldsId =
+      tenantType === "A" ? "newTenantAFields" : "newTenantFields";
     const newTenantFields = document.getElementById(fieldsId);
     if (newTenantFields) {
-      newTenantFields.style.display = 'none';
-      
+      newTenantFields.style.display = "none";
+
       // Only clear temporary tenant selections (those created from "Add New Tenant")
-      if (tenantType === 'A' && this.selectedTenantA?.isTemporary) {
+      if (tenantType === "A" && this.selectedTenantA?.isTemporary) {
         this.selectedTenantA = null;
-      } else if (tenantType === 'B' && this.selectedTenantB?.isTemporary) {
+      } else if (tenantType === "B" && this.selectedTenantB?.isTemporary) {
         this.selectedTenantB = null;
       }
-      
+
       // Only update contract preview if we actually cleared a temporary tenant
-      if ((tenantType === 'A' && this.selectedTenantA?.isTemporary) || 
-          (tenantType === 'B' && this.selectedTenantB?.isTemporary)) {
+      if (
+        (tenantType === "A" && this.selectedTenantA?.isTemporary) ||
+        (tenantType === "B" && this.selectedTenantB?.isTemporary)
+      ) {
         this.updateContractPreview();
       }
     }
   }
-  
+
   setupNewTenantInputListeners(tenantType) {
-    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
-    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
-    const finInputId = tenantType === 'A' ? 'newTenantAFin' : 'newTenantBFin';
-    const emailInputId = tenantType === 'A' ? 'newTenantAEmail' : null;
-    
+    const nameInputId =
+      tenantType === "A" ? "newTenantAName" : "newTenantBName";
+    const passportInputId =
+      tenantType === "A" ? "newTenantAPassport" : "newTenantBPassport";
+    const finInputId = tenantType === "A" ? "newTenantAFin" : "newTenantBFin";
+    const emailInputId = tenantType === "A" ? "newTenantAEmail" : null;
+
     const nameInput = document.getElementById(nameInputId);
     const passportInput = document.getElementById(passportInputId);
     const finInput = document.getElementById(finInputId);
-    const emailInput = emailInputId ? document.getElementById(emailInputId) : null;
-    
+    const emailInput = emailInputId
+      ? document.getElementById(emailInputId)
+      : null;
+
     if (!nameInput || (!passportInput && !finInput)) {
       return;
     }
-    
+
     // Create unique handler names for each tenant type
     const inputHandlerProp = `newTenant${tenantType}InputHandler`;
     const blurHandlerProp = `newTenant${tenantType}BlurHandler`;
-    
+
     // Remove existing listeners if they exist
     if (this[inputHandlerProp]) {
-      nameInput.removeEventListener('input', this[inputHandlerProp]);
-      if (passportInput) passportInput.removeEventListener('input', this[inputHandlerProp]);
-      if (finInput) finInput.removeEventListener('input', this[inputHandlerProp]);
-      if (emailInput) emailInput.removeEventListener('input', this[inputHandlerProp]);
+      nameInput.removeEventListener("input", this[inputHandlerProp]);
+      if (passportInput)
+        passportInput.removeEventListener("input", this[inputHandlerProp]);
+      if (finInput)
+        finInput.removeEventListener("input", this[inputHandlerProp]);
+      if (emailInput)
+        emailInput.removeEventListener("input", this[inputHandlerProp]);
     }
     if (this[blurHandlerProp]) {
-      nameInput.removeEventListener('blur', this[blurHandlerProp]);
-      if (passportInput) passportInput.removeEventListener('blur', this[blurHandlerProp]);
-      if (finInput) finInput.removeEventListener('blur', this[blurHandlerProp]);
-      if (emailInput) emailInput.removeEventListener('blur', this[blurHandlerProp]);
+      nameInput.removeEventListener("blur", this[blurHandlerProp]);
+      if (passportInput)
+        passportInput.removeEventListener("blur", this[blurHandlerProp]);
+      if (finInput) finInput.removeEventListener("blur", this[blurHandlerProp]);
+      if (emailInput)
+        emailInput.removeEventListener("blur", this[blurHandlerProp]);
     }
-    
+
     // Create bound handlers
     this[inputHandlerProp] = () => this.handleNewTenantInput(tenantType);
     this[blurHandlerProp] = () => this.handleNewTenantBlur(tenantType);
-    
+
     // Add event listeners
-    nameInput.addEventListener('input', this[inputHandlerProp]);
+    nameInput.addEventListener("input", this[inputHandlerProp]);
     if (passportInput) {
-      passportInput.addEventListener('input', this[inputHandlerProp]);
-      passportInput.addEventListener('blur', this[blurHandlerProp]);
+      passportInput.addEventListener("input", this[inputHandlerProp]);
+      passportInput.addEventListener("blur", this[blurHandlerProp]);
     }
     if (finInput) {
-      finInput.addEventListener('input', this[inputHandlerProp]);
-      finInput.addEventListener('blur', this[blurHandlerProp]);
+      finInput.addEventListener("input", this[inputHandlerProp]);
+      finInput.addEventListener("blur", this[blurHandlerProp]);
     }
-    nameInput.addEventListener('blur', this[blurHandlerProp]);
-    
+    nameInput.addEventListener("blur", this[blurHandlerProp]);
+
     // Add listeners for email input if it exists (Tenant A only)
     if (emailInput) {
-      emailInput.addEventListener('input', this[inputHandlerProp]);
-      emailInput.addEventListener('blur', this[blurHandlerProp]);
+      emailInput.addEventListener("input", this[inputHandlerProp]);
+      emailInput.addEventListener("blur", this[blurHandlerProp]);
     }
   }
-  
+
   handleNewTenantInput(tenantType) {
-    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
-    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
-    const finInputId = tenantType === 'A' ? 'newTenantAFin' : 'newTenantBFin';
-    const emailInputId = tenantType === 'A' ? 'newTenantAEmail' : null;
-    
+    const nameInputId =
+      tenantType === "A" ? "newTenantAName" : "newTenantBName";
+    const passportInputId =
+      tenantType === "A" ? "newTenantAPassport" : "newTenantBPassport";
+    const finInputId = tenantType === "A" ? "newTenantAFin" : "newTenantBFin";
+    const emailInputId = tenantType === "A" ? "newTenantAEmail" : null;
+
     const nameInput = document.getElementById(nameInputId);
     const passportInput = document.getElementById(passportInputId);
     const finInput = document.getElementById(finInputId);
-    const emailInput = emailInputId ? document.getElementById(emailInputId) : null;
-    
+    const emailInput = emailInputId
+      ? document.getElementById(emailInputId)
+      : null;
+
     if (!nameInput) {
       return;
     }
-    
+
     const name = nameInput.value.trim();
-    const passport = passportInput ? passportInput.value.trim() : '';
-    const fin = finInput ? finInput.value.trim() : '';
-    const email = emailInput ? emailInput.value.trim() : '';
-    
+    const passport = passportInput ? passportInput.value.trim() : "";
+    const fin = finInput ? finInput.value.trim() : "";
+    const email = emailInput ? emailInput.value.trim() : "";
+
     // Clear error states when user starts typing
-    if (name && nameInput.classList.contains('is-invalid')) {
-      nameInput.classList.remove('is-invalid');
+    if (name && nameInput.classList.contains("is-invalid")) {
+      nameInput.classList.remove("is-invalid");
     }
-    if (passport && passportInput && passportInput.classList.contains('is-invalid')) {
-      passportInput.classList.remove('is-invalid');
+    if (
+      passport &&
+      passportInput &&
+      passportInput.classList.contains("is-invalid")
+    ) {
+      passportInput.classList.remove("is-invalid");
     }
-    if (fin && finInput && finInput.classList.contains('is-invalid')) {
-      finInput.classList.remove('is-invalid');
+    if (fin && finInput && finInput.classList.contains("is-invalid")) {
+      finInput.classList.remove("is-invalid");
     }
-    if (emailInput && email && emailInput.classList.contains('is-invalid')) {
-      emailInput.classList.remove('is-invalid');
+    if (emailInput && email && emailInput.classList.contains("is-invalid")) {
+      emailInput.classList.remove("is-invalid");
     }
-    
+
     // If name and at least one ID field have values, create the temporary tenant
     if (name && (passport || fin)) {
       this.createTemporaryTenant(tenantType, name, passport, fin, email);
     }
   }
-  
+
   handleNewTenantBlur(tenantType) {
-    const nameInputId = tenantType === 'A' ? 'newTenantAName' : 'newTenantBName';
-    const passportInputId = tenantType === 'A' ? 'newTenantAPassport' : 'newTenantBPassport';
-    const finInputId = tenantType === 'A' ? 'newTenantAFin' : 'newTenantBFin';
-    
+    const nameInputId =
+      tenantType === "A" ? "newTenantAName" : "newTenantBName";
+    const passportInputId =
+      tenantType === "A" ? "newTenantAPassport" : "newTenantBPassport";
+    const finInputId = tenantType === "A" ? "newTenantAFin" : "newTenantBFin";
+
     // Validate on blur
     const nameInput = document.getElementById(nameInputId);
     const passportInput = document.getElementById(passportInputId);
     const finInput = document.getElementById(finInputId);
-    
+
     if (nameInput && !nameInput.value.trim()) {
-      nameInput.classList.add('is-invalid');
+      nameInput.classList.add("is-invalid");
     }
-    
+
     // Check that at least one ID field has a value
     const hasPassport = passportInput && passportInput.value.trim();
     const hasFin = finInput && finInput.value.trim();
-    
+
     if (!hasPassport && !hasFin) {
-      if (passportInput && !passportInput.classList.contains('is-invalid')) {
-        passportInput.classList.add('is-invalid');
+      if (passportInput && !passportInput.classList.contains("is-invalid")) {
+        passportInput.classList.add("is-invalid");
       }
-      if (finInput && !finInput.classList.contains('is-invalid')) {
-        finInput.classList.add('is-invalid');
+      if (finInput && !finInput.classList.contains("is-invalid")) {
+        finInput.classList.add("is-invalid");
       }
     } else {
       // Remove validation errors if at least one ID field is filled
-      if (passportInput && passportInput.classList.contains('is-invalid') && hasPassport) {
-        passportInput.classList.remove('is-invalid');
+      if (
+        passportInput &&
+        passportInput.classList.contains("is-invalid") &&
+        hasPassport
+      ) {
+        passportInput.classList.remove("is-invalid");
       }
-      if (finInput && finInput.classList.contains('is-invalid') && hasFin) {
-        finInput.classList.remove('is-invalid');
+      if (finInput && finInput.classList.contains("is-invalid") && hasFin) {
+        finInput.classList.remove("is-invalid");
       }
     }
   }
-  
-  createTemporaryTenant(tenantType, name, passport = '', fin = '', email = '') {
+
+  createTemporaryTenant(tenantType, name, passport = "", fin = "", email = "") {
     // Create a temporary tenant object for the contract
     const newTenant = {
       id: `temp_tenant_${tenantType}_${Date.now()}`,
@@ -672,18 +730,18 @@ class ContractManagementComponent {
       finNumber: fin,
       email: email,
       isTemporary: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
-    
+
     // Set this as the selected tenant
-    if (tenantType === 'A') {
+    if (tenantType === "A") {
       this.selectedTenantA = newTenant;
-      console.log('✅ Created temporary tenant A:', this.selectedTenantA);
+      console.log("✅ Created temporary tenant A:", this.selectedTenantA);
     } else {
       this.selectedTenantB = newTenant;
-      console.log('✅ Created temporary tenant B:', this.selectedTenantB);
+      console.log("✅ Created temporary tenant B:", this.selectedTenantB);
     }
-    
+
     // Update the contract preview
     this.updateContractPreview();
   }
@@ -716,7 +774,9 @@ class ContractManagementComponent {
     });
 
     // Handle the full payment received checkbox
-    const fullPaymentCheckbox = document.getElementById("contractFullPaymentReceived");
+    const fullPaymentCheckbox = document.getElementById(
+      "contractFullPaymentReceived"
+    );
     if (fullPaymentCheckbox) {
       fullPaymentCheckbox.addEventListener("change", () => {
         this.contractData.fullPaymentReceived = fullPaymentCheckbox.checked;
@@ -725,7 +785,8 @@ class ContractManagementComponent {
     }
 
     // Handle custom property address input
-    const newPropertyAddressInput = document.getElementById("newPropertyAddress");
+    const newPropertyAddressInput =
+      document.getElementById("newPropertyAddress");
     if (newPropertyAddressInput) {
       newPropertyAddressInput.addEventListener("input", () => {
         this.contractData.address = newPropertyAddressInput.value;
@@ -961,21 +1022,24 @@ class ContractManagementComponent {
   }
 
   updateContractPreview() {
-    console.log('🔄 updateContractPreview called');
+    console.log("🔄 updateContractPreview called");
     const preview = document.getElementById("contractPreview");
     if (!preview) {
-      console.log('❌ Contract preview element not found');
+      console.log("❌ Contract preview element not found");
       return;
     }
 
-    console.log('🔧 selectedTenantA:', this.selectedTenantA);
-    console.log('🔧 selectedTenantB:', this.selectedTenantB);
+    console.log("🔧 selectedTenantA:", this.selectedTenantA);
+    console.log("🔧 selectedTenantB:", this.selectedTenantB);
 
     const tenantAInfo = this.selectedTenantA
       ? {
           name: this.selectedTenantA.name,
-          passport: this.selectedTenantA.passportNumber || this.selectedTenantA.passport || '',
-          fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || '',
+          passport:
+            this.selectedTenantA.passportNumber ||
+            this.selectedTenantA.passport ||
+            "",
+          fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
           email: this.selectedTenantA.email || "",
         }
       : {
@@ -988,13 +1052,20 @@ class ContractManagementComponent {
     const tenantBInfo = this.selectedTenantB
       ? {
           name: this.selectedTenantB.name,
-          passport: this.selectedTenantB.passportNumber || this.selectedTenantB.passport || '',
-          fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || '',
+          passport:
+            this.selectedTenantB.passportNumber ||
+            this.selectedTenantB.passport ||
+            "",
+          fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || "",
         }
-      : { name: "[Tenant B Name]", passport: "[Tenant B Passport]", fin: "[Tenant B FIN]" };
-      
-    console.log('🔧 tenantAInfo:', tenantAInfo);
-    console.log('🔧 tenantBInfo:', tenantBInfo);
+      : {
+          name: "[Tenant B Name]",
+          passport: "[Tenant B Passport]",
+          fin: "[Tenant B FIN]",
+        };
+
+    console.log("🔧 tenantAInfo:", tenantAInfo);
+    console.log("🔧 tenantBInfo:", tenantBInfo);
 
     // Generate additional clauses HTML
     let additionalClausesHtml = "";
@@ -1025,8 +1096,16 @@ class ContractManagementComponent {
                     <p><strong>BETWEEN</strong></p>
                     <p style="margin-left: 20px;">
                         <strong>Main tenant:</strong> ${tenantAInfo.name}<br>
-                        ${tenantAInfo.passport ? `<strong>Passport:</strong> ${tenantAInfo.passport}<br>` : ''}
-                        ${tenantAInfo.fin ? `<strong>FIN:</strong> ${tenantAInfo.fin}<br>` : ''}
+                        ${
+                          tenantAInfo.passport
+                            ? `<strong>Passport:</strong> ${tenantAInfo.passport}<br>`
+                            : ""
+                        }
+                        ${
+                          tenantAInfo.fin
+                            ? `<strong>FIN:</strong> ${tenantAInfo.fin}<br>`
+                            : ""
+                        }
                         <strong>Email:</strong> ${tenantAInfo.email}
                     </p>
                     <p style="margin-left: 20px; font-style: italic;">
@@ -1038,17 +1117,25 @@ class ContractManagementComponent {
                     <p><strong>AND</strong></p>
                     <p style="margin-left: 20px;">
                         <strong>Name:</strong> ${tenantBInfo.name}<br>
-                        ${tenantBInfo.passport ? `<strong>Passport:</strong> ${tenantBInfo.passport}<br>` : ''}
-                        ${tenantBInfo.fin ? `<strong>FIN:</strong> ${tenantBInfo.fin}` : ''}
+                        ${
+                          tenantBInfo.passport
+                            ? `<strong>Passport:</strong> ${tenantBInfo.passport}<br>`
+                            : ""
+                        }
+                        ${
+                          tenantBInfo.fin
+                            ? `<strong>FIN:</strong> ${tenantBInfo.fin}`
+                            : ""
+                        }
                     </p>
                     <p style="margin-left: 20px; font-style: italic;">
                         (Hereinafter called "Tenant B", which expression together, where the context so admits, shall include all persons having title under 'Tenant B') of the other part.
                     </p>
                 </div>
 
-                <p><strong>Payment method:</strong> ${
-                  this.formatPaymentMethod(this.contractData.paymentMethod)
-                }</p>
+                <p><strong>Payment method:</strong> ${this.formatPaymentMethod(
+                  this.contractData.paymentMethod
+                )}</p>
 
                 <div style="margin: 30px 0;">
                     <p><strong>NOW IT IS HEREBY AGREED AS FOLLOWS:</strong></p>
@@ -1058,9 +1145,7 @@ class ContractManagementComponent {
                           this.contractData.leasePeriod || "[Lease Period]"
                         }</p>
                         
-                        <p><strong>Tenancy Period:</strong> ${
-                          this.formatTenancyPeriod()
-                        }</p>
+                        <p><strong>Tenancy Period:</strong> ${this.formatTenancyPeriod()}</p>
                         
                         <p><strong>Moving Time:</strong> Move in after 15:00, Move out before 11:00</p>
                         
@@ -1069,9 +1154,11 @@ class ContractManagementComponent {
                         }<br>
                         <small style="margin-left: 20px;">*Room rental rate is strictly confidential<br>
                         *Renewal contract is subject to mutual agreement by Tenant A and Tenant B${
-                          this.contractData.fullPaymentReceived 
-                            ? `<br><strong style="font-size: 14px;">*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(2)})</strong>` 
-                            : "<br>*Payable by the 1st Day of each calendar month to \"Tenant A\""
+                          this.contractData.fullPaymentReceived
+                            ? `<br><strong style="font-size: 14px;">*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(
+                                2
+                              )})</strong>`
+                            : '<br>*Payable by the 1st Day of each calendar month to "Tenant A"'
                         }</small></p>
                         
                         <p><strong>Security Deposit:</strong> $${
@@ -1090,56 +1177,96 @@ class ContractManagementComponent {
                     <p><strong>1. TENANT B(S) HEREBY AGREE(S) WITH TENANT A AS FOLLOWS:</strong></p>
                     <div style="margin-left: 20px;">
                         ${
-                          this.contractData.fullPaymentReceived 
-                            ? '' 
-                            : '<p><strong>a)</strong> To pay the equivalent of 1 (ONE) month\'s rent as a deposit and 1 (ONE) month\'s rent as an advance upon signing of this Agreement. The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.</p>'
+                          this.contractData.fullPaymentReceived
+                            ? ""
+                            : "<p><strong>a)</strong> To pay the equivalent of 1 (ONE) month's rent as a deposit and 1 (ONE) month's rent as an advance upon signing of this Agreement. The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.</p>"
                         }
                         
                         ${
-                          this.contractData.fullPaymentReceived 
-                            ? '' 
-                            : '<p><strong>b)</strong> In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due (whether any formal or legal demand therefore shall have been made or not) then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B\'s belongings from The Room without being liable for any loss or damage of such removal. Tenant A shall be entitled to recover all legal fees arising from the recovery of unpaid rent by Tenant B.</p>'
+                          this.contractData.fullPaymentReceived
+                            ? ""
+                            : "<p><strong>b)</strong> In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due (whether any formal or legal demand therefore shall have been made or not) then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal. Tenant A shall be entitled to recover all legal fees arising from the recovery of unpaid rent by Tenant B.</p>"
                         }
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'a' : 'c'})</strong> To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "a" : "c"
+                        })</strong> To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'b' : 'd'})</strong> Not to do or permit to be done upon the premises or room anything which may be unlawful, immoral, or become a nuisance or annoyance to occupiers of adjoining or adjacent room(s).</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "b" : "d"
+                        })</strong> Not to do or permit to be done upon the premises or room anything which may be unlawful, immoral, or become a nuisance or annoyance to occupiers of adjoining or adjacent room(s).</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'c' : 'e'})</strong> To use the premises for the purpose of private residence only and not to assign, sublet, or otherwise part possession of the premises or any part thereof without the written consent of Tenant A.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "c" : "e"
+                        })</strong> To use the premises for the purpose of private residence only and not to assign, sublet, or otherwise part possession of the premises or any part thereof without the written consent of Tenant A.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'd' : 'f'})</strong> To peaceably and quietly at the expiration of the tenancy deliver up to Tenant A the room in like condition as the same was delivered to Tenant B at the commencement of this Agreement, except for fair wear and tear.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "d" : "f"
+                        })</strong> To peaceably and quietly at the expiration of the tenancy deliver up to Tenant A the room in like condition as the same was delivered to Tenant B at the commencement of this Agreement, except for fair wear and tear.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'e' : 'g'})</strong> Not to create a nuisance, not to use the premises or any part thereof in a manner which may become a nuisance or annoyance to TenantA or the occupants of the premises, building or to neighbouring parties.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "e" : "g"
+                        })</strong> Not to create a nuisance, not to use the premises or any part thereof in a manner which may become a nuisance or annoyance to TenantA or the occupants of the premises, building or to neighbouring parties.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'f' : 'h'})</strong> Strictly NO PETS in the premises.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "f" : "h"
+                        })</strong> Strictly NO PETS in the premises.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'g' : 'i'})</strong> No illegal or immoral activities, not to do or suffer to be done anything in or upon the said premises or any part thereof, any activities of an illegal or immoral nature.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "g" : "i"
+                        })</strong> No illegal or immoral activities, not to do or suffer to be done anything in or upon the said premises or any part thereof, any activities of an illegal or immoral nature.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'h' : 'j'})</strong> To permit Tenant A to carryout due diligence checks to ensure that all times during the currency of this Agreement that Tenant B and/or permitted occupants are not illegal immigrants and comply with all the rules and regulations relating to the Immigration Act and the Employment of Foreign Workers Act (if applicable) and any other Act of Parliament, regulations, or any rules of orders thereunder which relates to foreign residents and workers.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "h" : "j"
+                        })</strong> To permit Tenant A to carryout due diligence checks to ensure that all times during the currency of this Agreement that Tenant B and/or permitted occupants are not illegal immigrants and comply with all the rules and regulations relating to the Immigration Act and the Employment of Foreign Workers Act (if applicable) and any other Act of Parliament, regulations, or any rules of orders thereunder which relates to foreign residents and workers.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'i' : 'k'})</strong> To provide TenantA, upon request, for physical inspection, all immigration and employment documents, including but not limited to the passports of all non-local occupants, the employment pass and/or work permits, proof of employment, and to provide TenantA with certified true copies of such documents.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "i" : "k"
+                        })</strong> To provide TenantA, upon request, for physical inspection, all immigration and employment documents, including but not limited to the passports of all non-local occupants, the employment pass and/or work permits, proof of employment, and to provide TenantA with certified true copies of such documents.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'j' : 'l'})</strong> Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "j" : "l"
+                        })</strong> Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'k' : 'm'})</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "k" : "m"
+                        })</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'l' : 'n'})</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "l" : "n"
+                        })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'm' : 'o'})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "m" : "o"
+                        })</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'n' : 'p'})</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "n" : "p"
+                        })</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'o' : 'q'})</strong> No visitors without permission from Tenant B to Tenant A.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "o" : "q"
+                        })</strong> No visitors without permission from Tenant B to Tenant A.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'p' : 'r'})</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "p" : "r"
+                        })</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'q' : 's'})</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "q" : "s"
+                        })</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'r' : 't'})</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "r" : "t"
+                        })</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 's' : 'u'})</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "s" : "u"
+                        })</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 't' : 'v'})</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "t" : "v"
+                        })</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
                         
                         ${additionalClausesHtml}
                     </div>
@@ -1149,9 +1276,9 @@ class ContractManagementComponent {
                     <p><strong>2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:</strong></p>
                     <div style="margin-left: 20px;">
                         ${
-                          this.contractData.fullPaymentReceived 
-                            ? '<p>If any covenants, conditions or stipulations on Tenant B\'s part herein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B\'s belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B\'s covenants herein contained.</p>' 
-                            : '<p>If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B\'s part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B\'s belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B\'s covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith.</p>'
+                          this.contractData.fullPaymentReceived
+                            ? "<p>If any covenants, conditions or stipulations on Tenant B's part herein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained.</p>"
+                            : "<p>If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B's part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith.</p>"
                         }
                         
                         <p>Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.</p>
@@ -1167,16 +1294,20 @@ class ContractManagementComponent {
                         <p><strong>c)</strong> Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.</p>
                         
                         ${
-                          this.contractData.fullPaymentReceived 
-                            ? '' 
-                            : '<p><strong>d)</strong> Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month.</p>'
+                          this.contractData.fullPaymentReceived
+                            ? ""
+                            : "<p><strong>d)</strong> Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month.</p>"
                         }
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'd' : 'e'})</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "d" : "e"
+                        })</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                         
-                        <p><strong>${this.contractData.fullPaymentReceived ? 'e' : 'f'})</strong> Cleaning fee: SGD$${
-                          this.contractData.cleaningFee || "20"
-                        } / 1pax (if all tenants agree to hire a cleaning service)</p>
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "e" : "f"
+                        })</strong> Cleaning fee: SGD$${
+      this.contractData.cleaningFee || "20"
+    } / 1pax (if all tenants agree to hire a cleaning service)</p>
                     </div>
                 </div>
 
@@ -1216,25 +1347,25 @@ class ContractManagementComponent {
   calculateTotalRental() {
     const monthlyRental = parseFloat(this.contractData.monthlyRental) || 0;
     const leasePeriod = this.contractData.leasePeriod || "";
-    
+
     // Extract number of months from lease period (e.g., "6 months", "12 months", "1 year")
     let months = 0;
     const leasePeriodLower = leasePeriod.toLowerCase();
-    
-    if (leasePeriodLower.includes('month')) {
+
+    if (leasePeriodLower.includes("month")) {
       // Extract number before 'month' or 'months'
       const match = leasePeriodLower.match(/(\d+)\s*months?/);
       if (match) {
         months = parseInt(match[1]);
       }
-    } else if (leasePeriodLower.includes('year')) {
+    } else if (leasePeriodLower.includes("year")) {
       // Extract number before 'year' or 'years' and convert to months
       const match = leasePeriodLower.match(/(\d+)\s*years?/);
       if (match) {
         months = parseInt(match[1]) * 12;
       }
     }
-    
+
     return monthlyRental * months;
   }
 
@@ -1243,55 +1374,55 @@ class ContractManagementComponent {
     if (!tenant || !tenant.properties || !Array.isArray(tenant.properties)) {
       return false;
     }
-    
+
     // Check if any of the tenant's properties has them as main tenant
-    return tenant.properties.some(prop => {
-      return typeof prop === 'object' && prop.isMainTenant;
+    return tenant.properties.some((prop) => {
+      return typeof prop === "object" && prop.isMainTenant;
     });
   }
 
   formatTenancyPeriod() {
     const moveInDate = this.contractData.moveInDate;
     const moveOutDate = this.contractData.moveOutDate;
-    
+
     if (!moveInDate && !moveOutDate) {
       return "[Tenancy Period]";
     }
-    
+
     if (!moveInDate) {
       return `[Move-in Date] - ${this.formatDate(moveOutDate)}`;
     }
-    
+
     if (!moveOutDate) {
       return `${this.formatDate(moveInDate)} - [Move-out Date]`;
     }
-    
+
     return `${this.formatDate(moveInDate)} - ${this.formatDate(moveOutDate)}`;
   }
-  
+
   formatDate(dateString) {
     if (!dateString) return "[Date]";
-    
+
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
+      return date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       });
     } catch (e) {
       return dateString;
     }
   }
-  
+
   formatPaymentMethod(method) {
     const paymentMethods = {
-      'CASH': 'Cash',
-      'BANK_TRANSFER': 'Bank Transfer',
-      'CHECK': 'Check'
+      CASH: "Cash",
+      BANK_TRANSFER: "Bank Transfer",
+      CHECK: "Check",
     };
-    
-    return paymentMethods[method] || method || 'Cash';
+
+    return paymentMethods[method] || method || "Cash";
   }
 
   numberToWords(num) {
@@ -1397,17 +1528,20 @@ class ContractManagementComponent {
       }
 
       // Create PDF filename in format: [tenantB]-[roomType]-[propertyAddress]
-      const tenantBName = this.selectedTenantB?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "TenantB";
-      const roomType = this.contractData.room?.replace(/[^a-zA-Z0-9]/g, "_") || "Room";
-      
+      const tenantBName =
+        this.selectedTenantB?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "TenantB";
+      const roomType =
+        this.contractData.room?.replace(/[^a-zA-Z0-9]/g, "_") || "Room";
+
       // Remove Singapore and postcode from address for filename
       let cleanAddress = this.contractData.address || "Address";
       // Remove Singapore and common variations
       cleanAddress = cleanAddress.replace(/,?\s*Singapore\s*\d*$/i, "");
       cleanAddress = cleanAddress.replace(/,?\s*S\d{6}$/i, ""); // Remove Singapore postcode format
       cleanAddress = cleanAddress.replace(/,?\s*\d{6}$/i, ""); // Remove 6-digit postcode
-      const propertyAddress = cleanAddress.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
-      
+      const propertyAddress =
+        cleanAddress.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
+
       const filename = `${tenantBName}-${roomType}-${propertyAddress}.pdf`;
 
       console.log("📄 Creating text-based PDF...");
@@ -1467,50 +1601,12 @@ class ContractManagementComponent {
         currentY += options.spacing || 0;
       };
 
-      // Helper function to add table
-      const addTable = (headers, rows) => {
-        const colWidth = contentWidth / 2;
-
-        for (let i = 0; i < rows.length; i++) {
-          // Calculate cell content height
-          pdf.setFontSize(9);
-          const cellLines = pdf.splitTextToSize(rows[i][1], colWidth - 8);
-          const cellHeight = Math.max(12, cellLines.length * 5 + 8);
-
-          // Check if we need a new page
-          if (currentY + cellHeight > pageHeight - margin - 10) {
-            pdf.addPage();
-            currentY = margin;
-          }
-
-          // Draw borders
-          pdf.rect(margin, currentY - 4, colWidth, cellHeight);
-          pdf.rect(margin + colWidth, currentY - 4, colWidth, cellHeight);
-
-          // Add header text (left column)
-          pdf.setFont(undefined, "bold");
-          pdf.setFontSize(10);
-          pdf.text(rows[i][0], margin + 4, currentY + 4);
-
-          // Add content text (right column) - wrapped properly
-          pdf.setFont(undefined, "normal");
-          pdf.setFontSize(9);
-          let cellY = currentY + 4;
-          for (const line of cellLines) {
-            pdf.text(line, margin + colWidth + 4, cellY);
-            cellY += 5;
-          }
-
-          currentY += cellHeight + 2;
-        }
-      };
-
       // Generate contract content
       const tenantAInfo = this.selectedTenantA
         ? {
             name: this.selectedTenantA.name,
-            passport: this.selectedTenantA.passportNumber || '',
-            fin: this.selectedTenantA.finNumber || '',
+            passport: this.selectedTenantA.passportNumber || "",
+            fin: this.selectedTenantA.finNumber || "",
             email: this.selectedTenantA.email || "",
           }
         : {
@@ -1523,10 +1619,14 @@ class ContractManagementComponent {
       const tenantBInfo = this.selectedTenantB
         ? {
             name: this.selectedTenantB.name,
-            passport: this.selectedTenantB.passportNumber || '',
-            fin: this.selectedTenantB.finNumber || '',
+            passport: this.selectedTenantB.passportNumber || "",
+            fin: this.selectedTenantB.finNumber || "",
           }
-        : { name: "[Tenant B Name]", passport: "[Tenant B Passport]", fin: "[Tenant B FIN]" };
+        : {
+            name: "[Tenant B Name]",
+            passport: "[Tenant B Passport]",
+            fin: "[Tenant B FIN]",
+          };
 
       // Header
       addText("HOUSE SHARING AGREEMENT", {
@@ -1578,9 +1678,14 @@ class ContractManagementComponent {
         { indent: true, spacing: 10 }
       );
 
-      addText(`Payment method: ${this.formatPaymentMethod(this.contractData.paymentMethod)}`, {
-        spacing: 10,
-      });
+      addText(
+        `Payment method: ${this.formatPaymentMethod(
+          this.contractData.paymentMethod
+        )}`,
+        {
+          spacing: 10,
+        }
+      );
 
       // Agreement terms
       addText("NOW IT IS HEREBY AGREED AS FOLLOWS:", {
@@ -1593,10 +1698,10 @@ class ContractManagementComponent {
         `Lease Period: ${this.contractData.leasePeriod || "[Lease Period]"}`,
         { bold: true, spacing: 8 }
       );
-      addText(
-        `Tenancy Period: ${this.formatTenancyPeriod()}`,
-        { bold: true, spacing: 8 }
-      );
+      addText(`Tenancy Period: ${this.formatTenancyPeriod()}`, {
+        bold: true,
+        spacing: 8,
+      });
       addText("Moving Time: Move in after 15:00, Move out before 11:00", {
         bold: true,
         spacing: 8,
@@ -1621,11 +1726,13 @@ class ContractManagementComponent {
         indent: true,
         spacing: this.contractData.fullPaymentReceived ? 0 : 8,
       });
-      
+
       // Add full payment confirmation note if checked
       if (this.contractData.fullPaymentReceived) {
         addText(
-          `*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(2)})`,
+          `*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(
+            2
+          )})`,
           { fontSize: 12, bold: true, indent: true, spacing: 8 }
         );
       }
@@ -1654,7 +1761,7 @@ class ContractManagementComponent {
       });
 
       const section1Clauses = [];
-      
+
       // Conditionally add rent payment clauses
       if (!this.contractData.fullPaymentReceived) {
         section1Clauses.push(
@@ -1662,7 +1769,7 @@ class ContractManagementComponent {
           "b) In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal."
         );
       }
-      
+
       // Add remaining clauses with appropriate letters
       const baseClauseTexts = [
         "To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.",
@@ -1686,10 +1793,12 @@ class ContractManagementComponent {
         "Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.",
         "No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.",
       ];
-      
+
       // Add remaining clauses with proper letter sequence
       baseClauseTexts.forEach((clauseText, index) => {
-        const letterIndex = this.contractData.fullPaymentReceived ? index : index + 2;
+        const letterIndex = this.contractData.fullPaymentReceived
+          ? index
+          : index + 2;
         const letter = String.fromCharCode(97 + letterIndex); // a, b, c, etc.
         section1Clauses.push(`${letter}) ${clauseText}`);
       });
@@ -1716,7 +1825,7 @@ class ContractManagementComponent {
       });
 
       const section2Clauses = [];
-      
+
       // Conditional first clause based on payment status
       if (this.contractData.fullPaymentReceived) {
         section2Clauses.push(
@@ -1727,7 +1836,7 @@ class ContractManagementComponent {
           "If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B's part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith."
         );
       }
-      
+
       section2Clauses.push(
         "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
         `a) ELECTRICITY: A monthly budget of S$${
@@ -1738,18 +1847,20 @@ class ContractManagementComponent {
         "b) Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
         "c) Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest."
       );
-      
+
       // Conditionally add monthly payment clause
       if (!this.contractData.fullPaymentReceived) {
         section2Clauses.push(
           "d) Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month."
         );
       }
-      
+
       // Add remaining clauses with adjusted letters
-      const lawClauseLetter = this.contractData.fullPaymentReceived ? 'd' : 'e';
-      const cleaningClauseLetter = this.contractData.fullPaymentReceived ? 'e' : 'f';
-      
+      const lawClauseLetter = this.contractData.fullPaymentReceived ? "d" : "e";
+      const cleaningClauseLetter = this.contractData.fullPaymentReceived
+        ? "e"
+        : "f";
+
       section2Clauses.push(
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
         `${cleaningClauseLetter}) Cleaning fee: SGD$${
@@ -1811,23 +1922,18 @@ class ContractManagementComponent {
           );
         }
       } catch (error) {
-        console.warn(
-          "⚠️ Error adding signatures to PDF:",
-          error
-        );
+        console.warn("⚠️ Error adding signatures to PDF:", error);
       }
 
       currentY += signatureHeight + 15;
-      
+
       // Add signature labels and names
       pdf.setFontSize(12);
-      pdf.setFont(undefined, "bold");
       pdf.text("Tenant A", 30, currentY);
       pdf.text("Tenant B", 120, currentY);
-      
-      currentY += 20;
+
+      currentY += 10;
       pdf.setFontSize(10);
-      pdf.setFont(undefined, "bold");
       pdf.text(tenantAInfo.name, 30, currentY);
       pdf.text(tenantBInfo.name, 120, currentY);
 
@@ -1896,8 +2002,11 @@ class ContractManagementComponent {
     const tenantAInfo = this.selectedTenantA
       ? {
           name: this.selectedTenantA.name,
-          passport: this.selectedTenantA.passportNumber || this.selectedTenantA.passport || '',
-          fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || '',
+          passport:
+            this.selectedTenantA.passportNumber ||
+            this.selectedTenantA.passport ||
+            "",
+          fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
           email: this.selectedTenantA.email || "",
         }
       : {
@@ -1910,10 +2019,17 @@ class ContractManagementComponent {
     const tenantBInfo = this.selectedTenantB
       ? {
           name: this.selectedTenantB.name,
-          passport: this.selectedTenantB.passportNumber || this.selectedTenantB.passport || '',
-          fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || '',
+          passport:
+            this.selectedTenantB.passportNumber ||
+            this.selectedTenantB.passport ||
+            "",
+          fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || "",
         }
-      : { name: "[Tenant B Name]", passport: "[Tenant B Passport]", fin: "[Tenant B FIN]" };
+      : {
+          name: "[Tenant B Name]",
+          passport: "[Tenant B Passport]",
+          fin: "[Tenant B FIN]",
+        };
 
     // Generate additional clauses HTML (starting from letter 'v' after clause 'u')
     let additionalClausesHtml = "";
@@ -1948,8 +2064,16 @@ class ContractManagementComponent {
                         <p style="margin-bottom: 5px;"><strong>Main tenant:</strong> ${
                           tenantAInfo.name
                         }</p>
-                        ${tenantAInfo.passport ? `<p style="margin-bottom: 5px;"><strong>Passport:</strong> ${tenantAInfo.passport}</p>` : ''}
-                        ${tenantAInfo.fin ? `<p style="margin-bottom: 5px;"><strong>FIN:</strong> ${tenantAInfo.fin}</p>` : ''}
+                        ${
+                          tenantAInfo.passport
+                            ? `<p style="margin-bottom: 5px;"><strong>Passport:</strong> ${tenantAInfo.passport}</p>`
+                            : ""
+                        }
+                        ${
+                          tenantAInfo.fin
+                            ? `<p style="margin-bottom: 5px;"><strong>FIN:</strong> ${tenantAInfo.fin}</p>`
+                            : ""
+                        }
                         <p style="margin-bottom: 12px;"><strong>Email:</strong> ${
                           tenantAInfo.email
                         }</p>
@@ -1963,17 +2087,25 @@ class ContractManagementComponent {
                         <p style="margin-bottom: 5px;"><strong>Name:</strong> ${
                           tenantBInfo.name
                         }</p>
-                        ${tenantBInfo.passport ? `<p style="margin-bottom: 5px;"><strong>Passport:</strong> ${tenantBInfo.passport}</p>` : ''}
-                        ${tenantBInfo.fin ? `<p style="margin-bottom: 12px;"><strong>FIN:</strong> ${tenantBInfo.fin}</p>` : ''}
+                        ${
+                          tenantBInfo.passport
+                            ? `<p style="margin-bottom: 5px;"><strong>Passport:</strong> ${tenantBInfo.passport}</p>`
+                            : ""
+                        }
+                        ${
+                          tenantBInfo.fin
+                            ? `<p style="margin-bottom: 12px;"><strong>FIN:</strong> ${tenantBInfo.fin}</p>`
+                            : ""
+                        }
                         <p style="font-style: italic; margin-bottom: 20px;">
                             (Hereinafter called "Tenant B", which expresses together with where the context so admits, shall include all persons having title under ' Tenant B') of the one part.
                         </p>
                     </div>
                 </div>
 
-                <p style="margin-bottom: 30px;"><strong>Payment method:</strong> ${
-                  this.formatPaymentMethod(this.contractData.paymentMethod)
-                }</p>
+                <p style="margin-bottom: 30px;"><strong>Payment method:</strong> ${this.formatPaymentMethod(
+                  this.contractData.paymentMethod
+                )}</p>
 
                 <!-- Agreement Terms -->
                 <div style="margin-bottom: 30px;">
@@ -1985,9 +2117,7 @@ class ContractManagementComponent {
                           this.contractData.leasePeriod || "[Lease Period]"
                         }</p>
                         
-                        <p style="margin-bottom: 12px;"><strong>Tenancy Period:</strong> ${
-                          this.formatTenancyPeriod()
-                        }</p>
+                        <p style="margin-bottom: 12px;"><strong>Tenancy Period:</strong> ${this.formatTenancyPeriod()}</p>
                         
                         <p style="margin-bottom: 12px;"><strong>Moving Time:</strong> Move in after 15:00, Move out before 11:00</p>
                         
@@ -1998,9 +2128,11 @@ class ContractManagementComponent {
                             <small style="font-size: 10px; line-height: 1.5;">
                                 *Room rental rate is strictly confidential<br>
                                 *Renewal contract is subject to mutual agreement by Tenant A and Tenant B${
-                                  this.contractData.fullPaymentReceived 
-                                    ? `<br><strong style="font-size: 14px;">*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(2)})</strong>` 
-                                    : "<br>*Payable by the 1st Day of each calendar month to \"Tenant A\""
+                                  this.contractData.fullPaymentReceived
+                                    ? `<br><strong style="font-size: 14px;">*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(
+                                        2
+                                      )})</strong>`
+                                    : '<br>*Payable by the 1st Day of each calendar month to "Tenant A"'
                                 }
                             </small>
                         </div>
@@ -2100,8 +2232,8 @@ class ContractManagementComponent {
                     </div>
 
                     <!-- Signature Section -->
-                    <div style="margin-top: 20px; text-align: center;">
-                        <p style="font-weight: bold; margin-bottom: 20px;">By signing below, both parties agree to abide by all the above terms and conditions</p>
+                    <div style="text-align: center;">
+                        <p style="font-weight: bold;">By signing below, both parties agree to abide by all the above terms and conditions</p>
                     
                         <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
                         <div style="text-align: center; width: 45%;">
@@ -2145,7 +2277,7 @@ class ContractManagementComponent {
   // ================== TEMPLATE FUNCTIONALITY ==================
 
   async initializeTemplateSection() {
-    console.log('🔧 Initializing contract template section');
+    console.log("🔧 Initializing contract template section");
     await this.loadAndRenderTemplates();
   }
 
@@ -2158,36 +2290,54 @@ class ContractManagementComponent {
         this.renderEmptyTemplatesList();
       }
     } catch (error) {
-      console.error('❌ Error loading templates:', error);
+      console.error("❌ Error loading templates:", error);
       this.renderEmptyTemplatesList();
     }
   }
 
   renderTemplatesList(templates) {
-    const templatesList = document.getElementById('templatesList');
+    const templatesList = document.getElementById("templatesList");
     if (!templatesList) return;
 
-    templatesList.innerHTML = templates.map(template => `
-      <div class="template-item d-flex justify-content-between align-items-center p-2 border rounded mb-2 bg-light" data-template-name="${template.data.name}">
-        <div class="template-info flex-grow-1" style="cursor: pointer;" onclick="contractManager.loadTemplate('${template.data.name}')">
+    templatesList.innerHTML = templates
+      .map(
+        (template) => `
+      <div class="template-item d-flex justify-content-between align-items-center p-2 border rounded mb-2 bg-light" data-template-name="${
+        template.data.name
+      }">
+        <div class="template-info flex-grow-1" style="cursor: pointer;" onclick="contractManager.loadTemplate('${
+          template.data.name
+        }')">
           <div class="d-flex align-items-center">
             <i class="bi bi-bookmark me-2 text-primary"></i>
             <div>
-              <span class="fw-semibold text-primary">${template.data.name}</span>
-              ${template.data.additionalData?.description ? `<br><small class="text-muted">${template.data.additionalData.description}</small>` : ''}
-              <br><small class="text-muted">Updated: ${new Date(template.data.updatedAt).toLocaleDateString()}</small>
+              <span class="fw-semibold text-primary">${
+                template.data.name
+              }</span>
+              ${
+                template.data.additionalData?.description
+                  ? `<br><small class="text-muted">${template.data.additionalData.description}</small>`
+                  : ""
+              }
+              <br><small class="text-muted">Updated: ${new Date(
+                template.data.updatedAt
+              ).toLocaleDateString()}</small>
             </div>
           </div>
         </div>
-        <button class="btn btn-outline-danger btn-sm" onclick="contractManager.deleteTemplate('${template.data.name}')" title="Delete Template">
+        <button class="btn btn-outline-danger btn-sm" onclick="contractManager.deleteTemplate('${
+          template.data.name
+        }')" title="Delete Template">
           <i class="bi bi-trash"></i>
         </button>
       </div>
-    `).join('');
+    `
+      )
+      .join("");
   }
 
   renderEmptyTemplatesList() {
-    const templatesList = document.getElementById('templatesList');
+    const templatesList = document.getElementById("templatesList");
     if (!templatesList) return;
 
     templatesList.innerHTML = `
@@ -2199,7 +2349,6 @@ class ContractManagementComponent {
     `;
   }
 
-
   async showSaveTemplateModal() {
     // Save directly without modal
     await this.saveTemplateDirectly();
@@ -2209,80 +2358,116 @@ class ContractManagementComponent {
     try {
       // Generate template name using the specified format: [tenantB] [roomtype] [rental] [address]
       const templateName = this.generateTemplateName();
-      
+
       if (!templateName) {
-        showToast('Unable to generate template name. Please fill in required fields.', 'error');
+        showToast(
+          "Unable to generate template name. Please fill in required fields.",
+          "error"
+        );
         return;
       }
 
       // Gather all current contract data
       const currentData = this.gatherCurrentContractData();
-      
+
       const additionalData = {
         description: `Auto-saved template: ${templateName}`,
         selectedTenantA: this.selectedTenantA,
         selectedTenantB: this.selectedTenantB,
-        additionalClauses: [...this.additionalClauses]
+        additionalClauses: [...this.additionalClauses],
       };
 
-      const result = await this.templateService.saveTemplate(templateName, currentData, additionalData);
-      
+      const result = await this.templateService.saveTemplate(
+        templateName,
+        currentData,
+        additionalData
+      );
+
       if (result.success) {
-        showToast(`Template "${templateName}" saved successfully!`, 'success');
-        
+        showToast(`Template "${templateName}" saved successfully!`, "success");
+
         // Refresh templates list
         await this.loadAndRenderTemplates();
       } else {
-        showToast('Failed to save template: ' + result.error, 'error');
+        showToast("Failed to save template: " + result.error, "error");
       }
     } catch (error) {
-      console.error('❌ Error saving template:', error);
-      showToast('Error saving template', 'error');
+      console.error("❌ Error saving template:", error);
+      showToast("Error saving template", "error");
     }
   }
 
   generateTemplateName() {
-    const tenantBName = this.selectedTenantB?.name || 'No-TenantB';
-    const roomType = this.contractData.room || document.getElementById('contractRoom')?.value || 'Unknown-Room';
-    const rental = this.contractData.monthlyRental || document.getElementById('contractMonthlyRental')?.value || '0';
-    const address = this.contractData.address || document.getElementById('contractAddress')?.value || 'Unknown-Address';
+    const tenantBName = this.selectedTenantB?.name || "No-TenantB";
+    const roomType =
+      this.contractData.room ||
+      document.getElementById("contractRoom")?.value ||
+      "Unknown-Room";
+    const rental =
+      this.contractData.monthlyRental ||
+      document.getElementById("contractMonthlyRental")?.value ||
+      "0";
+    const address =
+      this.contractData.address ||
+      document.getElementById("contractAddress")?.value ||
+      "Unknown-Address";
 
     // Clean and format the components
-    const cleanTenantB = tenantBName.replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '-');
-    const cleanRoom = roomType.replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '-');
-    const cleanRental = rental.replace(/[^0-9]/g, '');
-    const cleanAddress = address.replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '-').substring(0, 30); // Limit address length
+    const cleanTenantB = tenantBName
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "-");
+    const cleanRoom = roomType
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "-");
+    const cleanRental = rental.replace(/[^0-9]/g, "");
+    const cleanAddress = address
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .substring(0, 30); // Limit address length
 
     return `${cleanTenantB} ${cleanRoom} ${cleanRental} ${cleanAddress}`;
   }
 
-
   gatherCurrentContractData() {
     // Get form values
     const contractData = { ...this.contractData };
-    
+
     // Update with current form values
     const formFields = [
-      'address', 'room', 'agreementDate', 'leasePeriod', 
-      'moveInDate', 'moveOutDate', 'monthlyRental', 
-      'securityDeposit', 'electricityBudget', 'cleaningFee'
+      "address",
+      "room",
+      "agreementDate",
+      "leasePeriod",
+      "moveInDate",
+      "moveOutDate",
+      "monthlyRental",
+      "securityDeposit",
+      "electricityBudget",
+      "cleaningFee",
     ];
 
-    formFields.forEach(field => {
-      const element = document.getElementById(`contract${field.charAt(0).toUpperCase() + field.slice(1)}`);
+    formFields.forEach((field) => {
+      const element = document.getElementById(
+        `contract${field.charAt(0).toUpperCase() + field.slice(1)}`
+      );
       if (element) {
         contractData[field] = element.value;
       }
     });
 
     // Get payment method
-    const paymentMethodElement = document.getElementById('contractPaymentMethod');
+    const paymentMethodElement = document.getElementById(
+      "contractPaymentMethod"
+    );
     if (paymentMethodElement) {
       contractData.paymentMethod = paymentMethodElement.value;
     }
 
     // Get full payment received status
-    const fullPaymentElement = document.getElementById('fullPaymentReceived');
+    const fullPaymentElement = document.getElementById("fullPaymentReceived");
     if (fullPaymentElement) {
       contractData.fullPaymentReceived = fullPaymentElement.checked;
     }
@@ -2293,25 +2478,27 @@ class ContractManagementComponent {
   async loadTemplate(templateName) {
     try {
       const result = await this.templateService.getTemplate(templateName);
-      
+
       if (!result.success) {
-        showToast('Failed to load template: ' + result.error, 'error');
+        showToast("Failed to load template: " + result.error, "error");
         return;
       }
 
       const templateData = result.data;
-      
+
       // Populate contract data
       this.contractData = { ...templateData.contractData };
-      
+
       // Populate form fields
-      Object.keys(this.contractData).forEach(field => {
-        const element = document.getElementById(`contract${field.charAt(0).toUpperCase() + field.slice(1)}`);
+      Object.keys(this.contractData).forEach((field) => {
+        const element = document.getElementById(
+          `contract${field.charAt(0).toUpperCase() + field.slice(1)}`
+        );
         if (element) {
-          if (element.type === 'checkbox') {
+          if (element.type === "checkbox") {
             element.checked = this.contractData[field];
           } else {
-            element.value = this.contractData[field] || '';
+            element.value = this.contractData[field] || "";
           }
         }
       });
@@ -2319,48 +2506,51 @@ class ContractManagementComponent {
       // Load tenant selections if available
       if (templateData.additionalData?.selectedTenantA) {
         this.selectedTenantA = templateData.additionalData.selectedTenantA;
-        await this.loadTenantFromTemplate('A', this.selectedTenantA);
+        await this.loadTenantFromTemplate("A", this.selectedTenantA);
       }
 
       if (templateData.additionalData?.selectedTenantB) {
         this.selectedTenantB = templateData.additionalData.selectedTenantB;
-        await this.loadTenantFromTemplate('B', this.selectedTenantB);
+        await this.loadTenantFromTemplate("B", this.selectedTenantB);
       }
 
       // Load additional clauses
       if (templateData.additionalData?.additionalClauses) {
-        this.additionalClauses = [...templateData.additionalData.additionalClauses];
+        this.additionalClauses = [
+          ...templateData.additionalData.additionalClauses,
+        ];
         this.renderAdditionalClauses();
       }
 
-      showToast(`Template "${templateName}" loaded successfully!`, 'success');
-      
+      showToast(`Template "${templateName}" loaded successfully!`, "success");
     } catch (error) {
-      console.error('❌ Error loading template:', error);
-      showToast('Error loading template', 'error');
+      console.error("❌ Error loading template:", error);
+      showToast("Error loading template", "error");
     }
   }
 
   async loadTenantFromTemplate(tenantType, tenantData) {
     const selectId = `contractTenant${tenantType}`;
     const tenantSelect = document.getElementById(selectId);
-    
+
     if (!tenantSelect) return;
 
     // Check if this tenant exists in the dropdown (existing tenant)
-    const existingTenantOption = Array.from(tenantSelect.options).find(option => {
-      return option.value === (tenantData.fin || tenantData.id || '');
-    });
+    const existingTenantOption = Array.from(tenantSelect.options).find(
+      (option) => {
+        return option.value === (tenantData.fin || tenantData.id || "");
+      }
+    );
 
-    if (existingTenantOption && existingTenantOption.value !== '') {
+    if (existingTenantOption && existingTenantOption.value !== "") {
       // Tenant exists in dropdown, select it
       tenantSelect.value = existingTenantOption.value;
-      tenantSelect.dispatchEvent(new Event('change'));
+      tenantSelect.dispatchEvent(new Event("change"));
     } else {
       // Custom tenant, need to show new tenant fields and populate them
-      tenantSelect.value = 'ADD_NEW_TENANT';
-      tenantSelect.dispatchEvent(new Event('change'));
-      
+      tenantSelect.value = "ADD_NEW_TENANT";
+      tenantSelect.dispatchEvent(new Event("change"));
+
       // Wait for the fields to appear
       setTimeout(() => {
         this.populateNewTenantFields(tenantType, tenantData);
@@ -2369,8 +2559,8 @@ class ContractManagementComponent {
   }
 
   populateNewTenantFields(tenantType, tenantData) {
-    const fieldPrefix = tenantType === 'A' ? 'newTenantA' : 'newTenantB';
-    
+    const fieldPrefix = tenantType === "A" ? "newTenantA" : "newTenantB";
+
     // Populate name field
     const nameField = document.getElementById(`${fieldPrefix}Name`);
     if (nameField && tenantData.name) {
@@ -2380,43 +2570,53 @@ class ContractManagementComponent {
     // Populate passport field
     const passportField = document.getElementById(`${fieldPrefix}Passport`);
     if (passportField && (tenantData.passportNumber || tenantData.passport)) {
-      passportField.value = tenantData.passportNumber || tenantData.passport || '';
+      passportField.value =
+        tenantData.passportNumber || tenantData.passport || "";
     }
 
     // Populate FIN field
     const finField = document.getElementById(`${fieldPrefix}Fin`);
     if (finField && (tenantData.finNumber || tenantData.fin)) {
-      finField.value = tenantData.finNumber || tenantData.fin || '';
+      finField.value = tenantData.finNumber || tenantData.fin || "";
     }
 
     // Populate email field (for Tenant A)
-    if (tenantType === 'A') {
+    if (tenantType === "A") {
       const emailField = document.getElementById(`${fieldPrefix}Email`);
       if (emailField && tenantData.email) {
         emailField.value = tenantData.email;
       }
     }
 
-    console.log(`✅ Populated new tenant ${tenantType} fields with template data`);
+    console.log(
+      `✅ Populated new tenant ${tenantType} fields with template data`
+    );
   }
 
   async deleteTemplate(templateName) {
-    if (!confirm(`Are you sure you want to delete the template "${templateName}"?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete the template "${templateName}"?`
+      )
+    ) {
       return;
     }
 
     try {
       const result = await this.templateService.deleteTemplate(templateName);
-      
+
       if (result.success) {
-        showToast(`Template "${templateName}" deleted successfully!`, 'success');
+        showToast(
+          `Template "${templateName}" deleted successfully!`,
+          "success"
+        );
         await this.loadAndRenderTemplates();
       } else {
-        showToast('Failed to delete template: ' + result.error, 'error');
+        showToast("Failed to delete template: " + result.error, "error");
       }
     } catch (error) {
-      console.error('❌ Error deleting template:', error);
-      showToast('Error deleting template', 'error');
+      console.error("❌ Error deleting template:", error);
+      showToast("Error deleting template", "error");
     }
   }
 
@@ -2466,31 +2666,36 @@ class ContractManagementComponent {
       // Update contract preview
       this.updateContractPreview();
 
-      showToast('Form reset successfully', 'success');
-      
+      showToast("Form reset successfully", "success");
     } catch (error) {
-      console.error('❌ Error resetting form:', error);
-      showToast('Error resetting form', 'error');
+      console.error("❌ Error resetting form:", error);
+      showToast("Error resetting form", "error");
     }
   }
 
   resetFormFields() {
     // Reset all contract form fields
     const formFields = [
-      'contractAddress', 'contractRoom', 'contractAgreementDate', 
-      'contractLeasePeriod', 'contractMoveInDate', 'contractMoveOutDate',
-      'contractMonthlyRental', 'contractSecurityDeposit', 
-      'contractElectricityBudget', 'contractCleaningFee'
+      "contractAddress",
+      "contractRoom",
+      "contractAgreementDate",
+      "contractLeasePeriod",
+      "contractMoveInDate",
+      "contractMoveOutDate",
+      "contractMonthlyRental",
+      "contractSecurityDeposit",
+      "contractElectricityBudget",
+      "contractCleaningFee",
     ];
 
-    formFields.forEach(fieldId => {
+    formFields.forEach((fieldId) => {
       const element = document.getElementById(fieldId);
       if (element) {
-        if (fieldId === 'contractAgreementDate') {
+        if (fieldId === "contractAgreementDate") {
           element.value = new Date().toISOString().split("T")[0];
-        } else if (fieldId === 'contractElectricityBudget') {
+        } else if (fieldId === "contractElectricityBudget") {
           element.value = "400";
-        } else if (fieldId === 'contractCleaningFee') {
+        } else if (fieldId === "contractCleaningFee") {
           element.value = "20";
         } else {
           element.value = "";
@@ -2499,24 +2704,31 @@ class ContractManagementComponent {
     });
 
     // Reset payment method dropdown
-    const paymentMethodElement = document.getElementById('contractPaymentMethod');
+    const paymentMethodElement = document.getElementById(
+      "contractPaymentMethod"
+    );
     if (paymentMethodElement) {
-      paymentMethodElement.value = 'BANK_TRANSFER';
+      paymentMethodElement.value = "BANK_TRANSFER";
     }
 
     // Reset full payment checkbox
-    const fullPaymentElement = document.getElementById('fullPaymentReceived');
+    const fullPaymentElement = document.getElementById("fullPaymentReceived");
     if (fullPaymentElement) {
       fullPaymentElement.checked = false;
     }
 
     // Reset new tenant fields
     const newTenantFields = [
-      'newTenantAName', 'newTenantAPassport', 'newTenantAFin', 'newTenantAEmail',
-      'newTenantBName', 'newTenantBPassport', 'newTenantBFin'
+      "newTenantAName",
+      "newTenantAPassport",
+      "newTenantAFin",
+      "newTenantAEmail",
+      "newTenantBName",
+      "newTenantBPassport",
+      "newTenantBFin",
     ];
 
-    newTenantFields.forEach(fieldId => {
+    newTenantFields.forEach((fieldId) => {
       const element = document.getElementById(fieldId);
       if (element) {
         element.value = "";
@@ -2526,8 +2738,8 @@ class ContractManagementComponent {
 
   resetTenantDropdowns() {
     // Reset tenant dropdowns to default
-    const tenantASelect = document.getElementById('contractTenantA');
-    const tenantBSelect = document.getElementById('contractTenantB');
+    const tenantASelect = document.getElementById("contractTenantA");
+    const tenantBSelect = document.getElementById("contractTenantB");
 
     if (tenantASelect) {
       tenantASelect.value = "";
@@ -2540,15 +2752,15 @@ class ContractManagementComponent {
 
   hideNewTenantFields() {
     // Hide new tenant A fields
-    const newTenantAFields = document.getElementById('newTenantAFields');
+    const newTenantAFields = document.getElementById("newTenantAFields");
     if (newTenantAFields) {
-      newTenantAFields.style.display = 'none';
+      newTenantAFields.style.display = "none";
     }
 
     // Hide new tenant B fields
-    const newTenantBFields = document.getElementById('newTenantFields');
+    const newTenantBFields = document.getElementById("newTenantFields");
     if (newTenantBFields) {
-      newTenantBFields.style.display = 'none';
+      newTenantBFields.style.display = "none";
     }
   }
 }
