@@ -912,10 +912,14 @@ class InvestorManagementComponent {
       return url;
     }
     
-    // If it's already a proxy URL, return as-is - let the proxy handle it
+    // If it's already a proxy URL, make sure it has the full backend URL in production
     if (url.startsWith('/api/upload/image-proxy/')) {
-      console.log('🔗 Keeping proxy URL as relative path:', url);
-      return url;
+      console.log('🔗 Converting existing proxy URL for production:', url);
+      // In production, use the full backend URL
+      if (API_CONFIG.BASE_URL) {
+        return `${API_CONFIG.BASE_URL}${url}`;
+      }
+      return url; // localhost case - keep as relative path
     }
     
     // Build the proxy URL
