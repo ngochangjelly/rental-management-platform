@@ -2567,7 +2567,9 @@ class FinancialReportsComponent {
 
       // Get property details
       const property = await this.getPropertyDetails(this.selectedProperty);
-      const propertyName = property ? `${property.propertyId} - ${property.address}, ${property.unit}` : `Property ID: ${this.selectedProperty}`;
+      const propertyHeader = property
+        ? `${property.address}, Unit ${property.unit}\nProperty ID: ${property.propertyId}`
+        : `Property ID: ${this.selectedProperty}`;
 
       // Create PDF using globally loaded jsPDF
       const pdf = new window.jsPDF({
@@ -2577,169 +2579,227 @@ class FinancialReportsComponent {
       });
 
       const pageWidth = pdf.internal.pageSize.getWidth();
-      let yPos = 20;
-      const margin = 15;
+      let yPos = 15;
+      const margin = 12;
       const contentWidth = pageWidth - (2 * margin);
 
+      // Helper function to get last 2 words of a name
+      const getShortName = (fullName) => {
+        if (!fullName) return '-';
+        const words = fullName.trim().split(' ');
+        return words.length >= 2 ? words.slice(-2).join(' ') : fullName;
+      };
+
       // Title
-      pdf.setFontSize(18);
+      pdf.setFontSize(16);
       pdf.setFont(undefined, 'bold');
       pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: 'center' });
 
-      yPos += 10;
-      pdf.setFontSize(12);
-      pdf.text(propertyName, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 6;
+      pdf.setFontSize(9);
+      pdf.setFont(undefined, 'normal');
+      const propertyLines = propertyHeader.split('\n');
+      propertyLines.forEach(line => {
+        pdf.text(line, pageWidth / 2, yPos, { align: 'center' });
+        yPos += 4;
+      });
 
-      yPos += 7;
+      yPos += 2;
       const reportMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
       const monthName = reportMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      pdf.setFont(undefined, 'bold');
       pdf.text(monthName, pageWidth / 2, yPos, { align: 'center' });
 
-      yPos += 15;
+      yPos += 8;
 
       // INCOME SECTION
       pdf.setFont(undefined, 'bold');
-      pdf.setFontSize(14);
+      pdf.setFontSize(11);
       pdf.text("INCOME", margin, yPos);
-      yPos += 8;
+      yPos += 5;
 
-      pdf.setFontSize(10);
-      pdf.setFont(undefined, 'normal');
+      pdf.setFontSize(8);
 
       if (this.currentReport.income && this.currentReport.income.length > 0) {
-        // Draw table header
-        pdf.setFillColor(200, 255, 200);
-        pdf.rect(margin, yPos - 5, contentWidth, 7, 'F');
+        // Draw table header with professional gray
+        pdf.setFillColor(245, 245, 245);
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
         pdf.setFont(undefined, 'bold');
-        pdf.text("Item", margin + 2, yPos);
-        pdf.text("Date", margin + 70, yPos);
-        pdf.text("Person", margin + 95, yPos);
-        pdf.text("Paid By", margin + 130, yPos);
-        pdf.text("Amount", pageWidth - margin - 2, yPos, { align: 'right' });
-        yPos += 8;
+        pdf.setFontSize(8);
+        pdf.text("Item", margin + 1, yPos);
+        pdf.text("Date", margin + 50, yPos);
+        pdf.text("Person", margin + 72, yPos);
+        pdf.text("Paid By", margin + 112, yPos);
+        pdf.text("Amount", pageWidth - margin - 1, yPos, { align: 'right' });
+        yPos += 5;
 
         pdf.setFont(undefined, 'normal');
-        this.currentReport.income.forEach((item) => {
-          if (yPos > 270) {
-            pdf.addPage();
-            yPos = 20;
-          }
-
+        this.currentReport.income.forEach((item, idx) => {
           const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
           const personName = investor ? investor.name : item.personInCharge;
-          const paidByName = this.renderPaidByName(item.paidBy);
+          const paidByName = getShortName(this.renderPaidByName(item.paidBy));
           const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
 
-          pdf.text(item.item.substring(0, 30), margin + 2, yPos);
-          pdf.text(dateStr, margin + 70, yPos);
-          pdf.text(personName.substring(0, 15), margin + 95, yPos);
-          pdf.text(paidByName.substring(0, 15), margin + 130, yPos);
-          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
-          yPos += 6;
+          // Alternating row colors
+          if (idx % 2 === 0) {
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
+          }
+
+          pdf.text(item.item.substring(0, 28), margin + 1, yPos);
+          pdf.text(dateStr, margin + 50, yPos);
+
+          // Show investor avatar initial
+          if (investor) {
+            pdf.setFillColor(100, 100, 100);
+            pdf.circle(margin + 74, yPos - 1.5, 1.5, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(6);
+            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 74, yPos - 0.5, { align: 'center' });
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(8);
+            pdf.text(personName.substring(0, 18), margin + 77, yPos);
+          } else {
+            pdf.text(personName.substring(0, 18), margin + 72, yPos);
+          }
+
+          pdf.text(paidByName, margin + 112, yPos);
+          pdf.setTextColor(0, 128, 0);
+          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+          pdf.setTextColor(0, 0, 0);
+          yPos += 4;
         });
 
-        yPos += 3;
+        yPos += 1;
+        pdf.setDrawColor(0, 128, 0);
+        pdf.setLineWidth(0.3);
+        pdf.line(pageWidth - margin - 40, yPos - 0.5, pageWidth - margin, yPos - 0.5);
         pdf.setFont(undefined, 'bold');
-        pdf.text("Total Income:", pageWidth - margin - 35, yPos);
-        pdf.text(`$${this.currentReport.totalIncome.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
-        yPos += 10;
+        pdf.setTextColor(0, 128, 0);
+        pdf.text("Total:", pageWidth - margin - 35, yPos);
+        pdf.text(`$${this.currentReport.totalIncome.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.setTextColor(0, 0, 0);
+        pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.2);
+        yPos += 6;
       } else {
-        pdf.text("No income items", margin + 2, yPos);
-        yPos += 10;
+        pdf.setFont(undefined, 'normal');
+        pdf.text("No income items", margin + 1, yPos);
+        yPos += 6;
       }
 
       // EXPENSES SECTION
       pdf.setFont(undefined, 'bold');
-      pdf.setFontSize(14);
+      pdf.setFontSize(11);
       pdf.text("EXPENSES", margin, yPos);
-      yPos += 8;
+      yPos += 5;
 
-      pdf.setFontSize(10);
-      pdf.setFont(undefined, 'normal');
+      pdf.setFontSize(8);
 
       if (this.currentReport.expenses && this.currentReport.expenses.length > 0) {
         // Draw table header
-        pdf.setFillColor(255, 200, 200);
-        pdf.rect(margin, yPos - 5, contentWidth, 7, 'F');
+        pdf.setFillColor(245, 245, 245);
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
         pdf.setFont(undefined, 'bold');
-        pdf.text("Item", margin + 2, yPos);
-        pdf.text("Date", margin + 70, yPos);
-        pdf.text("Person", margin + 100, yPos);
-        pdf.text("Amount", pageWidth - margin - 2, yPos, { align: 'right' });
-        yPos += 8;
+        pdf.text("Item", margin + 1, yPos);
+        pdf.text("Date", margin + 65, yPos);
+        pdf.text("Person", margin + 87, yPos);
+        pdf.text("Amount", pageWidth - margin - 1, yPos, { align: 'right' });
+        yPos += 5;
 
         pdf.setFont(undefined, 'normal');
-        this.currentReport.expenses.forEach((item) => {
-          if (yPos > 270) {
-            pdf.addPage();
-            yPos = 20;
-          }
-
+        this.currentReport.expenses.forEach((item, idx) => {
           const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
           const personName = investor ? investor.name : item.personInCharge;
           const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
 
-          pdf.text(item.item.substring(0, 35), margin + 2, yPos);
-          pdf.text(dateStr, margin + 70, yPos);
-          pdf.text(personName.substring(0, 20), margin + 100, yPos);
-          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
-          yPos += 6;
+          // Alternating row colors
+          if (idx % 2 === 0) {
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
+          }
+
+          pdf.text(item.item.substring(0, 35), margin + 1, yPos);
+          pdf.text(dateStr, margin + 65, yPos);
+
+          // Show investor avatar initial
+          if (investor) {
+            pdf.setFillColor(100, 100, 100);
+            pdf.circle(margin + 89, yPos - 1.5, 1.5, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(6);
+            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 89, yPos - 0.5, { align: 'center' });
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(8);
+            pdf.text(personName.substring(0, 25), margin + 92, yPos);
+          } else {
+            pdf.text(personName.substring(0, 25), margin + 87, yPos);
+          }
+
+          pdf.setTextColor(128, 0, 0);
+          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+          pdf.setTextColor(0, 0, 0);
+          yPos += 4;
         });
 
-        yPos += 3;
+        yPos += 1;
+        pdf.setDrawColor(128, 0, 0);
+        pdf.setLineWidth(0.3);
+        pdf.line(pageWidth - margin - 40, yPos - 0.5, pageWidth - margin, yPos - 0.5);
         pdf.setFont(undefined, 'bold');
-        pdf.text("Total Expenses:", pageWidth - margin - 35, yPos);
-        pdf.text(`$${this.currentReport.totalExpenses.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
-        yPos += 10;
+        pdf.setTextColor(128, 0, 0);
+        pdf.text("Total:", pageWidth - margin - 35, yPos);
+        pdf.text(`$${this.currentReport.totalExpenses.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.setTextColor(0, 0, 0);
+        pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.2);
+        yPos += 6;
       } else {
-        pdf.text("No expense items", margin + 2, yPos);
-        yPos += 10;
+        pdf.setFont(undefined, 'normal');
+        pdf.text("No expense items", margin + 1, yPos);
+        yPos += 6;
       }
 
       // NET PROFIT SECTION
       const netProfit = (this.currentReport.totalIncome || 0) - (this.currentReport.totalExpenses || 0);
 
-      yPos += 5;
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(margin, yPos - 5, contentWidth, 10, 'F');
-      pdf.setFontSize(14);
+      yPos += 2;
+      pdf.setFillColor(250, 250, 250);
+      pdf.setDrawColor(150, 150, 150);
+      pdf.rect(margin, yPos - 4, contentWidth, 7, 'FD');
+      pdf.setFontSize(10);
       pdf.setFont(undefined, 'bold');
       pdf.text("NET PROFIT:", margin + 2, yPos);
-      pdf.setTextColor(netProfit >= 0 ? 0 : 255, netProfit >= 0 ? 128 : 0, 0);
+      pdf.setTextColor(netProfit >= 0 ? 0 : 150, netProfit >= 0 ? 100 : 0, 0);
+      pdf.setFontSize(11);
       pdf.text(`$${netProfit.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
       pdf.setTextColor(0, 0, 0);
-      yPos += 15;
+      yPos += 8;
 
       // INVESTOR DISTRIBUTION SECTION
       if (this.investors && this.investors.length > 0) {
-        if (yPos > 200) {
-          pdf.addPage();
-          yPos = 20;
-        }
-
-        pdf.setFontSize(14);
+        pdf.setFontSize(11);
         pdf.setFont(undefined, 'bold');
         pdf.text("INVESTOR DISTRIBUTION", margin, yPos);
-        yPos += 8;
+        yPos += 5;
 
-        pdf.setFontSize(10);
-        pdf.setFillColor(200, 230, 255);
-        pdf.rect(margin, yPos - 5, contentWidth, 7, 'F');
-        pdf.text("Investor", margin + 2, yPos);
-        pdf.text("Share %", margin + 60, yPos);
-        pdf.text("Profit", margin + 85, yPos);
-        pdf.text("Paid", margin + 110, yPos);
-        pdf.text("Received", margin + 135, yPos);
-        pdf.text("Final", pageWidth - margin - 2, yPos, { align: 'right' });
-        yPos += 8;
+        pdf.setFontSize(8);
+        pdf.setFillColor(245, 245, 245);
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
+        pdf.setFont(undefined, 'bold');
+        pdf.text("Investor", margin + 1, yPos);
+        pdf.text("Share", margin + 48, yPos);
+        pdf.text("Profit", margin + 63, yPos);
+        pdf.text("Paid", margin + 85, yPos);
+        pdf.text("Received", margin + 107, yPos);
+        pdf.text("Final", pageWidth - margin - 1, yPos, { align: 'right' });
+        yPos += 5;
 
         pdf.setFont(undefined, 'normal');
-        this.investors.forEach((investor) => {
-          if (yPos > 270) {
-            pdf.addPage();
-            yPos = 20;
-          }
-
+        this.investors.forEach((investor, idx) => {
           const propertyData = investor.properties.find(p => p.propertyId === this.selectedProperty);
           const percentage = propertyData ? propertyData.percentage : 0;
           const investorShare = (netProfit * percentage) / 100;
@@ -2763,20 +2823,38 @@ class FinancialReportsComponent {
 
           const finalAmount = investorShare - alreadyPaid + alreadyReceived + expensesPaid - incomeReceived;
 
-          pdf.text(investor.name.substring(0, 25), margin + 2, yPos);
-          pdf.text(`${percentage}%`, margin + 60, yPos);
-          pdf.text(`$${investorShare.toFixed(2)}`, margin + 85, yPos);
-          pdf.text(`$${expensesPaid.toFixed(2)}`, margin + 110, yPos);
-          pdf.text(`$${incomeReceived.toFixed(2)}`, margin + 135, yPos);
-          pdf.setTextColor(finalAmount >= 0 ? 0 : 255, finalAmount >= 0 ? 128 : 0, 0);
-          pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+          // Alternating row colors
+          if (idx % 2 === 0) {
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
+          }
+
+          // Show investor avatar initial
+          pdf.setFillColor(70, 130, 180);
+          pdf.circle(margin + 3, yPos - 1.5, 1.5, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(6);
+          pdf.text(investor.name.charAt(0).toUpperCase(), margin + 3, yPos - 0.5, { align: 'center' });
           pdf.setTextColor(0, 0, 0);
-          yPos += 6;
+          pdf.setFontSize(8);
+          pdf.text(investor.name.substring(0, 20), margin + 6, yPos);
+
+          pdf.text(`${percentage}%`, margin + 48, yPos);
+          pdf.text(`$${investorShare.toFixed(2)}`, margin + 63, yPos);
+          pdf.text(`$${expensesPaid.toFixed(2)}`, margin + 85, yPos);
+          pdf.text(`$${incomeReceived.toFixed(2)}`, margin + 107, yPos);
+          pdf.setTextColor(finalAmount >= 0 ? 0 : 150, finalAmount >= 0 ? 100 : 0, 0);
+          pdf.setFont(undefined, 'bold');
+          pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+          pdf.setFont(undefined, 'normal');
+          pdf.setTextColor(0, 0, 0);
+          yPos += 4;
         });
       }
 
       // Download PDF
-      const fileName = `Financial_Report_${propertyName.replace(/[^a-zA-Z0-9]/g, '_')}_${monthName.replace(' ', '_')}.pdf`;
+      const fileNameBase = property ? `${property.propertyId}_${property.unit}` : this.selectedProperty;
+      const fileName = `Financial_Report_${fileNameBase}_${monthName.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
 
       this.showSuccess("Financial report exported as PDF successfully!");
