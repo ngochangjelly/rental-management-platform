@@ -76,22 +76,32 @@ const defaultFetchOptions = {
 const getAuthToken = () => {
   // First check localStorage (persistent storage)
   let token = localStorage.getItem('authToken');
-  
-  // Check if localStorage token is expired
+  console.log('Checking auth token - localStorage:', token ? 'Found' : 'Not found');
+
+  // Check if localStorage token is expired (only if expiration is set)
   if (token) {
     const expiration = localStorage.getItem('authExpiration');
-    if (expiration && Date.now() > parseInt(expiration)) {
-      // Token expired, clear it
-      clearAuth();
-      token = null;
+    // Only check expiration if it was explicitly set
+    if (expiration && expiration !== 'null' && expiration !== 'undefined') {
+      const expirationTime = parseInt(expiration);
+      if (!isNaN(expirationTime) && Date.now() > expirationTime) {
+        // Token expired, clear it
+        console.log('Token expired, clearing auth');
+        clearAuth();
+        token = null;
+      } else {
+        const daysRemaining = Math.ceil((expirationTime - Date.now()) / (24 * 60 * 60 * 1000));
+        console.log(`Token valid for ${daysRemaining} more days`);
+      }
     }
   }
-  
+
   // If no persistent token, check sessionStorage (temporary storage)
   if (!token) {
     token = sessionStorage.getItem('authToken');
+    console.log('Checking sessionStorage:', token ? 'Found' : 'Not found');
   }
-  
+
   return token;
 };
 
@@ -112,6 +122,7 @@ const handleAuthResponse = async (response) => {
     try {
       const data = await response.clone().json();
       if (data.authenticated === false || data.error === 'Invalid token') {
+        console.log('Authentication failed - clearing auth and redirecting to login');
         clearAuth();
         // Only redirect if we're not already on login page
         if (!window.location.pathname.includes('login')) {
@@ -121,6 +132,7 @@ const handleAuthResponse = async (response) => {
       }
     } catch (e) {
       // Response might not be JSON, still handle 401
+      console.log('401 response without JSON - clearing auth');
       clearAuth();
       if (!window.location.pathname.includes('login')) {
         window.location.href = '/login.html';

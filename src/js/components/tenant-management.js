@@ -848,6 +848,12 @@ class TenantManagementComponent {
                                         <option value="COMPARTMENT1" ${propertyDetails.room === 'COMPARTMENT1' ? 'selected' : ''}>Compartment 1</option>
                                         <option value="COMPARTMENT2" ${propertyDetails.room === 'COMPARTMENT2' ? 'selected' : ''}>Compartment 2</option>
                                         <option value="STORE" ${propertyDetails.room === 'STORE' ? 'selected' : ''}>Store</option>
+                                        <option value="COMMON_1_PAX" ${propertyDetails.room === 'COMMON_1_PAX' ? 'selected' : ''}>Common 1 Pax</option>
+                                        <option value="COMMON_2_PAX" ${propertyDetails.room === 'COMMON_2_PAX' ? 'selected' : ''}>Common 2 Pax</option>
+                                        <option value="SMALL_SINGLE_1_PAX" ${propertyDetails.room === 'SMALL_SINGLE_1_PAX' ? 'selected' : ''}>Small Single 1 Pax</option>
+                                        <option value="SMALL_SINGLE_2_PAX" ${propertyDetails.room === 'SMALL_SINGLE_2_PAX' ? 'selected' : ''}>Small Single 2 Pax</option>
+                                        <option value="BIG_SINGLE_1_PAX" ${propertyDetails.room === 'BIG_SINGLE_1_PAX' ? 'selected' : ''}>Big Single 1 Pax</option>
+                                        <option value="BIG_SINGLE_2_PAX" ${propertyDetails.room === 'BIG_SINGLE_2_PAX' ? 'selected' : ''}>Big Single 2 Pax</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">

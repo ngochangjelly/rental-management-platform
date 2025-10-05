@@ -19,6 +19,26 @@ class FinancialReportsComponent {
     this.init();
   }
 
+  // Map room type enums to human-readable names
+  getRoomTypeDisplayName(roomType) {
+    const roomTypeMap = {
+      'COMMON1': 'Common 1',
+      'COMMON2': 'Common 2',
+      'MASTER': 'Master',
+      'COMPARTMENT1': 'Compartment 1',
+      'COMPARTMENT2': 'Compartment 2',
+      'STORE': 'Store',
+      'COMMON_1_PAX': 'Common 1 Pax',
+      'COMMON_2_PAX': 'Common 2 Pax',
+      'SMALL_SINGLE_1_PAX': 'Small Single 1 Pax',
+      'SMALL_SINGLE_2_PAX': 'Small Single 2 Pax',
+      'BIG_SINGLE_1_PAX': 'Big Single 1 Pax',
+      'BIG_SINGLE_2_PAX': 'Big Single 2 Pax'
+    };
+
+    return roomTypeMap[roomType] || roomType;
+  }
+
   init() {
     this.bindEvents();
     this.loadProperties();
@@ -467,7 +487,7 @@ class FinancialReportsComponent {
         `loadFinancialReport: Calling updateDisplays with:`,
         this.currentReport
       );
-      this.updateDisplays();
+      await this.updateDisplays();
     } catch (error) {
       console.error("Error loading financial report:", error);
       // Don't show error alert - just log it and continue with empty report
@@ -482,16 +502,16 @@ class FinancialReportsComponent {
         totalExpenses: 0,
         netProfit: 0,
       };
-      this.updateDisplays();
+      await this.updateDisplays();
     }
   }
 
-  updateDisplays() {
+  async updateDisplays() {
     this.updateIncomeDisplay();
     this.updateExpenseDisplay();
     this.updateSummaryDisplay();
     this.updateInvestorDisplay();
-    this.updateClosedStatus();
+    await this.updateClosedStatus();
   }
 
   updateIncomeDisplay() {
@@ -518,7 +538,7 @@ class FinancialReportsComponent {
     // Create compact table format
     let html = `
       <div class="table-responsive">
-        <table class="table table-sm mb-0">
+        <table class="table table-sm table-striped mb-0">
           <thead>
             <tr class="table-success">
               <th class="border-0 small">Item</th>
@@ -563,7 +583,6 @@ class FinancialReportsComponent {
         <tr>
           <td class="small border-0 align-middle">
             <div class="d-flex align-items-center gap-1">
-              <i class="bi bi-plus-circle-fill text-success me-1"></i>
               <span>${escapeHtml(item.item)}</span>
               ${
                 hasAdditionalInfo
@@ -680,7 +699,7 @@ class FinancialReportsComponent {
     // Create compact table format
     let html = `
       <div class="table-responsive">
-        <table class="table table-sm mb-0">
+        <table class="table table-sm table-striped mb-0">
           <thead>
             <tr class="table-danger">
               <th class="border-0 small">Item</th>
@@ -724,7 +743,6 @@ class FinancialReportsComponent {
         <tr>
           <td class="small border-0 align-middle">
             <div class="d-flex align-items-center gap-1">
-              <i class="bi bi-dash-circle-fill text-danger me-1"></i>
               <span>${escapeHtml(item.item)}</span>
               ${
                 hasAdditionalInfo
@@ -977,12 +995,12 @@ class FinancialReportsComponent {
     investorDistribution.innerHTML = html;
   }
 
-  updateMonthDisplay() {
+  async updateMonthDisplay() {
     // Call the enhanced version that includes closed status
-    this.updateMonthDisplayWithClosedStatus();
+    await this.updateMonthDisplayWithClosedStatus();
   }
 
-  changeMonth(direction) {
+  async changeMonth(direction) {
     console.log(`changeMonth called with direction: ${direction}`);
     console.log(`Current date before change:`, this.currentDate);
 
@@ -993,11 +1011,20 @@ class FinancialReportsComponent {
     console.log(`Current date after change:`, this.currentDate);
     console.log(`Selected property:`, this.selectedProperty);
 
+    // Clear current report to prevent showing old data
+    this.currentReport = null;
+
     // Reset any pending close state when changing months
     this.pendingClose = false;
 
-    this.updateMonthDisplay();
-    this.loadFinancialReport();
+    // Clear displays immediately to show loading state
+    this.updateIncomeDisplay();
+    this.updateExpenseDisplay();
+    this.updateSummaryDisplay();
+    this.updateInvestorDisplay();
+
+    await this.updateMonthDisplay();
+    await this.loadFinancialReport();
   }
 
   async showIncomeExpenseModal(type, existingItem = null, itemIndex = null) {
@@ -1241,6 +1268,7 @@ class FinancialReportsComponent {
     let person = null;
     let displayName = "";
     let avatar = null;
+    let roomType = null;
 
     // Check if it's a tenant (prefixed with 'tenant_')
     if (paidBy.startsWith("tenant_")) {
@@ -1254,6 +1282,16 @@ class FinancialReportsComponent {
       if (person) {
         displayName = person.name || "Unknown Tenant";
         avatar = person.avatar;
+
+        // Find room type for the current property
+        if (person.properties && this.selectedProperty) {
+          const propertyAssociation = person.properties.find(
+            (prop) => prop.propertyId === this.selectedProperty
+          );
+          if (propertyAssociation && propertyAssociation.room) {
+            roomType = propertyAssociation.room;
+          }
+        }
       }
     } else {
       // It's an investor
@@ -1269,21 +1307,24 @@ class FinancialReportsComponent {
     }
 
     return `
-      <div class="d-flex align-items-center justify-content-center">
-        ${
-          avatar
-            ? `<img src="${this.getOptimizedAvatarUrl(
-                avatar,
-                "small"
-              )}" alt="${escapeHtml(
-                displayName
-              )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" title="${escapeHtml(
-                displayName
-              )}">`
-            : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" title="${escapeHtml(
-                displayName
-              )}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`
-        }
+      <div class="d-flex flex-column align-items-center justify-content-center">
+        <div class="d-flex align-items-center justify-content-center mb-1">
+          ${
+            avatar
+              ? `<img src="${this.getOptimizedAvatarUrl(
+                  avatar,
+                  "small"
+                )}" alt="${escapeHtml(
+                  displayName
+                )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" title="${escapeHtml(
+                  displayName
+                )}">`
+              : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" title="${escapeHtml(
+                  displayName
+                )}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`
+          }
+        </div>
+        ${roomType ? `<div class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 6px;">${escapeHtml(this.getRoomTypeDisplayName(roomType))}</div>` : ''}
       </div>
     `;
   }
@@ -1295,6 +1336,7 @@ class FinancialReportsComponent {
 
     let person = null;
     let displayName = "";
+    let roomType = null;
 
     // Check if it's a tenant (prefixed with 'tenant_')
     if (paidBy.startsWith("tenant_")) {
@@ -1307,6 +1349,16 @@ class FinancialReportsComponent {
       );
       if (person) {
         displayName = person.name || "Unknown Tenant";
+
+        // Find room type for the current property
+        if (person.properties && this.selectedProperty) {
+          const propertyAssociation = person.properties.find(
+            (prop) => prop.propertyId === this.selectedProperty
+          );
+          if (propertyAssociation && propertyAssociation.room) {
+            roomType = propertyAssociation.room;
+          }
+        }
       }
     } else {
       // It's an investor
@@ -1318,6 +1370,11 @@ class FinancialReportsComponent {
 
     if (!person || !displayName) {
       return 'Unknown';
+    }
+
+    // Return name with room type if available
+    if (roomType) {
+      return `${escapeHtml(displayName)}\n(${escapeHtml(this.getRoomTypeDisplayName(roomType))})`;
     }
 
     return escapeHtml(displayName);
@@ -1548,7 +1605,7 @@ class FinancialReportsComponent {
 
         await this.loadFinancialReport();
         // Force a display refresh to ensure indices are correct
-        this.updateDisplays();
+        await this.updateDisplays();
         this.showSuccess(
           `${type.charAt(0).toUpperCase() + type.slice(1)} item ${
             isEditing ? "updated" : "added"
@@ -2232,7 +2289,7 @@ class FinancialReportsComponent {
       if (result.success) {
         await this.loadFinancialReport();
         // Force a display refresh to ensure indices are correct
-        this.updateDisplays();
+        await this.updateDisplays();
         this.showSuccess(
           `${
             type.charAt(0).toUpperCase() + type.slice(1)
@@ -2286,7 +2343,7 @@ class FinancialReportsComponent {
   }
 
   // Toggle close month confirmation
-  toggleCloseConfirm() {
+  async toggleCloseConfirm() {
     if (!this.selectedProperty || !this.currentReport) {
       this.showError("Please select a property and load financial data first");
       return;
@@ -2299,13 +2356,13 @@ class FinancialReportsComponent {
 
     // Add to pending closes set
     this.pendingClose = true;
-    this.updateClosedStatus();
+    await this.updateClosedStatus();
   }
 
   // Cancel close confirmation
-  cancelCloseConfirm() {
+  async cancelCloseConfirm() {
     this.pendingClose = false;
-    this.updateClosedStatus();
+    await this.updateClosedStatus();
   }
 
   // Confirm close month
@@ -2328,7 +2385,7 @@ class FinancialReportsComponent {
 
       if (result.success) {
         this.currentReport = result.data;
-        this.updateClosedStatus();
+        await this.updateClosedStatus();
         this.showSuccess("Month closed successfully!");
       } else {
         throw new Error(result.message || "Failed to close month");
@@ -2336,7 +2393,7 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error("Error closing month:", error);
       this.showError(error.message || "Failed to close month");
-      this.updateClosedStatus();
+      await this.updateClosedStatus();
     }
   }
 
@@ -2368,7 +2425,7 @@ class FinancialReportsComponent {
 
       if (result.success) {
         this.currentReport = result.data;
-        this.updateClosedStatus();
+        await this.updateClosedStatus();
         this.showSuccess("Month reopened successfully!");
       } else {
         throw new Error(result.message || "Failed to reopen month");
@@ -2380,7 +2437,7 @@ class FinancialReportsComponent {
   }
 
   // Update UI based on closed status
-  updateClosedStatus() {
+  async updateClosedStatus() {
     const isClosed = this.currentReport && this.currentReport.isClosed;
     const isPendingClose = this.pendingClose;
 
@@ -2430,14 +2487,14 @@ class FinancialReportsComponent {
     }
 
     // Update month display with closed indicator
-    this.updateMonthDisplayWithClosedStatus();
+    await this.updateMonthDisplayWithClosedStatus();
 
     // Disable/enable action buttons
     this.toggleActionButtons(!isClosed);
   }
 
   // Update month display to show closed status
-  updateMonthDisplayWithClosedStatus() {
+  async updateMonthDisplayWithClosedStatus() {
     const currentMonthEl = document.getElementById("currentMonth");
     const currentMonthBadge = document.getElementById("currentMonthBadge");
 
@@ -2461,7 +2518,28 @@ class FinancialReportsComponent {
       const year = this.currentDate.getFullYear();
       const isClosed = this.currentReport && this.currentReport.isClosed;
 
-      currentMonthEl.textContent = `${month} ${year}${isClosed ? " 🔒" : ""}`;
+      // Get property information
+      let propertyInfo = "";
+      if (this.selectedProperty) {
+        try {
+          const property = await this.getPropertyDetails(this.selectedProperty);
+          if (property) {
+            propertyInfo = `${property.unit}, ${property.address}`;
+          } else {
+            propertyInfo = `Property ID: ${this.selectedProperty}`;
+          }
+        } catch (error) {
+          console.log("Error fetching property details:", error);
+          propertyInfo = `Property ID: ${this.selectedProperty}`;
+        }
+      }
+
+      currentMonthEl.innerHTML = `
+        <div class="d-flex flex-column align-items-center">
+          <div class="fw-bold">${month} ${year}${isClosed ? " 🔒" : ""}</div>
+          ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}</div>` : ""}
+        </div>
+      `;
     }
 
     if (currentMonthBadge) {
@@ -2571,7 +2649,7 @@ class FinancialReportsComponent {
       // Get property details
       const property = await this.getPropertyDetails(this.selectedProperty);
       const propertyHeader = property
-        ? `${property.address}, Unit ${property.unit}\nProperty ID: ${property.propertyId}`
+        ? `Unit ${property.unit}, ${property.address}\nProperty ID: ${property.propertyId}`
         : `Property ID: ${this.selectedProperty}`;
 
       // Create PDF using globally loaded jsPDF
@@ -2593,10 +2671,106 @@ class FinancialReportsComponent {
         return words.length >= 2 ? words.slice(-2).join(' ') : fullName;
       };
 
-      // Title
+      // Helper to get paid by details for PDF (name + room type)
+      const getPaidByForPDF = (paidBy) => {
+        if (!paidBy) return { name: '-', roomType: null };
+
+        let person = null;
+        let displayName = "";
+        let roomType = null;
+
+        // Check if it's a tenant (prefixed with 'tenant_')
+        if (paidBy.startsWith("tenant_")) {
+          const tenantId = paidBy.replace("tenant_", "");
+          person = this.tenants.find(
+            (t) =>
+              (t.tenantId && t.tenantId === tenantId) ||
+              (t.id && t.id === tenantId) ||
+              (t.fin && t.fin === tenantId)
+          );
+          if (person) {
+            displayName = person.name || "Unknown Tenant";
+
+            // Find room type for the current property
+            if (person.properties && this.selectedProperty) {
+              const propertyAssociation = person.properties.find(
+                (prop) => prop.propertyId === this.selectedProperty
+              );
+              if (propertyAssociation && propertyAssociation.room) {
+                roomType = propertyAssociation.room;
+              }
+            }
+          }
+        } else {
+          // It's an investor
+          person = this.investors.find((i) => i.investorId === paidBy);
+          if (person) {
+            displayName = person.name || "Unknown Investor";
+          }
+        }
+
+        if (!person || !displayName) {
+          return { name: 'Unknown', roomType: null };
+        }
+
+        return {
+          name: getShortName(displayName),
+          roomType: roomType ? this.getRoomTypeDisplayName(roomType) : null
+        };
+      };
+
+      // Helper to remove Vietnamese diacritics for better PDF rendering
+      const removeDiacritics = (str) => {
+        if (!str) return '';
+        return str.normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/đ/g, 'd')
+                  .replace(/Đ/g, 'D');
+      };
+
+      // Helper to wrap text into multiple lines
+      const wrapText = (text, maxWidth) => {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+
+        words.forEach(word => {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const width = pdf.getTextWidth(testLine);
+
+          if (width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        });
+
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+
+        return lines;
+      };
+
+      // Helper to get last word from name
+      const getLastWord = (name) => {
+        if (!name) return '?';
+        const words = name.trim().split(' ');
+        return words[words.length - 1];
+      };
+
+      // Title with month/year on same line
+      const reportMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+      const monthName = reportMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
       pdf.setFontSize(16);
       pdf.setFont(undefined, 'bold');
       pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: 'center' });
+
+      // Add month/year on the right side of the same line
+      pdf.setFontSize(12);
+      pdf.text(monthName, pageWidth - margin, yPos, { align: 'right' });
 
       yPos += 6;
       pdf.setFontSize(9);
@@ -2607,13 +2781,7 @@ class FinancialReportsComponent {
         yPos += 4;
       });
 
-      yPos += 2;
-      const reportMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
-      const monthName = reportMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      pdf.setFont(undefined, 'bold');
-      pdf.text(monthName, pageWidth / 2, yPos, { align: 'center' });
-
-      yPos += 8;
+      yPos += 4;
 
       // INCOME SECTION
       pdf.setFont(undefined, 'bold');
@@ -2623,6 +2791,13 @@ class FinancialReportsComponent {
 
       pdf.setFontSize(8);
 
+      // Define consistent column positions (adjusted to prevent overlapping)
+      const colItem = margin + 1;
+      const colDate = margin + 62;
+      const colPerson = margin + 82;
+      const colPaidBy = margin + 115;
+      const colAmount = pageWidth - margin - 1;
+
       if (this.currentReport.income && this.currentReport.income.length > 0) {
         // Draw table header with professional gray
         pdf.setFillColor(245, 245, 245);
@@ -2630,64 +2805,87 @@ class FinancialReportsComponent {
         pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
         pdf.setFont(undefined, 'bold');
         pdf.setFontSize(8);
-        pdf.text("Item", margin + 1, yPos);
-        pdf.text("Date", margin + 50, yPos);
-        pdf.text("Person", margin + 72, yPos);
-        pdf.text("Paid By", margin + 112, yPos);
-        pdf.text("Amount", pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.text("Item", colItem, yPos);
+        pdf.text("Date", colDate, yPos);
+        pdf.text("Person", colPerson, yPos);
+        pdf.text("Paid By", colPaidBy, yPos);
+        pdf.text("Amount", colAmount, yPos, { align: 'right' });
         yPos += 5;
 
         pdf.setFont(undefined, 'normal');
-        this.currentReport.income.forEach((item, idx) => {
+
+        // Process income items with avatars
+        for (let idx = 0; idx < this.currentReport.income.length; idx++) {
+          const item = this.currentReport.income[idx];
           const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
-          const personName = investor ? investor.name : item.personInCharge;
-          const paidByName = getShortName(this.renderPaidByName(item.paidBy));
+          const paidByData = getPaidByForPDF(item.paidBy);
           const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
 
-          // Alternating row colors
+          // Wrap item text into multiple lines
+          const itemText = removeDiacritics(item.item);
+          const itemLines = wrapText(itemText, 58); // max width for item column
+          const lineHeight = 3.5;
+
+          // Calculate row height (single row for now)
+          const rowHeight = Math.max(itemLines.length * lineHeight, 4);
+
+          // Alternating row colors - adjust height to cover all lines
           if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
+            pdf.rect(margin, yPos - 3.5, contentWidth, rowHeight + 3, 'F');
           }
 
-          // Truncate item text properly to avoid overflow
-          const itemText = item.item.length > 28 ? item.item.substring(0, 26) + '..' : item.item;
-          pdf.text(itemText, margin + 1, yPos);
-          pdf.text(dateStr, margin + 50, yPos);
+          // Draw item text (multi-line)
+          itemLines.forEach((line, lineIdx) => {
+            pdf.text(line, colItem, yPos + (lineIdx * lineHeight));
+          });
 
-          // Show investor avatar box with initial
+          // Draw other columns on first line
+          pdf.text(dateStr, colDate, yPos);
+
+          // Show last word of investor name
           if (investor) {
-            pdf.setFillColor(100, 100, 100);
-            pdf.rect(margin + 72, yPos - 2.5, 3, 3, 'F');
+            const lastName = removeDiacritics(getLastWord(investor.name));
+            pdf.text(lastName, colPerson, yPos);
+          }
+
+          // Paid by - show name with badge next to it
+          const paidByName = removeDiacritics(paidByData.name);
+          pdf.text(paidByName, colPaidBy, yPos);
+
+          // Add room type badge next to name if available
+          if (paidByData.roomType) {
+            const nameWidth = pdf.getTextWidth(paidByName);
+            const badgeX = colPaidBy + nameWidth + 1.5; // 1.5mm gap after name
+
+            pdf.setFontSize(6);
+            pdf.setFillColor(108, 117, 125); // Bootstrap secondary color
+            pdf.setDrawColor(108, 117, 125);
+            const badgeText = removeDiacritics(paidByData.roomType);
+            const badgeWidth = pdf.getTextWidth(badgeText) + 2;
+            const badgeHeight = 2.5;
+
+            // Draw badge aligned with text baseline
+            pdf.roundedRect(badgeX, yPos - 2.2, badgeWidth, badgeHeight, 0.5, 0.5, 'FD');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(7);
-            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 73.5, yPos - 0.3, { align: 'center' });
+            pdf.text(badgeText, badgeX + 1, yPos - 0.2);
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
-            // Truncate name to avoid Vietnamese character issues
-            const truncName = personName.length > 18 ? personName.substring(0, 16) + '..' : personName;
-            pdf.text(truncName, margin + 77, yPos);
-          } else {
-            const truncName = personName.length > 18 ? personName.substring(0, 16) + '..' : personName;
-            pdf.text(truncName, margin + 72, yPos);
           }
 
-          const truncPaidBy = paidByName.length > 15 ? paidByName.substring(0, 13) + '..' : paidByName;
-          pdf.text(truncPaidBy, margin + 112, yPos);
           pdf.setTextColor(0, 128, 0);
-          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, yPos, { align: 'right' });
           pdf.setTextColor(0, 0, 0);
-          yPos += 4;
-        });
 
-        yPos += 1;
-        pdf.setDrawColor(0, 128, 0);
-        pdf.setLineWidth(0.3);
-        pdf.line(pageWidth - margin - 40, yPos - 0.5, pageWidth - margin, yPos - 0.5);
+          yPos += rowHeight;
+        }
+
+        yPos += 2;
         pdf.setFont(undefined, 'bold');
         pdf.setTextColor(0, 128, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
-        pdf.text(`$${this.currentReport.totalIncome.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.text(`$${this.currentReport.totalIncome.toFixed(2)}`, colAmount, yPos, { align: 'right' });
+
         pdf.setTextColor(0, 0, 0);
         pdf.setDrawColor(0, 0, 0);
         pdf.setLineWidth(0.2);
@@ -2707,64 +2905,64 @@ class FinancialReportsComponent {
       pdf.setFontSize(8);
 
       if (this.currentReport.expenses && this.currentReport.expenses.length > 0) {
-        // Draw table header
+        // Draw table header (same columns as income)
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
         pdf.setFont(undefined, 'bold');
-        pdf.text("Item", margin + 1, yPos);
-        pdf.text("Date", margin + 65, yPos);
-        pdf.text("Person", margin + 87, yPos);
-        pdf.text("Amount", pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.text("Item", colItem, yPos);
+        pdf.text("Date", colDate, yPos);
+        pdf.text("Person", colPerson, yPos);
+        pdf.text("Amount", colAmount, yPos, { align: 'right' });
         yPos += 5;
 
         pdf.setFont(undefined, 'normal');
-        this.currentReport.expenses.forEach((item, idx) => {
+
+        // Process expense items with avatars
+        for (let idx = 0; idx < this.currentReport.expenses.length; idx++) {
+          const item = this.currentReport.expenses[idx];
           const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
-          const personName = investor ? investor.name : item.personInCharge;
           const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
 
-          // Alternating row colors
+          // Wrap item text into multiple lines
+          const itemText = removeDiacritics(item.item);
+          const itemLines = wrapText(itemText, 58); // max width for item column
+          const lineHeight = 3.5;
+          const rowHeight = Math.max(itemLines.length * lineHeight, 4);
+
+          // Alternating row colors - adjust height to cover all lines
           if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
+            pdf.rect(margin, yPos - 3.5, contentWidth, rowHeight + 3, 'F');
           }
 
-          // Truncate item text properly
-          const itemText = item.item.length > 35 ? item.item.substring(0, 33) + '..' : item.item;
-          pdf.text(itemText, margin + 1, yPos);
-          pdf.text(dateStr, margin + 65, yPos);
+          // Draw item text (multi-line)
+          itemLines.forEach((line, lineIdx) => {
+            pdf.text(line, colItem, yPos + (lineIdx * lineHeight));
+          });
 
-          // Show investor avatar box with initial
+          // Draw other columns on first line
+          pdf.text(dateStr, colDate, yPos);
+
+          // Show last word of investor name
           if (investor) {
-            pdf.setFillColor(100, 100, 100);
-            pdf.rect(margin + 87, yPos - 2.5, 3, 3, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(7);
-            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 88.5, yPos - 0.3, { align: 'center' });
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFontSize(8);
-            const truncName = personName.length > 25 ? personName.substring(0, 23) + '..' : personName;
-            pdf.text(truncName, margin + 92, yPos);
-          } else {
-            const truncName = personName.length > 25 ? personName.substring(0, 23) + '..' : personName;
-            pdf.text(truncName, margin + 87, yPos);
+            const lastName = removeDiacritics(getLastWord(investor.name));
+            pdf.text(lastName, colPerson, yPos);
           }
 
           pdf.setTextColor(128, 0, 0);
-          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, yPos, { align: 'right' });
           pdf.setTextColor(0, 0, 0);
-          yPos += 4;
-        });
 
-        yPos += 1;
-        pdf.setDrawColor(128, 0, 0);
-        pdf.setLineWidth(0.3);
-        pdf.line(pageWidth - margin - 40, yPos - 0.5, pageWidth - margin, yPos - 0.5);
+          yPos += rowHeight;
+        }
+
+        yPos += 2;
         pdf.setFont(undefined, 'bold');
         pdf.setTextColor(128, 0, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
-        pdf.text(`$${this.currentReport.totalExpenses.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.text(`$${this.currentReport.totalExpenses.toFixed(2)}`, colAmount, yPos, { align: 'right' });
+
         pdf.setTextColor(0, 0, 0);
         pdf.setDrawColor(0, 0, 0);
         pdf.setLineWidth(0.2);
@@ -2778,18 +2976,20 @@ class FinancialReportsComponent {
       // NET PROFIT SECTION
       const netProfit = (this.currentReport.totalIncome || 0) - (this.currentReport.totalExpenses || 0);
 
-      yPos += 2;
-      pdf.setFillColor(250, 250, 250);
-      pdf.setDrawColor(150, 150, 150);
-      pdf.rect(margin, yPos - 4, contentWidth, 7, 'FD');
+      // Add spacing before NET PROFIT
+      yPos += 6;
+
+      // NET PROFIT - no box, no background
       pdf.setFontSize(10);
       pdf.setFont(undefined, 'bold');
-      pdf.text("NET PROFIT:", margin + 2, yPos);
+      pdf.text("NET PROFIT:", margin, yPos);
       pdf.setTextColor(netProfit >= 0 ? 0 : 150, netProfit >= 0 ? 100 : 0, 0);
       pdf.setFontSize(11);
-      pdf.text(`$${netProfit.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+      pdf.text(`$${netProfit.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
       pdf.setTextColor(0, 0, 0);
-      yPos += 8;
+
+      // Add spacing after NET PROFIT
+      yPos += 10;
 
       // INVESTOR DISTRIBUTION SECTION
       if (this.investors && this.investors.length > 0) {
@@ -2812,7 +3012,10 @@ class FinancialReportsComponent {
         yPos += 5;
 
         pdf.setFont(undefined, 'normal');
-        this.investors.forEach((investor, idx) => {
+
+        // Process investor distribution with avatars
+        for (let idx = 0; idx < this.investors.length; idx++) {
+          const investor = this.investors[idx];
           const propertyData = investor.properties.find(p => p.propertyId === this.selectedProperty);
           const percentage = propertyData ? propertyData.percentage : 0;
           const investorShare = (netProfit * percentage) / 100;
@@ -2842,16 +3045,12 @@ class FinancialReportsComponent {
             pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
           }
 
-          // Show investor avatar box with initial
-          pdf.setFillColor(70, 130, 180);
-          pdf.rect(margin + 1, yPos - 2.5, 3, 3, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(7);
-          pdf.text(investor.name.charAt(0).toUpperCase(), margin + 2.5, yPos - 0.3, { align: 'center' });
+          // Show investor name
           pdf.setTextColor(0, 0, 0);
           pdf.setFontSize(8);
-          const truncInvName = investor.name.length > 20 ? investor.name.substring(0, 18) + '..' : investor.name;
-          pdf.text(truncInvName, margin + 6, yPos);
+          let truncInvName = removeDiacritics(investor.name);
+          truncInvName = truncInvName.length > 30 ? truncInvName.substring(0, 28) + '..' : truncInvName;
+          pdf.text(truncInvName, margin + 1, yPos);
 
           pdf.text(`${percentage}%`, margin + 48, yPos);
           pdf.text(`$${investorShare.toFixed(2)}`, margin + 63, yPos);
@@ -2863,12 +3062,12 @@ class FinancialReportsComponent {
           pdf.setFont(undefined, 'normal');
           pdf.setTextColor(0, 0, 0);
           yPos += 4;
-        });
+        }
       }
 
       // Download PDF
-      const fileNameBase = property ? `${property.propertyId}_${property.unit}` : this.selectedProperty;
-      const fileName = `Financial_Report_${fileNameBase}_${monthName.replace(/\s+/g, '_')}.pdf`;
+      const fileNameBase = property ? `${removeDiacritics(property.propertyId)}_${removeDiacritics(property.unit)}` : this.selectedProperty;
+      const fileName = `Financial_Report_${fileNameBase}_${removeDiacritics(monthName).replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
 
       this.showSuccess("Financial report exported as PDF successfully!");

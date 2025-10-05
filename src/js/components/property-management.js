@@ -72,87 +72,134 @@ class PropertyManagementComponent {
   }
 
   renderPropertiesTable() {
-    const tbody = document.getElementById("propertiesTableBody");
-    const mobileList = document.getElementById("mobilePropertyList");
-    
-    if (!tbody) return;
+    const container = document.getElementById("propertiesContainer");
+
+    if (!container) return;
 
     if (this.properties.length === 0) {
       this.showEmptyState();
-      this.showMobileEmptyState();
       return;
     }
 
-    // Render desktop table
-    let tableHtml = "";
-    this.properties.forEach((property) => {
-      tableHtml += `
-                <tr>
-                    <td>${this.escapeHtml(property.propertyId)}</td>
-                    <td>${this.escapeHtml(property.address)}</td>
-                    <td>${this.escapeHtml(property.unit)}</td>
-                    <td>${property.maxPax}</td>
-                    <td>$${(property.rent || 0).toLocaleString()}</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="propertyManager.editProperty('${
-                          property.propertyId
-                        }')">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="propertyManager.deleteProperty('${
-                          property.propertyId
-                        }')">
-                            <i class="bi bi-trash"></i> Delete
-                        </button>
-                    </td>
-                </tr>
-            `;
-    });
-    tbody.innerHTML = tableHtml;
+    // Clear container and add card layout
+    container.innerHTML = '<div id="propertiesCardGrid" class="row"></div>';
+    const gridContainer = document.getElementById("propertiesCardGrid");
 
-    // Render mobile cards
-    if (mobileList) {
-      let mobileHtml = "";
-      this.properties.forEach((property) => {
-        mobileHtml += `
-                  <div class="mobile-property-card">
-                      <div class="mobile-property-header">
-                          <div class="mobile-property-info">
-                              <div class="mobile-property-id">${this.escapeHtml(property.propertyId)}</div>
-                              <div class="mobile-property-address">${this.escapeHtml(property.address)}</div>
-                          </div>
-                      </div>
-                      <div class="mobile-property-details">
-                          <div><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</div>
-                          <div><strong>Rent:</strong> $${(property.rent || 0).toLocaleString()}</div>
-                      </div>
-                      <div class="mobile-property-actions">
-                          <button class="btn btn-outline-primary btn-sm" onclick="propertyManager.editProperty('${property.propertyId}')">
-                              <i class="bi bi-pencil"></i> Edit
-                          </button>
-                          <button class="btn btn-outline-danger btn-sm" onclick="propertyManager.deleteProperty('${property.propertyId}')">
-                              <i class="bi bi-trash"></i> Delete
-                          </button>
-                      </div>
+    // Render property cards
+    let cardsHtml = "";
+    this.properties.forEach((property) => {
+      const cardHtml = `
+        <div class="col-md-6 col-lg-4 mb-4">
+          <div class="card property-management-card h-100 overflow-hidden"
+               style="transition: all 0.2s ease;">
+            ${property.propertyImage ? `
+            <div class="card-img-top position-relative" style="height: 200px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+              <div class="position-absolute top-0 start-0 p-2">
+                <span class="badge bg-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
+              </div>
+            </div>
+            ` : `
+            <div class="card-img-top position-relative bg-gradient" style="height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <div class="position-absolute top-0 start-0 p-2">
+                <span class="badge bg-white text-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
+              </div>
+              <div class="position-absolute top-50 start-50 translate-middle">
+                <i class="bi bi-building text-white" style="font-size: 3rem; opacity: 0.7;"></i>
+              </div>
+            </div>
+            `}
+            <div class="card-header bg-white border-0 pb-0">
+              <div class="d-flex align-items-center">
+                <div class="me-3">
+                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
+                       style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                    ${this.escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
                   </div>
-              `;
-      });
-      mobileList.innerHTML = mobileHtml;
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}</h6>
+                  <small class="text-muted">Property ID</small>
+                </div>
+              </div>
+            </div>
+            <div class="card-body pt-2">
+              <p class="mb-2 small"><i class="bi bi-geo-alt text-muted me-2"></i>${this.escapeHtml(property.address)}</p>
+              <div class="row">
+                <div class="col-6">
+                  <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</p>
+                  <p class="mb-1 small"><strong>Max Pax:</strong> ${property.maxPax}</p>
+                </div>
+                <div class="col-6">
+                  <p class="mb-1 small"><strong>Rent:</strong></p>
+                  <h6 class="text-success mb-0">$${(property.rent || 0).toLocaleString()}</h6>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer bg-white border-0 pt-0">
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm flex-fill" onclick="propertyManager.editProperty('${property.propertyId}')">
+                  <i class="bi bi-pencil"></i> Edit
+                </button>
+                <button class="btn btn-outline-danger btn-sm flex-fill" onclick="propertyManager.deleteProperty('${property.propertyId}')">
+                  <i class="bi bi-trash"></i> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      cardsHtml += cardHtml;
+    });
+
+    gridContainer.innerHTML = cardsHtml;
+
+    // Add card styles
+    this.addPropertyCardStyles();
+  }
+
+  addPropertyCardStyles() {
+    // Add hover styles if not already added
+    if (!document.getElementById("property-management-card-styles")) {
+      const style = document.createElement("style");
+      style.id = "property-management-card-styles";
+      style.textContent = `
+        .property-management-card {
+          cursor: pointer;
+          border: 1px solid #e3e6f0;
+          border-radius: 12px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .property-management-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+          border-color: #007bff;
+        }
+        .property-management-card .card-img-top {
+          border-radius: 12px 12px 0 0;
+        }
+        .property-management-card .badge {
+          font-size: 0.8rem;
+          padding: 0.5rem 0.75rem;
+        }
+        .property-management-card .card-footer {
+          background: linear-gradient(90deg, #f8f9fa 0%, #ffffff 100%);
+        }
+      `;
+      document.head.appendChild(style);
     }
   }
 
   showEmptyState(message = "No properties found") {
-    const tbody = document.getElementById("propertiesTableBody");
-    if (!tbody) return;
+    const container = document.getElementById("propertiesContainer");
+    if (!container) return;
 
-    tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center text-muted py-4">
-                    <i class="bi bi-building fs-1"></i>
-                    <p class="mt-2">${message}</p>
-                </td>
-            </tr>
-        `;
+    container.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-building fs-1"></i>
+        <h5 class="mt-3">${message}</h5>
+        <p class="text-muted">Click "Add Property" to get started</p>
+      </div>
+    `;
   }
 
   showMobileEmptyState(message = "No properties found") {
@@ -180,72 +227,16 @@ class PropertyManagementComponent {
         property.unit.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const tbody = document.getElementById("propertiesTableBody");
-    const mobileList = document.getElementById("mobilePropertyList");
-    if (!tbody) return;
-
     if (filteredProperties.length === 0) {
       this.showEmptyState(`No properties match "${searchTerm}"`);
-      this.showMobileEmptyState(`No properties match "${searchTerm}"`);
       return;
     }
 
-    // Render filtered desktop table
-    let tableHtml = "";
-    filteredProperties.forEach((property) => {
-      tableHtml += `
-                <tr>
-                    <td>${this.escapeHtml(property.propertyId)}</td>
-                    <td>${this.escapeHtml(property.address)}</td>
-                    <td>${this.escapeHtml(property.unit)}</td>
-                    <td>${property.maxPax}</td>
-                    <td>$${(property.rent || 0).toLocaleString()}</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="propertyManager.editProperty('${
-                          property.propertyId
-                        }')">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="propertyManager.deleteProperty('${
-                          property.propertyId
-                        }')">
-                            <i class="bi bi-trash"></i> Delete
-                        </button>
-                    </td>
-                </tr>
-            `;
-    });
-    tbody.innerHTML = tableHtml;
-
-    // Render filtered mobile cards
-    if (mobileList) {
-      let mobileHtml = "";
-      filteredProperties.forEach((property) => {
-        mobileHtml += `
-                  <div class="mobile-property-card">
-                      <div class="mobile-property-header">
-                          <div class="mobile-property-info">
-                              <div class="mobile-property-id">${this.escapeHtml(property.propertyId)}</div>
-                              <div class="mobile-property-address">${this.escapeHtml(property.address)}</div>
-                          </div>
-                      </div>
-                      <div class="mobile-property-details">
-                          <div><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</div>
-                          <div><strong>Rent:</strong> $${(property.rent || 0).toLocaleString()}</div>
-                      </div>
-                      <div class="mobile-property-actions">
-                          <button class="btn btn-outline-primary btn-sm" onclick="propertyManager.editProperty('${property.propertyId}')">
-                              <i class="bi bi-pencil"></i> Edit
-                          </button>
-                          <button class="btn btn-outline-danger btn-sm" onclick="propertyManager.deleteProperty('${property.propertyId}')">
-                              <i class="bi bi-trash"></i> Delete
-                          </button>
-                      </div>
-                  </div>
-              `;
-      });
-      mobileList.innerHTML = mobileHtml;
-    }
+    // Temporarily store current properties and render filtered results
+    const originalProperties = this.properties;
+    this.properties = filteredProperties;
+    this.renderPropertiesTable();
+    this.properties = originalProperties;
   }
 
   showAddPropertyModal() {
