@@ -1,7 +1,4 @@
 // Note: showToast and escapeHtml are expected to be available globally
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-
 /**
  * Financial Reports Component
  * Handles monthly financial report management with income, expenses, and investor calculations
@@ -2572,8 +2569,8 @@ class FinancialReportsComponent {
       const property = await this.getPropertyDetails(this.selectedProperty);
       const propertyName = property ? `${property.propertyId} - ${property.address}, ${property.unit}` : `Property ID: ${this.selectedProperty}`;
 
-      // Create PDF
-      const pdf = new jsPDF({
+      // Create PDF using globally loaded jsPDF
+      const pdf = new window.jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
