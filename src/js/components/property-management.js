@@ -6,6 +6,7 @@ class PropertyManagementComponent {
   constructor() {
     this.properties = [];
     this.currentWifiImages = [];
+    this.propertyImage = ''; // Store property image URL
     this.init();
   }
 
@@ -325,6 +326,15 @@ class PropertyManagementComponent {
           this.currentWifiImages = [];
         }
 
+        // Handle property image
+        if (property.propertyImage) {
+          this.propertyImage = property.propertyImage;
+          this.updatePropertyImagePreview();
+        } else {
+          this.propertyImage = '';
+          this.updatePropertyImagePreview();
+        }
+
         // Make propertyId readonly in edit mode
         document.getElementById("propertyId").readOnly = true;
         document.getElementById("propertyId").classList.add("bg-light");
@@ -342,6 +352,10 @@ class PropertyManagementComponent {
         // Clear WiFi images for add mode
         this.currentWifiImages = [];
         this.renderWifiImagesGallery();
+
+        // Clear property image for add mode
+        this.propertyImage = '';
+        this.updatePropertyImagePreview();
 
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
@@ -363,6 +377,11 @@ class PropertyManagementComponent {
     );
 
     modal.show();
+
+    // Set up clipboard paste listeners after modal is shown
+    modalEl.addEventListener('shown.bs.modal', () => {
+      this.setupPropertyImageClipboardListener();
+    }, { once: true });
   }
 
   cleanupModal() {
@@ -440,6 +459,7 @@ class PropertyManagementComponent {
         wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
+        propertyImage: this.propertyImage || "",
       };
 
       // Validate required fields
@@ -627,17 +647,23 @@ class PropertyManagementComponent {
       uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
       
       for (const file of files) {
-        const result = await API.uploadImage(file);
+        const result = await this.uploadSingleImage(file);
         
         if (result.success) {
           console.log('🔗 WiFi image uploaded successfully:', result.url);
-          
+
           // Ensure URL is properly formatted
           let imageUrl = result.url;
-          if (!imageUrl.startsWith('http')) {
-            imageUrl = `https://res.cloudinary.com/your-cloud-name/image/upload/${imageUrl}`;
+          if (imageUrl && !imageUrl.startsWith('http')) {
+            // If it's a relative URL starting with /, prepend the API base URL
+            if (imageUrl.startsWith('/')) {
+              imageUrl = API_CONFIG.BASE_URL + imageUrl;
+            } else {
+              // Otherwise assume it needs https:// prefix
+              imageUrl = 'https://' + imageUrl;
+            }
           }
-          
+
           // Add to current WiFi images array
           if (!this.currentWifiImages.includes(imageUrl)) {
             this.currentWifiImages.push(imageUrl);
@@ -699,6 +725,288 @@ class PropertyManagementComponent {
     galleryHtml += '</div>';
     
     gallery.innerHTML = galleryHtml;
+  }
+
+  // Property Image Upload Methods
+  openImageUpload() {
+    const fileInput = document.getElementById('propertyImageUploadInput');
+    fileInput.click();
+
+    // Add event listener for file selection
+    fileInput.onchange = async (event) => {
+      const files = event.target.files;
+      if (files.length > 0) {
+        await this.uploadPropertyImage(files[0]); // Only take the first file
+      }
+    };
+  }
+
+  async uploadPropertyImage(file) {
+    const uploadButton = document.querySelector("button[onclick=\"propertyManager.openImageUpload()\"]");
+    const originalText = uploadButton.innerHTML;
+
+    try {
+      uploadButton.disabled = true;
+      uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+
+      const result = await this.uploadSingleImage(file);
+
+      if (result.success) {
+        console.log('🔗 Property image uploaded successfully:', result.url);
+
+        // Ensure URL is properly formatted
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          // If it's a relative URL starting with /, prepend the API base URL
+          if (imageUrl.startsWith('/')) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            // Otherwise assume it needs https:// prefix
+            imageUrl = 'https://' + imageUrl;
+          }
+        }
+
+        // Set the property image
+        this.propertyImage = imageUrl;
+        this.updatePropertyImagePreview();
+
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+    } catch (error) {
+      console.error('Error uploading property image:', error);
+      alert(`Error uploading image: ${error.message}`);
+    } finally {
+      uploadButton.disabled = false;
+      uploadButton.innerHTML = originalText;
+    }
+  }
+
+  addImageFromUrl() {
+    const urlInput = document.getElementById('propertyImageUrl');
+    const url = urlInput.value.trim();
+
+    if (!url) {
+      alert('Please enter a valid image URL');
+      return;
+    }
+
+    // Set the property image
+    this.propertyImage = url;
+    this.updatePropertyImagePreview();
+    urlInput.value = ''; // Clear input after adding
+  }
+
+  updatePropertyImagePreview() {
+    const preview = document.getElementById('propertyImagePreview');
+    if (!preview) return;
+
+    if (this.propertyImage) {
+      preview.innerHTML = `
+        <div class="position-relative">
+          <img src="${this.propertyImage}" class="img-thumbnail w-100" style="height: 200px; object-fit: cover;"
+               alt="Property Image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDUiIGZpbGw9IiNmOGY5ZmEiIHN0cm9rZT0iI2RlZTJlNiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iNTAiIHk9IjU1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmM3NTdkIiBmb250LXNpemU9IjEyIj5JbWFnZTwvdGV4dD48L3N2Zz4='">
+          <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle p-1"
+                  onclick="propertyManager.removePropertyImage()" style="width: 24px; height: 24px; font-size: 0.7rem;">
+            <i class="bi bi-x"></i>
+          </button>
+        </div>
+      `;
+    } else {
+      preview.innerHTML = '<p class="text-muted">No image selected</p>';
+    }
+  }
+
+  removePropertyImage() {
+    if (confirm('Are you sure you want to remove this property image?')) {
+      this.propertyImage = '';
+      this.updatePropertyImagePreview();
+    }
+  }
+
+  // Setup clipboard paste functionality for property image URL field
+  setupPropertyImageClipboardListener() {
+    const fieldId = 'propertyImageUrl';
+    const field = document.getElementById(fieldId);
+
+    if (field && !field.hasAttribute('data-paste-listener-added')) {
+      field.setAttribute('data-paste-listener-added', 'true');
+
+      // Add paste event listener
+      field.addEventListener('paste', async (e) => {
+        e.preventDefault();
+        await this.handleImagePaste(e, fieldId);
+      });
+
+      // Add visual feedback for paste capability
+      const currentPlaceholder = field.placeholder || 'Paste Cloudinary URL here';
+      if (!currentPlaceholder.includes('Ctrl+V')) {
+        field.placeholder = currentPlaceholder + ' (Ctrl+V to paste from clipboard)';
+      }
+      field.title = 'You can paste images from clipboard here (Ctrl+V)';
+
+      // Add a visual indicator
+      field.style.borderLeft = '3px solid #0d6efd';
+      field.setAttribute('data-clipboard-enabled', 'true');
+
+      console.log(`✅ Clipboard paste listener added to ${fieldId}`);
+    }
+  }
+
+  async handleImagePaste(event, fieldId) {
+    console.log(`📋 Handling paste event for ${fieldId}`);
+
+    try {
+      const clipboardData = event.clipboardData || event.originalEvent?.clipboardData;
+      if (!clipboardData) {
+        console.log('No clipboard data available');
+        return;
+      }
+
+      let imageFound = false;
+
+      // Check for image files in clipboard
+      if (clipboardData.files && clipboardData.files.length > 0) {
+        for (const file of clipboardData.files) {
+          if (file.type.startsWith('image/')) {
+            imageFound = true;
+            console.log(`📋 Image pasted from clipboard to ${fieldId}:`, file.name, file.type);
+            await this.uploadClipboardImage(file, fieldId);
+            break; // Handle only the first image found
+          }
+        }
+      }
+
+      if (!imageFound) {
+        // Check if there's text content that might be an image URL
+        const text = clipboardData.getData('text');
+        if (text && this.isImageUrl(text)) {
+          console.log(`📋 Image URL pasted from clipboard to ${fieldId}:`, text);
+          document.getElementById(fieldId).value = text;
+        } else {
+          console.log('No image found in clipboard');
+          this.showPasteMessage(fieldId, 'No image found in clipboard', 'warning');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling clipboard paste:', error);
+      this.showPasteMessage(fieldId, 'Error pasting from clipboard', 'error');
+    }
+  }
+
+  async uploadClipboardImage(file, fieldId) {
+    const field = document.getElementById(fieldId);
+    const originalPlaceholder = field.placeholder;
+
+    try {
+      // Show loading state
+      field.placeholder = 'Uploading image...';
+      field.disabled = true;
+
+      const result = await this.uploadSingleImage(file);
+
+      if (result.success) {
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          // If it's a relative URL starting with /, prepend the API base URL
+          if (imageUrl.startsWith('/')) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            // Otherwise assume it needs https:// prefix
+            imageUrl = 'https://' + imageUrl;
+          }
+        }
+
+        field.value = imageUrl;
+
+        // Trigger the add image function if this is the property image URL field
+        if (fieldId === 'propertyImageUrl') {
+          this.addImageFromUrl();
+        }
+
+        this.showPasteMessage(fieldId, 'Image uploaded successfully!', 'success');
+        console.log(`✅ Clipboard image uploaded successfully to ${fieldId}:`, imageUrl);
+      } else {
+        this.showPasteMessage(fieldId, 'Failed to upload image: ' + result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error uploading clipboard image:', error);
+      this.showPasteMessage(fieldId, 'Error uploading image', 'error');
+    } finally {
+      // Restore field state
+      field.placeholder = originalPlaceholder;
+      field.disabled = false;
+    }
+  }
+
+  isImageUrl(text) {
+    try {
+      const url = new URL(text);
+      return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url.pathname) ||
+             text.includes('cloudinary.com') ||
+             text.includes('imgur.com') ||
+             text.includes('postimg.cc');
+    } catch {
+      return false;
+    }
+  }
+
+  showPasteMessage(fieldId, message, type) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    // Create or update message element
+    let messageEl = document.getElementById(`${fieldId}-paste-message`);
+    if (!messageEl) {
+      messageEl = document.createElement('div');
+      messageEl.id = `${fieldId}-paste-message`;
+      messageEl.className = 'small mt-1';
+      field.parentNode.appendChild(messageEl);
+    }
+
+    // Set message and color
+    messageEl.textContent = message;
+    messageEl.className = `small mt-1 text-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'warning'}`;
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      if (messageEl && messageEl.parentNode) {
+        messageEl.remove();
+      }
+    }, 3000);
+  }
+
+  async uploadSingleImage(file) {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const uploadUrl = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT);
+      console.log('🔧 Upload URL:', uploadUrl);
+      console.log('🔧 Base URL:', API_CONFIG.BASE_URL);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        console.log('✅ Image uploaded successfully:', result);
+        return result;
+      } else {
+        console.error('❌ Upload failed:', result);
+        return { success: false, error: result.error || 'Upload failed' };
+      }
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      return { success: false, error: error.message || 'Upload failed' };
+    }
   }
 
   removeWifiImage(index) {

@@ -43,6 +43,9 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     </script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <!-- Webpack will inject scripts here automatically -->
     <style>
@@ -727,7 +730,7 @@
 
       /* Export button styles */
       #exportFinancialReportBtn,
-      #copyFinancialReportBtn {
+      #printFinancialReportBtn {
         border-radius: 8px;
         font-weight: 500;
         transition: all 0.2s ease;
@@ -735,13 +738,13 @@
       }
 
       #exportFinancialReportBtn:hover,
-      #copyFinancialReportBtn:hover {
+      #printFinancialReportBtn:hover {
         transform: translateY(-1px);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       }
 
       #exportFinancialReportBtn:active,
-      #copyFinancialReportBtn:active {
+      #printFinancialReportBtn:active {
         transform: translateY(0);
       }
 
@@ -1833,6 +1836,18 @@
                         </select>
                       </div>
 
+                      <!-- Pest Control Clause -->
+                      <div class="mb-3">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" value="" id="pestControlClause">
+                          <label class="form-check-label" for="pestControlClause">
+                            <strong>Pest Control Clause</strong>
+                          </label>
+                        </div>
+                        <small class="text-muted">If checked, adds a pest infestation liability clause to the contract</small>
+                      </div>
+
+
                       <!-- Additional Clauses -->
                       <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -1927,9 +1942,13 @@
                   </h5>
                 </div>
                 <div class="card-body">
-                  <select id="propertySelector" class="form-select">
-                    <option value="">Select a property...</option>
-                  </select>
+                  <div id="propertyCards" class="row">
+                    <!-- Property cards will be dynamically generated here -->
+                    <div class="col-12 text-center text-muted">
+                      <i class="bi bi-building me-2"></i>
+                      Select a property to view financial reports...
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2118,14 +2137,14 @@
                             <button
                               class="btn btn-sm btn-light text-primary"
                               id="exportFinancialReportBtn"
-                              title="Export Financial Report as Image"
+                              title="Export Financial Report as PDF"
                             >
-                              <i class="bi bi-camera"></i>
+                              <i class="bi bi-file-pdf"></i>
                             </button>
                             <button
                               class="btn btn-sm btn-outline-light"
-                              id="copyFinancialReportBtn"
-                              title="Copy to Clipboard"
+                              id="printFinancialReportBtn"
+                              title="Print Financial Report"
                               style="
                                 background-color: rgba(255, 255, 255, 0.2);
                                 border-color: rgba(255, 255, 255, 0.5);
@@ -2133,7 +2152,7 @@
                               "
                             >
                               <i
-                                class="bi bi-clipboard"
+                                class="bi bi-printer"
                                 style="color: #ffffff !important"
                               ></i>
                             </button>
@@ -2965,6 +2984,58 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Property Image Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-image me-1"></i>Property Image
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                      <i class="bi bi-image me-1"></i>Property Image
+                    </label>
+                    <div class="input-group mb-2">
+                      <input
+                        type="url"
+                        class="form-control"
+                        id="propertyImageUrl"
+                        placeholder="Paste Cloudinary URL here"
+                      />
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        onclick="propertyManager.addImageFromUrl()"
+                      >
+                        <i class="bi bi-plus"></i> Add
+                      </button>
+                    </div>
+                    <div class="d-grid gap-2">
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        onclick="propertyManager.openImageUpload()"
+                      >
+                        <i class="bi bi-cloud-upload"></i> Upload Image
+                      </button>
+                    </div>
+                    <div class="form-text">
+                      Optional: Add a property image to help identify the property visually in cards
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Preview</label>
+                    <div class="border rounded p-2" style="min-height: 120px;">
+                      <div id="propertyImagePreview" class="text-center text-muted d-flex align-items-center justify-content-center" style="height: 100px;">
+                        <div>
+                          <i class="bi bi-image" style="font-size: 2rem;"></i>
+                          <br><small>No image selected</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="modal-footer">
               <button
@@ -3311,6 +3382,12 @@
                 id="wifiImagesUploadInput"
                 accept="image/*"
                 multiple
+                style="display: none"
+              />
+              <input
+                type="file"
+                id="propertyImageUploadInput"
+                accept="image/*"
                 style="display: none"
               />
               <input

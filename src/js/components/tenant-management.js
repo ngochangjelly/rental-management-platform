@@ -1986,8 +1986,9 @@ class TenantManagementComponent {
     setupModalClipboardListeners() {
         const imageUrlFields = [
             'tenantAvatarUrl',
-            'tenantPassportPicUrl', 
-            'tenantVisaPicUrl'
+            'tenantPassportPicUrl',
+            'tenantVisaPicUrl',
+            'tenantSignatureUrl'
         ];
 
         imageUrlFields.forEach(fieldId => {
@@ -2100,6 +2101,8 @@ class TenantManagementComponent {
                     this.addImageFromUrl('passport');
                 } else if (fieldId === 'tenantVisaPicUrl') {
                     this.addImageFromUrl('visa');
+                } else if (fieldId === 'tenantSignatureUrl') {
+                    this.setSignatureFromUrl();
                 }
 
                 this.showPasteMessage(fieldId, 'Image uploaded successfully!', 'success');

@@ -27,6 +27,7 @@ class ContractManagementComponent {
       cleaningFee: "20",
       paymentMethod: "BANK_TRANSFER",
       fullPaymentReceived: false,
+      pestControlClause: false,
     };
 
     // Initialize template service
@@ -39,6 +40,7 @@ class ContractManagementComponent {
     this.setupEventListeners();
     this.loadTenants();
     this.loadInvestors();
+    this.loadProperties();
   }
 
   setupEventListeners() {
@@ -149,6 +151,26 @@ class ContractManagementComponent {
     }
   }
 
+  // Helper function to get property address by property ID
+  getPropertyAddress(propertyId) {
+    if (!this.properties || !propertyId) return propertyId;
+
+    const property = this.properties.find(
+      (prop) =>
+        prop.propertyId === propertyId ||
+        prop.id === propertyId ||
+        prop._id === propertyId
+    );
+
+    if (property) {
+      return (
+        property.address || property.location || property.name || propertyId
+      );
+    }
+
+    return propertyId; // Fallback to ID if property not found
+  }
+
   populateTenantsDropdown() {
     console.log(
       "📋 Populating tenant dropdowns with",
@@ -207,13 +229,48 @@ class ContractManagementComponent {
         // Use index as a fallback identifier to ensure we can always find the tenant
         const identifier = fin || `tenant_${index}`;
 
+        // Build property information for display
+        let propertyInfo = "";
+        if (
+          tenant.properties &&
+          Array.isArray(tenant.properties) &&
+          tenant.properties.length > 0
+        ) {
+          const mainProperties = tenant.properties.filter((prop) => {
+            if (typeof prop === "object") {
+              return prop.isMainTenant === true;
+            }
+            return false;
+          });
+
+          if (mainProperties.length > 0) {
+            // Show main tenant properties with full addresses
+            const propertyAddresses = mainProperties
+              .map((prop) => {
+                const propId = prop.propertyId;
+                return this.getPropertyAddress(propId);
+              })
+              .join(", ");
+            propertyInfo = ` - Main tenant of: ${propertyAddresses}`;
+          } else {
+            // Show first property if no main tenant status
+            const firstProp = tenant.properties[0];
+            const propId =
+              typeof firstProp === "object" ? firstProp.propertyId : firstProp;
+            if (propId) {
+              const address = this.getPropertyAddress(propId);
+              propertyInfo = ` - Property: ${address}`;
+            }
+          }
+        }
+
         console.log(
           `🔧 Adding tenant option: ${name} with identifier: ${identifier}`,
           tenant
         );
 
         const option = `<option value="${identifier}" data-type="tenant" data-passport="${passport}" data-name="${name}" data-index="${index}">
-                  ${name} ${fin ? `(FIN: ${fin})` : ""}
+                  ${name} ${fin ? `(FIN: ${fin})` : ""}${propertyInfo}
               </option>`;
 
         tenantASelect.innerHTML += option;
@@ -239,13 +296,40 @@ class ContractManagementComponent {
         // Use investorId as identifier with investor prefix
         const identifier = `investor_${investorId}`;
 
+        // Build property information for display
+        let propertyInfo = "";
+        if (
+          investor.properties &&
+          Array.isArray(investor.properties) &&
+          investor.properties.length > 0
+        ) {
+          const propertyAddresses = investor.properties
+            .map((prop) => {
+              let propId;
+              if (typeof prop === "object") {
+                propId = prop.propertyId || prop._id;
+              } else {
+                propId = prop;
+              }
+              return propId ? this.getPropertyAddress(propId) : null;
+            })
+            .filter((address) => address)
+            .join(", ");
+
+          if (propertyAddresses) {
+            propertyInfo = ` - Properties: ${propertyAddresses}`;
+          }
+        }
+
         console.log(
           `🔧 Adding investor option: ${name} with identifier: ${identifier}`,
           investor
         );
 
         const option = `<option value="${identifier}" data-type="investor" data-passport="${passport}" data-name="${name}" data-index="${index}" data-investor-id="${investorId}">
-                  ${name} ${fin ? `(FIN: ${fin})` : ""} [Investor]
+                  ${name} ${
+          fin ? `(FIN: ${fin})` : ""
+        } [Investor]${propertyInfo}
               </option>`;
 
         tenantASelect.innerHTML += option;
@@ -466,6 +550,20 @@ class ContractManagementComponent {
       this.selectedTenantA = tenant;
       console.log("✅ Set selectedTenantA:", this.selectedTenantA);
 
+      // Update dropdown display to show selected tenant
+      if (
+        tenant &&
+        identifier &&
+        identifier !== "ADD_NEW_TENANT" &&
+        identifier !== ""
+      ) {
+        const tenantASelect = document.getElementById("contractTenantA");
+        if (tenantASelect) {
+          tenantASelect.value = identifier;
+          console.log("🎯 Updated Tenant A dropdown display to:", identifier);
+        }
+      }
+
       // Auto-populate signature if this is a main tenant with signature
       if (tenant && tenant.signature && this.isMainTenant(tenant)) {
         console.log("🖋️ Auto-populating Tenant A signature from tenant data");
@@ -480,6 +578,70 @@ class ContractManagementComponent {
     } else {
       this.selectedTenantB = tenant;
       console.log("✅ Set selectedTenantB:", this.selectedTenantB);
+
+      // Update dropdown display to show selected tenant
+      if (
+        tenant &&
+        identifier &&
+        identifier !== "ADD_NEW_TENANT" &&
+        identifier !== ""
+      ) {
+        const tenantBSelect = document.getElementById("contractTenantB");
+        if (tenantBSelect) {
+          tenantBSelect.value = identifier;
+          console.log("🎯 Updated Tenant B dropdown display to:", identifier);
+        }
+      }
+
+      // Auto-fill move-in and move-out dates if tenant has property information
+      if (tenant && tenant.properties && tenant.properties.length > 0) {
+        console.log(
+          "🏠 Auto-filling move-in/move-out dates from tenant property info"
+        );
+
+        // Find the most recent property with move-in/move-out dates
+        let propertyWithDates = null;
+        for (const property of tenant.properties) {
+          if (property.moveinDate || property.moveoutDate) {
+            propertyWithDates = property;
+            break; // Use the first property that has date information
+          }
+        }
+
+        if (propertyWithDates) {
+          console.log("📅 Found property with dates:", propertyWithDates);
+
+          // Auto-fill move-in date
+          if (propertyWithDates.moveinDate) {
+            const moveInInput = document.getElementById("contractMoveInDate");
+            if (moveInInput) {
+              const moveInDate = new Date(propertyWithDates.moveinDate)
+                .toISOString()
+                .split("T")[0];
+              moveInInput.value = moveInDate;
+              this.contractData.moveInDate = moveInDate;
+              console.log("✅ Auto-filled move-in date:", moveInDate);
+            }
+          }
+
+          // Auto-fill move-out date
+          if (propertyWithDates.moveoutDate) {
+            const moveOutInput = document.getElementById("contractMoveOutDate");
+            if (moveOutInput) {
+              const moveOutDate = new Date(propertyWithDates.moveoutDate)
+                .toISOString()
+                .split("T")[0];
+              moveOutInput.value = moveOutDate;
+              this.contractData.moveOutDate = moveOutDate;
+              console.log("✅ Auto-filled move-out date:", moveOutDate);
+            }
+          }
+        } else {
+          console.log(
+            "ℹ️ No property with move-in/move-out dates found for tenant"
+          );
+        }
+      }
 
       // Hide new tenant fields if a real tenant is selected (not ADD_NEW_TENANT or empty)
       if (identifier && identifier !== "ADD_NEW_TENANT" && identifier !== "") {
@@ -783,6 +945,16 @@ class ContractManagementComponent {
         this.updateContractPreview();
       });
     }
+
+    // Handle the pest control clause checkbox
+    const pestControlCheckbox = document.getElementById("pestControlClause");
+    if (pestControlCheckbox) {
+      pestControlCheckbox.addEventListener("change", () => {
+        this.contractData.pestControlClause = pestControlCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
 
     // Handle custom property address input
     const newPropertyAddressInput =
@@ -1267,7 +1439,22 @@ class ContractManagementComponent {
                         <p><strong>${
                           this.contractData.fullPaymentReceived ? "t" : "v"
                         })</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
-                        
+
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "u" : "w"
+                        })</strong> Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
+
+                        ${
+                          this.contractData.pestControlClause
+                            ? `<p><strong>${
+                                this.contractData.fullPaymentReceived
+                                  ? "v"
+                                  : "x"
+                              })</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
+                            : ""
+                        }
+
+
                         ${additionalClausesHtml}
                     </div>
                 </div>
@@ -1559,6 +1746,33 @@ class ContractManagementComponent {
       const lineHeight = 5;
       const sectionSpacing = 8;
 
+      // Helper function to add page numbers at the bottom center of each page
+      const addPageNumbers = () => {
+        const totalPages = pdf.internal.getNumberOfPages();
+
+        // Save current settings
+        const currentFontSize = pdf.internal.getFontSize();
+        const currentFont = pdf.internal.getFont();
+
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.setFontSize(10);
+          pdf.setFont(undefined, "normal");
+
+          // Add page number at middle bottom
+          const pageText = `${i}`;
+          const textWidth = pdf.getTextWidth(pageText);
+          const x = (pageWidth - textWidth) / 2;
+          const y = pageHeight - 10; // 10mm from bottom
+
+          pdf.text(pageText, x, y);
+        }
+
+        // Restore settings
+        pdf.setFontSize(currentFontSize);
+        pdf.setFont(currentFont.fontName, currentFont.fontStyle);
+      };
+
       // Helper function to add text with automatic page breaks
       const addText = (text, options = {}) => {
         const fontSize = options.fontSize || 10;
@@ -1573,8 +1787,8 @@ class ContractManagementComponent {
           pdf.setFont(undefined, "normal");
         }
 
-        // Check if we need a new page
-        if (currentY > pageHeight - margin - 10) {
+        // Check if we need a new page (leaving space for page number)
+        if (currentY > pageHeight - margin - 20) {
           pdf.addPage();
           currentY = margin;
         }
@@ -1584,7 +1798,7 @@ class ContractManagementComponent {
         const lines = pdf.splitTextToSize(text, maxWidth);
 
         for (let i = 0; i < lines.length; i++) {
-          if (currentY > pageHeight - margin - 10) {
+          if (currentY > pageHeight - margin - 20) {
             pdf.addPage();
             currentY = margin;
           }
@@ -1792,7 +2006,16 @@ class ContractManagementComponent {
         "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
         "Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.",
         "No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.",
+        "Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.",
       ];
+
+      // Add pest control clause if checkbox is checked
+      if (this.contractData.pestControlClause) {
+        baseClauseTexts.push(
+          "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken."
+        );
+      }
+
 
       // Add remaining clauses with proper letter sequence
       baseClauseTexts.forEach((clauseText, index) => {
@@ -1936,6 +2159,9 @@ class ContractManagementComponent {
       pdf.setFontSize(10);
       pdf.text(tenantAInfo.name, 30, currentY);
       pdf.text(tenantBInfo.name, 120, currentY);
+
+      // Add page numbers to all pages
+      addPageNumbers();
 
       pdf.save(filename);
       console.log(`✅ Contract exported successfully as text-based PDF`);
@@ -2196,7 +2422,16 @@ class ContractManagementComponent {
                         <p style="margin-bottom: 15px;"><strong>u)</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
                         
                         <p style="margin-bottom: 15px;"><strong>v)</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
-                        
+
+                        <p style="margin-bottom: 15px;"><strong>w)</strong> EARLY TERMINATION AND NOTICE PERIOD: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
+
+                        ${
+                          this.contractData.pestControlClause
+                            ? '<p style="margin-bottom: 15px;"><strong>x)</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>'
+                            : ""
+                        }
+
+
                         ${additionalClausesHtml}
                     </div>
                 </div>
@@ -2472,6 +2707,13 @@ class ContractManagementComponent {
       contractData.fullPaymentReceived = fullPaymentElement.checked;
     }
 
+    // Get pest control clause status
+    const pestControlElement = document.getElementById("pestControlClause");
+    if (pestControlElement) {
+      contractData.pestControlClause = pestControlElement.checked;
+    }
+
+
     return contractData;
   }
 
@@ -2491,9 +2733,14 @@ class ContractManagementComponent {
 
       // Populate form fields
       Object.keys(this.contractData).forEach((field) => {
-        const element = document.getElementById(
-          `contract${field.charAt(0).toUpperCase() + field.slice(1)}`
-        );
+        // Special handling for checkbox fields
+        const element =
+          field === "pestControlClause"
+            ? document.getElementById("pestControlClause")
+            : document.getElementById(
+                `contract${field.charAt(0).toUpperCase() + field.slice(1)}`
+              );
+
         if (element) {
           if (element.type === "checkbox") {
             element.checked = this.contractData[field];
@@ -2636,6 +2883,7 @@ class ContractManagementComponent {
         cleaningFee: "20",
         paymentMethod: "BANK_TRANSFER",
         fullPaymentReceived: false,
+        pestControlClause: false,
       };
 
       // Reset tenant selections
@@ -2716,6 +2964,13 @@ class ContractManagementComponent {
     if (fullPaymentElement) {
       fullPaymentElement.checked = false;
     }
+
+    // Reset pest control checkbox
+    const pestControlElement = document.getElementById("pestControlClause");
+    if (pestControlElement) {
+      pestControlElement.checked = false;
+    }
+
 
     // Reset new tenant fields
     const newTenantFields = [

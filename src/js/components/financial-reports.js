@@ -28,32 +28,26 @@ class FinancialReportsComponent {
   }
 
   bindEvents() {
-    // Property selector
-    const propertySelector = document.getElementById("propertySelector");
-    if (propertySelector) {
-      propertySelector.addEventListener("change", (e) => {
-        this.selectProperty(e.target.value);
-      });
-    }
+    // Property cards will use onclick handlers defined in renderPropertyCards
 
     // Month navigation
     const prevMonthBtn = document.getElementById("prevMonth");
     const nextMonthBtn = document.getElementById("nextMonth");
 
-    console.log('Financial Reports - Binding month navigation buttons:');
-    console.log('  prevMonthBtn found:', !!prevMonthBtn);
-    console.log('  nextMonthBtn found:', !!nextMonthBtn);
+    console.log("Financial Reports - Binding month navigation buttons:");
+    console.log("  prevMonthBtn found:", !!prevMonthBtn);
+    console.log("  nextMonthBtn found:", !!nextMonthBtn);
 
     if (prevMonthBtn) {
       prevMonthBtn.addEventListener("click", () => {
-        console.log('Previous month button clicked');
+        console.log("Previous month button clicked");
         this.changeMonth(-1);
       });
     }
 
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener("click", () => {
-        console.log('Next month button clicked');
+        console.log("Next month button clicked");
         this.changeMonth(1);
       });
     }
@@ -104,7 +98,7 @@ class FinancialReportsComponent {
         try {
           await this.showInvestorModal();
         } catch (error) {
-          console.error('Error showing investor modal:', error);
+          console.error("Error showing investor modal:", error);
           this.isModalOpen = false;
         }
       });
@@ -112,22 +106,22 @@ class FinancialReportsComponent {
 
     // Export functionality
     const exportBtn = document.getElementById("exportFinancialReportBtn");
-    const copyBtn = document.getElementById("copyFinancialReportBtn");
+    const printBtn = document.getElementById("printFinancialReportBtn");
 
     if (exportBtn) {
       exportBtn.addEventListener("click", (e) => {
         e.preventDefault();
         if (!exportBtn.disabled) {
-          this.exportFinancialReport();
+          this.exportFinancialReportAsPDF();
         }
       });
     }
 
-    if (copyBtn) {
-      copyBtn.addEventListener("click", (e) => {
+    if (printBtn) {
+      printBtn.addEventListener("click", (e) => {
         e.preventDefault();
-        if (!copyBtn.disabled) {
-          this.copyFinancialReportToClipboard();
+        if (!printBtn.disabled) {
+          this.printFinancialReport();
         }
       });
     }
@@ -161,15 +155,15 @@ class FinancialReportsComponent {
       const result = await response.json();
 
       if (result.success) {
-        this.populatePropertySelector(result.properties);
+        this.renderPropertyCards(result.properties);
       } else {
         // Handle API errors (like authentication required)
         if (response.status === 401 || response.status === 403) {
           this.showError("Please log in to load properties");
-          this.populatePropertySelector([]); // Show empty selector
+          this.renderPropertyCards([]); // Show empty cards
         } else {
           this.showError(result.error || "Failed to load properties");
-          this.populatePropertySelector([]); // Show empty selector
+          this.renderPropertyCards([]); // Show empty cards
         }
       }
     } catch (error) {
@@ -177,37 +171,162 @@ class FinancialReportsComponent {
       this.showError(
         "Failed to load properties. Please check your connection and try again."
       );
-      this.populatePropertySelector([]); // Show empty selector with default message
+      this.renderPropertyCards([]); // Show empty cards with default message
     }
   }
 
-  populatePropertySelector(properties) {
-    const selector = document.getElementById("propertySelector");
-    if (!selector) return;
+  renderPropertyCards(properties) {
+    const container = document.getElementById("propertyCards");
+    if (!container) return;
 
-    // Clear existing options
-    selector.innerHTML = "";
+    // Clear existing cards
+    container.innerHTML = "";
 
     if (!properties || properties.length === 0) {
       // Show message when no properties are available
-      selector.innerHTML =
-        '<option value="" disabled>No properties available - please log in or add properties</option>';
+      container.innerHTML = `
+        <div class="col-12 text-center text-muted py-4">
+          <i class="bi bi-building-slash me-2"></i>
+          No properties available - please log in or add properties
+        </div>
+      `;
       return;
     }
 
-    // Add default selection option
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.textContent = "Select a property...";
-    selector.appendChild(defaultOption);
-
-    // Add property options
+    // Generate property cards
     properties.forEach((property) => {
-      const option = document.createElement("option");
-      option.value = property.propertyId;
-      option.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
-      selector.appendChild(option);
+      const isSelected = this.selectedProperty === property.propertyId;
+      const cardHtml = `
+        <div class="col-md-6 col-lg-4 mb-3">
+          <div class="card property-card h-100 ${
+            isSelected ? "border-primary" : ""
+          } overflow-hidden"
+               style="cursor: pointer; transition: all 0.2s ease;"
+               onclick="window.financialReports.selectProperty('${
+                 property.propertyId
+               }')">
+            ${property.propertyImage ? `
+            <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
+            </div>
+            ` : ''}
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+              <div class="d-flex align-items-center">
+                <div class="me-3">
+                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
+                       style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
+                    ${escapeHtml(
+                      property.propertyId.substring(0, 2).toUpperCase()
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h6 class="mb-0 fw-bold">${escapeHtml(
+                    property.propertyId
+                  )}</h6>
+                  <small class="text-muted">Property ID</small>
+                </div>
+              </div>
+              ${!property.propertyImage && isSelected
+                ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
+                : ""
+              }
+            </div>
+            <div class="card-body py-2 bg-white">
+              <p class="mb-1 small"><strong>Address:</strong> ${escapeHtml(
+                property.address
+              )}</p>
+              <p class="mb-1 small"><strong>Unit:</strong> ${escapeHtml(
+                property.unit
+              )}</p>
+              ${
+                property.rent
+                  ? `<p class="mb-1 small"><strong>Rent:</strong> $${property.rent}</p>`
+                  : ""
+              }
+              ${
+                property.description
+                  ? `<p class="mb-1 small text-muted">${escapeHtml(
+                      property.description
+                    )}</p>`
+                  : ""
+              }
+            </div>
+          </div>
+        </div>
+      `;
+      container.innerHTML += cardHtml;
     });
+
+    // Add hover effects with CSS
+    this.addPropertyCardStyles();
+  }
+
+  addPropertyCardStyles() {
+    // Add hover styles if not already added
+    if (!document.getElementById("property-card-styles")) {
+      const style = document.createElement("style");
+      style.id = "property-card-styles";
+      style.textContent = `
+        .property-card {
+          min-height: 200px;
+          overflow: hidden;
+        }
+        .property-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+          border-color: #0d6efd !important;
+        }
+        .property-card.border-primary {
+          border-width: 2px !important;
+          box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2) !important;
+        }
+        .property-card .card-header,
+        .property-card .card-body {
+          border: none;
+          margin: 0;
+        }
+        .property-card .card-header {
+          border-radius: 0.375rem 0.375rem 0 0;
+        }
+        .property-card .card-body {
+          border-radius: 0 0 0.375rem 0.375rem;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  updatePropertyCardSelection() {
+    // Update visual selection state of property cards
+    const allCards = document.querySelectorAll(".property-card");
+    allCards.forEach((card) => {
+      card.classList.remove("border-primary", "bg-light");
+      const checkIcon = card.querySelector(".bi-check-circle-fill");
+      if (checkIcon) {
+        checkIcon.remove();
+      }
+    });
+
+    // Find and highlight the selected card
+    if (this.selectedProperty) {
+      const selectedCard = Array.from(allCards).find(
+        (card) =>
+          card.onclick &&
+          card.onclick.toString().includes(this.selectedProperty)
+      );
+
+      if (selectedCard) {
+        selectedCard.classList.add("border-primary", "bg-light");
+        const header = selectedCard.querySelector(".card-header");
+        if (header && !header.querySelector(".bi-check-circle-fill")) {
+          const checkIcon = document.createElement("i");
+          checkIcon.className = "bi bi-check-circle-fill text-success";
+          checkIcon.style.fontSize = "1.2rem";
+          header.appendChild(checkIcon);
+        }
+      }
+    }
   }
 
   async selectProperty(propertyId) {
@@ -227,6 +346,9 @@ class FinancialReportsComponent {
 
     this.selectedProperty = propertyId;
     document.getElementById("financialReportContent").style.display = "block";
+
+    // Update property card selection state
+    this.updatePropertyCardSelection();
 
     // Load investors for this property
     await this.loadInvestors(propertyId);
@@ -261,6 +383,9 @@ class FinancialReportsComponent {
 
   async loadTenants(propertyId) {
     try {
+      console.log("🏠 Loading tenants for property:", propertyId);
+
+      // Use the corrected property-specific endpoint
       const response = await API.get(
         API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)
       );
@@ -268,18 +393,24 @@ class FinancialReportsComponent {
 
       if (result.success) {
         this.tenants = result.tenants || [];
+        console.log(
+          "✅ Loaded tenants for property:",
+          this.tenants.length,
+          this.tenants
+        );
       } else {
         this.tenants = [];
+        console.log("⚠️ No tenants found or API returned false success");
       }
     } catch (error) {
-      console.error("Error loading tenants:", error);
+      console.error("❌ Error loading tenants:", error);
       this.tenants = [];
     }
   }
 
   async loadFinancialReport() {
     if (!this.selectedProperty) {
-      console.log('loadFinancialReport: No selected property');
+      console.log("loadFinancialReport: No selected property");
       return;
     }
 
@@ -287,7 +418,9 @@ class FinancialReportsComponent {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
 
-      console.log(`loadFinancialReport: Loading data for ${this.selectedProperty} - ${year}/${month}`);
+      console.log(
+        `loadFinancialReport: Loading data for ${this.selectedProperty} - ${year}/${month}`
+      );
 
       const response = await API.get(
         API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
@@ -301,7 +434,10 @@ class FinancialReportsComponent {
         const result = await response.json();
         if (result.success) {
           this.currentReport = result.data;
-          console.log(`loadFinancialReport: Loaded existing report:`, this.currentReport);
+          console.log(
+            `loadFinancialReport: Loaded existing report:`,
+            this.currentReport
+          );
         } else {
           this.currentReport = null;
           console.log(`loadFinancialReport: API returned error:`, result);
@@ -319,10 +455,15 @@ class FinancialReportsComponent {
           totalExpenses: 0,
           netProfit: 0,
         };
-        console.log(`loadFinancialReport: Created empty report for ${year}/${month}`);
+        console.log(
+          `loadFinancialReport: Created empty report for ${year}/${month}`
+        );
       }
 
-      console.log(`loadFinancialReport: Calling updateDisplays with:`, this.currentReport);
+      console.log(
+        `loadFinancialReport: Calling updateDisplays with:`,
+        this.currentReport
+      );
       this.updateDisplays();
     } catch (error) {
       console.error("Error loading financial report:", error);
@@ -380,6 +521,7 @@ class FinancialReportsComponent {
               <th class="border-0 small">Item</th>
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
+              <th class="border-0 small">Paid By</th>
               <th class="border-0 small text-end">Amount</th>
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
@@ -395,20 +537,21 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge
       );
       const investorName = investor ? investor.name : item.personInCharge;
-      const investorAvatar = investor?.avatar;
-      
+
       // Check if this item is pending deletion confirmation
       const itemKey = `income-${index}`;
       const isPendingDelete = this.pendingDeletes.has(itemKey);
 
       // Format date for display
-      const transactionDate = item.date ? new Date(item.date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }) : 'No date';
+      const transactionDate = item.date
+        ? new Date(item.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "No date";
 
       // Check if item has additional details or evidence
-      const hasDetails = item.details && item.details.trim() !== '';
+      const hasDetails = item.details && item.details.trim() !== "";
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
@@ -418,40 +561,61 @@ class FinancialReportsComponent {
             <div class="d-flex align-items-center gap-1">
               <i class="bi bi-plus-circle-fill text-success me-1"></i>
               <span>${escapeHtml(item.item)}</span>
-              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>` : ''}
+              ${
+                hasAdditionalInfo
+                  ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>`
+                  : ""
+              }
             </div>
-            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? '...' : ''}</div>` : ''}
-            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ''}
+            ${
+              hasDetails
+                ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(
+                    item.details
+                  )}">${escapeHtml(item.details.substring(0, 50))}${
+                    item.details.length > 50 ? "..." : ""
+                  }</div>`
+                : ""
+            }
+            ${
+              hasEvidence
+                ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>`
+                : ""
+            }
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">
-              ${investorAvatar ? 
-                `<img src="${this.getOptimizedAvatarUrl(investorAvatar, 'small')}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
-              }
-            </div>
+            ${escapeHtml(investorName)}
           </td>
-          <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(2)}</td>
+          <td class="small border-0 align-middle">
+            ${this.renderPaidByName(item.paidBy)}
+          </td>
+          <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(
+            2
+          )}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
-              ${hasEvidence ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('income', ${index})" title="View Evidence">
+              ${
+                hasEvidence
+                  ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('income', ${index})" title="View Evidence">
                 <i class="bi bi-eye"></i>
-              </button>` : ''}
+              </button>`
+                  : ""
+              }
               <button class="btn btn-outline-primary btn-sm p-1" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})" title="Edit">
                 <span class="edit-icon"><i class="bi bi-pencil"></i></span>
                 <span class="loading-spinner d-none">
                   <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 </span>
               </button>
-              ${isPendingDelete 
-                ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Confirm delete">
+              ${
+                isPendingDelete
+                  ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Confirm delete">
                      <i class="bi bi-check"></i>
                    </button>
                    <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel">
                      <i class="bi bi-x"></i>
                    </button>`
-                : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete">
+                  : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete">
                      <i class="bi bi-trash"></i>
                    </button>`
               }
@@ -516,20 +680,21 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge
       );
       const investorName = investor ? investor.name : item.personInCharge;
-      const investorAvatar = investor?.avatar;
-      
+
       // Check if this item is pending deletion confirmation
       const itemKey = `expense-${index}`;
       const isPendingDelete = this.pendingDeletes.has(itemKey);
 
       // Format date for display
-      const transactionDate = item.date ? new Date(item.date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }) : 'No date';
+      const transactionDate = item.date
+        ? new Date(item.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "No date";
 
       // Check if item has additional details or evidence
-      const hasDetails = item.details && item.details.trim() !== '';
+      const hasDetails = item.details && item.details.trim() !== "";
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
@@ -539,40 +704,58 @@ class FinancialReportsComponent {
             <div class="d-flex align-items-center gap-1">
               <i class="bi bi-dash-circle-fill text-danger me-1"></i>
               <span>${escapeHtml(item.item)}</span>
-              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>` : ''}
+              ${
+                hasAdditionalInfo
+                  ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>`
+                  : ""
+              }
             </div>
-            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? '...' : ''}</div>` : ''}
-            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ''}
+            ${
+              hasDetails
+                ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(
+                    item.details
+                  )}">${escapeHtml(item.details.substring(0, 50))}${
+                    item.details.length > 50 ? "..." : ""
+                  }</div>`
+                : ""
+            }
+            ${
+              hasEvidence
+                ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>`
+                : ""
+            }
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">
-              ${investorAvatar ? 
-                `<img src="${this.getOptimizedAvatarUrl(investorAvatar, 'small')}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`
-              }
-            </div>
+            ${escapeHtml(investorName)}
           </td>
-          <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(
+            2
+          )}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
-              ${hasEvidence ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('expense', ${index})" title="View Evidence">
+              ${
+                hasEvidence
+                  ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('expense', ${index})" title="View Evidence">
                 <i class="bi bi-eye"></i>
-              </button>` : ''}
+              </button>`
+                  : ""
+              }
               <button class="btn btn-outline-primary btn-sm p-1" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})" title="Edit">
                 <span class="edit-icon"><i class="bi bi-pencil"></i></span>
                 <span class="loading-spinner d-none">
                   <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 </span>
               </button>
-              ${isPendingDelete 
-                ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Confirm delete">
+              ${
+                isPendingDelete
+                  ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Confirm delete">
                      <i class="bi bi-check"></i>
                    </button>
                    <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel">
                      <i class="bi bi-x"></i>
                    </button>`
-                : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete">
+                  : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete">
                      <i class="bi bi-trash"></i>
                    </button>`
               }
@@ -696,24 +879,31 @@ class FinancialReportsComponent {
       html += `
         <tr>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">
-              ${investor.avatar ? 
-                `<img src="${this.getOptimizedAvatarUrl(investor.avatar, 'small')}" alt="${escapeHtml(investor.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(investor.name.charAt(0).toUpperCase())}</div>`
-              }
-            </div>
+            ${escapeHtml(investor.name)}
           </td>
           <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
-          <td class="small border-0 align-middle text-end fw-bold text-primary">$${investorShare.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end fw-bold text-warning">$${expensesPaidByInvestor.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end fw-bold text-info">$${incomeReceivedByInvestor.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end fw-bold ${finalAmount >= 0 ? "text-success" : "text-danger"}">$${finalAmount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-primary">$${investorShare.toFixed(
+            2
+          )}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-warning">$${expensesPaidByInvestor.toFixed(
+            2
+          )}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-info">$${incomeReceivedByInvestor.toFixed(
+            2
+          )}</td>
+          <td class="small border-0 align-middle text-end fw-bold ${
+            finalAmount >= 0 ? "text-success" : "text-danger"
+          }">$${finalAmount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${investor.investorId}')" title="Edit">
+              <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${
+                investor.investorId
+              }')" title="Edit">
                 <i class="bi bi-pencil"></i>
               </button>
-              <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${investor.investorId}')" title="Remove">
+              <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${
+                investor.investorId
+              }')" title="Remove">
                 <i class="bi bi-trash"></i>
               </button>
             </div>
@@ -739,7 +929,7 @@ class FinancialReportsComponent {
   changeMonth(direction) {
     console.log(`changeMonth called with direction: ${direction}`);
     console.log(`Current date before change:`, this.currentDate);
-    
+
     const newDate = new Date(this.currentDate);
     newDate.setMonth(newDate.getMonth() + direction);
     this.currentDate = newDate;
@@ -762,7 +952,7 @@ class FinancialReportsComponent {
 
     // Check if month is closed (only for new items)
     if (!existingItem && this.currentReport && this.currentReport.isClosed) {
-      this.showError('Cannot add items - this month has been closed');
+      this.showError("Cannot add items - this month has been closed");
       return;
     }
 
@@ -773,8 +963,11 @@ class FinancialReportsComponent {
       );
       return;
     }
-    
-    if (type === "expense" && (!this.investors || this.investors.length === 0)) {
+
+    if (
+      type === "expense" &&
+      (!this.investors || this.investors.length === 0)
+    ) {
       this.showError(
         "Please add investors to this property before adding expense items."
       );
@@ -850,9 +1043,13 @@ class FinancialReportsComponent {
 
       // Setup file upload handling
       this.setupFileUploadHandling();
-      
+
       // Display existing bill evidence if editing
-      if (existingItem && existingItem.billEvidence && existingItem.billEvidence.length > 0) {
+      if (
+        existingItem &&
+        existingItem.billEvidence &&
+        existingItem.billEvidence.length > 0
+      ) {
         this.displayExistingBillEvidence(existingItem.billEvidence);
       }
     });
@@ -864,7 +1061,7 @@ class FinancialReportsComponent {
         this.setEditButtonLoading(type, this.editingItemIndex, false);
       }
       this._modalClosedBySuccess = false;
-      
+
       this.isIncomeExpenseModalOpen = false;
       this.editingItem = null;
       this.editingItemIndex = null;
@@ -899,57 +1096,155 @@ class FinancialReportsComponent {
     }
   }
 
-  generateInvestorOptions(selectedValue = '') {
+  generateInvestorOptions(selectedValue = "") {
     if (!this.investors || this.investors.length === 0) {
       return '<option value="" disabled>No investors available for this property</option>';
     }
 
     return this.investors
       .map((investor) => {
-        const isSelected = investor.investorId === selectedValue ? ' selected' : '';
-        return `<option value="${investor.investorId}"${isSelected}>${escapeHtml(
-          investor.name
-        )} (ID: ${investor.investorId})</option>`;
+        const isSelected =
+          investor.investorId === selectedValue ? " selected" : "";
+        return `<option value="${
+          investor.investorId
+        }"${isSelected}>${escapeHtml(investor.name)} (ID: ${
+          investor.investorId
+        })</option>`;
       })
       .join("");
   }
 
-  generateTenantOptions(selectedValue = '') {
+  generateTenantOptions(selectedValue = "") {
     if (!this.tenants || this.tenants.length === 0) {
       return '<option value="" disabled>No tenants available for this property</option>';
     }
 
     return this.tenants
       .map((tenant) => {
-        const isSelected = tenant.tenantId === selectedValue ? ' selected' : '';
-        const displayName = tenant.name || 'Unknown Tenant';
-        return `<option value="${tenant.tenantId}"${isSelected}>${escapeHtml(displayName)}</option>`;
+        const isSelected = tenant.tenantId === selectedValue ? " selected" : "";
+        const displayName = tenant.name || "Unknown Tenant";
+        return `<option value="${tenant.tenantId}"${isSelected}>${escapeHtml(
+          displayName
+        )}</option>`;
       })
       .join("");
+  }
+
+  generatePaidByOptions(selectedValue = "") {
+    let options = "";
+
+    // Add investor options if available
+    if (this.investors && this.investors.length > 0) {
+      options += '<optgroup label="Investors">';
+      options += this.investors
+        .map((investor) => {
+          const isSelected =
+            investor.investorId === selectedValue ? " selected" : "";
+          return `<option value="${
+            investor.investorId
+          }"${isSelected}>${escapeHtml(investor.name)} (ID: ${
+            investor.investorId
+          })</option>`;
+        })
+        .join("");
+      options += "</optgroup>";
+    }
+
+    // Add tenant options if available
+    if (this.tenants && this.tenants.length > 0) {
+      options += '<optgroup label="Tenants">';
+      options += this.tenants
+        .map((tenant) => {
+          // Use a prefix to distinguish tenant IDs from investor IDs
+          const tenantValue = `tenant_${
+            tenant.tenantId || tenant.id || tenant.fin
+          }`;
+          const isSelected = tenantValue === selectedValue ? " selected" : "";
+          const displayName = tenant.name || "Unknown Tenant";
+          return `<option value="${tenantValue}"${isSelected}>${escapeHtml(
+            displayName
+          )}</option>`;
+        })
+        .join("");
+      options += "</optgroup>";
+    }
+
+    // If no options available
+    if (!options) {
+      return '<option value="" disabled>No investors or tenants available for this property</option>';
+    }
+
+    return options;
+  }
+
+  renderPaidByName(paidBy) {
+    if (!paidBy) {
+      return '<span class="text-muted small">-</span>';
+    }
+
+    let person = null;
+    let displayName = "";
+
+    // Check if it's a tenant (prefixed with 'tenant_')
+    if (paidBy.startsWith("tenant_")) {
+      const tenantId = paidBy.replace("tenant_", "");
+      person = this.tenants.find(
+        (t) =>
+          (t.tenantId && t.tenantId === tenantId) ||
+          (t.id && t.id === tenantId) ||
+          (t.fin && t.fin === tenantId)
+      );
+      if (person) {
+        displayName = person.name || "Unknown Tenant";
+      }
+    } else {
+      // It's an investor
+      person = this.investors.find((i) => i.investorId === paidBy);
+      if (person) {
+        displayName = person.name || "Unknown Investor";
+      }
+    }
+
+    if (!person || !displayName) {
+      return '<span class="text-muted small">Unknown</span>';
+    }
+
+    return escapeHtml(displayName);
   }
 
   createIncomeExpenseModalHtml(type, existingItem = null) {
     const isIncome = type === "income";
     const isEditing = existingItem !== null;
-    const title = isEditing 
-      ? (isIncome ? "Edit Income Item" : "Edit Expense Item")
-      : (isIncome ? "Add Income Item" : "Add Expense Item");
+    const title = isEditing
+      ? isIncome
+        ? "Edit Income Item"
+        : "Edit Expense Item"
+      : isIncome
+      ? "Add Income Item"
+      : "Add Expense Item";
     const icon = isIncome ? "plus-circle" : "dash-circle";
     const editIcon = "pencil";
     const color = isIncome ? "success" : "danger";
     const buttonText = isEditing ? "Update" : "Add";
     const buttonIcon = isEditing ? editIcon : icon;
 
-    const itemValue = existingItem ? escapeHtml(existingItem.item) : '';
-    const amountValue = existingItem ? existingItem.amount : '';
-    const personInChargeValue = existingItem ? existingItem.personInCharge : '';
-    const accountDetailValue = existingItem ? escapeHtml(existingItem.recipientAccountDetail || '') : '';
-    const paidByValue = existingItem ? existingItem.paidBy : '';
-    const detailsValue = existingItem ? escapeHtml(existingItem.details || '') : '';
-    const billEvidenceValue = existingItem ? existingItem.billEvidence || [] : [];
-    const dateValue = existingItem && existingItem.date 
-      ? new Date(existingItem.date).toISOString().split('T')[0] 
-      : new Date().toISOString().split('T')[0]; // Default to today
+    const itemValue = existingItem ? escapeHtml(existingItem.item) : "";
+    const amountValue = existingItem ? existingItem.amount : "";
+    const personInChargeValue = existingItem ? existingItem.personInCharge : "";
+    const accountDetailValue = existingItem
+      ? escapeHtml(existingItem.recipientAccountDetail || "")
+      : "";
+    const paidByValue = existingItem ? existingItem.paidBy : "";
+    const detailsValue = existingItem
+      ? escapeHtml(existingItem.details || "")
+      : "";
+    const billEvidenceValue = existingItem
+      ? existingItem.billEvidence || []
+      : [];
+    const dateValue =
+      existingItem && existingItem.date
+        ? new Date(existingItem.date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0]; // Default to today
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -957,7 +1252,9 @@ class FinancialReportsComponent {
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="incomeExpenseModalLabel">
-                                <i class="bi bi-${isEditing ? editIcon : icon} me-2"></i>${title}
+                                <i class="bi bi-${
+                                  isEditing ? editIcon : icon
+                                } me-2"></i>${title}
                             </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
@@ -983,20 +1280,32 @@ class FinancialReportsComponent {
                                     <label class="form-label">Person in Charge <span class="text-danger">*</span></label>
                                     <select class="form-select" name="personInCharge" required>
                                         <option value="">Select investor...</option>
-                                        ${this.generateInvestorOptions(personInChargeValue)}
+                                        ${this.generateInvestorOptions(
+                                          personInChargeValue
+                                        )}
                                     </select>
-                                    <div class="form-text">Select the ${isIncome ? 'investor responsible for collecting this income' : 'investor responsible for this expense'}</div>
+                                    <div class="form-text">Select the ${
+                                      isIncome
+                                        ? "investor responsible for collecting this income"
+                                        : "investor responsible for this expense"
+                                    }</div>
                                 </div>
-                                ${isIncome ? `
+                                ${
+                                  isIncome
+                                    ? `
                                 <div class="mb-3">
                                     <label class="form-label">Paid By</label>
                                     <select class="form-select" name="paidBy">
                                         <option value="">Select who paid (optional)...</option>
-                                        ${this.generateInvestorOptions(paidByValue)}
+                                        ${this.generatePaidByOptions(
+                                          paidByValue
+                                        )}
                                     </select>
                                     <div class="form-text">Optional: Select who actually paid/initiated this transaction</div>
                                 </div>
-                                ` : ''}
+                                `
+                                    : ""
+                                }
                                 <div class="mb-3">
                                     <label class="form-label">Account Details</label>
                                     <input type="text" class="form-control" name="recipientAccountDetail" placeholder="Bank or payment details (optional)" autocomplete="off" value="${accountDetailValue}">
@@ -1071,47 +1380,50 @@ class FinancialReportsComponent {
 
       let endpoint;
       let httpMethod;
-      
+
       if (isEditing) {
         // For editing, we need to include the item index in the endpoint
-        endpoint = (type === "income"
-          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
-              this.selectedProperty,
-              year,
-              month
-            )
-          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
-              this.selectedProperty,
-              year,
-              month
-            )) + `/${this.editingItemIndex}`;
-        httpMethod = 'PUT';
+        endpoint =
+          (type === "income"
+            ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
+                this.selectedProperty,
+                year,
+                month
+              )
+            : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
+                this.selectedProperty,
+                year,
+                month
+              )) + `/${this.editingItemIndex}`;
+        httpMethod = "PUT";
       } else {
         // For adding new items
-        endpoint = type === "income"
-          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
-              this.selectedProperty,
-              year,
-              month
-            )
-          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
-              this.selectedProperty,
-              year,
-              month
-            );
-        httpMethod = 'POST';
+        endpoint =
+          type === "income"
+            ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
+                this.selectedProperty,
+                year,
+                month
+              )
+            : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
+                this.selectedProperty,
+                year,
+                month
+              );
+        httpMethod = "POST";
       }
 
-      const response = httpMethod === 'PUT' 
-        ? await API.put(endpoint, itemData)
-        : await API.post(endpoint, itemData);
+      const response =
+        httpMethod === "PUT"
+          ? await API.put(endpoint, itemData)
+          : await API.post(endpoint, itemData);
 
       const result = await response.json();
 
       if (result.success) {
         // Mark that modal is being closed due to success
         this._modalClosedBySuccess = true;
-        
+
         // Force close modal and cleanup
         this.isIncomeExpenseModalOpen = false;
         this.editingItem = null;
@@ -1127,16 +1439,22 @@ class FinancialReportsComponent {
         // Force a display refresh to ensure indices are correct
         this.updateDisplays();
         this.showSuccess(
-          `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } item ${isEditing ? 'updated' : 'added'} successfully`
+          `${type.charAt(0).toUpperCase() + type.slice(1)} item ${
+            isEditing ? "updated" : "added"
+          } successfully`
         );
       } else {
-        throw new Error(result.message || `Failed to ${isEditing ? 'update' : 'add'} ${type} item`);
+        throw new Error(
+          result.message ||
+            `Failed to ${isEditing ? "update" : "add"} ${type} item`
+        );
       }
     } catch (error) {
       console.error(`Error saving ${type} item:`, error);
-      this.showError(error.message || `Failed to ${isEditing ? 'update' : 'add'} ${type} item`);
+      this.showError(
+        error.message ||
+          `Failed to ${isEditing ? "update" : "add"} ${type} item`
+      );
     } finally {
       // Hide loading state when done (whether success or error)
       if (this.editingItemIndex !== null) {
@@ -1167,7 +1485,7 @@ class FinancialReportsComponent {
 
     // Show modal
     const modalElement = document.getElementById("investorModal");
-    
+
     if (!modalElement) {
       console.error("Investor modal element not found in DOM");
       this.isModalOpen = false;
@@ -1182,12 +1500,12 @@ class FinancialReportsComponent {
 
     // Focus on first input after modal is shown
     modalElement.addEventListener("shown.bs.modal", () => {
-      console.log('Investor modal shown event triggered');
-      console.log('investorId passed to modal:', investorId);
-      
+      console.log("Investor modal shown event triggered");
+      console.log("investorId passed to modal:", investorId);
+
       // Pre-fill form if editing existing investor (do this after modal is shown)
       if (investorId) {
-        console.log('About to fill investor form...');
+        console.log("About to fill investor form...");
         // Add a small delay to ensure DOM is fully ready
         setTimeout(() => {
           this.fillInvestorForm(investorId);
@@ -1343,22 +1661,22 @@ class FinancialReportsComponent {
   }
 
   fillInvestorForm(investorId) {
-    console.log('fillInvestorForm called with investorId:', investorId);
-    console.log('Available investors:', this.investors);
-    console.log('Selected property:', this.selectedProperty);
-    
+    console.log("fillInvestorForm called with investorId:", investorId);
+    console.log("Available investors:", this.investors);
+    console.log("Selected property:", this.selectedProperty);
+
     const investor = this.investors.find(
       (inv) => inv.investorId === investorId
     );
-    
-    console.log('Found investor:', investor);
-    
+
+    console.log("Found investor:", investor);
+
     if (investor) {
       const form = document.getElementById("investorForm");
-      console.log('Form element found:', !!form);
+      console.log("Form element found:", !!form);
 
       if (!form) {
-        console.error('Investor form not found in DOM');
+        console.error("Investor form not found in DOM");
         return;
       }
 
@@ -1368,60 +1686,67 @@ class FinancialReportsComponent {
       const emailInput = form.querySelector('input[name="email"]');
       const percentageInput = form.querySelector('input[name="percentage"]');
 
-      console.log('Input elements found:', {
+      console.log("Input elements found:", {
         username: !!usernameInput,
         name: !!nameInput,
         phone: !!phoneInput,
         email: !!emailInput,
-        percentage: !!percentageInput
+        percentage: !!percentageInput,
       });
 
       if (usernameInput) {
         usernameInput.value = investor.username || "";
-        console.log('Set username:', investor.username);
+        console.log("Set username:", investor.username);
         // Trigger change event to ensure any validation or listeners are notified
-        usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        usernameInput.dispatchEvent(new Event("input", { bubbles: true }));
       }
       if (nameInput) {
         nameInput.value = investor.name || "";
-        console.log('Set name:', investor.name);
-        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log("Set name:", investor.name);
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
       }
       if (phoneInput) {
         phoneInput.value = investor.phone || "";
-        console.log('Set phone:', investor.phone);
-        phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log("Set phone:", investor.phone);
+        phoneInput.dispatchEvent(new Event("input", { bubbles: true }));
       }
       if (emailInput) {
         emailInput.value = investor.email || "";
-        console.log('Set email:', investor.email);
-        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log("Set email:", investor.email);
+        emailInput.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       // Find the property data for this specific property
       // Try both the original and uppercase versions since backend normalizes to uppercase
       const propertyData = investor.properties.find(
-        (p) => p.propertyId === this.selectedProperty || 
-               p.propertyId === this.selectedProperty?.toUpperCase() ||
-               p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase()
+        (p) =>
+          p.propertyId === this.selectedProperty ||
+          p.propertyId === this.selectedProperty?.toUpperCase() ||
+          p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase()
       );
-      console.log('Property data found:', propertyData);
-      console.log('Looking for propertyId:', this.selectedProperty);
-      console.log('Looking for propertyId (uppercase):', this.selectedProperty?.toUpperCase());
-      console.log('Investor properties:', investor.properties);
-      
+      console.log("Property data found:", propertyData);
+      console.log("Looking for propertyId:", this.selectedProperty);
+      console.log(
+        "Looking for propertyId (uppercase):",
+        this.selectedProperty?.toUpperCase()
+      );
+      console.log("Investor properties:", investor.properties);
+
       if (propertyData && percentageInput) {
         percentageInput.value = propertyData.percentage;
-        console.log('Set percentage:', propertyData.percentage);
-        percentageInput.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log("Set percentage:", propertyData.percentage);
+        percentageInput.dispatchEvent(new Event("input", { bubbles: true }));
       } else if (percentageInput) {
-        console.warn('No property data found or percentage input missing');
+        console.warn("No property data found or percentage input missing");
         // Set a default value if no property data found
         percentageInput.value = "";
       }
     } else {
-      console.error('Investor not found with ID:', investorId);
-      console.log('Available investor IDs:', this.investors.map(inv => inv.investorId));
+      console.error("Investor not found with ID:", investorId);
+      console.log(
+        "Available investor IDs:",
+        this.investors.map((inv) => inv.investorId)
+      );
     }
   }
 
@@ -1652,43 +1977,59 @@ class FinancialReportsComponent {
   editItem(type, index) {
     // Check if month is closed
     if (this.currentReport && this.currentReport.isClosed) {
-      this.showError('Cannot edit items - this month has been closed');
+      this.showError("Cannot edit items - this month has been closed");
       return;
     }
 
     // Validate inputs first
-    if (typeof index !== 'number' || index < 0) {
-      console.error('Invalid index provided to editItem:', index);
-      this.showError('Invalid item index');
+    if (typeof index !== "number" || index < 0) {
+      console.error("Invalid index provided to editItem:", index);
+      this.showError("Invalid item index");
       return;
     }
 
     // Map singular type names to plural property names in currentReport
-    const propertyName = type === 'expense' ? 'expenses' : type === 'income' ? 'income' : type;
-    
+    const propertyName =
+      type === "expense" ? "expenses" : type === "income" ? "income" : type;
+
     // More detailed validation
     if (!this.currentReport) {
-      console.error('No current report loaded');
-      this.showError('No financial report loaded. Please select a property and month.');
+      console.error("No current report loaded");
+      this.showError(
+        "No financial report loaded. Please select a property and month."
+      );
       return;
     }
 
     if (!this.currentReport[propertyName]) {
-      console.error(`Property '${propertyName}' not found in current report:`, this.currentReport);
+      console.error(
+        `Property '${propertyName}' not found in current report:`,
+        this.currentReport
+      );
       this.showError(`No ${type} data found in current report`);
       return;
     }
 
     if (!Array.isArray(this.currentReport[propertyName])) {
-      console.error(`Property '${propertyName}' is not an array:`, this.currentReport[propertyName]);
+      console.error(
+        `Property '${propertyName}' is not an array:`,
+        this.currentReport[propertyName]
+      );
       this.showError(`Invalid ${type} data format`);
       return;
     }
 
     if (index >= this.currentReport[propertyName].length) {
-      console.error(`Index ${index} is out of bounds for ${propertyName} array of length ${this.currentReport[propertyName].length}`);
-      console.error(`Current ${propertyName} array:`, this.currentReport[propertyName]);
-      this.showError(`Item not found - index out of bounds. Refreshing data...`);
+      console.error(
+        `Index ${index} is out of bounds for ${propertyName} array of length ${this.currentReport[propertyName].length}`
+      );
+      console.error(
+        `Current ${propertyName} array:`,
+        this.currentReport[propertyName]
+      );
+      this.showError(
+        `Item not found - index out of bounds. Refreshing data...`
+      );
       // Refresh the financial report to fix the display
       this.loadFinancialReport();
       return;
@@ -1696,9 +2037,14 @@ class FinancialReportsComponent {
 
     const item = this.currentReport[propertyName][index];
     if (!item) {
-      console.error(`Item at index ${index} is null/undefined in ${propertyName}`);
-      console.error(`Current ${propertyName} array:`, this.currentReport[propertyName]);
-      this.showError('Item not found - item is empty. Refreshing data...');
+      console.error(
+        `Item at index ${index} is null/undefined in ${propertyName}`
+      );
+      console.error(
+        `Current ${propertyName} array:`,
+        this.currentReport[propertyName]
+      );
+      this.showError("Item not found - item is empty. Refreshing data...");
       // Refresh the financial report to fix the display
       this.loadFinancialReport();
       return;
@@ -1714,15 +2060,15 @@ class FinancialReportsComponent {
   toggleDeleteConfirm(type, index) {
     // Check if month is closed
     if (this.currentReport && this.currentReport.isClosed) {
-      this.showError('Cannot delete items - this month has been closed');
+      this.showError("Cannot delete items - this month has been closed");
       return;
     }
 
     const itemKey = `${type}-${index}`;
     this.pendingDeletes.add(itemKey);
-    
+
     // Re-render the displays to show the check/cancel buttons
-    if (type === 'income') {
+    if (type === "income") {
       this.updateIncomeDisplay();
     } else {
       this.updateExpenseDisplay();
@@ -1732,9 +2078,9 @@ class FinancialReportsComponent {
   cancelDeleteItem(type, index) {
     const itemKey = `${type}-${index}`;
     this.pendingDeletes.delete(itemKey);
-    
+
     // Re-render the displays to show the trash button again
-    if (type === 'income') {
+    if (type === "income") {
       this.updateIncomeDisplay();
     } else {
       this.updateExpenseDisplay();
@@ -1744,7 +2090,7 @@ class FinancialReportsComponent {
   async confirmDeleteItem(type, index) {
     // Check if month is closed
     if (this.currentReport && this.currentReport.isClosed) {
-      this.showError('Cannot delete items - this month has been closed');
+      this.showError("Cannot delete items - this month has been closed");
       return;
     }
 
@@ -1808,21 +2154,22 @@ class FinancialReportsComponent {
 
   // Set loading state for edit button
   setEditButtonLoading(type, index, isLoading) {
-    const buttonId = type === 'income' ? `editIncomeBtn-${index}` : `editExpenseBtn-${index}`;
+    const buttonId =
+      type === "income" ? `editIncomeBtn-${index}` : `editExpenseBtn-${index}`;
     const button = document.getElementById(buttonId);
-    
+
     if (button) {
-      const editIcon = button.querySelector('.edit-icon');
-      const loadingSpinner = button.querySelector('.loading-spinner');
-      
+      const editIcon = button.querySelector(".edit-icon");
+      const loadingSpinner = button.querySelector(".loading-spinner");
+
       if (isLoading) {
         button.disabled = true;
-        if (editIcon) editIcon.classList.add('d-none');
-        if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+        if (editIcon) editIcon.classList.add("d-none");
+        if (loadingSpinner) loadingSpinner.classList.remove("d-none");
       } else {
         button.disabled = false;
-        if (editIcon) editIcon.classList.remove('d-none');
-        if (loadingSpinner) loadingSpinner.classList.add('d-none');
+        if (editIcon) editIcon.classList.remove("d-none");
+        if (loadingSpinner) loadingSpinner.classList.add("d-none");
       }
     }
   }
@@ -1925,17 +2272,17 @@ class FinancialReportsComponent {
   updateClosedStatus() {
     const isClosed = this.currentReport && this.currentReport.isClosed;
     const isPendingClose = this.pendingClose;
-    
+
     // Update button visibility and state
     const closeBtn = document.getElementById("closeMonthBtn");
     const reopenBtn = document.getElementById("reopenMonthBtn");
-    
+
     if (closeBtn) {
       if (isClosed) {
         closeBtn.style.display = "none";
       } else {
         closeBtn.style.display = "inline-block";
-        
+
         // Update button based on pending state
         if (isPendingClose) {
           // Show confirmation buttons (like delete confirmation)
@@ -1955,7 +2302,8 @@ class FinancialReportsComponent {
           closeBtn.style.padding = "0";
         } else {
           // Show normal close button
-          closeBtn.innerHTML = '<i class="bi bi-lock" style="color: #ffffff !important"></i>';
+          closeBtn.innerHTML =
+            '<i class="bi bi-lock" style="color: #ffffff !important"></i>';
           closeBtn.className = "btn btn-sm btn-warning";
           closeBtn.style.backgroundColor = "#ff6b35";
           closeBtn.style.borderColor = "#ff6b35";
@@ -1965,7 +2313,7 @@ class FinancialReportsComponent {
         }
       }
     }
-    
+
     if (reopenBtn) {
       reopenBtn.style.display = isClosed ? "inline-block" : "none";
     }
@@ -1984,14 +2332,24 @@ class FinancialReportsComponent {
 
     if (currentMonthEl) {
       const monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
       ];
 
       const month = monthNames[this.currentDate.getMonth()];
       const year = this.currentDate.getFullYear();
       const isClosed = this.currentReport && this.currentReport.isClosed;
-      
+
       currentMonthEl.textContent = `${month} ${year}${isClosed ? " 🔒" : ""}`;
     }
 
@@ -2000,11 +2358,11 @@ class FinancialReportsComponent {
       const isCurrentMonth =
         this.currentDate.getMonth() === now.getMonth() &&
         this.currentDate.getFullYear() === now.getFullYear();
-      
+
       const isClosed = this.currentReport && this.currentReport.isClosed;
-      
+
       let badgeText, badgeClass;
-      
+
       if (isClosed) {
         badgeText = "Closed";
         badgeClass = "badge bg-danger";
@@ -2031,32 +2389,42 @@ class FinancialReportsComponent {
     if (addIncomeBtn) {
       addIncomeBtn.disabled = !enabled;
       addIncomeBtn.style.opacity = enabled ? "1" : "0.5";
-      addIncomeBtn.title = enabled ? "Add Income Item" : "Cannot add items - month is closed";
+      addIncomeBtn.title = enabled
+        ? "Add Income Item"
+        : "Cannot add items - month is closed";
     }
 
     if (addExpenseBtn) {
       addExpenseBtn.disabled = !enabled;
       addExpenseBtn.style.opacity = enabled ? "1" : "0.5";
-      addExpenseBtn.title = enabled ? "Add Expense Item" : "Cannot add items - month is closed";
+      addExpenseBtn.title = enabled
+        ? "Add Expense Item"
+        : "Cannot add items - month is closed";
     }
 
     if (addInvestorBtn) {
       addInvestorBtn.disabled = !enabled;
       addInvestorBtn.style.opacity = enabled ? "1" : "0.5";
-      addInvestorBtn.title = enabled ? "Add Investor" : "Cannot add investors - month is closed";
+      addInvestorBtn.title = enabled
+        ? "Add Investor"
+        : "Cannot add investors - month is closed";
     }
 
     // Update existing action buttons in the tables
-    const editButtons = document.querySelectorAll('[id^="editIncomeBtn-"], [id^="editExpenseBtn-"]');
-    const deleteButtons = document.querySelectorAll('button[onclick*="toggleDeleteConfirm"], button[onclick*="confirmDeleteItem"]');
+    const editButtons = document.querySelectorAll(
+      '[id^="editIncomeBtn-"], [id^="editExpenseBtn-"]'
+    );
+    const deleteButtons = document.querySelectorAll(
+      'button[onclick*="toggleDeleteConfirm"], button[onclick*="confirmDeleteItem"]'
+    );
 
-    editButtons.forEach(btn => {
+    editButtons.forEach((btn) => {
       btn.disabled = !enabled;
       btn.style.opacity = enabled ? "1" : "0.5";
       btn.title = enabled ? "Edit" : "Cannot edit - month is closed";
     });
 
-    deleteButtons.forEach(btn => {
+    deleteButtons.forEach((btn) => {
       btn.disabled = !enabled;
       btn.style.opacity = enabled ? "1" : "0.5";
       btn.title = enabled ? "Delete" : "Cannot delete - month is closed";
@@ -2070,15 +2438,17 @@ class FinancialReportsComponent {
     }
   }
 
-  async exportFinancialReport() {
+  async exportFinancialReportAsPDF() {
     if (!this.selectedProperty || !this.currentReport) {
       this.showError("Please select a property and load financial data first");
       return;
     }
 
-    // Check if html2canvas is available
-    if (typeof html2canvas === 'undefined') {
-      this.showError("Export library not loaded. Please refresh the page and try again.");
+    // Check if required libraries are available
+    if (typeof html2canvas === "undefined" || typeof window.jspdf === "undefined") {
+      this.showError(
+        "Export library not loaded. Please refresh the page and try again."
+      );
       return;
     }
 
@@ -2091,337 +2461,177 @@ class FinancialReportsComponent {
     try {
       // Show loading state
       const exportBtn = document.getElementById("exportFinancialReportBtn");
-      exportBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Exporting...';
+      exportBtn.innerHTML =
+        '<i class="bi bi-hourglass-split"></i> Exporting...';
       exportBtn.disabled = true;
 
-      // Update export header with property info and current data
-      await this.prepareExportData();
-      
-      // Show the header for export
-      const reportHeader = document.getElementById("reportHeader");
-      reportHeader.classList.remove("d-none");
+      // Prepare report for export
+      await this.prepareReportForExport();
 
-      // Hide navigation and action buttons for export
-      const elementsToHide = [
-        '.btn', '.modal', '.modal-backdrop', 
-        '#prevMonth', '#nextMonth', '#addIncomeBtn', '#addExpenseBtn', '#addInvestorBtn',
-        '.edit-icon', '.loading-spinner', '[onclick]', '.actions-column', '.month-navigation-section'
-      ];
-      
-      const hiddenElements = [];
-      elementsToHide.forEach(selector => {
-        const elements = document.querySelectorAll(`#exportableFinancialReport ${selector}`);
-        elements.forEach(el => {
-          if (!el.id.includes('export') && !el.id.includes('Export')) {
-            el.style.display = 'none';
-            hiddenElements.push({ element: el, originalDisplay: el.style.display });
-          }
-        });
-      });
+      // Get the element
+      const exportElement = document.getElementById("exportableFinancialReport");
 
-      // Wait longer for DOM to fully update and render
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Wait for DOM updates
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Get the element and calculate optimal dimensions
-      const exportElement = document.getElementById('exportableFinancialReport');
-      
-      // Force layout recalculation and ensure all content is rendered
-      exportElement.style.height = 'auto';
-      exportElement.style.minHeight = 'auto';
-      exportElement.offsetHeight; // Force reflow
-      
-      // Scroll to bottom to ensure all lazy content is rendered
-      const originalScrollTop = window.scrollY;
-      exportElement.scrollIntoView({ behavior: 'instant', block: 'end' });
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Calculate dimensions with more comprehensive approach
-      const computedStyle = window.getComputedStyle(exportElement);
-      const paddingTop = parseInt(computedStyle.paddingTop) || 0;
-      const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
-      const marginTop = parseInt(computedStyle.marginTop) || 0;
-      const marginBottom = parseInt(computedStyle.marginBottom) || 0;
-      
-      const contentHeight = exportElement.scrollHeight;
-      const clientHeight = exportElement.clientHeight;
-      const offsetHeight = exportElement.offsetHeight;
-      
-      // Use the largest calculated height plus generous buffer
-      const elementHeight = Math.max(contentHeight, clientHeight, offsetHeight) + paddingTop + paddingBottom + marginTop + marginBottom;
-      const elementWidth = Math.max(exportElement.scrollWidth, exportElement.offsetWidth, 1000); // Force wider canvas for full content
-      
-      // Add buffer to ensure no content is cut off (reduced for compact layout - 25% of content height, minimum 200px)
-      const heightBuffer = Math.max(200, Math.floor(elementHeight * 0.25));
-      const totalHeight = elementHeight + heightBuffer;
-      
-      console.log('Export dimensions:', { 
-        contentHeight, 
-        clientHeight, 
-        offsetHeight, 
-        elementHeight, 
-        heightBuffer, 
-        totalHeight, 
-        elementWidth 
-      });
-      
-      // Restore original scroll position
-      window.scrollTo(0, originalScrollTop);
-      
-      // Create the canvas with very generous height buffer to prevent cut-off
+      // Create canvas from HTML
       const canvas = await html2canvas(exportElement, {
-        backgroundColor: '#ffffff',
-        scale: 2.0, // High scale for maximum quality
+        backgroundColor: "#ffffff",
+        scale: 2,
         useCORS: true,
-        allowTaint: false, // Better quality with strict CORS
-        height: totalHeight,
-        width: elementWidth,
-        windowWidth: elementWidth,
-        windowHeight: totalHeight,
-        logging: true, // Enable logging to debug issues
-        scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0,
-        removeContainer: true, // Remove container padding
-        letterRendering: true, // Better text rendering
-        imageTimeout: 15000, // Allow time for high-quality rendering
-        onclone: function(clonedDocument) {
-          // Ensure cloned document has proper dimensions
-          const clonedElement = clonedDocument.getElementById('exportableFinancialReport');
-          if (clonedElement) {
-            clonedElement.style.height = 'auto';
-            clonedElement.style.minHeight = totalHeight + 'px';
-            clonedElement.style.width = elementWidth + 'px';
-            clonedElement.style.minWidth = elementWidth + 'px';
-            clonedElement.style.maxWidth = 'none';
-            clonedElement.style.overflow = 'visible';
-            clonedElement.style.margin = '0';
-            clonedElement.style.padding = '0';
-          }
-        }
+        logging: false,
+        windowWidth: exportElement.scrollWidth,
+        windowHeight: exportElement.scrollHeight,
       });
 
-      // Restore hidden elements
-      hiddenElements.forEach(({ element, originalDisplay }) => {
-        element.style.display = originalDisplay;
+      // Restore UI after capture
+      this.restoreReportAfterExport();
+
+      // Convert canvas to PDF
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       });
-      
-      // Hide header again
-      reportHeader.classList.add("d-none");
 
-      // Crop canvas to remove white space
-      const croppedCanvas = this.cropCanvasToContent(canvas);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      // Create high-quality download link
-      const link = document.createElement('a');
-      link.download = this.generateFileName();
-      // Use maximum PNG quality
-      link.href = croppedCanvas.toDataURL('image/png', 1.0);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      let heightLeft = imgHeight;
+      let position = 10; // 10mm top margin
 
-      this.showSuccess("Financial report exported successfully!");
+      // Add first page
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight - 20; // Account for top and bottom margins
+
+      // Add additional pages if needed
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight - 20;
+      }
+
+      // Download PDF
+      pdf.save(this.generateFileName().replace(/\.(png|jpg)$/i, '.pdf'));
+
+      this.showSuccess("Financial report exported as PDF successfully!");
     } catch (error) {
-      console.error('Export error:', error);
+      console.error("Export error:", error);
       this.showError(`Failed to export financial report: ${error.message}`);
     } finally {
       // Restore button state
       const exportBtn = document.getElementById("exportFinancialReportBtn");
-      exportBtn.innerHTML = '<i class="bi bi-camera me-1"></i>Export Image';
+      exportBtn.innerHTML = '<i class="bi bi-file-pdf"></i>';
       exportBtn.disabled = false;
-      // Reset the export flag
       this._isExporting = false;
     }
   }
 
-  async copyFinancialReportToClipboard() {
+  async printFinancialReport() {
     if (!this.selectedProperty || !this.currentReport) {
       this.showError("Please select a property and load financial data first");
       return;
     }
 
-    // Check if html2canvas is available
-    if (typeof html2canvas === 'undefined') {
-      this.showError("Export library not loaded. Please refresh the page and try again.");
-      return;
-    }
-
-    // Prevent duplicate calls
-    if (this._isCopiingToClipboard) {
-      return;
-    }
-    this._isCopiingToClipboard = true;
-
     try {
-      // Show loading state
-      const copyBtn = document.getElementById("copyFinancialReportBtn");
-      copyBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
-      copyBtn.disabled = true;
+      // Prepare report for export
+      await this.prepareReportForExport();
 
-      // Prepare export data and show header
-      await this.prepareExportData();
-      const reportHeader = document.getElementById("reportHeader");
-      reportHeader.classList.remove("d-none");
+      // Wait for DOM updates
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Hide navigation and action buttons for export
-      const elementsToHide = [
-        '.btn', '.modal', '.modal-backdrop', 
-        '#prevMonth', '#nextMonth', '#addIncomeBtn', '#addExpenseBtn', '#addInvestorBtn',
-        '.edit-icon', '.loading-spinner', '[onclick]', '.actions-column', '.month-navigation-section'
-      ];
-      
-      const hiddenElements = [];
-      elementsToHide.forEach(selector => {
-        const elements = document.querySelectorAll(`#exportableFinancialReport ${selector}`);
-        elements.forEach(el => {
-          if (!el.id.includes('export') && !el.id.includes('Export')) {
-            el.style.display = 'none';
-            hiddenElements.push({ element: el, originalDisplay: el.style.display });
-          }
-        });
-      });
+      // Trigger print dialog
+      window.print();
 
-      // Wait longer for DOM to fully update and render
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Get the element and calculate optimal dimensions for clipboard
-      const exportElement = document.getElementById('exportableFinancialReport');
-      
-      // Force layout recalculation and ensure all content is rendered
-      exportElement.style.height = 'auto';
-      exportElement.style.minHeight = 'auto';
-      exportElement.offsetHeight; // Force reflow
-      
-      // Scroll to bottom to ensure all lazy content is rendered
-      const originalScrollTop = window.scrollY;
-      exportElement.scrollIntoView({ behavior: 'instant', block: 'end' });
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Calculate dimensions with more comprehensive approach
-      const computedStyle = window.getComputedStyle(exportElement);
-      const paddingTop = parseInt(computedStyle.paddingTop) || 0;
-      const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
-      const marginTop = parseInt(computedStyle.marginTop) || 0;
-      const marginBottom = parseInt(computedStyle.marginBottom) || 0;
-      
-      const contentHeight = exportElement.scrollHeight;
-      const clientHeight = exportElement.clientHeight;
-      const offsetHeight = exportElement.offsetHeight;
-      
-      // Use the largest calculated height plus generous buffer
-      const elementHeight = Math.max(contentHeight, clientHeight, offsetHeight) + paddingTop + paddingBottom + marginTop + marginBottom;
-      const elementWidth = Math.max(exportElement.scrollWidth, exportElement.offsetWidth, 1000); // Force wider canvas for full content
-      
-      // Add buffer to ensure no content is cut off (reduced for compact layout - 25% of content height, minimum 200px)
-      const heightBuffer = Math.max(200, Math.floor(elementHeight * 0.25));
-      const totalHeight = elementHeight + heightBuffer;
-      
-      console.log('Clipboard export dimensions:', { 
-        contentHeight, 
-        clientHeight, 
-        offsetHeight, 
-        elementHeight, 
-        heightBuffer, 
-        totalHeight, 
-        elementWidth 
-      });
-      
-      // Restore original scroll position
-      window.scrollTo(0, originalScrollTop);
-      
-      // Create canvas with very generous height buffer to prevent cut-off
-      const canvas = await html2canvas(exportElement, {
-        backgroundColor: '#ffffff',
-        scale: 2.0, // High scale for maximum quality
-        useCORS: true,
-        allowTaint: false, // Better quality with strict CORS
-        height: totalHeight,
-        width: elementWidth,
-        windowWidth: elementWidth,
-        windowHeight: totalHeight,
-        logging: false, // Keep logging off for clipboard to avoid console spam
-        scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0,
-        removeContainer: true, // Remove container padding
-        letterRendering: true, // Better text rendering
-        imageTimeout: 15000, // Allow time for high-quality rendering
-        onclone: function(clonedDocument) {
-          // Ensure cloned document has proper dimensions
-          const clonedElement = clonedDocument.getElementById('exportableFinancialReport');
-          if (clonedElement) {
-            clonedElement.style.height = 'auto';
-            clonedElement.style.minHeight = totalHeight + 'px';
-            clonedElement.style.width = elementWidth + 'px';
-            clonedElement.style.minWidth = elementWidth + 'px';
-            clonedElement.style.maxWidth = 'none';
-            clonedElement.style.overflow = 'visible';
-            clonedElement.style.margin = '0';
-            clonedElement.style.padding = '0';
-          }
-        }
-      });
-
-      // Restore hidden elements first
-      hiddenElements.forEach(({ element, originalDisplay }) => {
-        element.style.display = originalDisplay;
-      });
-      
-      // Hide header again
-      reportHeader.classList.add("d-none");
-
-      // Crop canvas to remove white space
-      const croppedCanvas = this.cropCanvasToContent(canvas);
-
-      // Convert to high-quality blob and copy to clipboard
-      const blob = await new Promise((resolve) => {
-        croppedCanvas.toBlob(resolve, 'image/png', 1.0); // Maximum PNG quality
-      });
-
-      try {
-        if (navigator.clipboard && navigator.clipboard.write) {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]);
-          this.showSuccess("Financial report copied to clipboard!");
-        } else {
-          this.showError("Clipboard functionality not supported in this browser.");
-        }
-      } catch (clipboardError) {
-        console.error('Clipboard error:', clipboardError);
-        this.showError("Failed to copy to clipboard. Your browser may not support this feature.");
-      }
+      // Restore UI after a delay (to allow print dialog to open)
+      setTimeout(() => {
+        this.restoreReportAfterExport();
+      }, 500);
 
     } catch (error) {
-      console.error('Copy error:', error);
-      this.showError(`Failed to copy financial report: ${error.message}`);
-    } finally {
-      // Always restore button state and reset flag
-      const copyBtn = document.getElementById("copyFinancialReportBtn");
-      if (copyBtn) {
-        copyBtn.innerHTML = '<i class="bi bi-clipboard" style="color: #ffffff !important;"></i>';
-        copyBtn.disabled = false;
-      }
-      // Reset the copying flag
-      this._isCopiingToClipboard = false;
+      console.error("Print error:", error);
+      this.showError(`Failed to print financial report: ${error.message}`);
+      this.restoreReportAfterExport();
     }
   }
+
+  async prepareReportForExport() {
+    // Update export header with property info and current data
+    await this.prepareExportData();
+
+    // Show the header for export
+    const reportHeader = document.getElementById("reportHeader");
+    reportHeader.classList.remove("d-none");
+
+    // Hide navigation and action buttons for export
+    const elementsToHide = [
+      ".btn",
+      ".modal",
+      ".modal-backdrop",
+      "#prevMonth",
+      "#nextMonth",
+      "#addIncomeBtn",
+      "#addExpenseBtn",
+      "#addInvestorBtn",
+      ".edit-icon",
+      ".loading-spinner",
+      "[onclick]",
+      ".actions-column",
+      ".month-navigation-section",
+    ];
+
+    this._hiddenElements = [];
+    elementsToHide.forEach((selector) => {
+      const elements = document.querySelectorAll(
+        `#exportableFinancialReport ${selector}`
+      );
+      elements.forEach((el) => {
+        if (!el.id.includes("export") && !el.id.includes("Export")) {
+          const originalDisplay = window.getComputedStyle(el).display;
+          el.style.display = "none";
+          this._hiddenElements.push({ element: el, originalDisplay });
+        }
+      });
+    });
+  }
+
+  restoreReportAfterExport() {
+    // Restore hidden elements
+    if (this._hiddenElements) {
+      this._hiddenElements.forEach(({ element, originalDisplay }) => {
+        element.style.display = originalDisplay;
+      });
+      this._hiddenElements = null;
+    }
+
+    // Hide header again
+    const reportHeader = document.getElementById("reportHeader");
+    if (reportHeader) {
+      reportHeader.classList.add("d-none");
+    }
+  }
+
 
   async prepareExportData() {
     // Update export header with current property and date info
     const exportPropertyInfo = document.getElementById("exportPropertyInfo");
     const exportDateRange = document.getElementById("exportDateRange");
-    
+
     if (exportPropertyInfo && this.selectedProperty) {
       try {
         // Get property details
         const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
         const result = await response.json();
-        
+
         if (result.success) {
-          const property = result.properties.find(p => p.propertyId === this.selectedProperty);
+          const property = result.properties.find(
+            (p) => p.propertyId === this.selectedProperty
+          );
           if (property) {
             exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
           } else {
@@ -2429,17 +2639,27 @@ class FinancialReportsComponent {
           }
         }
       } catch (error) {
-        console.error('Error fetching property details for export:', error);
+        console.error("Error fetching property details for export:", error);
         exportPropertyInfo.textContent = `Property ID: ${this.selectedProperty}`;
       }
     }
-    
+
     if (exportDateRange) {
       const monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
       ];
-      
+
       const month = monthNames[this.currentDate.getMonth()];
       const year = this.currentDate.getFullYear();
       exportDateRange.textContent = `${month} ${year} Financial Report`;
@@ -2448,28 +2668,43 @@ class FinancialReportsComponent {
 
   generateFileName() {
     const monthNames = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
-    
+
     const month = monthNames[this.currentDate.getMonth()];
     const year = this.currentDate.getFullYear();
     const propertyId = this.selectedProperty;
-    
+
     return `Financial_Report_${propertyId}_${month}_${year}.png`;
   }
 
   // Crop canvas to remove white space around content
   cropCanvasToContent(sourceCanvas) {
-    const ctx = sourceCanvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+    const ctx = sourceCanvas.getContext("2d");
+    const imageData = ctx.getImageData(
+      0,
+      0,
+      sourceCanvas.width,
+      sourceCanvas.height
+    );
     const data = imageData.data;
-    
+
     let minX = sourceCanvas.width;
     let minY = sourceCanvas.height;
     let maxX = 0;
     let maxY = 0;
-    
+
     // Find the bounds of non-white content
     for (let y = 0; y < sourceCanvas.height; y++) {
       for (let x = 0; x < sourceCanvas.width; x++) {
@@ -2478,7 +2713,7 @@ class FinancialReportsComponent {
         const g = data[index + 1];
         const b = data[index + 2];
         const a = data[index + 3];
-        
+
         // Check if pixel is not white/transparent (allow for slight variations)
         if (!(r >= 250 && g >= 250 && b >= 250) || a < 250) {
           minX = Math.min(minX, x);
@@ -2488,82 +2723,97 @@ class FinancialReportsComponent {
         }
       }
     }
-    
+
     // Add small padding to ensure content isn't too tight
     const padding = 10;
     minX = Math.max(0, minX - padding);
     minY = Math.max(0, minY - padding);
     maxX = Math.min(sourceCanvas.width, maxX + padding);
     maxY = Math.min(sourceCanvas.height, maxY + padding);
-    
+
     // Calculate cropped dimensions
     const croppedWidth = maxX - minX;
     const croppedHeight = maxY - minY;
-    
-    console.log('Cropping canvas:', { 
+
+    console.log("Cropping canvas:", {
       original: { width: sourceCanvas.width, height: sourceCanvas.height },
       bounds: { minX, minY, maxX, maxY },
-      cropped: { width: croppedWidth, height: croppedHeight }
+      cropped: { width: croppedWidth, height: croppedHeight },
     });
-    
+
     // Create new canvas with cropped dimensions
-    const croppedCanvas = document.createElement('canvas');
+    const croppedCanvas = document.createElement("canvas");
     croppedCanvas.width = croppedWidth;
     croppedCanvas.height = croppedHeight;
-    const croppedCtx = croppedCanvas.getContext('2d');
-    
+    const croppedCtx = croppedCanvas.getContext("2d");
+
     // Copy the cropped region
     croppedCtx.drawImage(
-      sourceCanvas, 
-      minX, minY, croppedWidth, croppedHeight,
-      0, 0, croppedWidth, croppedHeight
+      sourceCanvas,
+      minX,
+      minY,
+      croppedWidth,
+      croppedHeight,
+      0,
+      0,
+      croppedWidth,
+      croppedHeight
     );
-    
+
     return croppedCanvas;
   }
 
   // Setup file upload handling
   setupFileUploadHandling() {
-    const fileInput = document.getElementById('billEvidenceFiles');
-    const previewContainer = document.getElementById('billEvidencePreview');
-    
+    const fileInput = document.getElementById("billEvidenceFiles");
+    const previewContainer = document.getElementById("billEvidencePreview");
+
     if (fileInput && previewContainer) {
-      fileInput.addEventListener('change', async (e) => {
+      fileInput.addEventListener("change", async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        
+
         // Validate file count
         if (files.length > 10) {
-          this.showError('Maximum 10 files allowed');
-          e.target.value = '';
+          this.showError("Maximum 10 files allowed");
+          e.target.value = "";
           return;
         }
-        
+
         // Validate file sizes and types
         const maxSize = 10 * 1024 * 1024; // 10MB
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-        
+        const allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/jpg",
+          "application/pdf",
+        ];
+
         for (const file of files) {
           if (file.size > maxSize) {
-            this.showError(`File "${file.name}" is too large. Maximum size is 10MB.`);
-            e.target.value = '';
+            this.showError(
+              `File "${file.name}" is too large. Maximum size is 10MB.`
+            );
+            e.target.value = "";
             return;
           }
-          
+
           if (!allowedTypes.includes(file.type)) {
-            this.showError(`File "${file.name}" is not supported. Only images and PDFs are allowed.`);
-            e.target.value = '';
+            this.showError(
+              `File "${file.name}" is not supported. Only images and PDFs are allowed.`
+            );
+            e.target.value = "";
             return;
           }
         }
-        
+
         // Upload files
         try {
           await this.uploadBillEvidenceFiles(files);
           this.displayFilePreview(files);
         } catch (error) {
           this.showError(`Failed to upload files: ${error.message}`);
-          e.target.value = '';
+          e.target.value = "";
         }
       });
     }
@@ -2572,43 +2822,50 @@ class FinancialReportsComponent {
   // Upload bill evidence files to backend
   async uploadBillEvidenceFiles(files) {
     const formData = new FormData();
-    files.forEach(file => {
-      formData.append('files', file);
+    files.forEach((file) => {
+      formData.append("files", file);
     });
-    
+
     try {
-      const response = await API.post('/api/upload/bill-evidence', formData, {
-        'Content-Type': 'multipart/form-data'
+      const response = await API.post("/api/upload/bill-evidence", formData, {
+        "Content-Type": "multipart/form-data",
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         // Store uploaded file URLs for later use
-        this.uploadedBillEvidence = result.files.map(file => file.url);
-        console.log('Bill evidence uploaded successfully:', this.uploadedBillEvidence);
+        this.uploadedBillEvidence = result.files.map((file) => file.url);
+        console.log(
+          "Bill evidence uploaded successfully:",
+          this.uploadedBillEvidence
+        );
       } else {
-        throw new Error(result.error || 'Upload failed');
+        throw new Error(result.error || "Upload failed");
       }
     } catch (error) {
-      console.error('Error uploading bill evidence:', error);
+      console.error("Error uploading bill evidence:", error);
       throw error;
     }
   }
 
   // Display file preview for newly uploaded files
   displayFilePreview(files) {
-    const previewContainer = document.getElementById('billEvidencePreview');
+    const previewContainer = document.getElementById("billEvidencePreview");
     if (!previewContainer) return;
-    
-    previewContainer.innerHTML = '';
-    
+
+    previewContainer.innerHTML = "";
+
     if (files.length > 0) {
       const previewHtml = `
         <div class="alert alert-success">
-          <i class="bi bi-check-circle"></i> ${files.length} file(s) uploaded successfully:
+          <i class="bi bi-check-circle"></i> ${
+            files.length
+          } file(s) uploaded successfully:
           <ul class="mb-0 mt-1">
-            ${files.map(file => `<li class="small">${escapeHtml(file.name)}</li>`).join('')}
+            ${files
+              .map((file) => `<li class="small">${escapeHtml(file.name)}</li>`)
+              .join("")}
           </ul>
         </div>
       `;
@@ -2618,26 +2875,35 @@ class FinancialReportsComponent {
 
   // Display existing bill evidence for editing
   displayExistingBillEvidence(billEvidence) {
-    const existingContainer = document.getElementById('existingBillEvidence');
-    if (!existingContainer || !billEvidence || billEvidence.length === 0) return;
-    
+    const existingContainer = document.getElementById("existingBillEvidence");
+    if (!existingContainer || !billEvidence || billEvidence.length === 0)
+      return;
+
     const evidenceHtml = `
       <div class="alert alert-info">
-        <i class="bi bi-info-circle"></i> Existing evidence (${billEvidence.length} file(s)):
+        <i class="bi bi-info-circle"></i> Existing evidence (${
+          billEvidence.length
+        } file(s)):
         <div class="mt-2">
-          ${billEvidence.map((url, index) => {
-            const fileName = this.extractFileNameFromUrl(url);
-            const isImage = this.isImageFile(url);
-            const normalizedUrl = this.normalizeImageUrl(url);
-            
-            return `
+          ${billEvidence
+            .map((url, index) => {
+              const fileName = this.extractFileNameFromUrl(url);
+              const isImage = this.isImageFile(url);
+              const normalizedUrl = this.normalizeImageUrl(url);
+
+              return `
               <div class="d-flex align-items-center gap-2 mb-1">
                 <small class="text-muted">${index + 1}.</small>
-                ${isImage ? `<img src="${normalizedUrl}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">` : `<i class="bi bi-file-earmark-pdf text-danger"></i>`}
+                ${
+                  isImage
+                    ? `<img src="${normalizedUrl}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">`
+                    : `<i class="bi bi-file-earmark-pdf text-danger"></i>`
+                }
                 <a href="${normalizedUrl}" target="_blank" class="small text-decoration-none">${fileName}</a>
               </div>
             `;
-          }).join('')}
+            })
+            .join("")}
         </div>
         <small class="text-muted">Upload new files to replace existing evidence, or leave empty to keep current files.</small>
       </div>
@@ -2647,77 +2913,77 @@ class FinancialReportsComponent {
 
   // Extract file name from URL
   extractFileNameFromUrl(url) {
-    if (!url) return 'Unknown file';
-    
+    if (!url) return "Unknown file";
+
     try {
       // Extract filename from Cloudinary URL or path
-      const parts = url.split('/');
+      const parts = url.split("/");
       const lastPart = parts[parts.length - 1];
-      
+
       // Remove query parameters if present
-      const cleanName = lastPart.split('?')[0];
-      
+      const cleanName = lastPart.split("?")[0];
+
       // If it's a Cloudinary public_id with extension
-      if (cleanName.includes('.')) {
+      if (cleanName.includes(".")) {
         return cleanName;
       }
-      
+
       // If it's just a public_id, add generic extension
       return `${cleanName}.file`;
     } catch (error) {
-      return 'File';
+      return "File";
     }
   }
 
   // Check if file is an image based on URL
   isImageFile(url) {
     if (!url) return false;
-    
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    const extension = url.toLowerCase().split('.').pop()?.split('?')[0];
-    
+
+    const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp"];
+    const extension = url.toLowerCase().split(".").pop()?.split("?")[0];
+
     return imageExtensions.includes(extension);
   }
 
   // Normalize image URL to ensure it uses the proxy endpoint
   normalizeImageUrl(url) {
     if (!url) return url;
-    
+
     // If it's already a full URL (http/https), return as-is
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
       return url;
     }
-    
+
     // If it's already a proxy URL, convert to full URL if needed
-    if (url.startsWith('/api/upload/image-proxy/')) {
+    if (url.startsWith("/api/upload/image-proxy/")) {
       // In production, use the full backend URL
       if (API_CONFIG.BASE_URL) {
         return `${API_CONFIG.BASE_URL}${url}`;
       }
       return url; // localhost case
     }
-    
+
     // Build the proxy URL
     let proxyPath;
-    
+
     // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
     // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
     if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
       // Check if it already includes the folder path
-      if (url.includes('/')) {
+      if (url.includes("/")) {
         proxyPath = `/api/upload/image-proxy/${url}`;
       } else {
         // Assume it's a tenant document image
         proxyPath = `/api/upload/image-proxy/tenant-documents/${url}`;
       }
-    } else if (url.startsWith('/')) {
+    } else if (url.startsWith("/")) {
       // If it starts with / but not our proxy path, assume it's a relative proxy URL
       proxyPath = url;
     } else {
       // Default: assume it needs the proxy prefix
       proxyPath = `/api/upload/image-proxy/${url}`;
     }
-    
+
     // In production, use the full backend URL
     if (API_CONFIG.BASE_URL) {
       return `${API_CONFIG.BASE_URL}${proxyPath}`;
@@ -2726,29 +2992,32 @@ class FinancialReportsComponent {
   }
 
   // Get optimized avatar URL with size transformations
-  getOptimizedAvatarUrl(url, size = 'small') {
+  getOptimizedAvatarUrl(url, size = "small") {
     if (!url) return url;
 
     const baseUrl = this.normalizeImageUrl(url);
-    
+
     // If it's not a Cloudinary URL through our proxy, return as-is
-    if (!baseUrl.includes('/api/upload/image-proxy/')) {
+    if (!baseUrl.includes("/api/upload/image-proxy/")) {
       return baseUrl;
     }
 
     // Define size presets
     const sizePresets = {
-      small: 'w_80,h_80,c_fill,f_auto,q_auto', // 40px display size, 2x for retina
-      medium: 'w_160,h_160,c_fill,f_auto,q_auto', // 80px display size, 2x for retina  
-      large: 'w_200,h_200,c_fill,f_auto,q_auto'  // Larger preview size
+      small: "w_80,h_80,c_fill,f_auto,q_auto", // 40px display size, 2x for retina
+      medium: "w_160,h_160,c_fill,f_auto,q_auto", // 80px display size, 2x for retina
+      large: "w_200,h_200,c_fill,f_auto,q_auto", // Larger preview size
     };
 
     const transformation = sizePresets[size] || sizePresets.small;
-    
+
     // Add transformation to Cloudinary URL
     // Replace /image-proxy/ with /image-proxy/w_80,h_80,c_fill,f_auto,q_auto/
-    const optimizedUrl = baseUrl.replace('/api/upload/image-proxy/', `/api/upload/image-proxy/${transformation}/`);
-    
+    const optimizedUrl = baseUrl.replace(
+      "/api/upload/image-proxy/",
+      `/api/upload/image-proxy/${transformation}/`
+    );
+
     console.log(`🎨 Optimized avatar URL (${size}):`, optimizedUrl);
     return optimizedUrl;
   }
@@ -2757,29 +3026,33 @@ class FinancialReportsComponent {
   showBillEvidence(type, index) {
     // Validate inputs
     if (!this.currentReport) {
-      this.showError('No financial report loaded');
+      this.showError("No financial report loaded");
       return;
     }
 
-    const propertyName = type === 'expense' ? 'expenses' : type === 'income' ? 'income' : type;
-    
-    if (!this.currentReport[propertyName] || index >= this.currentReport[propertyName].length) {
-      this.showError('Item not found');
+    const propertyName =
+      type === "expense" ? "expenses" : type === "income" ? "income" : type;
+
+    if (
+      !this.currentReport[propertyName] ||
+      index >= this.currentReport[propertyName].length
+    ) {
+      this.showError("Item not found");
       return;
     }
 
     const item = this.currentReport[propertyName][index];
     if (!item.billEvidence || item.billEvidence.length === 0) {
-      this.showError('No bill evidence available');
+      this.showError("No bill evidence available");
       return;
     }
 
     // Create evidence modal HTML
     const modalHtml = this.createBillEvidenceModalHtml(item, type);
-    
+
     // Add modal to page
     document.body.insertAdjacentHTML("beforeend", modalHtml);
-    
+
     // Show modal
     const modalElement = document.getElementById("billEvidenceModal");
     const modal = new bootstrap.Modal(modalElement, {
@@ -2799,13 +3072,14 @@ class FinancialReportsComponent {
   createBillEvidenceModalHtml(item, type) {
     const isIncome = type === "income";
     const title = `${isIncome ? "Income" : "Expense"} Evidence - ${item.item}`;
-    
-    const evidenceHtml = item.billEvidence.map((url, index) => {
-      const fileName = this.extractFileNameFromUrl(url);
-      const isImage = this.isImageFile(url);
-      const normalizedUrl = this.normalizeImageUrl(url);
-      
-      return `
+
+    const evidenceHtml = item.billEvidence
+      .map((url, index) => {
+        const fileName = this.extractFileNameFromUrl(url);
+        const isImage = this.isImageFile(url);
+        const normalizedUrl = this.normalizeImageUrl(url);
+
+        return `
         <div class="mb-3 p-3 border rounded">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="fw-bold">File ${index + 1}: ${fileName}</span>
@@ -2813,9 +3087,10 @@ class FinancialReportsComponent {
               <i class="bi bi-download"></i> Open
             </a>
           </div>
-          ${isImage ? 
-            `<img src="${normalizedUrl}" class="img-fluid rounded" style="max-height: 400px; width: 100%; object-fit: contain;">` : 
-            `<div class="text-center p-4 bg-light rounded">
+          ${
+            isImage
+              ? `<img src="${normalizedUrl}" class="img-fluid rounded" style="max-height: 400px; width: 100%; object-fit: contain;">`
+              : `<div class="text-center p-4 bg-light rounded">
               <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 3rem;"></i>
               <p class="mt-2 mb-0">PDF File</p>
               <small class="text-muted">Click "Open" to view</small>
@@ -2823,7 +3098,8 @@ class FinancialReportsComponent {
           }
         </div>
       `;
-    }).join('');
+      })
+      .join("");
 
     return `
       <div class="modal fade" id="billEvidenceModal" tabindex="-1" aria-labelledby="billEvidenceModalLabel" aria-hidden="true">
@@ -2839,8 +3115,20 @@ class FinancialReportsComponent {
               <div class="mb-3">
                 <strong>Item:</strong> ${escapeHtml(item.item)}<br>
                 <strong>Amount:</strong> $${item.amount.toFixed(2)}<br>
-                ${item.date ? `<strong>Date:</strong> ${new Date(item.date).toLocaleDateString()}<br>` : ''}
-                ${item.details ? `<strong>Details:</strong> ${escapeHtml(item.details)}<br>` : ''}
+                ${
+                  item.date
+                    ? `<strong>Date:</strong> ${new Date(
+                        item.date
+                      ).toLocaleDateString()}<br>`
+                    : ""
+                }
+                ${
+                  item.details
+                    ? `<strong>Details:</strong> ${escapeHtml(
+                        item.details
+                      )}<br>`
+                    : ""
+                }
               </div>
               <hr>
               <h6>Bill Evidence (${item.billEvidence.length} files):</h6>
