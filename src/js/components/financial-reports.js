@@ -179,6 +179,9 @@ class FinancialReportsComponent {
     const container = document.getElementById("propertyCards");
     if (!container) return;
 
+    // Store properties for later use
+    this.properties = properties || [];
+
     // Clear existing cards
     container.innerHTML = "";
 
@@ -2647,24 +2650,30 @@ class FinancialReportsComponent {
             pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
           }
 
-          pdf.text(item.item.substring(0, 28), margin + 1, yPos);
+          // Truncate item text properly to avoid overflow
+          const itemText = item.item.length > 28 ? item.item.substring(0, 26) + '..' : item.item;
+          pdf.text(itemText, margin + 1, yPos);
           pdf.text(dateStr, margin + 50, yPos);
 
-          // Show investor avatar initial
+          // Show investor avatar box with initial
           if (investor) {
             pdf.setFillColor(100, 100, 100);
-            pdf.circle(margin + 74, yPos - 1.5, 1.5, 'F');
+            pdf.rect(margin + 72, yPos - 2.5, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(6);
-            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 74, yPos - 0.5, { align: 'center' });
+            pdf.setFontSize(7);
+            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 73.5, yPos - 0.3, { align: 'center' });
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
-            pdf.text(personName.substring(0, 18), margin + 77, yPos);
+            // Truncate name to avoid Vietnamese character issues
+            const truncName = personName.length > 18 ? personName.substring(0, 16) + '..' : personName;
+            pdf.text(truncName, margin + 77, yPos);
           } else {
-            pdf.text(personName.substring(0, 18), margin + 72, yPos);
+            const truncName = personName.length > 18 ? personName.substring(0, 16) + '..' : personName;
+            pdf.text(truncName, margin + 72, yPos);
           }
 
-          pdf.text(paidByName, margin + 112, yPos);
+          const truncPaidBy = paidByName.length > 15 ? paidByName.substring(0, 13) + '..' : paidByName;
+          pdf.text(truncPaidBy, margin + 112, yPos);
           pdf.setTextColor(0, 128, 0);
           pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
           pdf.setTextColor(0, 0, 0);
@@ -2721,21 +2730,25 @@ class FinancialReportsComponent {
             pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
           }
 
-          pdf.text(item.item.substring(0, 35), margin + 1, yPos);
+          // Truncate item text properly
+          const itemText = item.item.length > 35 ? item.item.substring(0, 33) + '..' : item.item;
+          pdf.text(itemText, margin + 1, yPos);
           pdf.text(dateStr, margin + 65, yPos);
 
-          // Show investor avatar initial
+          // Show investor avatar box with initial
           if (investor) {
             pdf.setFillColor(100, 100, 100);
-            pdf.circle(margin + 89, yPos - 1.5, 1.5, 'F');
+            pdf.rect(margin + 87, yPos - 2.5, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(6);
-            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 89, yPos - 0.5, { align: 'center' });
+            pdf.setFontSize(7);
+            pdf.text(investor.name.charAt(0).toUpperCase(), margin + 88.5, yPos - 0.3, { align: 'center' });
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
-            pdf.text(personName.substring(0, 25), margin + 92, yPos);
+            const truncName = personName.length > 25 ? personName.substring(0, 23) + '..' : personName;
+            pdf.text(truncName, margin + 92, yPos);
           } else {
-            pdf.text(personName.substring(0, 25), margin + 87, yPos);
+            const truncName = personName.length > 25 ? personName.substring(0, 23) + '..' : personName;
+            pdf.text(truncName, margin + 87, yPos);
           }
 
           pdf.setTextColor(128, 0, 0);
@@ -2829,15 +2842,16 @@ class FinancialReportsComponent {
             pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
           }
 
-          // Show investor avatar initial
+          // Show investor avatar box with initial
           pdf.setFillColor(70, 130, 180);
-          pdf.circle(margin + 3, yPos - 1.5, 1.5, 'F');
+          pdf.rect(margin + 1, yPos - 2.5, 3, 3, 'F');
           pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(6);
-          pdf.text(investor.name.charAt(0).toUpperCase(), margin + 3, yPos - 0.5, { align: 'center' });
+          pdf.setFontSize(7);
+          pdf.text(investor.name.charAt(0).toUpperCase(), margin + 2.5, yPos - 0.3, { align: 'center' });
           pdf.setTextColor(0, 0, 0);
           pdf.setFontSize(8);
-          pdf.text(investor.name.substring(0, 20), margin + 6, yPos);
+          const truncInvName = investor.name.length > 20 ? investor.name.substring(0, 18) + '..' : investor.name;
+          pdf.text(truncInvName, margin + 6, yPos);
 
           pdf.text(`${percentage}%`, margin + 48, yPos);
           pdf.text(`$${investorShare.toFixed(2)}`, margin + 63, yPos);
@@ -2871,6 +2885,16 @@ class FinancialReportsComponent {
   }
 
   async getPropertyDetails(propertyId) {
+    // First try to find in cached properties
+    if (this.properties && this.properties.length > 0) {
+      const cached = this.properties.find(p => p.propertyId === propertyId);
+      if (cached) {
+        console.log('Using cached property:', cached);
+        return cached;
+      }
+    }
+
+    // If not in cache, fetch from API
     try {
       const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
         headers: {
@@ -2878,7 +2902,9 @@ class FinancialReportsComponent {
         },
       });
       if (response.ok) {
-        return await response.json();
+        const property = await response.json();
+        console.log('Fetched property from API:', property);
+        return property;
       }
     } catch (error) {
       console.error("Error fetching property details:", error);
