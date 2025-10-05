@@ -1,4 +1,7 @@
 // Note: showToast and escapeHtml are expected to be available globally
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+
 /**
  * Financial Reports Component
  * Handles monthly financial report management with income, expenses, and investor calculations
@@ -2552,14 +2555,6 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Check if jsPDF is available
-    if (typeof window.jspdf === "undefined") {
-      this.showError(
-        "Export library not loaded. Please refresh the page and try again."
-      );
-      return;
-    }
-
     // Prevent duplicate calls
     if (this._isExporting) {
       return;
@@ -2578,7 +2573,6 @@ class FinancialReportsComponent {
       const propertyName = property ? `${property.propertyId} - ${property.address}, ${property.unit}` : `Property ID: ${this.selectedProperty}`;
 
       // Create PDF
-      const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
