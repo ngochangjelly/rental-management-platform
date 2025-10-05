@@ -537,6 +537,7 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge
       );
       const investorName = investor ? investor.name : item.personInCharge;
+      const investorAvatar = investor?.avatar;
 
       // Check if this item is pending deletion confirmation
       const itemKey = `income-${index}`;
@@ -584,10 +585,27 @@ class FinancialReportsComponent {
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            ${escapeHtml(investorName)}
+            <div class="d-flex align-items-center justify-content-center">
+              ${
+                investorAvatar
+                  ? `<img src="${this.getOptimizedAvatarUrl(
+                      investorAvatar,
+                      "small"
+                    )}" alt="${escapeHtml(
+                      investorName
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" title="${escapeHtml(
+                      investorName
+                    )}">`
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" title="${escapeHtml(
+                      investorName
+                    )}">${escapeHtml(
+                      investorName.charAt(0).toUpperCase()
+                    )}</div>`
+              }
+            </div>
           </td>
           <td class="small border-0 align-middle">
-            ${this.renderPaidByName(item.paidBy)}
+            ${this.renderPaidByAvatar(item.paidBy)}
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(
             2
@@ -680,6 +698,7 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge
       );
       const investorName = investor ? investor.name : item.personInCharge;
+      const investorAvatar = investor?.avatar;
 
       // Check if this item is pending deletion confirmation
       const itemKey = `expense-${index}`;
@@ -727,7 +746,24 @@ class FinancialReportsComponent {
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            ${escapeHtml(investorName)}
+            <div class="d-flex align-items-center justify-content-center">
+              ${
+                investorAvatar
+                  ? `<img src="${this.getOptimizedAvatarUrl(
+                      investorAvatar,
+                      "small"
+                    )}" alt="${escapeHtml(
+                      investorName
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" title="${escapeHtml(
+                      investorName
+                    )}">`
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" title="${escapeHtml(
+                      investorName
+                    )}">${escapeHtml(
+                      investorName.charAt(0).toUpperCase()
+                    )}</div>`
+              }
+            </div>
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(
             2
@@ -879,7 +915,24 @@ class FinancialReportsComponent {
       html += `
         <tr>
           <td class="small border-0 align-middle">
-            ${escapeHtml(investor.name)}
+            <div class="d-flex align-items-center justify-content-center">
+              ${
+                investor.avatar
+                  ? `<img src="${this.getOptimizedAvatarUrl(
+                      investor.avatar,
+                      "small"
+                    )}" alt="${escapeHtml(
+                      investor.name
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" title="${escapeHtml(
+                      investor.name
+                    )}">`
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" title="${escapeHtml(
+                      investor.name
+                    )}">${escapeHtml(
+                      investor.name.charAt(0).toUpperCase()
+                    )}</div>`
+              }
+            </div>
           </td>
           <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
           <td class="small border-0 align-middle text-end fw-bold text-primary">$${investorShare.toFixed(
@@ -1177,9 +1230,64 @@ class FinancialReportsComponent {
     return options;
   }
 
+  renderPaidByAvatar(paidBy) {
+    if (!paidBy) {
+      return '<div class="d-flex align-items-center justify-content-center"><span class="text-muted small">-</span></div>';
+    }
+
+    let person = null;
+    let displayName = "";
+    let avatar = null;
+
+    // Check if it's a tenant (prefixed with 'tenant_')
+    if (paidBy.startsWith("tenant_")) {
+      const tenantId = paidBy.replace("tenant_", "");
+      person = this.tenants.find(
+        (t) =>
+          (t.tenantId && t.tenantId === tenantId) ||
+          (t.id && t.id === tenantId) ||
+          (t.fin && t.fin === tenantId)
+      );
+      if (person) {
+        displayName = person.name || "Unknown Tenant";
+        avatar = person.avatar;
+      }
+    } else {
+      // It's an investor
+      person = this.investors.find((i) => i.investorId === paidBy);
+      if (person) {
+        displayName = person.name || "Unknown Investor";
+        avatar = person.avatar;
+      }
+    }
+
+    if (!person) {
+      return '<div class="d-flex align-items-center justify-content-center"><span class="text-muted small">Unknown</span></div>';
+    }
+
+    return `
+      <div class="d-flex align-items-center justify-content-center">
+        ${
+          avatar
+            ? `<img src="${this.getOptimizedAvatarUrl(
+                avatar,
+                "small"
+              )}" alt="${escapeHtml(
+                displayName
+              )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" title="${escapeHtml(
+                displayName
+              )}">`
+            : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" title="${escapeHtml(
+                displayName
+              )}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`
+        }
+      </div>
+    `;
+  }
+
   renderPaidByName(paidBy) {
     if (!paidBy) {
-      return '<span class="text-muted small">-</span>';
+      return '-';
     }
 
     let person = null;
@@ -1206,7 +1314,7 @@ class FinancialReportsComponent {
     }
 
     if (!person || !displayName) {
-      return '<span class="text-muted small">Unknown</span>';
+      return 'Unknown';
     }
 
     return escapeHtml(displayName);
@@ -2444,8 +2552,8 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Check if required libraries are available
-    if (typeof html2canvas === "undefined" || typeof window.jspdf === "undefined") {
+    // Check if jsPDF is available
+    if (typeof window.jspdf === "undefined") {
       this.showError(
         "Export library not loaded. Please refresh the page and try again."
       );
@@ -2465,30 +2573,11 @@ class FinancialReportsComponent {
         '<i class="bi bi-hourglass-split"></i> Exporting...';
       exportBtn.disabled = true;
 
-      // Prepare report for export
-      await this.prepareReportForExport();
+      // Get property details
+      const property = await this.getPropertyDetails(this.selectedProperty);
+      const propertyName = property ? `${property.propertyId} - ${property.address}, ${property.unit}` : `Property ID: ${this.selectedProperty}`;
 
-      // Get the element
-      const exportElement = document.getElementById("exportableFinancialReport");
-
-      // Wait for DOM updates
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // Create canvas from HTML
-      const canvas = await html2canvas(exportElement, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        windowWidth: exportElement.scrollWidth,
-        windowHeight: exportElement.scrollHeight,
-      });
-
-      // Restore UI after capture
-      this.restoreReportAfterExport();
-
-      // Convert canvas to PDF
-      const imgData = canvas.toDataURL("image/png");
+      // Create PDF
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -2496,28 +2585,208 @@ class FinancialReportsComponent {
         format: "a4",
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20; // 10mm margin on each side
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      let yPos = 20;
+      const margin = 15;
+      const contentWidth = pageWidth - (2 * margin);
 
-      let heightLeft = imgHeight;
-      let position = 10; // 10mm top margin
+      // Title
+      pdf.setFontSize(18);
+      pdf.setFont(undefined, 'bold');
+      pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: 'center' });
 
-      // Add first page
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight - 20; // Account for top and bottom margins
+      yPos += 10;
+      pdf.setFontSize(12);
+      pdf.text(propertyName, pageWidth / 2, yPos, { align: 'center' });
 
-      // Add additional pages if needed
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight - 20;
+      yPos += 7;
+      const reportMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+      const monthName = reportMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      pdf.text(monthName, pageWidth / 2, yPos, { align: 'center' });
+
+      yPos += 15;
+
+      // INCOME SECTION
+      pdf.setFont(undefined, 'bold');
+      pdf.setFontSize(14);
+      pdf.text("INCOME", margin, yPos);
+      yPos += 8;
+
+      pdf.setFontSize(10);
+      pdf.setFont(undefined, 'normal');
+
+      if (this.currentReport.income && this.currentReport.income.length > 0) {
+        // Draw table header
+        pdf.setFillColor(200, 255, 200);
+        pdf.rect(margin, yPos - 5, contentWidth, 7, 'F');
+        pdf.setFont(undefined, 'bold');
+        pdf.text("Item", margin + 2, yPos);
+        pdf.text("Date", margin + 70, yPos);
+        pdf.text("Person", margin + 95, yPos);
+        pdf.text("Paid By", margin + 130, yPos);
+        pdf.text("Amount", pageWidth - margin - 2, yPos, { align: 'right' });
+        yPos += 8;
+
+        pdf.setFont(undefined, 'normal');
+        this.currentReport.income.forEach((item) => {
+          if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+          }
+
+          const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
+          const personName = investor ? investor.name : item.personInCharge;
+          const paidByName = this.renderPaidByName(item.paidBy);
+          const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+
+          pdf.text(item.item.substring(0, 30), margin + 2, yPos);
+          pdf.text(dateStr, margin + 70, yPos);
+          pdf.text(personName.substring(0, 15), margin + 95, yPos);
+          pdf.text(paidByName.substring(0, 15), margin + 130, yPos);
+          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+          yPos += 6;
+        });
+
+        yPos += 3;
+        pdf.setFont(undefined, 'bold');
+        pdf.text("Total Income:", pageWidth - margin - 35, yPos);
+        pdf.text(`$${this.currentReport.totalIncome.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+        yPos += 10;
+      } else {
+        pdf.text("No income items", margin + 2, yPos);
+        yPos += 10;
+      }
+
+      // EXPENSES SECTION
+      pdf.setFont(undefined, 'bold');
+      pdf.setFontSize(14);
+      pdf.text("EXPENSES", margin, yPos);
+      yPos += 8;
+
+      pdf.setFontSize(10);
+      pdf.setFont(undefined, 'normal');
+
+      if (this.currentReport.expenses && this.currentReport.expenses.length > 0) {
+        // Draw table header
+        pdf.setFillColor(255, 200, 200);
+        pdf.rect(margin, yPos - 5, contentWidth, 7, 'F');
+        pdf.setFont(undefined, 'bold');
+        pdf.text("Item", margin + 2, yPos);
+        pdf.text("Date", margin + 70, yPos);
+        pdf.text("Person", margin + 100, yPos);
+        pdf.text("Amount", pageWidth - margin - 2, yPos, { align: 'right' });
+        yPos += 8;
+
+        pdf.setFont(undefined, 'normal');
+        this.currentReport.expenses.forEach((item) => {
+          if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+          }
+
+          const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
+          const personName = investor ? investor.name : item.personInCharge;
+          const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+
+          pdf.text(item.item.substring(0, 35), margin + 2, yPos);
+          pdf.text(dateStr, margin + 70, yPos);
+          pdf.text(personName.substring(0, 20), margin + 100, yPos);
+          pdf.text(`$${item.amount.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+          yPos += 6;
+        });
+
+        yPos += 3;
+        pdf.setFont(undefined, 'bold');
+        pdf.text("Total Expenses:", pageWidth - margin - 35, yPos);
+        pdf.text(`$${this.currentReport.totalExpenses.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+        yPos += 10;
+      } else {
+        pdf.text("No expense items", margin + 2, yPos);
+        yPos += 10;
+      }
+
+      // NET PROFIT SECTION
+      const netProfit = (this.currentReport.totalIncome || 0) - (this.currentReport.totalExpenses || 0);
+
+      yPos += 5;
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, yPos - 5, contentWidth, 10, 'F');
+      pdf.setFontSize(14);
+      pdf.setFont(undefined, 'bold');
+      pdf.text("NET PROFIT:", margin + 2, yPos);
+      pdf.setTextColor(netProfit >= 0 ? 0 : 255, netProfit >= 0 ? 128 : 0, 0);
+      pdf.text(`$${netProfit.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+      pdf.setTextColor(0, 0, 0);
+      yPos += 15;
+
+      // INVESTOR DISTRIBUTION SECTION
+      if (this.investors && this.investors.length > 0) {
+        if (yPos > 200) {
+          pdf.addPage();
+          yPos = 20;
+        }
+
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.text("INVESTOR DISTRIBUTION", margin, yPos);
+        yPos += 8;
+
+        pdf.setFontSize(10);
+        pdf.setFillColor(200, 230, 255);
+        pdf.rect(margin, yPos - 5, contentWidth, 7, 'F');
+        pdf.text("Investor", margin + 2, yPos);
+        pdf.text("Share %", margin + 60, yPos);
+        pdf.text("Profit", margin + 85, yPos);
+        pdf.text("Paid", margin + 110, yPos);
+        pdf.text("Received", margin + 135, yPos);
+        pdf.text("Final", pageWidth - margin - 2, yPos, { align: 'right' });
+        yPos += 8;
+
+        pdf.setFont(undefined, 'normal');
+        this.investors.forEach((investor) => {
+          if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+          }
+
+          const propertyData = investor.properties.find(p => p.propertyId === this.selectedProperty);
+          const percentage = propertyData ? propertyData.percentage : 0;
+          const investorShare = (netProfit * percentage) / 100;
+
+          const expensesPaid = this.currentReport.expenses
+            ? this.currentReport.expenses.filter(e => e.personInCharge === investor.investorId)
+                .reduce((sum, e) => sum + e.amount, 0)
+            : 0;
+
+          const incomeReceived = this.currentReport.income
+            ? this.currentReport.income.filter(i => i.personInCharge === investor.investorId)
+                .reduce((sum, i) => sum + i.amount, 0)
+            : 0;
+
+          const existingTrans = this.currentReport.investorTransactions
+            ? this.currentReport.investorTransactions.find(t => t.investorId === investor.investorId)
+            : null;
+
+          const alreadyPaid = existingTrans ? existingTrans.alreadyPaid : 0;
+          const alreadyReceived = existingTrans ? existingTrans.alreadyReceived : 0;
+
+          const finalAmount = investorShare - alreadyPaid + alreadyReceived + expensesPaid - incomeReceived;
+
+          pdf.text(investor.name.substring(0, 25), margin + 2, yPos);
+          pdf.text(`${percentage}%`, margin + 60, yPos);
+          pdf.text(`$${investorShare.toFixed(2)}`, margin + 85, yPos);
+          pdf.text(`$${expensesPaid.toFixed(2)}`, margin + 110, yPos);
+          pdf.text(`$${incomeReceived.toFixed(2)}`, margin + 135, yPos);
+          pdf.setTextColor(finalAmount >= 0 ? 0 : 255, finalAmount >= 0 ? 128 : 0, 0);
+          pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 2, yPos, { align: 'right' });
+          pdf.setTextColor(0, 0, 0);
+          yPos += 6;
+        });
       }
 
       // Download PDF
-      pdf.save(this.generateFileName().replace(/\.(png|jpg)$/i, '.pdf'));
+      const fileName = `Financial_Report_${propertyName.replace(/[^a-zA-Z0-9]/g, '_')}_${monthName.replace(' ', '_')}.pdf`;
+      pdf.save(fileName);
 
       this.showSuccess("Financial report exported as PDF successfully!");
     } catch (error) {
@@ -2530,6 +2799,22 @@ class FinancialReportsComponent {
       exportBtn.disabled = false;
       this._isExporting = false;
     }
+  }
+
+  async getPropertyDetails(propertyId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}`, {
+        headers: {
+          "x-api-key": API_KEY,
+        },
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.error("Error fetching property details:", error);
+    }
+    return null;
   }
 
   async printFinancialReport() {
