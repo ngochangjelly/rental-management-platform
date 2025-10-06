@@ -320,6 +320,46 @@ class FinancialReportsComponent {
     }
   }
 
+  initializeTooltips() {
+    // Dispose of existing tooltips first to prevent memory leaks
+    const existingTooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    existingTooltips.forEach(el => {
+      const existingTooltip = bootstrap.Tooltip.getInstance(el);
+      if (existingTooltip) {
+        existingTooltip.dispose();
+      }
+    });
+
+    // Initialize new tooltips with custom placement
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl, {
+      placement: 'top',
+      offset: [15, 0]  // Offset to the right
+    }));
+
+    // Add custom tooltip styles if not already added
+    if (!document.getElementById("custom-tooltip-styles")) {
+      const style = document.createElement("style");
+      style.id = "custom-tooltip-styles";
+      style.textContent = `
+        .tooltip .tooltip-inner {
+          background-color: #5a67d8;
+          color: white;
+          font-size: 0.875rem;
+          padding: 0.5rem 0.75rem;
+          border-radius: 0.375rem;
+        }
+        .tooltip .tooltip-arrow::before {
+          border-top-color: #5a67d8 !important;
+          border-bottom-color: #5a67d8 !important;
+          border-left-color: #5a67d8 !important;
+          border-right-color: #5a67d8 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
   updatePropertyCardSelection() {
     // Update visual selection state of property cards
     const allCards = document.querySelectorAll(".property-card");
@@ -615,10 +655,10 @@ class FinancialReportsComponent {
                       "small"
                     )}" alt="${escapeHtml(
                       investorName
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" title="${escapeHtml(
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                       investorName
                     )}">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" title="${escapeHtml(
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                       investorName
                     )}">${escapeHtml(
                       investorName.charAt(0).toUpperCase()
@@ -673,6 +713,9 @@ class FinancialReportsComponent {
 
     incomeList.innerHTML = html;
     if (totalIncomeEl) totalIncomeEl.textContent = `$${total.toFixed(2)}`;
+
+    // Initialize tooltips
+    this.initializeTooltips();
   }
 
   updateExpenseDisplay() {
@@ -775,10 +818,10 @@ class FinancialReportsComponent {
                       "small"
                     )}" alt="${escapeHtml(
                       investorName
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" title="${escapeHtml(
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                       investorName
                     )}">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" title="${escapeHtml(
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                       investorName
                     )}">${escapeHtml(
                       investorName.charAt(0).toUpperCase()
@@ -830,6 +873,9 @@ class FinancialReportsComponent {
 
     expenseList.innerHTML = html;
     if (totalExpensesEl) totalExpensesEl.textContent = `$${total.toFixed(2)}`;
+
+    // Initialize tooltips
+    this.initializeTooltips();
   }
 
   updateSummaryDisplay() {
@@ -944,10 +990,10 @@ class FinancialReportsComponent {
                       "small"
                     )}" alt="${escapeHtml(
                       investor.name
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" title="${escapeHtml(
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                       investor.name
                     )}">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" title="${escapeHtml(
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                       investor.name
                     )}">${escapeHtml(
                       investor.name.charAt(0).toUpperCase()
@@ -993,6 +1039,9 @@ class FinancialReportsComponent {
     `;
 
     investorDistribution.innerHTML = html;
+
+    // Initialize tooltips
+    this.initializeTooltips();
   }
 
   async updateMonthDisplay() {
@@ -1316,10 +1365,10 @@ class FinancialReportsComponent {
                   "small"
                 )}" alt="${escapeHtml(
                   displayName
-                )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" title="${escapeHtml(
+                )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                   displayName
                 )}">`
-              : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" title="${escapeHtml(
+              : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
                   displayName
                 )}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`
           }
