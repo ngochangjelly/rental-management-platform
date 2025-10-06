@@ -621,7 +621,7 @@ class FinancialReportsComponent {
 
       html += `
         <tr>
-          <td class="small border-0 align-middle">
+          <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
               <span>${escapeHtml(item.item)}</span>
               ${
@@ -784,7 +784,7 @@ class FinancialReportsComponent {
 
       html += `
         <tr>
-          <td class="small border-0 align-middle">
+          <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
               <span>${escapeHtml(item.item)}</span>
               ${
