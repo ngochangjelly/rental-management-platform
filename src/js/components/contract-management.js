@@ -33,6 +33,9 @@ class ContractManagementComponent {
     // Initialize template service
     this.templateService = new ContractTemplateService();
 
+    // Track templates pending deletion confirmation
+    this.pendingDeletes = new Set();
+
     this.init();
   }
 
@@ -1335,6 +1338,7 @@ class ContractManagementComponent {
                         
                         <p><strong>Security Deposit:</strong> $${
                           this.contractData.securityDeposit ||
+                          this.contractData.monthlyRental ||
                           "[Security Deposit]"
                         }<br>
                         <small style="margin-left: 20px;">*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement</small></p>
@@ -1744,7 +1748,6 @@ class ContractManagementComponent {
 
       let currentY = margin;
       const lineHeight = 5;
-      const sectionSpacing = 8;
 
       // Helper function to add page numbers at the bottom center of each page
       const addPageNumbers = () => {
@@ -1953,7 +1956,7 @@ class ContractManagementComponent {
 
       addText(
         `Security Deposit: $${
-          this.contractData.securityDeposit || "[Security Deposit]"
+          this.contractData.securityDeposit || this.contractData.monthlyRental || "[Security Deposit]"
         }`,
         { bold: true, spacing: 5 }
       );
@@ -2365,6 +2368,7 @@ class ContractManagementComponent {
                         
                         <p style="margin-bottom: 8px;"><strong>Security Deposit:</strong> $${
                           this.contractData.securityDeposit ||
+                          this.contractData.monthlyRental ||
                           "[Security Deposit]"
                         }</p>
                         <div style="margin-left: 20px; margin-bottom: 12px;">
@@ -2560,11 +2564,18 @@ class ContractManagementComponent {
             </div>
           </div>
         </div>
-        <button class="btn btn-outline-danger btn-sm" onclick="contractManager.deleteTemplate('${
-          template.data.name
-        }')" title="Delete Template">
-          <i class="bi bi-trash"></i>
-        </button>
+        ${
+          this.pendingDeletes.has(template.data.name)
+            ? `<button class="btn btn-success btn-sm" onclick="contractManager.confirmDeleteTemplate('${template.data.name}')" title="Confirm delete">
+                 <i class="bi bi-check"></i>
+               </button>
+               <button class="btn btn-outline-secondary btn-sm" onclick="contractManager.cancelDeleteTemplate('${template.data.name}')" title="Cancel">
+                 <i class="bi bi-x"></i>
+               </button>`
+            : `<button class="btn btn-outline-danger btn-sm" onclick="contractManager.toggleDeleteConfirm('${template.data.name}')" title="Delete Template">
+                 <i class="bi bi-trash"></i>
+               </button>`
+        }
       </div>
     `
       )
@@ -2840,14 +2851,20 @@ class ContractManagementComponent {
     );
   }
 
-  async deleteTemplate(templateName) {
-    if (
-      !confirm(
-        `Are you sure you want to delete the template "${templateName}"?`
-      )
-    ) {
-      return;
-    }
+  toggleDeleteConfirm(templateName) {
+    this.pendingDeletes.add(templateName);
+    // Re-render templates to show check/cancel buttons
+    this.loadAndRenderTemplates();
+  }
+
+  cancelDeleteTemplate(templateName) {
+    this.pendingDeletes.delete(templateName);
+    // Re-render templates to show trash button again
+    this.loadAndRenderTemplates();
+  }
+
+  async confirmDeleteTemplate(templateName) {
+    this.pendingDeletes.delete(templateName);
 
     try {
       const result = await this.templateService.deleteTemplate(templateName);

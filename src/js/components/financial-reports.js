@@ -220,7 +220,7 @@ class FinancialReportsComponent {
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-        <div class="col-md-6 col-lg-4 mb-3">
+        <div class="col-6 col-md-3 col-lg-2 mb-3">
           <div class="card property-card h-100 ${
             isSelected ? "border-primary" : ""
           } overflow-hidden"
@@ -1406,9 +1406,6 @@ class FinancialReportsComponent {
     const detailsValue = existingItem
       ? escapeHtml(existingItem.details || "")
       : "";
-    const billEvidenceValue = existingItem
-      ? existingItem.billEvidence || []
-      : [];
     const dateValue =
       existingItem && existingItem.date
         ? new Date(existingItem.date).toISOString().split("T")[0]
