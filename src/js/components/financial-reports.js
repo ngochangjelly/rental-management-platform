@@ -3570,81 +3570,13 @@ class FinancialReportsComponent {
     return imageExtensions.includes(extension);
   }
 
-  // Normalize image URL to ensure it uses the proxy endpoint
+  // Use global image utilities
   normalizeImageUrl(url) {
-    if (!url) return url;
-
-    // If it's already a full URL (http/https), return as-is
-    if (url.startsWith("http://") || url.startsWith("https://")) {
-      return url;
-    }
-
-    // If it's already a proxy URL, convert to full URL if needed
-    if (url.startsWith("/api/upload/image-proxy/")) {
-      // In production, use the full backend URL
-      if (API_CONFIG.BASE_URL) {
-        return `${API_CONFIG.BASE_URL}${url}`;
-      }
-      return url; // localhost case
-    }
-
-    // Build the proxy URL
-    let proxyPath;
-
-    // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
-    // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
-    if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
-      // Check if it already includes the folder path
-      if (url.includes("/")) {
-        proxyPath = `/api/upload/image-proxy/${url}`;
-      } else {
-        // Assume it's a tenant document image
-        proxyPath = `/api/upload/image-proxy/tenant-documents/${url}`;
-      }
-    } else if (url.startsWith("/")) {
-      // If it starts with / but not our proxy path, assume it's a relative proxy URL
-      proxyPath = url;
-    } else {
-      // Default: assume it needs the proxy prefix
-      proxyPath = `/api/upload/image-proxy/${url}`;
-    }
-
-    // In production, use the full backend URL
-    if (API_CONFIG.BASE_URL) {
-      return `${API_CONFIG.BASE_URL}${proxyPath}`;
-    }
-    return proxyPath; // localhost case
+    return ImageUtils.normalizeImageUrl(url);
   }
 
-  // Get optimized avatar URL with size transformations
   getOptimizedAvatarUrl(url, size = "small") {
-    if (!url) return url;
-
-    const baseUrl = this.normalizeImageUrl(url);
-
-    // If it's not a Cloudinary URL through our proxy, return as-is
-    if (!baseUrl.includes("/api/upload/image-proxy/")) {
-      return baseUrl;
-    }
-
-    // Define size presets
-    const sizePresets = {
-      small: "w_80,h_80,c_fill,f_auto,q_auto", // 40px display size, 2x for retina
-      medium: "w_160,h_160,c_fill,f_auto,q_auto", // 80px display size, 2x for retina
-      large: "w_200,h_200,c_fill,f_auto,q_auto", // Larger preview size
-    };
-
-    const transformation = sizePresets[size] || sizePresets.small;
-
-    // Add transformation to Cloudinary URL
-    // Replace /image-proxy/ with /image-proxy/w_80,h_80,c_fill,f_auto,q_auto/
-    const optimizedUrl = baseUrl.replace(
-      "/api/upload/image-proxy/",
-      `/api/upload/image-proxy/${transformation}/`
-    );
-
-    console.log(`🎨 Optimized avatar URL (${size}):`, optimizedUrl);
-    return optimizedUrl;
+    return ImageUtils.getOptimizedImageUrl(url, size);
   }
 
   // Show bill evidence in a modal

@@ -196,11 +196,92 @@ const clearAuth = () => {
   localStorage.removeItem('rememberMe');
   localStorage.removeItem('loginTime');
   localStorage.removeItem('authExpiration');
-  
+
   // Clear sessionStorage
   sessionStorage.removeItem('authToken');
   sessionStorage.removeItem('user');
   sessionStorage.removeItem('rememberMe');
+};
+
+// Image utility functions
+const ImageUtils = {
+  // Normalize image URL to ensure it uses the proxy endpoint
+  normalizeImageUrl(url) {
+    if (!url) return url;
+
+    // If it's already a full URL (http/https), return as-is
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+
+    // If it's already a proxy URL, convert to full URL if needed
+    if (url.startsWith("/api/upload/image-proxy/")) {
+      // In production (not localhost), use the full backend URL
+      if (window.location.hostname !== "localhost") {
+        const backendUrl = "https://rental-management-backend-mocha.vercel.app";
+        return `${backendUrl}${url}`;
+      }
+      return url; // localhost case
+    }
+
+    // Build the proxy URL
+    let proxyPath;
+
+    // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
+    // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
+    if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
+      // Check if it already includes the folder path
+      if (url.includes("/")) {
+        proxyPath = `/api/upload/image-proxy/${url}`;
+      } else {
+        // Assume it's a tenant document image
+        proxyPath = `/api/upload/image-proxy/tenant-documents/${url}`;
+      }
+    } else if (url.startsWith("/")) {
+      // If it starts with / but not our proxy path, assume it's a relative proxy URL
+      proxyPath = url;
+    } else {
+      // Default: assume it needs the proxy prefix
+      proxyPath = `/api/upload/image-proxy/${url}`;
+    }
+
+    // In production (not localhost), use the full backend URL
+    if (window.location.hostname !== "localhost") {
+      const backendUrl = "https://rental-management-backend-mocha.vercel.app";
+      return `${backendUrl}${proxyPath}`;
+    }
+    return proxyPath; // localhost case
+  },
+
+  // Get optimized image URL with size transformations
+  getOptimizedImageUrl(url, size = "small") {
+    if (!url) return url;
+
+    const baseUrl = this.normalizeImageUrl(url);
+
+    // If it's not a Cloudinary URL through our proxy, return as-is
+    if (!baseUrl.includes("/api/upload/image-proxy/")) {
+      return baseUrl;
+    }
+
+    // Define size presets
+    const sizePresets = {
+      small: "w_80,h_80,c_fill,f_auto,q_auto", // 40px display size, 2x for retina
+      medium: "w_160,h_160,c_fill,f_auto,q_auto", // 80px display size, 2x for retina
+      large: "w_200,h_200,c_fill,f_auto,q_auto", // Larger preview size
+    };
+
+    const transformation = sizePresets[size] || sizePresets.small;
+
+    // Add transformation to Cloudinary URL
+    // Replace /image-proxy/ with /image-proxy/w_80,h_80,c_fill,f_auto,q_auto/
+    const optimizedUrl = baseUrl.replace(
+      "/api/upload/image-proxy/",
+      `/api/upload/image-proxy/${transformation}/`
+    );
+
+    return optimizedUrl;
+  }
 };
 
 // Export for use in other files
@@ -210,3 +291,4 @@ window.API = API;
 window.getAuthToken = getAuthToken;
 window.getAuthHeaders = getAuthHeaders;
 window.clearAuth = clearAuth;
+window.ImageUtils = ImageUtils;
