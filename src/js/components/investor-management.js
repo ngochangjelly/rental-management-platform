@@ -136,7 +136,7 @@ class InvestorManagementComponent {
         investor.properties.reduce((sum, prop) => sum + prop.percentage, 0) : 0;
 
       html += `
-        <div class="col-md-6 col-lg-4 mb-3">
+        <div class="col-6 col-md-3 col-lg-2 mb-3">
           <div class="card investor-card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
               <div class="d-flex align-items-center">

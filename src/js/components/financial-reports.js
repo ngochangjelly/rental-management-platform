@@ -585,6 +585,7 @@ class FinancialReportsComponent {
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
               <th class="border-0 small">Paid By</th>
+              <th class="border-0 small text-center">Currency</th>
               <th class="border-0 small text-end">Amount</th>
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
@@ -668,6 +669,9 @@ class FinancialReportsComponent {
           </td>
           <td class="small border-0 align-middle">
             ${this.renderPaidByAvatar(item.paidBy)}
+          </td>
+          <td class="small border-0 align-middle text-center">
+            ${this.renderCurrencyFlag(item.currency)}
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(
             2
@@ -982,7 +986,7 @@ class FinancialReportsComponent {
       html += `
         <tr>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">
+            <div class="d-flex align-items-center gap-2">
               ${
                 investor.avatar
                   ? `<img src="${this.getOptimizedAvatarUrl(
@@ -990,15 +994,12 @@ class FinancialReportsComponent {
                       "small"
                     )}" alt="${escapeHtml(
                       investor.name
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investor.name
-                    )}">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investor.name
-                    )}">${escapeHtml(
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">`
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(
                       investor.name.charAt(0).toUpperCase()
                     )}</div>`
               }
+              <span class="fw-semibold">${escapeHtml(investor.name)}</span>
             </div>
           </td>
           <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
@@ -1184,6 +1185,45 @@ class FinancialReportsComponent {
       ) {
         this.displayExistingBillEvidence(existingItem.billEvidence);
       }
+
+      // Setup currency and exchange rate handling for income
+      if (type === "income") {
+        const currencySelect = modalElement.querySelector("#currencySelect");
+        const exchangeRateContainer = modalElement.querySelector("#exchangeRateContainer");
+        const exchangeRateInput = modalElement.querySelector("#exchangeRateInput");
+
+        // Show/hide exchange rate field based on currency selection
+        if (currencySelect && exchangeRateContainer) {
+          currencySelect.addEventListener("change", () => {
+            if (currencySelect.value === "VND") {
+              exchangeRateContainer.style.display = "block";
+            } else {
+              exchangeRateContainer.style.display = "none";
+              if (exchangeRateInput) {
+                exchangeRateInput.value = "";
+              }
+            }
+          });
+        }
+
+        // Format exchange rate with thousand separator
+        if (exchangeRateInput) {
+          exchangeRateInput.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/,/g, "");
+            if (!isNaN(value) && value !== "") {
+              e.target.value = Number(value).toLocaleString("en-US");
+            }
+          });
+
+          // Clean up formatting on blur to ensure valid number
+          exchangeRateInput.addEventListener("blur", (e) => {
+            let value = e.target.value.replace(/,/g, "");
+            if (!isNaN(value) && value !== "") {
+              e.target.value = Number(value).toLocaleString("en-US");
+            }
+          });
+        }
+      }
     });
 
     // Clean up modal when hidden
@@ -1289,13 +1329,25 @@ class FinancialReportsComponent {
         .map((tenant) => {
           // Use a prefix to distinguish tenant IDs from investor IDs
           const tenantValue = `tenant_${
-            tenant.tenantId || tenant.id || tenant.fin
+            tenant._id || tenant.tenantId || tenant.id || tenant.fin
           }`;
           const isSelected = tenantValue === selectedValue ? " selected" : "";
           const displayName = tenant.name || "Unknown Tenant";
+
+          // Build additional info string
+          const additionalInfo = [];
+          if (tenant.roomType) {
+            additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+          }
+          if (tenant.monthlyRent) {
+            additionalInfo.push(`$${tenant.monthlyRent}`);
+          }
+
+          const infoString = additionalInfo.length > 0 ? ` - ${additionalInfo.join(', ')}` : '';
+
           return `<option value="${tenantValue}"${isSelected}>${escapeHtml(
             displayName
-          )}</option>`;
+          )}${infoString}</option>`;
         })
         .join("");
       options += "</optgroup>";
@@ -1311,7 +1363,11 @@ class FinancialReportsComponent {
 
   renderPaidByAvatar(paidBy) {
     if (!paidBy) {
-      return '<div class="d-flex align-items-center justify-content-center"><span class="text-muted small">-</span></div>';
+      return `<div class="d-flex align-items-center justify-content-center">
+        <div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="No payer specified">
+          <i class="bi bi-person"></i>
+        </div>
+      </div>`;
     }
 
     let person = null;
@@ -1324,6 +1380,7 @@ class FinancialReportsComponent {
       const tenantId = paidBy.replace("tenant_", "");
       person = this.tenants.find(
         (t) =>
+          (t._id && t._id === tenantId) ||
           (t.tenantId && t.tenantId === tenantId) ||
           (t.id && t.id === tenantId) ||
           (t.fin && t.fin === tenantId)
@@ -1352,7 +1409,11 @@ class FinancialReportsComponent {
     }
 
     if (!person) {
-      return '<div class="d-flex align-items-center justify-content-center"><span class="text-muted small">Unknown</span></div>';
+      return `<div class="d-flex align-items-center justify-content-center">
+        <div class="rounded-circle bg-warning bg-opacity-25 border border-warning d-flex align-items-center justify-content-center text-warning" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown payer">
+          <i class="bi bi-person-question"></i>
+        </div>
+      </div>`;
     }
 
     return `
@@ -1378,6 +1439,17 @@ class FinancialReportsComponent {
     `;
   }
 
+  renderCurrencyFlag(currency) {
+    // Default to SGD if currency is not specified
+    const curr = currency || 'SGD';
+
+    if (curr === 'VND') {
+      return '<span style="font-size: 1.2rem;" title="Vietnamese Dong">🇻🇳</span>';
+    } else {
+      return '<span style="font-size: 1.2rem;" title="Singapore Dollar">🇸🇬</span>';
+    }
+  }
+
   renderPaidByName(paidBy) {
     if (!paidBy) {
       return '-';
@@ -1392,6 +1464,7 @@ class FinancialReportsComponent {
       const tenantId = paidBy.replace("tenant_", "");
       person = this.tenants.find(
         (t) =>
+          (t._id && t._id === tenantId) ||
           (t.tenantId && t.tenantId === tenantId) ||
           (t.id && t.id === tenantId) ||
           (t.fin && t.fin === tenantId)
@@ -1459,6 +1532,10 @@ class FinancialReportsComponent {
       existingItem && existingItem.date
         ? new Date(existingItem.date).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0]; // Default to today
+    const currencyValue = existingItem ? (existingItem.currency || 'SGD') : 'SGD';
+    const exchangeRateValue = existingItem && existingItem.exchangeRate
+      ? existingItem.exchangeRate.toLocaleString('en-US')
+      : '';
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -1485,6 +1562,25 @@ class FinancialReportsComponent {
                                         <input type="number" class="form-control" name="amount" required min="0" step="0.01" placeholder="0.00" autocomplete="off" value="${amountValue}">
                                     </div>
                                 </div>
+                                ${
+                                  isIncome
+                                    ? `
+                                <div class="mb-3">
+                                    <label class="form-label">Currency <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="currency" id="currencySelect" required>
+                                        <option value="SGD" ${currencyValue === 'SGD' ? 'selected' : ''}>\ud83c\uddf8\ud83c\uddec SGD - Singapore Dollar</option>
+                                        <option value="VND" ${currencyValue === 'VND' ? 'selected' : ''}>\ud83c\uddfb\ud83c\uddf3 VND - Vietnamese Dong</option>
+                                    </select>
+                                    <div class="form-text">Select the currency for this income</div>
+                                </div>
+                                <div class="mb-3" id="exchangeRateContainer" style="display: ${currencyValue === 'VND' ? 'block' : 'none'};">
+                                    <label class="form-label">Exchange Rate</label>
+                                    <input type="text" class="form-control" name="exchangeRate" id="exchangeRateInput" placeholder="e.g., 20,800" autocomplete="off" value="${exchangeRateValue}">
+                                    <div class="form-text">Enter the exchange rate (e.g., 20800 VND = 1 SGD)</div>
+                                </div>
+                                `
+                                    : ""
+                                }
                                 <div class="mb-3">
                                     <label class="form-label">Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" name="date" required value="${dateValue}">
@@ -1576,6 +1672,21 @@ class FinancialReportsComponent {
       const paidBy = formData.get("paidBy");
       if (paidBy) {
         itemData.paidBy = paidBy;
+      }
+
+      // Add currency and exchange rate
+      const currency = formData.get("currency");
+      if (currency) {
+        itemData.currency = currency;
+      }
+
+      const exchangeRate = formData.get("exchangeRate");
+      if (exchangeRate) {
+        // Remove commas and convert to number
+        const cleanedRate = exchangeRate.replace(/,/g, "");
+        if (!isNaN(cleanedRate) && cleanedRate !== "") {
+          itemData.exchangeRate = parseFloat(cleanedRate);
+        }
       }
     }
 
@@ -2730,6 +2841,7 @@ class FinancialReportsComponent {
           const tenantId = paidBy.replace("tenant_", "");
           person = this.tenants.find(
             (t) =>
+              (t._id && t._id === tenantId) ||
               (t.tenantId && t.tenantId === tenantId) ||
               (t.id && t.id === tenantId) ||
               (t.fin && t.fin === tenantId)
@@ -2737,8 +2849,10 @@ class FinancialReportsComponent {
           if (person) {
             displayName = person.name || "Unknown Tenant";
 
-            // Find room type for the current property
-            if (person.properties && this.selectedProperty) {
+            // Find room type for the current property - use roomType from API if available
+            if (person.roomType) {
+              roomType = person.roomType;
+            } else if (person.properties && this.selectedProperty) {
               const propertyAssociation = person.properties.find(
                 (prop) => prop.propertyId === this.selectedProperty
               );
@@ -2774,6 +2888,14 @@ class FinancialReportsComponent {
                   .replace(/Đ/g, 'D');
       };
 
+      // Helper to normalize Vietnamese text for PDF display
+      // This keeps the text readable by normalizing to NFC (composed form)
+      const normalizeVietnamese = (str) => {
+        if (!str) return '';
+        // Normalize to composed form (NFC) which jsPDF handles better
+        return str.normalize('NFC');
+      };
+
       // Helper to wrap text into multiple lines
       const wrapText = (text, maxWidth) => {
         const words = text.split(' ');
@@ -2797,6 +2919,28 @@ class FinancialReportsComponent {
         }
 
         return lines;
+      };
+
+      // Helper to wrap multi-line text (handles newlines and preserves structure)
+      const wrapMultiLineText = (text, maxWidth) => {
+        if (!text) return [];
+
+        const allLines = [];
+        // Split by newlines first to preserve line breaks
+        const paragraphs = text.split(/\n/);
+
+        paragraphs.forEach(paragraph => {
+          if (paragraph.trim() === '') {
+            // Preserve empty lines
+            allLines.push('');
+          } else {
+            // Wrap each paragraph
+            const wrappedLines = wrapText(paragraph, maxWidth);
+            allLines.push(...wrappedLines);
+          }
+        });
+
+        return allLines;
       };
 
       // Helper to get last word from name
@@ -2870,60 +3014,105 @@ class FinancialReportsComponent {
           // Wrap item text into multiple lines
           const itemText = removeDiacritics(item.item);
           const itemLines = wrapText(itemText, 58); // max width for item column
-          const lineHeight = 3.5;
+          const mainLineHeight = 4;
+          const itemHeight = Math.max(itemLines.length * mainLineHeight, 6);
 
-          // Calculate row height (single row for now)
-          const rowHeight = Math.max(itemLines.length * lineHeight, 4);
+          // Check if there are details to show and wrap them
+          const hasDetails = item.details && item.details.trim().length > 0;
+          let detailsLines = [];
+          let detailsHeight = 0;
 
-          // Alternating row colors - adjust height to cover all lines
-          if (idx % 2 === 0) {
-            pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 3.5, contentWidth, rowHeight + 3, 'F');
+          if (hasDetails) {
+            // Strip diacritics to prevent font breaking in jsPDF (standard fonts don't support Vietnamese)
+            const detailsText = removeDiacritics(item.details);
+            pdf.setFontSize(7);
+            // Use wrapMultiLineText to handle newlines properly
+            detailsLines = wrapMultiLineText(detailsText, contentWidth - 8);
+            pdf.setFontSize(8);
+            // Calculate height: 3.2mm per line + 3mm padding between item and details
+            detailsHeight = detailsLines.length > 0 ? (detailsLines.length * 3.2) + 3 : 0;
           }
 
+          const totalRowHeight = itemHeight + detailsHeight;
+
+          // Check if we need a new page
+          if (yPos + totalRowHeight > pdf.internal.pageSize.getHeight() - 20) {
+            pdf.addPage();
+            yPos = 20;
+          }
+
+          // Draw alternating row background
+          if (idx % 2 === 0) {
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, 'F');
+          }
+
+          // Store starting Y position for this row
+          const rowStartY = yPos;
+
           // Draw item text (multi-line)
+          pdf.setFontSize(8);
           itemLines.forEach((line, lineIdx) => {
-            pdf.text(line, colItem, yPos + (lineIdx * lineHeight));
+            pdf.text(line, colItem, rowStartY + (lineIdx * mainLineHeight));
           });
 
           // Draw other columns on first line
-          pdf.text(dateStr, colDate, yPos);
+          pdf.text(dateStr, colDate, rowStartY);
 
           // Show last word of investor name
           if (investor) {
             const lastName = removeDiacritics(getLastWord(investor.name));
-            pdf.text(lastName, colPerson, yPos);
+            pdf.text(lastName, colPerson, rowStartY);
           }
 
           // Paid by - show name with badge next to it
           const paidByName = removeDiacritics(paidByData.name);
-          pdf.text(paidByName, colPaidBy, yPos);
+          pdf.text(paidByName, colPaidBy, rowStartY);
 
           // Add room type badge next to name if available
           if (paidByData.roomType) {
             const nameWidth = pdf.getTextWidth(paidByName);
-            const badgeX = colPaidBy + nameWidth + 1.5; // 1.5mm gap after name
+            const badgeX = colPaidBy + nameWidth + 1.5;
 
             pdf.setFontSize(6);
-            pdf.setFillColor(108, 117, 125); // Bootstrap secondary color
+            pdf.setFillColor(108, 117, 125);
             pdf.setDrawColor(108, 117, 125);
             const badgeText = removeDiacritics(paidByData.roomType);
             const badgeWidth = pdf.getTextWidth(badgeText) + 2;
             const badgeHeight = 2.5;
 
-            // Draw badge aligned with text baseline
-            pdf.roundedRect(badgeX, yPos - 2.2, badgeWidth, badgeHeight, 0.5, 0.5, 'FD');
+            pdf.roundedRect(badgeX, rowStartY - 2.2, badgeWidth, badgeHeight, 0.5, 0.5, 'FD');
             pdf.setTextColor(255, 255, 255);
-            pdf.text(badgeText, badgeX + 1, yPos - 0.2);
+            pdf.text(badgeText, badgeX + 1, rowStartY - 0.2);
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
 
+          // Draw amount
           pdf.setTextColor(0, 128, 0);
-          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, yPos, { align: 'right' });
+          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, { align: 'right' });
           pdf.setTextColor(0, 0, 0);
 
-          yPos += rowHeight;
+          // Draw details below item if available
+          if (detailsLines.length > 0) {
+            const detailsStartY = rowStartY + itemHeight + 2;
+            pdf.setFontSize(7);
+            pdf.setTextColor(100, 100, 100);
+            pdf.setFont(undefined, 'normal');
+
+            detailsLines.forEach((line, lineIdx) => {
+              // Only draw non-empty lines
+              if (line.trim() !== '') {
+                pdf.text(line, colItem + 2, detailsStartY + (lineIdx * 3.2));
+              }
+            });
+
+            pdf.setFont(undefined, 'normal');
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(8);
+          }
+
+          yPos += totalRowHeight + 1;
         }
 
         yPos += 2;
@@ -2973,34 +3162,82 @@ class FinancialReportsComponent {
           // Wrap item text into multiple lines
           const itemText = removeDiacritics(item.item);
           const itemLines = wrapText(itemText, 58); // max width for item column
-          const lineHeight = 3.5;
-          const rowHeight = Math.max(itemLines.length * lineHeight, 4);
+          const mainLineHeight = 4;
+          const itemHeight = Math.max(itemLines.length * mainLineHeight, 6);
 
-          // Alternating row colors - adjust height to cover all lines
-          if (idx % 2 === 0) {
-            pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 3.5, contentWidth, rowHeight + 3, 'F');
+          // Check if there are details to show and wrap them
+          const hasDetails = item.details && item.details.trim().length > 0;
+          let detailsLines = [];
+          let detailsHeight = 0;
+
+          if (hasDetails) {
+            // Strip diacritics to prevent font breaking in jsPDF (standard fonts don't support Vietnamese)
+            const detailsText = removeDiacritics(item.details);
+            pdf.setFontSize(7);
+            // Use wrapMultiLineText to handle newlines properly
+            detailsLines = wrapMultiLineText(detailsText, contentWidth - 8);
+            pdf.setFontSize(8);
+            // Calculate height: 3.2mm per line + 3mm padding between item and details
+            detailsHeight = detailsLines.length > 0 ? (detailsLines.length * 3.2) + 3 : 0;
           }
 
+          const totalRowHeight = itemHeight + detailsHeight;
+
+          // Check if we need a new page
+          if (yPos + totalRowHeight > pdf.internal.pageSize.getHeight() - 20) {
+            pdf.addPage();
+            yPos = 20;
+          }
+
+          // Draw alternating row background
+          if (idx % 2 === 0) {
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, 'F');
+          }
+
+          // Store starting Y position for this row
+          const rowStartY = yPos;
+
           // Draw item text (multi-line)
+          pdf.setFontSize(8);
           itemLines.forEach((line, lineIdx) => {
-            pdf.text(line, colItem, yPos + (lineIdx * lineHeight));
+            pdf.text(line, colItem, rowStartY + (lineIdx * mainLineHeight));
           });
 
           // Draw other columns on first line
-          pdf.text(dateStr, colDate, yPos);
+          pdf.text(dateStr, colDate, rowStartY);
 
           // Show last word of investor name
           if (investor) {
             const lastName = removeDiacritics(getLastWord(investor.name));
-            pdf.text(lastName, colPerson, yPos);
+            pdf.text(lastName, colPerson, rowStartY);
           }
 
+          // Draw amount
           pdf.setTextColor(128, 0, 0);
-          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, yPos, { align: 'right' });
+          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, { align: 'right' });
           pdf.setTextColor(0, 0, 0);
 
-          yPos += rowHeight;
+          // Draw details below item if available
+          if (detailsLines.length > 0) {
+            const detailsStartY = rowStartY + itemHeight + 2;
+            pdf.setFontSize(7);
+            pdf.setTextColor(100, 100, 100);
+            pdf.setFont(undefined, 'normal');
+
+            detailsLines.forEach((line, lineIdx) => {
+              // Only draw non-empty lines
+              if (line.trim() !== '') {
+                pdf.text(line, colItem + 2, detailsStartY + (lineIdx * 3.2));
+              }
+            });
+
+            pdf.setFont(undefined, 'normal');
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(8);
+          }
+
+          yPos += totalRowHeight + 1;
         }
 
         yPos += 2;

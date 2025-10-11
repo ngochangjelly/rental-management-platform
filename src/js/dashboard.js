@@ -9,6 +9,7 @@ import './components/property-management.js';
 import './components/tenant-management.js';
 import './components/contract-management.js';
 import './components/financial-reports.js';
+import './components/bulk-property-reports.js';
 import './components/investor-management.js';
 import './dashboard-controller.js';
 

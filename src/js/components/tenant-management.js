@@ -5,6 +5,8 @@
 class TenantManagementComponent {
     constructor() {
         this.tenants = [];
+        this.selectedProperty = null; // Currently selected property for filtering tenants
+        this.properties = []; // List of all properties for navigation
         this.selectedProperties = [];
         this.propertiesCache = null; // Cache for properties
         this.propertiesCacheTime = null;
@@ -14,20 +16,305 @@ class TenantManagementComponent {
         this.avatar = ''; // Single avatar image URL
         this.signature = ''; // Signature image URL (for main tenants)
         this.originalTenantData = null; // Store original tenant data for change detection
-        
-        // Pagination properties
-        this.currentPage = 1;
-        this.pageSize = 50;
-        this.totalTenants = 0;
-        this.hasNextPage = false;
-        
+
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        // Don't load tenants immediately - wait until section is visible
-        // this.loadTenants();
+        // Load properties to display property cards
+        this.loadProperties();
+    }
+
+    async loadProperties() {
+        try {
+            const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
+            const result = await response.json();
+
+            if (result.success) {
+                this.properties = result.properties || [];
+                this.renderPropertyCards(result.properties);
+            } else {
+                console.error('Failed to load properties:', result.error);
+                this.renderPropertyCards([]);
+            }
+        } catch (error) {
+            console.error('Error loading properties:', error);
+            this.renderPropertyCards([]);
+        }
+    }
+
+    renderPropertyCards(properties) {
+        const container = document.getElementById('tenantPropertyCards');
+        if (!container) {
+            console.warn('tenantPropertyCards container not found');
+            return;
+        }
+
+        // Clear existing cards
+        container.innerHTML = '';
+
+        if (!properties || properties.length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center text-muted py-4">
+                    <i class="bi bi-building-slash me-2"></i>
+                    No properties available
+                </div>
+            `;
+            return;
+        }
+
+        // Add special card for unassigned tenants
+        const isUnassignedSelected = this.selectedProperty === 'UNASSIGNED';
+        const unassignedCardHtml = `
+            <div class="col-6 col-md-3 col-lg-2 mb-3">
+                <div class="card property-card h-100 ${isUnassignedSelected ? 'border-warning' : 'border-secondary'} overflow-hidden"
+                     style="cursor: pointer; transition: all 0.2s ease; opacity: 0.95;"
+                     onclick="tenantManager.selectUnassignedTenants()">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
+                                     style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
+                                    <i class="bi bi-question-circle"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold">Unassigned</h6>
+                                <small class="text-muted">No Property</small>
+                            </div>
+                        </div>
+                        ${isUnassignedSelected ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 1.2rem;"></i>' : ''}
+                    </div>
+                    <div class="card-body py-2 bg-light">
+                        <p class="mb-1 small text-muted">Tenants not assigned to any property</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.innerHTML += unassignedCardHtml;
+
+        // Generate property cards
+        properties.forEach(property => {
+            const isSelected = this.selectedProperty === property.propertyId;
+            const cardHtml = `
+                <div class="col-6 col-md-3 col-lg-2 mb-3">
+                    <div class="card property-card h-100 ${isSelected ? 'border-primary' : ''} overflow-hidden"
+                         style="cursor: pointer; transition: all 0.2s ease;"
+                         onclick="tenantManager.selectProperty('${property.propertyId}')">
+                        ${property.propertyImage ? `
+                        <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+                            ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
+                        </div>
+                        ` : ''}
+                        <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
+                                         style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
+                                        ${this.escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}</h6>
+                                    <small class="text-muted">Property</small>
+                                </div>
+                            </div>
+                            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>' : ''}
+                        </div>
+                        <div class="card-body py-2 bg-white">
+                            <p class="mb-1 small"><strong>Address:</strong> ${this.escapeHtml(property.address)}</p>
+                            <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += cardHtml;
+        });
+
+        // Add hover effects
+        this.addPropertyNavigationCardStyles();
+    }
+
+    addPropertyNavigationCardStyles() {
+        if (!document.getElementById('tenant-property-nav-card-styles')) {
+            const style = document.createElement('style');
+            style.id = 'tenant-property-nav-card-styles';
+            style.textContent = `
+                .property-card {
+                    min-height: 200px;
+                    overflow: hidden;
+                }
+                .property-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+                }
+                .property-card.border-primary {
+                    border-width: 3px !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    async selectProperty(propertyId) {
+        // Don't reload if already selected
+        if (this.selectedProperty === propertyId) {
+            return;
+        }
+
+        this.selectedProperty = propertyId;
+
+        // Only update the visual selection state without full re-render
+        this.updatePropertyCardSelection(propertyId);
+
+        // Load tenants for this property
+        await this.loadTenantsForProperty(propertyId);
+    }
+
+    async selectUnassignedTenants() {
+        // Don't reload if already selected
+        if (this.selectedProperty === 'UNASSIGNED') {
+            return;
+        }
+
+        this.selectedProperty = 'UNASSIGNED';
+
+        // Update visual selection
+        this.updatePropertyCardSelection('UNASSIGNED');
+
+        // Load unassigned tenants
+        await this.loadUnassignedTenants();
+    }
+
+    updatePropertyCardSelection(propertyId) {
+        // Remove selection from all cards and add to selected one
+        const allCards = document.querySelectorAll('.property-card');
+        allCards.forEach(card => {
+            card.classList.remove('border-primary', 'border-warning');
+            // Remove checkmark icons
+            const checkmarks = card.querySelectorAll('.bi-check-circle-fill');
+            checkmarks.forEach(check => check.remove());
+        });
+
+        // Handle unassigned tenants card
+        if (propertyId === 'UNASSIGNED') {
+            const unassignedCard = document.querySelector(`.property-card[onclick*="selectUnassignedTenants"]`);
+            if (unassignedCard) {
+                unassignedCard.classList.add('border-warning');
+                const cardHeader = unassignedCard.querySelector('.card-header');
+                if (cardHeader) {
+                    const checkmark = document.createElement('i');
+                    checkmark.className = 'bi bi-check-circle-fill text-warning';
+                    checkmark.style.fontSize = '1.2rem';
+                    cardHeader.appendChild(checkmark);
+                }
+            }
+            return;
+        }
+
+        // Add selection to the clicked card
+        const selectedCardContainer = document.querySelector(`.property-card[onclick*="'${propertyId}'"]`);
+        if (selectedCardContainer) {
+            selectedCardContainer.classList.add('border-primary');
+
+            // Add checkmark
+            const cardImgTop = selectedCardContainer.querySelector('.card-img-top');
+            const cardHeader = selectedCardContainer.querySelector('.card-header');
+
+            if (cardImgTop) {
+                const checkmark = document.createElement('div');
+                checkmark.className = 'position-absolute top-0 end-0 p-2';
+                checkmark.innerHTML = '<i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i>';
+                cardImgTop.appendChild(checkmark);
+            } else if (cardHeader) {
+                const checkmark = document.createElement('i');
+                checkmark.className = 'bi bi-check-circle-fill text-success';
+                checkmark.style.fontSize = '1.2rem';
+                cardHeader.appendChild(checkmark);
+            }
+        }
+    }
+
+    async loadTenantsForProperty(propertyId) {
+        try {
+            console.log(`🔄 Loading tenants for property: ${propertyId}`);
+
+            // Use the property-specific endpoint to load only tenants for this property
+            const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId));
+            const result = await response.json();
+
+            // Handle different response formats
+            if (result.success && result.data) {
+                this.tenants = result.data;
+            } else if (result.tenants && Array.isArray(result.tenants)) {
+                this.tenants = result.tenants;
+            } else if (Array.isArray(result)) {
+                this.tenants = result;
+            } else {
+                console.error('Unexpected API response format:', result);
+                this.tenants = [];
+            }
+
+            console.log(`✅ Loaded ${this.tenants.length} tenants for property ${propertyId}`);
+
+            // Ensure properties cache is loaded once
+            if (!this.propertiesCache) {
+                await this.loadPropertiesCache();
+            }
+
+            await this.renderTenantsTable();
+
+            // Update sidebar badges
+            if (window.updateSidebarBadges) {
+                window.updateSidebarBadges();
+            }
+        } catch (error) {
+            console.error('Error loading tenants for property:', error);
+            this.showEmptyState('Error loading tenants. Please try again.');
+        }
+    }
+
+    async loadUnassignedTenants() {
+        try {
+            console.log('🔄 Loading unassigned tenants...');
+
+            // Load all tenants and filter for those with no properties
+            const response = await API.get(`${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`);
+            const result = await response.json();
+
+            // Handle different response formats
+            let allTenants = [];
+            if (result.success && result.tenants) {
+                allTenants = result.tenants;
+            } else if (result.tenants && Array.isArray(result.tenants)) {
+                allTenants = result.tenants;
+            } else if (Array.isArray(result)) {
+                allTenants = result;
+            }
+
+            // Filter for tenants with no properties or empty properties array
+            this.tenants = allTenants.filter(tenant => {
+                return !tenant.properties || tenant.properties.length === 0;
+            });
+
+            console.log(`✅ Found ${this.tenants.length} unassigned tenants`);
+
+            // Ensure properties cache is loaded once
+            if (!this.propertiesCache) {
+                await this.loadPropertiesCache();
+            }
+
+            await this.renderTenantsTable();
+
+            // Update sidebar badges
+            if (window.updateSidebarBadges) {
+                window.updateSidebarBadges();
+            }
+        } catch (error) {
+            console.error('Error loading unassigned tenants:', error);
+            this.showEmptyState('Error loading tenants. Please try again.');
+        }
     }
 
     // Helper method to get correct colspan based on screen size
@@ -80,49 +367,23 @@ class TenantManagementComponent {
         });
     }
 
-    async loadTenants(page = 1) {
-        try {
-            this.currentPage = page;
-            const offset = (page - 1) * this.pageSize;
-            
-            // Build URL with pagination parameters
-            const url = `${API_CONFIG.ENDPOINTS.TENANTS}?limit=${this.pageSize}&offset=${offset}`;
-            const response = await API.get(url);
-            const result = await response.json();
-            
-            // Handle different response formats
-            if (result.success && result.tenants) {
-                // Standard API response format with pagination info
-                this.tenants = result.tenants;
-                this.totalTenants = result.total || result.tenants.length;
-                this.hasNextPage = result.hasMore || (result.tenants.length === this.pageSize);
-            } else if (result.tenants && Array.isArray(result.tenants)) {
-                // Direct tenant array format
-                this.tenants = result.tenants;
-                this.totalTenants = result.total || result.tenants.length;
-                this.hasNextPage = result.tenants.length === this.pageSize;
-            } else if (Array.isArray(result)) {
-                // Direct array response
-                this.tenants = result;
-                this.totalTenants = result.length;
-                this.hasNextPage = result.length === this.pageSize;
-            } else {
-                console.error('Failed to load tenants:', result.error || 'Unknown format');
-                this.showEmptyState();
-                return;
+    // Legacy method - now redirects to property-based loading
+    async loadTenants() {
+        console.warn('loadTenants() called - please use selectProperty() instead');
+        // If a property is selected, reload it
+        if (this.selectedProperty) {
+            await this.loadTenantsForProperty(this.selectedProperty);
+        } else {
+            // Show message to select a property
+            const tbody = document.getElementById('tenantsTableBody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-building fs-1 d-block mb-3"></i>
+                        <p class="fs-5">Please select a property to view tenants</p>
+                    </div>
+                `;
             }
-            
-            console.log('✅ Loaded', this.tenants.length, 'tenants for page', this.currentPage);
-            await this.renderTenantsTable();
-            this.updatePaginationControls();
-            
-            // Update sidebar badges
-            if (window.updateSidebarBadges) {
-                window.updateSidebarBadges();
-            }
-        } catch (error) {
-            console.error('Error loading tenants:', error);
-            this.showEmptyState('Error loading tenants. Please try again.');
         }
     }
 
@@ -132,96 +393,221 @@ class TenantManagementComponent {
             console.error('tenantsTableBody element not found!');
             return;
         }
-        
-        if (this.tenants.length === 0) {
-            this.showEmptyState();
+
+        if (!this.selectedProperty) {
+            tbody.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-building fs-1 d-block mb-3"></i>
+                    <p class="fs-5">Please select a property to view tenants</p>
+                </div>
+            `;
             return;
         }
 
-        // Ensure properties cache is loaded for property details
-        if (!this.propertiesCache) {
-            await this.loadPropertiesCache();
+        if (this.tenants.length === 0) {
+            const message = this.selectedProperty === 'UNASSIGNED'
+                ? 'No unassigned tenants found'
+                : `No tenants found for ${this.selectedProperty}`;
+            this.showEmptyState(message);
+            return;
         }
 
-        // Group tenants by property
-        const groupedTenants = this.groupTenantsByProperty(this.tenants);
-        
-        let html = '';
-        Object.keys(groupedTenants).sort().forEach(propertyId => {
-            const tenantsInProperty = groupedTenants[propertyId];
-            
-            // Get property details for the header
-            const propertyInfo = this.getPropertyInfo(propertyId);
-            const propertyDisplay = propertyInfo 
-                ? `${this.escapeHtml(propertyId)} - ${this.escapeHtml(propertyInfo.address)}, ${this.escapeHtml(propertyInfo.unit)}`
-                : this.escapeHtml(propertyId);
-            
-            // Add property header row with copy button
+        // Properties cache is already loaded in loadTenantsForProperty
+        // Create simple list layout for single property
+        let html = '<div class="row g-3">';
+
+        this.tenants.forEach(tenant => {
+            const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+            const isMainTenant = this.hasMainTenantProperty(tenant);
+
+            // Find room info for this tenant in the selected property
+            let roomInfo = 'No property';
+            if (this.selectedProperty !== 'UNASSIGNED') {
+                const propertyInfo = tenant.properties?.find(prop => {
+                    const propId = typeof prop === 'object' ? prop.propertyId : prop;
+                    return propId === this.selectedProperty;
+                });
+                roomInfo = propertyInfo && typeof propertyInfo === 'object' ? propertyInfo.room || 'No room' : 'No room';
+            }
+
             html += `
-                <tr class="table-primary">
-                    <td colspan="${this.getTableColspan()}" class="fw-bold" style="width: 100%; padding: 0.75rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <div>
-                                <i class="bi bi-building me-2"></i>
-                                Property: ${propertyDisplay}
-                                <span class="badge bg-primary ms-2">${tenantsInProperty.length} tenant${tenantsInProperty.length !== 1 ? 's' : ''}</span>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-light" 
-                                    onclick="tenantManager.copyTenantList('${propertyId}')" 
-                                    title="Copy tenant list to clipboard">
-                                <i class="bi bi-clipboard me-1"></i>Copy List
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            
-            // Add tenants for this property
-            tenantsInProperty.forEach(tenant => {
-                html += `
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    ${tenant.avatar ? 
-                                        `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, 'small')}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                                        `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 tenant-detail-card shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                <div class="flex-shrink-0">
+                                    ${tenant.avatar ?
+                                        `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, 'small')}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">` :
+                                        `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
                                     }
                                 </div>
-                                <div>
-                                    <div>${this.escapeHtml(tenant.name)}</div>
-                                    <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <h5 class="mb-0">${this.escapeHtml(tenant.name)}</h5>
+                                        ${isMainTenant ? '<span class="badge bg-primary">Main</span>' : ''}
+                                    </div>
+                                    <p class="text-muted mb-0">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</p>
                                 </div>
                             </div>
-                        </td>
-                        <td>${this.escapeHtml(tenant.fin) || '-'}</td>
-                        <td>${this.escapeHtml(tenant.passportNumber)}</td>
-                        <td>
-                            ${this.getRegistrationStatusBadge(tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'))}
-                            ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
-                        </td>
-                        <td>
-                            ${this.renderPropertyDetails(tenant)}
-                        </td>
-                        <td>
-                            <span class="badge bg-info">
-                                ${tenant.properties ? tenant.properties.length : 0} properties
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary me-1" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
+                            <div class="small mb-3">
+                                <div class="mb-2"><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || '-'}</div>
+                                <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(tenant.passportNumber)}</div>
+                                <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
+                            </div>
+                            <div class="d-flex gap-1 align-items-center mb-3">
+                                ${this.getRegistrationStatusBadge(registrationStatus)}
+                                ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ''}
+                            </div>
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        tbody.innerHTML = html;
+
+        // Add card styles if not already present
+        this.addTenantDetailCardStyles();
+    }
+
+    addTenantDetailCardStyles() {
+        if (!document.getElementById('tenant-detail-card-styles')) {
+            const style = document.createElement('style');
+            style.id = 'tenant-detail-card-styles';
+            style.textContent = `
+                .tenant-detail-card {
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    border: 1px solid #dee2e6;
+                }
+                .tenant-detail-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    renderTenantCardItem(tenant) {
+        const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+
+        // Find room info for this tenant
+        const roomInfo = tenant.properties && tenant.properties.length > 0 && typeof tenant.properties[0] === 'object'
+            ? tenant.properties[0].room || 'No room'
+            : 'No room';
+
+        return `
+            <div class="list-group-item">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="flex-shrink-0">
+                        ${tenant.avatar ?
+                            `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, 'small')}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">` :
+                            `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 48px; height: 48px; font-size: 18px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                        }
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div>
+                                <h6 class="mb-0">${this.escapeHtml(tenant.name)}</h6>
+                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                            </div>
+                            ${isMainTenant ? '<span class="badge bg-primary">Main</span>' : ''}
+                        </div>
+                        <div class="small text-muted mb-2">
+                            <div><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || '-'}</div>
+                            <div><strong>Passport:</strong> ${this.escapeHtml(tenant.passportNumber)}</div>
+                            <div><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
+                        </div>
+                        <div class="d-flex gap-1 align-items-center mb-2">
+                            ${this.getRegistrationStatusBadge(registrationStatus)}
+                            ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ''}
+                        </div>
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
+                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        });
-        
-        tbody.innerHTML = html;
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    addPropertyTenantCardStyles() {
+        if (!document.getElementById('property-tenant-card-styles')) {
+            const style = document.createElement('style');
+            style.id = 'property-tenant-card-styles';
+            style.textContent = `
+                .property-tenant-card {
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    border: 1px solid #dee2e6;
+                }
+                .property-tenant-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+                }
+                .property-tenant-card .list-group-item {
+                    border-left: none;
+                    border-right: none;
+                    transition: background-color 0.2s ease;
+                }
+                .property-tenant-card .list-group-item:hover {
+                    background-color: #f8f9fa;
+                }
+                .property-tenant-card .list-group-item:first-child {
+                    border-top: none;
+                }
+                .property-tenant-card .list-group-item:last-child {
+                    border-bottom: none;
+                }
+                .tenant-list-body {
+                    transition: max-height 0.3s ease, opacity 0.3s ease;
+                    overflow: hidden;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    togglePropertyCard(propertyId) {
+        // Find the card element
+        const card = document.querySelector(`.property-tenant-card[data-property-id="${propertyId}"]`);
+        if (!card) return;
+
+        // Find the tenant list body and footer within this card
+        const tenantListBody = card.querySelector('.tenant-list-body');
+        const cardFooter = card.querySelector('.tenant-card-footer');
+        const chevron = card.querySelector('.tenant-card-chevron');
+
+        if (!tenantListBody || !cardFooter || !chevron) return;
+
+        // Toggle visibility
+        const isExpanded = tenantListBody.style.display !== 'none';
+
+        if (isExpanded) {
+            // Collapse
+            tenantListBody.style.display = 'none';
+            cardFooter.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+        } else {
+            // Expand
+            tenantListBody.style.display = 'block';
+            cardFooter.style.display = 'block';
+            chevron.style.transform = 'rotate(180deg)';
+        }
     }
 
     groupTenantsByProperty(tenants) {
@@ -263,26 +649,28 @@ class TenantManagementComponent {
     showEmptyState(message = 'No tenants found') {
         const tbody = document.getElementById('tenantsTableBody');
         if (!tbody) return;
-        
+
         tbody.innerHTML = `
-            <tr>
-                <td colspan="${this.getTableColspan()}" class="text-center text-muted py-4">
-                    <i class="bi bi-people fs-1"></i>
-                    <p class="mt-2">${message}</p>
-                </td>
-            </tr>
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-people fs-1 d-block mb-3"></i>
+                <p class="fs-5">${message}</p>
+            </div>
         `;
     }
 
     async filterTenants(searchTerm) {
-        if (!searchTerm.trim()) {
-            await this.renderTenantsTable();
+        if (!this.selectedProperty) {
             return;
         }
 
-        // Ensure properties cache is loaded for property details
-        if (!this.propertiesCache) {
-            await this.loadPropertiesCache();
+        if (!searchTerm.trim()) {
+            // Reload based on what's selected
+            if (this.selectedProperty === 'UNASSIGNED') {
+                await this.loadUnassignedTenants();
+            } else {
+                await this.loadTenantsForProperty(this.selectedProperty);
+            }
+            return;
         }
 
         const filteredTenants = this.tenants.filter(tenant => {
@@ -290,26 +678,18 @@ class TenantManagementComponent {
                 tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 tenant.passportNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (tenant.phoneNumber && tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-            
+
             // Search in property rooms if using new format
-            const roomMatch = tenant.properties && Array.isArray(tenant.properties) 
+            const roomMatch = tenant.properties && Array.isArray(tenant.properties)
                 ? tenant.properties.some(prop => {
                     if (typeof prop === 'object' && prop.room) {
                         return prop.room.toLowerCase().includes(searchTerm.toLowerCase());
                     }
                     return false;
                 })
-                : (tenant.room && tenant.room.toLowerCase().includes(searchTerm.toLowerCase()));
-            
-            // Search in property IDs
-            const propertyMatch = tenant.properties && Array.isArray(tenant.properties)
-                ? tenant.properties.some(prop => {
-                    const propertyId = typeof prop === 'object' ? prop.propertyId : prop;
-                    return propertyId && propertyId.toLowerCase().includes(searchTerm.toLowerCase());
-                })
                 : false;
-            
-            return basicMatch || roomMatch || propertyMatch;
+
+            return basicMatch || roomMatch;
         });
 
         const tbody = document.getElementById('tenantsTableBody');
@@ -320,85 +700,11 @@ class TenantManagementComponent {
             return;
         }
 
-        // Group filtered tenants by property
-        const groupedTenants = this.groupTenantsByProperty(filteredTenants);
-        
-        let html = '';
-        Object.keys(groupedTenants).sort().forEach(propertyId => {
-            const tenantsInProperty = groupedTenants[propertyId];
-            
-            // Get property details for the header
-            const propertyInfo = this.getPropertyInfo(propertyId);
-            const propertyDisplay = propertyInfo 
-                ? `${this.escapeHtml(propertyId)} - ${this.escapeHtml(propertyInfo.address)}, ${this.escapeHtml(propertyInfo.unit)}`
-                : this.escapeHtml(propertyId);
-            
-            // Add property header row with copy button
-            html += `
-                <tr class="table-primary">
-                    <td colspan="${this.getTableColspan()}" class="fw-bold" style="width: 100%; padding: 0.75rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <div>
-                                <i class="bi bi-building me-2"></i>
-                                Property: ${propertyDisplay}
-                                <span class="badge bg-primary ms-2">${tenantsInProperty.length} tenant${tenantsInProperty.length !== 1 ? 's' : ''}</span>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-light" 
-                                    onclick="tenantManager.copyTenantList('${propertyId}')" 
-                                    title="Copy tenant list to clipboard">
-                                <i class="bi bi-clipboard me-1"></i>Copy List
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            
-            // Add tenants for this property
-            tenantsInProperty.forEach(tenant => {
-                html += `
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    ${tenant.avatar ? 
-                                        `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, 'small')}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">` :
-                                        `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
-                                    }
-                                </div>
-                                <div>
-                                    <div>${this.escapeHtml(tenant.name)}</div>
-                                    <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
-                                </div>
-                            </div>
-                        </td>
-                        <td>${this.escapeHtml(tenant.fin) || '-'}</td>
-                        <td>${this.escapeHtml(tenant.passportNumber)}</td>
-                        <td>
-                            ${this.getRegistrationStatusBadge(tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'))}
-                            ${this.hasMainTenantProperty(tenant) ? '<span class="badge bg-primary ms-1">Main Tenant</span>' : ''}
-                        </td>
-                        <td>
-                            ${this.renderPropertyDetails(tenant)}
-                        </td>
-                        <td>
-                            <span class="badge bg-info">
-                                ${tenant.properties ? tenant.properties.length : 0} properties
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary me-1" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
-                                <i class="bi bi-pencil"></i> Edit
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        });
-        
-        tbody.innerHTML = html;
+        // Temporarily replace tenants array for rendering
+        const originalTenants = this.tenants;
+        this.tenants = filteredTenants;
+        await this.renderTenantsTable();
+        this.tenants = originalTenants;
     }
 
     showAddTenantModal() {
@@ -1067,9 +1373,16 @@ class TenantManagementComponent {
             const response = await API.post(API_CONFIG.ENDPOINTS.TENANTS, tenantData);
 
             const result = await response.json();
-            
+
             if (result.success) {
-                await this.loadTenants(); // Reload the list
+                // Reload the list
+                if (this.selectedProperty === 'UNASSIGNED') {
+                    await this.loadUnassignedTenants();
+                } else if (this.selectedProperty) {
+                    await this.loadTenantsForProperty(this.selectedProperty);
+                } else {
+                    await this.loadTenants();
+                }
             } else {
                 alert('Failed to add tenant: ' + result.error);
             }
@@ -1098,12 +1411,19 @@ class TenantManagementComponent {
             if (!tenant || !tenant._id) {
                 throw new Error('Tenant ID not found');
             }
-            
+
             const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id), tenantData);
             const result = await response.json();
-            
+
             if (result.success) {
-                await this.loadTenants(); // Reload the list
+                // Reload the list
+                if (this.selectedProperty === 'UNASSIGNED') {
+                    await this.loadUnassignedTenants();
+                } else if (this.selectedProperty) {
+                    await this.loadTenantsForProperty(this.selectedProperty);
+                } else {
+                    await this.loadTenants();
+                }
             } else {
                 alert('Failed to update tenant: ' + result.error);
             }
@@ -1125,13 +1445,20 @@ class TenantManagementComponent {
             if (!tenant || !tenant._id) {
                 throw new Error('Tenant ID not found');
             }
-            
+
             const response = await API.delete(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id));
 
             const result = await response.json();
-            
+
             if (result.success) {
-                await this.loadTenants(); // Reload the list
+                // Reload the list
+                if (this.selectedProperty === 'UNASSIGNED') {
+                    await this.loadUnassignedTenants();
+                } else if (this.selectedProperty) {
+                    await this.loadTenantsForProperty(this.selectedProperty);
+                } else {
+                    await this.loadTenants();
+                }
             } else {
                 alert('Failed to delete tenant: ' + result.error);
             }
@@ -1254,7 +1581,14 @@ class TenantManagementComponent {
 
     // Public method to refresh the tenants list
     refresh() {
-        this.loadTenants();
+        // Reload current property if one is selected
+        if (this.selectedProperty === 'UNASSIGNED') {
+            this.loadUnassignedTenants();
+        } else if (this.selectedProperty) {
+            this.loadTenantsForProperty(this.selectedProperty);
+        } else {
+            this.loadTenants();
+        }
     }
 
     // Multiple image upload methods
@@ -2173,51 +2507,7 @@ class TenantManagementComponent {
         }, 3000);
     }
 
-    // Pagination methods
-    updatePaginationControls() {
-        const paginationDiv = document.getElementById('tenantsPagination');
-        const pageInfo = document.getElementById('tenantsPageInfo');
-        const currentPageSpan = document.getElementById('tenantsCurrentPage');
-        const prevButton = document.getElementById('tenantsPrevPage');
-        const nextButton = document.getElementById('tenantsNextPage');
-        
-        if (!paginationDiv || !pageInfo || !currentPageSpan || !prevButton || !nextButton) {
-            return;
-        }
-        
-        // Show pagination only if there are tenants or we're not on page 1
-        if (this.tenants.length > 0 || this.currentPage > 1) {
-            paginationDiv.style.display = 'flex';
-            
-            // Update page info
-            const startIndex = (this.currentPage - 1) * this.pageSize + 1;
-            const endIndex = Math.min(startIndex + this.tenants.length - 1, this.totalTenants);
-            pageInfo.textContent = this.tenants.length > 0 
-                ? `${startIndex}-${endIndex} of ${this.totalTenants || 'many'}`
-                : '0';
-            
-            // Update current page
-            currentPageSpan.textContent = this.currentPage;
-            
-            // Update button states
-            prevButton.classList.toggle('disabled', this.currentPage <= 1);
-            nextButton.classList.toggle('disabled', !this.hasNextPage);
-        } else {
-            paginationDiv.style.display = 'none';
-        }
-    }
-    
-    async goToNextPage() {
-        if (this.hasNextPage) {
-            await this.loadTenants(this.currentPage + 1);
-        }
-    }
-    
-    async goToPreviousPage() {
-        if (this.currentPage > 1) {
-            await this.loadTenants(this.currentPage - 1);
-        }
-    }
+    // Pagination removed - now using property-based navigation
 }
 
 // Export for use in other modules

@@ -167,6 +167,13 @@ class DashboardController {
           window.financialReports = this.components.financialReports;
         }
         break;
+      case "bulk-reports":
+        if (!this.components.bulkPropertyReports) {
+          this.components.bulkPropertyReports = new BulkPropertyReportsComponent();
+          // Make it globally accessible for button onclick handlers
+          window.bulkPropertyReports = this.components.bulkPropertyReports;
+        }
+        break;
       case "investors":
         if (!this.components.investorManagement) {
           this.components.investorManagement =
