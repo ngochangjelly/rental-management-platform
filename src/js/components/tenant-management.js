@@ -2480,14 +2480,77 @@ class TenantManagementComponent {
         }
     }
 
+    copyAllTenants() {
+        try {
+            // Check if a property is selected
+            if (!this.selectedProperty) {
+                alert('Please select a property first');
+                return;
+            }
+
+            // Check if there are tenants to copy
+            if (!this.tenants || this.tenants.length === 0) {
+                const message = this.selectedProperty === 'UNASSIGNED'
+                    ? 'No unassigned tenants to copy'
+                    : 'No tenants found for this property';
+                alert(message);
+                return;
+            }
+
+            // Get property info for display
+            let propertyDisplay = '';
+            if (this.selectedProperty === 'UNASSIGNED') {
+                propertyDisplay = 'Unassigned Tenants';
+            } else {
+                const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+                propertyDisplay = propertyInfo
+                    ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+                    : this.selectedProperty;
+            }
+
+            // Format tenant list with all requested fields
+            let copyText = `Property: ${propertyDisplay}\n`;
+            copyText += `Total Tenants: ${this.tenants.length}\n`;
+            copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+            copyText += `${'='.repeat(80)}\n\n`;
+
+            this.tenants.forEach((tenant, index) => {
+                const ordinalNumber = index + 1;
+                const isMainTenant = this.hasMainTenantProperty(tenant);
+                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
+                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+
+                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+                copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
+                copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
+                copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
+                copyText += `\n`;
+            });
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(copyText).then(() => {
+                // Show success message
+                this.showCopySuccessMessage(this.tenants.length);
+            }).catch(err => {
+                console.error('Failed to copy to clipboard:', err);
+                // Fallback: show the text in an alert
+                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
+            });
+
+        } catch (error) {
+            console.error('Error copying tenant list:', error);
+            alert('Error copying tenant list. Please try again.');
+        }
+    }
+
     showCopySuccessMessage(tenantCount) {
         // Create a temporary success message
         const messageDiv = document.createElement('div');
         messageDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
         messageDiv.style.cssText = `
-            top: 20px; 
-            right: 20px; 
-            z-index: 9999; 
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
             min-width: 300px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;

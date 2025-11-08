@@ -65,7 +65,9 @@ class BulkPropertyReportsComponent {
     const countEl = document.getElementById("selectedPropertiesCount");
     if (countEl) {
       const count = this.selectedProperties.size;
-      countEl.textContent = `${count} ${count === 1 ? "property" : "properties"} selected`;
+      countEl.textContent = `${count} ${
+        count === 1 ? "property" : "properties"
+      } selected`;
     }
   }
 
@@ -115,10 +117,9 @@ class BulkPropertyReportsComponent {
     }
 
     container.innerHTML = this.properties
-      .map(
-        (property, index) => {
-          const isSelected = this.selectedProperties.has(property.propertyId);
-          return `
+      .map((property, index) => {
+        const isSelected = this.selectedProperties.has(property.propertyId);
+        return `
       <div class="col-6 col-sm-3 col-md-2 property-card-col mb-3">
         <div
           class="card property-select-card ${isSelected ? "selected" : ""}"
@@ -126,7 +127,9 @@ class BulkPropertyReportsComponent {
           data-property-index="${index}"
           style="cursor: pointer; transition: all 0.2s ease;"
         >
-          ${property.propertyImage ? `
+          ${
+            property.propertyImage
+              ? `
             <div class="position-relative property-card-image">
               <img
                 src="${property.propertyImage}"
@@ -134,39 +137,52 @@ class BulkPropertyReportsComponent {
                 alt="${escapeHtml(property.propertyId)}"
                 style="width: 100%; height: 100%; object-fit: cover;"
               >
-              ${isSelected ? `
+              ${
+                isSelected
+                  ? `
                 <div class="position-absolute top-0 end-0 p-2">
                   <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
                        style="width: 28px; height: 28px;">
                     <i class="bi bi-check-lg"></i>
                   </div>
                 </div>
-              ` : ''}
+              `
+                  : ""
+              }
             </div>
-          ` : `
+          `
+              : `
             <div class="bg-light d-flex align-items-center justify-content-center position-relative property-card-image">
               <i class="bi bi-building fs-1 text-muted"></i>
-              ${isSelected ? `
+              ${
+                isSelected
+                  ? `
                 <div class="position-absolute top-0 end-0 p-2">
                   <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
                        style="width: 28px; height: 28px;">
                     <i class="bi bi-check-lg"></i>
                   </div>
                 </div>
-              ` : ''}
+              `
+                  : ""
+              }
             </div>
-          `}
+          `
+          }
           <div class="card-body">
-            <h6 class="card-title mb-1 fw-bold">${escapeHtml(property.propertyId)}</h6>
+            <h6 class="card-title mb-1 fw-bold">${escapeHtml(
+              property.propertyId
+            )}</h6>
             <p class="card-text text-muted small mb-0">
-              <i class="bi bi-geo-alt me-1"></i>${escapeHtml(property.address || "No address")}
+              <i class="bi bi-geo-alt me-1"></i>${escapeHtml(
+                property.address || "No address"
+              )}
             </p>
           </div>
         </div>
       </div>
     `;
-        }
-      )
+      })
       .join("");
 
     // Add click handlers to cards
@@ -177,7 +193,11 @@ class BulkPropertyReportsComponent {
         const currentIndex = parseInt(card.dataset.propertyIndex);
 
         // Check if Shift key is held for range selection
-        if (e.shiftKey && this.lastClickedIndex !== -1 && this.lastClickedIndex !== currentIndex) {
+        if (
+          e.shiftKey &&
+          this.lastClickedIndex !== -1 &&
+          this.lastClickedIndex !== currentIndex
+        ) {
           // Range selection
           const startIndex = Math.min(this.lastClickedIndex, currentIndex);
           const endIndex = Math.max(this.lastClickedIndex, currentIndex);
@@ -293,16 +313,22 @@ class BulkPropertyReportsComponent {
                 if (investorsResponse.ok) {
                   const investorsResult = await investorsResponse.json();
 
-                  if (investorsResult.success && investorsResult.data && investorsResult.data.length > 0) {
+                  if (
+                    investorsResult.success &&
+                    investorsResult.data &&
+                    investorsResult.data.length > 0
+                  ) {
                     const totalIncome = report.totalIncome || 0;
                     const totalExpenses = report.totalExpenses || 0;
                     const netProfit = totalIncome - totalExpenses;
 
                     // Calculate investor distribution
                     report.investors = investorsResult.data
-                      .map(investor => {
+                      .map((investor) => {
                         // Find this investor's percentage for the current property
-                        const propertyInfo = investor.properties?.find(p => p.propertyId === propertyId);
+                        const propertyInfo = investor.properties?.find(
+                          (p) => p.propertyId === propertyId
+                        );
 
                         // Skip if investor doesn't have this property
                         if (!propertyInfo) {
@@ -314,29 +340,52 @@ class BulkPropertyReportsComponent {
 
                         // Get already paid/received from investor transactions
                         const existingTransaction = report.investorTransactions
-                          ? report.investorTransactions.find(t => t.investorId === investor.investorId)
+                          ? report.investorTransactions.find(
+                              (t) => t.investorId === investor.investorId
+                            )
                           : null;
-                        const alreadyPaid = existingTransaction ? existingTransaction.alreadyPaid : 0;
-                        const alreadyReceived = existingTransaction ? existingTransaction.alreadyReceived : 0;
+                        const alreadyPaid = existingTransaction
+                          ? existingTransaction.alreadyPaid
+                          : 0;
+                        const alreadyReceived = existingTransaction
+                          ? existingTransaction.alreadyReceived
+                          : 0;
 
                         // Calculate expenses paid by this investor on behalf of the group
                         let expensesPaidByInvestor = 0;
                         if (report.expenses && Array.isArray(report.expenses)) {
                           expensesPaidByInvestor = report.expenses
-                            .filter(exp => exp.personInCharge === investor.investorId)
-                            .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+                            .filter(
+                              (exp) =>
+                                exp.personInCharge === investor.investorId
+                            )
+                            .reduce(
+                              (sum, exp) => sum + (parseFloat(exp.amount) || 0),
+                              0
+                            );
                         }
 
                         // Calculate income received by this investor on behalf of the group
                         let incomeReceivedByInvestor = 0;
                         if (report.income && Array.isArray(report.income)) {
                           incomeReceivedByInvestor = report.income
-                            .filter(inc => inc.personInCharge === investor.investorId)
-                            .reduce((sum, inc) => sum + (parseFloat(inc.amount) || 0), 0);
+                            .filter(
+                              (inc) =>
+                                inc.personInCharge === investor.investorId
+                            )
+                            .reduce(
+                              (sum, inc) => sum + (parseFloat(inc.amount) || 0),
+                              0
+                            );
                         }
 
                         // Final amount = investor's share - what they already paid + what they received + expenses they paid on behalf of group - income they received on behalf of group
-                        const final = profitShare - alreadyPaid + alreadyReceived + expensesPaidByInvestor - incomeReceivedByInvestor;
+                        const final =
+                          profitShare -
+                          alreadyPaid +
+                          alreadyReceived +
+                          expensesPaidByInvestor -
+                          incomeReceivedByInvestor;
 
                         return {
                           investorName: investor.name || investor.username,
@@ -348,31 +397,40 @@ class BulkPropertyReportsComponent {
                           incomeReceived: incomeReceivedByInvestor,
                           alreadyPaid: alreadyPaid,
                           alreadyReceived: alreadyReceived,
-                          final: final
+                          final: final,
                         };
                       })
-                      .filter(inv => inv !== null); // Remove investors that don't have this property
+                      .filter((inv) => inv !== null); // Remove investors that don't have this property
 
                     // Calculate per-property settlements
                     if (report.investors && report.investors.length > 0) {
-                      report.settlements = this.calculatePropertySettlements(report.investors);
+                      report.settlements = this.calculatePropertySettlements(
+                        report.investors
+                      );
                     }
                   }
                 }
               } catch (error) {
-                console.error(`Error fetching investors for ${propertyId}:`, error);
+                console.error(
+                  `Error fetching investors for ${propertyId}:`,
+                  error
+                );
               }
 
               reports.push({
                 propertyId,
-                propertyData: this.properties.find((p) => p.propertyId === propertyId),
+                propertyData: this.properties.find(
+                  (p) => p.propertyId === propertyId
+                ),
                 report: report,
               });
             } else {
               // Report doesn't exist for this property
               reports.push({
                 propertyId,
-                propertyData: this.properties.find((p) => p.propertyId === propertyId),
+                propertyData: this.properties.find(
+                  (p) => p.propertyId === propertyId
+                ),
                 report: null,
                 error: "No report found",
               });
@@ -381,7 +439,9 @@ class BulkPropertyReportsComponent {
             // Report not found
             reports.push({
               propertyId,
-              propertyData: this.properties.find((p) => p.propertyId === propertyId),
+              propertyData: this.properties.find(
+                (p) => p.propertyId === propertyId
+              ),
               report: null,
               error: "No report found",
             });
@@ -390,7 +450,9 @@ class BulkPropertyReportsComponent {
           console.error(`Error fetching report for ${propertyId}:`, error);
           reports.push({
             propertyId,
-            propertyData: this.properties.find((p) => p.propertyId === propertyId),
+            propertyData: this.properties.find(
+              (p) => p.propertyId === propertyId
+            ),
             report: null,
             error: "Error fetching report",
           });
@@ -444,14 +506,14 @@ class BulkPropertyReportsComponent {
 
         // Aggregate investor data
         if (r.report.investors && r.report.investors.length > 0) {
-          r.report.investors.forEach(inv => {
+          r.report.investors.forEach((inv) => {
             if (!investorTotals.has(inv.investorId)) {
               investorTotals.set(inv.investorId, {
                 investorId: inv.investorId,
                 investorName: inv.investorName,
                 avatar: inv.avatar || null,
                 totalFinal: 0,
-                properties: []
+                properties: [],
               });
             }
             const investorData = investorTotals.get(inv.investorId);
@@ -459,7 +521,7 @@ class BulkPropertyReportsComponent {
             investorData.properties.push({
               propertyId: r.propertyId,
               final: inv.final,
-              sharePercentage: inv.sharePercentage
+              sharePercentage: inv.sharePercentage,
             });
           });
         }
@@ -468,7 +530,7 @@ class BulkPropertyReportsComponent {
 
     // Create property ID to data mapping
     const propertyMap = new Map();
-    reports.forEach(r => {
+    reports.forEach((r) => {
       if (r.propertyData) {
         propertyMap.set(r.propertyId, r.propertyData);
       }
@@ -478,11 +540,13 @@ class BulkPropertyReportsComponent {
     const settlements = this.calculateSettlements(investorTotals, propertyMap);
 
     // Create investor summary HTML
-    let investorSummaryHtml = '';
+    let investorSummaryHtml = "";
     if (investorTotals.size > 0) {
-      const investorArray = Array.from(investorTotals.values()).sort((a, b) => b.totalFinal - a.totalFinal);
+      const investorArray = Array.from(investorTotals.values()).sort(
+        (a, b) => b.totalFinal - a.totalFinal
+      );
       investorSummaryHtml = `
-        <div class="card mb-4 border-primary">
+        <div class="card h-100 border-primary">
           <div class="card-header bg-primary text-white">
             <h5 class="mb-0">
               <i class="bi bi-person-badge me-2"></i>
@@ -501,7 +565,9 @@ class BulkPropertyReportsComponent {
                   </tr>
                 </thead>
                 <tbody>
-                  ${investorArray.map(inv => `
+                  ${investorArray
+                    .map(
+                      (inv) => `
                     <tr>
                       <td class="ps-3">
                         <strong>${escapeHtml(inv.investorName)}</strong>
@@ -509,22 +575,30 @@ class BulkPropertyReportsComponent {
                         <small class="text-muted">ID: ${inv.investorId}</small>
                       </td>
                       <td class="text-center">
-                        <span class="badge bg-secondary">${inv.properties.length}</span>
+                        <span class="badge bg-secondary">${
+                          inv.properties.length
+                        }</span>
                       </td>
                       <td class="text-end pe-3">
-                        <span class="fs-5 fw-bold ${inv.totalFinal >= 0 ? 'text-success' : 'text-danger'}">
+                        <span class="fs-5 fw-bold ${
+                          inv.totalFinal >= 0 ? "text-success" : "text-danger"
+                        }">
                           $${inv.totalFinal.toFixed(2)}
                         </span>
                       </td>
                       <td class="text-end pe-3">
-                        ${inv.totalFinal > 0
-                          ? '<span class="badge bg-success">Will Receive</span>'
-                          : inv.totalFinal < 0
+                        ${
+                          inv.totalFinal > 0
+                            ? '<span class="badge bg-success">Will Receive</span>'
+                            : inv.totalFinal < 0
                             ? '<span class="badge bg-danger">Must Pay</span>'
-                            : '<span class="badge bg-secondary">Balanced</span>'}
+                            : '<span class="badge bg-secondary">Balanced</span>'
+                        }
                       </td>
                     </tr>
-                  `).join('')}
+                  `
+                    )
+                    .join("")}
                 </tbody>
                 <tfoot class="table-light">
                   <tr>
@@ -544,10 +618,10 @@ class BulkPropertyReportsComponent {
     }
 
     // Create settlement instructions HTML
-    let settlementHtml = '';
+    let settlementHtml = "";
     if (settlements.length > 0) {
       settlementHtml = `
-        <div class="card mb-4 border-success">
+        <div class="card h-100 border-success">
           <div class="card-header bg-success text-white">
             <h5 class="mb-0">
               <i class="bi bi-arrow-left-right me-2"></i>
@@ -557,10 +631,16 @@ class BulkPropertyReportsComponent {
           <div class="card-body">
             <div class="alert alert-info mb-3">
               <i class="bi bi-lightbulb me-2"></i>
-              <strong>How to settle:</strong> Follow these ${settlements.length} transaction${settlements.length > 1 ? 's' : ''} to settle all debts between investors.
+              <strong>How to settle:</strong> Follow these ${
+                settlements.length
+              } transaction${
+        settlements.length > 1 ? "s" : ""
+      } to settle all debts between investors. Transactions are netted across all properties.
             </div>
             <div class="list-group">
-              ${settlements.map((settlement, index) => `
+              ${settlements
+                .map(
+                  (settlement, index) => `
                 <div class="list-group-item">
                   <div class="d-flex align-items-start">
                     <div class="me-3">
@@ -571,35 +651,57 @@ class BulkPropertyReportsComponent {
                     <div class="flex-grow-1">
                       <div class="d-flex align-items-center justify-content-between flex-wrap">
                         <div class="mb-1 mb-md-0 d-flex align-items-center">
-                          ${settlement.fromAvatar ? `
-                            <img src="${this.getOptimizedAvatarUrl(settlement.fromAvatar, 'small')}"
+                          ${
+                            settlement.fromAvatar
+                              ? `
+                            <img src="${this.getOptimizedAvatarUrl(
+                              settlement.fromAvatar,
+                              "small"
+                            )}"
                                  alt="${escapeHtml(settlement.fromName)}"
                                  class="rounded-circle me-2"
                                  style="width: 32px; height: 32px; object-fit: cover;"
                                  onerror="this.style.display='none'">
-                          ` : `
+                          `
+                              : `
                             <div class="rounded-circle me-2 d-flex align-items-center justify-content-center"
                                  style="width: 32px; height: 32px; background-color: #dc3545; color: white; font-weight: bold; font-size: 14px;">
-                              ${escapeHtml(settlement.fromName.charAt(0).toUpperCase())}
+                              ${escapeHtml(
+                                settlement.fromName.charAt(0).toUpperCase()
+                              )}
                             </div>
-                          `}
-                          <strong class="text-danger">${escapeHtml(settlement.fromName)}</strong>
+                          `
+                          }
+                          <strong class="text-danger">${escapeHtml(
+                            settlement.fromName
+                          )}</strong>
                           <span class="mx-2">
                             <i class="bi bi-arrow-right text-primary"></i>
                           </span>
-                          ${settlement.toAvatar ? `
-                            <img src="${this.getOptimizedAvatarUrl(settlement.toAvatar, 'small')}"
+                          ${
+                            settlement.toAvatar
+                              ? `
+                            <img src="${this.getOptimizedAvatarUrl(
+                              settlement.toAvatar,
+                              "small"
+                            )}"
                                  alt="${escapeHtml(settlement.toName)}"
                                  class="rounded-circle me-2"
                                  style="width: 32px; height: 32px; object-fit: cover;"
                                  onerror="this.style.display='none'">
-                          ` : `
+                          `
+                              : `
                             <div class="rounded-circle me-2 d-flex align-items-center justify-content-center"
                                  style="width: 32px; height: 32px; background-color: #198754; color: white; font-weight: bold; font-size: 14px;">
-                              ${escapeHtml(settlement.toName.charAt(0).toUpperCase())}
+                              ${escapeHtml(
+                                settlement.toName.charAt(0).toUpperCase()
+                              )}
                             </div>
-                          `}
-                          <strong class="text-success">${escapeHtml(settlement.toName)}</strong>
+                          `
+                          }
+                          <strong class="text-success">${escapeHtml(
+                            settlement.toName
+                          )}</strong>
                         </div>
                         <div>
                           <span class="badge bg-warning text-dark fs-6 px-3 py-2">
@@ -607,53 +709,93 @@ class BulkPropertyReportsComponent {
                           </span>
                         </div>
                       </div>
-                      ${settlement.propertyBreakdown && settlement.propertyBreakdown.length > 0 ? `
+                      ${
+                        settlement.propertyBreakdown &&
+                        settlement.propertyBreakdown.length > 0
+                          ? `
                         <div class="mt-2 ps-3 border-start border-3 border-info">
                           <small class="text-muted d-block mb-1"><strong>Step-by-step calculation:</strong></small>
-                          ${settlement.propertyBreakdown.map(prop => `
+                          ${settlement.propertyBreakdown
+                            .map((prop) => {
+                              const isNegative = prop.amount < 0;
+                              const displayAmount = Math.abs(prop.amount);
+                              return `
                             <div class="d-flex justify-content-between align-items-center py-1">
                               <small class="text-muted">
                                 <i class="bi bi-building me-1"></i>
-                                ${escapeHtml(prop.propertyName || prop.propertyId)}
+                                ${escapeHtml(
+                                  prop.propertyName || prop.propertyId
+                                )}
+                                ${
+                                  isNegative
+                                    ? '<span class="text-danger ms-1">(reverse)</span>'
+                                    : ""
+                                }
                               </small>
-                              <small class="badge bg-secondary">$${prop.amount.toFixed(2)}</small>
+                              <small class="badge ${
+                                isNegative ? "bg-danger" : "bg-secondary"
+                              }">${
+                                isNegative ? "-" : ""
+                              }$${displayAmount.toFixed(2)}</small>
                             </div>
-                          `).join('')}
+                          `;
+                            })
+                            .join("")}
                           <div class="d-flex justify-content-between align-items-center pt-2 mt-1 border-top border-2">
                             <small class="fw-bold text-dark">
                               <i class="bi bi-calculator me-1"></i>
-                              Total to Transfer
+                              Net Amount to Transfer
                             </small>
-                            <small class="badge bg-warning text-dark">$${settlement.amount.toFixed(2)}</small>
+                            <small class="badge bg-warning text-dark">$${settlement.amount.toFixed(
+                              2
+                            )}</small>
                           </div>
                         </div>
-                      ` : `
+                      `
+                          : `
                         <small class="text-muted d-block mt-1">
-                          ${escapeHtml(settlement.fromName)} pays $${settlement.amount.toFixed(2)} to ${escapeHtml(settlement.toName)}
+                          ${escapeHtml(
+                            settlement.fromName
+                          )} pays $${settlement.amount.toFixed(
+                              2
+                            )} to ${escapeHtml(settlement.toName)}
                         </small>
-                      `}
+                      `
+                      }
                     </div>
                   </div>
                 </div>
-              `).join('')}
+              `
+                )
+                .join("")}
             </div>
-            ${settlements.length > 0 ? `
+            ${
+              settlements.length > 0
+                ? `
               <div class="mt-3 p-3 bg-light rounded">
                 <h6 class="mb-2">
                   <i class="bi bi-calculator me-2"></i>Summary
                 </h6>
                 <ul class="mb-0">
-                  <li><strong>Total Transactions:</strong> ${settlements.length}</li>
-                  <li><strong>Total Money Transferred:</strong> $${settlements.reduce((sum, s) => sum + s.amount, 0).toFixed(2)}</li>
+                  <li><strong>Total Transactions:</strong> ${
+                    settlements.length
+                  }</li>
+                  <li><strong>Total Money Transferred:</strong> $${settlements
+                    .reduce((sum, s) => sum + s.amount, 0)
+                    .toFixed(2)}</li>
                 </ul>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
         </div>
       `;
     } else if (investorTotals.size > 0) {
       // All balanced
-      const allBalanced = Array.from(investorTotals.values()).every(inv => Math.abs(inv.totalFinal) < 0.01);
+      const allBalanced = Array.from(investorTotals.values()).every(
+        (inv) => Math.abs(inv.totalFinal) < 0.01
+      );
       if (allBalanced) {
         settlementHtml = `
           <div class="alert alert-success">
@@ -673,17 +815,26 @@ class BulkPropertyReportsComponent {
           </div>
           <div>
             <strong>Total Net Profit:</strong>
-            <span class="fs-5 ${totalProfit >= 0 ? "text-success" : "text-danger"}">
+            <span class="fs-5 ${
+              totalProfit >= 0 ? "text-success" : "text-danger"
+            }">
               $${totalProfit.toFixed(2)}
             </span>
           </div>
         </div>
-        <small class="text-muted">Showing ${reportCount} of ${reports.length} reports</small>
+        <small class="text-muted">Showing ${reportCount} of ${
+      reports.length
+    } reports</small>
       </div>
 
-      ${investorSummaryHtml}
-
-      ${settlementHtml}
+      <div class="row mb-4">
+        <div class="col-lg-6 mb-4 mb-lg-0">
+          ${investorSummaryHtml}
+        </div>
+        <div class="col-lg-6">
+          ${settlementHtml}
+        </div>
+      </div>
 
       <h5 class="mb-3">
         <i class="bi bi-building me-2"></i>
@@ -702,12 +853,16 @@ class BulkPropertyReportsComponent {
                         ${escapeHtml(item.propertyId)}
                       </h5>
                       <p class="card-text text-muted small">
-                        ${escapeHtml(item.propertyData?.address || "No address")}
+                        ${escapeHtml(
+                          item.propertyData?.address || "No address"
+                        )}
                       </p>
                       <hr>
                       <div class="text-center text-warning py-3">
                         <i class="bi bi-exclamation-triangle fs-1"></i>
-                        <p class="mt-2 mb-0">${item.error || "No report available"}</p>
+                        <p class="mt-2 mb-0">${
+                          item.error || "No report available"
+                        }</p>
                       </div>
                     </div>
                   </div>
@@ -722,7 +877,9 @@ class BulkPropertyReportsComponent {
 
             return `
               <div class="col-md-6 col-lg-3 mb-4">
-                <div class="card h-100 ${netProfit >= 0 ? "border-success" : "border-danger"}">
+                <div class="card h-100 ${
+                  netProfit >= 0 ? "border-success" : "border-danger"
+                }">
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                       <h5 class="card-title mb-0">
@@ -742,16 +899,22 @@ class BulkPropertyReportsComponent {
                     <div class="mb-3">
                       <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Total Income:</span>
-                        <span class="text-success fw-bold">$${income.toFixed(2)}</span>
+                        <span class="text-success fw-bold">$${income.toFixed(
+                          2
+                        )}</span>
                       </div>
                       <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Total Expenses:</span>
-                        <span class="text-danger fw-bold">$${expenses.toFixed(2)}</span>
+                        <span class="text-danger fw-bold">$${expenses.toFixed(
+                          2
+                        )}</span>
                       </div>
                       <hr>
                       <div class="d-flex justify-content-between">
                         <span class="fw-bold">Net Profit:</span>
-                        <span class="fw-bold fs-5 ${netProfit >= 0 ? "text-success" : "text-danger"}">
+                        <span class="fw-bold fs-5 ${
+                          netProfit >= 0 ? "text-success" : "text-danger"
+                        }">
                           $${netProfit.toFixed(2)}
                         </span>
                       </div>
@@ -762,7 +925,9 @@ class BulkPropertyReportsComponent {
                       <div class="mt-3 pt-3 border-top">
                         <h6 class="text-muted mb-2">
                           <i class="bi bi-person-badge me-1"></i>
-                          Investor Distribution (${item.report.investors.length})
+                          Investor Distribution (${
+                            item.report.investors.length
+                          })
                         </h6>
                         <div class="table-responsive">
                           <table class="table table-sm table-hover mb-0">
@@ -774,45 +939,70 @@ class BulkPropertyReportsComponent {
                               </tr>
                             </thead>
                             <tbody>
-                              ${item.report.investors.map(inv => `
+                              ${item.report.investors
+                                .map(
+                                  (inv) => `
                                 <tr>
                                   <td>
-                                    <small class="fw-bold">${escapeHtml(inv.investorName)}</small>
+                                    <small class="fw-bold">${escapeHtml(
+                                      inv.investorName
+                                    )}</small>
                                   </td>
                                   <td class="text-end">
                                     <small>${inv.sharePercentage}%</small>
                                   </td>
                                   <td class="text-end">
-                                    <small class="fw-bold ${inv.final >= 0 ? "text-success" : "text-danger"}">
+                                    <small class="fw-bold ${
+                                      inv.final >= 0
+                                        ? "text-success"
+                                        : "text-danger"
+                                    }">
                                       $${inv.final.toFixed(2)}
                                     </small>
                                   </td>
                                 </tr>
-                              `).join('')}
+                              `
+                                )
+                                .join("")}
                             </tbody>
                           </table>
                         </div>
 
-                        ${item.report.settlements && item.report.settlements.length > 0 ? `
+                        ${
+                          item.report.settlements &&
+                          item.report.settlements.length > 0
+                            ? `
                           <div class="mt-3 p-2 bg-light rounded">
                             <h6 class="small mb-2 text-success">
                               <i class="bi bi-arrow-left-right me-1"></i>
                               Settlement for this property:
                             </h6>
                             <div class="list-group list-group-flush">
-                              ${item.report.settlements.map(settlement => `
+                              ${item.report.settlements
+                                .map(
+                                  (settlement) => `
                                 <div class="list-group-item px-2 py-1 bg-transparent border-0">
                                   <small>
-                                    <strong class="text-danger">${escapeHtml(settlement.fromName)}</strong>
+                                    <strong class="text-danger">${escapeHtml(
+                                      settlement.fromName
+                                    )}</strong>
                                     <i class="bi bi-arrow-right mx-1 text-primary"></i>
-                                    <strong class="text-success">${escapeHtml(settlement.toName)}</strong>
-                                    <span class="badge bg-warning text-dark ms-2">$${settlement.amount.toFixed(2)}</span>
+                                    <strong class="text-success">${escapeHtml(
+                                      settlement.toName
+                                    )}</strong>
+                                    <span class="badge bg-warning text-dark ms-2">$${settlement.amount.toFixed(
+                                      2
+                                    )}</span>
                                   </small>
                                 </div>
-                              `).join('')}
+                              `
+                                )
+                                .join("")}
                             </div>
                           </div>
-                        ` : ''}
+                        `
+                            : ""
+                        }
                       </div>
                     `
                         : ""
@@ -829,7 +1019,9 @@ class BulkPropertyReportsComponent {
 
   calculatePropertySettlements(investors) {
     // Filter out balanced investors (within 1 cent tolerance)
-    const activeInvestors = investors.filter(inv => Math.abs(inv.final) >= 0.01);
+    const activeInvestors = investors.filter(
+      (inv) => Math.abs(inv.final) >= 0.01
+    );
 
     if (activeInvestors.length === 0) {
       return [];
@@ -837,13 +1029,13 @@ class BulkPropertyReportsComponent {
 
     // Separate into creditors (receive money) and debtors (pay money)
     const creditors = activeInvestors
-      .filter(inv => inv.final > 0)
-      .map(inv => ({ ...inv, remaining: inv.final }))
+      .filter((inv) => inv.final > 0)
+      .map((inv) => ({ ...inv, remaining: inv.final }))
       .sort((a, b) => b.remaining - a.remaining);
 
     const debtors = activeInvestors
-      .filter(inv => inv.final < 0)
-      .map(inv => ({ ...inv, remaining: Math.abs(inv.final) }))
+      .filter((inv) => inv.final < 0)
+      .map((inv) => ({ ...inv, remaining: Math.abs(inv.final) }))
       .sort((a, b) => b.remaining - a.remaining);
 
     const settlements = [];
@@ -859,13 +1051,14 @@ class BulkPropertyReportsComponent {
       // Calculate settlement amount (minimum of what debtor owes and creditor is owed)
       const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
 
-      if (settlementAmount >= 0.01) { // Only record settlements >= 1 cent
+      if (settlementAmount >= 0.01) {
+        // Only record settlements >= 1 cent
         settlements.push({
           fromId: debtor.investorId,
           fromName: debtor.investorName,
           toId: creditor.investorId,
           toName: creditor.investorName,
-          amount: settlementAmount
+          amount: settlementAmount,
         });
       }
 
@@ -886,113 +1079,192 @@ class BulkPropertyReportsComponent {
   }
 
   calculateSettlements(investorTotals, propertyMap) {
-    // Convert to array and filter out balanced investors (within 1 cent tolerance)
-    const investors = Array.from(investorTotals.values())
-      .filter(inv => Math.abs(inv.totalFinal) >= 0.01);
+    // Build settlements based on property-level relationships
+    const settlementMap = new Map(); // Key: "fromId->toId", Value: {settlement data}
 
-    if (investors.length === 0) {
-      return [];
+    // Get all unique property IDs
+    const propertyIds = new Set();
+    for (const investor of investorTotals.values()) {
+      for (const prop of investor.properties) {
+        propertyIds.add(prop.propertyId);
+      }
     }
 
-    // Separate into creditors (receive money) and debtors (pay money)
-    const creditors = investors
-      .filter(inv => inv.totalFinal > 0)
-      .map(inv => ({
-        ...inv,
-        remaining: inv.totalFinal,
-        remainingProperties: [...inv.properties] // Clone properties array
-      }))
-      .sort((a, b) => b.remaining - a.remaining);
+    // For each property, calculate settlements within that property
+    for (const propertyId of propertyIds) {
+      // Get all investors for this property
+      const propertyInvestors = [];
+      for (const investor of investorTotals.values()) {
+        const prop = investor.properties.find(
+          (p) => p.propertyId === propertyId
+        );
+        if (prop) {
+          propertyInvestors.push({
+            investorId: investor.investorId,
+            investorName: investor.investorName,
+            avatar: investor.avatar,
+            final: prop.final,
+          });
+        }
+      }
 
-    const debtors = investors
-      .filter(inv => inv.totalFinal < 0)
-      .map(inv => ({
-        ...inv,
-        remaining: Math.abs(inv.totalFinal),
-        remainingProperties: inv.properties.map(p => ({ ...p, final: Math.abs(p.final) })) // Clone and make absolute
-      }))
-      .sort((a, b) => b.remaining - a.remaining);
+      // Separate into creditors and debtors for this property
+      const creditors = propertyInvestors
+        .filter((inv) => inv.final > 0.01)
+        .map((inv) => ({ ...inv, remaining: inv.final }))
+        .sort((a, b) => b.remaining - a.remaining);
 
-    const settlements = [];
+      const debtors = propertyInvestors
+        .filter((inv) => inv.final < -0.01)
+        .map((inv) => ({ ...inv, remaining: Math.abs(inv.final) }))
+        .sort((a, b) => b.remaining - a.remaining);
 
-    let creditorIndex = 0;
-    let debtorIndex = 0;
+      // Match debtors with creditors for this property
+      let creditorIndex = 0;
+      let debtorIndex = 0;
 
-    // Match debtors with creditors
-    while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
-      const creditor = creditors[creditorIndex];
-      const debtor = debtors[debtorIndex];
+      while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+        const creditor = creditors[creditorIndex];
+        const debtor = debtors[debtorIndex];
 
-      // Calculate settlement amount (minimum of what debtor owes and creditor is owed)
-      const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
+        const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
 
-      if (settlementAmount >= 0.01) { // Only record settlements >= 1 cent
-        // Build property breakdown for this settlement
-        const propertyBreakdown = [];
-        let remainingToAllocate = settlementAmount;
+        if (settlementAmount >= 0.01) {
+          const settlementKey = `${debtor.investorId}->${creditor.investorId}`;
 
-        // Match properties from debtor and creditor
-        for (const debtorProp of debtor.remainingProperties) {
-          if (remainingToAllocate < 0.01) break;
+          if (!settlementMap.has(settlementKey)) {
+            settlementMap.set(settlementKey, {
+              fromId: debtor.investorId,
+              fromName: debtor.investorName,
+              fromAvatar: debtor.avatar || null,
+              toId: creditor.investorId,
+              toName: creditor.investorName,
+              toAvatar: creditor.avatar || null,
+              amount: 0,
+              propertyBreakdown: [],
+            });
+          }
 
-          // Find matching property in creditor's properties
-          const creditorProp = creditor.remainingProperties.find(p => p.propertyId === debtorProp.propertyId);
+          const settlement = settlementMap.get(settlementKey);
+          const propertyData = propertyMap ? propertyMap.get(propertyId) : null;
 
-          if (creditorProp && creditorProp.final > 0.01 && debtorProp.final > 0.01) {
-            // Both have this property, calculate allocation
-            const amountFromThisProperty = Math.min(debtorProp.final, creditorProp.final, remainingToAllocate);
+          settlement.propertyBreakdown.push({
+            propertyId: propertyId,
+            propertyName: propertyData
+              ? propertyData.address || propertyId
+              : propertyId,
+            amount: settlementAmount,
+          });
+          settlement.amount += settlementAmount;
 
-            if (amountFromThisProperty >= 0.01) {
-              // Get property data for display
-              const propertyData = propertyMap ? propertyMap.get(debtorProp.propertyId) : null;
+          // Update remaining amounts
+          creditor.remaining -= settlementAmount;
+          debtor.remaining -= settlementAmount;
+        }
 
-              propertyBreakdown.push({
-                propertyId: debtorProp.propertyId,
-                propertyName: propertyData ? propertyData.address || debtorProp.propertyId : debtorProp.propertyId,
-                amount: amountFromThisProperty
+        // Move to next creditor/debtor if current one is settled
+        if (creditor.remaining < 0.01) {
+          creditorIndex++;
+        }
+        if (debtor.remaining < 0.01) {
+          debtorIndex++;
+        }
+      }
+    }
+
+    // Net out bilateral transactions (A→B and B→A)
+    const nettedSettlements = [];
+    const processed = new Set();
+
+    for (const [key, settlement] of settlementMap.entries()) {
+      if (processed.has(key)) continue;
+
+      const reverseKey = `${settlement.toId}->${settlement.fromId}`;
+      const reverseSettlement = settlementMap.get(reverseKey);
+
+      if (reverseSettlement && !processed.has(reverseKey)) {
+        // Net out the two settlements
+        const netAmount = settlement.amount - reverseSettlement.amount;
+
+        if (Math.abs(netAmount) >= 0.01) {
+          // Combine property breakdowns, netting amounts for same properties
+          const breakdownMap = new Map();
+
+          // Add original direction amounts
+          for (const prop of settlement.propertyBreakdown) {
+            breakdownMap.set(prop.propertyId, {
+              propertyId: prop.propertyId,
+              propertyName: prop.propertyName,
+              amount: prop.amount,
+            });
+          }
+
+          // Subtract reverse direction amounts
+          for (const prop of reverseSettlement.propertyBreakdown) {
+            if (breakdownMap.has(prop.propertyId)) {
+              const existing = breakdownMap.get(prop.propertyId);
+              existing.amount -= prop.amount;
+              if (Math.abs(existing.amount) < 0.01) {
+                breakdownMap.delete(prop.propertyId);
+              }
+            } else {
+              breakdownMap.set(prop.propertyId, {
+                propertyId: prop.propertyId,
+                propertyName: prop.propertyName,
+                amount: -prop.amount,
               });
-
-              // Update remaining amounts
-              debtorProp.final -= amountFromThisProperty;
-              creditorProp.final -= amountFromThisProperty;
-              remainingToAllocate -= amountFromThisProperty;
             }
+          }
+
+          const finalBreakdown = Array.from(breakdownMap.values()).filter(
+            (p) => Math.abs(p.amount) >= 0.01
+          );
+
+          if (netAmount > 0) {
+            // Original direction wins
+            nettedSettlements.push({
+              ...settlement,
+              amount: netAmount,
+              propertyBreakdown: finalBreakdown,
+            });
+          } else {
+            // Reverse direction wins
+            nettedSettlements.push({
+              fromId: settlement.toId,
+              fromName: settlement.toName,
+              fromAvatar: settlement.toAvatar,
+              toId: settlement.fromId,
+              toName: settlement.fromName,
+              toAvatar: settlement.fromAvatar,
+              amount: Math.abs(netAmount),
+              propertyBreakdown: finalBreakdown.map((p) => ({
+                ...p,
+                amount: Math.abs(p.amount),
+              })),
+            });
           }
         }
 
-        settlements.push({
-          fromId: debtor.investorId,
-          fromName: debtor.investorName,
-          fromAvatar: debtor.avatar || null,
-          toId: creditor.investorId,
-          toName: creditor.investorName,
-          toAvatar: creditor.avatar || null,
-          amount: settlementAmount,
-          propertyBreakdown: propertyBreakdown
-        });
-      }
-
-      // Update remaining amounts
-      creditor.remaining -= settlementAmount;
-      debtor.remaining -= settlementAmount;
-
-      // Move to next creditor/debtor if current one is settled
-      if (creditor.remaining < 0.01) {
-        creditorIndex++;
-      }
-      if (debtor.remaining < 0.01) {
-        debtorIndex++;
+        processed.add(key);
+        processed.add(reverseKey);
+      } else if (!processed.has(key)) {
+        // No reverse settlement, keep as is
+        nettedSettlements.push(settlement);
+        processed.add(key);
       }
     }
 
-    return settlements;
+    // Convert to array and sort by amount (largest first)
+    return nettedSettlements
+      .filter((s) => s.amount >= 0.01)
+      .sort((a, b) => b.amount - a.amount);
   }
 
-  getOptimizedAvatarUrl(url, size = 'small') {
-    if (!url) return '';
+  getOptimizedAvatarUrl(url, size = "small") {
+    if (!url) return "";
 
     // Use ImageUtils if available, otherwise return original URL
-    if (typeof ImageUtils !== 'undefined' && ImageUtils.getOptimizedImageUrl) {
+    if (typeof ImageUtils !== "undefined" && ImageUtils.getOptimizedImageUrl) {
       return ImageUtils.getOptimizedImageUrl(url, size);
     }
 

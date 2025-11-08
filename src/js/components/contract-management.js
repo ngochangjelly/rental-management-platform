@@ -9,6 +9,7 @@ class ContractManagementComponent {
     this.properties = [];
     this.selectedTenantA = null;
     this.selectedTenantB = null;
+    this.selectedPropertyId = null; // Track selected property for filtering
     this.additionalClauses = [];
     this.signatures = {
       tenantA: null,
@@ -174,13 +175,61 @@ class ContractManagementComponent {
     return propertyId; // Fallback to ID if property not found
   }
 
+  // Helper function for fuzzy search
+  fuzzyMatch(searchText, targetText) {
+    if (!searchText) return true;
+    if (!targetText) return false;
+
+    const search = searchText.toLowerCase();
+    const target = targetText.toLowerCase();
+
+    // Direct substring match (highest priority)
+    if (target.includes(search)) return true;
+
+    // Fuzzy character-by-character match
+    let searchIndex = 0;
+    for (let i = 0; i < target.length && searchIndex < search.length; i++) {
+      if (target[i] === search[searchIndex]) {
+        searchIndex++;
+      }
+    }
+    return searchIndex === search.length;
+  }
+
+  // Helper function to check if tenant belongs to selected property
+  tenantBelongsToProperty(person, propertyId) {
+    if (!propertyId) return true; // No filter, show all
+    if (!person.properties || !Array.isArray(person.properties)) return false;
+
+    // Convert propertyId to string for comparison (handles ObjectId and string IDs)
+    const targetId = String(propertyId);
+
+    return person.properties.some((prop) => {
+      let propId;
+      if (typeof prop === 'object') {
+        propId = prop.propertyId || prop._id || prop.id;
+      } else {
+        propId = prop;
+      }
+
+      // Convert to string and compare
+      const propIdStr = String(propId);
+
+      // Log for debugging
+      console.log(`🔍 Comparing property IDs: tenant property "${propIdStr}" vs selected "${targetId}"`);
+
+      return propIdStr === targetId;
+    });
+  }
+
   populateTenantsDropdown() {
     console.log(
       "📋 Populating tenant dropdowns with",
       this.tenants.length,
       "tenants and",
       this.investors.length,
-      "investors"
+      "investors",
+      this.selectedPropertyId ? `(filtered by property: ${this.selectedPropertyId})` : "(no property filter)"
     );
 
     const tenantASelect = document.getElementById("contractTenantA");
@@ -196,6 +245,36 @@ class ContractManagementComponent {
       return;
     }
 
+    // Store all tenant/investor data for fuzzy search
+    this._allTenantOptions = [];
+    this._allInvestorOptions = [];
+
+    // Filter tenants by selected property
+    const filteredTenants = this.tenants.filter(tenant => {
+      const belongs = this.tenantBelongsToProperty(tenant, this.selectedPropertyId);
+      if (this.selectedPropertyId) {
+        console.log(`🔍 Tenant "${tenant.name}":`, {
+          properties: tenant.properties,
+          belongs: belongs
+        });
+      }
+      return belongs;
+    });
+
+    // Filter investors by selected property
+    const filteredInvestors = this.investors.filter(investor => {
+      const belongs = this.tenantBelongsToProperty(investor, this.selectedPropertyId);
+      if (this.selectedPropertyId) {
+        console.log(`🔍 Investor "${investor.name}":`, {
+          properties: investor.properties,
+          belongs: belongs
+        });
+      }
+      return belongs;
+    });
+
+    console.log(`🔍 Filtered to ${filteredTenants.length} tenants and ${filteredInvestors.length} investors`);
+
     // Clear existing options
     tenantASelect.innerHTML =
       '<option value="">Select Tenant A (Main Tenant)</option>';
@@ -207,30 +286,33 @@ class ContractManagementComponent {
     tenantBSelect.innerHTML +=
       '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
 
-    // Check if we have tenants or investors
-    if (
-      (!this.tenants || this.tenants.length === 0) &&
-      (!this.investors || this.investors.length === 0)
-    ) {
-      console.warn("⚠️ No tenants or investors available to populate dropdown");
-      tenantASelect.innerHTML +=
-        '<option value="" disabled>No tenants or investors available</option>';
+    // Check if we have filtered tenants or investors
+    if (filteredTenants.length === 0 && filteredInvestors.length === 0) {
+      const message = this.selectedPropertyId
+        ? 'No tenants or investors for selected property'
+        : 'No tenants or investors available';
+      console.warn(`⚠️ ${message}`);
+      tenantASelect.innerHTML += `<option value="" disabled>${message}</option>`;
+      tenantBSelect.innerHTML += `<option value="" disabled>${message}</option>`;
       return;
     }
 
-    // Add section header for tenants (only if we have tenants)
-    if (this.tenants && this.tenants.length > 0) {
+    // Add section header for tenants (only if we have filtered tenants)
+    if (filteredTenants.length > 0) {
       tenantASelect.innerHTML += '<optgroup label="── Tenants ──">';
       tenantBSelect.innerHTML += '<optgroup label="── Tenants ──">';
 
-      // Populate with tenant data
-      this.tenants.forEach((tenant, index) => {
+      // Populate with filtered tenant data
+      filteredTenants.forEach((tenant) => {
         const fin = tenant.fin || tenant.id || "";
         const passport = tenant.passportNumber || tenant.passport || "";
         const name = tenant.name || "Unnamed Tenant";
 
-        // Use index as a fallback identifier to ensure we can always find the tenant
-        const identifier = fin || `tenant_${index}`;
+        // Find the ORIGINAL index in the unfiltered array
+        const originalIndex = this.tenants.findIndex(t => t === tenant);
+
+        // Use FIN or original index as identifier
+        const identifier = fin || `tenant_${originalIndex}`;
 
         // Build property information for display
         let propertyInfo = "";
@@ -267,13 +349,26 @@ class ContractManagementComponent {
           }
         }
 
+        const displayText = `${name} ${fin ? `(FIN: ${fin})` : ""}${propertyInfo}`;
+
+        // Store for fuzzy search
+        this._allTenantOptions.push({
+          identifier,
+          displayText,
+          searchText: `${name} ${fin} ${passport}`.toLowerCase(),
+          type: 'tenant',
+          passport,
+          name,
+          index: originalIndex
+        });
+
         console.log(
-          `🔧 Adding tenant option: ${name} with identifier: ${identifier}`,
+          `🔧 Adding tenant option: ${name} with identifier: ${identifier}, original index: ${originalIndex}`,
           tenant
         );
 
-        const option = `<option value="${identifier}" data-type="tenant" data-passport="${passport}" data-name="${name}" data-index="${index}">
-                  ${name} ${fin ? `(FIN: ${fin})` : ""}${propertyInfo}
+        const option = `<option value="${identifier}" data-type="tenant" data-passport="${passport}" data-name="${name}" data-index="${originalIndex}">
+                  ${displayText}
               </option>`;
 
         tenantASelect.innerHTML += option;
@@ -284,17 +379,20 @@ class ContractManagementComponent {
       tenantBSelect.innerHTML += "</optgroup>";
     }
 
-    // Add section header for investors (only if we have investors)
-    if (this.investors && this.investors.length > 0) {
+    // Add section header for investors (only if we have filtered investors)
+    if (filteredInvestors.length > 0) {
       tenantASelect.innerHTML += '<optgroup label="── Investors ──">';
       tenantBSelect.innerHTML += '<optgroup label="── Investors ──">';
 
-      // Populate with investor data
-      this.investors.forEach((investor, index) => {
+      // Populate with filtered investor data
+      filteredInvestors.forEach((investor) => {
         const fin = investor.fin || "";
         const passport = investor.passport || "";
         const name = investor.name || "Unnamed Investor";
         const investorId = investor.investorId;
+
+        // Find the ORIGINAL index in the unfiltered array
+        const originalIndex = this.investors.findIndex(i => i === investor);
 
         // Use investorId as identifier with investor prefix
         const identifier = `investor_${investorId}`;
@@ -324,15 +422,27 @@ class ContractManagementComponent {
           }
         }
 
+        const displayText = `${name} ${fin ? `(FIN: ${fin})` : ""} [Investor]${propertyInfo}`;
+
+        // Store for fuzzy search
+        this._allInvestorOptions.push({
+          identifier,
+          displayText,
+          searchText: `${name} ${fin} ${passport}`.toLowerCase(),
+          type: 'investor',
+          passport,
+          name,
+          index: originalIndex,
+          investorId
+        });
+
         console.log(
-          `🔧 Adding investor option: ${name} with identifier: ${identifier}`,
+          `🔧 Adding investor option: ${name} with identifier: ${identifier}, original index: ${originalIndex}`,
           investor
         );
 
-        const option = `<option value="${identifier}" data-type="investor" data-passport="${passport}" data-name="${name}" data-index="${index}" data-investor-id="${investorId}">
-                  ${name} ${
-          fin ? `(FIN: ${fin})` : ""
-        } [Investor]${propertyInfo}
+        const option = `<option value="${identifier}" data-type="investor" data-passport="${passport}" data-name="${name}" data-index="${originalIndex}" data-investor-id="${investorId}">
+                  ${displayText}
               </option>`;
 
         tenantASelect.innerHTML += option;
@@ -344,6 +454,9 @@ class ContractManagementComponent {
     }
 
     console.log("✅ Populated tenant dropdowns successfully");
+
+    // Setup fuzzy search for tenant dropdowns
+    this.setupTenantSearch();
 
     // Add event listeners for tenant selection (remove existing first)
     console.log("🔧 Setting up event listeners...");
@@ -369,6 +482,138 @@ class ContractManagementComponent {
     tenantBSelect.addEventListener("change", this.tenantBChangeHandler);
 
     console.log("✅ Event listeners attached successfully");
+  }
+
+  // Setup fuzzy search for tenant dropdowns
+  setupTenantSearch() {
+    const tenantASelect = document.getElementById("contractTenantA");
+    const tenantBSelect = document.getElementById("contractTenantB");
+
+    if (!tenantASelect || !tenantBSelect) return;
+
+    // Find or create search input containers
+    const setupSearchForSelect = (selectElement, searchId) => {
+      // Check if search input already exists
+      let searchInput = document.getElementById(searchId);
+
+      if (!searchInput) {
+        // Create search input
+        searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.id = searchId;
+        searchInput.className = 'form-control form-control-sm mb-2';
+        searchInput.placeholder = '🔍 Search tenant by name, FIN, or passport...';
+        searchInput.style.fontSize = '0.875rem';
+
+        // Insert before the select element
+        selectElement.parentNode.insertBefore(searchInput, selectElement);
+      }
+
+      // Clear any existing event listeners by replacing the element
+      const newSearchInput = searchInput.cloneNode(true);
+      searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+      // Store all original options (excluding special options)
+      const allOptions = Array.from(selectElement.options).filter(opt =>
+        opt.value !== '' && opt.value !== 'ADD_NEW_TENANT'
+      );
+
+      // Add input event listener for fuzzy search
+      newSearchInput.addEventListener('input', (e) => {
+        const searchText = e.target.value.trim();
+        this.filterTenantOptions(selectElement, searchText, allOptions);
+      });
+
+      // Clear search on select change
+      selectElement.addEventListener('change', () => {
+        newSearchInput.value = '';
+      });
+    };
+
+    // Setup search for both dropdowns
+    setupSearchForSelect(tenantASelect, 'tenantASearch');
+    setupSearchForSelect(tenantBSelect, 'tenantBSearch');
+  }
+
+  // Filter tenant options based on fuzzy search
+  filterTenantOptions(selectElement, searchText, allOptions) {
+    if (!searchText) {
+      // Show all options if search is empty
+      this.restoreAllOptions(selectElement, allOptions);
+      return;
+    }
+
+    // Get current selected value to preserve it
+    const currentValue = selectElement.value;
+
+    // Filter options using fuzzy match
+    const matchingOptions = allOptions.filter(option => {
+      const optionText = option.textContent || option.innerText || '';
+      const optionValue = option.value;
+      return this.fuzzyMatch(searchText, optionText) || this.fuzzyMatch(searchText, optionValue);
+    });
+
+    // Rebuild select options
+    selectElement.innerHTML = '<option value="">Select Tenant</option>';
+    selectElement.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
+
+    if (matchingOptions.length === 0) {
+      selectElement.innerHTML += '<option value="" disabled>No matching tenants found</option>';
+    } else {
+      // Group by type (tenant vs investor)
+      const tenantOptions = matchingOptions.filter(opt => opt.dataset.type === 'tenant');
+      const investorOptions = matchingOptions.filter(opt => opt.dataset.type === 'investor');
+
+      if (tenantOptions.length > 0) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = '── Tenants ──';
+        tenantOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+        selectElement.appendChild(optgroup);
+      }
+
+      if (investorOptions.length > 0) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = '── Investors ──';
+        investorOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+        selectElement.appendChild(optgroup);
+      }
+    }
+
+    // Restore previous selection if it still exists
+    if (currentValue && selectElement.querySelector(`option[value="${currentValue}"]`)) {
+      selectElement.value = currentValue;
+    }
+  }
+
+  // Restore all options to select element
+  restoreAllOptions(selectElement, allOptions) {
+    const currentValue = selectElement.value;
+
+    selectElement.innerHTML = '<option value="">Select Tenant</option>';
+    selectElement.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
+
+    // Group by type
+    const tenantOptions = allOptions.filter(opt => opt.dataset.type === 'tenant');
+    const investorOptions = allOptions.filter(opt => opt.dataset.type === 'investor');
+
+    if (tenantOptions.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = '── Tenants ──';
+      tenantOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+      selectElement.appendChild(optgroup);
+    }
+
+    if (investorOptions.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = '── Investors ──';
+      investorOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+      selectElement.appendChild(optgroup);
+    }
+
+    // Restore previous selection
+    if (currentValue && selectElement.querySelector(`option[value="${currentValue}"]`)) {
+      selectElement.value = currentValue;
+    }
   }
 
   populatePropertiesDropdown() {
@@ -408,7 +653,9 @@ class ContractManagementComponent {
         property.location ||
         property.name ||
         "Unknown Address";
-      const id = property.id || property._id || "";
+      const id = property.propertyId || property.id || property._id || "";
+
+      console.log(`🏢 Adding property: "${address}" with ID: "${id}"`, property);
 
       const option = `<option value="${address}" data-property-id="${id}">
                 ${address}
@@ -430,14 +677,17 @@ class ContractManagementComponent {
     console.log(`🏠 Address selected: ${address}`);
 
     const newPropertyFields = document.getElementById("newPropertyFields");
+    const addressSelect = document.getElementById("contractAddress");
 
     if (address === "ADD_NEW_PROPERTY") {
       // Show custom property fields
       if (newPropertyFields) {
         newPropertyFields.style.display = "block";
       }
-      // Clear address data temporarily
+      // Clear address data and property filter
       this.contractData.address = "";
+      this.selectedPropertyId = null;
+      console.log("🔍 No property filter (adding new property)");
     } else {
       // Hide custom property fields
       if (newPropertyFields) {
@@ -445,8 +695,22 @@ class ContractManagementComponent {
       }
       // Set selected address
       this.contractData.address = address;
+
+      // Extract property ID from selected option
+      if (addressSelect && address) {
+        const selectedOption = addressSelect.querySelector(`option[value="${address}"]`);
+        this.selectedPropertyId = selectedOption ? selectedOption.dataset.propertyId : null;
+        console.log(`🔍 Selected property ID: "${this.selectedPropertyId}"`);
+        console.log(`🔍 Selected option data:`, selectedOption ? {
+          value: selectedOption.value,
+          propertyId: selectedOption.dataset.propertyId,
+          text: selectedOption.textContent
+        } : 'not found');
+      }
     }
 
+    // Refresh tenant dropdowns with property filter
+    this.populateTenantsDropdown();
     this.updateContractPreview();
   }
 
