@@ -7,6 +7,7 @@ class PropertyManagementComponent {
     this.properties = [];
     this.currentWifiImages = [];
     this.propertyImage = ''; // Store property image URL
+    this.currentAcContactNumbers = []; // Store AC service contact numbers
     this.init();
   }
 
@@ -39,6 +40,14 @@ class PropertyManagementComponent {
       moveInDateInput.value = new Date().toISOString().split("T")[0];
     }
 
+    // AC Service Date change listener
+    const acServiceDateInput = document.getElementById("acServiceDate");
+    if (acServiceDateInput) {
+      acServiceDateInput.addEventListener("change", (e) => {
+        this.handleAcServiceDateChange(e.target.value);
+      });
+    }
+
     // Search functionality
     const searchInput = document.getElementById("propertySearchInput");
     if (searchInput) {
@@ -55,6 +64,15 @@ class PropertyManagementComponent {
 
       if (result.success) {
         this.properties = result.properties;
+        console.log('📦 Loaded properties:', this.properties.length);
+        // Debug: Log first property to check if images are present
+        if (this.properties.length > 0) {
+          console.log('🔍 First property sample:', {
+            id: this.properties[0].propertyId,
+            hasImage: !!this.properties[0].propertyImage,
+            imageUrl: this.properties[0].propertyImage
+          });
+        }
         this.renderPropertiesTable();
 
         // Update sidebar badges
@@ -309,6 +327,36 @@ class PropertyManagementComponent {
         document.getElementById("wifiAccountHolderName").value =
           property.wifiAccountHolderName || "";
 
+        // Handle AC Service fields
+        document.getElementById("acServiceName").value = property.acServiceName || "";
+
+        if (property.acServiceDate) {
+          const date = new Date(property.acServiceDate);
+          document.getElementById("acServiceDate").value = date
+            .toISOString()
+            .split("T")[0];
+          // Show the calendar button
+          const calendarBtn = document.getElementById("viewServiceCalendarBtn");
+          if (calendarBtn) {
+            calendarBtn.style.display = "block";
+          }
+        } else {
+          document.getElementById("acServiceDate").value = "";
+          const calendarBtn = document.getElementById("viewServiceCalendarBtn");
+          if (calendarBtn) {
+            calendarBtn.style.display = "none";
+          }
+        }
+
+        // Handle AC Service Contact Numbers
+        if (property.acServiceContactNumbers && property.acServiceContactNumbers.length > 0) {
+          this.currentAcContactNumbers = [...property.acServiceContactNumbers];
+          this.renderAcContactNumbersList();
+        } else {
+          this.currentAcContactNumbers = [];
+          this.renderAcContactNumbersList();
+        }
+
         // Handle WiFi images
         if (property.wifiImages && property.wifiImages.length > 0) {
           this.currentWifiImages = [...property.wifiImages];
@@ -320,9 +368,11 @@ class PropertyManagementComponent {
         // Handle property image
         if (property.propertyImage) {
           this.propertyImage = property.propertyImage;
+          console.log('✅ Loaded property image:', this.propertyImage);
           this.updatePropertyImagePreview();
         } else {
           this.propertyImage = '';
+          console.log('⚠️ No property image found');
           this.updatePropertyImagePreview();
         }
 
@@ -347,6 +397,10 @@ class PropertyManagementComponent {
         // Clear property image for add mode
         this.propertyImage = '';
         this.updatePropertyImagePreview();
+
+        // Clear AC service contact numbers for add mode
+        this.currentAcContactNumbers = [];
+        this.renderAcContactNumbersList();
 
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
@@ -430,6 +484,9 @@ class PropertyManagementComponent {
       const isEdit = form.getAttribute("data-mode") === "edit";
       const originalPropertyId = form.getAttribute("data-property-id");
 
+      // Get AC service date and handle empty strings
+      const acServiceDateValue = formData.get("acServiceDate")?.trim();
+
       const propertyData = {
         propertyId: formData.get("propertyId").trim().toUpperCase(),
         address: formData.get("address").trim(),
@@ -451,7 +508,18 @@ class PropertyManagementComponent {
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
         propertyImage: this.propertyImage || "",
+        acServiceName: formData.get("acServiceName")?.trim() || "",
+        acServiceDate: acServiceDateValue || null,
+        acServiceContactNumbers: this.currentAcContactNumbers || [],
       };
+
+      // Debug logging
+      console.log('🔍 Property data being saved:', {
+        propertyImage: propertyData.propertyImage,
+        acServiceDate: propertyData.acServiceDate,
+        acServiceName: propertyData.acServiceName,
+        acServiceContactNumbers: propertyData.acServiceContactNumbers
+      });
 
       // Validate required fields
       if (
@@ -1022,6 +1090,205 @@ class PropertyManagementComponent {
   // Public method to refresh the properties list
   refresh() {
     this.loadProperties();
+  }
+
+  // AC Service Calendar Methods
+  handleAcServiceDateChange(dateValue) {
+    const calendarBtn = document.getElementById("viewServiceCalendarBtn");
+    const calendarContainer = document.getElementById("acServiceCalendarContainer");
+
+    if (dateValue) {
+      // Show calendar button
+      if (calendarBtn) {
+        calendarBtn.style.display = "block";
+      }
+      // Auto-show calendar
+      this.currentAcServiceDate = dateValue;
+      this.showServiceCalendar();
+    } else {
+      // Hide calendar button and container
+      if (calendarBtn) {
+        calendarBtn.style.display = "none";
+      }
+      if (calendarContainer) {
+        calendarContainer.style.display = "none";
+      }
+    }
+  }
+
+  showServiceCalendar() {
+    const acServiceDate = document.getElementById("acServiceDate").value;
+
+    if (!acServiceDate) {
+      alert("Please select an AC service date first");
+      return;
+    }
+
+    const calendarContainer = document.getElementById("acServiceCalendarContainer");
+    if (!calendarContainer) return;
+
+    // Import YearCalendar if not already available
+    if (typeof YearCalendar === 'undefined') {
+      console.error('YearCalendar component not loaded');
+      return;
+    }
+
+    // Calculate service dates for the current year
+    const currentYear = new Date().getFullYear();
+    const serviceDates = this.calculateServiceDates(acServiceDate, currentYear);
+
+    // Create calendar instance
+    const calendar = new YearCalendar({
+      year: currentYear,
+      highlightedDates: serviceDates,
+      title: 'AC Service Schedule',
+      onDateClick: null
+    });
+
+    // Inject styles
+    YearCalendar.injectStyles();
+
+    // Render calendar
+    calendarContainer.innerHTML = calendar.render();
+    calendarContainer.style.display = "block";
+
+    // Initialize event listeners with custom year change handler
+    this.initCalendarEventListeners(calendarContainer, calendar, acServiceDate);
+  }
+
+  initCalendarEventListeners(containerElement, calendar, acServiceDate) {
+    // Year navigation
+    const prevBtn = containerElement.querySelector('.prev-year');
+    const nextBtn = containerElement.querySelector('.next-year');
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        calendar.changeYear(calendar.year - 1);
+        const newServiceDates = this.calculateServiceDates(acServiceDate, calendar.year);
+        calendar.updateHighlightedDates(newServiceDates);
+        containerElement.innerHTML = calendar.render();
+        this.initCalendarEventListeners(containerElement, calendar, acServiceDate);
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        calendar.changeYear(calendar.year + 1);
+        const newServiceDates = this.calculateServiceDates(acServiceDate, calendar.year);
+        calendar.updateHighlightedDates(newServiceDates);
+        containerElement.innerHTML = calendar.render();
+        this.initCalendarEventListeners(containerElement, calendar, acServiceDate);
+      });
+    }
+  }
+
+  calculateServiceDates(startDateStr, year) {
+    const startDate = new Date(startDateStr);
+    const dates = [];
+
+    // Helper function to get service dates for a year
+    const getServiceDatesForYear = (targetYear) => {
+      const yearDates = [];
+      let currentDate = new Date(startDate);
+
+      // If start date is after the target year, calculate backwards
+      if (startDate.getFullYear() > targetYear) {
+        while (currentDate.getFullYear() > targetYear) {
+          currentDate.setMonth(currentDate.getMonth() - 3);
+        }
+        // Move forward to get into the target year
+        while (currentDate.getFullYear() < targetYear) {
+          currentDate.setMonth(currentDate.getMonth() + 3);
+        }
+      }
+      // If start date is before the target year, calculate forwards
+      else if (startDate.getFullYear() < targetYear) {
+        while (currentDate.getFullYear() < targetYear) {
+          currentDate.setMonth(currentDate.getMonth() + 3);
+        }
+      }
+
+      // Collect all dates within the target year
+      while (currentDate.getFullYear() === targetYear) {
+        yearDates.push(new Date(currentDate));
+        currentDate.setMonth(currentDate.getMonth() + 3);
+      }
+
+      return yearDates;
+    };
+
+    return getServiceDatesForYear(year);
+  }
+
+  // AC Service Contact Numbers Methods
+  addAcContactNumber() {
+    const input = document.getElementById('acContactNumberInput');
+    const number = input.value.trim();
+
+    if (!number) {
+      alert('Please enter a phone number');
+      return;
+    }
+
+    // Basic phone number validation
+    if (number.length < 8 || number.length > 20) {
+      alert('Phone number must be between 8 and 20 characters');
+      return;
+    }
+
+    // Check for duplicates
+    if (this.currentAcContactNumbers.includes(number)) {
+      alert('This phone number is already added');
+      return;
+    }
+
+    // Add number to the list
+    this.currentAcContactNumbers.push(number);
+    this.renderAcContactNumbersList();
+
+    // Clear input
+    input.value = '';
+    input.focus();
+  }
+
+  removeAcContactNumber(index) {
+    if (confirm('Are you sure you want to remove this contact number?')) {
+      this.currentAcContactNumbers.splice(index, 1);
+      this.renderAcContactNumbersList();
+    }
+  }
+
+  renderAcContactNumbersList() {
+    const listContainer = document.getElementById('acContactNumbersList');
+    if (!listContainer) return;
+
+    if (!this.currentAcContactNumbers || this.currentAcContactNumbers.length === 0) {
+      listContainer.innerHTML = '<p class="text-muted small mb-0">No contact numbers added yet</p>';
+      return;
+    }
+
+    let html = '<div class="d-flex flex-column gap-2">';
+    this.currentAcContactNumbers.forEach((number, index) => {
+      html += `
+        <div class="d-flex align-items-center justify-content-between bg-white rounded p-2 border">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-telephone-fill text-primary"></i>
+            <span class="fw-medium">${this.escapeHtml(number)}</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger rounded-circle p-1"
+            onclick="propertyManager.removeAcContactNumber(${index})"
+            style="width: 24px; height: 24px; line-height: 1;"
+          >
+            <i class="bi bi-x" style="font-size: 14px;"></i>
+          </button>
+        </div>
+      `;
+    });
+    html += '</div>';
+
+    listContainer.innerHTML = html;
   }
 }
 

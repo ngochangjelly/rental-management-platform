@@ -1294,7 +1294,8 @@ class FinancialReportsComponent {
     return this.tenants
       .map((tenant) => {
         const isSelected = tenant.tenantId === selectedValue ? " selected" : "";
-        const displayName = tenant.name || "Unknown Tenant";
+        const baseName = tenant.name || "Unknown Tenant";
+        const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
         return `<option value="${tenant.tenantId}"${isSelected}>${escapeHtml(
           displayName
         )}</option>`;
@@ -1332,7 +1333,8 @@ class FinancialReportsComponent {
             tenant._id || tenant.tenantId || tenant.id || tenant.fin
           }`;
           const isSelected = tenantValue === selectedValue ? " selected" : "";
-          const displayName = tenant.name || "Unknown Tenant";
+          const baseName = tenant.name || "Unknown Tenant";
+          const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
 
           // Build additional info string
           const additionalInfo = [];

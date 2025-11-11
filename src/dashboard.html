@@ -1601,6 +1601,13 @@
                     >
                       <i class="bi bi-clipboard"></i> Copy All
                     </button>
+                    <button
+                      class="btn btn-outline-success btn-sm"
+                      onclick="tenantManager.copyRegisteredTenants()"
+                      title="Copy only registered tenant information to clipboard"
+                    >
+                      <i class="bi bi-clipboard-check"></i> Copy Registered
+                    </button>
                     <div class="input-group" style="width: 300px">
                       <input
                         type="text"
@@ -2935,6 +2942,97 @@
                 </div>
               </div>
 
+              <!-- AC Service Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-wind me-1"></i>Air Conditioning Service
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="acServiceName" class="form-label">
+                      Service Provider Name
+                    </label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="acServiceName"
+                      name="acServiceName"
+                      placeholder="e.g., Cool Air Services Pte Ltd"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="acServiceDate" class="form-label">
+                      First Service Date
+                      <i class="bi bi-info-circle text-muted"
+                         data-bs-toggle="tooltip"
+                         title="Service will repeat every 3 months from this date"></i>
+                    </label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="acServiceDate"
+                      name="acServiceDate"
+                    />
+                    <div class="form-text">
+                      Service repeats automatically every 3 months
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Contact Numbers Section -->
+                <div class="mb-3">
+                  <label class="form-label">
+                    Contact Numbers
+                    <i class="bi bi-info-circle text-muted"
+                       data-bs-toggle="tooltip"
+                       title="Add multiple contact numbers for the AC service provider"></i>
+                  </label>
+                  <div class="card bg-light border-0">
+                    <div class="card-body">
+                      <div id="acContactNumbersList" class="mb-2">
+                        <!-- Contact numbers will be displayed here -->
+                        <p class="text-muted small mb-0">No contact numbers added yet</p>
+                      </div>
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text">
+                          <i class="bi bi-telephone"></i>
+                        </span>
+                        <input
+                          type="tel"
+                          class="form-control"
+                          id="acContactNumberInput"
+                          placeholder="Enter phone number (e.g., +65 1234 5678)"
+                          onkeypress="if(event.key === 'Enter') { event.preventDefault(); propertyManager.addAcContactNumber(); }"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn-primary"
+                          onclick="propertyManager.addAcContactNumber()"
+                        >
+                          <i class="bi bi-plus-circle me-1"></i>Add Number
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- View Calendar Button -->
+                <div class="mb-3">
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    id="viewServiceCalendarBtn"
+                    style="display: none;"
+                    onclick="propertyManager.showServiceCalendar()"
+                  >
+                    <i class="bi bi-calendar3 me-1"></i>View Service Calendar
+                  </button>
+                </div>
+
+                <!-- Calendar Container -->
+                <div id="acServiceCalendarContainer" style="display: none; margin-top: 20px;"></div>
+              </div>
+
               <!-- Agent Information Section -->
               <div class="mb-4">
                 <h6 class="text-secondary mb-3">
@@ -3266,6 +3364,24 @@
                     <div class="form-text">2-100 characters</div>
                   </div>
                   <div class="col-md-6 mb-3">
+                    <label for="tenantNickname" class="form-label"
+                      >Nickname</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantNickname"
+                      name="nickname"
+                      maxlength="50"
+                      placeholder="Enter nickname (optional)"
+                    />
+                    <div class="form-text">
+                      Optional, max 50 characters
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
                     <label for="tenantFin" class="form-label"
                       >FIN/NRIC</label
                     >
@@ -3283,24 +3399,24 @@
                       characters)
                     </div>
                   </div>
-                </div>
-                <div class="mb-3">
-                  <label for="tenantPassport" class="form-label"
-                    >Passport Number <span class="text-danger">*</span></label
-                  >
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="tenantPassport"
-                    name="passportNumber"
-                    required
-                    minlength="6"
-                    maxlength="15"
-                    style="text-transform: uppercase"
-                    placeholder="Enter passport number"
-                  />
-                  <div class="form-text">
-                    6-15 characters (will be converted to uppercase)
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantPassport" class="form-label"
+                      >Passport Number <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantPassport"
+                      name="passportNumber"
+                      required
+                      minlength="6"
+                      maxlength="15"
+                      style="text-transform: uppercase"
+                      placeholder="Enter passport number"
+                    />
+                    <div class="form-text">
+                      6-15 characters (will be converted to uppercase)
+                    </div>
                   </div>
                 </div>
                 <div class="row">

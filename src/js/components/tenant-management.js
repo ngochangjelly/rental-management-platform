@@ -716,7 +716,7 @@ class TenantManagementComponent {
         const isEdit = !!tenant;
         document.getElementById('tenantModalTitle').textContent = isEdit ? 'Edit Tenant' : 'Add New Tenant';
         const submitBtn = document.getElementById('tenantSubmitBtn');
-        submitBtn.innerHTML = isEdit 
+        submitBtn.innerHTML = isEdit
             ? '<i class="bi bi-person-check me-1"></i><span id="tenantSubmitText">Update Tenant</span>'
             : '<i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">Add Tenant</span>';
 
@@ -724,8 +724,9 @@ class TenantManagementComponent {
         const form = document.getElementById('tenantForm');
         if (form) {
             form.reset();
-            
+
             // Store the tenant being edited (if any)
+            form.setAttribute('data-tenant-id', tenant?._id || '');
             form.setAttribute('data-tenant-passport', tenant?.passportNumber || '');
             form.setAttribute('data-mode', isEdit ? 'edit' : 'add');
             
@@ -733,6 +734,7 @@ class TenantManagementComponent {
                 // Store original tenant data for change detection
                 this.originalTenantData = {
                     name: tenant.name || '',
+                    nickname: tenant.nickname || '',
                     fin: tenant.fin || '',
                     passportNumber: tenant.passportNumber || '',
                     phoneNumber: tenant.phoneNumber || '',
@@ -747,9 +749,10 @@ class TenantManagementComponent {
                     deposit: tenant.deposit || null,
                     depositReceiver: tenant.depositReceiver || ''
                 };
-                
+
                 // Populate form with existing data
                 document.getElementById('tenantName').value = tenant.name || '';
+                document.getElementById('tenantNickname').value = tenant.nickname || '';
                 document.getElementById('tenantFin').value = tenant.fin || '';
                 document.getElementById('tenantPassport').value = tenant.passportNumber || '';
                 document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
@@ -1229,10 +1232,12 @@ class TenantManagementComponent {
             const form = event.target;
             const formData = new FormData(form);
             const isEdit = form.getAttribute('data-mode') === 'edit';
+            const tenantId = form.getAttribute('data-tenant-id');
             const originalPassport = form.getAttribute('data-tenant-passport');
 
             const tenantData = {
                 name: formData.get('name').trim(),
+                nickname: formData.get('nickname')?.trim() || null,
                 fin: formData.get('fin').trim().toUpperCase() || null,
                 passportNumber: formData.get('passportNumber').trim().toUpperCase(),
                 phoneNumber: formData.get('phoneNumber').trim() || null,
@@ -1303,7 +1308,7 @@ class TenantManagementComponent {
 
             // Add or update the tenant
             if (isEdit) {
-                await this.updateTenant(originalPassport, tenantData);
+                await this.updateTenant(tenantId, tenantData);
             } else {
                 await this.addTenant(tenantData);
             }
@@ -1404,15 +1409,14 @@ class TenantManagementComponent {
         this.showTenantModal(tenant);
     }
 
-    async updateTenant(originalPassport, tenantData) {
+    async updateTenant(tenantId, tenantData) {
         try {
-            // Find the tenant to get the ID
-            const tenant = this.tenants.find(t => t.passportNumber === originalPassport);
-            if (!tenant || !tenant._id) {
+            // Validate tenant ID exists
+            if (!tenantId) {
                 throw new Error('Tenant ID not found');
             }
 
-            const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id), tenantData);
+            const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenantId), tenantData);
             const result = await response.json();
 
             if (result.success) {
@@ -2434,12 +2438,33 @@ class TenantManagementComponent {
         }, 3000);
     }
 
+    // Helper function to get move-in date for a tenant's specific property
+    getTenantMoveInDate(tenant, propertyId) {
+        if (!tenant.properties || !Array.isArray(tenant.properties)) {
+            return null;
+        }
+
+        const property = tenant.properties.find(prop =>
+            (typeof prop === 'object' && prop.propertyId === propertyId)
+        );
+
+        if (property && property.moveinDate) {
+            const date = new Date(property.moveinDate);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        return null;
+    }
+
     copyTenantList(propertyId) {
         try {
             // Find tenants for this property
             const groupedTenants = this.groupTenantsByProperty(this.tenants);
             const tenantsInProperty = groupedTenants[propertyId];
-            
+
             if (!tenantsInProperty || tenantsInProperty.length === 0) {
                 alert('No tenants found for this property');
                 return;
@@ -2447,7 +2472,7 @@ class TenantManagementComponent {
 
             // Get property info for display
             const propertyInfo = this.getPropertyInfo(propertyId);
-            const propertyDisplay = propertyInfo 
+            const propertyDisplay = propertyInfo
                 ? `${propertyInfo.address}, ${propertyInfo.unit}`
                 : propertyId;
 
@@ -2519,11 +2544,15 @@ class TenantManagementComponent {
                 const isMainTenant = this.hasMainTenantProperty(tenant);
                 const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
                 const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+                const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
 
                 copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
                 copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
                 copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
                 copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
+                if (moveinDate) {
+                    copyText += `   Move-in Date: ${moveinDate}\n`;
+                }
                 copyText += `\n`;
             });
 
@@ -2540,6 +2569,87 @@ class TenantManagementComponent {
         } catch (error) {
             console.error('Error copying tenant list:', error);
             alert('Error copying tenant list. Please try again.');
+        }
+    }
+
+    copyRegisteredTenants() {
+        try {
+            // Check if a property is selected
+            if (!this.selectedProperty) {
+                alert('Please select a property first');
+                return;
+            }
+
+            // Check if there are tenants to copy
+            if (!this.tenants || this.tenants.length === 0) {
+                const message = this.selectedProperty === 'UNASSIGNED'
+                    ? 'No unassigned tenants to copy'
+                    : 'No tenants found for this property';
+                alert(message);
+                return;
+            }
+
+            // Filter for only registered tenants
+            const registeredTenants = this.tenants.filter(tenant => {
+                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+                return registrationStatus === 'registered';
+            });
+
+            // Check if there are any registered tenants
+            if (registeredTenants.length === 0) {
+                const message = this.selectedProperty === 'UNASSIGNED'
+                    ? 'No registered unassigned tenants to copy'
+                    : 'No registered tenants found for this property';
+                alert(message);
+                return;
+            }
+
+            // Get property info for display
+            let propertyDisplay = '';
+            if (this.selectedProperty === 'UNASSIGNED') {
+                propertyDisplay = 'Unassigned Tenants';
+            } else {
+                const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+                propertyDisplay = propertyInfo
+                    ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+                    : this.selectedProperty;
+            }
+
+            // Format tenant list with all requested fields
+            let copyText = `Property: ${propertyDisplay}\n`;
+            copyText += `Registered Tenants Only: ${registeredTenants.length}\n`;
+            copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+            copyText += `${'='.repeat(80)}\n\n`;
+
+            registeredTenants.forEach((tenant, index) => {
+                const ordinalNumber = index + 1;
+                const isMainTenant = this.hasMainTenantProperty(tenant);
+                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
+                const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
+
+                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+                copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
+                copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
+                copyText += `   Registration Status: REGISTERED\n`;
+                if (moveinDate) {
+                    copyText += `   Move-in Date: ${moveinDate}\n`;
+                }
+                copyText += `\n`;
+            });
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(copyText).then(() => {
+                // Show success message
+                this.showCopySuccessMessage(registeredTenants.length);
+            }).catch(err => {
+                console.error('Failed to copy to clipboard:', err);
+                // Fallback: show the text in an alert
+                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
+            });
+
+        } catch (error) {
+            console.error('Error copying registered tenant list:', error);
+            alert('Error copying registered tenant list. Please try again.');
         }
     }
 

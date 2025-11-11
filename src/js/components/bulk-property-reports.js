@@ -623,12 +623,21 @@ class BulkPropertyReportsComponent {
       settlementHtml = `
         <div class="card h-100 border-success">
           <div class="card-header bg-success text-white">
-            <h5 class="mb-0">
-              <i class="bi bi-arrow-left-right me-2"></i>
-              Settlement Instructions - How to Transfer Money
-            </h5>
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="bi bi-arrow-left-right me-2"></i>
+                Settlement Instructions - How to Transfer Money
+              </h5>
+              <button
+                id="copySettlementBtn"
+                class="btn btn-sm btn-light"
+                title="Copy settlement instructions to clipboard"
+                style="border: none;">
+                <i class="bi bi-clipboard"></i> Copy
+              </button>
+            </div>
           </div>
-          <div class="card-body">
+          <div class="card-body" id="settlementInstructionsContent">
             <div class="alert alert-info mb-3">
               <i class="bi bi-lightbulb me-2"></i>
               <strong>How to settle:</strong> Follow these ${
@@ -1015,6 +1024,155 @@ class BulkPropertyReportsComponent {
           .join("")}
       </div>
     `;
+
+    // Bind copy button event listener after rendering
+    this.bindCopySettlementButton();
+  }
+
+  bindCopySettlementButton() {
+    const copyBtn = document.getElementById("copySettlementBtn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        this.copySettlementInstructions();
+      });
+    }
+  }
+
+  copySettlementInstructions() {
+    const contentElement = document.getElementById("settlementInstructionsContent");
+    if (!contentElement) {
+      console.error("Settlement instructions content not found");
+      return;
+    }
+
+    // Build simple formatted text
+    let textToCopy = "SETTLEMENT INSTRUCTIONS\n";
+    textToCopy += "=".repeat(80) + "\n\n";
+
+    // Get all settlement items
+    const settlementItems = contentElement.querySelectorAll(".list-group-item");
+
+    if (settlementItems.length === 0) {
+      textToCopy += "No settlements needed.\n";
+    } else {
+      settlementItems.forEach((item, index) => {
+        const fromElement = item.querySelector(".text-danger");
+        const toElement = item.querySelector(".text-success");
+        const amountElement = item.querySelector(".badge.bg-warning");
+
+        const fromName = fromElement ? fromElement.textContent.trim() : "";
+        const toName = toElement ? toElement.textContent.trim() : "";
+        const amount = amountElement ? amountElement.textContent.trim() : "";
+
+        // Main transaction
+        textToCopy += `${index + 1}. ${fromName} → ${toName}  |  ${amount}\n`;
+
+        // Check for property breakdown
+        const breakdownContainer = item.querySelector(".border-start.border-3.border-info");
+        if (breakdownContainer) {
+          const propertyRows = breakdownContainer.querySelectorAll(".d-flex.justify-content-between.align-items-center.py-1");
+
+          if (propertyRows.length > 0) {
+            // Collect properties for alignment
+            const properties = [];
+            propertyRows.forEach((row) => {
+              const propertyText = row.querySelector(".text-muted");
+              const propertyAmount = row.querySelector(".badge");
+
+              if (propertyText && propertyAmount) {
+                // Extract just the property name/address, clean it up
+                let propName = propertyText.textContent
+                  .trim()
+                  .replace(/\s+/g, ' ')
+                  .replace(/[\u{1F3E0}\u{1F3E2}\u{1F3E6}]/gu, '')
+                  .trim();
+
+                const propAmount = propertyAmount.textContent.trim();
+                properties.push({ name: propName, amount: propAmount });
+              }
+            });
+
+            // Find max property name length for this transaction
+            const maxPropLength = Math.max(...properties.map(p => p.name.length), 40);
+
+            // Output properties aligned
+            properties.forEach((prop) => {
+              const paddedName = prop.name.padEnd(maxPropLength, ' ');
+              textToCopy += `     ${paddedName}  |  ${prop.amount}\n`;
+            });
+          }
+        }
+
+        textToCopy += "\n";
+      });
+
+      // Summary
+      const summarySection = contentElement.querySelector(".bg-light.rounded");
+      if (summarySection) {
+        textToCopy += "=".repeat(80) + "\n";
+        const summaryText = summarySection.innerText || summarySection.textContent;
+        const lines = summaryText.split('\n')
+          .map(line => line.trim())
+          .filter(line => line && !line.includes('Summary'));
+
+        lines.forEach(line => {
+          if (line) textToCopy += line + "\n";
+        });
+      }
+    }
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(textToCopy)
+      .then(() => {
+        // Show success feedback
+        this.showCopySuccess();
+      })
+      .catch((err) => {
+        console.error("Failed to copy:", err);
+        this.showCopyError();
+      });
+  }
+
+  showCopySuccess() {
+    const copyBtn = document.getElementById("copySettlementBtn");
+    if (!copyBtn) return;
+
+    // Save original content
+    const originalHTML = copyBtn.innerHTML;
+
+    // Show success state
+    copyBtn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+    copyBtn.classList.add("btn-success");
+    copyBtn.classList.remove("btn-light");
+    copyBtn.disabled = true;
+
+    // Reset after 2 seconds
+    setTimeout(() => {
+      copyBtn.innerHTML = originalHTML;
+      copyBtn.classList.remove("btn-success");
+      copyBtn.classList.add("btn-light");
+      copyBtn.disabled = false;
+    }, 2000);
+  }
+
+  showCopyError() {
+    const copyBtn = document.getElementById("copySettlementBtn");
+    if (!copyBtn) return;
+
+    // Save original content
+    const originalHTML = copyBtn.innerHTML;
+
+    // Show error state
+    copyBtn.innerHTML = '<i class="bi bi-x-lg"></i> Failed';
+    copyBtn.classList.add("btn-danger");
+    copyBtn.classList.remove("btn-light");
+
+    // Reset after 2 seconds
+    setTimeout(() => {
+      copyBtn.innerHTML = originalHTML;
+      copyBtn.classList.remove("btn-danger");
+      copyBtn.classList.add("btn-light");
+    }, 2000);
   }
 
   calculatePropertySettlements(investors) {

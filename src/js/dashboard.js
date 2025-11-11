@@ -5,6 +5,7 @@ import './lib/jspdf-loader.js'; // Load jsPDF for PDF export
 import './services/storage-service.js'; // Storage service for contract templates
 import './components/toast/toast.js';
 import './components/contract-analysis.js';
+import './components/year-calendar.js'; // Reusable year calendar component
 import './components/property-management.js';
 import './components/tenant-management.js';
 import './components/contract-management.js';
