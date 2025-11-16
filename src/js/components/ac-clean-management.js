@@ -266,19 +266,111 @@ class AcCleanManagementComponent {
       checkbox.addEventListener('change', async (e) => {
         const propertyId = e.target.dataset.propertyId;
         const isCompleted = e.target.checked;
-        await this.updateServiceStatus(propertyId, isCompleted);
+
+        if (isCompleted) {
+          // Show date picker modal when marking as complete
+          e.target.checked = false; // Uncheck temporarily
+          this.showCompletionDateModal(propertyId);
+        } else {
+          // Directly mark as pending (no date needed)
+          await this.updateServiceStatus(propertyId, false, null);
+        }
       });
     });
   }
 
-  async updateServiceStatus(propertyId, isCompleted) {
+  showCompletionDateModal(propertyId) {
+    const today = new Date().toISOString().split('T')[0];
+
+    const modalHtml = `
+      <div class="modal fade" id="acCompletionDateModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                <i class="bi bi-calendar-check me-2"></i>AC Service Completion
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <p>Select the date when the AC service was completed for <strong>${this.escapeHtml(propertyId)}</strong>:</p>
+              <div class="mb-3">
+                <label for="completionDate" class="form-label">Completion Date *</label>
+                <input
+                  type="date"
+                  class="form-control"
+                  id="completionDate"
+                  value="${today}"
+                  max="${today}"
+                  required
+                />
+                <div class="form-text">
+                  Select the date when the service was completed
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-success" id="confirmCompletionBtn">
+                <i class="bi bi-check-circle me-1"></i>Mark as Completed
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById("acCompletionDateModal");
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById("acCompletionDateModal"));
+    modal.show();
+
+    // Handle confirmation
+    const confirmBtn = document.getElementById("confirmCompletionBtn");
+    if (confirmBtn) {
+      confirmBtn.addEventListener("click", async () => {
+        const completionDateInput = document.getElementById("completionDate");
+        const completionDate = completionDateInput.value;
+
+        if (!completionDate) {
+          showToast("Please select a completion date", "error");
+          return;
+        }
+
+        // Close modal
+        modal.hide();
+
+        // Update service status with selected date
+        await this.updateServiceStatus(propertyId, true, completionDate);
+      });
+    }
+  }
+
+  async updateServiceStatus(propertyId, isCompleted, completedDate = null) {
     try {
-      const response = await API.post(API_CONFIG.ENDPOINTS.AC_SERVICE_STATUS, {
+      const requestData = {
         propertyId,
         year: this.currentYear,
         month: this.currentMonth,
         isCompleted
-      });
+      };
+
+      // Add completion date if provided
+      if (completedDate) {
+        requestData.completedDate = completedDate;
+      }
+
+      const response = await API.post(API_CONFIG.ENDPOINTS.AC_SERVICE_STATUS, requestData);
 
       const result = await response.json();
 
