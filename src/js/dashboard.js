@@ -12,6 +12,8 @@ import './components/contract-management.js';
 import './components/financial-reports.js';
 import './components/bulk-property-reports.js';
 import './components/investor-management.js';
+import './components/ac-clean-management.js'; // AC Clean Management component
+import './components/ac-service-company.js'; // AC Service Company component
 import './dashboard-controller.js';
 
 // Suppress MetaMask-related errors that don't affect our application

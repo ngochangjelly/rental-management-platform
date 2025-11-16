@@ -14,6 +14,42 @@ class PropertyManagementComponent {
   init() {
     this.setupEventListeners();
     this.loadProperties();
+    this.loadAcServiceCompanies();
+  }
+
+  async loadAcServiceCompanies() {
+    try {
+      const response = await API.get(API_CONFIG.ENDPOINTS.AC_SERVICE_COMPANIES_ACTIVE);
+      const result = await response.json();
+
+      if (result.success) {
+        this.acServiceCompanies = result.companies;
+        console.log(`📋 Loaded ${this.acServiceCompanies.length} AC service companies`);
+        this.populateAcServiceCompanyDropdown();
+      } else {
+        console.error("Failed to load AC service companies:", result.error);
+        this.acServiceCompanies = [];
+      }
+    } catch (error) {
+      console.error("Error loading AC service companies:", error);
+      this.acServiceCompanies = [];
+    }
+  }
+
+  populateAcServiceCompanyDropdown() {
+    const dropdown = document.getElementById("acServiceCompanyId");
+    if (!dropdown) return;
+
+    // Clear existing options except the first one
+    dropdown.innerHTML = '<option value="">-- Select AC Service Company --</option>';
+
+    // Add companies as options
+    this.acServiceCompanies.forEach(company => {
+      const option = document.createElement('option');
+      option.value = company.companyId;
+      option.textContent = `${company.name} (${company.phone})`;
+      dropdown.appendChild(option);
+    });
   }
 
   setupEventListeners() {
@@ -328,7 +364,12 @@ class PropertyManagementComponent {
           property.wifiAccountHolderName || "";
 
         // Handle AC Service fields
-        document.getElementById("acServiceName").value = property.acServiceName || "";
+        if (property.acServiceCompanyId) {
+          const dropdown = document.getElementById("acServiceCompanyId");
+          if (dropdown) {
+            dropdown.value = property.acServiceCompanyId;
+          }
+        }
 
         if (property.acServiceDate) {
           const date = new Date(property.acServiceDate);
@@ -346,15 +387,6 @@ class PropertyManagementComponent {
           if (calendarBtn) {
             calendarBtn.style.display = "none";
           }
-        }
-
-        // Handle AC Service Contact Numbers
-        if (property.acServiceContactNumbers && property.acServiceContactNumbers.length > 0) {
-          this.currentAcContactNumbers = [...property.acServiceContactNumbers];
-          this.renderAcContactNumbersList();
-        } else {
-          this.currentAcContactNumbers = [];
-          this.renderAcContactNumbersList();
         }
 
         // Handle WiFi images
@@ -508,9 +540,8 @@ class PropertyManagementComponent {
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
         propertyImage: this.propertyImage || "",
-        acServiceName: formData.get("acServiceName")?.trim() || "",
+        acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
-        acServiceContactNumbers: this.currentAcContactNumbers || [],
       };
 
       // Debug logging

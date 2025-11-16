@@ -54,6 +54,17 @@ const API_CONFIG = {
     FINANCIAL_REPORT_CLOSE: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/close`,
     FINANCIAL_REPORT_REOPEN: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/reopen`,
 
+    // AC Service Management
+    AC_SERVICE_CALENDAR: "/api/ac-service/calendar",
+    AC_SERVICE_PROPERTIES: "/api/ac-service/properties",
+    AC_SERVICE_STATUS: "/api/ac-service/status",
+    AC_SERVICE_PROPERTY_HISTORY: (propertyId) => `/api/ac-service/property/${propertyId}`,
+
+    // AC Service Companies
+    AC_SERVICE_COMPANIES: "/api/ac-service-companies",
+    AC_SERVICE_COMPANY_BY_ID: (companyId) => `/api/ac-service-companies/${companyId}`,
+    AC_SERVICE_COMPANIES_ACTIVE: "/api/ac-service-companies?activeOnly=true",
+
     // Health Check
     HEALTH: "/health",
   },
