@@ -239,6 +239,14 @@ class AcCleanManagementComponent {
                   Completed on ${new Date(service.completedAt).toLocaleDateString()}
                   ${service.completedBy ? ` by ${this.escapeHtml(service.completedBy)}` : ''}
                 </small>
+                ${service.completionImage ? `
+                  <div class="mt-2">
+                    <a href="${this.escapeHtml(service.completionImage)}" target="_blank" rel="noopener noreferrer">
+                      <img src="${this.escapeHtml(service.completionImage)}" alt="Completion Evidence"
+                           style="max-width: 100%; max-height: 150px; border-radius: 4px; cursor: pointer; object-fit: cover;" />
+                    </a>
+                  </div>
+                ` : ''}
               </div>
             ` : ''}
 
@@ -281,6 +289,7 @@ class AcCleanManagementComponent {
 
   showCompletionDateModal(propertyId) {
     const today = new Date().toISOString().split('T')[0];
+    this.completionImageUrl = ''; // Reset completion image
 
     const modalHtml = `
       <div class="modal fade" id="acCompletionDateModal" tabindex="-1">
@@ -293,7 +302,8 @@ class AcCleanManagementComponent {
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-              <p>Select the date when the AC service was completed for <strong>${this.escapeHtml(propertyId)}</strong>:</p>
+              <p>Complete AC service for <strong>${this.escapeHtml(propertyId)}</strong>:</p>
+
               <div class="mb-3">
                 <label for="completionDate" class="form-label">Completion Date *</label>
                 <input
@@ -306,6 +316,49 @@ class AcCleanManagementComponent {
                 />
                 <div class="form-text">
                   Select the date when the service was completed
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">
+                  Completion Evidence (Optional)
+                  <i class="bi bi-info-circle text-muted"
+                     data-bs-toggle="tooltip"
+                     title="Upload or paste a photo showing the completed AC service"></i>
+                </label>
+
+                <!-- Image URL Input with Paste Support -->
+                <div class="input-group mb-2">
+                  <span class="input-group-text"><i class="bi bi-image"></i></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="completionImageUrl"
+                    placeholder="Paste image URL or Ctrl+V to paste from clipboard"
+                    style="border-left: 3px solid #0d6efd;"
+                  />
+                </div>
+
+                <!-- Upload Button -->
+                <div class="mb-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.acCleanManagementComponent.openCompletionImageUpload()">
+                    <i class="bi bi-upload me-1"></i>Upload from File
+                  </button>
+                  <input type="file" id="completionImageFileInput" accept="image/*" style="display: none;" />
+                </div>
+
+                <!-- Image Preview -->
+                <div id="completionImagePreview" style="display: none;">
+                  <div class="card mt-2">
+                    <div class="card-body p-2">
+                      <div class="d-flex align-items-center">
+                        <img id="completionImagePreviewImg" src="" alt="Preview" style="max-height: 80px; max-width: 120px; object-fit: cover;" class="me-2" />
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="window.acCleanManagementComponent.removeCompletionImage()">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -335,6 +388,30 @@ class AcCleanManagementComponent {
     const modal = new bootstrap.Modal(document.getElementById("acCompletionDateModal"));
     modal.show();
 
+    // Setup clipboard paste for image URL field
+    const imageUrlField = document.getElementById("completionImageUrl");
+    if (imageUrlField) {
+      imageUrlField.addEventListener('paste', async (e) => {
+        e.preventDefault();
+        await this.handleCompletionImagePaste(e);
+      });
+
+      // Monitor URL input changes for preview
+      imageUrlField.addEventListener('change', () => {
+        this.updateCompletionImagePreview(imageUrlField.value);
+      });
+    }
+
+    // Setup file input listener
+    const fileInput = document.getElementById("completionImageFileInput");
+    if (fileInput) {
+      fileInput.addEventListener('change', async (e) => {
+        if (e.target.files.length > 0) {
+          await this.uploadCompletionImage(e.target.files[0]);
+        }
+      });
+    }
+
     // Handle confirmation
     const confirmBtn = document.getElementById("confirmCompletionBtn");
     if (confirmBtn) {
@@ -347,16 +424,141 @@ class AcCleanManagementComponent {
           return;
         }
 
+        // Get completion image if available
+        const imageUrl = document.getElementById("completionImageUrl").value.trim();
+
         // Close modal
         modal.hide();
 
-        // Update service status with selected date
-        await this.updateServiceStatus(propertyId, true, completionDate);
+        // Update service status with selected date and image
+        await this.updateServiceStatus(propertyId, true, completionDate, imageUrl);
       });
     }
   }
 
-  async updateServiceStatus(propertyId, isCompleted, completedDate = null) {
+  // Open file picker for completion image
+  openCompletionImageUpload() {
+    const fileInput = document.getElementById("completionImageFileInput");
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  // Handle clipboard paste for completion image
+  async handleCompletionImagePaste(event) {
+    try {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      let imageFound = false;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        if (item.type.indexOf('image') !== -1) {
+          imageFound = true;
+          const file = item.getAsFile();
+
+          if (file) {
+            console.log('📋 Image pasted from clipboard:', file.name, file.type);
+            await this.uploadCompletionImage(file);
+            break;
+          }
+        }
+      }
+
+      if (!imageFound) {
+        // Check for image URL in text
+        const text = event.clipboardData?.getData('text');
+        if (text && this.isImageUrl(text)) {
+          document.getElementById("completionImageUrl").value = text;
+          this.updateCompletionImagePreview(text);
+        } else {
+          showToast('No image found in clipboard', 'warning');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling clipboard paste:', error);
+      showToast('Error pasting from clipboard', 'error');
+    }
+  }
+
+  // Upload completion image
+  async uploadCompletionImage(file) {
+    const imageUrlField = document.getElementById("completionImageUrl");
+    const originalPlaceholder = imageUrlField.placeholder;
+
+    try {
+      imageUrlField.placeholder = 'Uploading image...';
+      imageUrlField.disabled = true;
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const uploadUrl = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT);
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          if (imageUrl.startsWith('/')) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            imageUrl = 'https://' + imageUrl;
+          }
+        }
+
+        imageUrlField.value = imageUrl;
+        this.updateCompletionImagePreview(imageUrl);
+        showToast('Image uploaded successfully!', 'success');
+      } else {
+        showToast('Failed to upload image: ' + result.error, 'error');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showToast('Error uploading image', 'error');
+    } finally {
+      imageUrlField.placeholder = originalPlaceholder;
+      imageUrlField.disabled = false;
+    }
+  }
+
+  // Update image preview
+  updateCompletionImagePreview(imageUrl) {
+    const preview = document.getElementById("completionImagePreview");
+    const previewImg = document.getElementById("completionImagePreviewImg");
+
+    if (imageUrl && this.isImageUrl(imageUrl)) {
+      previewImg.src = imageUrl;
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+    }
+  }
+
+  // Remove completion image
+  removeCompletionImage() {
+    document.getElementById("completionImageUrl").value = '';
+    document.getElementById("completionImagePreview").style.display = 'none';
+  }
+
+  // Check if string is an image URL
+  isImageUrl(url) {
+    if (!url) return false;
+    return /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url) ||
+           url.includes('cloudinary.com') ||
+           url.includes('res.cloudinary.com');
+  }
+
+  async updateServiceStatus(propertyId, isCompleted, completedDate = null, completionImage = null) {
     try {
       const requestData = {
         propertyId,
@@ -368,6 +570,11 @@ class AcCleanManagementComponent {
       // Add completion date if provided
       if (completedDate) {
         requestData.completedDate = completedDate;
+      }
+
+      // Add completion image if provided
+      if (completionImage) {
+        requestData.completionImage = completionImage;
       }
 
       const response = await API.post(API_CONFIG.ENDPOINTS.AC_SERVICE_STATUS, requestData);
