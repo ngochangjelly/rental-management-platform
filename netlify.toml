@@ -53,6 +53,18 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/bill-upload"
+  to = "/bill-upload.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/bill-upload/"
+  to = "/bill-upload.html"
+  status = 200
+  force = true
+
 # SPA fallback - serve index.html for all non-existing routes
 [[redirects]]
   from = "/*"

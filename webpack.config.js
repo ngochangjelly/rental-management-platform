@@ -69,7 +69,7 @@ module.exports = {
           from: 'public',
           to: '',
           globOptions: {
-            ignore: ['**/*.html', '**/js/**']
+            ignore: ['**/index.html', '**/login.html', '**/investor-management.html', '**/dashboard.html', '**/404.html', '**/js/**']
           }
         }
       ]
@@ -79,6 +79,7 @@ module.exports = {
     static: {
       directory: path.join(__dirname, 'dist'),
     },
+    host: '0.0.0.0', // Allow access from network
     port: 3000,
     open: true,
     historyApiFallback: {
@@ -86,7 +87,8 @@ module.exports = {
         { from: /^\/$/, to: '/index.html' },
         { from: /^\/dashboard/, to: '/dashboard.html' },
         { from: /^\/login/, to: '/login.html' },
-        { from: /^\/investor-management/, to: '/investor-management.html' }
+        { from: /^\/investor-management/, to: '/investor-management.html' },
+        { from: /^\/bill-upload/, to: '/bill-upload.html' }
       ]
     },
     proxy: [

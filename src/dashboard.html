@@ -1236,6 +1236,11 @@
               </a>
             </li>
             <li class="nav-item">
+              <a class="nav-link" href="#" data-section="bills">
+                <i class="bi bi-receipt me-2"></i>Bill Management
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link" href="#" data-section="bulk-reports">
                 <i class="bi bi-bar-chart-fill me-2"></i>Bulk Property Reports
               </a>
@@ -1676,6 +1681,13 @@
                       title="Copy only registered tenant information to clipboard"
                     >
                       <i class="bi bi-clipboard-check"></i> Copy Registered
+                    </button>
+                    <button
+                      class="btn btn-outline-warning btn-sm"
+                      onclick="tenantManager.copyOutdatedTenants()"
+                      title="Copy only outdated tenant information to clipboard"
+                    >
+                      <i class="bi bi-clipboard-x"></i> Copy Outdated
                     </button>
                     <div class="input-group" style="width: 300px">
                       <input
@@ -2353,6 +2365,76 @@
                   </div>
                 </div>
                 <!-- End exportableFinancialReport -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Bill Management Section -->
+          <div id="bills-section" class="content-section">
+            <div class="p-4">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Bill Management</h2>
+                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
+              </div>
+
+              <!-- Property Selection -->
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h5 class="mb-0">
+                    <i class="bi bi-building me-2"></i>Select Property
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <div id="billPropertyCards" class="row">
+                    <div class="col-12 text-center text-muted">
+                      <i class="bi bi-building me-2"></i>
+                      Select a property to manage bills...
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bill Management Content -->
+              <div id="billManagementContent">
+                <!-- Month Navigation -->
+                <div class="card mb-4">
+                  <div class="card-body">
+                    <div class="row align-items-center">
+                      <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                          <button id="billPrevMonth" class="btn btn-outline-primary btn-sm me-2">
+                            <i class="bi bi-chevron-left"></i>
+                          </button>
+                          <h4 id="currentMonthYear" class="mb-0 mx-3">January 2024</h4>
+                          <button id="billNextMonth" class="btn btn-outline-primary btn-sm ms-2">
+                            <i class="bi bi-chevron-right"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="col-md-6 text-end">
+                        <button id="generateBillBtn" class="btn btn-primary me-2">
+                          <i class="bi bi-plus-circle me-1"></i>Generate Bill
+                        </button>
+                        <button id="updateFeesBtn" class="btn btn-outline-primary me-2">
+                          <i class="bi bi-pencil me-1"></i>Update Fees
+                        </button>
+                        <button id="bulkDeleteUploadsBtn" class="btn btn-outline-warning" disabled>
+                          <i class="bi bi-arrow-counterclockwise me-1"></i>Bulk Reset
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bill Table -->
+                <div id="billTableContainer">
+                  <div class="text-center text-muted py-5">
+                    <i class="bi bi-info-circle fs-1 d-block mb-3"></i>
+                    <p>Please select a property to view bills</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

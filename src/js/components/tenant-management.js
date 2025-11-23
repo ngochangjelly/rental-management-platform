@@ -419,6 +419,7 @@ class TenantManagementComponent {
         this.tenants.forEach(tenant => {
             const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
             const isMainTenant = this.hasMainTenantProperty(tenant);
+            const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
 
             // Find room info for this tenant in the selected property
             let roomInfo = 'No property';
@@ -432,7 +433,7 @@ class TenantManagementComponent {
 
             html += `
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 tenant-detail-card shadow-sm">
+                    <div class="card h-100 tenant-detail-card shadow-sm ${isOutdated ? 'tenant-outdated' : ''}">
                         <div class="card-body">
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="flex-shrink-0">
@@ -491,6 +492,13 @@ class TenantManagementComponent {
                 .tenant-detail-card:hover {
                     transform: translateY(-4px);
                     box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+                }
+                .tenant-outdated {
+                    opacity: 0.5;
+                    background-color: #f8f9fa;
+                }
+                .tenant-outdated:hover {
+                    opacity: 0.7;
                 }
             `;
             document.head.appendChild(style);
@@ -2106,6 +2114,40 @@ class TenantManagementComponent {
         });
     }
 
+    // Helper method to check if tenant is outdated (moveout date has passed)
+    isTenantOutdated(tenant, propertyId) {
+        if (!tenant.properties || !Array.isArray(tenant.properties)) {
+            return false;
+        }
+
+        // If checking for a specific property
+        if (propertyId && propertyId !== 'UNASSIGNED') {
+            const property = tenant.properties.find(prop => {
+                const propId = typeof prop === 'object' ? prop.propertyId : prop;
+                return propId === propertyId;
+            });
+
+            if (property && typeof property === 'object' && property.moveoutDate) {
+                const moveoutDate = new Date(property.moveoutDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Reset time to start of day
+                return moveoutDate < today;
+            }
+            return false;
+        }
+
+        // For unassigned or general check, check if ANY property has passed moveout date
+        return tenant.properties.some(prop => {
+            if (typeof prop === 'object' && prop.moveoutDate) {
+                const moveoutDate = new Date(prop.moveoutDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return moveoutDate < today;
+            }
+            return false;
+        });
+    }
+
     // Helper method to render property details for each tenant
     renderPropertyDetails(tenant) {
         if (!tenant.properties || tenant.properties.length === 0) {
@@ -2522,6 +2564,16 @@ class TenantManagementComponent {
                 return;
             }
 
+            // Filter out outdated tenants
+            const activeTenants = this.tenants.filter(tenant =>
+                !this.isTenantOutdated(tenant, this.selectedProperty)
+            );
+
+            if (activeTenants.length === 0) {
+                alert('No active tenants to copy (all tenants are outdated)');
+                return;
+            }
+
             // Get property info for display
             let propertyDisplay = '';
             if (this.selectedProperty === 'UNASSIGNED') {
@@ -2535,11 +2587,11 @@ class TenantManagementComponent {
 
             // Format tenant list with all requested fields
             let copyText = `Property: ${propertyDisplay}\n`;
-            copyText += `Total Tenants: ${this.tenants.length}\n`;
+            copyText += `Total Active Tenants: ${activeTenants.length}\n`;
             copyText += `Generated on: ${new Date().toLocaleString()}\n`;
             copyText += `${'='.repeat(80)}\n\n`;
 
-            this.tenants.forEach((tenant, index) => {
+            activeTenants.forEach((tenant, index) => {
                 const ordinalNumber = index + 1;
                 const isMainTenant = this.hasMainTenantProperty(tenant);
                 const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
@@ -2559,7 +2611,7 @@ class TenantManagementComponent {
             // Copy to clipboard
             navigator.clipboard.writeText(copyText).then(() => {
                 // Show success message
-                this.showCopySuccessMessage(this.tenants.length);
+                this.showCopySuccessMessage(activeTenants.length);
             }).catch(err => {
                 console.error('Failed to copy to clipboard:', err);
                 // Fallback: show the text in an alert
@@ -2589,17 +2641,18 @@ class TenantManagementComponent {
                 return;
             }
 
-            // Filter for only registered tenants
+            // Filter for only registered and non-outdated tenants
             const registeredTenants = this.tenants.filter(tenant => {
                 const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-                return registrationStatus === 'registered';
+                const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+                return registrationStatus === 'registered' && !isOutdated;
             });
 
             // Check if there are any registered tenants
             if (registeredTenants.length === 0) {
                 const message = this.selectedProperty === 'UNASSIGNED'
-                    ? 'No registered unassigned tenants to copy'
-                    : 'No registered tenants found for this property';
+                    ? 'No registered active unassigned tenants to copy'
+                    : 'No registered active tenants found for this property';
                 alert(message);
                 return;
             }
@@ -2617,7 +2670,7 @@ class TenantManagementComponent {
 
             // Format tenant list with all requested fields
             let copyText = `Property: ${propertyDisplay}\n`;
-            copyText += `Registered Tenants Only: ${registeredTenants.length}\n`;
+            copyText += `Registered Active Tenants Only: ${registeredTenants.length}\n`;
             copyText += `Generated on: ${new Date().toLocaleString()}\n`;
             copyText += `${'='.repeat(80)}\n\n`;
 
@@ -2650,6 +2703,104 @@ class TenantManagementComponent {
         } catch (error) {
             console.error('Error copying registered tenant list:', error);
             alert('Error copying registered tenant list. Please try again.');
+        }
+    }
+
+    copyOutdatedTenants() {
+        try {
+            // Check if a property is selected
+            if (!this.selectedProperty) {
+                alert('Please select a property first');
+                return;
+            }
+
+            // Check if there are tenants to copy
+            if (!this.tenants || this.tenants.length === 0) {
+                const message = this.selectedProperty === 'UNASSIGNED'
+                    ? 'No unassigned tenants to copy'
+                    : 'No tenants found for this property';
+                alert(message);
+                return;
+            }
+
+            // Filter for only outdated tenants
+            const outdatedTenants = this.tenants.filter(tenant =>
+                this.isTenantOutdated(tenant, this.selectedProperty)
+            );
+
+            // Check if there are any outdated tenants
+            if (outdatedTenants.length === 0) {
+                const message = this.selectedProperty === 'UNASSIGNED'
+                    ? 'No outdated unassigned tenants to copy'
+                    : 'No outdated tenants found for this property';
+                alert(message);
+                return;
+            }
+
+            // Get property info for display
+            let propertyDisplay = '';
+            if (this.selectedProperty === 'UNASSIGNED') {
+                propertyDisplay = 'Unassigned Tenants';
+            } else {
+                const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+                propertyDisplay = propertyInfo
+                    ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+                    : this.selectedProperty;
+            }
+
+            // Format tenant list with all requested fields
+            let copyText = `Property: ${propertyDisplay}\n`;
+            copyText += `Outdated Tenants Only: ${outdatedTenants.length}\n`;
+            copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+            copyText += `${'='.repeat(80)}\n\n`;
+
+            outdatedTenants.forEach((tenant, index) => {
+                const ordinalNumber = index + 1;
+                const isMainTenant = this.hasMainTenantProperty(tenant);
+                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
+                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
+                const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
+
+                // Get moveout date
+                let moveoutDate = 'N/A';
+                if (tenant.properties && Array.isArray(tenant.properties)) {
+                    const property = tenant.properties.find(prop => {
+                        const propId = typeof prop === 'object' ? prop.propertyId : prop;
+                        return this.selectedProperty !== 'UNASSIGNED' ? propId === this.selectedProperty : true;
+                    });
+                    if (property && typeof property === 'object' && property.moveoutDate) {
+                        const date = new Date(property.moveoutDate);
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        moveoutDate = `${day}/${month}/${year}`;
+                    }
+                }
+
+                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+                copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
+                copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
+                copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
+                if (moveinDate) {
+                    copyText += `   Move-in Date: ${moveinDate}\n`;
+                }
+                copyText += `   Move-out Date: ${moveoutDate}\n`;
+                copyText += `\n`;
+            });
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(copyText).then(() => {
+                // Show success message
+                this.showCopySuccessMessage(outdatedTenants.length);
+            }).catch(err => {
+                console.error('Failed to copy to clipboard:', err);
+                // Fallback: show the text in an alert
+                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
+            });
+
+        } catch (error) {
+            console.error('Error copying outdated tenant list:', error);
+            alert('Error copying outdated tenant list. Please try again.');
         }
     }
 

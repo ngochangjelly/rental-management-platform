@@ -174,6 +174,15 @@ class DashboardController {
           window.bulkPropertyReports = this.components.bulkPropertyReports;
         }
         break;
+      case "bills":
+        if (!this.components.billManagement) {
+          console.log('🏗️ Creating BillManagementComponent...');
+          this.components.billManagement = new BillManagementComponent();
+          // Make it globally accessible for button onclick handlers
+          window.billManager = this.components.billManagement;
+          console.log('✅ BillManagementComponent created');
+        }
+        break;
       case "investors":
         if (!this.components.investorManagement) {
           this.components.investorManagement =

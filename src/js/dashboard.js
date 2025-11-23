@@ -10,6 +10,7 @@ import './components/property-management.js';
 import './components/tenant-management.js';
 import './components/contract-management.js';
 import './components/financial-reports.js';
+import './components/bill-management.js'; // Bill Management component
 import './components/bulk-property-reports.js';
 import './components/investor-management.js';
 import './components/ac-clean-management.js'; // AC Clean Management component

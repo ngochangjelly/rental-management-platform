@@ -65,6 +65,18 @@ const API_CONFIG = {
     AC_SERVICE_COMPANY_BY_ID: (companyId) => `/api/ac-service-companies/${companyId}`,
     AC_SERVICE_COMPANIES_ACTIVE: "/api/ac-service-companies?activeOnly=true",
 
+    // Bill Management
+    BILLS_BY_PROPERTY: (propertyId) => `/api/bills/property/${propertyId}`,
+    BILL_BY_PROPERTY_MONTH: (propertyId, year, month) => `/api/bills/property/${propertyId}/${year}/${month}`,
+    BILL_GENERATE: "/api/bills/generate",
+    BILL_UPDATE_FEES: (propertyId, year, month) => `/api/bills/property/${propertyId}/${year}/${month}/fees`,
+    BILL_UPDATE_TENANT: (propertyId, year, month, tenantId) => `/api/bills/property/${propertyId}/${year}/${month}/tenant/${tenantId}`,
+    BILL_UPLOAD: "/api/bills/upload",
+    BILL_UPLOAD_INFO: (token) => `/api/bills/upload-info/${token}`,
+    BILL_DELETE_TENANT_UPLOADS: (propertyId, year, month, tenantId) => `/api/bills/property/${propertyId}/${year}/${month}/tenant/${tenantId}/uploads`,
+    BILL_DELETE_BULK_UPLOADS: (propertyId, year, month) => `/api/bills/property/${propertyId}/${year}/${month}/uploads/bulk`,
+    BILL_DELETE: (propertyId, year, month) => `/api/bills/property/${propertyId}/${year}/${month}`,
+
     // Health Check
     HEALTH: "/health",
   },
