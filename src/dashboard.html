@@ -1164,6 +1164,333 @@
       .ac-service-card a.badge:hover {
         opacity: 0.85;
       }
+
+      /* ========================================
+         RESPONSIVE CARD LAYOUTS
+         Improved mobile and tablet experience
+         ======================================== */
+
+      /* Investor Card Responsive Styles */
+      .investor-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        overflow: hidden;
+      }
+
+      .investor-card .card-header {
+        padding: 0.75rem;
+      }
+
+      .investor-card .card-body {
+        padding: 0.75rem;
+        font-size: 0.875rem;
+      }
+
+      /* Prevent text overflow in investor cards */
+      .investor-card p {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+      }
+
+      .investor-card .properties-list {
+        max-height: none;
+        overflow: visible;
+      }
+
+      .investor-card .small {
+        font-size: 0.75rem;
+      }
+
+      /* Mobile optimization for investor cards */
+      @media (max-width: 576px) {
+        .investor-card .card-header {
+          padding: 0.5rem;
+          flex-direction: column;
+          align-items: flex-start !important;
+        }
+
+        .investor-card .card-header .d-flex {
+          margin-bottom: 0.5rem;
+          width: 100%;
+        }
+
+        .investor-card .card-header .btn-group {
+          width: 100%;
+          margin-top: 0.5rem;
+        }
+
+        .investor-card .card-header .btn-group button {
+          flex: 1;
+        }
+
+        .investor-card h6 {
+          font-size: 0.9rem;
+        }
+
+        .investor-card .card-body {
+          padding: 0.5rem;
+        }
+
+        .investor-card img,
+        .investor-card .rounded-circle {
+          width: 35px !important;
+          height: 35px !important;
+          font-size: 14px !important;
+        }
+
+        .investor-card .properties-list .small {
+          font-size: 0.7rem;
+        }
+
+        .investor-card .badge {
+          font-size: 0.65rem;
+          padding: 0.25rem 0.4rem;
+        }
+      }
+
+      /* Tablet optimization for investor cards */
+      @media (min-width: 577px) and (max-width: 991px) {
+        .investor-card .card-header {
+          padding: 0.6rem;
+        }
+
+        .investor-card .card-body {
+          padding: 0.6rem;
+          font-size: 0.8rem;
+        }
+
+        .investor-card h6 {
+          font-size: 0.95rem;
+        }
+
+        .investor-card img,
+        .investor-card .rounded-circle {
+          width: 38px !important;
+          height: 38px !important;
+        }
+      }
+
+      /* Tenant Detail Card Responsive Styles */
+      .tenant-detail-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .tenant-detail-card .card-body {
+        padding: 1rem;
+      }
+
+      /* Prevent text overflow in tenant cards */
+      .tenant-detail-card p,
+      .tenant-detail-card .small {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+      }
+
+      /* Mobile optimization for tenant cards */
+      @media (max-width: 576px) {
+        .tenant-detail-card .card-body {
+          padding: 0.75rem;
+        }
+
+        .tenant-detail-card .d-flex.gap-3 {
+          gap: 0.75rem !important;
+        }
+
+        .tenant-detail-card img.rounded-circle {
+          width: 50px !important;
+          height: 50px !important;
+        }
+
+        .tenant-detail-card h5 {
+          font-size: 1rem;
+        }
+
+        .tenant-detail-card .small {
+          font-size: 0.75rem;
+        }
+
+        .tenant-detail-card .badge {
+          font-size: 0.65rem;
+          padding: 0.25rem 0.4rem;
+        }
+
+        .tenant-detail-card .btn-group {
+          width: 100%;
+        }
+
+        .tenant-detail-card .btn-group .btn {
+          flex: 1;
+          font-size: 0.8rem;
+          padding: 0.35rem 0.5rem;
+        }
+      }
+
+      /* Property Card Responsive Styles */
+      .property-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        overflow: hidden;
+      }
+
+      .property-card .card-header {
+        padding: 0.75rem;
+      }
+
+      .property-card .card-body {
+        padding: 0.75rem;
+      }
+
+      /* Prevent text overflow in property cards */
+      .property-card p,
+      .property-card .small {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+      }
+
+      /* Mobile optimization for property cards */
+      @media (max-width: 576px) {
+        .property-card .card-header {
+          padding: 0.5rem;
+        }
+
+        .property-card .card-body {
+          padding: 0.5rem;
+          font-size: 0.8rem;
+        }
+
+        .property-card h6,
+        .property-card .card-title {
+          font-size: 0.85rem;
+        }
+
+        .property-card .small,
+        .property-card small {
+          font-size: 0.7rem;
+        }
+
+        .property-card .badge {
+          font-size: 0.65rem;
+          padding: 0.25rem 0.4rem;
+        }
+
+        .property-card img.rounded-circle {
+          width: 35px !important;
+          height: 35px !important;
+        }
+
+        /* Adjust property image height on mobile */
+        .property-card .card-img-top,
+        .property-card [style*="height: 160px"] {
+          height: 120px !important;
+        }
+      }
+
+      /* Tablet optimization for property cards */
+      @media (min-width: 577px) and (max-width: 991px) {
+        .property-card .card-header {
+          padding: 0.6rem;
+        }
+
+        .property-card .card-body {
+          padding: 0.6rem;
+          font-size: 0.85rem;
+        }
+
+        .property-card .card-img-top,
+        .property-card [style*="height: 160px"] {
+          height: 140px !important;
+        }
+      }
+
+      /* General Card Layout Improvements */
+      @media (max-width: 576px) {
+        /* Improve spacing in card grids */
+        .row > [class*="col-"] {
+          padding-left: 0.5rem;
+          padding-right: 0.5rem;
+        }
+
+        .mb-3 {
+          margin-bottom: 0.75rem !important;
+        }
+
+        /* Make buttons more touch-friendly */
+        .btn-sm {
+          min-height: 32px;
+          padding: 0.35rem 0.6rem;
+        }
+
+        /* Improve card shadows for mobile */
+        .card {
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .card:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+      }
+
+      /* Ensure responsive images in all cards */
+      .card img {
+        max-width: 100%;
+        height: auto;
+      }
+
+      /* Improved button groups for mobile */
+      @media (max-width: 576px) {
+        .card .btn-group {
+          display: flex;
+          flex-wrap: nowrap;
+        }
+
+        .card .btn-group > .btn {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+
+        .card .btn-group .btn i {
+          margin: 0;
+        }
+
+        .card .btn-group .btn span {
+          display: none;
+        }
+      }
+
+      /* Badge responsive adjustments */
+      @media (max-width: 576px) {
+        .badge {
+          font-size: 0.7rem;
+          padding: 0.25rem 0.45rem;
+        }
+      }
+
+      /* Ensure long addresses and text wrap properly */
+      .card-text,
+      .card-body p,
+      .card-header p {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+
+      /* Prevent horizontal scrolling in cards */
+      .card {
+        overflow-x: hidden;
+      }
+
+      .card-body,
+      .card-header {
+        overflow-x: hidden;
+      }
+
+      /* Improve column responsiveness for very small screens */
+      @media (max-width: 400px) {
+        .col-6 {
+          flex: 0 0 100%;
+          max-width: 100%;
+        }
+      }
     </style>
   </head>
   <body>
