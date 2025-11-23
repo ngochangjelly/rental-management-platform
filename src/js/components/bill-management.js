@@ -92,7 +92,7 @@ class BillManagementComponent {
     properties.forEach(property => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-        <div class="col-6 col-md-3 col-lg-2 mb-3">
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
           <div class="card property-card h-100 ${isSelected ? 'border-primary' : ''} overflow-hidden"
                style="cursor: pointer; transition: all 0.2s ease;"
                onclick="billManager.selectProperty('${property.propertyId}')">

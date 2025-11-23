@@ -67,7 +67,7 @@ class TenantManagementComponent {
         // Add special card for unassigned tenants
         const isUnassignedSelected = this.selectedProperty === 'UNASSIGNED';
         const unassignedCardHtml = `
-            <div class="col-6 col-md-3 col-lg-2 mb-3">
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
                 <div class="card property-card h-100 ${isUnassignedSelected ? 'border-warning' : 'border-secondary'} overflow-hidden"
                      style="cursor: pointer; transition: all 0.2s ease; opacity: 0.95;"
                      onclick="tenantManager.selectUnassignedTenants()">
@@ -98,7 +98,7 @@ class TenantManagementComponent {
         properties.forEach(property => {
             const isSelected = this.selectedProperty === property.propertyId;
             const cardHtml = `
-                <div class="col-6 col-md-3 col-lg-2 mb-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
                     <div class="card property-card h-100 ${isSelected ? 'border-primary' : ''} overflow-hidden"
                          style="cursor: pointer; transition: all 0.2s ease;"
                          onclick="tenantManager.selectProperty('${property.propertyId}')">
