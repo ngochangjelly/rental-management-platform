@@ -145,6 +145,7 @@ class AcCleanManagementComponent {
   renderCalendar() {
     const calendarContainer = document.getElementById("acCalendarContainer");
     const monthYearDisplay = document.getElementById("acMonthYear");
+    const currentMonthDisplay = document.getElementById("acCurrentMonthDisplay");
 
     if (!calendarContainer || !monthYearDisplay) return;
 
@@ -153,7 +154,13 @@ class AcCleanManagementComponent {
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    monthYearDisplay.textContent = `${monthNames[this.currentMonth - 1]} ${this.currentYear}`;
+    const monthYearText = `${monthNames[this.currentMonth - 1]} ${this.currentYear}`;
+    monthYearDisplay.textContent = monthYearText;
+
+    // Update navigation button display
+    if (currentMonthDisplay) {
+      currentMonthDisplay.textContent = monthYearText;
+    }
 
     if (this.acServices.length === 0) {
       calendarContainer.innerHTML = `

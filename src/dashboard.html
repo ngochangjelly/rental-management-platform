@@ -2609,7 +2609,7 @@
                     <h5 class="mb-0">
                       <i class="bi bi-calendar3 me-2"></i>AC Service Schedule
                     </h5>
-                    <div class="btn-group" role="group">
+                    <div class="d-flex align-items-center gap-2">
                       <button
                         type="button"
                         class="btn btn-sm btn-light"
@@ -2619,10 +2619,11 @@
                       </button>
                       <button
                         type="button"
-                        class="btn btn-sm btn-light"
+                        class="btn btn-sm btn-light px-3"
                         id="acTodayBtn"
+                        style="min-width: 120px;"
                       >
-                        Today
+                        <span id="acCurrentMonthDisplay">Today</span>
                       </button>
                       <button
                         type="button"

@@ -1685,6 +1685,7 @@ class TenantManagementComponent {
             
             const response = await fetch(uploadUrl, {
                 method: 'POST',
+                credentials: 'include', // Important for cookies
                 headers: {
                     'Authorization': `Bearer ${getAuthToken()}`
                 },
