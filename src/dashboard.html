@@ -122,6 +122,30 @@
         }
       }
 
+      /* Custom scrollbar for templates list */
+      #templatesList {
+        scrollbar-width: thin;
+        scrollbar-color: #667eea #f0f0f0;
+      }
+
+      #templatesList::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #templatesList::-webkit-scrollbar-track {
+        background: #f0f0f0;
+        border-radius: 4px;
+      }
+
+      #templatesList::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 4px;
+      }
+
+      #templatesList::-webkit-scrollbar-thumb:hover {
+        background: #764ba2;
+      }
+
       .nav-link {
         color: rgba(255, 255, 255, 0.8);
         border-radius: 0.5rem;
@@ -2082,7 +2106,7 @@
                         </div>
                         
                         <!-- Saved Templates List -->
-                        <div id="templatesList" class="mb-3">
+                        <div id="templatesList" class="mb-3" style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px;">
                           <!-- Templates will be populated here -->
                         </div>
                       </div>
@@ -2284,6 +2308,19 @@
                       <div class="mb-3">
                         <label for="contractSecurityDeposit" class="form-label">Security Deposit (S$)</label>
                         <input type="number" class="form-control" id="contractSecurityDeposit" placeholder="1350">
+                      </div>
+
+                      <div class="row mb-3">
+                        <div class="col-md-6">
+                          <label for="contractDepositMonths" class="form-label">Deposit (Months)</label>
+                          <input type="number" class="form-control" id="contractDepositMonths" value="1" min="0" step="0.5">
+                          <small class="text-muted">Paid on agreement date</small>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="contractAdvanceMonths" class="form-label">Advance (Months)</label>
+                          <input type="number" class="form-control" id="contractAdvanceMonths" value="1" min="0" step="0.5">
+                          <small class="text-muted">Paid on move-in date</small>
+                        </div>
                       </div>
 
                       <div class="mb-3">

@@ -206,7 +206,7 @@ class ContractManagementComponent {
 
     return person.properties.some((prop) => {
       let propId;
-      if (typeof prop === 'object') {
+      if (typeof prop === "object") {
         propId = prop.propertyId || prop._id || prop.id;
       } else {
         propId = prop;
@@ -216,7 +216,9 @@ class ContractManagementComponent {
       const propIdStr = String(propId);
 
       // Log for debugging
-      console.log(`🔍 Comparing property IDs: tenant property "${propIdStr}" vs selected "${targetId}"`);
+      console.log(
+        `🔍 Comparing property IDs: tenant property "${propIdStr}" vs selected "${targetId}"`
+      );
 
       return propIdStr === targetId;
     });
@@ -229,7 +231,9 @@ class ContractManagementComponent {
       "tenants and",
       this.investors.length,
       "investors",
-      this.selectedPropertyId ? `(filtered by property: ${this.selectedPropertyId})` : "(no property filter)"
+      this.selectedPropertyId
+        ? `(filtered by property: ${this.selectedPropertyId})`
+        : "(no property filter)"
     );
 
     const tenantASelect = document.getElementById("contractTenantA");
@@ -250,30 +254,38 @@ class ContractManagementComponent {
     this._allInvestorOptions = [];
 
     // Filter tenants by selected property
-    const filteredTenants = this.tenants.filter(tenant => {
-      const belongs = this.tenantBelongsToProperty(tenant, this.selectedPropertyId);
+    const filteredTenants = this.tenants.filter((tenant) => {
+      const belongs = this.tenantBelongsToProperty(
+        tenant,
+        this.selectedPropertyId
+      );
       if (this.selectedPropertyId) {
         console.log(`🔍 Tenant "${tenant.name}":`, {
           properties: tenant.properties,
-          belongs: belongs
+          belongs: belongs,
         });
       }
       return belongs;
     });
 
     // Filter investors by selected property
-    const filteredInvestors = this.investors.filter(investor => {
-      const belongs = this.tenantBelongsToProperty(investor, this.selectedPropertyId);
+    const filteredInvestors = this.investors.filter((investor) => {
+      const belongs = this.tenantBelongsToProperty(
+        investor,
+        this.selectedPropertyId
+      );
       if (this.selectedPropertyId) {
         console.log(`🔍 Investor "${investor.name}":`, {
           properties: investor.properties,
-          belongs: belongs
+          belongs: belongs,
         });
       }
       return belongs;
     });
 
-    console.log(`🔍 Filtered to ${filteredTenants.length} tenants and ${filteredInvestors.length} investors`);
+    console.log(
+      `🔍 Filtered to ${filteredTenants.length} tenants and ${filteredInvestors.length} investors`
+    );
 
     // Clear existing options
     tenantASelect.innerHTML =
@@ -289,8 +301,8 @@ class ContractManagementComponent {
     // Check if we have filtered tenants or investors
     if (filteredTenants.length === 0 && filteredInvestors.length === 0) {
       const message = this.selectedPropertyId
-        ? 'No tenants or investors for selected property'
-        : 'No tenants or investors available';
+        ? "No tenants or investors for selected property"
+        : "No tenants or investors available";
       console.warn(`⚠️ ${message}`);
       tenantASelect.innerHTML += `<option value="" disabled>${message}</option>`;
       tenantBSelect.innerHTML += `<option value="" disabled>${message}</option>`;
@@ -309,7 +321,7 @@ class ContractManagementComponent {
         const name = tenant.name || "Unnamed Tenant";
 
         // Find the ORIGINAL index in the unfiltered array
-        const originalIndex = this.tenants.findIndex(t => t === tenant);
+        const originalIndex = this.tenants.findIndex((t) => t === tenant);
 
         // Use FIN or original index as identifier
         const identifier = fin || `tenant_${originalIndex}`;
@@ -349,17 +361,19 @@ class ContractManagementComponent {
           }
         }
 
-        const displayText = `${name} ${fin ? `(FIN: ${fin})` : ""}${propertyInfo}`;
+        const displayText = `${name} ${
+          fin ? `(FIN: ${fin})` : ""
+        }${propertyInfo}`;
 
         // Store for fuzzy search
         this._allTenantOptions.push({
           identifier,
           displayText,
           searchText: `${name} ${fin} ${passport}`.toLowerCase(),
-          type: 'tenant',
+          type: "tenant",
           passport,
           name,
-          index: originalIndex
+          index: originalIndex,
         });
 
         console.log(
@@ -392,7 +406,7 @@ class ContractManagementComponent {
         const investorId = investor.investorId;
 
         // Find the ORIGINAL index in the unfiltered array
-        const originalIndex = this.investors.findIndex(i => i === investor);
+        const originalIndex = this.investors.findIndex((i) => i === investor);
 
         // Use investorId as identifier with investor prefix
         const identifier = `investor_${investorId}`;
@@ -422,18 +436,20 @@ class ContractManagementComponent {
           }
         }
 
-        const displayText = `${name} ${fin ? `(FIN: ${fin})` : ""} [Investor]${propertyInfo}`;
+        const displayText = `${name} ${
+          fin ? `(FIN: ${fin})` : ""
+        } [Investor]${propertyInfo}`;
 
         // Store for fuzzy search
         this._allInvestorOptions.push({
           identifier,
           displayText,
           searchText: `${name} ${fin} ${passport}`.toLowerCase(),
-          type: 'investor',
+          type: "investor",
           passport,
           name,
           index: originalIndex,
-          investorId
+          investorId,
         });
 
         console.log(
@@ -498,12 +514,13 @@ class ContractManagementComponent {
 
       if (!searchInput) {
         // Create search input
-        searchInput = document.createElement('input');
-        searchInput.type = 'text';
+        searchInput = document.createElement("input");
+        searchInput.type = "text";
         searchInput.id = searchId;
-        searchInput.className = 'form-control form-control-sm mb-2';
-        searchInput.placeholder = '🔍 Search tenant by name, FIN, or passport...';
-        searchInput.style.fontSize = '0.875rem';
+        searchInput.className = "form-control form-control-sm mb-2";
+        searchInput.placeholder =
+          "🔍 Search tenant by name, FIN, or passport...";
+        searchInput.style.fontSize = "0.875rem";
 
         // Insert before the select element
         selectElement.parentNode.insertBefore(searchInput, selectElement);
@@ -514,25 +531,25 @@ class ContractManagementComponent {
       searchInput.parentNode.replaceChild(newSearchInput, searchInput);
 
       // Store all original options (excluding special options)
-      const allOptions = Array.from(selectElement.options).filter(opt =>
-        opt.value !== '' && opt.value !== 'ADD_NEW_TENANT'
+      const allOptions = Array.from(selectElement.options).filter(
+        (opt) => opt.value !== "" && opt.value !== "ADD_NEW_TENANT"
       );
 
       // Add input event listener for fuzzy search
-      newSearchInput.addEventListener('input', (e) => {
+      newSearchInput.addEventListener("input", (e) => {
         const searchText = e.target.value.trim();
         this.filterTenantOptions(selectElement, searchText, allOptions);
       });
 
       // Clear search on select change
-      selectElement.addEventListener('change', () => {
-        newSearchInput.value = '';
+      selectElement.addEventListener("change", () => {
+        newSearchInput.value = "";
       });
     };
 
     // Setup search for both dropdowns
-    setupSearchForSelect(tenantASelect, 'tenantASearch');
-    setupSearchForSelect(tenantBSelect, 'tenantBSearch');
+    setupSearchForSelect(tenantASelect, "tenantASearch");
+    setupSearchForSelect(tenantBSelect, "tenantBSearch");
   }
 
   // Filter tenant options based on fuzzy search
@@ -547,40 +564,56 @@ class ContractManagementComponent {
     const currentValue = selectElement.value;
 
     // Filter options using fuzzy match
-    const matchingOptions = allOptions.filter(option => {
-      const optionText = option.textContent || option.innerText || '';
+    const matchingOptions = allOptions.filter((option) => {
+      const optionText = option.textContent || option.innerText || "";
       const optionValue = option.value;
-      return this.fuzzyMatch(searchText, optionText) || this.fuzzyMatch(searchText, optionValue);
+      return (
+        this.fuzzyMatch(searchText, optionText) ||
+        this.fuzzyMatch(searchText, optionValue)
+      );
     });
 
     // Rebuild select options
     selectElement.innerHTML = '<option value="">Select Tenant</option>';
-    selectElement.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
+    selectElement.innerHTML +=
+      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
 
     if (matchingOptions.length === 0) {
-      selectElement.innerHTML += '<option value="" disabled>No matching tenants found</option>';
+      selectElement.innerHTML +=
+        '<option value="" disabled>No matching tenants found</option>';
     } else {
       // Group by type (tenant vs investor)
-      const tenantOptions = matchingOptions.filter(opt => opt.dataset.type === 'tenant');
-      const investorOptions = matchingOptions.filter(opt => opt.dataset.type === 'investor');
+      const tenantOptions = matchingOptions.filter(
+        (opt) => opt.dataset.type === "tenant"
+      );
+      const investorOptions = matchingOptions.filter(
+        (opt) => opt.dataset.type === "investor"
+      );
 
       if (tenantOptions.length > 0) {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = '── Tenants ──';
-        tenantOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = "── Tenants ──";
+        tenantOptions.forEach((opt) =>
+          optgroup.appendChild(opt.cloneNode(true))
+        );
         selectElement.appendChild(optgroup);
       }
 
       if (investorOptions.length > 0) {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = '── Investors ──';
-        investorOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = "── Investors ──";
+        investorOptions.forEach((opt) =>
+          optgroup.appendChild(opt.cloneNode(true))
+        );
         selectElement.appendChild(optgroup);
       }
     }
 
     // Restore previous selection if it still exists
-    if (currentValue && selectElement.querySelector(`option[value="${currentValue}"]`)) {
+    if (
+      currentValue &&
+      selectElement.querySelector(`option[value="${currentValue}"]`)
+    ) {
       selectElement.value = currentValue;
     }
   }
@@ -590,28 +623,38 @@ class ContractManagementComponent {
     const currentValue = selectElement.value;
 
     selectElement.innerHTML = '<option value="">Select Tenant</option>';
-    selectElement.innerHTML += '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
+    selectElement.innerHTML +=
+      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
 
     // Group by type
-    const tenantOptions = allOptions.filter(opt => opt.dataset.type === 'tenant');
-    const investorOptions = allOptions.filter(opt => opt.dataset.type === 'investor');
+    const tenantOptions = allOptions.filter(
+      (opt) => opt.dataset.type === "tenant"
+    );
+    const investorOptions = allOptions.filter(
+      (opt) => opt.dataset.type === "investor"
+    );
 
     if (tenantOptions.length > 0) {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = '── Tenants ──';
-      tenantOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = "── Tenants ──";
+      tenantOptions.forEach((opt) => optgroup.appendChild(opt.cloneNode(true)));
       selectElement.appendChild(optgroup);
     }
 
     if (investorOptions.length > 0) {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = '── Investors ──';
-      investorOptions.forEach(opt => optgroup.appendChild(opt.cloneNode(true)));
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = "── Investors ──";
+      investorOptions.forEach((opt) =>
+        optgroup.appendChild(opt.cloneNode(true))
+      );
       selectElement.appendChild(optgroup);
     }
 
     // Restore previous selection
-    if (currentValue && selectElement.querySelector(`option[value="${currentValue}"]`)) {
+    if (
+      currentValue &&
+      selectElement.querySelector(`option[value="${currentValue}"]`)
+    ) {
       selectElement.value = currentValue;
     }
   }
@@ -655,7 +698,10 @@ class ContractManagementComponent {
         "Unknown Address";
       const id = property.propertyId || property.id || property._id || "";
 
-      console.log(`🏢 Adding property: "${address}" with ID: "${id}"`, property);
+      console.log(
+        `🏢 Adding property: "${address}" with ID: "${id}"`,
+        property
+      );
 
       const option = `<option value="${address}" data-property-id="${id}">
                 ${address}
@@ -698,14 +744,23 @@ class ContractManagementComponent {
 
       // Extract property ID from selected option
       if (addressSelect && address) {
-        const selectedOption = addressSelect.querySelector(`option[value="${address}"]`);
-        this.selectedPropertyId = selectedOption ? selectedOption.dataset.propertyId : null;
+        const selectedOption = addressSelect.querySelector(
+          `option[value="${address}"]`
+        );
+        this.selectedPropertyId = selectedOption
+          ? selectedOption.dataset.propertyId
+          : null;
         console.log(`🔍 Selected property ID: "${this.selectedPropertyId}"`);
-        console.log(`🔍 Selected option data:`, selectedOption ? {
-          value: selectedOption.value,
-          propertyId: selectedOption.dataset.propertyId,
-          text: selectedOption.textContent
-        } : 'not found');
+        console.log(
+          `🔍 Selected option data:`,
+          selectedOption
+            ? {
+                value: selectedOption.value,
+                propertyId: selectedOption.dataset.propertyId,
+                text: selectedOption.textContent,
+              }
+            : "not found"
+        );
       }
     }
 
@@ -858,6 +913,13 @@ class ContractManagementComponent {
           tenantBSelect.value = identifier;
           console.log("🎯 Updated Tenant B dropdown display to:", identifier);
         }
+      }
+
+      // Auto-populate signature if this is a main tenant with signature
+      if (tenant && tenant.signature && this.isMainTenant(tenant)) {
+        console.log("🖋️ Auto-populating Tenant B signature from tenant data");
+        this.signatures.tenantB = tenant.signature;
+        this.updateSignaturePreview("B");
       }
 
       // Auto-fill move-in and move-out dates if tenant has property information
@@ -1184,6 +1246,8 @@ class ContractManagementComponent {
       "contractMoveOutDate",
       "contractMonthlyRental",
       "contractSecurityDeposit",
+      "contractDepositMonths",
+      "contractAdvanceMonths",
       "contractElectricityBudget",
       "contractCleaningFee",
       "contractPaymentMethod",
@@ -1192,10 +1256,16 @@ class ContractManagementComponent {
     inputs.forEach((inputId) => {
       const input = document.getElementById(inputId);
       if (input) {
+        // Set initial value from contractData
+        const field =
+          inputId.replace("contract", "").charAt(0).toLowerCase() +
+          inputId.replace("contract", "").slice(1);
+        if (this.contractData[field] !== undefined && this.contractData[field] !== "") {
+          input.value = this.contractData[field];
+        }
+
+        // Set up event listener
         input.addEventListener("input", () => {
-          const field =
-            inputId.replace("contract", "").charAt(0).toLowerCase() +
-            inputId.replace("contract", "").slice(1);
           this.contractData[field] = input.value;
           this.updateContractPreview();
         });
@@ -1221,7 +1291,6 @@ class ContractManagementComponent {
         this.updateContractPreview();
       });
     }
-
 
     // Handle custom property address input
     const newPropertyAddressInput =
@@ -1619,7 +1688,15 @@ class ContractManagementComponent {
                         ${
                           this.contractData.fullPaymentReceived
                             ? ""
-                            : "<p><strong>a)</strong> To pay the equivalent of 1 (ONE) month's rent as a deposit and 1 (ONE) month's rent as an advance upon signing of this Agreement. The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.</p>"
+                            : `<p><strong>a)</strong> To pay the equivalent of ${this.formatMonthsText(this.contractData.depositMonths || 1)}'s rent as a deposit on the agreement date (${
+                                this.contractData.agreementDate
+                                  ? this.formatDate(this.contractData.agreementDate)
+                                  : "[Agreement Date]"
+                              }) and ${this.formatMonthsText(this.contractData.advanceMonths || 1)}'s rent as an advance on the move-in date (${
+                                this.contractData.moveInDate
+                                  ? this.formatDate(this.contractData.moveInDate)
+                                  : "[Move-in Date]"
+                              }). The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.</p>`
                         }
                         
                         ${
@@ -1878,6 +1955,32 @@ class ContractManagementComponent {
     };
 
     return paymentMethods[method] || method || "Cash";
+  }
+
+  formatMonthsText(months) {
+    if (!months || months == 0) return "0 (ZERO) month";
+
+    const num = parseFloat(months);
+    if (num === 0.5) {
+      return "0.5 (HALF) month";
+    } else if (num === 1) {
+      return "1 (ONE) month";
+    } else if (num === 1.5) {
+      return "1.5 (ONE AND A HALF) months";
+    } else if (num === 2) {
+      return "2 (TWO) months";
+    } else if (num === 2.5) {
+      return "2.5 (TWO AND A HALF) months";
+    } else if (num === 3) {
+      return "3 (THREE) months";
+    } else {
+      const word = this.numberToWords(Math.floor(num)).toUpperCase();
+      const decimal = num % 1;
+      if (decimal === 0.5) {
+        return `${num} (${word} AND A HALF) months`;
+      }
+      return `${num} (${word}) months`;
+    }
   }
 
   numberToWords(num) {
@@ -2220,7 +2323,9 @@ class ContractManagementComponent {
 
       addText(
         `Security Deposit: $${
-          this.contractData.securityDeposit || this.contractData.monthlyRental || "[Security Deposit]"
+          this.contractData.securityDeposit ||
+          this.contractData.monthlyRental ||
+          "[Security Deposit]"
         }`,
         { bold: true, spacing: 5 }
       );
@@ -2245,8 +2350,17 @@ class ContractManagementComponent {
 
       // Conditionally add rent payment clauses
       if (!this.contractData.fullPaymentReceived) {
+        const depositText = this.formatMonthsText(this.contractData.depositMonths || 1);
+        const advanceText = this.formatMonthsText(this.contractData.advanceMonths || 1);
+        const agreementDate = this.contractData.agreementDate
+          ? this.formatDate(this.contractData.agreementDate)
+          : "[Agreement Date]";
+        const moveInDate = this.contractData.moveInDate
+          ? this.formatDate(this.contractData.moveInDate)
+          : "[Move-in Date]";
+
         section1Clauses.push(
-          "a) To pay the equivalent of 1 (ONE) month's rent as a deposit and 1 (ONE) month's rent as an advance upon signing of this Agreement. The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default.",
+          `a) To pay the equivalent of ${depositText}'s rent as a deposit on the agreement date (${agreementDate}) and ${advanceText}'s rent as an advance on the move-in date (${moveInDate}). The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default.`,
           "b) In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal."
         );
       }
@@ -2282,7 +2396,6 @@ class ContractManagementComponent {
           "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken."
         );
       }
-
 
       // Add remaining clauses with proper letter sequence
       baseClauseTexts.forEach((clauseText, index) => {
@@ -2647,7 +2760,15 @@ class ContractManagementComponent {
                 <div style="margin-bottom: 30px;">
                     <p style="margin-bottom: 20px; font-weight: bold; font-size: 14px;">1. TENANT B(S) HEREBY AGREE(S) WITH TENANT A AS FOLLOWS:</p>
                     <div style="margin-left: 15px;">
-                        <p style="margin-bottom: 15px;"><strong>a)</strong> To pay the equivalent of 1 (ONE) month's rent as a deposit and 1 (ONE) month's rent as an advance upon signing of this Agreement. The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.</p>
+                        <p style="margin-bottom: 15px;"><strong>a)</strong> To pay the equivalent of ${this.formatMonthsText(this.contractData.depositMonths || 1)}'s rent as a deposit on the agreement date (${
+                          this.contractData.agreementDate
+                            ? this.formatDate(this.contractData.agreementDate)
+                            : "[Agreement Date]"
+                        }) and ${this.formatMonthsText(this.contractData.advanceMonths || 1)}'s rent as an advance on the move-in date (${
+                          this.contractData.moveInDate
+                            ? this.formatDate(this.contractData.moveInDate)
+                            : "[Move-in Date]"
+                        }). The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.</p>
                         
                         <p style="margin-bottom: 15px;"><strong>b)</strong> In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due (whether any formal or legal demand therefore shall have been made or not) then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal. Tenant A shall be entitled to recover all legal fees arising from the recovery of unpaid rent by Tenant B.</p>
                         
@@ -2988,7 +3109,6 @@ class ContractManagementComponent {
       contractData.pestControlClause = pestControlElement.checked;
     }
 
-
     return contractData;
   }
 
@@ -3251,7 +3371,6 @@ class ContractManagementComponent {
     if (pestControlElement) {
       pestControlElement.checked = false;
     }
-
 
     // Reset new tenant fields
     const newTenantFields = [

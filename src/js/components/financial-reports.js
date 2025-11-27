@@ -883,13 +883,21 @@ class FinancialReportsComponent {
   }
 
   updateSummaryDisplay() {
-    if (!this.currentReport) return;
+    const netProfitEl = document.getElementById("netProfit");
+
+    if (!this.currentReport) {
+      // No report loaded - show $0.00
+      if (netProfitEl) {
+        netProfitEl.textContent = "$0.00";
+        netProfitEl.className = "text-success mb-0";
+      }
+      return;
+    }
 
     const totalIncome = this.currentReport.totalIncome || 0;
     const totalExpenses = this.currentReport.totalExpenses || 0;
     const netProfit = totalIncome - totalExpenses;
 
-    const netProfitEl = document.getElementById("netProfit");
     if (netProfitEl) {
       netProfitEl.textContent = `$${netProfit.toFixed(2)}`;
       netProfitEl.className =
