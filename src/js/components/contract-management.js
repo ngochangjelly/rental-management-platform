@@ -298,6 +298,12 @@ class ContractManagementComponent {
     tenantBSelect.innerHTML +=
       '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
 
+    // Add "Enter Custom Text" option
+    tenantASelect.innerHTML +=
+      '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+    tenantBSelect.innerHTML +=
+      '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+
     // Check if we have filtered tenants or investors
     if (filteredTenants.length === 0 && filteredInvestors.length === 0) {
       const message = this.selectedPropertyId
@@ -681,6 +687,10 @@ class ContractManagementComponent {
     addressSelect.innerHTML +=
       '<option value="ADD_NEW_PROPERTY" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-building-plus me-1"></i>+ Add New Property</option>';
 
+    // Add "Enter Custom Text" option
+    addressSelect.innerHTML +=
+      '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+
     // Check if we have properties
     if (!this.properties || this.properties.length === 0) {
       console.warn("⚠️ No properties available to populate dropdown");
@@ -723,6 +733,7 @@ class ContractManagementComponent {
     console.log(`🏠 Address selected: ${address}`);
 
     const newPropertyFields = document.getElementById("newPropertyFields");
+    const customAddressField = document.getElementById("customAddressField");
     const addressSelect = document.getElementById("contractAddress");
 
     if (address === "ADD_NEW_PROPERTY") {
@@ -730,14 +741,48 @@ class ContractManagementComponent {
       if (newPropertyFields) {
         newPropertyFields.style.display = "block";
       }
+      if (customAddressField) {
+        customAddressField.style.display = "none";
+      }
       // Clear address data and property filter
       this.contractData.address = "";
       this.selectedPropertyId = null;
       console.log("🔍 No property filter (adding new property)");
-    } else {
-      // Hide custom property fields
+    } else if (address === "CUSTOM_TEXT") {
+      // Show custom text input
+      if (customAddressField) {
+        customAddressField.style.display = "block";
+
+        // Focus on the custom address input and add event listener
+        const customAddressInput = document.getElementById("customAddressText");
+        if (customAddressInput) {
+          // Remove existing event listener before clearing value
+          if (this.customAddressInputHandler) {
+            customAddressInput.removeEventListener("input", this.customAddressInputHandler);
+          }
+
+          customAddressInput.value = "";
+          customAddressInput.focus();
+
+          // Add event listener to update preview on input
+          this.customAddressInputHandler = () => this.updateContractPreview();
+          customAddressInput.addEventListener("input", this.customAddressInputHandler);
+        }
+      }
       if (newPropertyFields) {
         newPropertyFields.style.display = "none";
+      }
+      // Clear address data and property filter
+      this.contractData.address = "";
+      this.selectedPropertyId = null;
+      console.log("✏️ Custom text entry selected for property address");
+    } else {
+      // Hide both custom fields
+      if (newPropertyFields) {
+        newPropertyFields.style.display = "none";
+      }
+      if (customAddressField) {
+        customAddressField.style.display = "none";
       }
       // Set selected address
       this.contractData.address = address;
@@ -778,6 +823,13 @@ class ContractManagementComponent {
         `🆕 Showing new tenant input fields for Tenant ${tenantType}`
       );
       this.showNewTenantFields(tenantType);
+      return;
+    }
+
+    // Handle "Custom Text" option
+    if (identifier === "CUSTOM_TEXT") {
+      console.log(`✏️ Showing custom text field for Tenant ${tenantType}`);
+      this.showCustomTenantField(tenantType);
       return;
     }
 
@@ -1030,6 +1082,48 @@ class ContractManagementComponent {
 
       // Setup event listeners for the input fields
       this.setupNewTenantInputListeners(tenantType);
+    }
+  }
+
+  showCustomTenantField(tenantType) {
+    // Hide the "Add New Tenant" fields
+    this.hideNewTenantFields(tenantType);
+
+    // Show the custom text input
+    const customFieldId =
+      tenantType === "A" ? "customTenantAField" : "customTenantBField";
+    const customInputId =
+      tenantType === "A" ? "customTenantAText" : "customTenantBText";
+    const handlerName = tenantType === "A" ? "customTenantAInputHandler" : "customTenantBInputHandler";
+
+    const customField = document.getElementById(customFieldId);
+    if (customField) {
+      customField.style.display = "block";
+
+      // Clear and focus the input
+      const customInput = document.getElementById(customInputId);
+      if (customInput) {
+        // Remove existing event listener before clearing value
+        if (this[handlerName]) {
+          customInput.removeEventListener("input", this[handlerName]);
+        }
+
+        customInput.value = "";
+        customInput.focus();
+
+        // Add event listener to update preview on input
+        this[handlerName] = () => this.updateContractPreview();
+        customInput.addEventListener("input", this[handlerName]);
+      }
+    }
+  }
+
+  hideCustomTenantField(tenantType) {
+    const customFieldId =
+      tenantType === "A" ? "customTenantAField" : "customTenantBField";
+    const customField = document.getElementById(customFieldId);
+    if (customField) {
+      customField.style.display = "none";
     }
   }
 
@@ -1540,6 +1634,11 @@ class ContractManagementComponent {
     console.log("🔧 selectedTenantA:", this.selectedTenantA);
     console.log("🔧 selectedTenantB:", this.selectedTenantB);
 
+    // Check for custom text inputs
+    const customTenantAText = document.getElementById("customTenantAText");
+    const customTenantBText = document.getElementById("customTenantBText");
+    const customAddressText = document.getElementById("customAddressText");
+
     const tenantAInfo = this.selectedTenantA
       ? {
           name: this.selectedTenantA.name,
@@ -1549,6 +1648,13 @@ class ContractManagementComponent {
             "",
           fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
           email: this.selectedTenantA.email || "",
+        }
+      : customTenantAText && customTenantAText.value.trim()
+      ? {
+          name: customTenantAText.value.trim(),
+          passport: "",
+          fin: "",
+          email: "",
         }
       : {
           name: "[Tenant A Name]",
@@ -1565,6 +1671,12 @@ class ContractManagementComponent {
             this.selectedTenantB.passport ||
             "",
           fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || "",
+        }
+      : customTenantBText && customTenantBText.value.trim()
+      ? {
+          name: customTenantBText.value.trim(),
+          passport: "",
+          fin: "",
         }
       : {
           name: "[Tenant B Name]",
@@ -1584,13 +1696,16 @@ class ContractManagementComponent {
       }
     });
 
+    // Get property address from custom input if available
+    const propertyAddress = (customAddressText && customAddressText.value.trim())
+      ? customAddressText.value.trim()
+      : (this.contractData.address || "[Property Address]");
+
     preview.innerHTML = `
             <div class="contract-content" style="font-family: 'Times New Roman', serif; line-height: 1.6; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h2 style="font-weight: bold; margin-bottom: 10px;">HOUSE SHARING AGREEMENT</h2>
-                    <p><strong>Full address:</strong> ${
-                      this.contractData.address || "[Property Address]"
-                    }</p>
+                    <p><strong>Full address:</strong> ${propertyAddress}</p>
                     <p><strong>Room:</strong> ${
                       this.contractData.room || "[Room Type]"
                     }</p>
@@ -2091,8 +2206,14 @@ class ContractManagementComponent {
       const roomType =
         this.contractData.room?.replace(/[^a-zA-Z0-9]/g, "_") || "Room";
 
+      // Get address from custom input if available, otherwise from contractData
+      const customAddressText = document.getElementById("customAddressText");
+      const addressSource = (customAddressText && customAddressText.value.trim())
+        ? customAddressText.value.trim()
+        : this.contractData.address;
+
       // Remove Singapore and postcode from address for filename
-      let cleanAddress = this.contractData.address || "Address";
+      let cleanAddress = addressSource || "Address";
       // Remove Singapore and common variations
       cleanAddress = cleanAddress.replace(/,?\s*Singapore\s*\d*$/i, "");
       cleanAddress = cleanAddress.replace(/,?\s*S\d{6}$/i, ""); // Remove Singapore postcode format
@@ -2185,6 +2306,10 @@ class ContractManagementComponent {
         currentY += options.spacing || 0;
       };
 
+      // Check for custom text inputs (customAddressText already declared above for filename)
+      const customTenantAText = document.getElementById("customTenantAText");
+      const customTenantBText = document.getElementById("customTenantBText");
+
       // Generate contract content
       const tenantAInfo = this.selectedTenantA
         ? {
@@ -2192,6 +2317,13 @@ class ContractManagementComponent {
             passport: this.selectedTenantA.passportNumber || "",
             fin: this.selectedTenantA.finNumber || "",
             email: this.selectedTenantA.email || "",
+          }
+        : (customTenantAText && customTenantAText.value.trim())
+        ? {
+            name: customTenantAText.value.trim(),
+            passport: "",
+            fin: "",
+            email: "",
           }
         : {
             name: "[Tenant A Name]",
@@ -2206,11 +2338,22 @@ class ContractManagementComponent {
             passport: this.selectedTenantB.passportNumber || "",
             fin: this.selectedTenantB.finNumber || "",
           }
+        : (customTenantBText && customTenantBText.value.trim())
+        ? {
+            name: customTenantBText.value.trim(),
+            passport: "",
+            fin: "",
+          }
         : {
             name: "[Tenant B Name]",
             passport: "[Tenant B Passport]",
             fin: "[Tenant B FIN]",
           };
+
+      // Get property address from custom input if available
+      const propertyAddressForPDF = (customAddressText && customAddressText.value.trim())
+        ? customAddressText.value.trim()
+        : (this.contractData.address || "[Property Address]");
 
       // Header
       addText("HOUSE SHARING AGREEMENT", {
@@ -2220,7 +2363,7 @@ class ContractManagementComponent {
         spacing: 10,
       });
       addText(
-        `Full address: ${this.contractData.address || "[Property Address]"}`,
+        `Full address: ${propertyAddressForPDF}`,
         { center: true }
       );
       addText(`Room: ${this.contractData.room || "[Room Type]"}`, {
@@ -2605,6 +2748,11 @@ class ContractManagementComponent {
   }
 
   generateCleanContractForPDF() {
+    // Check for custom text inputs
+    const customTenantAText = document.getElementById("customTenantAText");
+    const customTenantBText = document.getElementById("customTenantBText");
+    const customAddressText = document.getElementById("customAddressText");
+
     const tenantAInfo = this.selectedTenantA
       ? {
           name: this.selectedTenantA.name,
@@ -2614,6 +2762,13 @@ class ContractManagementComponent {
             "",
           fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
           email: this.selectedTenantA.email || "",
+        }
+      : (customTenantAText && customTenantAText.value.trim())
+      ? {
+          name: customTenantAText.value.trim(),
+          passport: "",
+          fin: "",
+          email: "",
         }
       : {
           name: "[Tenant A Name]",
@@ -2631,11 +2786,22 @@ class ContractManagementComponent {
             "",
           fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || "",
         }
+      : (customTenantBText && customTenantBText.value.trim())
+      ? {
+          name: customTenantBText.value.trim(),
+          passport: "",
+          fin: "",
+        }
       : {
           name: "[Tenant B Name]",
           passport: "[Tenant B Passport]",
           fin: "[Tenant B FIN]",
         };
+
+    // Get property address from custom input if available
+    const propertyAddressForPDF = (customAddressText && customAddressText.value.trim())
+      ? customAddressText.value.trim()
+      : (this.contractData.address || "[Property Address]");
 
     // Generate additional clauses HTML (starting from letter 'v' after clause 'u')
     let additionalClausesHtml = "";
@@ -2652,7 +2818,7 @@ class ContractManagementComponent {
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">HOUSE SHARING AGREEMENT</h2>
                     <p style="margin-bottom: 8px;"><strong>Full address:</strong> ${
-                      this.contractData.address || "[Property Address]"
+                      propertyAddressForPDF
                     }</p>
                     <p style="margin-bottom: 8px;"><strong>Room:</strong> ${
                       this.contractData.room || "[Room Type]"
@@ -3001,10 +3167,38 @@ class ContractManagementComponent {
       // Gather all current contract data
       const currentData = this.gatherCurrentContractData();
 
+      // Check for custom tenant text
+      const customTenantAText = document.getElementById("customTenantAText");
+      const customTenantBText = document.getElementById("customTenantBText");
+      const tenantASelect = document.getElementById("contractTenantA");
+      const tenantBSelect = document.getElementById("contractTenantB");
+
+      // Use custom text if "CUSTOM_TEXT" option is selected
+      let tenantAToSave = this.selectedTenantA;
+      if (tenantASelect && tenantASelect.value === "CUSTOM_TEXT" && customTenantAText && customTenantAText.value.trim()) {
+        tenantAToSave = {
+          name: customTenantAText.value.trim(),
+          passportNumber: "",
+          finNumber: "",
+          email: "",
+          isCustomText: true
+        };
+      }
+
+      let tenantBToSave = this.selectedTenantB;
+      if (tenantBSelect && tenantBSelect.value === "CUSTOM_TEXT" && customTenantBText && customTenantBText.value.trim()) {
+        tenantBToSave = {
+          name: customTenantBText.value.trim(),
+          passportNumber: "",
+          finNumber: "",
+          isCustomText: true
+        };
+      }
+
       const additionalData = {
         description: `Auto-saved template: ${templateName}`,
-        selectedTenantA: this.selectedTenantA,
-        selectedTenantB: this.selectedTenantB,
+        selectedTenantA: tenantAToSave,
+        selectedTenantB: tenantBToSave,
         additionalClauses: [...this.additionalClauses],
       };
 
@@ -3029,7 +3223,13 @@ class ContractManagementComponent {
   }
 
   generateTemplateName() {
-    const tenantBName = this.selectedTenantB?.name || "No-TenantB";
+    // Check for custom tenant B text
+    const customTenantBText = document.getElementById("customTenantBText");
+    const tenantBSelect = document.getElementById("contractTenantB");
+    const tenantBName = (tenantBSelect && tenantBSelect.value === "CUSTOM_TEXT" && customTenantBText && customTenantBText.value.trim())
+      ? customTenantBText.value.trim()
+      : (this.selectedTenantB?.name || "No-TenantB");
+
     const roomType =
       this.contractData.room ||
       document.getElementById("contractRoom")?.value ||
@@ -3038,10 +3238,13 @@ class ContractManagementComponent {
       this.contractData.monthlyRental ||
       document.getElementById("contractMonthlyRental")?.value ||
       "0";
-    const address =
-      this.contractData.address ||
-      document.getElementById("contractAddress")?.value ||
-      "Unknown-Address";
+
+    // Check for custom address text
+    const customAddressText = document.getElementById("customAddressText");
+    const addressSelect = document.getElementById("contractAddress");
+    const address = (addressSelect && addressSelect.value === "CUSTOM_TEXT" && customAddressText && customAddressText.value.trim())
+      ? customAddressText.value.trim()
+      : (this.contractData.address || document.getElementById("contractAddress")?.value || "Unknown-Address");
 
     // Clean and format the components
     const cleanTenantB = tenantBName
@@ -3086,8 +3289,19 @@ class ContractManagementComponent {
       );
       if (element) {
         contractData[field] = element.value;
+        // Debug logging for date fields
+        if (field === "moveInDate" || field === "moveOutDate") {
+          console.log(`📅 Gathering ${field}: ${element.value}`);
+        }
       }
     });
+
+    // Check for custom address text
+    const contractAddressElement = document.getElementById("contractAddress");
+    const customAddressText = document.getElementById("customAddressText");
+    if (contractAddressElement && contractAddressElement.value === "CUSTOM_TEXT" && customAddressText && customAddressText.value.trim()) {
+      contractData.address = customAddressText.value.trim();
+    }
 
     // Get payment method
     const paymentMethodElement = document.getElementById(
@@ -3141,6 +3355,10 @@ class ContractManagementComponent {
             element.checked = this.contractData[field];
           } else {
             element.value = this.contractData[field] || "";
+            // Debug logging for date fields
+            if (field === "moveInDate" || field === "moveOutDate") {
+              console.log(`📅 Loading ${field}: ${this.contractData[field]}`);
+            }
           }
         }
       });

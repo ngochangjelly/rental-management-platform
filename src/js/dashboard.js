@@ -8,6 +8,7 @@ import './components/contract-analysis.js';
 import './components/year-calendar.js'; // Reusable year calendar component
 import './components/property-management.js';
 import './components/tenant-management.js';
+import './components/tenant-calendar.js'; // Tenant timeline calendar
 import './components/contract-management.js';
 import './components/financial-reports.js';
 import './components/bill-management.js'; // Bill Management component

@@ -1515,6 +1515,200 @@
           max-width: 100%;
         }
       }
+
+      /* Tenant Timeline Calendar Styles */
+      .tenant-timeline-calendar {
+        min-width: 1200px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      }
+
+      .calendar-header {
+        display: flex;
+        border-bottom: 2px solid #e2e8f0;
+        background-color: #f7fafc;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .tenant-name-column {
+        width: 200px;
+        min-width: 200px;
+        padding: 12px 16px;
+        font-weight: 600;
+        border-right: 1px solid #e2e8f0;
+        background-color: #f7fafc;
+        display: flex;
+        align-items: center;
+      }
+
+      .timeline-container {
+        flex: 1;
+        display: flex;
+        position: relative;
+        background-color: #fff;
+      }
+
+      .month-header {
+        padding: 12px 8px;
+        text-align: center;
+        border-right: 1px solid #e2e8f0;
+        background: linear-gradient(180deg, #f7fafc 0%, #edf2f7 100%);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .month-header:last-child {
+        border-right: none;
+      }
+
+      .month-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2d3748;
+      }
+
+      .month-year {
+        font-size: 11px;
+        color: #718096;
+      }
+
+      .calendar-rows {
+        background-color: #fff;
+      }
+
+      .tenant-row {
+        display: flex;
+        border-bottom: 1px solid #e2e8f0;
+        min-height: 60px;
+        transition: background-color 0.2s ease;
+      }
+
+      .tenant-row:hover {
+        background-color: #f7fafc;
+      }
+
+      .tenant-row .tenant-name-column {
+        background-color: transparent;
+        border-right: 1px solid #e2e8f0;
+      }
+
+      .tenant-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .tenant-name-text {
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 14px;
+      }
+
+      .tenant-room-text {
+        font-size: 12px;
+        color: #718096;
+        font-weight: 500;
+      }
+
+      .tenant-row .timeline-container {
+        position: relative;
+        background: repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent calc(100% / 12 - 1px),
+          #e2e8f0 calc(100% / 12 - 1px),
+          #e2e8f0 calc(100% / 12)
+        );
+      }
+
+      .occupancy-bar {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 36px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        min-width: 80px;
+      }
+
+      .occupancy-bar:hover {
+        transform: translateY(-50%) scale(1.02);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        z-index: 5;
+      }
+
+      .occupancy-bar.current-tenant {
+        border: 2px solid #48bb78;
+        animation: pulse-border 2s infinite;
+      }
+
+      @keyframes pulse-border {
+        0%, 100% {
+          border-color: #48bb78;
+        }
+        50% {
+          border-color: #38a169;
+        }
+      }
+
+      .occupancy-bar-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .tenant-timeline-calendar {
+          min-width: 900px;
+        }
+
+        .tenant-name-column {
+          width: 150px;
+          min-width: 150px;
+          font-size: 13px;
+        }
+
+        .month-name {
+          font-size: 12px;
+        }
+
+        .month-year {
+          font-size: 10px;
+        }
+
+        .occupancy-bar {
+          height: 32px;
+          font-size: 12px;
+        }
+
+        .tenant-name-text {
+          font-size: 13px;
+        }
+
+        .tenant-room-text {
+          font-size: 11px;
+        }
+      }
+
+      /* View toggle button styles */
+      .btn-group .btn.active {
+        background-color: #667eea;
+        color: white;
+        border-color: #667eea;
+      }
     </style>
   </head>
   <body>
@@ -2012,6 +2206,38 @@
                 </div>
               </div>
 
+              <!-- Tenant Timeline Calendar -->
+              <div class="card mb-4" id="tenantCalendarCard">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">
+                    <i class="bi bi-calendar-range me-2"></i>Tenant Occupancy Timeline
+                  </h5>
+                  <div class="d-flex gap-2 align-items-center">
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      id="prevYearBtn"
+                      onclick="tenantCalendar.previousYear()">
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span id="calendarYearDisplay" class="fw-bold px-3">2025</span>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      id="nextYearBtn"
+                      onclick="tenantCalendar.nextYear()">
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-3" style="overflow-x: auto;">
+                  <div id="tenantCalendarContainer">
+                    <div class="text-center text-muted py-5">
+                      <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
+                      <p class="fs-6">No tenant occupancy data to display</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Tenant List -->
               <div class="card">
                 <div
@@ -2124,6 +2350,16 @@
                         <select class="form-select" id="contractTenantA">
                           <option value="">Select Tenant A</option>
                         </select>
+
+                        <!-- Custom Text Input (initially hidden) -->
+                        <div id="customTenantAField" class="mt-2" style="display: none;">
+                          <input
+                            type="text"
+                            class="form-control"
+                            id="customTenantAText"
+                            placeholder="Enter tenant name manually"
+                          />
+                        </div>
                         
                         <!-- New Tenant A Fields (initially hidden) -->
                         <div id="newTenantAFields" class="mt-3" style="display: none;">
@@ -2187,6 +2423,16 @@
                         <select class="form-select" id="contractTenantB">
                           <option value="">Select Tenant B</option>
                         </select>
+
+                        <!-- Custom Text Input (initially hidden) -->
+                        <div id="customTenantBField" class="mt-2" style="display: none;">
+                          <input
+                            type="text"
+                            class="form-control"
+                            id="customTenantBText"
+                            placeholder="Enter tenant name manually"
+                          />
+                        </div>
                         
                         <!-- New Tenant Fields (initially hidden) -->
                         <div id="newTenantFields" class="mt-3" style="display: none;">
@@ -2236,6 +2482,16 @@
                         <select class="form-select" id="contractAddress">
                           <option value="">Select property address</option>
                         </select>
+
+                        <!-- Custom Text Input (initially hidden) -->
+                        <div id="customAddressField" class="mt-2" style="display: none;">
+                          <input
+                            type="text"
+                            class="form-control"
+                            id="customAddressText"
+                            placeholder="Enter property address manually"
+                          />
+                        </div>
                         
                         <!-- New Property Fields (initially hidden) -->
                         <div id="newPropertyFields" class="mt-3" style="display: none;">

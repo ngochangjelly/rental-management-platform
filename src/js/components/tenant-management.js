@@ -265,6 +265,11 @@ class TenantManagementComponent {
 
             await this.renderTenantsTable();
 
+            // Load tenants into calendar view
+            if (window.tenantCalendar) {
+                window.tenantCalendar.loadTenants(propertyId, this.tenants);
+            }
+
             // Update sidebar badges
             if (window.updateSidebarBadges) {
                 window.updateSidebarBadges();
@@ -306,6 +311,11 @@ class TenantManagementComponent {
             }
 
             await this.renderTenantsTable();
+
+            // Clear calendar view for unassigned tenants (they have no occupancy)
+            if (window.tenantCalendar) {
+                window.tenantCalendar.loadTenants('UNASSIGNED', []);
+            }
 
             // Update sidebar badges
             if (window.updateSidebarBadges) {
