@@ -331,4 +331,6 @@ window.API = API;
 window.getAuthToken = getAuthToken;
 window.getAuthHeaders = getAuthHeaders;
 window.clearAuth = clearAuth;
+window.getCurrentUser = getCurrentUser;
+window.isAdmin = isAdmin;
 window.ImageUtils = ImageUtils;
