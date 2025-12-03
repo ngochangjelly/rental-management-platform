@@ -22,8 +22,17 @@ class TenantManagementComponent {
 
     init() {
         this.setupEventListeners();
+        this.setupAdminControls();
         // Load properties to display property cards
         this.loadProperties();
+    }
+
+    setupAdminControls() {
+        // Hide/disable upload button for non-admin users
+        const uploadBtn = document.querySelector('button[onclick*="tenantExcelUpload"]');
+        if (uploadBtn && !isAdmin()) {
+            uploadBtn.style.display = 'none';
+        }
     }
 
     async loadProperties() {
@@ -2887,12 +2896,29 @@ class TenantManagementComponent {
 
         try {
             // Get current tenants (already loaded and sorted by backend)
-            const tenants = this.tenants || [];
+            let tenants = this.tenants || [];
 
             if (tenants.length === 0) {
                 alert('No tenants to download for this property');
                 return;
             }
+
+            // Sort tenants: active first, then inactive (moved out)
+            const now = new Date();
+            tenants = [...tenants].sort((a, b) => {
+                const aProp = a.properties?.find(p => p.propertyId === this.selectedProperty) || {};
+                const bProp = b.properties?.find(p => p.propertyId === this.selectedProperty) || {};
+
+                const aIsActive = !aProp.moveoutDate || new Date(aProp.moveoutDate) > now;
+                const bIsActive = !bProp.moveoutDate || new Date(bProp.moveoutDate) > now;
+
+                // Active tenants first
+                if (aIsActive && !bIsActive) return -1;
+                if (!aIsActive && bIsActive) return 1;
+
+                // If both same status, sort by name
+                return (a.name || '').localeCompare(b.name || '');
+            });
 
             // Prepare data for Excel
             const excelData = tenants.map(tenant => {
@@ -2978,6 +3004,12 @@ class TenantManagementComponent {
      * Handle Excel file upload for bulk tenant update
      */
     async handleExcelUpload(event) {
+        // Check admin permission
+        if (!isAdmin()) {
+            alert('Only administrators can upload tenant data');
+            return;
+        }
+
         const file = event.target.files[0];
         if (!file) return;
 

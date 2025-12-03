@@ -226,6 +226,23 @@ const clearAuth = () => {
   sessionStorage.removeItem('rememberMe');
 };
 
+// Helper function to get current user
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (e) {
+    console.error('Error parsing user data:', e);
+    return null;
+  }
+};
+
+// Helper function to check if user is admin
+const isAdmin = () => {
+  const user = getCurrentUser();
+  return user && user.role === 'admin';
+};
+
 // Image utility functions
 const ImageUtils = {
   // Normalize image URL to ensure it uses the proxy endpoint
