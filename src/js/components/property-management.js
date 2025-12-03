@@ -188,6 +188,9 @@ class PropertyManagementComponent {
                   <h6 class="text-success mb-0">$${(property.rent || 0).toLocaleString()}</h6>
                 </div>
               </div>
+              <div class="mt-2">
+                <p class="mb-0 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate} of month` : 'Not set'}</p>
+              </div>
             </div>
             <div class="card-footer bg-white border-0 pt-0">
               <div class="d-flex gap-2">

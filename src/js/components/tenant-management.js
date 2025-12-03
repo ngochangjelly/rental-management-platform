@@ -433,12 +433,28 @@ class TenantManagementComponent {
 
             // Find room info for this tenant in the selected property
             let roomInfo = 'No property';
+            let moveInDate = 'N/A';
+            let moveOutDate = 'N/A';
+            let rentAmount = tenant.rent || 'N/A';
+
             if (this.selectedProperty !== 'UNASSIGNED') {
                 const propertyInfo = tenant.properties?.find(prop => {
                     const propId = typeof prop === 'object' ? prop.propertyId : prop;
                     return propId === this.selectedProperty;
                 });
-                roomInfo = propertyInfo && typeof propertyInfo === 'object' ? propertyInfo.room || 'No room' : 'No room';
+                if (propertyInfo && typeof propertyInfo === 'object') {
+                    roomInfo = propertyInfo.room || 'No room';
+                    if (propertyInfo.moveinDate) {
+                        const date = new Date(propertyInfo.moveinDate);
+                        moveInDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+                    }
+                    if (propertyInfo.moveoutDate) {
+                        const date = new Date(propertyInfo.moveoutDate);
+                        moveOutDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+                    }
+                } else {
+                    roomInfo = 'No room';
+                }
             }
 
             html += `
@@ -455,7 +471,10 @@ class TenantManagementComponent {
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-start mb-1">
                                         <h5 class="mb-0">${this.escapeHtml(tenant.name)}</h5>
-                                        ${isMainTenant ? '<span class="badge bg-primary">Main</span>' : ''}
+                                        <div class="d-flex gap-2 align-items-center">
+                                            ${tenant.facebookUrl ? `<a href="${this.escapeHtml(tenant.facebookUrl)}" target="_blank" rel="noopener noreferrer" class="text-primary" title="Facebook Profile"><i class="bi bi-facebook fs-5"></i></a>` : ''}
+                                            ${isMainTenant ? '<span class="badge bg-primary">Main</span>' : ''}
+                                        </div>
                                     </div>
                                     <p class="text-muted mb-0">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</p>
                                 </div>
@@ -464,16 +483,19 @@ class TenantManagementComponent {
                                 <div class="mb-2"><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || '-'}</div>
                                 <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(tenant.passportNumber)}</div>
                                 <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
+                                <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === 'number' ? '$' + rentAmount.toFixed(2) : rentAmount}</div>
+                                <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(moveInDate)}</div>
+                                <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(moveOutDate)}</div>
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3">
                                 ${this.getRegistrationStatusBadge(registrationStatus)}
                                 ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ''}
                             </div>
                             <div class="btn-group w-100" role="group">
-                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
+                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant._id}')">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
+                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant._id}')">
                                     <i class="bi bi-trash"></i> Delete
                                 </button>
                             </div>
@@ -551,10 +573,10 @@ class TenantManagementComponent {
                             ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ''}
                         </div>
                         <div class="btn-group btn-group-sm w-100" role="group">
-                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${tenant.passportNumber}')">
+                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${tenant._id}')">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
-                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant.passportNumber}')">
+                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant._id}')">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
                         </div>
@@ -756,6 +778,7 @@ class TenantManagementComponent {
                     fin: tenant.fin || '',
                     passportNumber: tenant.passportNumber || '',
                     phoneNumber: tenant.phoneNumber || '',
+                    facebookUrl: tenant.facebookUrl || '',
                     registrationStatus: tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'),
                     properties: JSON.parse(JSON.stringify(tenant.properties || [])), // Deep copy
                     passportPics: [...(tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []))], // Copy array
@@ -774,6 +797,7 @@ class TenantManagementComponent {
                 document.getElementById('tenantFin').value = tenant.fin || '';
                 document.getElementById('tenantPassport').value = tenant.passportNumber || '';
                 document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
+                document.getElementById('tenantFacebookUrl').value = tenant.facebookUrl || '';
                 
                 // Populate financial fields (except depositReceiver which is populated after investors are loaded)
                 document.getElementById('tenantRent').value = tenant.rent || '';
@@ -1259,6 +1283,7 @@ class TenantManagementComponent {
                 fin: formData.get('fin').trim().toUpperCase() || null,
                 passportNumber: formData.get('passportNumber').trim().toUpperCase(),
                 phoneNumber: formData.get('phoneNumber').trim() || null,
+                facebookUrl: formData.get('facebookUrl')?.trim() || null,
                 registrationStatus: document.getElementById('tenantRegistrationStatusHidden').value || 'unregistered',
                 // Keep backward compatibility with isRegistered field
                 isRegistered: document.getElementById('tenantRegistrationStatusHidden').value === 'registered',
@@ -1287,8 +1312,8 @@ class TenantManagementComponent {
             });
 
             // Validate required fields
-            if (!tenantData.name || !tenantData.passportNumber) {
-                alert('Please fill in all required fields (Name, Passport Number)');
+            if (!tenantData.name) {
+                alert('Please fill in the required field: Name');
                 return;
             }
 
@@ -1298,8 +1323,8 @@ class TenantManagementComponent {
                 return;
             }
 
-            // Validate passport length
-            if (tenantData.passportNumber.length < 6 || tenantData.passportNumber.length > 15) {
+            // Validate passport length if provided
+            if (tenantData.passportNumber && (tenantData.passportNumber.length < 6 || tenantData.passportNumber.length > 15)) {
                 alert('Passport number must be between 6 and 15 characters');
                 return;
             }
@@ -1415,9 +1440,9 @@ class TenantManagementComponent {
         }
     }
 
-    async editTenant(passportNumber) {
-        // Find the tenant to edit
-        const tenant = this.tenants.find(t => t.passportNumber === passportNumber);
+    async editTenant(tenantId) {
+        // Find the tenant to edit by ID
+        const tenant = this.tenants.find(t => t._id === tenantId);
         if (!tenant) {
             alert('Tenant not found');
             return;
@@ -1456,15 +1481,20 @@ class TenantManagementComponent {
         }
     }
 
-    async deleteTenant(passportNumber) {
-        if (!confirm(`Are you sure you want to delete tenant ${passportNumber}?`)) {
+    async deleteTenant(tenantId) {
+        // Find the tenant to get their name for the confirmation message
+        const tenant = this.tenants.find(t => t._id === tenantId);
+        if (!tenant) {
+            alert('Tenant not found');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete tenant ${tenant.name}?`)) {
             return;
         }
 
         try {
-            // Find the tenant to get the ID
-            const tenant = this.tenants.find(t => t.passportNumber === passportNumber);
-            if (!tenant || !tenant._id) {
+            if (!tenant._id) {
                 throw new Error('Tenant ID not found');
             }
 
@@ -2203,7 +2233,7 @@ class TenantManagementComponent {
 
         const fieldsToWatch = [
             'tenantName', 'tenantFin', 'tenantPassport', 'tenantPhoneNumber',
-            'tenantRent', 'tenantDeposit', 'tenantDepositReceiver'
+            'tenantFacebookUrl', 'tenantRent', 'tenantDeposit', 'tenantDepositReceiver'
         ];
 
         fieldsToWatch.forEach(fieldId => {
@@ -2247,6 +2277,7 @@ class TenantManagementComponent {
             fin: (document.getElementById('tenantFin')?.value || '').trim(),
             passportNumber: (document.getElementById('tenantPassport')?.value || '').trim(),
             phoneNumber: (document.getElementById('tenantPhoneNumber')?.value || '').trim(),
+            facebookUrl: (document.getElementById('tenantFacebookUrl')?.value || '').trim(),
             registrationStatus: document.getElementById('tenantRegistrationStatusHidden')?.value || 'unregistered',
             properties: this.selectedPropertiesDetails || [],
             passportPics: this.passportPics || [],
@@ -2262,7 +2293,7 @@ class TenantManagementComponent {
 
     hasDataChanged(original, current) {
         // Compare basic fields
-        const fieldsToCompare = ['name', 'fin', 'passportNumber', 'phoneNumber', 'registrationStatus', 'avatar', 'signature', 'rent', 'deposit', 'depositReceiver'];
+        const fieldsToCompare = ['name', 'fin', 'passportNumber', 'phoneNumber', 'facebookUrl', 'registrationStatus', 'avatar', 'signature', 'rent', 'deposit', 'depositReceiver'];
         
         for (const field of fieldsToCompare) {
             const originalValue = (original[field] || '').toString().trim();
@@ -2843,6 +2874,278 @@ class TenantManagementComponent {
     }
 
     // Pagination removed - now using property-based navigation
+
+    /**
+     * Download tenants as Excel file
+     * Sorts active tenants first, then inactive
+     */
+    async downloadTenantExcel() {
+        if (!this.selectedProperty) {
+            alert('Please select a property first');
+            return;
+        }
+
+        try {
+            // Get current tenants (already loaded and sorted by backend)
+            const tenants = this.tenants || [];
+
+            if (tenants.length === 0) {
+                alert('No tenants to download for this property');
+                return;
+            }
+
+            // Prepare data for Excel
+            const excelData = tenants.map(tenant => {
+                // Get property info for this property
+                const propertyInfo = tenant.properties?.find(p =>
+                    p.propertyId === this.selectedProperty
+                ) || {};
+
+                const isActive = !propertyInfo.moveoutDate ||
+                                new Date(propertyInfo.moveoutDate) > new Date();
+
+                return {
+                    'Tenant ID': tenant._id || '',
+                    'Name': tenant.name || '',
+                    'Nickname': tenant.nickname || '',
+                    'FIN/NRIC': tenant.fin || '',
+                    'Passport Number': tenant.passportNumber || '',
+                    'Phone Number': tenant.phoneNumber || '',
+                    'Facebook URL': tenant.facebookUrl || '',
+                    'Registration Status': tenant.registrationStatus || 'unregistered',
+                    'Property ID': this.selectedProperty,
+                    'Room': propertyInfo.room || '',
+                    'Move-in Date': propertyInfo.moveinDate ? new Date(propertyInfo.moveinDate).toISOString().split('T')[0] : '',
+                    'Move-out Date': propertyInfo.moveoutDate ? new Date(propertyInfo.moveoutDate).toISOString().split('T')[0] : '',
+                    'Is Main Tenant': propertyInfo.isMainTenant ? 'Yes' : 'No',
+                    'Monthly Rent (SGD)': tenant.rent || '',
+                    'Deposit Amount (SGD)': tenant.deposit || '',
+                    'Deposit Receiver': tenant.depositReceiver || '',
+                    'Avatar URL': tenant.avatar || '',
+                    'Signature URL': tenant.signature || '',
+                    'Status': isActive ? 'Active' : 'Inactive'
+                };
+            });
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(excelData);
+
+            // Set column widths
+            const colWidths = [
+                { wch: 25 }, // Tenant ID
+                { wch: 20 }, // Name
+                { wch: 15 }, // Nickname
+                { wch: 15 }, // FIN/NRIC
+                { wch: 15 }, // Passport
+                { wch: 15 }, // Phone
+                { wch: 40 }, // Facebook URL
+                { wch: 18 }, // Registration Status
+                { wch: 40 }, // Property ID
+                { wch: 15 }, // Room
+                { wch: 12 }, // Move-in Date
+                { wch: 12 }, // Move-out Date
+                { wch: 15 }, // Is Main Tenant
+                { wch: 18 }, // Monthly Rent
+                { wch: 18 }, // Deposit Amount
+                { wch: 20 }, // Deposit Receiver
+                { wch: 50 }, // Avatar URL
+                { wch: 50 }, // Signature URL
+                { wch: 10 }  // Status
+            ];
+            ws['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Tenants');
+
+            // Generate filename with property ID and date
+            const propertyName = this.selectedProperty === 'UNASSIGNED'
+                ? 'Unassigned'
+                : this.selectedProperty.replace(/[^a-zA-Z0-9]/g, '_');
+            const dateStr = new Date().toISOString().split('T')[0];
+            const filename = `Tenants_${propertyName}_${dateStr}.xlsx`;
+
+            // Download file
+            XLSX.writeFile(wb, filename);
+
+            this.showSuccessMessage(`Downloaded ${tenants.length} tenant(s) to ${filename}`);
+        } catch (error) {
+            console.error('Error downloading Excel:', error);
+            alert('Failed to download Excel file: ' + error.message);
+        }
+    }
+
+    /**
+     * Handle Excel file upload for bulk tenant update
+     */
+    async handleExcelUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Reset file input so same file can be uploaded again
+        event.target.value = '';
+
+        if (!this.selectedProperty) {
+            alert('Please select a property first');
+            return;
+        }
+
+        try {
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                try {
+                    // Parse Excel file
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // Get first sheet
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+
+                    // Convert to JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        alert('No data found in Excel file');
+                        return;
+                    }
+
+                    // Validate and prepare tenant updates
+                    const updates = [];
+                    const errors = [];
+
+                    jsonData.forEach((row, index) => {
+                        const rowNum = index + 2; // +2 for Excel row (header is row 1)
+
+                        // Validate required fields
+                        if (!row['Tenant ID']) {
+                            errors.push(`Row ${rowNum}: Missing Tenant ID`);
+                            return;
+                        }
+                        if (!row['Name']) {
+                            errors.push(`Row ${rowNum}: Missing Name`);
+                            return;
+                        }
+                        if (!row['Passport Number']) {
+                            errors.push(`Row ${rowNum}: Missing Passport Number`);
+                            return;
+                        }
+
+                        // Prepare update object
+                        const update = {
+                            tenantId: row['Tenant ID'],
+                            name: row['Name'],
+                            nickname: row['Nickname'] || null,
+                            fin: row['FIN/NRIC'] || null,
+                            passportNumber: row['Passport Number'],
+                            phoneNumber: row['Phone Number'] || null,
+                            facebookUrl: row['Facebook URL'] || null,
+                            registrationStatus: row['Registration Status'] || 'unregistered',
+                            rent: row['Monthly Rent (SGD)'] ? parseFloat(row['Monthly Rent (SGD)']) : null,
+                            deposit: row['Deposit Amount (SGD)'] ? parseFloat(row['Deposit Amount (SGD)']) : null,
+                            depositReceiver: row['Deposit Receiver'] || null,
+                            avatar: row['Avatar URL'] || null,
+                            signature: row['Signature URL'] || null,
+                            // Property assignment info
+                            propertyId: row['Property ID'] || this.selectedProperty,
+                            room: row['Room'] || null,
+                            moveinDate: row['Move-in Date'] || null,
+                            moveoutDate: row['Move-out Date'] || null,
+                            isMainTenant: row['Is Main Tenant'] === 'Yes'
+                        };
+
+                        updates.push(update);
+                    });
+
+                    if (errors.length > 0) {
+                        alert('Validation errors:\n\n' + errors.join('\n'));
+                        return;
+                    }
+
+                    // Confirm before updating
+                    const confirmed = confirm(
+                        `Upload ${updates.length} tenant update(s)?\n\n` +
+                        'This will update existing tenants based on Tenant ID.\n' +
+                        'Make sure the data is correct before proceeding.'
+                    );
+
+                    if (!confirmed) return;
+
+                    // Send bulk update to backend
+                    await this.bulkUpdateTenants(updates);
+
+                } catch (parseError) {
+                    console.error('Error parsing Excel:', parseError);
+                    alert('Failed to parse Excel file: ' + parseError.message);
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+
+        } catch (error) {
+            console.error('Error uploading Excel:', error);
+            alert('Failed to upload Excel file: ' + error.message);
+        }
+    }
+
+    /**
+     * Send bulk tenant updates to backend
+     */
+    async bulkUpdateTenants(updates) {
+        try {
+            const response = await API.post(API_CONFIG.ENDPOINTS.TENANTS + '/bulk-update', {
+                updates: updates
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showSuccessMessage(
+                    `Successfully updated ${result.updatedCount || updates.length} tenant(s)`
+                );
+
+                // Reload tenants for current property
+                if (this.selectedProperty === 'UNASSIGNED') {
+                    await this.loadUnassignedTenants();
+                } else {
+                    await this.loadTenantsForProperty(this.selectedProperty);
+                }
+            } else {
+                alert('Failed to update tenants: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error in bulk update:', error);
+            alert('Failed to update tenants: ' + error.message);
+        }
+    }
+
+    /**
+     * Show success message helper
+     */
+    showSuccessMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        messageDiv.style.cssText = `
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        messageDiv.innerHTML = `
+            <i class="bi bi-check-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+
+        document.body.appendChild(messageDiv);
+
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 5000);
+    }
 }
 
 // Export for use in other modules

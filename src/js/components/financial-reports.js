@@ -551,6 +551,7 @@ class FinancialReportsComponent {
     this.updateExpenseDisplay();
     this.updateSummaryDisplay();
     this.updateInvestorDisplay();
+    await this.updateUnpaidRentReminder();
     await this.updateClosedStatus();
   }
 
@@ -933,10 +934,8 @@ class FinancialReportsComponent {
             <tr class="table-info">
               <th class="border-0 small">Investor</th>
               <th class="border-0 small text-center">Share %</th>
-              <th class="border-0 small text-end">Profit Share</th>
-              <th class="border-0 small text-end">Paid</th>
-              <th class="border-0 small text-end">Received</th>
-              <th class="border-0 small text-end">Final</th>
+              <th class="border-0 small text-end">SGD Amount</th>
+              <th class="border-0 small text-end">VND Amount</th>
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
@@ -958,38 +957,16 @@ class FinancialReportsComponent {
             )
           : null;
 
-      const alreadyPaid = existingTransaction
-        ? existingTransaction.alreadyPaid
+      // Get SGD and VND amounts from transaction data
+      const sgdAmount = existingTransaction && existingTransaction.sgdAmount !== undefined
+        ? existingTransaction.sgdAmount
         : 0;
-      const alreadyReceived = existingTransaction
-        ? existingTransaction.alreadyReceived
+      const vndAmount = existingTransaction && existingTransaction.vndAmount !== undefined
+        ? existingTransaction.vndAmount
         : 0;
 
-      // Calculate expenses paid by this investor on behalf of the group
-      const expensesPaidByInvestor =
-        this.currentReport && this.currentReport.expenses
-          ? this.currentReport.expenses
-              .filter(
-                (expense) => expense.personInCharge === investor.investorId
-              )
-              .reduce((total, expense) => total + expense.amount, 0)
-          : 0;
-
-      // Calculate income received by this investor on behalf of the group
-      const incomeReceivedByInvestor =
-        this.currentReport && this.currentReport.income
-          ? this.currentReport.income
-              .filter((income) => income.personInCharge === investor.investorId)
-              .reduce((total, income) => total + income.amount, 0)
-          : 0;
-
-      // Final amount = investor's share - what they already paid + what they received + expenses they paid on behalf of group - income they received on behalf of group
-      const finalAmount =
-        investorShare -
-        alreadyPaid +
-        alreadyReceived +
-        expensesPaidByInvestor -
-        incomeReceivedByInvestor;
+      const hasSGD = Math.abs(sgdAmount) >= 0.01;
+      const hasVND = Math.abs(vndAmount) >= 0.01;
 
       html += `
         <tr>
@@ -1011,18 +988,16 @@ class FinancialReportsComponent {
             </div>
           </td>
           <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
-          <td class="small border-0 align-middle text-end fw-bold text-primary">$${investorShare.toFixed(
-            2
-          )}</td>
-          <td class="small border-0 align-middle text-end fw-bold text-warning">$${expensesPaidByInvestor.toFixed(
-            2
-          )}</td>
-          <td class="small border-0 align-middle text-end fw-bold text-info">$${incomeReceivedByInvestor.toFixed(
-            2
-          )}</td>
           <td class="small border-0 align-middle text-end fw-bold ${
-            finalAmount >= 0 ? "text-success" : "text-danger"
-          }">$${finalAmount.toFixed(2)}</td>
+            sgdAmount >= 0 ? "text-success" : "text-danger"
+          }">
+            ${hasSGD ? `$${sgdAmount.toFixed(2)}` : '<span class="text-muted">-</span>'}
+          </td>
+          <td class="small border-0 align-middle text-end fw-bold ${
+            vndAmount >= 0 ? "text-success" : "text-danger"
+          }">
+            ${hasVND ? `₫${vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}` : '<span class="text-muted">-</span>'}
+          </td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${
@@ -1051,6 +1026,172 @@ class FinancialReportsComponent {
 
     // Initialize tooltips
     this.initializeTooltips();
+  }
+
+  async updateUnpaidRentReminder() {
+    const reminderContainer = document.getElementById("unpaidRentReminder");
+    if (!reminderContainer || !this.selectedProperty || !this.currentReport) {
+      return;
+    }
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      // Fetch tenants for this property
+      const tenantsResponse = await API.get(
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)
+      );
+
+      if (!tenantsResponse.ok) {
+        reminderContainer.style.display = "none";
+        return;
+      }
+
+      const tenantsResult = await tenantsResponse.json();
+      const allTenants = tenantsResult.success ? (tenantsResult.tenants || []) : [];
+
+      // Filter tenants whose rental period overlaps with current month
+      const currentMonthTenants = allTenants.filter(tenant => {
+        if (!tenant.properties || !Array.isArray(tenant.properties)) {
+          return false;
+        }
+
+        // Find the property record for current property
+        // Properties can be either strings or objects with propertyId
+        const propertyRecord = tenant.properties.find(prop => {
+          const propId = typeof prop === 'object' ? prop.propertyId : prop;
+          return propId && propId.toUpperCase() === this.selectedProperty.toUpperCase();
+        });
+
+        if (!propertyRecord) {
+          return false;
+        }
+
+        // Check if tenant has move-in/move-out dates in the property record
+        // Property record can be an object with moveinDate/moveoutDate fields
+        const moveInDate = propertyRecord && typeof propertyRecord === 'object' && propertyRecord.moveinDate
+          ? new Date(propertyRecord.moveinDate)
+          : null;
+        const moveOutDate = propertyRecord && typeof propertyRecord === 'object' && propertyRecord.moveoutDate
+          ? new Date(propertyRecord.moveoutDate)
+          : null;
+
+        const reportDate = new Date(year, month - 1, 1); // First day of report month
+        const reportEndDate = new Date(year, month, 0); // Last day of report month
+
+        // Tenant should be in property during this month
+        if (moveInDate && moveInDate > reportEndDate) {
+          return false; // Moved in after this month
+        }
+
+        if (moveOutDate && moveOutDate < reportDate) {
+          return false; // Moved out before this month
+        }
+
+        return true; // Tenant was/is in property during this month
+      });
+
+      // Get list of tenants who have paid (appear in income as paidBy)
+      const paidTenantIdentifiers = new Set();
+      if (this.currentReport.income && Array.isArray(this.currentReport.income)) {
+        this.currentReport.income.forEach(incomeItem => {
+          if (incomeItem.paidBy && incomeItem.paidBy.startsWith("tenant_")) {
+            // Extract tenant ID from "tenant_" prefix
+            const tenantId = incomeItem.paidBy.replace("tenant_", "");
+
+            // Find the tenant to get all their identifiers
+            const tenant = this.tenants.find(t =>
+              (t._id && t._id === tenantId) ||
+              (t.tenantId && t.tenantId === tenantId) ||
+              (t.name && t.name === tenantId) ||
+              (t.fin && t.fin === tenantId) ||
+              (t.passportNumber && t.passportNumber === tenantId)
+            );
+
+            if (tenant) {
+              // Add all possible identifiers for this tenant
+              if (tenant._id) paidTenantIdentifiers.add(tenant._id);
+              if (tenant.tenantId) paidTenantIdentifiers.add(tenant.tenantId);
+              if (tenant.name) paidTenantIdentifiers.add(tenant.name);
+              if (tenant.fin) paidTenantIdentifiers.add(tenant.fin);
+              if (tenant.passportNumber) paidTenantIdentifiers.add(tenant.passportNumber);
+            }
+          }
+        });
+      }
+
+      // Find unpaid tenants
+      // Match by multiple identifiers: _id, name, fin, passportNumber
+      const unpaidTenants = currentMonthTenants.filter(tenant => {
+        const identifiers = [
+          tenant._id,
+          tenant.tenantId,
+          tenant.name,
+          tenant.fin,
+          tenant.passportNumber
+        ].filter(Boolean);
+
+        return !identifiers.some(id => paidTenantIdentifiers.has(id));
+      });
+
+      // Display the reminder
+      if (unpaidTenants.length === 0) {
+        reminderContainer.innerHTML = `
+          <div class="alert alert-success mb-3">
+            <i class="bi bi-check-circle me-2"></i>
+            <strong>All tenants have paid!</strong> No pending rent payments for this month.
+          </div>
+        `;
+        reminderContainer.style.display = "block";
+      } else {
+        // Filter out tenants without room type
+        const tenantsWithRoomType = unpaidTenants.filter(tenant => tenant.roomType);
+
+        if (tenantsWithRoomType.length === 0) {
+          reminderContainer.style.display = "none";
+          return;
+        }
+
+        let html = `
+          <div class="alert alert-warning mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Unpaid Rent Reminder</strong> - ${tenantsWithRoomType.length} tenant${tenantsWithRoomType.length > 1 ? 's' : ''} haven't paid rent yet
+              </div>
+            </div>
+            <div class="mt-2">
+              <small class="d-block mb-2 text-muted">The following tenants should have paid rent for this month:</small>
+              <ul class="mb-0">
+        `;
+
+        tenantsWithRoomType.forEach(tenant => {
+          const displayName = tenant.name || tenant.username || tenant.tenantId;
+          const phoneNumber = tenant.phoneNumber || '';
+          const roomType = this.getRoomTypeDisplayName(tenant.roomType);
+          html += `
+            <li class="mb-1">
+              <strong>${escapeHtml(displayName)}</strong>
+              <span class="text-muted ms-2">(${escapeHtml(roomType)})</span>
+              ${phoneNumber ? `<span class="text-muted ms-2">📞 ${escapeHtml(phoneNumber)}</span>` : ''}
+            </li>
+          `;
+        });
+
+        html += `
+              </ul>
+            </div>
+          </div>
+        `;
+
+        reminderContainer.innerHTML = html;
+        reminderContainer.style.display = "block";
+      }
+    } catch (error) {
+      console.error("Error loading unpaid rent reminder:", error);
+      reminderContainer.style.display = "none";
+    }
   }
 
   async updateMonthDisplay() {

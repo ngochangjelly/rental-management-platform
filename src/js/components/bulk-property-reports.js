@@ -387,6 +387,11 @@ class BulkPropertyReportsComponent {
                           expensesPaidByInvestor -
                           incomeReceivedByInvestor;
 
+                        // Get multi-currency data from transaction if available
+                        const sgdAmount = existingTransaction?.sgdAmount !== undefined ? existingTransaction.sgdAmount : final;
+                        const vndAmount = existingTransaction?.vndAmount !== undefined ? existingTransaction.vndAmount : 0;
+                        const currencies = existingTransaction?.currencies || null;
+
                         return {
                           investorName: investor.name || investor.username,
                           investorId: investor.investorId,
@@ -398,6 +403,9 @@ class BulkPropertyReportsComponent {
                           alreadyPaid: alreadyPaid,
                           alreadyReceived: alreadyReceived,
                           final: final,
+                          sgdAmount: sgdAmount,
+                          vndAmount: vndAmount,
+                          currencies: currencies,
                         };
                       })
                       .filter((inv) => inv !== null); // Remove investors that don't have this property
@@ -495,7 +503,7 @@ class BulkPropertyReportsComponent {
     // Calculate total profit and aggregate investor data
     let totalProfit = 0;
     let reportCount = 0;
-    const investorTotals = new Map(); // Map<investorId, {name, totalFinal, properties: []}>
+    const investorTotals = new Map(); // Map<investorId, {name, totalFinal, totalSGD, totalVND, properties: []}>
 
     reports.forEach((r) => {
       if (r.report) {
@@ -513,14 +521,20 @@ class BulkPropertyReportsComponent {
                 investorName: inv.investorName,
                 avatar: inv.avatar || null,
                 totalFinal: 0,
+                totalSGD: 0,
+                totalVND: 0,
                 properties: [],
               });
             }
             const investorData = investorTotals.get(inv.investorId);
             investorData.totalFinal += inv.final;
+            investorData.totalSGD += inv.sgdAmount || 0;
+            investorData.totalVND += inv.vndAmount || 0;
             investorData.properties.push({
               propertyId: r.propertyId,
               final: inv.final,
+              sgdAmount: inv.sgdAmount || 0,
+              vndAmount: inv.vndAmount || 0,
               sharePercentage: inv.sharePercentage,
             });
           });
@@ -536,8 +550,10 @@ class BulkPropertyReportsComponent {
       }
     });
 
-    // Calculate settlement transactions between investors
-    const settlements = this.calculateSettlements(investorTotals, propertyMap);
+    // Calculate settlement transactions between investors (separate for SGD and VND)
+    const sgdSettlements = this.calculateSettlementsForCurrency(investorTotals, propertyMap, 'SGD');
+    const vndSettlements = this.calculateSettlementsForCurrency(investorTotals, propertyMap, 'VND');
+    const settlements = [...sgdSettlements, ...vndSettlements];
 
     // Create investor summary HTML
     let investorSummaryHtml = "";
@@ -560,14 +576,18 @@ class BulkPropertyReportsComponent {
                   <tr>
                     <th class="ps-3">Investor</th>
                     <th class="text-center">Properties</th>
-                    <th class="text-end pe-3">Total Final Amount</th>
+                    <th class="text-end pe-3">SGD Amount</th>
+                    <th class="text-end pe-3">VND Amount</th>
                     <th class="text-end pe-3">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${investorArray
                     .map(
-                      (inv) => `
+                      (inv) => {
+                        const hasSGD = Math.abs(inv.totalSGD) >= 0.01;
+                        const hasVND = Math.abs(inv.totalVND) >= 0.01;
+                        return `
                     <tr>
                       <td class="ps-3">
                         <strong>${escapeHtml(inv.investorName)}</strong>
@@ -580,32 +600,44 @@ class BulkPropertyReportsComponent {
                         }</span>
                       </td>
                       <td class="text-end pe-3">
-                        <span class="fs-5 fw-bold ${
-                          inv.totalFinal >= 0 ? "text-success" : "text-danger"
+                        ${hasSGD ? `
+                        <span class="fs-6 fw-bold ${
+                          inv.totalSGD >= 0 ? "text-success" : "text-danger"
                         }">
-                          $${inv.totalFinal.toFixed(2)}
+                          $${inv.totalSGD.toFixed(2)}
                         </span>
+                        ` : '<span class="text-muted">-</span>'}
+                      </td>
+                      <td class="text-end pe-3">
+                        ${hasVND ? `
+                        <span class="fs-6 fw-bold ${
+                          inv.totalVND >= 0 ? "text-success" : "text-danger"
+                        }">
+                          ₫${inv.totalVND.toLocaleString('vi-VN', {maximumFractionDigits: 0})}
+                        </span>
+                        ` : '<span class="text-muted">-</span>'}
                       </td>
                       <td class="text-end pe-3">
                         ${
-                          inv.totalFinal > 0
+                          (hasSGD && inv.totalSGD > 0) || (hasVND && inv.totalVND > 0)
                             ? '<span class="badge bg-success">Will Receive</span>'
-                            : inv.totalFinal < 0
+                            : (hasSGD && inv.totalSGD < 0) || (hasVND && inv.totalVND < 0)
                             ? '<span class="badge bg-danger">Must Pay</span>'
                             : '<span class="badge bg-secondary">Balanced</span>'
                         }
                       </td>
                     </tr>
-                  `
+                  `;
+                      }
                     )
                     .join("")}
                 </tbody>
                 <tfoot class="table-light">
                   <tr>
-                    <td colspan="4" class="text-center py-2">
+                    <td colspan="5" class="text-center py-2">
                       <small class="text-muted">
                         <i class="bi bi-info-circle me-1"></i>
-                        Positive amounts indicate investor will receive money. Negative amounts indicate investor must pay.
+                        Positive amounts indicate investor will receive money. Negative amounts indicate investor must pay. Both SGD and VND are distributed separately to share exchange rate risk.
                       </small>
                     </td>
                   </tr>
@@ -714,7 +746,10 @@ class BulkPropertyReportsComponent {
                         </div>
                         <div>
                           <span class="badge bg-warning text-dark fs-6 px-3 py-2">
-                            $${settlement.amount.toFixed(2)}
+                            ${settlement.currency === 'VND'
+                              ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
+                              : `$${settlement.amount.toFixed(2)}`
+                            }
                           </span>
                         </div>
                       </div>
@@ -743,9 +778,11 @@ class BulkPropertyReportsComponent {
                               </small>
                               <small class="badge ${
                                 isNegative ? "bg-danger" : "bg-secondary"
-                              }">${
-                                isNegative ? "-" : ""
-                              }$${displayAmount.toFixed(2)}</small>
+                              }">${isNegative ? "-" : ""}${
+                                settlement.currency === 'VND'
+                                  ? `₫${displayAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
+                                  : `$${displayAmount.toFixed(2)}`
+                              }</small>
                             </div>
                           `;
                             })
@@ -755,19 +792,21 @@ class BulkPropertyReportsComponent {
                               <i class="bi bi-calculator me-1"></i>
                               Net Amount to Transfer
                             </small>
-                            <small class="badge bg-warning text-dark">$${settlement.amount.toFixed(
-                              2
-                            )}</small>
+                            <small class="badge bg-warning text-dark">${
+                              settlement.currency === 'VND'
+                                ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
+                                : `$${settlement.amount.toFixed(2)}`
+                            }</small>
                           </div>
                         </div>
                       `
                           : `
                         <small class="text-muted d-block mt-1">
-                          ${escapeHtml(
-                            settlement.fromName
-                          )} pays $${settlement.amount.toFixed(
-                              2
-                            )} to ${escapeHtml(settlement.toName)}
+                          ${escapeHtml(settlement.fromName)} pays ${
+                            settlement.currency === 'VND'
+                              ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
+                              : `$${settlement.amount.toFixed(2)}`
+                          } to ${escapeHtml(settlement.toName)}
                         </small>
                       `
                       }
@@ -789,9 +828,16 @@ class BulkPropertyReportsComponent {
                   <li><strong>Total Transactions:</strong> ${
                     settlements.length
                   }</li>
-                  <li><strong>Total Money Transferred:</strong> $${settlements
+                  <li><strong>SGD Transactions:</strong> ${
+                    sgdSettlements.length
+                  } (Total: $${sgdSettlements
                     .reduce((sum, s) => sum + s.amount, 0)
-                    .toFixed(2)}</li>
+                    .toFixed(2)})</li>
+                  <li><strong>VND Transactions:</strong> ${
+                    vndSettlements.length
+                  } (Total: ₫${vndSettlements
+                    .reduce((sum, s) => sum + s.amount, 0)
+                    .toLocaleString('vi-VN', {maximumFractionDigits: 0})})</li>
                 </ul>
               </div>
             `
@@ -944,13 +990,17 @@ class BulkPropertyReportsComponent {
                               <tr>
                                 <th>Investor</th>
                                 <th class="text-end">Share %</th>
-                                <th class="text-end">Final</th>
+                                <th class="text-end">SGD</th>
+                                <th class="text-end">VND</th>
                               </tr>
                             </thead>
                             <tbody>
                               ${item.report.investors
                                 .map(
-                                  (inv) => `
+                                  (inv) => {
+                                    const hasSGD = Math.abs(inv.sgdAmount || 0) >= 0.01;
+                                    const hasVND = Math.abs(inv.vndAmount || 0) >= 0.01;
+                                    return `
                                 <tr>
                                   <td>
                                     <small class="fw-bold">${escapeHtml(
@@ -961,16 +1011,30 @@ class BulkPropertyReportsComponent {
                                     <small>${inv.sharePercentage}%</small>
                                   </td>
                                   <td class="text-end">
+                                    ${hasSGD ? `
                                     <small class="fw-bold ${
-                                      inv.final >= 0
+                                      inv.sgdAmount >= 0
                                         ? "text-success"
                                         : "text-danger"
                                     }">
-                                      $${inv.final.toFixed(2)}
+                                      $${inv.sgdAmount.toFixed(2)}
                                     </small>
+                                    ` : '<small class="text-muted">-</small>'}
+                                  </td>
+                                  <td class="text-end">
+                                    ${hasVND ? `
+                                    <small class="fw-bold ${
+                                      inv.vndAmount >= 0
+                                        ? "text-success"
+                                        : "text-danger"
+                                    }">
+                                      ₫${inv.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}
+                                    </small>
+                                    ` : '<small class="text-muted">-</small>'}
                                   </td>
                                 </tr>
-                              `
+                              `;
+                                  }
                                 )
                                 .join("")}
                             </tbody>
@@ -999,9 +1063,11 @@ class BulkPropertyReportsComponent {
                                     <strong class="text-success">${escapeHtml(
                                       settlement.toName
                                     )}</strong>
-                                    <span class="badge bg-warning text-dark ms-2">$${settlement.amount.toFixed(
-                                      2
-                                    )}</span>
+                                    <span class="badge bg-warning text-dark ms-2">${
+                                      settlement.currency === 'VND'
+                                        ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
+                                        : `$${settlement.amount.toFixed(2)}`
+                                    }</span>
                                   </small>
                                 </div>
                               `
@@ -1176,64 +1242,288 @@ class BulkPropertyReportsComponent {
   }
 
   calculatePropertySettlements(investors) {
-    // Filter out balanced investors (within 1 cent tolerance)
-    const activeInvestors = investors.filter(
-      (inv) => Math.abs(inv.final) >= 0.01
-    );
-
-    if (activeInvestors.length === 0) {
-      return [];
-    }
-
-    // Separate into creditors (receive money) and debtors (pay money)
-    const creditors = activeInvestors
-      .filter((inv) => inv.final > 0)
-      .map((inv) => ({ ...inv, remaining: inv.final }))
-      .sort((a, b) => b.remaining - a.remaining);
-
-    const debtors = activeInvestors
-      .filter((inv) => inv.final < 0)
-      .map((inv) => ({ ...inv, remaining: Math.abs(inv.final) }))
-      .sort((a, b) => b.remaining - a.remaining);
-
     const settlements = [];
 
-    let creditorIndex = 0;
-    let debtorIndex = 0;
+    // Calculate settlements for SGD
+    const sgdInvestors = investors.filter(
+      (inv) => Math.abs(inv.sgdAmount || 0) >= 0.01
+    );
+    if (sgdInvestors.length > 0) {
+      const sgdCreditors = sgdInvestors
+        .filter((inv) => inv.sgdAmount > 0)
+        .map((inv) => ({ ...inv, remaining: inv.sgdAmount }))
+        .sort((a, b) => b.remaining - a.remaining);
 
-    // Match debtors with creditors
-    while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
-      const creditor = creditors[creditorIndex];
-      const debtor = debtors[debtorIndex];
+      const sgdDebtors = sgdInvestors
+        .filter((inv) => inv.sgdAmount < 0)
+        .map((inv) => ({ ...inv, remaining: Math.abs(inv.sgdAmount) }))
+        .sort((a, b) => b.remaining - a.remaining);
 
-      // Calculate settlement amount (minimum of what debtor owes and creditor is owed)
-      const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
+      let creditorIndex = 0;
+      let debtorIndex = 0;
 
-      if (settlementAmount >= 0.01) {
-        // Only record settlements >= 1 cent
-        settlements.push({
-          fromId: debtor.investorId,
-          fromName: debtor.investorName,
-          toId: creditor.investorId,
-          toName: creditor.investorName,
-          amount: settlementAmount,
-        });
+      while (creditorIndex < sgdCreditors.length && debtorIndex < sgdDebtors.length) {
+        const creditor = sgdCreditors[creditorIndex];
+        const debtor = sgdDebtors[debtorIndex];
+
+        const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
+
+        if (settlementAmount >= 0.01) {
+          settlements.push({
+            fromId: debtor.investorId,
+            fromName: debtor.investorName,
+            toId: creditor.investorId,
+            toName: creditor.investorName,
+            amount: settlementAmount,
+            currency: 'SGD',
+          });
+        }
+
+        creditor.remaining -= settlementAmount;
+        debtor.remaining -= settlementAmount;
+
+        if (creditor.remaining < 0.01) {
+          creditorIndex++;
+        }
+        if (debtor.remaining < 0.01) {
+          debtorIndex++;
+        }
       }
+    }
 
-      // Update remaining amounts
-      creditor.remaining -= settlementAmount;
-      debtor.remaining -= settlementAmount;
+    // Calculate settlements for VND
+    const vndInvestors = investors.filter(
+      (inv) => Math.abs(inv.vndAmount || 0) >= 0.01
+    );
+    if (vndInvestors.length > 0) {
+      const vndCreditors = vndInvestors
+        .filter((inv) => inv.vndAmount > 0)
+        .map((inv) => ({ ...inv, remaining: inv.vndAmount }))
+        .sort((a, b) => b.remaining - a.remaining);
 
-      // Move to next creditor/debtor if current one is settled
-      if (creditor.remaining < 0.01) {
-        creditorIndex++;
-      }
-      if (debtor.remaining < 0.01) {
-        debtorIndex++;
+      const vndDebtors = vndInvestors
+        .filter((inv) => inv.vndAmount < 0)
+        .map((inv) => ({ ...inv, remaining: Math.abs(inv.vndAmount) }))
+        .sort((a, b) => b.remaining - a.remaining);
+
+      let creditorIndex = 0;
+      let debtorIndex = 0;
+
+      while (creditorIndex < vndCreditors.length && debtorIndex < vndDebtors.length) {
+        const creditor = vndCreditors[creditorIndex];
+        const debtor = vndDebtors[debtorIndex];
+
+        const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
+
+        if (settlementAmount >= 0.01) {
+          settlements.push({
+            fromId: debtor.investorId,
+            fromName: debtor.investorName,
+            toId: creditor.investorId,
+            toName: creditor.investorName,
+            amount: settlementAmount,
+            currency: 'VND',
+          });
+        }
+
+        creditor.remaining -= settlementAmount;
+        debtor.remaining -= settlementAmount;
+
+        if (creditor.remaining < 0.01) {
+          creditorIndex++;
+        }
+        if (debtor.remaining < 0.01) {
+          debtorIndex++;
+        }
       }
     }
 
     return settlements;
+  }
+
+  calculateSettlementsForCurrency(investorTotals, propertyMap, currency) {
+    // Build settlements based on property-level relationships for a specific currency
+    const settlementMap = new Map(); // Key: "fromId->toId", Value: {settlement data}
+
+    // Get all unique property IDs
+    const propertyIds = new Set();
+    for (const investor of investorTotals.values()) {
+      for (const prop of investor.properties) {
+        propertyIds.add(prop.propertyId);
+      }
+    }
+
+    // For each property, calculate settlements within that property for this currency
+    for (const propertyId of propertyIds) {
+      // Get all investors for this property
+      const propertyInvestors = [];
+      for (const investor of investorTotals.values()) {
+        const prop = investor.properties.find(
+          (p) => p.propertyId === propertyId
+        );
+        if (prop) {
+          const finalAmount = currency === 'SGD' ? (prop.sgdAmount || 0) : (prop.vndAmount || 0);
+          propertyInvestors.push({
+            investorId: investor.investorId,
+            investorName: investor.investorName,
+            avatar: investor.avatar,
+            final: finalAmount,
+          });
+        }
+      }
+
+      // Separate into creditors and debtors for this property
+      const creditors = propertyInvestors
+        .filter((inv) => inv.final > 0.01)
+        .map((inv) => ({ ...inv, remaining: inv.final }))
+        .sort((a, b) => b.remaining - a.remaining);
+
+      const debtors = propertyInvestors
+        .filter((inv) => inv.final < -0.01)
+        .map((inv) => ({ ...inv, remaining: Math.abs(inv.final) }))
+        .sort((a, b) => b.remaining - a.remaining);
+
+      // Match debtors with creditors for this property
+      let creditorIndex = 0;
+      let debtorIndex = 0;
+
+      while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+        const creditor = creditors[creditorIndex];
+        const debtor = debtors[debtorIndex];
+
+        const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
+
+        if (settlementAmount >= 0.01) {
+          const settlementKey = `${debtor.investorId}->${creditor.investorId}`;
+
+          if (!settlementMap.has(settlementKey)) {
+            settlementMap.set(settlementKey, {
+              fromId: debtor.investorId,
+              fromName: debtor.investorName,
+              fromAvatar: debtor.avatar || null,
+              toId: creditor.investorId,
+              toName: creditor.investorName,
+              toAvatar: creditor.avatar || null,
+              amount: 0,
+              currency: currency,
+              propertyBreakdown: [],
+            });
+          }
+
+          const settlement = settlementMap.get(settlementKey);
+          const propertyData = propertyMap ? propertyMap.get(propertyId) : null;
+
+          settlement.propertyBreakdown.push({
+            propertyId: propertyId,
+            propertyName: propertyData
+              ? propertyData.address || propertyId
+              : propertyId,
+            amount: settlementAmount,
+          });
+          settlement.amount += settlementAmount;
+
+          // Update remaining amounts
+          creditor.remaining -= settlementAmount;
+          debtor.remaining -= settlementAmount;
+        }
+
+        // Move to next creditor/debtor if current one is settled
+        if (creditor.remaining < 0.01) {
+          creditorIndex++;
+        }
+        if (debtor.remaining < 0.01) {
+          debtorIndex++;
+        }
+      }
+    }
+
+    // Net out bilateral transactions (A→B and B→A)
+    const nettedSettlements = [];
+    const processed = new Set();
+
+    for (const [key, settlement] of settlementMap.entries()) {
+      if (processed.has(key)) continue;
+
+      const reverseKey = `${settlement.toId}->${settlement.fromId}`;
+      const reverseSettlement = settlementMap.get(reverseKey);
+
+      if (reverseSettlement && !processed.has(reverseKey)) {
+        // Net out the two settlements
+        const netAmount = settlement.amount - reverseSettlement.amount;
+
+        if (Math.abs(netAmount) >= 0.01) {
+          // Combine property breakdowns, netting amounts for same properties
+          const breakdownMap = new Map();
+
+          // Add original direction amounts
+          for (const prop of settlement.propertyBreakdown) {
+            breakdownMap.set(prop.propertyId, {
+              propertyId: prop.propertyId,
+              propertyName: prop.propertyName,
+              amount: prop.amount,
+            });
+          }
+
+          // Subtract reverse direction amounts
+          for (const prop of reverseSettlement.propertyBreakdown) {
+            if (breakdownMap.has(prop.propertyId)) {
+              const existing = breakdownMap.get(prop.propertyId);
+              existing.amount -= prop.amount;
+              if (Math.abs(existing.amount) < 0.01) {
+                breakdownMap.delete(prop.propertyId);
+              }
+            } else {
+              breakdownMap.set(prop.propertyId, {
+                propertyId: prop.propertyId,
+                propertyName: prop.propertyName,
+                amount: -prop.amount,
+              });
+            }
+          }
+
+          const finalBreakdown = Array.from(breakdownMap.values()).filter(
+            (p) => Math.abs(p.amount) >= 0.01
+          );
+
+          if (netAmount > 0) {
+            // Original direction wins
+            nettedSettlements.push({
+              ...settlement,
+              amount: netAmount,
+              propertyBreakdown: finalBreakdown,
+            });
+          } else {
+            // Reverse direction wins
+            nettedSettlements.push({
+              fromId: settlement.toId,
+              fromName: settlement.toName,
+              fromAvatar: settlement.toAvatar,
+              toId: settlement.fromId,
+              toName: settlement.fromName,
+              toAvatar: settlement.fromAvatar,
+              amount: Math.abs(netAmount),
+              currency: currency,
+              propertyBreakdown: finalBreakdown.map((p) => ({
+                ...p,
+                amount: Math.abs(p.amount),
+              })),
+            });
+          }
+        }
+
+        processed.add(key);
+        processed.add(reverseKey);
+      } else if (!processed.has(key)) {
+        // No reverse settlement, keep as is
+        nettedSettlements.push(settlement);
+        processed.add(key);
+      }
+    }
+
+    // Convert to array and sort by amount (largest first)
+    return nettedSettlements
+      .filter((s) => s.amount >= 0.01)
+      .sort((a, b) => b.amount - a.amount);
   }
 
   calculateSettlements(investorTotals, propertyMap) {

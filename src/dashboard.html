@@ -38,6 +38,7 @@
       }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script>
       // Configure PDF.js worker
       pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -2266,6 +2267,27 @@
                     >
                       <i class="bi bi-clipboard-x"></i> Copy Outdated
                     </button>
+                    <button
+                      class="btn btn-outline-primary btn-sm"
+                      onclick="tenantManager.downloadTenantExcel()"
+                      title="Download tenants as Excel file (sorted by active first)"
+                    >
+                      <i class="bi bi-download"></i> Download Excel
+                    </button>
+                    <button
+                      class="btn btn-outline-info btn-sm"
+                      onclick="document.getElementById('tenantExcelUpload').click()"
+                      title="Upload Excel file to bulk update tenants"
+                    >
+                      <i class="bi bi-upload"></i> Upload Excel
+                    </button>
+                    <input
+                      type="file"
+                      id="tenantExcelUpload"
+                      accept=".xlsx,.xls"
+                      style="display: none"
+                      onchange="tenantManager.handleExcelUpload(event)"
+                    />
                     <div class="input-group" style="width: 300px">
                       <input
                         type="text"
@@ -2779,6 +2801,11 @@
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <!-- Unpaid Rent Reminder Section -->
+                  <div id="unpaidRentReminder" style="display: none;">
+                    <!-- Reminder content will be dynamically inserted here -->
                   </div>
 
                   <!-- Income and Expenses -->
@@ -4286,21 +4313,20 @@
                   </div>
                   <div class="col-md-6 mb-3">
                     <label for="tenantPassport" class="form-label"
-                      >Passport Number <span class="text-danger">*</span></label
+                      >Passport Number</label
                     >
                     <input
                       type="text"
                       class="form-control"
                       id="tenantPassport"
                       name="passportNumber"
-                      required
                       minlength="6"
                       maxlength="15"
                       style="text-transform: uppercase"
-                      placeholder="Enter passport number"
+                      placeholder="Enter passport number (optional)"
                     />
                     <div class="form-text">
-                      6-15 characters (will be converted to uppercase)
+                      Optional, 6-15 characters (will be converted to uppercase)
                     </div>
                   </div>
                 </div>
@@ -4320,6 +4346,21 @@
                     />
                     <div class="form-text">8-20 characters (optional)</div>
                   </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantFacebookUrl" class="form-label">
+                      <i class="bi bi-facebook me-1"></i>Facebook URL
+                    </label>
+                    <input
+                      type="url"
+                      class="form-control"
+                      id="tenantFacebookUrl"
+                      name="facebookUrl"
+                      placeholder="https://facebook.com/profile (optional)"
+                    />
+                    <div class="form-text">Facebook profile link (optional)</div>
+                  </div>
+                </div>
+                <div class="row">
                   <div class="col-md-6 mb-3">
                     <label class="form-label">
                       <i class="bi bi-person-circle me-1"></i>Avatar Image

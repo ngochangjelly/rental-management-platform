@@ -207,7 +207,10 @@ class InvestorManagementComponent {
                   }).join('')}
                 </div>
                 <div class="mt-2 pt-2 border-top">
-                  <small class="text-muted">Total Investment: <strong class="percentage-display">${totalPercentage}%</strong></small>
+                  <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <span class="text-white fw-semibold">Total Investment:</span>
+                    <span class="badge bg-white text-primary fw-bold fs-6">${totalPercentage}%</span>
+                  </div>
                 </div>
               ` : `
                 <div class="text-center text-muted">
