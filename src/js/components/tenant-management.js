@@ -1,85 +1,89 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 
 /**
  * Tenant Management Component (v2 - fixed update endpoint)
  * Handles tenant CRUD operations
  */
 class TenantManagementComponent {
-    constructor() {
-        this.tenants = [];
-        this.selectedProperty = null; // Currently selected property for filtering tenants
-        this.properties = []; // List of all properties for navigation
-        this.selectedProperties = [];
-        this.propertiesCache = null; // Cache for properties
-        this.propertiesCacheTime = null;
-        this.cacheTimeout = 30000; // Cache for 30 seconds
-        this.passportPics = []; // Array of passport image URLs
-        this.visaPics = []; // Array of visa image URLs
-        this.avatar = ''; // Single avatar image URL
-        this.signature = ''; // Signature image URL (for main tenants)
-        this.originalTenantData = null; // Store original tenant data for change detection
+  constructor() {
+    this.tenants = [];
+    this.selectedProperty = null; // Currently selected property for filtering tenants
+    this.properties = []; // List of all properties for navigation
+    this.selectedProperties = [];
+    this.propertiesCache = null; // Cache for properties
+    this.propertiesCacheTime = null;
+    this.cacheTimeout = 30000; // Cache for 30 seconds
+    this.passportPics = []; // Array of passport image URLs
+    this.visaPics = []; // Array of visa image URLs
+    this.avatar = ""; // Single avatar image URL
+    this.signature = ""; // Signature image URL (for main tenants)
+    this.originalTenantData = null; // Store original tenant data for change detection
 
-        this.init();
+    this.init();
+  }
+
+  init() {
+    this.setupEventListeners();
+    this.setupAdminControls();
+    // Load properties to display property cards
+    this.loadProperties();
+  }
+
+  setupAdminControls() {
+    // Hide/disable upload button for non-admin users
+    const uploadBtn = document.querySelector(
+      'button[onclick*="tenantExcelUpload"]'
+    );
+    if (uploadBtn && !isAdmin()) {
+      uploadBtn.style.display = "none";
+    }
+  }
+
+  async loadProperties() {
+    try {
+      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
+      const result = await response.json();
+
+      if (result.success) {
+        this.properties = result.properties || [];
+        this.renderPropertyCards(result.properties);
+      } else {
+        console.error("Failed to load properties:", result.error);
+        this.renderPropertyCards([]);
+      }
+    } catch (error) {
+      console.error("Error loading properties:", error);
+      this.renderPropertyCards([]);
+    }
+  }
+
+  renderPropertyCards(properties) {
+    const container = document.getElementById("tenantPropertyCards");
+    if (!container) {
+      console.warn("tenantPropertyCards container not found");
+      return;
     }
 
-    init() {
-        this.setupEventListeners();
-        this.setupAdminControls();
-        // Load properties to display property cards
-        this.loadProperties();
-    }
+    // Clear existing cards
+    container.innerHTML = "";
 
-    setupAdminControls() {
-        // Hide/disable upload button for non-admin users
-        const uploadBtn = document.querySelector('button[onclick*="tenantExcelUpload"]');
-        if (uploadBtn && !isAdmin()) {
-            uploadBtn.style.display = 'none';
-        }
-    }
-
-    async loadProperties() {
-        try {
-            const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-            const result = await response.json();
-
-            if (result.success) {
-                this.properties = result.properties || [];
-                this.renderPropertyCards(result.properties);
-            } else {
-                console.error('Failed to load properties:', result.error);
-                this.renderPropertyCards([]);
-            }
-        } catch (error) {
-            console.error('Error loading properties:', error);
-            this.renderPropertyCards([]);
-        }
-    }
-
-    renderPropertyCards(properties) {
-        const container = document.getElementById('tenantPropertyCards');
-        if (!container) {
-            console.warn('tenantPropertyCards container not found');
-            return;
-        }
-
-        // Clear existing cards
-        container.innerHTML = '';
-
-        if (!properties || properties.length === 0) {
-            container.innerHTML = `
+    if (!properties || properties.length === 0) {
+      container.innerHTML = `
                 <div class="col-12 text-center text-muted py-4">
                     <i class="bi bi-building-slash me-2"></i>
                     No properties available
                 </div>
             `;
-            return;
-        }
+      return;
+    }
 
-        // Add special card for unassigned tenants
-        const isUnassignedSelected = this.selectedProperty === 'UNASSIGNED';
-        const unassignedCardHtml = `
+    // Add special card for unassigned tenants
+    const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
+    const unassignedCardHtml = `
             <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
-                <div class="card property-card h-100 ${isUnassignedSelected ? 'border-warning' : 'border-secondary'} overflow-hidden"
+                <div class="card property-card h-100 ${
+                  isUnassignedSelected ? "border-warning" : "border-secondary"
+                } overflow-hidden"
                      style="cursor: pointer; transition: all 0.2s ease; opacity: 0.95;"
                      onclick="tenantManager.selectUnassignedTenants()">
                     <div class="card-header d-flex justify-content-between align-items-center bg-light">
@@ -95,7 +99,11 @@ class TenantManagementComponent {
                                 <small class="text-muted">No Property</small>
                             </div>
                         </div>
-                        ${isUnassignedSelected ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 1.2rem;"></i>' : ''}
+                        ${
+                          isUnassignedSelected
+                            ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 1.2rem;"></i>'
+                            : ""
+                        }
                     </div>
                     <div class="card-body py-2 bg-light">
                         <p class="mb-1 small text-muted">Tenants not assigned to any property</p>
@@ -103,55 +111,83 @@ class TenantManagementComponent {
                 </div>
             </div>
         `;
-        container.innerHTML += unassignedCardHtml;
+    container.innerHTML += unassignedCardHtml;
 
-        // Generate property cards
-        properties.forEach(property => {
-            const isSelected = this.selectedProperty === property.propertyId;
-            const cardHtml = `
+    // Generate property cards
+    properties.forEach((property) => {
+      const isSelected = this.selectedProperty === property.propertyId;
+      const cardHtml = `
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
-                    <div class="card property-card h-100 ${isSelected ? 'border-primary' : ''} overflow-hidden"
+                    <div class="card property-card h-100 ${
+                      isSelected ? "border-primary" : ""
+                    } overflow-hidden"
                          style="cursor: pointer; transition: all 0.2s ease;"
-                         onclick="tenantManager.selectProperty('${property.propertyId}')">
-                        ${property.propertyImage ? `
-                        <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-                            ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
+                         onclick="tenantManager.selectProperty('${
+                           property.propertyId
+                         }')">
+                        ${
+                          property.propertyImage
+                            ? `
+                        <div class="card-img-top position-relative" style="height: 160px; background-image: url('${
+                          property.propertyImage
+                        }'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+                            ${
+                              isSelected
+                                ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>'
+                                : ""
+                            }
                         </div>
-                        ` : ''}
+                        `
+                            : ""
+                        }
                         <div class="card-header d-flex justify-content-between align-items-center bg-white">
                             <div class="d-flex align-items-center">
                                 <div class="me-3">
                                     <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
                                          style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                                        ${this.escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
+                                        ${this.escapeHtml(
+                                          property.propertyId
+                                            .substring(0, 2)
+                                            .toUpperCase()
+                                        )}
                                     </div>
                                 </div>
                                 <div>
-                                    <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}</h6>
+                                    <h6 class="mb-0 fw-bold">${this.escapeHtml(
+                                      property.propertyId
+                                    )}</h6>
                                     <small class="text-muted">Property</small>
                                 </div>
                             </div>
-                            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>' : ''}
+                            ${
+                              !property.propertyImage && isSelected
+                                ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
+                                : ""
+                            }
                         </div>
                         <div class="card-body py-2 bg-white">
-                            <p class="mb-1 small"><strong>Address:</strong> ${this.escapeHtml(property.address)}</p>
-                            <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</p>
+                            <p class="mb-1 small"><strong>Address:</strong> ${this.escapeHtml(
+                              property.address
+                            )}</p>
+                            <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(
+                              property.unit
+                            )}</p>
                         </div>
                     </div>
                 </div>
             `;
-            container.innerHTML += cardHtml;
-        });
+      container.innerHTML += cardHtml;
+    });
 
-        // Add hover effects
-        this.addPropertyNavigationCardStyles();
-    }
+    // Add hover effects
+    this.addPropertyNavigationCardStyles();
+  }
 
-    addPropertyNavigationCardStyles() {
-        if (!document.getElementById('tenant-property-nav-card-styles')) {
-            const style = document.createElement('style');
-            style.id = 'tenant-property-nav-card-styles';
-            style.textContent = `
+  addPropertyNavigationCardStyles() {
+    if (!document.getElementById("tenant-property-nav-card-styles")) {
+      const style = document.createElement("style");
+      style.id = "tenant-property-nav-card-styles";
+      style.textContent = `
                 .property-card {
                     min-height: 200px;
                     overflow: hidden;
@@ -164,349 +200,420 @@ class TenantManagementComponent {
                     border-width: 3px !important;
                 }
             `;
-            document.head.appendChild(style);
-        }
+      document.head.appendChild(style);
+    }
+  }
+
+  async selectProperty(propertyId) {
+    // Don't reload if already selected
+    if (this.selectedProperty === propertyId) {
+      return;
     }
 
-    async selectProperty(propertyId) {
-        // Don't reload if already selected
-        if (this.selectedProperty === propertyId) {
-            return;
-        }
+    this.selectedProperty = propertyId;
 
-        this.selectedProperty = propertyId;
+    // Only update the visual selection state without full re-render
+    this.updatePropertyCardSelection(propertyId);
 
-        // Only update the visual selection state without full re-render
-        this.updatePropertyCardSelection(propertyId);
+    // Load tenants for this property
+    await this.loadTenantsForProperty(propertyId);
+  }
 
-        // Load tenants for this property
-        await this.loadTenantsForProperty(propertyId);
+  async selectUnassignedTenants() {
+    // Don't reload if already selected
+    if (this.selectedProperty === "UNASSIGNED") {
+      return;
     }
 
-    async selectUnassignedTenants() {
-        // Don't reload if already selected
-        if (this.selectedProperty === 'UNASSIGNED') {
-            return;
+    this.selectedProperty = "UNASSIGNED";
+
+    // Update visual selection
+    this.updatePropertyCardSelection("UNASSIGNED");
+
+    // Load unassigned tenants
+    await this.loadUnassignedTenants();
+  }
+
+  updatePropertyCardSelection(propertyId) {
+    // Remove selection from all cards and add to selected one
+    const allCards = document.querySelectorAll(".property-card");
+    allCards.forEach((card) => {
+      card.classList.remove("border-primary", "border-warning");
+      // Remove checkmark icons
+      const checkmarks = card.querySelectorAll(".bi-check-circle-fill");
+      checkmarks.forEach((check) => check.remove());
+    });
+
+    // Handle unassigned tenants card
+    if (propertyId === "UNASSIGNED") {
+      const unassignedCard = document.querySelector(
+        `.property-card[onclick*="selectUnassignedTenants"]`
+      );
+      if (unassignedCard) {
+        unassignedCard.classList.add("border-warning");
+        const cardHeader = unassignedCard.querySelector(".card-header");
+        if (cardHeader) {
+          const checkmark = document.createElement("i");
+          checkmark.className = "bi bi-check-circle-fill text-warning";
+          checkmark.style.fontSize = "1.2rem";
+          cardHeader.appendChild(checkmark);
         }
-
-        this.selectedProperty = 'UNASSIGNED';
-
-        // Update visual selection
-        this.updatePropertyCardSelection('UNASSIGNED');
-
-        // Load unassigned tenants
-        await this.loadUnassignedTenants();
+      }
+      return;
     }
 
-    updatePropertyCardSelection(propertyId) {
-        // Remove selection from all cards and add to selected one
-        const allCards = document.querySelectorAll('.property-card');
-        allCards.forEach(card => {
-            card.classList.remove('border-primary', 'border-warning');
-            // Remove checkmark icons
-            const checkmarks = card.querySelectorAll('.bi-check-circle-fill');
-            checkmarks.forEach(check => check.remove());
-        });
+    // Add selection to the clicked card
+    const selectedCardContainer = document.querySelector(
+      `.property-card[onclick*="'${propertyId}'"]`
+    );
+    if (selectedCardContainer) {
+      selectedCardContainer.classList.add("border-primary");
 
-        // Handle unassigned tenants card
-        if (propertyId === 'UNASSIGNED') {
-            const unassignedCard = document.querySelector(`.property-card[onclick*="selectUnassignedTenants"]`);
-            if (unassignedCard) {
-                unassignedCard.classList.add('border-warning');
-                const cardHeader = unassignedCard.querySelector('.card-header');
-                if (cardHeader) {
-                    const checkmark = document.createElement('i');
-                    checkmark.className = 'bi bi-check-circle-fill text-warning';
-                    checkmark.style.fontSize = '1.2rem';
-                    cardHeader.appendChild(checkmark);
-                }
-            }
-            return;
-        }
+      // Add checkmark
+      const cardImgTop = selectedCardContainer.querySelector(".card-img-top");
+      const cardHeader = selectedCardContainer.querySelector(".card-header");
 
-        // Add selection to the clicked card
-        const selectedCardContainer = document.querySelector(`.property-card[onclick*="'${propertyId}'"]`);
-        if (selectedCardContainer) {
-            selectedCardContainer.classList.add('border-primary');
+      if (cardImgTop) {
+        const checkmark = document.createElement("div");
+        checkmark.className = "position-absolute top-0 end-0 p-2";
+        checkmark.innerHTML =
+          '<i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i>';
+        cardImgTop.appendChild(checkmark);
+      } else if (cardHeader) {
+        const checkmark = document.createElement("i");
+        checkmark.className = "bi bi-check-circle-fill text-success";
+        checkmark.style.fontSize = "1.2rem";
+        cardHeader.appendChild(checkmark);
+      }
+    }
+  }
 
-            // Add checkmark
-            const cardImgTop = selectedCardContainer.querySelector('.card-img-top');
-            const cardHeader = selectedCardContainer.querySelector('.card-header');
+  async loadTenantsForProperty(propertyId) {
+    try {
+      console.log(`🔄 Loading tenants for property: ${propertyId}`);
 
-            if (cardImgTop) {
-                const checkmark = document.createElement('div');
-                checkmark.className = 'position-absolute top-0 end-0 p-2';
-                checkmark.innerHTML = '<i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i>';
-                cardImgTop.appendChild(checkmark);
-            } else if (cardHeader) {
-                const checkmark = document.createElement('i');
-                checkmark.className = 'bi bi-check-circle-fill text-success';
-                checkmark.style.fontSize = '1.2rem';
-                cardHeader.appendChild(checkmark);
-            }
-        }
+      // Use the property-specific endpoint to load only tenants for this property
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)
+      );
+      const result = await response.json();
+
+      // Handle different response formats
+      if (result.success && result.data) {
+        this.tenants = result.data;
+      } else if (result.tenants && Array.isArray(result.tenants)) {
+        this.tenants = result.tenants;
+      } else if (Array.isArray(result)) {
+        this.tenants = result;
+      } else {
+        console.error("Unexpected API response format:", result);
+        this.tenants = [];
+      }
+
+      console.log(
+        `✅ Loaded ${this.tenants.length} tenants for property ${propertyId}`
+      );
+
+      // Ensure properties cache is loaded once
+      if (!this.propertiesCache) {
+        await this.loadPropertiesCache();
+      }
+
+      await this.renderTenantsTable();
+
+      // Load tenants into calendar view
+      if (window.tenantCalendar) {
+        window.tenantCalendar.loadTenants(propertyId, this.tenants);
+      }
+
+      // Update sidebar badges
+      if (window.updateSidebarBadges) {
+        window.updateSidebarBadges();
+      }
+    } catch (error) {
+      console.error("Error loading tenants for property:", error);
+      this.showEmptyState("Error loading tenants. Please try again.");
+    }
+  }
+
+  async loadUnassignedTenants() {
+    try {
+      console.log("🔄 Loading unassigned tenants...");
+
+      // Load all tenants and filter for those with no properties
+      const response = await API.get(
+        `${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`
+      );
+      const result = await response.json();
+
+      // Handle different response formats
+      let allTenants = [];
+      if (result.success && result.tenants) {
+        allTenants = result.tenants;
+      } else if (result.tenants && Array.isArray(result.tenants)) {
+        allTenants = result.tenants;
+      } else if (Array.isArray(result)) {
+        allTenants = result;
+      }
+
+      // Filter for tenants with no properties or empty properties array
+      this.tenants = allTenants.filter((tenant) => {
+        return !tenant.properties || tenant.properties.length === 0;
+      });
+
+      console.log(`✅ Found ${this.tenants.length} unassigned tenants`);
+
+      // Ensure properties cache is loaded once
+      if (!this.propertiesCache) {
+        await this.loadPropertiesCache();
+      }
+
+      await this.renderTenantsTable();
+
+      // Clear calendar view for unassigned tenants (they have no occupancy)
+      if (window.tenantCalendar) {
+        window.tenantCalendar.loadTenants("UNASSIGNED", []);
+      }
+
+      // Update sidebar badges
+      if (window.updateSidebarBadges) {
+        window.updateSidebarBadges();
+      }
+    } catch (error) {
+      console.error("Error loading unassigned tenants:", error);
+      this.showEmptyState("Error loading tenants. Please try again.");
+    }
+  }
+
+  // Helper method to get correct colspan based on screen size
+  getTableColspan() {
+    // Check if we're on mobile where 2 columns are hidden
+    if (window.innerWidth <= 767.98) {
+      return "5"; // 7 total columns - 2 hidden columns = 5 visible columns
+    }
+    return "7"; // Desktop: all columns visible
+  }
+
+  setupEventListeners() {
+    // Add tenant button
+    const addTenantBtn = document.getElementById("addTenantBtn");
+    if (addTenantBtn) {
+      addTenantBtn.addEventListener("click", () => {
+        this.showAddTenantModal();
+      });
     }
 
-    async loadTenantsForProperty(propertyId) {
-        try {
-            console.log(`🔄 Loading tenants for property: ${propertyId}`);
-
-            // Use the property-specific endpoint to load only tenants for this property
-            const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId));
-            const result = await response.json();
-
-            // Handle different response formats
-            if (result.success && result.data) {
-                this.tenants = result.data;
-            } else if (result.tenants && Array.isArray(result.tenants)) {
-                this.tenants = result.tenants;
-            } else if (Array.isArray(result)) {
-                this.tenants = result;
-            } else {
-                console.error('Unexpected API response format:', result);
-                this.tenants = [];
-            }
-
-            console.log(`✅ Loaded ${this.tenants.length} tenants for property ${propertyId}`);
-
-            // Ensure properties cache is loaded once
-            if (!this.propertiesCache) {
-                await this.loadPropertiesCache();
-            }
-
-            await this.renderTenantsTable();
-
-            // Load tenants into calendar view
-            if (window.tenantCalendar) {
-                window.tenantCalendar.loadTenants(propertyId, this.tenants);
-            }
-
-            // Update sidebar badges
-            if (window.updateSidebarBadges) {
-                window.updateSidebarBadges();
-            }
-        } catch (error) {
-            console.error('Error loading tenants for property:', error);
-            this.showEmptyState('Error loading tenants. Please try again.');
-        }
+    // Tenant form submission (add/edit)
+    const tenantForm = document.getElementById("tenantForm");
+    if (tenantForm) {
+      tenantForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.handleTenantSubmit(e);
+      });
     }
 
-    async loadUnassignedTenants() {
-        try {
-            console.log('🔄 Loading unassigned tenants...');
-
-            // Load all tenants and filter for those with no properties
-            const response = await API.get(`${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`);
-            const result = await response.json();
-
-            // Handle different response formats
-            let allTenants = [];
-            if (result.success && result.tenants) {
-                allTenants = result.tenants;
-            } else if (result.tenants && Array.isArray(result.tenants)) {
-                allTenants = result.tenants;
-            } else if (Array.isArray(result)) {
-                allTenants = result;
-            }
-
-            // Filter for tenants with no properties or empty properties array
-            this.tenants = allTenants.filter(tenant => {
-                return !tenant.properties || tenant.properties.length === 0;
-            });
-
-            console.log(`✅ Found ${this.tenants.length} unassigned tenants`);
-
-            // Ensure properties cache is loaded once
-            if (!this.propertiesCache) {
-                await this.loadPropertiesCache();
-            }
-
-            await this.renderTenantsTable();
-
-            // Clear calendar view for unassigned tenants (they have no occupancy)
-            if (window.tenantCalendar) {
-                window.tenantCalendar.loadTenants('UNASSIGNED', []);
-            }
-
-            // Update sidebar badges
-            if (window.updateSidebarBadges) {
-                window.updateSidebarBadges();
-            }
-        } catch (error) {
-            console.error('Error loading unassigned tenants:', error);
-            this.showEmptyState('Error loading tenants. Please try again.');
-        }
+    // Search functionality
+    const searchInput = document.getElementById("tenantSearchInput");
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        this.filterTenants(e.target.value);
+      });
     }
 
-    // Helper method to get correct colspan based on screen size
-    getTableColspan() {
-        // Check if we're on mobile where 2 columns are hidden
-        if (window.innerWidth <= 767.98) {
-            return "5"; // 7 total columns - 2 hidden columns = 5 visible columns
-        }
-        return "7"; // Desktop: all columns visible
-    }
+    // Set up clipboard paste functionality for image URL fields
+    this.setupClipboardPasteListeners();
 
-    setupEventListeners() {
-        // Add tenant button
-        const addTenantBtn = document.getElementById('addTenantBtn');
-        if (addTenantBtn) {
-            addTenantBtn.addEventListener('click', () => {
-                this.showAddTenantModal();
-            });
-        }
+    // Set up change detection for edit mode
+    this.setupChangeDetection();
 
-        // Tenant form submission (add/edit)
-        const tenantForm = document.getElementById('tenantForm');
-        if (tenantForm) {
-            tenantForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleTenantSubmit(e);
-            });
-        }
+    // Listen for window resize to update table colspan
+    window.addEventListener("resize", () => {
+      // Re-render the table when window size changes
+      if (this.tenants && this.tenants.length > 0) {
+        this.renderTenantsTable();
+      }
+    });
+  }
 
-        // Search functionality
-        const searchInput = document.getElementById('tenantSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                this.filterTenants(e.target.value);
-            });
-        }
-
-        // Set up clipboard paste functionality for image URL fields
-        this.setupClipboardPasteListeners();
-
-        // Set up change detection for edit mode
-        this.setupChangeDetection();
-
-        // Listen for window resize to update table colspan
-        window.addEventListener('resize', () => {
-            // Re-render the table when window size changes
-            if (this.tenants && this.tenants.length > 0) {
-                this.renderTenantsTable();
-            }
-        });
-    }
-
-    // Legacy method - now redirects to property-based loading
-    async loadTenants() {
-        console.warn('loadTenants() called - please use selectProperty() instead');
-        // If a property is selected, reload it
-        if (this.selectedProperty) {
-            await this.loadTenantsForProperty(this.selectedProperty);
-        } else {
-            // Show message to select a property
-            const tbody = document.getElementById('tenantsTableBody');
-            if (tbody) {
-                tbody.innerHTML = `
+  // Legacy method - now redirects to property-based loading
+  async loadTenants() {
+    console.warn("loadTenants() called - please use selectProperty() instead");
+    // If a property is selected, reload it
+    if (this.selectedProperty) {
+      await this.loadTenantsForProperty(this.selectedProperty);
+    } else {
+      // Show message to select a property
+      const tbody = document.getElementById("tenantsTableBody");
+      if (tbody) {
+        tbody.innerHTML = `
                     <div class="text-center text-muted py-5">
                         <i class="bi bi-building fs-1 d-block mb-3"></i>
                         <p class="fs-5">Please select a property to view tenants</p>
                     </div>
                 `;
-            }
-        }
+      }
+    }
+  }
+
+  async renderTenantsTable() {
+    const tbody = document.getElementById("tenantsTableBody");
+    if (!tbody) {
+      console.error("tenantsTableBody element not found!");
+      return;
     }
 
-    async renderTenantsTable() {
-        const tbody = document.getElementById('tenantsTableBody');
-        if (!tbody) {
-            console.error('tenantsTableBody element not found!');
-            return;
-        }
-
-        if (!this.selectedProperty) {
-            tbody.innerHTML = `
+    if (!this.selectedProperty) {
+      tbody.innerHTML = `
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-building fs-1 d-block mb-3"></i>
                     <p class="fs-5">Please select a property to view tenants</p>
                 </div>
             `;
-            return;
+      return;
+    }
+
+    if (this.tenants.length === 0) {
+      const message =
+        this.selectedProperty === "UNASSIGNED"
+          ? "No unassigned tenants found"
+          : `No tenants found for ${this.selectedProperty}`;
+      this.showEmptyState(message);
+      return;
+    }
+
+    // Properties cache is already loaded in loadTenantsForProperty
+    // Create simple list layout for single property
+    let html = '<div class="row g-3">';
+
+    this.tenants.forEach((tenant) => {
+      const registrationStatus =
+        tenant.registrationStatus ||
+        (tenant.isRegistered ? "registered" : "unregistered");
+      const isMainTenant = this.hasMainTenantProperty(tenant);
+      const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+
+      // Find room info for this tenant in the selected property
+      let roomInfo = "No property";
+      let moveInDate = "N/A";
+      let moveOutDate = "N/A";
+      let rentAmount = tenant.rent || "N/A";
+
+      if (this.selectedProperty !== "UNASSIGNED") {
+        const propertyInfo = tenant.properties?.find((prop) => {
+          const propId = typeof prop === "object" ? prop.propertyId : prop;
+          return propId === this.selectedProperty;
+        });
+        if (propertyInfo && typeof propertyInfo === "object") {
+          roomInfo = propertyInfo.room || "No room";
+          if (propertyInfo.moveinDate) {
+            const date = new Date(propertyInfo.moveinDate);
+            moveInDate = `${date.getDate().toString().padStart(2, "0")}/${(
+              date.getMonth() + 1
+            )
+              .toString()
+              .padStart(2, "0")}/${date.getFullYear()}`;
+          }
+          if (propertyInfo.moveoutDate) {
+            const date = new Date(propertyInfo.moveoutDate);
+            moveOutDate = `${date.getDate().toString().padStart(2, "0")}/${(
+              date.getMonth() + 1
+            )
+              .toString()
+              .padStart(2, "0")}/${date.getFullYear()}`;
+          }
+        } else {
+          roomInfo = "No room";
         }
+      }
 
-        if (this.tenants.length === 0) {
-            const message = this.selectedProperty === 'UNASSIGNED'
-                ? 'No unassigned tenants found'
-                : `No tenants found for ${this.selectedProperty}`;
-            this.showEmptyState(message);
-            return;
-        }
-
-        // Properties cache is already loaded in loadTenantsForProperty
-        // Create simple list layout for single property
-        let html = '<div class="row g-3">';
-
-        this.tenants.forEach(tenant => {
-            const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-            const isMainTenant = this.hasMainTenantProperty(tenant);
-            const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
-
-            // Find room info for this tenant in the selected property
-            let roomInfo = 'No property';
-            let moveInDate = 'N/A';
-            let moveOutDate = 'N/A';
-            let rentAmount = tenant.rent || 'N/A';
-
-            if (this.selectedProperty !== 'UNASSIGNED') {
-                const propertyInfo = tenant.properties?.find(prop => {
-                    const propId = typeof prop === 'object' ? prop.propertyId : prop;
-                    return propId === this.selectedProperty;
-                });
-                if (propertyInfo && typeof propertyInfo === 'object') {
-                    roomInfo = propertyInfo.room || 'No room';
-                    if (propertyInfo.moveinDate) {
-                        const date = new Date(propertyInfo.moveinDate);
-                        moveInDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-                    }
-                    if (propertyInfo.moveoutDate) {
-                        const date = new Date(propertyInfo.moveoutDate);
-                        moveOutDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-                    }
-                } else {
-                    roomInfo = 'No room';
-                }
-            }
-
-            html += `
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 tenant-detail-card shadow-sm ${isOutdated ? 'tenant-outdated' : ''}">
+      html += `
+                <div class="col-12 col-md-6 col-lg-3">
+                    <div class="card h-100 tenant-detail-card shadow-sm ${
+                      isOutdated ? "tenant-outdated" : ""
+                    }">
                         <div class="card-body">
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="flex-shrink-0">
-                                    ${tenant.avatar ?
-                                        `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, 'small')}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">` :
-                                        `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                                    ${
+                                      tenant.avatar
+                                        ? `<img src="${this.getOptimizedAvatarUrl(
+                                            tenant.avatar,
+                                            "small"
+                                          )}" alt="${this.escapeHtml(
+                                            tenant.name
+                                          )}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">`
+                                        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(
+                                            tenant.name.charAt(0).toUpperCase()
+                                          )}</div>`
                                     }
                                 </div>
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-start mb-1">
-                                        <h5 class="mb-0">${this.escapeHtml(tenant.name)}</h5>
+                                        <h5 class="mb-0">${this.escapeHtml(
+                                          tenant.name
+                                        )}</h5>
                                         <div class="d-flex gap-2 align-items-center">
-                                            ${tenant.facebookUrl ? `<a href="${this.escapeHtml(tenant.facebookUrl)}" target="_blank" rel="noopener noreferrer" class="text-primary" title="Facebook Profile"><i class="bi bi-facebook fs-5"></i></a>` : ''}
-                                            ${isMainTenant ? '<span class="badge bg-primary">Main</span>' : ''}
+                                            ${
+                                              tenant.facebookUrl
+                                                ? `<a href="${this.escapeHtml(
+                                                    tenant.facebookUrl
+                                                  )}" target="_blank" rel="noopener noreferrer" class="text-primary" title="Facebook Profile"><i class="bi bi-facebook fs-5"></i></a>`
+                                                : ""
+                                            }
+                                            ${
+                                              isMainTenant
+                                                ? '<span class="badge bg-primary">Main</span>'
+                                                : ""
+                                            }
                                         </div>
                                     </div>
-                                    <p class="text-muted mb-0">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</p>
+                                    <p class="text-muted mb-0">${this.escapeHtml(
+                                      tenant.phoneNumber || "No phone"
+                                    )}</p>
                                 </div>
                             </div>
                             <div class="small mb-3">
-                                <div class="mb-2"><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || '-'}</div>
-                                <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(tenant.passportNumber)}</div>
-                                <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
-                                <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === 'number' ? '$' + rentAmount.toFixed(2) : rentAmount}</div>
-                                <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(moveInDate)}</div>
-                                <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(moveOutDate)}</div>
+                                <div class="mb-2"><strong>FIN:</strong> ${
+                                  this.escapeHtml(tenant.fin) || "-"
+                                }</div>
+                                <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(
+                                  tenant.passportNumber
+                                )}</div>
+                                <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(
+                                  roomInfo
+                                )}</div>
+                                <div class="mb-2"><strong>Rent:</strong> ${
+                                  typeof rentAmount === "number"
+                                    ? "$" + rentAmount.toFixed(2)
+                                    : rentAmount
+                                }</div>
+                                <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(
+                                  moveInDate
+                                )}</div>
+                                <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(
+                                  moveOutDate
+                                )}</div>
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3">
-                                ${this.getRegistrationStatusBadge(registrationStatus)}
-                                ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ''}
+                                ${this.getRegistrationStatusBadge(
+                                  registrationStatus
+                                )}
+                                ${
+                                  tenant.properties &&
+                                  tenant.properties.length > 1
+                                    ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
+                                    : ""
+                                }
                             </div>
                             <div class="btn-group w-100" role="group">
-                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant._id}')">
+                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${
+                                  tenant._id
+                                }')">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant._id}')">
+                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${
+                                  tenant._id
+                                }')">
                                     <i class="bi bi-trash"></i> Delete
                                 </button>
                             </div>
@@ -514,20 +621,20 @@ class TenantManagementComponent {
                     </div>
                 </div>
             `;
-        });
+    });
 
-        html += '</div>';
-        tbody.innerHTML = html;
+    html += "</div>";
+    tbody.innerHTML = html;
 
-        // Add card styles if not already present
-        this.addTenantDetailCardStyles();
-    }
+    // Add card styles if not already present
+    this.addTenantDetailCardStyles();
+  }
 
-    addTenantDetailCardStyles() {
-        if (!document.getElementById('tenant-detail-card-styles')) {
-            const style = document.createElement('style');
-            style.id = 'tenant-detail-card-styles';
-            style.textContent = `
+  addTenantDetailCardStyles() {
+    if (!document.getElementById("tenant-detail-card-styles")) {
+      const style = document.createElement("style");
+      style.id = "tenant-detail-card-styles";
+      style.textContent = `
                 .tenant-detail-card {
                     transition: transform 0.2s ease, box-shadow 0.2s ease;
                     border: 1px solid #dee2e6;
@@ -544,50 +651,87 @@ class TenantManagementComponent {
                     opacity: 0.7;
                 }
             `;
-            document.head.appendChild(style);
-        }
+      document.head.appendChild(style);
     }
+  }
 
-    renderTenantCardItem(tenant) {
-        const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-        const isMainTenant = this.hasMainTenantProperty(tenant);
+  renderTenantCardItem(tenant) {
+    const registrationStatus =
+      tenant.registrationStatus ||
+      (tenant.isRegistered ? "registered" : "unregistered");
+    const isMainTenant = this.hasMainTenantProperty(tenant);
 
-        // Find room info for this tenant
-        const roomInfo = tenant.properties && tenant.properties.length > 0 && typeof tenant.properties[0] === 'object'
-            ? tenant.properties[0].room || 'No room'
-            : 'No room';
+    // Find room info for this tenant
+    const roomInfo =
+      tenant.properties &&
+      tenant.properties.length > 0 &&
+      typeof tenant.properties[0] === "object"
+        ? tenant.properties[0].room || "No room"
+        : "No room";
 
-        return `
+    return `
             <div class="list-group-item">
                 <div class="d-flex align-items-start gap-3">
                     <div class="flex-shrink-0">
-                        ${tenant.avatar ?
-                            `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, 'small')}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">` :
-                            `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 48px; height: 48px; font-size: 18px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`
+                        ${
+                          tenant.avatar
+                            ? `<img src="${this.getOptimizedAvatarUrl(
+                                tenant.avatar,
+                                "small"
+                              )}" alt="${this.escapeHtml(
+                                tenant.name
+                              )}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">`
+                            : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 48px; height: 48px; font-size: 18px;">${this.escapeHtml(
+                                tenant.name.charAt(0).toUpperCase()
+                              )}</div>`
                         }
                     </div>
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <div>
-                                <h6 class="mb-0">${this.escapeHtml(tenant.name)}</h6>
-                                <small class="text-muted">${this.escapeHtml(tenant.phoneNumber || 'No phone')}</small>
+                                <h6 class="mb-0">${this.escapeHtml(
+                                  tenant.name
+                                )}</h6>
+                                <small class="text-muted">${this.escapeHtml(
+                                  tenant.phoneNumber || "No phone"
+                                )}</small>
                             </div>
-                            ${isMainTenant ? '<span class="badge bg-primary">Main</span>' : ''}
+                            ${
+                              isMainTenant
+                                ? '<span class="badge bg-primary">Main</span>'
+                                : ""
+                            }
                         </div>
                         <div class="small text-muted mb-2">
-                            <div><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || '-'}</div>
-                            <div><strong>Passport:</strong> ${this.escapeHtml(tenant.passportNumber)}</div>
-                            <div><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
+                            <div><strong>FIN:</strong> ${
+                              this.escapeHtml(tenant.fin) || "-"
+                            }</div>
+                            <div><strong>Passport:</strong> ${this.escapeHtml(
+                              tenant.passportNumber
+                            )}</div>
+                            <div><strong>Room:</strong> ${this.escapeHtml(
+                              roomInfo
+                            )}</div>
                         </div>
                         <div class="d-flex gap-1 align-items-center mb-2">
-                            ${this.getRegistrationStatusBadge(registrationStatus)}
-                            ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ''}
+                            ${this.getRegistrationStatusBadge(
+                              registrationStatus
+                            )}
+                            ${
+                              tenant.properties && tenant.properties.length > 1
+                                ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
+                                : ""
+                            }
                         </div>
                         <div class="btn-group btn-group-sm w-100" role="group">
-                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${tenant._id}')">
+                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${
+                              tenant._id
+                            }')">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
-                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant._id}')">
+                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${
+                              tenant._id
+                            }')">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
                         </div>
@@ -595,13 +739,13 @@ class TenantManagementComponent {
                 </div>
             </div>
         `;
-    }
+  }
 
-    addPropertyTenantCardStyles() {
-        if (!document.getElementById('property-tenant-card-styles')) {
-            const style = document.createElement('style');
-            style.id = 'property-tenant-card-styles';
-            style.textContent = `
+  addPropertyTenantCardStyles() {
+    if (!document.getElementById("property-tenant-card-styles")) {
+      const style = document.createElement("style");
+      style.id = "property-tenant-card-styles";
+      style.textContent = `
                 .property-tenant-card {
                     transition: transform 0.2s ease, box-shadow 0.2s ease;
                     border: 1px solid #dee2e6;
@@ -629,550 +773,627 @@ class TenantManagementComponent {
                     overflow: hidden;
                 }
             `;
-            document.head.appendChild(style);
-        }
+      document.head.appendChild(style);
     }
+  }
 
-    togglePropertyCard(propertyId) {
-        // Find the card element
-        const card = document.querySelector(`.property-tenant-card[data-property-id="${propertyId}"]`);
-        if (!card) return;
+  togglePropertyCard(propertyId) {
+    // Find the card element
+    const card = document.querySelector(
+      `.property-tenant-card[data-property-id="${propertyId}"]`
+    );
+    if (!card) return;
 
-        // Find the tenant list body and footer within this card
-        const tenantListBody = card.querySelector('.tenant-list-body');
-        const cardFooter = card.querySelector('.tenant-card-footer');
-        const chevron = card.querySelector('.tenant-card-chevron');
+    // Find the tenant list body and footer within this card
+    const tenantListBody = card.querySelector(".tenant-list-body");
+    const cardFooter = card.querySelector(".tenant-card-footer");
+    const chevron = card.querySelector(".tenant-card-chevron");
 
-        if (!tenantListBody || !cardFooter || !chevron) return;
+    if (!tenantListBody || !cardFooter || !chevron) return;
 
-        // Toggle visibility
-        const isExpanded = tenantListBody.style.display !== 'none';
+    // Toggle visibility
+    const isExpanded = tenantListBody.style.display !== "none";
 
-        if (isExpanded) {
-            // Collapse
-            tenantListBody.style.display = 'none';
-            cardFooter.style.display = 'none';
-            chevron.style.transform = 'rotate(0deg)';
-        } else {
-            // Expand
-            tenantListBody.style.display = 'block';
-            cardFooter.style.display = 'block';
-            chevron.style.transform = 'rotate(180deg)';
-        }
+    if (isExpanded) {
+      // Collapse
+      tenantListBody.style.display = "none";
+      cardFooter.style.display = "none";
+      chevron.style.transform = "rotate(0deg)";
+    } else {
+      // Expand
+      tenantListBody.style.display = "block";
+      cardFooter.style.display = "block";
+      chevron.style.transform = "rotate(180deg)";
     }
+  }
 
-    groupTenantsByProperty(tenants) {
-        const grouped = {};
-        
-        tenants.forEach(tenant => {
-            const tenantProperties = tenant.properties || [];
-            
-            if (tenantProperties.length === 0) {
-                // Handle tenants with no properties
-                if (!grouped['No Property Assigned']) {
-                    grouped['No Property Assigned'] = [];
-                }
-                grouped['No Property Assigned'].push(tenant);
-            } else {
-                // Group by each property the tenant is assigned to
-                tenantProperties.forEach(prop => {
-                    let propertyId;
-                    
-                    if (typeof prop === 'object' && prop.propertyId) {
-                        propertyId = prop.propertyId;
-                    } else if (typeof prop === 'string') {
-                        propertyId = prop;
-                    } else {
-                        propertyId = prop._id || 'Unknown Property';
-                    }
-                    
-                    if (!grouped[propertyId]) {
-                        grouped[propertyId] = [];
-                    }
-                    grouped[propertyId].push(tenant);
-                });
-            }
+  groupTenantsByProperty(tenants) {
+    const grouped = {};
+
+    tenants.forEach((tenant) => {
+      const tenantProperties = tenant.properties || [];
+
+      if (tenantProperties.length === 0) {
+        // Handle tenants with no properties
+        if (!grouped["No Property Assigned"]) {
+          grouped["No Property Assigned"] = [];
+        }
+        grouped["No Property Assigned"].push(tenant);
+      } else {
+        // Group by each property the tenant is assigned to
+        tenantProperties.forEach((prop) => {
+          let propertyId;
+
+          if (typeof prop === "object" && prop.propertyId) {
+            propertyId = prop.propertyId;
+          } else if (typeof prop === "string") {
+            propertyId = prop;
+          } else {
+            propertyId = prop._id || "Unknown Property";
+          }
+
+          if (!grouped[propertyId]) {
+            grouped[propertyId] = [];
+          }
+          grouped[propertyId].push(tenant);
         });
-        
-        return grouped;
-    }
+      }
+    });
 
-    showEmptyState(message = 'No tenants found') {
-        const tbody = document.getElementById('tenantsTableBody');
-        if (!tbody) return;
+    return grouped;
+  }
 
-        tbody.innerHTML = `
+  showEmptyState(message = "No tenants found") {
+    const tbody = document.getElementById("tenantsTableBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = `
             <div class="text-center text-muted py-5">
                 <i class="bi bi-people fs-1 d-block mb-3"></i>
                 <p class="fs-5">${message}</p>
             </div>
         `;
+  }
+
+  async filterTenants(searchTerm) {
+    if (!this.selectedProperty) {
+      return;
     }
 
-    async filterTenants(searchTerm) {
-        if (!this.selectedProperty) {
-            return;
-        }
+    if (!searchTerm.trim()) {
+      // Reload based on what's selected
+      if (this.selectedProperty === "UNASSIGNED") {
+        await this.loadUnassignedTenants();
+      } else {
+        await this.loadTenantsForProperty(this.selectedProperty);
+      }
+      return;
+    }
 
-        if (!searchTerm.trim()) {
-            // Reload based on what's selected
-            if (this.selectedProperty === 'UNASSIGNED') {
-                await this.loadUnassignedTenants();
+    const filteredTenants = this.tenants.filter((tenant) => {
+      const basicMatch =
+        tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tenant.passportNumber
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (tenant.phoneNumber &&
+          tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // Search in property rooms if using new format
+      const roomMatch =
+        tenant.properties && Array.isArray(tenant.properties)
+          ? tenant.properties.some((prop) => {
+              if (typeof prop === "object" && prop.room) {
+                return prop.room
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase());
+              }
+              return false;
+            })
+          : false;
+
+      return basicMatch || roomMatch;
+    });
+
+    const tbody = document.getElementById("tenantsTableBody");
+    if (!tbody) return;
+
+    if (filteredTenants.length === 0) {
+      this.showEmptyState(`No tenants match "${searchTerm}"`);
+      return;
+    }
+
+    // Temporarily replace tenants array for rendering
+    const originalTenants = this.tenants;
+    this.tenants = filteredTenants;
+    await this.renderTenantsTable();
+    this.tenants = originalTenants;
+  }
+
+  showAddTenantModal() {
+    this.showTenantModal();
+  }
+
+  async showTenantModal(tenant = null) {
+    // Update modal title and button text
+    const isEdit = !!tenant;
+    document.getElementById("tenantModalTitle").textContent = isEdit
+      ? "Edit Tenant"
+      : "Add New Tenant";
+    const submitBtn = document.getElementById("tenantSubmitBtn");
+    submitBtn.innerHTML = isEdit
+      ? '<i class="bi bi-person-check me-1"></i><span id="tenantSubmitText">Update Tenant</span>'
+      : '<i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">Add Tenant</span>';
+
+    // Reset and populate form
+    const form = document.getElementById("tenantForm");
+    if (form) {
+      form.reset();
+
+      // Store the tenant being edited (if any)
+      form.setAttribute("data-tenant-id", tenant?._id || "");
+      form.setAttribute("data-tenant-passport", tenant?.passportNumber || "");
+      form.setAttribute("data-mode", isEdit ? "edit" : "add");
+
+      if (isEdit && tenant) {
+        // Store original tenant data for change detection
+        this.originalTenantData = {
+          name: tenant.name || "",
+          nickname: tenant.nickname || "",
+          fin: tenant.fin || "",
+          passportNumber: tenant.passportNumber || "",
+          phoneNumber: tenant.phoneNumber || "",
+          facebookUrl: tenant.facebookUrl || "",
+          registrationStatus:
+            tenant.registrationStatus ||
+            (tenant.isRegistered ? "registered" : "unregistered"),
+          properties: JSON.parse(JSON.stringify(tenant.properties || [])), // Deep copy
+          passportPics: [
+            ...(tenant.passportPics ||
+              (tenant.passportPic ? [tenant.passportPic] : [])),
+          ], // Copy array
+          visaPics: [
+            ...(tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : [])),
+          ], // Copy array
+          avatar: tenant.avatar || "",
+          signature: tenant.signature || "",
+          // New financial fields
+          rent: tenant.rent || null,
+          deposit: tenant.deposit || null,
+          depositReceiver: tenant.depositReceiver || "",
+        };
+
+        // Populate form with existing data
+        document.getElementById("tenantName").value = tenant.name || "";
+        document.getElementById("tenantNickname").value = tenant.nickname || "";
+        document.getElementById("tenantFin").value = tenant.fin || "";
+        document.getElementById("tenantPassport").value =
+          tenant.passportNumber || "";
+        document.getElementById("tenantPhoneNumber").value =
+          tenant.phoneNumber || "";
+        document.getElementById("tenantFacebookUrl").value =
+          tenant.facebookUrl || "";
+
+        // Populate financial fields (except depositReceiver which is populated after investors are loaded)
+        document.getElementById("tenantRent").value = tenant.rent || "";
+        document.getElementById("tenantDeposit").value = tenant.deposit || "";
+
+        // Set registration status (support backward compatibility)
+        const registrationStatus =
+          tenant.registrationStatus ||
+          (tenant.isRegistered ? "registered" : "unregistered");
+        this.setRegistrationStatus(registrationStatus);
+
+        // Handle multiple images (with backward compatibility)
+        this.passportPics =
+          tenant.passportPics ||
+          (tenant.passportPic ? [tenant.passportPic] : []);
+        this.visaPics =
+          tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
+        this.signature = tenant.signature || "";
+        console.log("📋 Set passportPics:", this.passportPics);
+        console.log("📋 Set visaPics:", this.visaPics);
+        console.log("📋 Set signature:", this.signature);
+        // Don't update gallery here - wait until modal is shown
+
+        // Handle avatar
+        this.avatar = tenant.avatar || "";
+        this.updateAvatarPreview();
+
+        // Set up properties - store full property objects with details
+        this.selectedPropertiesDetails = (tenant.properties || []).map(
+          (prop) => {
+            if (typeof prop === "object" && prop.propertyId) {
+              return {
+                propertyId: prop.propertyId,
+                isMainTenant: prop.isMainTenant || false,
+                room: prop.room || "",
+                moveinDate: prop.moveinDate || "",
+                moveoutDate: prop.moveoutDate || "",
+              };
             } else {
-                await this.loadTenantsForProperty(this.selectedProperty);
+              return {
+                propertyId:
+                  typeof prop === "string" ? prop : prop.propertyId || prop._id,
+                isMainTenant: false,
+                room: "",
+                moveinDate: "",
+                moveoutDate: "",
+              };
             }
-            return;
-        }
-
-        const filteredTenants = this.tenants.filter(tenant => {
-            const basicMatch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                tenant.passportNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (tenant.phoneNumber && tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-
-            // Search in property rooms if using new format
-            const roomMatch = tenant.properties && Array.isArray(tenant.properties)
-                ? tenant.properties.some(prop => {
-                    if (typeof prop === 'object' && prop.room) {
-                        return prop.room.toLowerCase().includes(searchTerm.toLowerCase());
-                    }
-                    return false;
-                })
-                : false;
-
-            return basicMatch || roomMatch;
-        });
-
-        const tbody = document.getElementById('tenantsTableBody');
-        if (!tbody) return;
-
-        if (filteredTenants.length === 0) {
-            this.showEmptyState(`No tenants match "${searchTerm}"`);
-            return;
-        }
-
-        // Temporarily replace tenants array for rendering
-        const originalTenants = this.tenants;
-        this.tenants = filteredTenants;
-        await this.renderTenantsTable();
-        this.tenants = originalTenants;
-    }
-
-    showAddTenantModal() {
-        this.showTenantModal();
-    }
-
-    async showTenantModal(tenant = null) {
-        // Update modal title and button text
-        const isEdit = !!tenant;
-        document.getElementById('tenantModalTitle').textContent = isEdit ? 'Edit Tenant' : 'Add New Tenant';
-        const submitBtn = document.getElementById('tenantSubmitBtn');
-        submitBtn.innerHTML = isEdit
-            ? '<i class="bi bi-person-check me-1"></i><span id="tenantSubmitText">Update Tenant</span>'
-            : '<i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">Add Tenant</span>';
-
-        // Reset and populate form
-        const form = document.getElementById('tenantForm');
-        if (form) {
-            form.reset();
-
-            // Store the tenant being edited (if any)
-            form.setAttribute('data-tenant-id', tenant?._id || '');
-            form.setAttribute('data-tenant-passport', tenant?.passportNumber || '');
-            form.setAttribute('data-mode', isEdit ? 'edit' : 'add');
-            
-            if (isEdit && tenant) {
-                // Store original tenant data for change detection
-                this.originalTenantData = {
-                    name: tenant.name || '',
-                    nickname: tenant.nickname || '',
-                    fin: tenant.fin || '',
-                    passportNumber: tenant.passportNumber || '',
-                    phoneNumber: tenant.phoneNumber || '',
-                    facebookUrl: tenant.facebookUrl || '',
-                    registrationStatus: tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered'),
-                    properties: JSON.parse(JSON.stringify(tenant.properties || [])), // Deep copy
-                    passportPics: [...(tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []))], // Copy array
-                    visaPics: [...(tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []))], // Copy array
-                    avatar: tenant.avatar || '',
-                    signature: tenant.signature || '',
-                    // New financial fields
-                    rent: tenant.rent || null,
-                    deposit: tenant.deposit || null,
-                    depositReceiver: tenant.depositReceiver || ''
-                };
-
-                // Populate form with existing data
-                document.getElementById('tenantName').value = tenant.name || '';
-                document.getElementById('tenantNickname').value = tenant.nickname || '';
-                document.getElementById('tenantFin').value = tenant.fin || '';
-                document.getElementById('tenantPassport').value = tenant.passportNumber || '';
-                document.getElementById('tenantPhoneNumber').value = tenant.phoneNumber || '';
-                document.getElementById('tenantFacebookUrl').value = tenant.facebookUrl || '';
-                
-                // Populate financial fields (except depositReceiver which is populated after investors are loaded)
-                document.getElementById('tenantRent').value = tenant.rent || '';
-                document.getElementById('tenantDeposit').value = tenant.deposit || '';
-                
-                // Set registration status (support backward compatibility)
-                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-                this.setRegistrationStatus(registrationStatus);
-                
-                // Handle multiple images (with backward compatibility)
-                this.passportPics = tenant.passportPics || (tenant.passportPic ? [tenant.passportPic] : []);
-                this.visaPics = tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
-                this.signature = tenant.signature || '';
-                console.log('📋 Set passportPics:', this.passportPics);
-                console.log('📋 Set visaPics:', this.visaPics);
-                console.log('📋 Set signature:', this.signature);
-                // Don't update gallery here - wait until modal is shown
-                
-                // Handle avatar
-                this.avatar = tenant.avatar || '';
-                this.updateAvatarPreview();
-                
-                // Set up properties - store full property objects with details
-                this.selectedPropertiesDetails = (tenant.properties || []).map(prop => {
-                    if (typeof prop === 'object' && prop.propertyId) {
-                        return {
-                            propertyId: prop.propertyId,
-                            isMainTenant: prop.isMainTenant || false,
-                            room: prop.room || '',
-                            moveinDate: prop.moveinDate || '',
-                            moveoutDate: prop.moveoutDate || ''
-                        };
-                    } else {
-                        return {
-                            propertyId: typeof prop === 'string' ? prop : (prop.propertyId || prop._id),
-                            isMainTenant: false,
-                            room: '',
-                            moveinDate: '',
-                            moveoutDate: ''
-                        };
-                    }
-                });
-                this.selectedProperties = this.selectedPropertiesDetails.map(p => p.propertyId);
-                
-            } else {
-                // Reset for add mode
-                this.selectedProperties = [];
-                this.selectedPropertiesDetails = [];
-                this.passportPics = [];
-                this.visaPics = [];
-                this.avatar = '';
-                this.signature = '';
-                this.updateImageGallery('passport');
-                this.updateImageGallery('visa');
-                this.updateAvatarPreview();
-                this.updateSignaturePreview();
-                
-                // Reset registration status to unregistered
-                this.setRegistrationStatus('unregistered');
-                
-            }
-        }
-        
-        // Load available properties and populate select
-        await this.loadPropertiesForSelect();
-        // Load available investors for deposit receiver dropdown
-        await this.loadInvestorsForSelect();
-        
-        // After investors are loaded, populate the depositReceiver field if in edit mode
-        if (isEdit && tenant && tenant.depositReceiver) {
-            document.getElementById('tenantDepositReceiver').value = tenant.depositReceiver;
-        }
-        
-        this.updateSelectedPropertiesList();
-        
-        // Add event listeners for image URL inputs
-        this.setupImageUrlListeners();
-        
-        // Show modal
-        const modalEl = document.getElementById('tenantModal');
-        const modal = new bootstrap.Modal(modalEl);
-        
-        // Add event listener for when modal is fully hidden
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            this.cleanupModal();
-        }, { once: true });
-        
-        // Add event listener for when modal is fully shown
-        modalEl.addEventListener('shown.bs.modal', () => {
-            this.updateImageGallery('passport');
-            this.updateImageGallery('visa');
-            this.updateAvatarPreview();
-            this.updateSignaturePreview();
-            
-            // Show/hide signature section based on main tenant status
-            this.toggleSignatureSection();
-            
-            // Set up clipboard paste listeners after modal is shown
-            this.setupModalClipboardListeners();
-            
-            // Set up signature URL input listener
-            this.setupSignatureUrlListener();
-        }, { once: true });
-        
-        modal.show();
-        
-        // For new tenants, clear original data and enable button
-        if (!isEdit) {
-            this.originalTenantData = null;
-            const submitBtn = document.getElementById('tenantSubmitBtn');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('btn-secondary');
-                submitBtn.classList.add('btn-primary');
-            }
-        } else {
-            // For edit mode, check for changes after modal is shown
-            setTimeout(() => {
-                this.checkForChanges();
-            }, 100);
-        }
-    }
-
-    cleanupModal() {
-        // Remove any remaining backdrop
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => backdrop.remove());
-        
-        // Remove modal classes from body
-        document.body.classList.remove('modal-open');
-        document.body.style.paddingRight = '';
-        document.body.style.overflow = '';
-        
-        // Reset selected properties
+          }
+        );
+        this.selectedProperties = this.selectedPropertiesDetails.map(
+          (p) => p.propertyId
+        );
+      } else {
+        // Reset for add mode
         this.selectedProperties = [];
+        this.selectedPropertiesDetails = [];
+        this.passportPics = [];
+        this.visaPics = [];
+        this.avatar = "";
+        this.signature = "";
+        this.updateImageGallery("passport");
+        this.updateImageGallery("visa");
+        this.updateAvatarPreview();
+        this.updateSignaturePreview();
+
+        // Reset registration status to unregistered
+        this.setRegistrationStatus("unregistered");
+      }
     }
 
-    async loadPropertiesCache() {
-        try {
-            // Check cache first
-            const now = Date.now();
-            if (this.propertiesCache && this.propertiesCacheTime && (now - this.propertiesCacheTime) < this.cacheTimeout) {
-                console.log('Using cached properties data');
-                return;
-            }
-            
-            const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-            const result = await response.json();
-            
-            // Cache the result
-            if (result.success) {
-                this.propertiesCache = result;
-                this.propertiesCacheTime = now;
-                console.log('✅ Properties cache loaded:', result.properties?.length || 0, 'properties');
-            }
-        } catch (error) {
-            console.error('Error loading properties cache:', error);
-        }
+    // Load available properties and populate select
+    await this.loadPropertiesForSelect();
+    // Load available investors for deposit receiver dropdown
+    await this.loadInvestorsForSelect();
+
+    // After investors are loaded, populate the depositReceiver field if in edit mode
+    if (isEdit && tenant && tenant.depositReceiver) {
+      document.getElementById("tenantDepositReceiver").value =
+        tenant.depositReceiver;
     }
 
-    async loadPropertiesForSelect() {
-        // First load the cache
-        await this.loadPropertiesCache();
-        
-        try {
-            this.populatePropertyCheckboxes(this.propertiesCache || { success: false, properties: [] });
-        } catch (error) {
-            console.error('Error loading properties:', error);
-            const checkboxList = document.getElementById('propertyCheckboxList');
-            if (checkboxList) {
-                checkboxList.innerHTML = '<li class="px-3 py-2 text-danger">Error loading properties</li>';
-            }
-        }
+    this.updateSelectedPropertiesList();
+
+    // Add event listeners for image URL inputs
+    this.setupImageUrlListeners();
+
+    // Show modal
+    const modalEl = document.getElementById("tenantModal");
+    const modal = new bootstrap.Modal(modalEl);
+
+    // Add event listener for when modal is fully hidden
+    modalEl.addEventListener(
+      "hidden.bs.modal",
+      () => {
+        this.cleanupModal();
+      },
+      { once: true }
+    );
+
+    // Add event listener for when modal is fully shown
+    modalEl.addEventListener(
+      "shown.bs.modal",
+      () => {
+        this.updateImageGallery("passport");
+        this.updateImageGallery("visa");
+        this.updateAvatarPreview();
+        this.updateSignaturePreview();
+
+        // Show/hide signature section based on main tenant status
+        this.toggleSignatureSection();
+
+        // Set up clipboard paste listeners after modal is shown
+        this.setupModalClipboardListeners();
+
+        // Set up signature URL input listener
+        this.setupSignatureUrlListener();
+      },
+      { once: true }
+    );
+
+    modal.show();
+
+    // For new tenants, clear original data and enable button
+    if (!isEdit) {
+      this.originalTenantData = null;
+      const submitBtn = document.getElementById("tenantSubmitBtn");
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove("btn-secondary");
+        submitBtn.classList.add("btn-primary");
+      }
+    } else {
+      // For edit mode, check for changes after modal is shown
+      setTimeout(() => {
+        this.checkForChanges();
+      }, 100);
+    }
+  }
+
+  cleanupModal() {
+    // Remove any remaining backdrop
+    const backdrops = document.querySelectorAll(".modal-backdrop");
+    backdrops.forEach((backdrop) => backdrop.remove());
+
+    // Remove modal classes from body
+    document.body.classList.remove("modal-open");
+    document.body.style.paddingRight = "";
+    document.body.style.overflow = "";
+
+    // Reset selected properties
+    this.selectedProperties = [];
+  }
+
+  async loadPropertiesCache() {
+    try {
+      // Check cache first
+      const now = Date.now();
+      if (
+        this.propertiesCache &&
+        this.propertiesCacheTime &&
+        now - this.propertiesCacheTime < this.cacheTimeout
+      ) {
+        console.log("Using cached properties data");
+        return;
+      }
+
+      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
+      const result = await response.json();
+
+      // Cache the result
+      if (result.success) {
+        this.propertiesCache = result;
+        this.propertiesCacheTime = now;
+        console.log(
+          "✅ Properties cache loaded:",
+          result.properties?.length || 0,
+          "properties"
+        );
+      }
+    } catch (error) {
+      console.error("Error loading properties cache:", error);
+    }
+  }
+
+  async loadPropertiesForSelect() {
+    // First load the cache
+    await this.loadPropertiesCache();
+
+    try {
+      this.populatePropertyCheckboxes(
+        this.propertiesCache || { success: false, properties: [] }
+      );
+    } catch (error) {
+      console.error("Error loading properties:", error);
+      const checkboxList = document.getElementById("propertyCheckboxList");
+      if (checkboxList) {
+        checkboxList.innerHTML =
+          '<li class="px-3 py-2 text-danger">Error loading properties</li>';
+      }
+    }
+  }
+
+  async loadInvestorsForSelect() {
+    try {
+      const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        this.populateInvestorDropdown(result.data);
+        console.log(
+          "✅ Investors loaded for dropdown:",
+          result.data.length,
+          "investors"
+        );
+      } else {
+        console.error(
+          "Failed to load investors:",
+          result.error || "Unknown error"
+        );
+        this.populateInvestorDropdown([]);
+      }
+    } catch (error) {
+      console.error("Error loading investors:", error);
+      this.populateInvestorDropdown([]);
+    }
+  }
+
+  populateInvestorDropdown(investors) {
+    const dropdown = document.getElementById("tenantDepositReceiver");
+    if (!dropdown) return;
+
+    // Clear existing options except the first one
+    dropdown.innerHTML =
+      '<option value="">Select investor who receives deposit...</option>';
+
+    if (investors.length === 0) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "No investors available";
+      option.disabled = true;
+      dropdown.appendChild(option);
+      return;
     }
 
-    async loadInvestorsForSelect() {
-        try {
-            const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
-            const result = await response.json();
-            
-            if (result.success && result.data) {
-                this.populateInvestorDropdown(result.data);
-                console.log('✅ Investors loaded for dropdown:', result.data.length, 'investors');
-            } else {
-                console.error('Failed to load investors:', result.error || 'Unknown error');
-                this.populateInvestorDropdown([]);
-            }
-        } catch (error) {
-            console.error('Error loading investors:', error);
-            this.populateInvestorDropdown([]);
-        }
+    investors.forEach((investor) => {
+      const option = document.createElement("option");
+      option.value = investor.investorId;
+      option.textContent = `${investor.investorId} - ${investor.name}`;
+      dropdown.appendChild(option);
+    });
+  }
+
+  populatePropertyCheckboxes(result) {
+    const checkboxList = document.getElementById("propertyCheckboxList");
+    if (!checkboxList || !result.success) return;
+
+    // Clear existing items
+    checkboxList.innerHTML = "";
+
+    if (result.properties.length === 0) {
+      checkboxList.innerHTML =
+        '<li class="px-3 py-2 text-muted">No properties available</li>';
+      return;
     }
 
-    populateInvestorDropdown(investors) {
-        const dropdown = document.getElementById('tenantDepositReceiver');
-        if (!dropdown) return;
-        
-        // Clear existing options except the first one
-        dropdown.innerHTML = '<option value="">Select investor who receives deposit...</option>';
-        
-        if (investors.length === 0) {
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = 'No investors available';
-            option.disabled = true;
-            dropdown.appendChild(option);
-            return;
-        }
-        
-        investors.forEach(investor => {
-            const option = document.createElement('option');
-            option.value = investor.investorId;
-            option.textContent = `${investor.investorId} - ${investor.name}`;
-            dropdown.appendChild(option);
-        });
-    }
+    result.properties.forEach((property) => {
+      const listItem = document.createElement("li");
+      listItem.className = "px-3 py-2";
 
-    populatePropertyCheckboxes(result) {
-        const checkboxList = document.getElementById('propertyCheckboxList');
-        if (!checkboxList || !result.success) return;
-        
-        // Clear existing items
-        checkboxList.innerHTML = '';
-        
-        if (result.properties.length === 0) {
-            checkboxList.innerHTML = '<li class="px-3 py-2 text-muted">No properties available</li>';
-            return;
-        }
-        
-        result.properties.forEach(property => {
-            const listItem = document.createElement('li');
-            listItem.className = 'px-3 py-2';
-            
-            const checkboxId = `property-${property.propertyId}`;
-            const isChecked = this.selectedProperties.includes(property.propertyId);
-            
-            listItem.innerHTML = `
+      const checkboxId = `property-${property.propertyId}`;
+      const isChecked = this.selectedProperties.includes(property.propertyId);
+
+      listItem.innerHTML = `
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="${checkboxId}" 
-                           value="${property.propertyId}" ${isChecked ? 'checked' : ''}>
+                           value="${property.propertyId}" ${
+        isChecked ? "checked" : ""
+      }>
                     <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
-                        <strong>${property.propertyId}</strong> - ${property.address}, ${property.unit}
+                        <strong>${property.propertyId}</strong> - ${
+        property.address
+      }, ${property.unit}
                     </label>
                 </div>
             `;
-            
-            // Add click handler to the checkbox
-            const checkbox = listItem.querySelector('input[type="checkbox"]');
-            checkbox.addEventListener('change', (e) => {
-                this.handleCheckboxChange(e.target.value, e.target.checked);
-            });
-            
-            // Prevent dropdown from closing when clicking on list items
-            listItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // If clicking on the item (not checkbox), toggle the checkbox
-                if (e.target.tagName !== 'INPUT') {
-                    checkbox.checked = !checkbox.checked;
-                    this.handleCheckboxChange(checkbox.value, checkbox.checked);
-                }
-            });
-            
-            checkboxList.appendChild(listItem);
-        });
-        
-        // Update dropdown text
-        this.updateDropdownText();
-    }
 
-    handleCheckboxChange(propertyId, isChecked) {
-        if (isChecked) {
-            // Add property if not already selected
-            if (!this.selectedProperties.includes(propertyId)) {
-                this.selectedProperties.push(propertyId);
-                // Initialize details if not exists
-                if (!this.selectedPropertiesDetails) {
-                    this.selectedPropertiesDetails = [];
-                }
-                // Add property details with defaults
-                if (!this.selectedPropertiesDetails.find(p => p.propertyId === propertyId)) {
-                    this.selectedPropertiesDetails.push({
-                        propertyId,
-                        isMainTenant: false,
-                        room: '',
-                        moveinDate: '',
-                        moveoutDate: ''
-                    });
-                }
-            }
-        } else {
-            // Remove property from selection
-            this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
-            if (this.selectedPropertiesDetails) {
-                this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(p => p.propertyId !== propertyId);
-            }
+      // Add click handler to the checkbox
+      const checkbox = listItem.querySelector('input[type="checkbox"]');
+      checkbox.addEventListener("change", (e) => {
+        this.handleCheckboxChange(e.target.value, e.target.checked);
+      });
+
+      // Prevent dropdown from closing when clicking on list items
+      listItem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // If clicking on the item (not checkbox), toggle the checkbox
+        if (e.target.tagName !== "INPUT") {
+          checkbox.checked = !checkbox.checked;
+          this.handleCheckboxChange(checkbox.value, checkbox.checked);
         }
-        
-        this.updateSelectedPropertiesList();
-        this.updateDropdownText();
-        this.checkForChanges();
-    }
+      });
 
-    updateDropdownText() {
-        const dropdownText = document.getElementById('propertyDropdownText');
-        if (!dropdownText) return;
-        
-        const count = this.selectedProperties.length;
-        if (count === 0) {
-            dropdownText.textContent = 'Select properties...';
-        } else if (count === 1) {
-            dropdownText.textContent = '1 property selected';
-        } else {
-            dropdownText.textContent = `${count} properties selected`;
-        }
-    }
+      checkboxList.appendChild(listItem);
+    });
 
-    // Keep old function for backward compatibility but redirect to new logic
-    addPropertyToTenant() {
-        // This function is no longer used with multiselect, but keeping for safety
-        console.log('addPropertyToTenant called - now handled by handlePropertySelectionChange');
-    }
+    // Update dropdown text
+    this.updateDropdownText();
+  }
 
-    removePropertyFromTenant(propertyId) {
-        this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
-        this.updateSelectedPropertiesList();
-        this.updateDropdownText();
-        this.checkForChanges();
-        
-        // Update checkbox to reflect removal
-        const checkbox = document.getElementById(`property-${propertyId}`);
-        if (checkbox) {
-            checkbox.checked = false;
-        }
-    }
-
-    updateSelectedPropertiesList() {
-        const listContainer = document.getElementById('selectedPropertiesList');
-        const hiddenInput = document.getElementById('tenantProperties');
-        
+  handleCheckboxChange(propertyId, isChecked) {
+    if (isChecked) {
+      // Add property if not already selected
+      if (!this.selectedProperties.includes(propertyId)) {
+        this.selectedProperties.push(propertyId);
+        // Initialize details if not exists
         if (!this.selectedPropertiesDetails) {
-            this.selectedPropertiesDetails = [];
+          this.selectedPropertiesDetails = [];
         }
-        
-        if (this.selectedProperties.length === 0) {
-            listContainer.innerHTML = '<div class="text-muted">No properties assigned</div>';
-            hiddenInput.value = '';
-        } else {
-            let html = '';
-            this.selectedProperties.forEach(propertyId => {
-                const propertyDetails = this.selectedPropertiesDetails.find(p => p.propertyId === propertyId) || {
-                    propertyId,
-                    isMainTenant: false,
-                    room: '',
-                    moveinDate: '',
-                    moveoutDate: ''
-                };
-                
-                // Get property info from cache
-                const propertyInfo = this.getPropertyInfo(propertyId);
-                const propertyTitle = propertyInfo 
-                    ? `${propertyId} - ${propertyInfo.address}, ${propertyInfo.unit}`
-                    : propertyId;
-                
-                html += `
+        // Add property details with defaults
+        if (
+          !this.selectedPropertiesDetails.find(
+            (p) => p.propertyId === propertyId
+          )
+        ) {
+          this.selectedPropertiesDetails.push({
+            propertyId,
+            isMainTenant: false,
+            room: "",
+            moveinDate: "",
+            moveoutDate: "",
+          });
+        }
+      }
+    } else {
+      // Remove property from selection
+      this.selectedProperties = this.selectedProperties.filter(
+        (id) => id !== propertyId
+      );
+      if (this.selectedPropertiesDetails) {
+        this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(
+          (p) => p.propertyId !== propertyId
+        );
+      }
+    }
+
+    this.updateSelectedPropertiesList();
+    this.updateDropdownText();
+    this.checkForChanges();
+  }
+
+  updateDropdownText() {
+    const dropdownText = document.getElementById("propertyDropdownText");
+    if (!dropdownText) return;
+
+    const count = this.selectedProperties.length;
+    if (count === 0) {
+      dropdownText.textContent = "Select properties...";
+    } else if (count === 1) {
+      dropdownText.textContent = "1 property selected";
+    } else {
+      dropdownText.textContent = `${count} properties selected`;
+    }
+  }
+
+  // Keep old function for backward compatibility but redirect to new logic
+  addPropertyToTenant() {
+    // This function is no longer used with multiselect, but keeping for safety
+    console.log(
+      "addPropertyToTenant called - now handled by handlePropertySelectionChange"
+    );
+  }
+
+  removePropertyFromTenant(propertyId) {
+    this.selectedProperties = this.selectedProperties.filter(
+      (id) => id !== propertyId
+    );
+    this.updateSelectedPropertiesList();
+    this.updateDropdownText();
+    this.checkForChanges();
+
+    // Update checkbox to reflect removal
+    const checkbox = document.getElementById(`property-${propertyId}`);
+    if (checkbox) {
+      checkbox.checked = false;
+    }
+  }
+
+  updateSelectedPropertiesList() {
+    const listContainer = document.getElementById("selectedPropertiesList");
+    const hiddenInput = document.getElementById("tenantProperties");
+
+    if (!this.selectedPropertiesDetails) {
+      this.selectedPropertiesDetails = [];
+    }
+
+    if (this.selectedProperties.length === 0) {
+      listContainer.innerHTML =
+        '<div class="text-muted">No properties assigned</div>';
+      hiddenInput.value = "";
+    } else {
+      let html = "";
+      this.selectedProperties.forEach((propertyId) => {
+        const propertyDetails = this.selectedPropertiesDetails.find(
+          (p) => p.propertyId === propertyId
+        ) || {
+          propertyId,
+          isMainTenant: false,
+          room: "",
+          moveinDate: "",
+          moveoutDate: "",
+        };
+
+        // Get property info from cache
+        const propertyInfo = this.getPropertyInfo(propertyId);
+        const propertyTitle = propertyInfo
+          ? `${propertyId} - ${propertyInfo.address}, ${propertyInfo.unit}`
+          : propertyId;
+
+        html += `
                     <div class="card mb-2">
                         <div class="card-body p-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -1191,7 +1412,11 @@ class TenantManagementComponent {
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" 
                                                id="mainTenant_${propertyId}" 
-                                               ${propertyDetails.isMainTenant ? 'checked' : ''}
+                                               ${
+                                                 propertyDetails.isMainTenant
+                                                   ? "checked"
+                                                   : ""
+                                               }
                                                onchange="tenantManager.updatePropertyDetail('${propertyId}', 'isMainTenant', this.checked)">
                                         <label class="form-check-label" for="mainTenant_${propertyId}">
                                             Main Tenant for this property
@@ -1204,650 +1429,785 @@ class TenantManagementComponent {
                                             onchange="tenantManager.updatePropertyDetail('${propertyId}', 'room', this.value)"
                                             value="${propertyDetails.room}">
                                         <option value="">Select room</option>
-                                        <option value="COMMON1" ${propertyDetails.room === 'COMMON1' ? 'selected' : ''}>Common 1</option>
-                                        <option value="COMMON2" ${propertyDetails.room === 'COMMON2' ? 'selected' : ''}>Common 2</option>
-                                        <option value="MASTER" ${propertyDetails.room === 'MASTER' ? 'selected' : ''}>Master</option>
-                                        <option value="COMPARTMENT1" ${propertyDetails.room === 'COMPARTMENT1' ? 'selected' : ''}>Compartment 1</option>
-                                        <option value="COMPARTMENT2" ${propertyDetails.room === 'COMPARTMENT2' ? 'selected' : ''}>Compartment 2</option>
-                                        <option value="STORE" ${propertyDetails.room === 'STORE' ? 'selected' : ''}>Store</option>
-                                        <option value="COMMON_1_PAX" ${propertyDetails.room === 'COMMON_1_PAX' ? 'selected' : ''}>Common 1 Pax</option>
-                                        <option value="COMMON_2_PAX" ${propertyDetails.room === 'COMMON_2_PAX' ? 'selected' : ''}>Common 2 Pax</option>
-                                        <option value="SMALL_SINGLE_1_PAX" ${propertyDetails.room === 'SMALL_SINGLE_1_PAX' ? 'selected' : ''}>Small Single 1 Pax</option>
-                                        <option value="SMALL_SINGLE_2_PAX" ${propertyDetails.room === 'SMALL_SINGLE_2_PAX' ? 'selected' : ''}>Small Single 2 Pax</option>
-                                        <option value="BIG_SINGLE_1_PAX" ${propertyDetails.room === 'BIG_SINGLE_1_PAX' ? 'selected' : ''}>Big Single 1 Pax</option>
-                                        <option value="BIG_SINGLE_2_PAX" ${propertyDetails.room === 'BIG_SINGLE_2_PAX' ? 'selected' : ''}>Big Single 2 Pax</option>
+                                        <option value="COMMON1" ${
+                                          propertyDetails.room === "COMMON1"
+                                            ? "selected"
+                                            : ""
+                                        }>Common 1</option>
+                                        <option value="COMMON2" ${
+                                          propertyDetails.room === "COMMON2"
+                                            ? "selected"
+                                            : ""
+                                        }>Common 2</option>
+                                        <option value="MASTER" ${
+                                          propertyDetails.room === "MASTER"
+                                            ? "selected"
+                                            : ""
+                                        }>Master</option>
+                                        <option value="COMPARTMENT1" ${
+                                          propertyDetails.room ===
+                                          "COMPARTMENT1"
+                                            ? "selected"
+                                            : ""
+                                        }>Compartment 1</option>
+                                        <option value="COMPARTMENT2" ${
+                                          propertyDetails.room ===
+                                          "COMPARTMENT2"
+                                            ? "selected"
+                                            : ""
+                                        }>Compartment 2</option>
+                                        <option value="STORE" ${
+                                          propertyDetails.room === "STORE"
+                                            ? "selected"
+                                            : ""
+                                        }>Store</option>
+                                        <option value="COMMON_1_PAX" ${
+                                          propertyDetails.room ===
+                                          "COMMON_1_PAX"
+                                            ? "selected"
+                                            : ""
+                                        }>Common 1 Pax</option>
+                                        <option value="COMMON_2_PAX" ${
+                                          propertyDetails.room ===
+                                          "COMMON_2_PAX"
+                                            ? "selected"
+                                            : ""
+                                        }>Common 2 Pax</option>
+                                        <option value="SMALL_SINGLE_1_PAX" ${
+                                          propertyDetails.room ===
+                                          "SMALL_SINGLE_1_PAX"
+                                            ? "selected"
+                                            : ""
+                                        }>Small Single 1 Pax</option>
+                                        <option value="SMALL_SINGLE_2_PAX" ${
+                                          propertyDetails.room ===
+                                          "SMALL_SINGLE_2_PAX"
+                                            ? "selected"
+                                            : ""
+                                        }>Small Single 2 Pax</option>
+                                        <option value="BIG_SINGLE_1_PAX" ${
+                                          propertyDetails.room ===
+                                          "BIG_SINGLE_1_PAX"
+                                            ? "selected"
+                                            : ""
+                                        }>Big Single 1 Pax</option>
+                                        <option value="BIG_SINGLE_2_PAX" ${
+                                          propertyDetails.room ===
+                                          "BIG_SINGLE_2_PAX"
+                                            ? "selected"
+                                            : ""
+                                        }>Big Single 2 Pax</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small">Move-in Date</label>
                                     <input type="date" class="form-control form-control-sm" 
-                                           value="${propertyDetails.moveinDate ? propertyDetails.moveinDate.split('T')[0] : ''}"
+                                           value="${
+                                             propertyDetails.moveinDate
+                                               ? propertyDetails.moveinDate.split(
+                                                   "T"
+                                                 )[0]
+                                               : ""
+                                           }"
                                            onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveinDate', this.value)">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small">Move-out Date</label>
                                     <input type="date" class="form-control form-control-sm" 
-                                           value="${propertyDetails.moveoutDate ? propertyDetails.moveoutDate.split('T')[0] : ''}"
+                                           value="${
+                                             propertyDetails.moveoutDate
+                                               ? propertyDetails.moveoutDate.split(
+                                                   "T"
+                                                 )[0]
+                                               : ""
+                                           }"
                                            onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveoutDate', this.value)">
                                 </div>
                             </div>
                         </div>
                     </div>
                 `;
-            });
-            listContainer.innerHTML = html;
-            hiddenInput.value = JSON.stringify(this.selectedPropertiesDetails);
-        }
-        
-        // Update dropdown text when list changes
-        this.updateDropdownText();
+      });
+      listContainer.innerHTML = html;
+      hiddenInput.value = JSON.stringify(this.selectedPropertiesDetails);
     }
 
-    getPropertyInfo(propertyId) {
-        if (!this.propertiesCache || !this.propertiesCache.properties) {
-            return null;
-        }
-        
-        return this.propertiesCache.properties.find(prop => prop.propertyId === propertyId);
+    // Update dropdown text when list changes
+    this.updateDropdownText();
+  }
+
+  getPropertyInfo(propertyId) {
+    if (!this.propertiesCache || !this.propertiesCache.properties) {
+      return null;
     }
 
-    updatePropertyDetail(propertyId, field, value) {
-        if (!this.selectedPropertiesDetails) {
-            this.selectedPropertiesDetails = [];
-        }
-        
-        let property = this.selectedPropertiesDetails.find(p => p.propertyId === propertyId);
-        if (!property) {
-            property = {
-                propertyId,
-                isMainTenant: false,
-                room: '',
-                moveinDate: '',
-                moveoutDate: ''
-            };
-            this.selectedPropertiesDetails.push(property);
-        }
-        
-        property[field] = value;
-        console.log(`Updated property ${propertyId} ${field} to:`, value);
-        
-        // If main tenant status changed, toggle signature section
-        if (field === 'isMainTenant') {
-            this.toggleSignatureSection();
-        }
-        
-        // Check for changes to enable/disable submit button
-        this.checkForChanges();
+    return this.propertiesCache.properties.find(
+      (prop) => prop.propertyId === propertyId
+    );
+  }
+
+  updatePropertyDetail(propertyId, field, value) {
+    if (!this.selectedPropertiesDetails) {
+      this.selectedPropertiesDetails = [];
     }
 
-    async handleTenantSubmit(event) {
-        try {
-            const form = event.target;
-            const formData = new FormData(form);
-            const isEdit = form.getAttribute('data-mode') === 'edit';
-            const tenantId = form.getAttribute('data-tenant-id');
-            const originalPassport = form.getAttribute('data-tenant-passport');
+    let property = this.selectedPropertiesDetails.find(
+      (p) => p.propertyId === propertyId
+    );
+    if (!property) {
+      property = {
+        propertyId,
+        isMainTenant: false,
+        room: "",
+        moveinDate: "",
+        moveoutDate: "",
+      };
+      this.selectedPropertiesDetails.push(property);
+    }
 
-            const tenantData = {
-                name: formData.get('name').trim(),
-                nickname: formData.get('nickname')?.trim() || null,
-                fin: formData.get('fin').trim().toUpperCase() || null,
-                passportNumber: formData.get('passportNumber').trim().toUpperCase(),
-                phoneNumber: formData.get('phoneNumber').trim() || null,
-                facebookUrl: formData.get('facebookUrl')?.trim() || null,
-                registrationStatus: document.getElementById('tenantRegistrationStatusHidden').value || 'unregistered',
-                // Keep backward compatibility with isRegistered field
-                isRegistered: document.getElementById('tenantRegistrationStatusHidden').value === 'registered',
-                properties: this.selectedPropertiesDetails || this.selectedProperties.map(propertyId => ({
-                    propertyId,
-                    isMainTenant: false,
-                    room: '',
-                    moveinDate: '',
-                    moveoutDate: ''
-                })),
-                passportPics: this.passportPics,
-                visaPics: this.visaPics,
-                avatar: this.avatar || null,
-                signature: this.signature || null, // Send null instead of empty string
-                // New financial fields
-                rent: formData.get('rent') ? parseFloat(formData.get('rent')) : null,
-                deposit: formData.get('deposit') ? parseFloat(formData.get('deposit')) : null,
-                depositReceiver: formData.get('depositReceiver').trim() || null
-            };
+    property[field] = value;
+    console.log(`Updated property ${propertyId} ${field} to:`, value);
 
-            // Debug: log the properties being sent
-            console.log('🔄 Tenant update data:', { 
-                ...tenantData, 
-                propertiesType: typeof this.selectedProperties[0],
-                propertiesContent: this.selectedProperties 
-            });
+    // If main tenant status changed, toggle signature section
+    if (field === "isMainTenant") {
+      this.toggleSignatureSection();
+    }
 
-            // Validate required fields
-            if (!tenantData.name) {
-                alert('Please fill in the required field: Name');
-                return;
-            }
+    // Check for changes to enable/disable submit button
+    this.checkForChanges();
+  }
 
-            // Validate FIN length if provided
-            if (tenantData.fin && tenantData.fin.length > 20) {
-                alert('FIN cannot exceed 20 characters');
-                return;
-            }
+  async handleTenantSubmit(event) {
+    try {
+      const form = event.target;
+      const formData = new FormData(form);
+      const isEdit = form.getAttribute("data-mode") === "edit";
+      const tenantId = form.getAttribute("data-tenant-id");
+      const originalPassport = form.getAttribute("data-tenant-passport");
 
-            // Validate passport length if provided
-            if (tenantData.passportNumber && (tenantData.passportNumber.length < 6 || tenantData.passportNumber.length > 15)) {
-                alert('Passport number must be between 6 and 15 characters');
-                return;
-            }
+      const tenantData = {
+        name: formData.get("name").trim(),
+        nickname: formData.get("nickname")?.trim() || null,
+        fin: formData.get("fin").trim().toUpperCase() || null,
+        passportNumber: formData.get("passportNumber").trim().toUpperCase(),
+        phoneNumber: formData.get("phoneNumber").trim() || null,
+        facebookUrl: formData.get("facebookUrl")?.trim() || null,
+        registrationStatus:
+          document.getElementById("tenantRegistrationStatusHidden").value ||
+          "unregistered",
+        // Keep backward compatibility with isRegistered field
+        isRegistered:
+          document.getElementById("tenantRegistrationStatusHidden").value ===
+          "registered",
+        properties:
+          this.selectedPropertiesDetails ||
+          this.selectedProperties.map((propertyId) => ({
+            propertyId,
+            isMainTenant: false,
+            room: "",
+            moveinDate: "",
+            moveoutDate: "",
+          })),
+        passportPics: this.passportPics,
+        visaPics: this.visaPics,
+        avatar: this.avatar || null,
+        signature: this.signature || null, // Send null instead of empty string
+        // New financial fields
+        rent: formData.get("rent") ? parseFloat(formData.get("rent")) : null,
+        deposit: formData.get("deposit")
+          ? parseFloat(formData.get("deposit"))
+          : null,
+        depositReceiver: formData.get("depositReceiver").trim() || null,
+      };
 
-            // Validate phone number length (only if provided)
-            if (tenantData.phoneNumber && (tenantData.phoneNumber.length < 8 || tenantData.phoneNumber.length > 20)) {
-                alert('Phone number must be between 8 and 20 characters');
-                return;
-            }
+      // Debug: log the properties being sent
+      console.log("🔄 Tenant update data:", {
+        ...tenantData,
+        propertiesType: typeof this.selectedProperties[0],
+        propertiesContent: this.selectedProperties,
+      });
 
-            // Validate move-out date is after move-in date (only if both dates are provided)
-            if (tenantData.moveoutDate && tenantData.moveinDate && new Date(tenantData.moveoutDate) <= new Date(tenantData.moveinDate)) {
-                alert('Move-out date must be after move-in date');
-                return;
-            }
+      // Validate required fields
+      if (!tenantData.name) {
+        alert("Please fill in the required field: Name");
+        return;
+      }
 
-            // Show loading state
-            const submitBtn = event.target.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = isEdit 
-                ? '<i class="bi bi-hourglass-split me-1"></i>Updating Tenant...'
-                : '<i class="bi bi-hourglass-split me-1"></i>Adding Tenant...';
+      // Validate FIN length if provided
+      if (tenantData.fin && tenantData.fin.length > 20) {
+        alert("FIN cannot exceed 20 characters");
+        return;
+      }
 
-            // Add or update the tenant
-            if (isEdit) {
-                await this.updateTenant(tenantId, tenantData);
-            } else {
-                await this.addTenant(tenantData);
-            }
+      // Validate passport length if provided
+      if (
+        tenantData.passportNumber &&
+        (tenantData.passportNumber.length < 6 ||
+          tenantData.passportNumber.length > 15)
+      ) {
+        alert("Passport number must be between 6 and 15 characters");
+        return;
+      }
 
-            // Close modal on success
-            const modal = bootstrap.Modal.getInstance(document.getElementById('tenantModal'));
-            if (modal) {
-                modal.hide();
-            }
-            
-            // Ensure backdrop is removed
-            setTimeout(() => {
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
-                document.body.classList.remove('modal-open');
-                document.body.style.paddingRight = '';
-            }, 300);
+      // Validate phone number length (only if provided)
+      if (
+        tenantData.phoneNumber &&
+        (tenantData.phoneNumber.length < 8 ||
+          tenantData.phoneNumber.length > 20)
+      ) {
+        alert("Phone number must be between 8 and 20 characters");
+        return;
+      }
 
-            // Reset button state
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+      // Validate move-out date is after move-in date (only if both dates are provided)
+      if (
+        tenantData.moveoutDate &&
+        tenantData.moveinDate &&
+        new Date(tenantData.moveoutDate) <= new Date(tenantData.moveinDate)
+      ) {
+        alert("Move-out date must be after move-in date");
+        return;
+      }
 
-        } catch (error) {
-            console.error('Error in handleTenantSubmit:', error);
-            const isEdit = event.target.getAttribute('data-mode') === 'edit';
-            alert(`An error occurred while ${isEdit ? 'updating' : 'adding'} the tenant. Please try again.`);
-            
-            // Reset button state
-            const submitBtn = event.target.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                const isEdit = event.target.getAttribute('data-mode') === 'edit';
-                submitBtn.innerHTML = isEdit 
-                    ? '<i class="bi bi-person-check me-1"></i>Update Tenant'
-                    : '<i class="bi bi-person-plus me-1"></i>Add Tenant';
-            }
+      // Show loading state
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = isEdit
+        ? '<i class="bi bi-hourglass-split me-1"></i>Updating Tenant...'
+        : '<i class="bi bi-hourglass-split me-1"></i>Adding Tenant...';
+
+      // Add or update the tenant
+      if (isEdit) {
+        await this.updateTenant(tenantId, tenantData);
+      } else {
+        await this.addTenant(tenantData);
+      }
+
+      // Close modal on success
+      const modal = bootstrap.Modal.getInstance(
+        document.getElementById("tenantModal")
+      );
+      if (modal) {
+        modal.hide();
+      }
+
+      // Ensure backdrop is removed
+      setTimeout(() => {
+        const backdrop = document.querySelector(".modal-backdrop");
+        if (backdrop) {
+          backdrop.remove();
         }
+        document.body.classList.remove("modal-open");
+        document.body.style.paddingRight = "";
+      }, 300);
+
+      // Reset button state
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
+    } catch (error) {
+      console.error("Error in handleTenantSubmit:", error);
+      const isEdit = event.target.getAttribute("data-mode") === "edit";
+      alert(
+        `An error occurred while ${
+          isEdit ? "updating" : "adding"
+        } the tenant. Please try again.`
+      );
+
+      // Reset button state
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        const isEdit = event.target.getAttribute("data-mode") === "edit";
+        submitBtn.innerHTML = isEdit
+          ? '<i class="bi bi-person-check me-1"></i>Update Tenant'
+          : '<i class="bi bi-person-plus me-1"></i>Add Tenant';
+      }
     }
+  }
 
-    getTenantDataFromUser(existingTenant = null) {
-        const name = prompt('Full Name:', existingTenant?.name || '');
-        if (!name) return null;
+  getTenantDataFromUser(existingTenant = null) {
+    const name = prompt("Full Name:", existingTenant?.name || "");
+    if (!name) return null;
 
-        const fin = prompt('FIN (Singaporean ID):', existingTenant?.fin || '');
-        if (!fin) return null;
+    const fin = prompt("FIN (Singaporean ID):", existingTenant?.fin || "");
+    if (!fin) return null;
 
-        const passportNumber = prompt('Passport Number:', existingTenant?.passportNumber || '');
-        if (!passportNumber) return null;
+    const passportNumber = prompt(
+      "Passport Number:",
+      existingTenant?.passportNumber || ""
+    );
+    if (!passportNumber) return null;
 
-        const isRegistered = confirm('Is this tenant active/registered?');
-        const isMainTenant = confirm('Is this the main tenant?');
+    const isRegistered = confirm("Is this tenant active/registered?");
+    const isMainTenant = confirm("Is this the main tenant?");
 
-        return {
-            name,
-            fin: fin.toUpperCase(),
-            passportNumber: passportNumber.toUpperCase(),
-            isRegistered,
-            isMainTenant,
-            properties: existingTenant?.properties || []
-        };
-    }
+    return {
+      name,
+      fin: fin.toUpperCase(),
+      passportNumber: passportNumber.toUpperCase(),
+      isRegistered,
+      isMainTenant,
+      properties: existingTenant?.properties || [],
+    };
+  }
 
-    async addTenant(tenantData) {
-        try {
-            const response = await API.post(API_CONFIG.ENDPOINTS.TENANTS, tenantData);
+  async addTenant(tenantData) {
+    try {
+      const response = await API.post(API_CONFIG.ENDPOINTS.TENANTS, tenantData);
 
-            const result = await response.json();
+      const result = await response.json();
 
-            if (result.success) {
-                // Reload the list
-                if (this.selectedProperty === 'UNASSIGNED') {
-                    await this.loadUnassignedTenants();
-                } else if (this.selectedProperty) {
-                    await this.loadTenantsForProperty(this.selectedProperty);
-                } else {
-                    await this.loadTenants();
-                }
-            } else {
-                alert('Failed to add tenant: ' + result.error);
-            }
-        } catch (error) {
-            console.error('Error adding tenant:', error);
-            alert('Error adding tenant. Please try again.');
-        }
-    }
-
-    async editTenant(tenantId) {
-        // Find the tenant to edit by ID
-        const tenant = this.tenants.find(t => t._id === tenantId);
-        if (!tenant) {
-            alert('Tenant not found');
-            return;
-        }
-
-        // Show the modal with tenant data
-        this.showTenantModal(tenant);
-    }
-
-    async updateTenant(tenantId, tenantData) {
-        try {
-            // Validate tenant ID exists
-            if (!tenantId) {
-                throw new Error('Tenant ID not found');
-            }
-
-            const response = await API.put(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenantId), tenantData);
-            const result = await response.json();
-
-            if (result.success) {
-                // Reload the list
-                if (this.selectedProperty === 'UNASSIGNED') {
-                    await this.loadUnassignedTenants();
-                } else if (this.selectedProperty) {
-                    await this.loadTenantsForProperty(this.selectedProperty);
-                } else {
-                    await this.loadTenants();
-                }
-            } else {
-                alert('Failed to update tenant: ' + result.error);
-            }
-        } catch (error) {
-            console.error('Error updating tenant:', error);
-            alert('Error updating tenant: ' + error.message);
-            throw error; // Re-throw to handle in form submission
-        }
-    }
-
-    async deleteTenant(tenantId) {
-        // Find the tenant to get their name for the confirmation message
-        const tenant = this.tenants.find(t => t._id === tenantId);
-        if (!tenant) {
-            alert('Tenant not found');
-            return;
-        }
-
-        if (!confirm(`Are you sure you want to delete tenant ${tenant.name}?`)) {
-            return;
-        }
-
-        try {
-            if (!tenant._id) {
-                throw new Error('Tenant ID not found');
-            }
-
-            const response = await API.delete(API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id));
-
-            const result = await response.json();
-
-            if (result.success) {
-                // Reload the list
-                if (this.selectedProperty === 'UNASSIGNED') {
-                    await this.loadUnassignedTenants();
-                } else if (this.selectedProperty) {
-                    await this.loadTenantsForProperty(this.selectedProperty);
-                } else {
-                    await this.loadTenants();
-                }
-            } else {
-                alert('Failed to delete tenant: ' + result.error);
-            }
-        } catch (error) {
-            console.error('Error deleting tenant:', error);
-            alert('Error deleting tenant. Please try again.');
-        }
-    }
-
-    // Method to assign tenant to property
-    async assignToProperty(fin, propertyId) {
-        try {
-            const response = await API.post(API_CONFIG.ENDPOINTS.TENANT_ADD_PROPERTY(fin), { propertyId });
-
-            const result = await response.json();
-            
-            if (result.success) {
-                await this.loadTenants(); // Reload the list
-            } else {
-                alert('Failed to assign tenant to property: ' + result.error);
-            }
-        } catch (error) {
-            console.error('Error assigning tenant to property:', error);
-            alert('Error assigning tenant to property. Please try again.');
-        }
-    }
-
-    // Utility method to escape HTML to prevent XSS
-    escapeHtml(text) {
-        if (text == null || text === undefined) {
-            return '';
-        }
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return String(text).replace(/[&<>"']/g, (m) => map[m]);
-    }
-
-    // Method to get registration status badge
-    getRegistrationStatusBadge(status) {
-        switch (status) {
-            case 'registered':
-                return '<span class="badge bg-success">Registered</span>';
-            case 'pending':
-                return '<span class="badge bg-warning">Pending Registration</span>';
-            case 'unregistered':
-            default:
-                return '<span class="badge bg-secondary">Unregistered</span>';
-        }
-    }
-
-    // 3-state toggle button methods
-    toggleRegistrationStatus() {
-        const button = document.getElementById('tenantRegistrationStatus');
-        const hiddenInput = document.getElementById('tenantRegistrationStatusHidden');
-        
-        if (!button || !hiddenInput) return;
-        
-        const currentStatus = button.getAttribute('data-status');
-        let nextStatus;
-        
-        // Cycle through states: unregistered → pending → registered → unregistered
-        switch (currentStatus) {
-            case 'unregistered':
-                nextStatus = 'pending';
-                break;
-            case 'pending':
-                nextStatus = 'registered';
-                break;
-            case 'registered':
-                nextStatus = 'unregistered';
-                break;
-            default:
-                nextStatus = 'unregistered';
-        }
-        
-        this.setRegistrationStatus(nextStatus);
-    }
-
-    setRegistrationStatus(status) {
-        const button = document.getElementById('tenantRegistrationStatus');
-        const hiddenInput = document.getElementById('tenantRegistrationStatusHidden');
-        const statusText = button.querySelector('.status-text');
-        
-        if (!button || !hiddenInput || !statusText) return;
-        
-        // Update button attributes
-        button.setAttribute('data-status', status);
-        hiddenInput.value = status;
-        
-        // Update button text
-        switch (status) {
-            case 'registered':
-                statusText.textContent = 'Registered';
-                break;
-            case 'pending':
-                statusText.textContent = 'Pending Registration';
-                break;
-            case 'unregistered':
-            default:
-                statusText.textContent = 'Unregistered';
-        }
-        
-        // Check for changes to update the submit button state
-        this.checkForChanges();
-    }
-
-    // Use global image utilities
-    normalizeImageUrl(url) {
-        return ImageUtils.normalizeImageUrl(url);
-    }
-
-    getOptimizedAvatarUrl(url, size = 'small') {
-        return ImageUtils.getOptimizedImageUrl(url, size);
-    }
-
-    // Public method to refresh the tenants list
-    refresh() {
-        // Reload current property if one is selected
-        if (this.selectedProperty === 'UNASSIGNED') {
-            this.loadUnassignedTenants();
+      if (result.success) {
+        // Reload the list
+        if (this.selectedProperty === "UNASSIGNED") {
+          await this.loadUnassignedTenants();
         } else if (this.selectedProperty) {
-            this.loadTenantsForProperty(this.selectedProperty);
+          await this.loadTenantsForProperty(this.selectedProperty);
         } else {
-            this.loadTenants();
+          await this.loadTenants();
         }
+      } else {
+        alert("Failed to add tenant: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error adding tenant:", error);
+      alert("Error adding tenant. Please try again.");
+    }
+  }
+
+  async editTenant(tenantId) {
+    // Find the tenant to edit by ID
+    const tenant = this.tenants.find((t) => t._id === tenantId);
+    if (!tenant) {
+      alert("Tenant not found");
+      return;
     }
 
-    // Multiple image upload methods
-    openImageUpload(type) {
-        this.currentUploadType = type;
-        const fileInput = document.getElementById('imageUploadInput');
-        fileInput.click();
-        
-        // Add event listener for file selection (supports multiple files)
-        fileInput.onchange = (e) => {
-            if (e.target.files.length > 0) {
-                this.uploadMultipleImages(Array.from(e.target.files), type);
-            }
-        };
-    }
+    // Show the modal with tenant data
+    this.showTenantModal(tenant);
+  }
 
-    async uploadMultipleImages(files, type) {
-        const uploadButton = document.querySelector(`button[onclick="tenantManager.openImageUpload('${type}')"]`);
-        const originalText = uploadButton.innerHTML;
-        
-        try {
-            // Show loading state
-            uploadButton.disabled = true;
-            uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> Uploading ${files.length} image(s)...`;
-            
-            const uploadPromises = files.map(file => this.uploadSingleImage(file));
-            const results = await Promise.all(uploadPromises);
-            
-            // Add successful uploads to the image array
-            const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
-            results.forEach(result => {
-                if (result.success) {
-                    console.log('🔗 Received image URL from upload:', result.url);
-                    console.log('🔧 Original URL from backend:', result.originalUrl);
-                    console.log('🔧 Public ID from backend:', result.publicId);
-                    
-                    // Ensure URL is properly formatted
-                    let imageUrl = result.url;
-                    if (imageUrl && !imageUrl.startsWith('http')) {
-                        // If it's a relative URL starting with /, prepend the API base URL
-                        if (imageUrl.startsWith('/')) {
-                            imageUrl = API_CONFIG.BASE_URL + imageUrl;
-                        } else {
-                            // Otherwise assume it needs https:// prefix
-                            imageUrl = 'https://' + imageUrl;
-                        }
-                    }
-                    
-                    console.log('🔗 Final image URL to store:', imageUrl);
-                    imageArray.push(imageUrl);
-                }
-            });
-            
-            // Update gallery display
-            this.updateImageGallery(type);
-            
-            const successCount = results.filter(r => r.success).length;
-            console.log(`✅ ${successCount}/${files.length} ${type} images uploaded successfully`);
-            
-            if (successCount < files.length) {
-                alert(`${successCount}/${files.length} images uploaded successfully. Some uploads failed.`);
-            }
-            
-        } catch (error) {
-            console.error(`Error uploading ${type} images:`, error);
-            alert(`Error uploading ${type} images. Please try again.`);
-        } finally {
-            // Restore button state
-            uploadButton.disabled = false;
-            uploadButton.innerHTML = originalText;
-        }
-    }
+  async updateTenant(tenantId, tenantData) {
+    try {
+      // Validate tenant ID exists
+      if (!tenantId) {
+        throw new Error("Tenant ID not found");
+      }
 
-    async uploadSingleImage(file) {
-        try {
-            const formData = new FormData();
-            formData.append('image', file);
-            
-            const uploadUrl = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT);
-            console.log('🔧 Upload URL:', uploadUrl);
-            console.log('🔧 Base URL:', API_CONFIG.BASE_URL);
-            
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                credentials: 'include', // Important for cookies
-                headers: {
-                    'Authorization': `Bearer ${getAuthToken()}`
-                },
-                body: formData
-            });
-            
-            return await response.json();
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    }
+      const response = await API.put(
+        API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenantId),
+        tenantData
+      );
+      const result = await response.json();
 
-    addImageFromUrl(type) {
-        const urlInput = document.getElementById(`tenant${type.charAt(0).toUpperCase() + type.slice(1)}PicUrl`);
-        const url = urlInput.value.trim();
-        
-        if (!url) {
-            alert('Please enter a valid image URL');
-            return;
-        }
-        
-        // Add to appropriate array
-        const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
-        if (!imageArray.includes(url)) {
-            imageArray.push(url);
-            this.updateImageGallery(type);
-            urlInput.value = ''; // Clear input after adding
-            this.checkForChanges();
+      if (result.success) {
+        // Reload the list
+        if (this.selectedProperty === "UNASSIGNED") {
+          await this.loadUnassignedTenants();
+        } else if (this.selectedProperty) {
+          await this.loadTenantsForProperty(this.selectedProperty);
         } else {
-            alert('This image URL is already added');
+          await this.loadTenants();
         }
+      } else {
+        alert("Failed to update tenant: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      alert("Error updating tenant: " + error.message);
+      throw error; // Re-throw to handle in form submission
+    }
+  }
+
+  async deleteTenant(tenantId) {
+    // Find the tenant to get their name for the confirmation message
+    const tenant = this.tenants.find((t) => t._id === tenantId);
+    if (!tenant) {
+      alert("Tenant not found");
+      return;
     }
 
-    removeImage(type, index) {
-        const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
-        imageArray.splice(index, 1);
-        this.updateImageGallery(type);
-        this.checkForChanges();
+    if (!confirm(`Are you sure you want to delete tenant ${tenant.name}?`)) {
+      return;
     }
 
-    handleImageError(imgElement, proxyUrl) {
-        console.error('❌ Image failed to load via proxy:', proxyUrl);
-        console.error('Image element:', imgElement);
-        console.error('Current src attribute:', imgElement.src);
-        console.error('Has fallback been attempted?', imgElement.hasAttribute('data-fallback-attempted'));
-        
-        // Try to extract Cloudinary path from proxy URL and create direct Cloudinary URL
-        try {
-            // Extract the path after image-proxy/
-            const match = proxyUrl.match(/image-proxy\/(.+)$/);
-            if (match) {
-                const cloudinaryPath = match[1];
-                const directUrl = `https://res.cloudinary.com/djye0w3gi/image/upload/${cloudinaryPath}`;
-                console.log('🔄 Trying direct Cloudinary URL as fallback:', directUrl);
-                
-                // Set a flag to prevent infinite recursion
-                if (!imgElement.hasAttribute('data-fallback-attempted')) {
-                    imgElement.setAttribute('data-fallback-attempted', 'true');
-                    imgElement.src = directUrl;
-                    
-                    // Test if the direct URL is accessible by making a fetch request
-                    fetch(directUrl, { method: 'HEAD' })
-                        .then(response => {
-                            console.log('🧪 Direct URL test result:', response.status, response.statusText);
-                            if (!response.ok) {
-                                console.error('🚨 Direct URL also failed:', response.status);
-                            }
-                        })
-                        .catch(err => {
-                            console.error('🚨 Direct URL fetch test failed:', err);
-                        });
-                    
-                    return;
-                }
+    try {
+      if (!tenant._id) {
+        throw new Error("Tenant ID not found");
+      }
+
+      const response = await API.delete(
+        API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id)
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Reload the list
+        if (this.selectedProperty === "UNASSIGNED") {
+          await this.loadUnassignedTenants();
+        } else if (this.selectedProperty) {
+          await this.loadTenantsForProperty(this.selectedProperty);
+        } else {
+          await this.loadTenants();
+        }
+      } else {
+        alert("Failed to delete tenant: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error deleting tenant:", error);
+      alert("Error deleting tenant. Please try again.");
+    }
+  }
+
+  // Method to assign tenant to property
+  async assignToProperty(fin, propertyId) {
+    try {
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.TENANT_ADD_PROPERTY(fin),
+        { propertyId }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        await this.loadTenants(); // Reload the list
+      } else {
+        alert("Failed to assign tenant to property: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error assigning tenant to property:", error);
+      alert("Error assigning tenant to property. Please try again.");
+    }
+  }
+
+  // Utility method to escape HTML to prevent XSS
+  escapeHtml(text) {
+    if (text == null || text === undefined) {
+      return "";
+    }
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return String(text).replace(/[&<>"']/g, (m) => map[m]);
+  }
+
+  // Method to get registration status badge
+  getRegistrationStatusBadge(status) {
+    switch (status) {
+      case "registered":
+        return '<span class="badge bg-success">Registered</span>';
+      case "pending":
+        return '<span class="badge bg-warning">Pending Registration</span>';
+      case "unregistered":
+      default:
+        return '<span class="badge bg-secondary">Unregistered</span>';
+    }
+  }
+
+  // 3-state toggle button methods
+  toggleRegistrationStatus() {
+    const button = document.getElementById("tenantRegistrationStatus");
+    const hiddenInput = document.getElementById(
+      "tenantRegistrationStatusHidden"
+    );
+
+    if (!button || !hiddenInput) return;
+
+    const currentStatus = button.getAttribute("data-status");
+    let nextStatus;
+
+    // Cycle through states: unregistered → pending → registered → unregistered
+    switch (currentStatus) {
+      case "unregistered":
+        nextStatus = "pending";
+        break;
+      case "pending":
+        nextStatus = "registered";
+        break;
+      case "registered":
+        nextStatus = "unregistered";
+        break;
+      default:
+        nextStatus = "unregistered";
+    }
+
+    this.setRegistrationStatus(nextStatus);
+  }
+
+  setRegistrationStatus(status) {
+    const button = document.getElementById("tenantRegistrationStatus");
+    const hiddenInput = document.getElementById(
+      "tenantRegistrationStatusHidden"
+    );
+    const statusText = button.querySelector(".status-text");
+
+    if (!button || !hiddenInput || !statusText) return;
+
+    // Update button attributes
+    button.setAttribute("data-status", status);
+    hiddenInput.value = status;
+
+    // Update button text
+    switch (status) {
+      case "registered":
+        statusText.textContent = "Registered";
+        break;
+      case "pending":
+        statusText.textContent = "Pending Registration";
+        break;
+      case "unregistered":
+      default:
+        statusText.textContent = "Unregistered";
+    }
+
+    // Check for changes to update the submit button state
+    this.checkForChanges();
+  }
+
+  // Use global image utilities
+  normalizeImageUrl(url) {
+    return ImageUtils.normalizeImageUrl(url);
+  }
+
+  getOptimizedAvatarUrl(url, size = "small") {
+    return ImageUtils.getOptimizedImageUrl(url, size);
+  }
+
+  // Public method to refresh the tenants list
+  refresh() {
+    // Reload current property if one is selected
+    if (this.selectedProperty === "UNASSIGNED") {
+      this.loadUnassignedTenants();
+    } else if (this.selectedProperty) {
+      this.loadTenantsForProperty(this.selectedProperty);
+    } else {
+      this.loadTenants();
+    }
+  }
+
+  // Multiple image upload methods
+  openImageUpload(type) {
+    this.currentUploadType = type;
+    const fileInput = document.getElementById("imageUploadInput");
+    fileInput.click();
+
+    // Add event listener for file selection (supports multiple files)
+    fileInput.onchange = (e) => {
+      if (e.target.files.length > 0) {
+        this.uploadMultipleImages(Array.from(e.target.files), type);
+      }
+    };
+  }
+
+  async uploadMultipleImages(files, type) {
+    const uploadButton = document.querySelector(
+      `button[onclick="tenantManager.openImageUpload('${type}')"]`
+    );
+    const originalText = uploadButton.innerHTML;
+
+    try {
+      // Show loading state
+      uploadButton.disabled = true;
+      uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> Uploading ${files.length} image(s)...`;
+
+      const uploadPromises = files.map((file) => this.uploadSingleImage(file));
+      const results = await Promise.all(uploadPromises);
+
+      // Add successful uploads to the image array
+      const imageArray =
+        type === "passport" ? this.passportPics : this.visaPics;
+      results.forEach((result) => {
+        if (result.success) {
+          console.log("🔗 Received image URL from upload:", result.url);
+          console.log("🔧 Original URL from backend:", result.originalUrl);
+          console.log("🔧 Public ID from backend:", result.publicId);
+
+          // Ensure URL is properly formatted
+          let imageUrl = result.url;
+          if (imageUrl && !imageUrl.startsWith("http")) {
+            // If it's a relative URL starting with /, prepend the API base URL
+            if (imageUrl.startsWith("/")) {
+              imageUrl = API_CONFIG.BASE_URL + imageUrl;
+            } else {
+              // Otherwise assume it needs https:// prefix
+              imageUrl = "https://" + imageUrl;
             }
-        } catch (error) {
-            console.error('Error creating fallback URL:', error);
+          }
+
+          console.log("🔗 Final image URL to store:", imageUrl);
+          imageArray.push(imageUrl);
         }
-        
-        // Final fallback: show error placeholder
-        console.log('🚨 All fallback attempts failed, showing error placeholder');
-        imgElement.style.objectFit = 'cover';
-        imgElement.style.backgroundColor = '#e9ecef';
-        imgElement.src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23e9ecef'/><text x='75' y='75' text-anchor='middle' dy='.3em' fill='%236c757d'>Image Failed</text></svg>";
+      });
+
+      // Update gallery display
+      this.updateImageGallery(type);
+
+      const successCount = results.filter((r) => r.success).length;
+      console.log(
+        `✅ ${successCount}/${files.length} ${type} images uploaded successfully`
+      );
+
+      if (successCount < files.length) {
+        alert(
+          `${successCount}/${files.length} images uploaded successfully. Some uploads failed.`
+        );
+      }
+    } catch (error) {
+      console.error(`Error uploading ${type} images:`, error);
+      alert(`Error uploading ${type} images. Please try again.`);
+    } finally {
+      // Restore button state
+      uploadButton.disabled = false;
+      uploadButton.innerHTML = originalText;
+    }
+  }
+
+  async uploadSingleImage(file) {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const uploadUrl = buildApiUrl(
+        API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT
+      );
+      console.log("🔧 Upload URL:", uploadUrl);
+      console.log("🔧 Base URL:", API_CONFIG.BASE_URL);
+
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        credentials: "include", // Important for cookies
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: formData,
+      });
+
+      return await response.json();
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  addImageFromUrl(type) {
+    const urlInput = document.getElementById(
+      `tenant${type.charAt(0).toUpperCase() + type.slice(1)}PicUrl`
+    );
+    const url = urlInput.value.trim();
+
+    if (!url) {
+      alert("Please enter a valid image URL");
+      return;
     }
 
-    updateImageGallery(type) {
-        const gallery = document.getElementById(`${type}Gallery`);
-        const imageArray = type === 'passport' ? this.passportPics : this.visaPics;
-        const hiddenInput = document.getElementById(`tenant${type.charAt(0).toUpperCase() + type.slice(1)}Pics`);
-        
-        if (!gallery || !hiddenInput) {
-            return;
+    // Add to appropriate array
+    const imageArray = type === "passport" ? this.passportPics : this.visaPics;
+    if (!imageArray.includes(url)) {
+      imageArray.push(url);
+      this.updateImageGallery(type);
+      urlInput.value = ""; // Clear input after adding
+      this.checkForChanges();
+    } else {
+      alert("This image URL is already added");
+    }
+  }
+
+  removeImage(type, index) {
+    const imageArray = type === "passport" ? this.passportPics : this.visaPics;
+    imageArray.splice(index, 1);
+    this.updateImageGallery(type);
+    this.checkForChanges();
+  }
+
+  handleImageError(imgElement, proxyUrl) {
+    console.error("❌ Image failed to load via proxy:", proxyUrl);
+    console.error("Image element:", imgElement);
+    console.error("Current src attribute:", imgElement.src);
+    console.error(
+      "Has fallback been attempted?",
+      imgElement.hasAttribute("data-fallback-attempted")
+    );
+
+    // Try to extract Cloudinary path from proxy URL and create direct Cloudinary URL
+    try {
+      // Extract the path after image-proxy/
+      const match = proxyUrl.match(/image-proxy\/(.+)$/);
+      if (match) {
+        const cloudinaryPath = match[1];
+        const directUrl = `https://res.cloudinary.com/djye0w3gi/image/upload/${cloudinaryPath}`;
+        console.log("🔄 Trying direct Cloudinary URL as fallback:", directUrl);
+
+        // Set a flag to prevent infinite recursion
+        if (!imgElement.hasAttribute("data-fallback-attempted")) {
+          imgElement.setAttribute("data-fallback-attempted", "true");
+          imgElement.src = directUrl;
+
+          // Test if the direct URL is accessible by making a fetch request
+          fetch(directUrl, { method: "HEAD" })
+            .then((response) => {
+              console.log(
+                "🧪 Direct URL test result:",
+                response.status,
+                response.statusText
+              );
+              if (!response.ok) {
+                console.error("🚨 Direct URL also failed:", response.status);
+              }
+            })
+            .catch((err) => {
+              console.error("🚨 Direct URL fetch test failed:", err);
+            });
+
+          return;
         }
-        
-        // Update hidden input
-        hiddenInput.value = JSON.stringify(imageArray);
-        
-        if (imageArray.length === 0) {
-            gallery.innerHTML = '<div class="text-muted small">No images uploaded yet</div>';
-            return;
-        }
-        
-        // Create images with proper loading handling
-        let html = '<div class="row g-2">';
-        imageArray.forEach((url, index) => {
-            const icon = type === 'passport' ? 'bi-passport' : 'bi-credit-card';
-            const imageHtml = `
+      }
+    } catch (error) {
+      console.error("Error creating fallback URL:", error);
+    }
+
+    // Final fallback: show error placeholder
+    console.log("🚨 All fallback attempts failed, showing error placeholder");
+    imgElement.style.objectFit = "cover";
+    imgElement.style.backgroundColor = "#e9ecef";
+    imgElement.src =
+      "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23e9ecef'/><text x='75' y='75' text-anchor='middle' dy='.3em' fill='%236c757d'>Image Failed</text></svg>";
+  }
+
+  updateImageGallery(type) {
+    const gallery = document.getElementById(`${type}Gallery`);
+    const imageArray = type === "passport" ? this.passportPics : this.visaPics;
+    const hiddenInput = document.getElementById(
+      `tenant${type.charAt(0).toUpperCase() + type.slice(1)}Pics`
+    );
+
+    if (!gallery || !hiddenInput) {
+      return;
+    }
+
+    // Update hidden input
+    hiddenInput.value = JSON.stringify(imageArray);
+
+    if (imageArray.length === 0) {
+      gallery.innerHTML =
+        '<div class="text-muted small">No images uploaded yet</div>';
+      return;
+    }
+
+    // Create images with proper loading handling
+    let html = '<div class="row g-2">';
+    imageArray.forEach((url, index) => {
+      const icon = type === "passport" ? "bi-passport" : "bi-credit-card";
+      const imageHtml = `
                 <div class="col-6 col-md-4 mb-3">
                     <div class="position-relative border rounded overflow-hidden">
-                        <img src="${this.normalizeImageUrl(url)}" alt="${type} ${index + 1}" 
+                        <img src="${this.normalizeImageUrl(
+                          url
+                        )}" alt="${type} ${index + 1}" 
                              class="img-fluid w-100" 
                              style="height: 150px; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
                              onclick="window.open('${url}', '_blank')" />
@@ -1861,127 +2221,137 @@ class TenantManagementComponent {
                             ✕
                         </button>
                         <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
-                            <small><i class="bi ${icon} me-1"></i>${type.charAt(0).toUpperCase() + type.slice(1)} ${index + 1}</small>
+                            <small><i class="bi ${icon} me-1"></i>${
+        type.charAt(0).toUpperCase() + type.slice(1)
+      } ${index + 1}</small>
                         </div>
                     </div>
                 </div>
             `;
-            html += imageHtml;
-        });
-        html += '</div>';
-        
-        gallery.innerHTML = html;
-    }
+      html += imageHtml;
+    });
+    html += "</div>";
 
-    setupImageUrlListeners() {
-        // These are no longer needed with the new multiple image approach
-        // The URL inputs now have dedicated "Add" buttons
-    }
+    gallery.innerHTML = html;
+  }
 
-    // Avatar upload methods
-    openAvatarUpload() {
-        const fileInput = document.getElementById('avatarUploadInput');
-        fileInput.click();
-        
-        // Add event listener for file selection
-        fileInput.onchange = (e) => {
-            if (e.target.files.length > 0) {
-                this.uploadAvatar(e.target.files[0]);
-            }
-        };
-    }
+  setupImageUrlListeners() {
+    // These are no longer needed with the new multiple image approach
+    // The URL inputs now have dedicated "Add" buttons
+  }
 
-    async uploadAvatar(file) {
-        const uploadButton = document.querySelector("button[onclick=\"tenantManager.openAvatarUpload()\"]");
-        const originalText = uploadButton.innerHTML;
-        
-        try {
-            // Show loading state
-            uploadButton.disabled = true;
-            uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading avatar...';
-            
-            const result = await this.uploadSingleImage(file);
-            
-            if (result.success) {
-                console.log('🔗 Avatar uploaded successfully:', result.url);
-                
-                // Ensure URL is properly formatted
-                let imageUrl = result.url;
-                if (imageUrl && !imageUrl.startsWith('http')) {
-                    // If it's a relative URL starting with /, prepend the API base URL
-                    if (imageUrl.startsWith('/')) {
-                        imageUrl = API_CONFIG.BASE_URL + imageUrl;
-                    } else {
-                        // Otherwise assume it needs https:// prefix
-                        imageUrl = 'https://' + imageUrl;
-                    }
-                }
-                
-                this.avatar = imageUrl;
-                this.updateAvatarPreview();
-                this.checkForChanges();
-                
-                console.log('✅ Avatar set to:', this.avatar);
-            } else {
-                alert('Failed to upload avatar: ' + result.error);
-            }
-            
-        } catch (error) {
-            console.error('Error uploading avatar:', error);
-            alert('Error uploading avatar. Please try again.');
-        } finally {
-            // Restore button state
-            uploadButton.disabled = false;
-            uploadButton.innerHTML = originalText;
+  // Avatar upload methods
+  openAvatarUpload() {
+    const fileInput = document.getElementById("avatarUploadInput");
+    fileInput.click();
+
+    // Add event listener for file selection
+    fileInput.onchange = (e) => {
+      if (e.target.files.length > 0) {
+        this.uploadAvatar(e.target.files[0]);
+      }
+    };
+  }
+
+  async uploadAvatar(file) {
+    const uploadButton = document.querySelector(
+      'button[onclick="tenantManager.openAvatarUpload()"]'
+    );
+    const originalText = uploadButton.innerHTML;
+
+    try {
+      // Show loading state
+      uploadButton.disabled = true;
+      uploadButton.innerHTML =
+        '<i class="bi bi-hourglass-split"></i> Uploading avatar...';
+
+      const result = await this.uploadSingleImage(file);
+
+      if (result.success) {
+        console.log("🔗 Avatar uploaded successfully:", result.url);
+
+        // Ensure URL is properly formatted
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith("http")) {
+          // If it's a relative URL starting with /, prepend the API base URL
+          if (imageUrl.startsWith("/")) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            // Otherwise assume it needs https:// prefix
+            imageUrl = "https://" + imageUrl;
+          }
         }
-    }
 
-    addAvatarFromUrl() {
-        const urlInput = document.getElementById('tenantAvatarUrl');
-        const url = urlInput.value.trim();
-        
-        if (!url) {
-            alert('Please enter a valid image URL');
-            return;
-        }
-        
-        this.avatar = url;
+        this.avatar = imageUrl;
         this.updateAvatarPreview();
-        urlInput.value = ''; // Clear input after adding
-        this.checkForChanges(); // Check for changes to enable submit button
-        
-        console.log('✅ Avatar set from URL:', this.avatar);
+        this.checkForChanges();
+
+        console.log("✅ Avatar set to:", this.avatar);
+      } else {
+        alert("Failed to upload avatar: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert("Error uploading avatar. Please try again.");
+    } finally {
+      // Restore button state
+      uploadButton.disabled = false;
+      uploadButton.innerHTML = originalText;
+    }
+  }
+
+  addAvatarFromUrl() {
+    const urlInput = document.getElementById("tenantAvatarUrl");
+    const url = urlInput.value.trim();
+
+    if (!url) {
+      alert("Please enter a valid image URL");
+      return;
     }
 
-    removeAvatar() {
-        this.avatar = '';
-        this.updateAvatarPreview();
-        this.checkForChanges(); // Check for changes to enable submit button
-        console.log('🗑️ Avatar removed');
+    this.avatar = url;
+    this.updateAvatarPreview();
+    urlInput.value = ""; // Clear input after adding
+    this.checkForChanges(); // Check for changes to enable submit button
+
+    console.log("✅ Avatar set from URL:", this.avatar);
+  }
+
+  removeAvatar() {
+    this.avatar = "";
+    this.updateAvatarPreview();
+    this.checkForChanges(); // Check for changes to enable submit button
+    console.log("🗑️ Avatar removed");
+  }
+
+  updateAvatarPreview() {
+    const preview = document.getElementById("avatarPreview");
+    const hiddenInput = document.getElementById("tenantAvatar");
+
+    if (!preview || !hiddenInput) {
+      return;
     }
 
-    updateAvatarPreview() {
-        const preview = document.getElementById('avatarPreview');
-        const hiddenInput = document.getElementById('tenantAvatar');
-        
-        if (!preview || !hiddenInput) {
-            return;
-        }
-        
-        // Update hidden input
-        hiddenInput.value = this.avatar;
-        
-        if (!this.avatar) {
-            preview.innerHTML = '<div class="text-muted small">No avatar selected</div>';
-            return;
-        }
-        
-        preview.innerHTML = `
+    // Update hidden input
+    hiddenInput.value = this.avatar;
+
+    if (!this.avatar) {
+      preview.innerHTML =
+        '<div class="text-muted small">No avatar selected</div>';
+      return;
+    }
+
+    preview.innerHTML = `
             <div class="position-relative d-inline-block">
-                <img src="${this.getOptimizedAvatarUrl(this.avatar, 'medium')}" alt="Avatar preview" 
+                <img src="${this.getOptimizedAvatarUrl(
+                  this.avatar,
+                  "medium"
+                )}" alt="Avatar preview" 
                      class="rounded-circle border" 
                      style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
-                     onclick="window.open('${this.normalizeImageUrl(this.avatar)}', '_blank')" />
+                     onclick="window.open('${this.normalizeImageUrl(
+                       this.avatar
+                     )}', '_blank')" />
                 <button type="button" 
                         class="btn btn-danger position-absolute top-0 end-0"
                         onclick="tenantManager.removeAvatar()"
@@ -1994,111 +2364,114 @@ class TenantManagementComponent {
                 </div>
             </div>
         `;
+  }
+
+  // ==================== SIGNATURE METHODS ====================
+
+  openSignatureUpload() {
+    const fileInput = document.getElementById("signatureUploadInput");
+    if (!fileInput) {
+      // Create file input if it doesn't exist
+      const input = document.createElement("input");
+      input.type = "file";
+      input.id = "signatureUploadInput";
+      input.accept = "image/*";
+      input.style.display = "none";
+      document.body.appendChild(input);
     }
 
-    // ==================== SIGNATURE METHODS ====================
-    
-    openSignatureUpload() {
-        const fileInput = document.getElementById('signatureUploadInput');
-        if (!fileInput) {
-            // Create file input if it doesn't exist
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.id = 'signatureUploadInput';
-            input.accept = 'image/*';
-            input.style.display = 'none';
-            document.body.appendChild(input);
+    document.getElementById("signatureUploadInput").click();
+
+    // Add event listener for file selection
+    document.getElementById("signatureUploadInput").onchange = (e) => {
+      if (e.target.files.length > 0) {
+        this.uploadSignature(e.target.files[0]);
+      }
+    };
+  }
+
+  async uploadSignature(file) {
+    const uploadButton = document.querySelector(
+      'button[onclick="tenantManager.openSignatureUpload()"]'
+    );
+    const originalText = uploadButton.innerHTML;
+
+    try {
+      // Show loading state
+      uploadButton.disabled = true;
+      uploadButton.innerHTML =
+        '<i class="bi bi-hourglass-split"></i> Uploading signature...';
+
+      const result = await this.uploadSingleImage(file);
+
+      if (result.success) {
+        let imageUrl = result.url;
+
+        // Normalize the URL
+        if (imageUrl && !imageUrl.startsWith("http")) {
+          if (imageUrl.startsWith("/")) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            imageUrl = "https://" + imageUrl;
+          }
         }
-        
-        document.getElementById('signatureUploadInput').click();
-        
-        // Add event listener for file selection
-        document.getElementById('signatureUploadInput').onchange = (e) => {
-            if (e.target.files.length > 0) {
-                this.uploadSignature(e.target.files[0]);
-            }
-        };
-    }
 
-    async uploadSignature(file) {
-        const uploadButton = document.querySelector("button[onclick=\"tenantManager.openSignatureUpload()\"]");
-        const originalText = uploadButton.innerHTML;
-        
-        try {
-            // Show loading state
-            uploadButton.disabled = true;
-            uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading signature...';
-            
-            const result = await this.uploadSingleImage(file);
-            
-            if (result.success) {
-                let imageUrl = result.url;
-                
-                // Normalize the URL
-                if (imageUrl && !imageUrl.startsWith('http')) {
-                    if (imageUrl.startsWith('/')) {
-                        imageUrl = API_CONFIG.BASE_URL + imageUrl;
-                    } else {
-                        imageUrl = 'https://' + imageUrl;
-                    }
-                }
-                
-                this.signature = imageUrl;
-                this.updateSignaturePreview();
-                this.checkForChanges();
-                
-                console.log('✅ Signature set to:', this.signature);
-            } else {
-                alert('Failed to upload signature: ' + result.error);
-            }
-            
-        } catch (error) {
-            console.error('Error uploading signature:', error);
-            alert('Error uploading signature. Please try again.');
-        } finally {
-            // Reset button state
-            uploadButton.disabled = false;
-            uploadButton.innerHTML = originalText;
-        }
-    }
-
-    setSignatureFromUrl() {
-        const urlInput = document.getElementById('tenantSignatureUrl');
-        const url = urlInput.value.trim();
-        
-        if (!url) {
-            alert('Please enter a valid image URL');
-            return;
-        }
-        
-        this.signature = this.normalizeImageUrl(url);
-        this.updateSignaturePreview();
-        urlInput.value = ''; // Clear input after adding
-        this.checkForChanges();
-        
-        console.log('✅ Signature set from URL:', this.signature);
-    }
-
-    removeSignature() {
-        this.signature = '';
+        this.signature = imageUrl;
         this.updateSignaturePreview();
         this.checkForChanges();
-        console.log('🗑️ Signature removed');
+
+        console.log("✅ Signature set to:", this.signature);
+      } else {
+        alert("Failed to upload signature: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error uploading signature:", error);
+      alert("Error uploading signature. Please try again.");
+    } finally {
+      // Reset button state
+      uploadButton.disabled = false;
+      uploadButton.innerHTML = originalText;
+    }
+  }
+
+  setSignatureFromUrl() {
+    const urlInput = document.getElementById("tenantSignatureUrl");
+    const url = urlInput.value.trim();
+
+    if (!url) {
+      alert("Please enter a valid image URL");
+      return;
     }
 
-    updateSignaturePreview() {
-        const preview = document.getElementById('signaturePreview');
-        
-        if (!preview) {
-            return;
-        }
-        
-        if (!this.signature) {
-            preview.innerHTML = '<p class="text-muted fst-italic">No signature uploaded</p>';
-            return;
-        }
-        
-        preview.innerHTML = `
+    this.signature = this.normalizeImageUrl(url);
+    this.updateSignaturePreview();
+    urlInput.value = ""; // Clear input after adding
+    this.checkForChanges();
+
+    console.log("✅ Signature set from URL:", this.signature);
+  }
+
+  removeSignature() {
+    this.signature = "";
+    this.updateSignaturePreview();
+    this.checkForChanges();
+    console.log("🗑️ Signature removed");
+  }
+
+  updateSignaturePreview() {
+    const preview = document.getElementById("signaturePreview");
+
+    if (!preview) {
+      return;
+    }
+
+    if (!this.signature) {
+      preview.innerHTML =
+        '<p class="text-muted fst-italic">No signature uploaded</p>';
+      return;
+    }
+
+    preview.innerHTML = `
             <div class="position-relative d-inline-block">
                 <img src="${this.signature}" 
                      alt="Signature Preview" 
@@ -2117,1069 +2490,1230 @@ class TenantManagementComponent {
                 </div>
             </div>
         `;
+  }
+
+  toggleSignatureSection() {
+    const signatureSection = document.getElementById("signatureSection");
+    if (!signatureSection) return;
+
+    // Check if any selected property has this tenant as main tenant
+    const isMainTenant = this.selectedPropertiesDetails.some(
+      (prop) => prop.isMainTenant
+    );
+
+    if (isMainTenant) {
+      signatureSection.style.display = "";
+      console.log("📝 Showing signature section for main tenant");
+    } else {
+      signatureSection.style.display = "none";
+      // Clear signature if not main tenant
+      this.signature = "";
+      this.updateSignaturePreview();
+      console.log("🚫 Hiding signature section (not main tenant)");
+    }
+  }
+
+  setupSignatureUrlListener() {
+    const urlInput = document.getElementById("tenantSignatureUrl");
+    if (urlInput) {
+      // Remove existing event listener to avoid duplicates
+      urlInput.removeEventListener("keypress", this.signatureUrlHandler);
+
+      this.signatureUrlHandler = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.setSignatureFromUrl();
+        }
+      };
+
+      urlInput.addEventListener("keypress", this.signatureUrlHandler);
+    }
+  }
+
+  // Helper method to check if tenant has any main tenant properties
+  hasMainTenantProperty(tenant) {
+    if (!tenant.properties || !Array.isArray(tenant.properties)) {
+      return false;
+    }
+    return tenant.properties.some((prop) => {
+      // Handle both new object format and old string format
+      return typeof prop === "object" && prop.isMainTenant;
+    });
+  }
+
+  // Helper method to check if tenant is outdated (moveout date has passed)
+  isTenantOutdated(tenant, propertyId) {
+    if (!tenant.properties || !Array.isArray(tenant.properties)) {
+      return false;
     }
 
-    toggleSignatureSection() {
-        const signatureSection = document.getElementById('signatureSection');
-        if (!signatureSection) return;
-        
-        // Check if any selected property has this tenant as main tenant
-        const isMainTenant = this.selectedPropertiesDetails.some(prop => prop.isMainTenant);
-        
-        if (isMainTenant) {
-            signatureSection.style.display = '';
-            console.log('📝 Showing signature section for main tenant');
-        } else {
-            signatureSection.style.display = 'none';
-            // Clear signature if not main tenant
-            this.signature = '';
-            this.updateSignaturePreview();
-            console.log('🚫 Hiding signature section (not main tenant)');
-        }
+    // If checking for a specific property
+    if (propertyId && propertyId !== "UNASSIGNED") {
+      const property = tenant.properties.find((prop) => {
+        const propId = typeof prop === "object" ? prop.propertyId : prop;
+        return propId === propertyId;
+      });
+
+      if (property && typeof property === "object" && property.moveoutDate) {
+        const moveoutDate = new Date(property.moveoutDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        return moveoutDate < today;
+      }
+      return false;
     }
 
-    setupSignatureUrlListener() {
-        const urlInput = document.getElementById('tenantSignatureUrl');
-        if (urlInput) {
-            // Remove existing event listener to avoid duplicates
-            urlInput.removeEventListener('keypress', this.signatureUrlHandler);
-            
-            this.signatureUrlHandler = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.setSignatureFromUrl();
-                }
-            };
-            
-            urlInput.addEventListener('keypress', this.signatureUrlHandler);
-        }
+    // For unassigned or general check, check if ANY property has passed moveout date
+    return tenant.properties.some((prop) => {
+      if (typeof prop === "object" && prop.moveoutDate) {
+        const moveoutDate = new Date(prop.moveoutDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return moveoutDate < today;
+      }
+      return false;
+    });
+  }
+
+  // Helper method to render property details for each tenant
+  renderPropertyDetails(tenant) {
+    if (!tenant.properties || tenant.properties.length === 0) {
+      return '<div class="text-muted small">No properties assigned</div>';
     }
 
-    // Helper method to check if tenant has any main tenant properties
-    hasMainTenantProperty(tenant) {
-        if (!tenant.properties || !Array.isArray(tenant.properties)) {
-            return false;
-        }
-        return tenant.properties.some(prop => {
-            // Handle both new object format and old string format
-            return typeof prop === 'object' && prop.isMainTenant;
-        });
-    }
+    let html = "";
+    tenant.properties.forEach((prop, index) => {
+      if (typeof prop === "object" && prop.propertyId) {
+        // New format with detailed property info
+        const propertyId = this.escapeHtml(prop.propertyId);
+        const room = this.escapeHtml(prop.room || "N/A");
+        const moveinDate = prop.moveinDate
+          ? new Date(prop.moveinDate).toLocaleDateString()
+          : "N/A";
+        const moveoutDate = prop.moveoutDate
+          ? new Date(prop.moveoutDate).toLocaleDateString()
+          : "Current";
+        const isMain = prop.isMainTenant
+          ? '<span class="badge bg-primary ms-1" style="font-size: 0.6em;">Main</span>'
+          : "";
 
-    // Helper method to check if tenant is outdated (moveout date has passed)
-    isTenantOutdated(tenant, propertyId) {
-        if (!tenant.properties || !Array.isArray(tenant.properties)) {
-            return false;
-        }
-
-        // If checking for a specific property
-        if (propertyId && propertyId !== 'UNASSIGNED') {
-            const property = tenant.properties.find(prop => {
-                const propId = typeof prop === 'object' ? prop.propertyId : prop;
-                return propId === propertyId;
-            });
-
-            if (property && typeof property === 'object' && property.moveoutDate) {
-                const moveoutDate = new Date(property.moveoutDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); // Reset time to start of day
-                return moveoutDate < today;
-            }
-            return false;
-        }
-
-        // For unassigned or general check, check if ANY property has passed moveout date
-        return tenant.properties.some(prop => {
-            if (typeof prop === 'object' && prop.moveoutDate) {
-                const moveoutDate = new Date(prop.moveoutDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                return moveoutDate < today;
-            }
-            return false;
-        });
-    }
-
-    // Helper method to render property details for each tenant
-    renderPropertyDetails(tenant) {
-        if (!tenant.properties || tenant.properties.length === 0) {
-            return '<div class="text-muted small">No properties assigned</div>';
-        }
-        
-        let html = '';
-        tenant.properties.forEach((prop, index) => {
-            if (typeof prop === 'object' && prop.propertyId) {
-                // New format with detailed property info
-                const propertyId = this.escapeHtml(prop.propertyId);
-                const room = this.escapeHtml(prop.room || 'N/A');
-                const moveinDate = prop.moveinDate ? new Date(prop.moveinDate).toLocaleDateString() : 'N/A';
-                const moveoutDate = prop.moveoutDate ? new Date(prop.moveoutDate).toLocaleDateString() : 'Current';
-                const isMain = prop.isMainTenant ? '<span class="badge bg-primary ms-1" style="font-size: 0.6em;">Main</span>' : '';
-                
-                html += `
-                    <div class="mb-1 ${index > 0 ? 'border-top pt-1' : ''}">
+        html += `
+                    <div class="mb-1 ${index > 0 ? "border-top pt-1" : ""}">
                         <div><strong>${propertyId}</strong> ${isMain}</div>
                         <small class="text-muted">Room: ${room} | In: ${moveinDate} | Out: ${moveoutDate}</small>
                     </div>
                 `;
-            } else {
-                // Old format - just property ID string
-                const propertyId = typeof prop === 'string' ? prop : (prop.propertyId || prop._id || 'Unknown');
-                html += `
-                    <div class="mb-1 ${index > 0 ? 'border-top pt-1' : ''}">
-                        <div><strong>${this.escapeHtml(propertyId)}</strong></div>
+      } else {
+        // Old format - just property ID string
+        const propertyId =
+          typeof prop === "string"
+            ? prop
+            : prop.propertyId || prop._id || "Unknown";
+        html += `
+                    <div class="mb-1 ${index > 0 ? "border-top pt-1" : ""}">
+                        <div><strong>${this.escapeHtml(
+                          propertyId
+                        )}</strong></div>
                         <small class="text-muted">Legacy format - no details</small>
                     </div>
                 `;
-            }
-        });
-        
-        return html || '<div class="text-muted small">No properties assigned</div>';
+      }
+    });
+
+    return html || '<div class="text-muted small">No properties assigned</div>';
+  }
+
+  setupChangeDetection() {
+    // Set up event listeners for form fields to detect changes
+    const form = document.getElementById("tenantForm");
+    if (!form) return;
+
+    const fieldsToWatch = [
+      "tenantName",
+      "tenantFin",
+      "tenantPassport",
+      "tenantPhoneNumber",
+      "tenantFacebookUrl",
+      "tenantRent",
+      "tenantDeposit",
+      "tenantDepositReceiver",
+    ];
+
+    fieldsToWatch.forEach((fieldId) => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.addEventListener("input", () => this.checkForChanges());
+      }
+    });
+
+    // Also listen for registration status changes
+    const registrationButtons = form.querySelectorAll(
+      'input[name="registrationStatus"]'
+    );
+    registrationButtons.forEach((button) => {
+      button.addEventListener("change", () => this.checkForChanges());
+    });
+  }
+
+  checkForChanges() {
+    if (!this.originalTenantData) {
+      return; // No original data to compare against
     }
 
-    setupChangeDetection() {
-        // Set up event listeners for form fields to detect changes
-        const form = document.getElementById('tenantForm');
-        if (!form) return;
+    const currentData = this.getCurrentFormData();
+    const hasChanges = this.hasDataChanged(
+      this.originalTenantData,
+      currentData
+    );
 
-        const fieldsToWatch = [
-            'tenantName', 'tenantFin', 'tenantPassport', 'tenantPhoneNumber',
-            'tenantFacebookUrl', 'tenantRent', 'tenantDeposit', 'tenantDepositReceiver'
-        ];
+    const submitBtn = document.getElementById("tenantSubmitBtn");
+    if (submitBtn) {
+      submitBtn.disabled = !hasChanges;
+      if (hasChanges) {
+        submitBtn.classList.remove("btn-secondary");
+        submitBtn.classList.add("btn-primary");
+      } else {
+        submitBtn.classList.remove("btn-primary");
+        submitBtn.classList.add("btn-secondary");
+      }
+    }
+  }
 
-        fieldsToWatch.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.addEventListener('input', () => this.checkForChanges());
-            }
-        });
+  getCurrentFormData() {
+    return {
+      name: (document.getElementById("tenantName")?.value || "").trim(),
+      fin: (document.getElementById("tenantFin")?.value || "").trim(),
+      passportNumber: (
+        document.getElementById("tenantPassport")?.value || ""
+      ).trim(),
+      phoneNumber: (
+        document.getElementById("tenantPhoneNumber")?.value || ""
+      ).trim(),
+      facebookUrl: (
+        document.getElementById("tenantFacebookUrl")?.value || ""
+      ).trim(),
+      registrationStatus:
+        document.getElementById("tenantRegistrationStatusHidden")?.value ||
+        "unregistered",
+      properties: this.selectedPropertiesDetails || [],
+      passportPics: this.passportPics || [],
+      visaPics: this.visaPics || [],
+      avatar: this.avatar || "",
+      signature: this.signature || "",
+      // New financial fields
+      rent: document.getElementById("tenantRent")?.value
+        ? parseFloat(document.getElementById("tenantRent").value)
+        : null,
+      deposit: document.getElementById("tenantDeposit")?.value
+        ? parseFloat(document.getElementById("tenantDeposit").value)
+        : null,
+      depositReceiver: (
+        document.getElementById("tenantDepositReceiver")?.value || ""
+      ).trim(),
+    };
+  }
 
-        // Also listen for registration status changes
-        const registrationButtons = form.querySelectorAll('input[name="registrationStatus"]');
-        registrationButtons.forEach(button => {
-            button.addEventListener('change', () => this.checkForChanges());
-        });
+  hasDataChanged(original, current) {
+    // Compare basic fields
+    const fieldsToCompare = [
+      "name",
+      "fin",
+      "passportNumber",
+      "phoneNumber",
+      "facebookUrl",
+      "registrationStatus",
+      "avatar",
+      "signature",
+      "rent",
+      "deposit",
+      "depositReceiver",
+    ];
+
+    for (const field of fieldsToCompare) {
+      const originalValue = (original[field] || "").toString().trim();
+      const currentValue = (current[field] || "").toString().trim();
+      if (originalValue !== currentValue) {
+        return true;
+      }
     }
 
-    checkForChanges() {
-        if (!this.originalTenantData) {
-            return; // No original data to compare against
+    // Compare arrays (passportPics, visaPics)
+    if (
+      !this.arraysEqual(original.passportPics || [], current.passportPics || [])
+    ) {
+      return true;
+    }
+    if (!this.arraysEqual(original.visaPics || [], current.visaPics || [])) {
+      return true;
+    }
+
+    // Compare properties array
+    if (
+      !this.propertiesEqual(original.properties || [], current.properties || [])
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  arraysEqual(arr1, arr2) {
+    if (arr1.length !== arr2.length) return false;
+    return arr1.every((item, index) => item === arr2[index]);
+  }
+
+  propertiesEqual(props1, props2) {
+    if (props1.length !== props2.length) return false;
+
+    return props1.every((prop1, index) => {
+      const prop2 = props2[index];
+      if (!prop2) return false;
+
+      return (
+        prop1.propertyId === prop2.propertyId &&
+        prop1.isMainTenant === prop2.isMainTenant &&
+        (prop1.room || "") === (prop2.room || "") &&
+        (prop1.moveinDate || "") === (prop2.moveinDate || "") &&
+        (prop1.moveoutDate || "") === (prop2.moveoutDate || "")
+      );
+    });
+  }
+
+  // Setup clipboard paste functionality for image URL input fields
+  setupClipboardPasteListeners() {
+    // This will be called during init, but actual setup happens when modal is shown
+    console.log("📋 Clipboard paste listeners initialized");
+  }
+
+  // Set up clipboard listeners specifically when modal is shown
+  setupModalClipboardListeners() {
+    const imageUrlFields = [
+      "tenantAvatarUrl",
+      "tenantPassportPicUrl",
+      "tenantVisaPicUrl",
+      "tenantSignatureUrl",
+    ];
+
+    imageUrlFields.forEach((fieldId) => {
+      this.setupPasteListenerForField(fieldId);
+    });
+
+    console.log("📋 Modal clipboard listeners set up for tenant dialog");
+  }
+
+  setupPasteListenerForField(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field && !field.hasAttribute("data-paste-listener-added")) {
+      field.setAttribute("data-paste-listener-added", "true");
+
+      // Add paste event listener
+      field.addEventListener("paste", async (e) => {
+        e.preventDefault();
+        await this.handleImagePaste(e, fieldId);
+      });
+
+      // Add visual feedback for paste capability
+      const currentPlaceholder =
+        field.placeholder || "Paste Cloudinary URL here";
+      if (!currentPlaceholder.includes("Ctrl+V")) {
+        field.placeholder =
+          currentPlaceholder + " (Ctrl+V to paste from clipboard)";
+      }
+      field.title = "You can paste images from clipboard here (Ctrl+V)";
+
+      // Add a visual indicator
+      field.style.borderLeft = "3px solid #0d6efd";
+      field.setAttribute("data-clipboard-enabled", "true");
+
+      console.log(`✅ Clipboard paste listener added to ${fieldId}`);
+    }
+  }
+
+  async handleImagePaste(event, fieldId) {
+    try {
+      const items = (event.clipboardData || event.originalEvent?.clipboardData)
+        ?.items;
+      if (!items) {
+        console.log("No clipboard items found");
+        return;
+      }
+
+      let imageFound = false;
+
+      // Check all clipboard items for images
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        if (item.type.indexOf("image") !== -1) {
+          imageFound = true;
+          const file = item.getAsFile();
+
+          if (file) {
+            console.log(
+              `📋 Image pasted from clipboard to ${fieldId}:`,
+              file.name,
+              file.type
+            );
+            await this.uploadClipboardImage(file, fieldId);
+            break; // Handle only the first image found
+          }
+        }
+      }
+
+      if (!imageFound) {
+        // Check if there's text content that might be an image URL
+        const text =
+          event.clipboardData?.getData("text") ||
+          event.originalEvent?.clipboardData?.getData("text");
+        if (text && this.isImageUrl(text)) {
+          console.log(
+            `📋 Image URL pasted from clipboard to ${fieldId}:`,
+            text
+          );
+          document.getElementById(fieldId).value = text;
+        } else {
+          console.log("No image found in clipboard");
+          // Show a brief message to user
+          this.showPasteMessage(
+            fieldId,
+            "No image found in clipboard",
+            "warning"
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error handling clipboard paste:", error);
+      this.showPasteMessage(fieldId, "Error pasting from clipboard", "error");
+    }
+  }
+
+  async uploadClipboardImage(file, fieldId) {
+    const field = document.getElementById(fieldId);
+    const originalPlaceholder = field.placeholder;
+
+    try {
+      // Show uploading state
+      field.placeholder = "Uploading image from clipboard...";
+      field.disabled = true;
+
+      // Upload the image using existing upload method
+      const result = await this.uploadSingleImage(file);
+
+      if (result.success) {
+        // Ensure URL is properly formatted
+        let imageUrl = result.url;
+        if (imageUrl && !imageUrl.startsWith("http")) {
+          if (imageUrl.startsWith("/")) {
+            imageUrl = API_CONFIG.BASE_URL + imageUrl;
+          } else {
+            imageUrl = "https://" + imageUrl;
+          }
         }
 
-        const currentData = this.getCurrentFormData();
-        const hasChanges = this.hasDataChanged(this.originalTenantData, currentData);
-        
-        const submitBtn = document.getElementById('tenantSubmitBtn');
-        if (submitBtn) {
-            submitBtn.disabled = !hasChanges;
-            if (hasChanges) {
-                submitBtn.classList.remove('btn-secondary');
-                submitBtn.classList.add('btn-primary');
-            } else {
-                submitBtn.classList.remove('btn-primary');
-                submitBtn.classList.add('btn-secondary');
-            }
-        }
-    }
+        // Set the URL in the input field
+        field.value = imageUrl;
 
-    getCurrentFormData() {
-        return {
-            name: (document.getElementById('tenantName')?.value || '').trim(),
-            fin: (document.getElementById('tenantFin')?.value || '').trim(),
-            passportNumber: (document.getElementById('tenantPassport')?.value || '').trim(),
-            phoneNumber: (document.getElementById('tenantPhoneNumber')?.value || '').trim(),
-            facebookUrl: (document.getElementById('tenantFacebookUrl')?.value || '').trim(),
-            registrationStatus: document.getElementById('tenantRegistrationStatusHidden')?.value || 'unregistered',
-            properties: this.selectedPropertiesDetails || [],
-            passportPics: this.passportPics || [],
-            visaPics: this.visaPics || [],
-            avatar: this.avatar || '',
-            signature: this.signature || '',
-            // New financial fields
-            rent: document.getElementById('tenantRent')?.value ? parseFloat(document.getElementById('tenantRent').value) : null,
-            deposit: document.getElementById('tenantDeposit')?.value ? parseFloat(document.getElementById('tenantDeposit').value) : null,
-            depositReceiver: (document.getElementById('tenantDepositReceiver')?.value || '').trim()
-        };
-    }
-
-    hasDataChanged(original, current) {
-        // Compare basic fields
-        const fieldsToCompare = ['name', 'fin', 'passportNumber', 'phoneNumber', 'facebookUrl', 'registrationStatus', 'avatar', 'signature', 'rent', 'deposit', 'depositReceiver'];
-        
-        for (const field of fieldsToCompare) {
-            const originalValue = (original[field] || '').toString().trim();
-            const currentValue = (current[field] || '').toString().trim();
-            if (originalValue !== currentValue) {
-                return true;
-            }
+        // Auto-add the image based on the field type
+        if (fieldId === "tenantAvatarUrl") {
+          this.addAvatarFromUrl();
+        } else if (fieldId === "tenantPassportPicUrl") {
+          this.addImageFromUrl("passport");
+        } else if (fieldId === "tenantVisaPicUrl") {
+          this.addImageFromUrl("visa");
+        } else if (fieldId === "tenantSignatureUrl") {
+          this.setSignatureFromUrl();
         }
 
-        // Compare arrays (passportPics, visaPics)
-        if (!this.arraysEqual(original.passportPics || [], current.passportPics || [])) {
-            return true;
-        }
-        if (!this.arraysEqual(original.visaPics || [], current.visaPics || [])) {
-            return true;
-        }
+        this.showPasteMessage(
+          fieldId,
+          "Image uploaded successfully!",
+          "success"
+        );
+        console.log(
+          `✅ Clipboard image uploaded successfully to ${fieldId}:`,
+          imageUrl
+        );
+      } else {
+        this.showPasteMessage(
+          fieldId,
+          "Failed to upload image: " + result.error,
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error("Error uploading clipboard image:", error);
+      this.showPasteMessage(fieldId, "Error uploading image", "error");
+    } finally {
+      // Restore field state
+      field.placeholder = originalPlaceholder;
+      field.disabled = false;
+    }
+  }
 
-        // Compare properties array
-        if (!this.propertiesEqual(original.properties || [], current.properties || [])) {
-            return true;
-        }
+  isImageUrl(url) {
+    // Simple check for image URL patterns
+    return (
+      /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url) ||
+      url.includes("cloudinary.com") ||
+      url.includes("imgur.com") ||
+      url.includes("drive.google.com")
+    );
+  }
 
-        return false;
+  showPasteMessage(fieldId, message, type) {
+    // Create a temporary message element
+    const field = document.getElementById(fieldId);
+    const messageId = `paste-message-${fieldId}`;
+
+    // Remove any existing message
+    const existingMessage = document.getElementById(messageId);
+    if (existingMessage) {
+      existingMessage.remove();
     }
 
-    arraysEqual(arr1, arr2) {
-        if (arr1.length !== arr2.length) return false;
-        return arr1.every((item, index) => item === arr2[index]);
-    }
-
-    propertiesEqual(props1, props2) {
-        if (props1.length !== props2.length) return false;
-        
-        return props1.every((prop1, index) => {
-            const prop2 = props2[index];
-            if (!prop2) return false;
-            
-            return prop1.propertyId === prop2.propertyId &&
-                   prop1.isMainTenant === prop2.isMainTenant &&
-                   (prop1.room || '') === (prop2.room || '') &&
-                   (prop1.moveinDate || '') === (prop2.moveinDate || '') &&
-                   (prop1.moveoutDate || '') === (prop2.moveoutDate || '');
-        });
-    }
-
-    // Setup clipboard paste functionality for image URL input fields
-    setupClipboardPasteListeners() {
-        // This will be called during init, but actual setup happens when modal is shown
-        console.log('📋 Clipboard paste listeners initialized');
-    }
-
-    // Set up clipboard listeners specifically when modal is shown
-    setupModalClipboardListeners() {
-        const imageUrlFields = [
-            'tenantAvatarUrl',
-            'tenantPassportPicUrl',
-            'tenantVisaPicUrl',
-            'tenantSignatureUrl'
-        ];
-
-        imageUrlFields.forEach(fieldId => {
-            this.setupPasteListenerForField(fieldId);
-        });
-        
-        console.log('📋 Modal clipboard listeners set up for tenant dialog');
-    }
-
-    setupPasteListenerForField(fieldId) {
-        const field = document.getElementById(fieldId);
-        if (field && !field.hasAttribute('data-paste-listener-added')) {
-            field.setAttribute('data-paste-listener-added', 'true');
-            
-            // Add paste event listener
-            field.addEventListener('paste', async (e) => {
-                e.preventDefault();
-                await this.handleImagePaste(e, fieldId);
-            });
-
-            // Add visual feedback for paste capability
-            const currentPlaceholder = field.placeholder || 'Paste Cloudinary URL here';
-            if (!currentPlaceholder.includes('Ctrl+V')) {
-                field.placeholder = currentPlaceholder + ' (Ctrl+V to paste from clipboard)';
-            }
-            field.title = 'You can paste images from clipboard here (Ctrl+V)';
-            
-            // Add a visual indicator
-            field.style.borderLeft = '3px solid #0d6efd';
-            field.setAttribute('data-clipboard-enabled', 'true');
-            
-            console.log(`✅ Clipboard paste listener added to ${fieldId}`);
-        }
-    }
-
-    async handleImagePaste(event, fieldId) {
-        try {
-            const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
-            if (!items) {
-                console.log('No clipboard items found');
-                return;
-            }
-
-            let imageFound = false;
-            
-            // Check all clipboard items for images
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                
-                if (item.type.indexOf('image') !== -1) {
-                    imageFound = true;
-                    const file = item.getAsFile();
-                    
-                    if (file) {
-                        console.log(`📋 Image pasted from clipboard to ${fieldId}:`, file.name, file.type);
-                        await this.uploadClipboardImage(file, fieldId);
-                        break; // Handle only the first image found
-                    }
-                }
-            }
-
-            if (!imageFound) {
-                // Check if there's text content that might be an image URL
-                const text = event.clipboardData?.getData('text') || event.originalEvent?.clipboardData?.getData('text');
-                if (text && this.isImageUrl(text)) {
-                    console.log(`📋 Image URL pasted from clipboard to ${fieldId}:`, text);
-                    document.getElementById(fieldId).value = text;
-                } else {
-                    console.log('No image found in clipboard');
-                    // Show a brief message to user
-                    this.showPasteMessage(fieldId, 'No image found in clipboard', 'warning');
-                }
-            }
-        } catch (error) {
-            console.error('Error handling clipboard paste:', error);
-            this.showPasteMessage(fieldId, 'Error pasting from clipboard', 'error');
-        }
-    }
-
-    async uploadClipboardImage(file, fieldId) {
-        const field = document.getElementById(fieldId);
-        const originalPlaceholder = field.placeholder;
-        
-        try {
-            // Show uploading state
-            field.placeholder = 'Uploading image from clipboard...';
-            field.disabled = true;
-
-            // Upload the image using existing upload method
-            const result = await this.uploadSingleImage(file);
-            
-            if (result.success) {
-                // Ensure URL is properly formatted
-                let imageUrl = result.url;
-                if (imageUrl && !imageUrl.startsWith('http')) {
-                    if (imageUrl.startsWith('/')) {
-                        imageUrl = API_CONFIG.BASE_URL + imageUrl;
-                    } else {
-                        imageUrl = 'https://' + imageUrl;
-                    }
-                }
-
-                // Set the URL in the input field
-                field.value = imageUrl;
-                
-                // Auto-add the image based on the field type
-                if (fieldId === 'tenantAvatarUrl') {
-                    this.addAvatarFromUrl();
-                } else if (fieldId === 'tenantPassportPicUrl') {
-                    this.addImageFromUrl('passport');
-                } else if (fieldId === 'tenantVisaPicUrl') {
-                    this.addImageFromUrl('visa');
-                } else if (fieldId === 'tenantSignatureUrl') {
-                    this.setSignatureFromUrl();
-                }
-
-                this.showPasteMessage(fieldId, 'Image uploaded successfully!', 'success');
-                console.log(`✅ Clipboard image uploaded successfully to ${fieldId}:`, imageUrl);
-            } else {
-                this.showPasteMessage(fieldId, 'Failed to upload image: ' + result.error, 'error');
-            }
-        } catch (error) {
-            console.error('Error uploading clipboard image:', error);
-            this.showPasteMessage(fieldId, 'Error uploading image', 'error');
-        } finally {
-            // Restore field state
-            field.placeholder = originalPlaceholder;
-            field.disabled = false;
-        }
-    }
-
-    isImageUrl(url) {
-        // Simple check for image URL patterns
-        return /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url) || 
-               url.includes('cloudinary.com') || 
-               url.includes('imgur.com') ||
-               url.includes('drive.google.com');
-    }
-
-    showPasteMessage(fieldId, message, type) {
-        // Create a temporary message element
-        const field = document.getElementById(fieldId);
-        const messageId = `paste-message-${fieldId}`;
-        
-        // Remove any existing message
-        const existingMessage = document.getElementById(messageId);
-        if (existingMessage) {
-            existingMessage.remove();
-        }
-
-        const messageDiv = document.createElement('div');
-        messageDiv.id = messageId;
-        messageDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} alert-dismissible fade show mt-2`;
-        messageDiv.style.fontSize = '0.875rem';
-        messageDiv.innerHTML = `
-            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'x-circle'} me-1"></i>
+    const messageDiv = document.createElement("div");
+    messageDiv.id = messageId;
+    messageDiv.className = `alert alert-${
+      type === "success" ? "success" : type === "warning" ? "warning" : "danger"
+    } alert-dismissible fade show mt-2`;
+    messageDiv.style.fontSize = "0.875rem";
+    messageDiv.innerHTML = `
+            <i class="bi bi-${
+              type === "success"
+                ? "check-circle"
+                : type === "warning"
+                ? "exclamation-triangle"
+                : "x-circle"
+            } me-1"></i>
             ${message}
         `;
 
-        // Insert after the field
-        field.parentNode.insertBefore(messageDiv, field.nextSibling);
+    // Insert after the field
+    field.parentNode.insertBefore(messageDiv, field.nextSibling);
 
-        // Auto-remove after 3 seconds
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.remove();
-            }
-        }, 3000);
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.remove();
+      }
+    }, 3000);
+  }
+
+  // Helper function to get move-in date for a tenant's specific property
+  getTenantMoveInDate(tenant, propertyId) {
+    if (!tenant.properties || !Array.isArray(tenant.properties)) {
+      return null;
     }
 
-    // Helper function to get move-in date for a tenant's specific property
-    getTenantMoveInDate(tenant, propertyId) {
-        if (!tenant.properties || !Array.isArray(tenant.properties)) {
-            return null;
-        }
+    const property = tenant.properties.find(
+      (prop) => typeof prop === "object" && prop.propertyId === propertyId
+    );
 
-        const property = tenant.properties.find(prop =>
-            (typeof prop === 'object' && prop.propertyId === propertyId)
+    if (property && property.moveinDate) {
+      const date = new Date(property.moveinDate);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    return null;
+  }
+
+  copyTenantList(propertyId) {
+    try {
+      // Find tenants for this property
+      const groupedTenants = this.groupTenantsByProperty(this.tenants);
+      const tenantsInProperty = groupedTenants[propertyId];
+
+      if (!tenantsInProperty || tenantsInProperty.length === 0) {
+        alert("No tenants found for this property");
+        return;
+      }
+
+      // Get property info for display
+      const propertyInfo = this.getPropertyInfo(propertyId);
+      const propertyDisplay = propertyInfo
+        ? `${propertyInfo.address}, ${propertyInfo.unit}`
+        : propertyId;
+
+      // Format tenant list
+      let copyText = `Property: ${propertyDisplay}\n\n`;
+
+      tenantsInProperty.forEach((tenant, index) => {
+        const ordinalNumber = index + 1;
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+        const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
+
+        copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+        copyText += `   FIN: ${tenant.fin}\n`;
+        copyText += `   Passport: ${tenant.passportNumber}\n\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          // Show success message
+          this.showCopySuccessMessage(tenantsInProperty.length);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          // Fallback: show the text in an alert
+          alert(
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+          );
+        });
+    } catch (error) {
+      console.error("Error copying tenant list:", error);
+      alert("Error copying tenant list. Please try again.");
+    }
+  }
+
+  copyAllTenants() {
+    try {
+      // Check if a property is selected
+      if (!this.selectedProperty) {
+        alert("Please select a property first");
+        return;
+      }
+
+      // Check if there are tenants to copy
+      if (!this.tenants || this.tenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No unassigned tenants to copy"
+            : "No tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Filter out outdated tenants
+      const activeTenants = this.tenants.filter(
+        (tenant) => !this.isTenantOutdated(tenant, this.selectedProperty)
+      );
+
+      if (activeTenants.length === 0) {
+        alert("No active tenants to copy (all tenants are outdated)");
+        return;
+      }
+
+      // Get property info for display
+      let propertyDisplay = "";
+      if (this.selectedProperty === "UNASSIGNED") {
+        propertyDisplay = "Unassigned Tenants";
+      } else {
+        const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+        propertyDisplay = propertyInfo
+          ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+          : this.selectedProperty;
+      }
+
+      // Format tenant list with all requested fields
+      let copyText = `Property: ${propertyDisplay}\n`;
+      copyText += `Total Active Tenants: ${activeTenants.length}\n`;
+      copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+      copyText += `${"=".repeat(80)}\n\n`;
+
+      activeTenants.forEach((tenant, index) => {
+        const ordinalNumber = index + 1;
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+        const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
+        const registrationStatus =
+          tenant.registrationStatus ||
+          (tenant.isRegistered ? "registered" : "unregistered");
+        const moveinDate = this.getTenantMoveInDate(
+          tenant,
+          this.selectedProperty
         );
 
-        if (property && property.moveinDate) {
-            const date = new Date(property.moveinDate);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
+        copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+        copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
+        copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
+        if (moveinDate) {
+          copyText += `   Move-in Date: ${moveinDate}\n`;
+        }
+        copyText += `\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          // Show success message
+          this.showCopySuccessMessage(activeTenants.length);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          // Fallback: show the text in an alert
+          alert(
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+          );
+        });
+    } catch (error) {
+      console.error("Error copying tenant list:", error);
+      alert("Error copying tenant list. Please try again.");
+    }
+  }
+
+  copyRegisteredTenants() {
+    try {
+      // Check if a property is selected
+      if (!this.selectedProperty) {
+        alert("Please select a property first");
+        return;
+      }
+
+      // Check if there are tenants to copy
+      if (!this.tenants || this.tenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No unassigned tenants to copy"
+            : "No tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Filter for only registered and non-outdated tenants
+      const registeredTenants = this.tenants.filter((tenant) => {
+        const registrationStatus =
+          tenant.registrationStatus ||
+          (tenant.isRegistered ? "registered" : "unregistered");
+        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+        return registrationStatus === "registered" && !isOutdated;
+      });
+
+      // Check if there are any registered tenants
+      if (registeredTenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No registered active unassigned tenants to copy"
+            : "No registered active tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Get property info for display
+      let propertyDisplay = "";
+      if (this.selectedProperty === "UNASSIGNED") {
+        propertyDisplay = "Unassigned Tenants";
+      } else {
+        const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+        propertyDisplay = propertyInfo
+          ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+          : this.selectedProperty;
+      }
+
+      // Format tenant list with all requested fields
+      let copyText = `Property: ${propertyDisplay}\n`;
+      copyText += `Registered Active Tenants Only: ${registeredTenants.length}\n`;
+      copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+      copyText += `${"=".repeat(80)}\n\n`;
+
+      registeredTenants.forEach((tenant, index) => {
+        const ordinalNumber = index + 1;
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+        const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
+        const moveinDate = this.getTenantMoveInDate(
+          tenant,
+          this.selectedProperty
+        );
+
+        copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+        copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
+        copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        copyText += `   Registration Status: REGISTERED\n`;
+        if (moveinDate) {
+          copyText += `   Move-in Date: ${moveinDate}\n`;
+        }
+        copyText += `\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          // Show success message
+          this.showCopySuccessMessage(registeredTenants.length);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          // Fallback: show the text in an alert
+          alert(
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+          );
+        });
+    } catch (error) {
+      console.error("Error copying registered tenant list:", error);
+      alert("Error copying registered tenant list. Please try again.");
+    }
+  }
+
+  copyOutdatedTenants() {
+    try {
+      // Check if a property is selected
+      if (!this.selectedProperty) {
+        alert("Please select a property first");
+        return;
+      }
+
+      // Check if there are tenants to copy
+      if (!this.tenants || this.tenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No unassigned tenants to copy"
+            : "No tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Filter for only outdated tenants
+      const outdatedTenants = this.tenants.filter((tenant) =>
+        this.isTenantOutdated(tenant, this.selectedProperty)
+      );
+
+      // Check if there are any outdated tenants
+      if (outdatedTenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No outdated unassigned tenants to copy"
+            : "No outdated tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Get property info for display
+      let propertyDisplay = "";
+      if (this.selectedProperty === "UNASSIGNED") {
+        propertyDisplay = "Unassigned Tenants";
+      } else {
+        const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+        propertyDisplay = propertyInfo
+          ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+          : this.selectedProperty;
+      }
+
+      // Format tenant list with all requested fields
+      let copyText = `Property: ${propertyDisplay}\n`;
+      copyText += `Outdated Tenants Only: ${outdatedTenants.length}\n`;
+      copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+      copyText += `${"=".repeat(80)}\n\n`;
+
+      outdatedTenants.forEach((tenant, index) => {
+        const ordinalNumber = index + 1;
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+        const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
+        const registrationStatus =
+          tenant.registrationStatus ||
+          (tenant.isRegistered ? "registered" : "unregistered");
+        const moveinDate = this.getTenantMoveInDate(
+          tenant,
+          this.selectedProperty
+        );
+
+        // Get moveout date
+        let moveoutDate = "N/A";
+        if (tenant.properties && Array.isArray(tenant.properties)) {
+          const property = tenant.properties.find((prop) => {
+            const propId = typeof prop === "object" ? prop.propertyId : prop;
+            return this.selectedProperty !== "UNASSIGNED"
+              ? propId === this.selectedProperty
+              : true;
+          });
+          if (
+            property &&
+            typeof property === "object" &&
+            property.moveoutDate
+          ) {
+            const date = new Date(property.moveoutDate);
+            const day = String(date.getDate()).padStart(2, "0");
+            const month = String(date.getMonth() + 1).padStart(2, "0");
             const year = date.getFullYear();
-            return `${day}/${month}/${year}`;
+            moveoutDate = `${day}/${month}/${year}`;
+          }
         }
 
-        return null;
-    }
-
-    copyTenantList(propertyId) {
-        try {
-            // Find tenants for this property
-            const groupedTenants = this.groupTenantsByProperty(this.tenants);
-            const tenantsInProperty = groupedTenants[propertyId];
-
-            if (!tenantsInProperty || tenantsInProperty.length === 0) {
-                alert('No tenants found for this property');
-                return;
-            }
-
-            // Get property info for display
-            const propertyInfo = this.getPropertyInfo(propertyId);
-            const propertyDisplay = propertyInfo
-                ? `${propertyInfo.address}, ${propertyInfo.unit}`
-                : propertyId;
-
-            // Format tenant list
-            let copyText = `Property: ${propertyDisplay}\n\n`;
-            
-            tenantsInProperty.forEach((tenant, index) => {
-                const ordinalNumber = index + 1;
-                const isMainTenant = this.hasMainTenantProperty(tenant);
-                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
-                
-                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
-                copyText += `   FIN: ${tenant.fin}\n`;
-                copyText += `   Passport: ${tenant.passportNumber}\n\n`;
-            });
-
-            // Copy to clipboard
-            navigator.clipboard.writeText(copyText).then(() => {
-                // Show success message
-                this.showCopySuccessMessage(tenantsInProperty.length);
-            }).catch(err => {
-                console.error('Failed to copy to clipboard:', err);
-                // Fallback: show the text in an alert
-                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
-            });
-            
-        } catch (error) {
-            console.error('Error copying tenant list:', error);
-            alert('Error copying tenant list. Please try again.');
+        copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+        copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
+        copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
+        if (moveinDate) {
+          copyText += `   Move-in Date: ${moveinDate}\n`;
         }
+        copyText += `   Move-out Date: ${moveoutDate}\n`;
+        copyText += `\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          // Show success message
+          this.showCopySuccessMessage(outdatedTenants.length);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          // Fallback: show the text in an alert
+          alert(
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+          );
+        });
+    } catch (error) {
+      console.error("Error copying outdated tenant list:", error);
+      alert("Error copying outdated tenant list. Please try again.");
     }
+  }
 
-    copyAllTenants() {
-        try {
-            // Check if a property is selected
-            if (!this.selectedProperty) {
-                alert('Please select a property first');
-                return;
-            }
-
-            // Check if there are tenants to copy
-            if (!this.tenants || this.tenants.length === 0) {
-                const message = this.selectedProperty === 'UNASSIGNED'
-                    ? 'No unassigned tenants to copy'
-                    : 'No tenants found for this property';
-                alert(message);
-                return;
-            }
-
-            // Filter out outdated tenants
-            const activeTenants = this.tenants.filter(tenant =>
-                !this.isTenantOutdated(tenant, this.selectedProperty)
-            );
-
-            if (activeTenants.length === 0) {
-                alert('No active tenants to copy (all tenants are outdated)');
-                return;
-            }
-
-            // Get property info for display
-            let propertyDisplay = '';
-            if (this.selectedProperty === 'UNASSIGNED') {
-                propertyDisplay = 'Unassigned Tenants';
-            } else {
-                const propertyInfo = this.getPropertyInfo(this.selectedProperty);
-                propertyDisplay = propertyInfo
-                    ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
-                    : this.selectedProperty;
-            }
-
-            // Format tenant list with all requested fields
-            let copyText = `Property: ${propertyDisplay}\n`;
-            copyText += `Total Active Tenants: ${activeTenants.length}\n`;
-            copyText += `Generated on: ${new Date().toLocaleString()}\n`;
-            copyText += `${'='.repeat(80)}\n\n`;
-
-            activeTenants.forEach((tenant, index) => {
-                const ordinalNumber = index + 1;
-                const isMainTenant = this.hasMainTenantProperty(tenant);
-                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
-                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-                const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
-
-                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
-                copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
-                copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
-                copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
-                if (moveinDate) {
-                    copyText += `   Move-in Date: ${moveinDate}\n`;
-                }
-                copyText += `\n`;
-            });
-
-            // Copy to clipboard
-            navigator.clipboard.writeText(copyText).then(() => {
-                // Show success message
-                this.showCopySuccessMessage(activeTenants.length);
-            }).catch(err => {
-                console.error('Failed to copy to clipboard:', err);
-                // Fallback: show the text in an alert
-                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
-            });
-
-        } catch (error) {
-            console.error('Error copying tenant list:', error);
-            alert('Error copying tenant list. Please try again.');
-        }
-    }
-
-    copyRegisteredTenants() {
-        try {
-            // Check if a property is selected
-            if (!this.selectedProperty) {
-                alert('Please select a property first');
-                return;
-            }
-
-            // Check if there are tenants to copy
-            if (!this.tenants || this.tenants.length === 0) {
-                const message = this.selectedProperty === 'UNASSIGNED'
-                    ? 'No unassigned tenants to copy'
-                    : 'No tenants found for this property';
-                alert(message);
-                return;
-            }
-
-            // Filter for only registered and non-outdated tenants
-            const registeredTenants = this.tenants.filter(tenant => {
-                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-                const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
-                return registrationStatus === 'registered' && !isOutdated;
-            });
-
-            // Check if there are any registered tenants
-            if (registeredTenants.length === 0) {
-                const message = this.selectedProperty === 'UNASSIGNED'
-                    ? 'No registered active unassigned tenants to copy'
-                    : 'No registered active tenants found for this property';
-                alert(message);
-                return;
-            }
-
-            // Get property info for display
-            let propertyDisplay = '';
-            if (this.selectedProperty === 'UNASSIGNED') {
-                propertyDisplay = 'Unassigned Tenants';
-            } else {
-                const propertyInfo = this.getPropertyInfo(this.selectedProperty);
-                propertyDisplay = propertyInfo
-                    ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
-                    : this.selectedProperty;
-            }
-
-            // Format tenant list with all requested fields
-            let copyText = `Property: ${propertyDisplay}\n`;
-            copyText += `Registered Active Tenants Only: ${registeredTenants.length}\n`;
-            copyText += `Generated on: ${new Date().toLocaleString()}\n`;
-            copyText += `${'='.repeat(80)}\n\n`;
-
-            registeredTenants.forEach((tenant, index) => {
-                const ordinalNumber = index + 1;
-                const isMainTenant = this.hasMainTenantProperty(tenant);
-                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
-                const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
-
-                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
-                copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
-                copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
-                copyText += `   Registration Status: REGISTERED\n`;
-                if (moveinDate) {
-                    copyText += `   Move-in Date: ${moveinDate}\n`;
-                }
-                copyText += `\n`;
-            });
-
-            // Copy to clipboard
-            navigator.clipboard.writeText(copyText).then(() => {
-                // Show success message
-                this.showCopySuccessMessage(registeredTenants.length);
-            }).catch(err => {
-                console.error('Failed to copy to clipboard:', err);
-                // Fallback: show the text in an alert
-                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
-            });
-
-        } catch (error) {
-            console.error('Error copying registered tenant list:', error);
-            alert('Error copying registered tenant list. Please try again.');
-        }
-    }
-
-    copyOutdatedTenants() {
-        try {
-            // Check if a property is selected
-            if (!this.selectedProperty) {
-                alert('Please select a property first');
-                return;
-            }
-
-            // Check if there are tenants to copy
-            if (!this.tenants || this.tenants.length === 0) {
-                const message = this.selectedProperty === 'UNASSIGNED'
-                    ? 'No unassigned tenants to copy'
-                    : 'No tenants found for this property';
-                alert(message);
-                return;
-            }
-
-            // Filter for only outdated tenants
-            const outdatedTenants = this.tenants.filter(tenant =>
-                this.isTenantOutdated(tenant, this.selectedProperty)
-            );
-
-            // Check if there are any outdated tenants
-            if (outdatedTenants.length === 0) {
-                const message = this.selectedProperty === 'UNASSIGNED'
-                    ? 'No outdated unassigned tenants to copy'
-                    : 'No outdated tenants found for this property';
-                alert(message);
-                return;
-            }
-
-            // Get property info for display
-            let propertyDisplay = '';
-            if (this.selectedProperty === 'UNASSIGNED') {
-                propertyDisplay = 'Unassigned Tenants';
-            } else {
-                const propertyInfo = this.getPropertyInfo(this.selectedProperty);
-                propertyDisplay = propertyInfo
-                    ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
-                    : this.selectedProperty;
-            }
-
-            // Format tenant list with all requested fields
-            let copyText = `Property: ${propertyDisplay}\n`;
-            copyText += `Outdated Tenants Only: ${outdatedTenants.length}\n`;
-            copyText += `Generated on: ${new Date().toLocaleString()}\n`;
-            copyText += `${'='.repeat(80)}\n\n`;
-
-            outdatedTenants.forEach((tenant, index) => {
-                const ordinalNumber = index + 1;
-                const isMainTenant = this.hasMainTenantProperty(tenant);
-                const mainTenantIndicator = isMainTenant ? ' ✅ (Main Tenant)' : '';
-                const registrationStatus = tenant.registrationStatus || (tenant.isRegistered ? 'registered' : 'unregistered');
-                const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
-
-                // Get moveout date
-                let moveoutDate = 'N/A';
-                if (tenant.properties && Array.isArray(tenant.properties)) {
-                    const property = tenant.properties.find(prop => {
-                        const propId = typeof prop === 'object' ? prop.propertyId : prop;
-                        return this.selectedProperty !== 'UNASSIGNED' ? propId === this.selectedProperty : true;
-                    });
-                    if (property && typeof property === 'object' && property.moveoutDate) {
-                        const date = new Date(property.moveoutDate);
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const year = date.getFullYear();
-                        moveoutDate = `${day}/${month}/${year}`;
-                    }
-                }
-
-                copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
-                copyText += `   FIN: ${tenant.fin || 'N/A'}\n`;
-                copyText += `   Passport: ${tenant.passportNumber || 'N/A'}\n`;
-                copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
-                if (moveinDate) {
-                    copyText += `   Move-in Date: ${moveinDate}\n`;
-                }
-                copyText += `   Move-out Date: ${moveoutDate}\n`;
-                copyText += `\n`;
-            });
-
-            // Copy to clipboard
-            navigator.clipboard.writeText(copyText).then(() => {
-                // Show success message
-                this.showCopySuccessMessage(outdatedTenants.length);
-            }).catch(err => {
-                console.error('Failed to copy to clipboard:', err);
-                // Fallback: show the text in an alert
-                alert('Copy failed. Here\'s the text to copy manually:\n\n' + copyText);
-            });
-
-        } catch (error) {
-            console.error('Error copying outdated tenant list:', error);
-            alert('Error copying outdated tenant list. Please try again.');
-        }
-    }
-
-    showCopySuccessMessage(tenantCount) {
-        // Create a temporary success message
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
-        messageDiv.style.cssText = `
+  showCopySuccessMessage(tenantCount) {
+    // Create a temporary success message
+    const messageDiv = document.createElement("div");
+    messageDiv.className =
+      "alert alert-success alert-dismissible fade show position-fixed";
+    messageDiv.style.cssText = `
             top: 20px;
             right: 20px;
             z-index: 9999;
             min-width: 300px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;
-        messageDiv.innerHTML = `
+    messageDiv.innerHTML = `
             <i class="bi bi-check-circle me-2"></i>
-            Copied ${tenantCount} tenant${tenantCount !== 1 ? 's' : ''} to clipboard!
+            Copied ${tenantCount} tenant${
+      tenantCount !== 1 ? "s" : ""
+    } to clipboard!
             <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
 
-        document.body.appendChild(messageDiv);
+    document.body.appendChild(messageDiv);
 
-        // Auto-remove after 3 seconds
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.remove();
-            }
-        }, 3000);
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.remove();
+      }
+    }, 3000);
+  }
+
+  // Pagination removed - now using property-based navigation
+
+  /**
+   * Download tenants as Excel file
+   * Sorts active tenants first, then inactive
+   */
+  async downloadTenantExcel() {
+    if (!this.selectedProperty) {
+      alert("Please select a property first");
+      return;
     }
 
-    // Pagination removed - now using property-based navigation
+    try {
+      // Get current tenants (already loaded and sorted by backend)
+      let tenants = this.tenants || [];
 
-    /**
-     * Download tenants as Excel file
-     * Sorts active tenants first, then inactive
-     */
-    async downloadTenantExcel() {
-        if (!this.selectedProperty) {
-            alert('Please select a property first');
-            return;
-        }
+      if (tenants.length === 0) {
+        alert("No tenants to download for this property");
+        return;
+      }
 
-        try {
-            // Get current tenants (already loaded and sorted by backend)
-            let tenants = this.tenants || [];
+      // Sort tenants: active first, then inactive (moved out)
+      const now = new Date();
+      tenants = [...tenants].sort((a, b) => {
+        const aProp =
+          a.properties?.find((p) => p.propertyId === this.selectedProperty) ||
+          {};
+        const bProp =
+          b.properties?.find((p) => p.propertyId === this.selectedProperty) ||
+          {};
 
-            if (tenants.length === 0) {
-                alert('No tenants to download for this property');
-                return;
-            }
+        const aIsActive =
+          !aProp.moveoutDate || new Date(aProp.moveoutDate) > now;
+        const bIsActive =
+          !bProp.moveoutDate || new Date(bProp.moveoutDate) > now;
 
-            // Sort tenants: active first, then inactive (moved out)
-            const now = new Date();
-            tenants = [...tenants].sort((a, b) => {
-                const aProp = a.properties?.find(p => p.propertyId === this.selectedProperty) || {};
-                const bProp = b.properties?.find(p => p.propertyId === this.selectedProperty) || {};
+        // Active tenants first
+        if (aIsActive && !bIsActive) return -1;
+        if (!aIsActive && bIsActive) return 1;
 
-                const aIsActive = !aProp.moveoutDate || new Date(aProp.moveoutDate) > now;
-                const bIsActive = !bProp.moveoutDate || new Date(bProp.moveoutDate) > now;
+        // If both same status, sort by name
+        return (a.name || "").localeCompare(b.name || "");
+      });
 
-                // Active tenants first
-                if (aIsActive && !bIsActive) return -1;
-                if (!aIsActive && bIsActive) return 1;
+      // Prepare data for Excel
+      const excelData = tenants.map((tenant) => {
+        // Get property info for this property
+        const propertyInfo =
+          tenant.properties?.find(
+            (p) => p.propertyId === this.selectedProperty
+          ) || {};
 
-                // If both same status, sort by name
-                return (a.name || '').localeCompare(b.name || '');
-            });
+        const isActive =
+          !propertyInfo.moveoutDate ||
+          new Date(propertyInfo.moveoutDate) > new Date();
 
-            // Prepare data for Excel
-            const excelData = tenants.map(tenant => {
-                // Get property info for this property
-                const propertyInfo = tenant.properties?.find(p =>
-                    p.propertyId === this.selectedProperty
-                ) || {};
+        return {
+          "Tenant ID": tenant._id || "",
+          Name: tenant.name || "",
+          Nickname: tenant.nickname || "",
+          "FIN/NRIC": tenant.fin || "",
+          "Passport Number": tenant.passportNumber || "",
+          "Phone Number": tenant.phoneNumber || "",
+          "Facebook URL": tenant.facebookUrl || "",
+          "Registration Status": tenant.registrationStatus || "unregistered",
+          "Property ID": this.selectedProperty,
+          Room: propertyInfo.room || "",
+          "Move-in Date": propertyInfo.moveinDate
+            ? new Date(propertyInfo.moveinDate).toISOString().split("T")[0]
+            : "",
+          "Move-out Date": propertyInfo.moveoutDate
+            ? new Date(propertyInfo.moveoutDate).toISOString().split("T")[0]
+            : "",
+          "Is Main Tenant": propertyInfo.isMainTenant ? "Yes" : "No",
+          "Monthly Rent (SGD)": tenant.rent || "",
+          "Deposit Amount (SGD)": tenant.deposit || "",
+          "Deposit Receiver": tenant.depositReceiver || "",
+          "Avatar URL": tenant.avatar || "",
+          "Signature URL": tenant.signature || "",
+          Status: isActive ? "Active" : "Inactive",
+        };
+      });
 
-                const isActive = !propertyInfo.moveoutDate ||
-                                new Date(propertyInfo.moveoutDate) > new Date();
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
 
-                return {
-                    'Tenant ID': tenant._id || '',
-                    'Name': tenant.name || '',
-                    'Nickname': tenant.nickname || '',
-                    'FIN/NRIC': tenant.fin || '',
-                    'Passport Number': tenant.passportNumber || '',
-                    'Phone Number': tenant.phoneNumber || '',
-                    'Facebook URL': tenant.facebookUrl || '',
-                    'Registration Status': tenant.registrationStatus || 'unregistered',
-                    'Property ID': this.selectedProperty,
-                    'Room': propertyInfo.room || '',
-                    'Move-in Date': propertyInfo.moveinDate ? new Date(propertyInfo.moveinDate).toISOString().split('T')[0] : '',
-                    'Move-out Date': propertyInfo.moveoutDate ? new Date(propertyInfo.moveoutDate).toISOString().split('T')[0] : '',
-                    'Is Main Tenant': propertyInfo.isMainTenant ? 'Yes' : 'No',
-                    'Monthly Rent (SGD)': tenant.rent || '',
-                    'Deposit Amount (SGD)': tenant.deposit || '',
-                    'Deposit Receiver': tenant.depositReceiver || '',
-                    'Avatar URL': tenant.avatar || '',
-                    'Signature URL': tenant.signature || '',
-                    'Status': isActive ? 'Active' : 'Inactive'
-                };
-            });
+      // Set column widths
+      const colWidths = [
+        { wch: 25 }, // Tenant ID
+        { wch: 20 }, // Name
+        { wch: 15 }, // Nickname
+        { wch: 15 }, // FIN/NRIC
+        { wch: 15 }, // Passport
+        { wch: 15 }, // Phone
+        { wch: 40 }, // Facebook URL
+        { wch: 18 }, // Registration Status
+        { wch: 40 }, // Property ID
+        { wch: 15 }, // Room
+        { wch: 12 }, // Move-in Date
+        { wch: 12 }, // Move-out Date
+        { wch: 15 }, // Is Main Tenant
+        { wch: 18 }, // Monthly Rent
+        { wch: 18 }, // Deposit Amount
+        { wch: 20 }, // Deposit Receiver
+        { wch: 50 }, // Avatar URL
+        { wch: 50 }, // Signature URL
+        { wch: 10 }, // Status
+      ];
+      ws["!cols"] = colWidths;
 
-            // Create workbook and worksheet
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Tenants");
 
-            // Set column widths
-            const colWidths = [
-                { wch: 25 }, // Tenant ID
-                { wch: 20 }, // Name
-                { wch: 15 }, // Nickname
-                { wch: 15 }, // FIN/NRIC
-                { wch: 15 }, // Passport
-                { wch: 15 }, // Phone
-                { wch: 40 }, // Facebook URL
-                { wch: 18 }, // Registration Status
-                { wch: 40 }, // Property ID
-                { wch: 15 }, // Room
-                { wch: 12 }, // Move-in Date
-                { wch: 12 }, // Move-out Date
-                { wch: 15 }, // Is Main Tenant
-                { wch: 18 }, // Monthly Rent
-                { wch: 18 }, // Deposit Amount
-                { wch: 20 }, // Deposit Receiver
-                { wch: 50 }, // Avatar URL
-                { wch: 50 }, // Signature URL
-                { wch: 10 }  // Status
-            ];
-            ws['!cols'] = colWidths;
+      // Generate filename with property ID and date
+      const propertyName =
+        this.selectedProperty === "UNASSIGNED"
+          ? "Unassigned"
+          : this.selectedProperty.replace(/[^a-zA-Z0-9]/g, "_");
+      const dateStr = new Date().toISOString().split("T")[0];
+      const filename = `Tenants_${propertyName}_${dateStr}.xlsx`;
 
-            XLSX.utils.book_append_sheet(wb, ws, 'Tenants');
+      // Download file
+      XLSX.writeFile(wb, filename);
 
-            // Generate filename with property ID and date
-            const propertyName = this.selectedProperty === 'UNASSIGNED'
-                ? 'Unassigned'
-                : this.selectedProperty.replace(/[^a-zA-Z0-9]/g, '_');
-            const dateStr = new Date().toISOString().split('T')[0];
-            const filename = `Tenants_${propertyName}_${dateStr}.xlsx`;
+      this.showSuccessMessage(
+        `Downloaded ${tenants.length} tenant(s) to ${filename}`
+      );
+    } catch (error) {
+      console.error("Error downloading Excel:", error);
+      alert("Failed to download Excel file: " + error.message);
+    }
+  }
 
-            // Download file
-            XLSX.writeFile(wb, filename);
-
-            this.showSuccessMessage(`Downloaded ${tenants.length} tenant(s) to ${filename}`);
-        } catch (error) {
-            console.error('Error downloading Excel:', error);
-            alert('Failed to download Excel file: ' + error.message);
-        }
+  /**
+   * Handle Excel file upload for bulk tenant update
+   */
+  async handleExcelUpload(event) {
+    // Check admin permission
+    if (!isAdmin()) {
+      alert("Only administrators can upload tenant data");
+      return;
     }
 
-    /**
-     * Handle Excel file upload for bulk tenant update
-     */
-    async handleExcelUpload(event) {
-        // Check admin permission
-        if (!isAdmin()) {
-            alert('Only administrators can upload tenant data');
-            return;
-        }
+    const file = event.target.files[0];
+    if (!file) return;
 
-        const file = event.target.files[0];
-        if (!file) return;
+    // Reset file input so same file can be uploaded again
+    event.target.value = "";
 
-        // Reset file input so same file can be uploaded again
-        event.target.value = '';
+    if (!this.selectedProperty) {
+      alert("Please select a property first");
+      return;
+    }
 
-        if (!this.selectedProperty) {
-            alert('Please select a property first');
-            return;
-        }
+    try {
+      const reader = new FileReader();
 
+      reader.onload = async (e) => {
         try {
-            const reader = new FileReader();
+          // Parse Excel file
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
 
-            reader.onload = async (e) => {
-                try {
-                    // Parse Excel file
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
+          // Get first sheet
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
 
-                    // Get first sheet
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                    // Convert to JSON
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          if (jsonData.length === 0) {
+            alert("No data found in Excel file");
+            return;
+          }
 
-                    if (jsonData.length === 0) {
-                        alert('No data found in Excel file');
-                        return;
-                    }
+          // Validate and prepare tenant updates
+          const updates = [];
+          const errors = [];
 
-                    // Validate and prepare tenant updates
-                    const updates = [];
-                    const errors = [];
+          jsonData.forEach((row, index) => {
+            const rowNum = index + 2; // +2 for Excel row (header is row 1)
 
-                    jsonData.forEach((row, index) => {
-                        const rowNum = index + 2; // +2 for Excel row (header is row 1)
+            // Validate required fields
+            if (!row["Tenant ID"]) {
+              errors.push(`Row ${rowNum}: Missing Tenant ID`);
+              return;
+            }
+            if (!row["Name"]) {
+              errors.push(`Row ${rowNum}: Missing Name`);
+              return;
+            }
+            if (!row["Passport Number"]) {
+              errors.push(`Row ${rowNum}: Missing Passport Number`);
+              return;
+            }
 
-                        // Validate required fields
-                        if (!row['Tenant ID']) {
-                            errors.push(`Row ${rowNum}: Missing Tenant ID`);
-                            return;
-                        }
-                        if (!row['Name']) {
-                            errors.push(`Row ${rowNum}: Missing Name`);
-                            return;
-                        }
-                        if (!row['Passport Number']) {
-                            errors.push(`Row ${rowNum}: Missing Passport Number`);
-                            return;
-                        }
-
-                        // Prepare update object
-                        const update = {
-                            tenantId: row['Tenant ID'],
-                            name: row['Name'],
-                            nickname: row['Nickname'] || null,
-                            fin: row['FIN/NRIC'] || null,
-                            passportNumber: row['Passport Number'],
-                            phoneNumber: row['Phone Number'] || null,
-                            facebookUrl: row['Facebook URL'] || null,
-                            registrationStatus: row['Registration Status'] || 'unregistered',
-                            rent: row['Monthly Rent (SGD)'] ? parseFloat(row['Monthly Rent (SGD)']) : null,
-                            deposit: row['Deposit Amount (SGD)'] ? parseFloat(row['Deposit Amount (SGD)']) : null,
-                            depositReceiver: row['Deposit Receiver'] || null,
-                            avatar: row['Avatar URL'] || null,
-                            signature: row['Signature URL'] || null,
-                            // Property assignment info
-                            propertyId: row['Property ID'] || this.selectedProperty,
-                            room: row['Room'] || null,
-                            moveinDate: row['Move-in Date'] || null,
-                            moveoutDate: row['Move-out Date'] || null,
-                            isMainTenant: row['Is Main Tenant'] === 'Yes'
-                        };
-
-                        updates.push(update);
-                    });
-
-                    if (errors.length > 0) {
-                        alert('Validation errors:\n\n' + errors.join('\n'));
-                        return;
-                    }
-
-                    // Confirm before updating
-                    const confirmed = confirm(
-                        `Upload ${updates.length} tenant update(s)?\n\n` +
-                        'This will update existing tenants based on Tenant ID.\n' +
-                        'Make sure the data is correct before proceeding.'
-                    );
-
-                    if (!confirmed) return;
-
-                    // Send bulk update to backend
-                    await this.bulkUpdateTenants(updates);
-
-                } catch (parseError) {
-                    console.error('Error parsing Excel:', parseError);
-                    alert('Failed to parse Excel file: ' + parseError.message);
-                }
+            // Prepare update object
+            const update = {
+              tenantId: row["Tenant ID"],
+              name: row["Name"],
+              nickname: row["Nickname"] || null,
+              fin: row["FIN/NRIC"] || null,
+              passportNumber: row["Passport Number"],
+              phoneNumber: row["Phone Number"] || null,
+              facebookUrl: row["Facebook URL"] || null,
+              registrationStatus: row["Registration Status"] || "unregistered",
+              rent: row["Monthly Rent (SGD)"]
+                ? parseFloat(row["Monthly Rent (SGD)"])
+                : null,
+              deposit: row["Deposit Amount (SGD)"]
+                ? parseFloat(row["Deposit Amount (SGD)"])
+                : null,
+              depositReceiver: row["Deposit Receiver"] || null,
+              avatar: row["Avatar URL"] || null,
+              signature: row["Signature URL"] || null,
+              // Property assignment info
+              propertyId: row["Property ID"] || this.selectedProperty,
+              room: row["Room"] || null,
+              moveinDate: row["Move-in Date"] || null,
+              moveoutDate: row["Move-out Date"] || null,
+              isMainTenant: row["Is Main Tenant"] === "Yes",
             };
 
-            reader.readAsArrayBuffer(file);
+            updates.push(update);
+          });
 
-        } catch (error) {
-            console.error('Error uploading Excel:', error);
-            alert('Failed to upload Excel file: ' + error.message);
+          if (errors.length > 0) {
+            alert("Validation errors:\n\n" + errors.join("\n"));
+            return;
+          }
+
+          // Confirm before updating
+          const confirmed = confirm(
+            `Upload ${updates.length} tenant update(s)?\n\n` +
+              "This will update existing tenants based on Tenant ID.\n" +
+              "Make sure the data is correct before proceeding."
+          );
+
+          if (!confirmed) return;
+
+          // Send bulk update to backend
+          await this.bulkUpdateTenants(updates);
+        } catch (parseError) {
+          console.error("Error parsing Excel:", parseError);
+          alert("Failed to parse Excel file: " + parseError.message);
         }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error("Error uploading Excel:", error);
+      alert("Failed to upload Excel file: " + error.message);
     }
+  }
 
-    /**
-     * Send bulk tenant updates to backend
-     */
-    async bulkUpdateTenants(updates) {
-        try {
-            const response = await API.post(API_CONFIG.ENDPOINTS.TENANTS + '/bulk-update', {
-                updates: updates
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.showSuccessMessage(
-                    `Successfully updated ${result.updatedCount || updates.length} tenant(s)`
-                );
-
-                // Reload tenants for current property
-                if (this.selectedProperty === 'UNASSIGNED') {
-                    await this.loadUnassignedTenants();
-                } else {
-                    await this.loadTenantsForProperty(this.selectedProperty);
-                }
-            } else {
-                alert('Failed to update tenants: ' + (result.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Error in bulk update:', error);
-            alert('Failed to update tenants: ' + error.message);
+  /**
+   * Send bulk tenant updates to backend
+   */
+  async bulkUpdateTenants(updates) {
+    try {
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.TENANTS + "/bulk-update",
+        {
+          updates: updates,
         }
-    }
+      );
 
-    /**
-     * Show success message helper
-     */
-    showSuccessMessage(message) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
-        messageDiv.style.cssText = `
+      const result = await response.json();
+
+      if (result.success) {
+        this.showSuccessMessage(
+          `Successfully updated ${
+            result.updatedCount || updates.length
+          } tenant(s)`
+        );
+
+        // Reload tenants for current property
+        if (this.selectedProperty === "UNASSIGNED") {
+          await this.loadUnassignedTenants();
+        } else {
+          await this.loadTenantsForProperty(this.selectedProperty);
+        }
+      } else {
+        alert("Failed to update tenants: " + (result.error || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error in bulk update:", error);
+      alert("Failed to update tenants: " + error.message);
+    }
+  }
+
+  /**
+   * Show success message helper
+   */
+  showSuccessMessage(message) {
+    const messageDiv = document.createElement("div");
+    messageDiv.className =
+      "alert alert-success alert-dismissible fade show position-fixed";
+    messageDiv.style.cssText = `
             top: 20px;
             right: 20px;
             z-index: 9999;
             min-width: 300px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;
-        messageDiv.innerHTML = `
+    messageDiv.innerHTML = `
             <i class="bi bi-check-circle me-2"></i>
             ${message}
             <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
 
-        document.body.appendChild(messageDiv);
+    document.body.appendChild(messageDiv);
 
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.remove();
-            }
-        }, 5000);
-    }
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.remove();
+      }
+    }, 5000);
+  }
 }
 
 // Export for use in other modules
