@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+
 /**
  * Tenant Management Component (v2 - fixed update endpoint)
  * Handles tenant CRUD operations
