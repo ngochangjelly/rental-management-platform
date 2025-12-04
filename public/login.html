@@ -156,27 +156,27 @@
             loginForm.addEventListener('submit', async (e) => {
                 console.log('Form submitted');
                 e.preventDefault();
-                
+
                 const formData = new FormData(e.target);
                 const username = formData.get('username');
                 const password = formData.get('password');
                 const rememberMe = formData.get('rememberMe') === 'on';
-                
-                console.log('Attempting login with username:', username);
-                
+
+                console.log('Attempting login with username:', username, 'Remember me:', rememberMe);
+
                 // Hide previous errors and show loading
                 if (errorAlert) {
                     errorAlert.style.display = 'none';
                 }
-                
+
                 if (loginButton) {
                     loginButton.disabled = true;
                     loginButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing In...';
                 }
-                
+
                 try {
                     console.log('Sending login request to', buildApiUrl(API_CONFIG.ENDPOINTS.LOGIN));
-                    const response = await API.post(API_CONFIG.ENDPOINTS.LOGIN, { username, password });
+                    const response = await API.post(API_CONFIG.ENDPOINTS.LOGIN, { username, password, rememberMe });
                     
                     console.log('Response status:', response.status);
                     console.log('Response headers:', response.headers);
