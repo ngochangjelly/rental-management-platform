@@ -230,7 +230,7 @@ class FinancialReportsComponent {
                }')">
             ${property.propertyImage ? `
             <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
+              ${isSelected ? '<div class="position-absolute top-0 end-0 m-2" style="background: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"><i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem; margin: 0; padding: 0;"></i></div>' : ''}
             </div>
             ` : ''}
             <div class="card-header d-flex justify-content-between align-items-center bg-white">
@@ -251,7 +251,7 @@ class FinancialReportsComponent {
                 </div>
               </div>
               ${!property.propertyImage && isSelected
-                ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
+                ? '<div style="background: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem;"></i></div>'
                 : ""
               }
             </div>
