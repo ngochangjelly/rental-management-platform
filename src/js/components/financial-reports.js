@@ -294,6 +294,8 @@ class FinancialReportsComponent {
         .property-card {
           min-height: 200px;
           overflow: hidden;
+          border: 2px solid transparent;
+          transition: all 0.2s ease;
         }
         .property-card:hover {
           transform: translateY(-2px);
@@ -301,8 +303,17 @@ class FinancialReportsComponent {
           border-color: #0d6efd !important;
         }
         .property-card.border-primary {
-          border-width: 2px !important;
-          box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2) !important;
+          border-width: 3px !important;
+          border-color: #0d6efd !important;
+          box-shadow: 0 6px 20px rgba(13, 110, 253, 0.3) !important;
+          background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.02) 100%);
+        }
+        .property-card.border-primary:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 10px 25px rgba(13, 110, 253, 0.4) !important;
+        }
+        .property-card.border-primary .card-header {
+          background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.05) 100%) !important;
         }
         .property-card .card-header,
         .property-card .card-body {
