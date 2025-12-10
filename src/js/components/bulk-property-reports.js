@@ -634,8 +634,8 @@ class BulkPropertyReportsComponent {
       `;
     }
 
-    // Create VND reference section HTML (completely separate)
-    let vndReferenceHtml = this.renderAllVNDReferences(settlements);
+    // Create VND reference section HTML (completely separate) - pass reports directly
+    let vndReferenceHtml = this.renderAllVNDReferences(reports, investorTotals);
 
     // Create settlement instructions HTML
     let settlementHtml = "";
@@ -1677,31 +1677,65 @@ class BulkPropertyReportsComponent {
     return vndBreakdown;
   }
 
-  renderAllVNDReferences(settlements) {
-    // Collect all UNIQUE VND transactions from all settlements
+  renderAllVNDReferences(reports, investorTotals) {
+    // Collect all UNIQUE VND transactions from ALL reports
     const vndTransactionMap = new Map(); // Use map to deduplicate
 
-    settlements.forEach(settlement => {
-      if (!settlement.propertyBreakdown) return;
+    reports.forEach(reportItem => {
+      if (!reportItem.report) return;
 
-      settlement.propertyBreakdown.forEach(prop => {
-        if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
-          prop.vndBreakdown.forEach(vnd => {
-            // Create unique key: propertyId + item + personInCharge + date + amount
-            const uniqueKey = `${prop.propertyId}-${vnd.item}-${vnd.personInCharge}-${vnd.date}-${vnd.sgdAmount}`;
+      const report = reportItem.report;
+      const propertyId = reportItem.propertyId;
+      const propertyName = reportItem.propertyData?.address || propertyId;
 
-            // Only add if not already in map (deduplicate)
+      // Collect VND income transactions
+      if (report.income && Array.isArray(report.income)) {
+        report.income.forEach(item => {
+          if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
+            const vndAmount = item.amount * item.exchangeRate;
+            const uniqueKey = `${propertyId}-${item.item}-${item.personInCharge}-${item.date}-${item.amount}`;
+
             if (!vndTransactionMap.has(uniqueKey)) {
               vndTransactionMap.set(uniqueKey, {
-                ...vnd,
-                propertyId: prop.propertyId,
-                propertyName: prop.propertyName,
-                investorTotalsMap: settlement.investorTotalsMap
+                type: 'income',
+                item: item.item,
+                personInCharge: item.personInCharge,
+                paidBy: item.paidBy,
+                date: item.date,
+                exchangeRate: item.exchangeRate,
+                sgdAmount: item.amount,
+                vndAmount: vndAmount,
+                propertyId: propertyId,
+                propertyName: propertyName
               });
             }
-          });
-        }
-      });
+          }
+        });
+      }
+
+      // Collect VND expense transactions
+      if (report.expenses && Array.isArray(report.expenses)) {
+        report.expenses.forEach(item => {
+          if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
+            const vndAmount = item.amount * item.exchangeRate;
+            const uniqueKey = `${propertyId}-${item.item}-${item.personInCharge}-${item.date}-${item.amount}`;
+
+            if (!vndTransactionMap.has(uniqueKey)) {
+              vndTransactionMap.set(uniqueKey, {
+                type: 'expense',
+                item: item.item,
+                personInCharge: item.personInCharge,
+                date: item.date,
+                exchangeRate: item.exchangeRate,
+                sgdAmount: item.amount,
+                vndAmount: vndAmount,
+                propertyId: propertyId,
+                propertyName: propertyName
+              });
+            }
+          }
+        });
+      }
     });
 
     if (vndTransactionMap.size === 0) {
@@ -1712,9 +1746,9 @@ class BulkPropertyReportsComponent {
     const allVndData = Array.from(vndTransactionMap.values());
 
     // Helper to get investor name
-    const getInvestorName = (investorId, investorTotalsMap) => {
-      if (investorTotalsMap && investorTotalsMap.has(investorId)) {
-        return investorTotalsMap.get(investorId).investorName;
+    const getInvestorName = (investorId) => {
+      if (investorTotals && investorTotals.has(investorId)) {
+        return investorTotals.get(investorId).investorName;
       }
       return investorId;
     };
@@ -1760,7 +1794,7 @@ class BulkPropertyReportsComponent {
           ? new Date(txn.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
           : "No date";
 
-        const recipientName = getInvestorName(txn.personInCharge, txn.investorTotalsMap);
+        const recipientName = getInvestorName(txn.personInCharge);
 
         html += `
           <div class="col-md-6 mb-3">
