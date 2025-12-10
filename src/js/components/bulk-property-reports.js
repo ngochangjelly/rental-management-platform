@@ -387,10 +387,8 @@ class BulkPropertyReportsComponent {
                           expensesPaidByInvestor -
                           incomeReceivedByInvestor;
 
-                        // Get multi-currency data from transaction if available
-                        const sgdAmount = existingTransaction?.sgdAmount !== undefined ? existingTransaction.sgdAmount : final;
-                        const vndAmount = existingTransaction?.vndAmount !== undefined ? existingTransaction.vndAmount : 0;
-                        const currencies = existingTransaction?.currencies || null;
+                        // Use final amount as SGD amount (everything converted to SGD)
+                        const sgdAmount = final;
 
                         return {
                           investorName: investor.name || investor.username,
@@ -404,8 +402,6 @@ class BulkPropertyReportsComponent {
                           alreadyReceived: alreadyReceived,
                           final: final,
                           sgdAmount: sgdAmount,
-                          vndAmount: vndAmount,
-                          currencies: currencies,
                         };
                       })
                       .filter((inv) => inv !== null); // Remove investors that don't have this property
@@ -503,7 +499,7 @@ class BulkPropertyReportsComponent {
     // Calculate total profit and aggregate investor data
     let totalProfit = 0;
     let reportCount = 0;
-    const investorTotals = new Map(); // Map<investorId, {name, totalFinal, totalSGD, totalVND, properties: []}>
+    const investorTotals = new Map(); // Map<investorId, {name, totalFinal, totalSGD, properties: []}>
 
     reports.forEach((r) => {
       if (r.report) {
@@ -522,19 +518,16 @@ class BulkPropertyReportsComponent {
                 avatar: inv.avatar || null,
                 totalFinal: 0,
                 totalSGD: 0,
-                totalVND: 0,
                 properties: [],
               });
             }
             const investorData = investorTotals.get(inv.investorId);
             investorData.totalFinal += inv.final;
             investorData.totalSGD += inv.sgdAmount || 0;
-            investorData.totalVND += inv.vndAmount || 0;
             investorData.properties.push({
               propertyId: r.propertyId,
               final: inv.final,
               sgdAmount: inv.sgdAmount || 0,
-              vndAmount: inv.vndAmount || 0,
               sharePercentage: inv.sharePercentage,
             });
           });
@@ -550,10 +543,8 @@ class BulkPropertyReportsComponent {
       }
     });
 
-    // Calculate settlement transactions between investors (separate for SGD and VND)
-    const sgdSettlements = this.calculateSettlementsForCurrency(investorTotals, propertyMap, 'SGD');
-    const vndSettlements = this.calculateSettlementsForCurrency(investorTotals, propertyMap, 'VND');
-    const settlements = [...sgdSettlements, ...vndSettlements];
+    // Calculate settlement transactions between investors (SGD only)
+    const settlements = this.calculateSettlementsForCurrency(investorTotals, propertyMap, reports, 'SGD');
 
     // Create investor summary HTML
     let investorSummaryHtml = "";
@@ -576,8 +567,7 @@ class BulkPropertyReportsComponent {
                   <tr>
                     <th class="ps-3">Investor</th>
                     <th class="text-center">Properties</th>
-                    <th class="text-end pe-3">SGD Amount</th>
-                    <th class="text-end pe-3">VND Amount</th>
+                    <th class="text-end pe-3">Amount (SGD)</th>
                     <th class="text-end pe-3">Status</th>
                   </tr>
                 </thead>
@@ -586,7 +576,6 @@ class BulkPropertyReportsComponent {
                     .map(
                       (inv) => {
                         const hasSGD = Math.abs(inv.totalSGD) >= 0.01;
-                        const hasVND = Math.abs(inv.totalVND) >= 0.01;
                         return `
                     <tr>
                       <td class="ps-3">
@@ -609,19 +598,10 @@ class BulkPropertyReportsComponent {
                         ` : '<span class="text-muted">-</span>'}
                       </td>
                       <td class="text-end pe-3">
-                        ${hasVND ? `
-                        <span class="fs-6 fw-bold ${
-                          inv.totalVND >= 0 ? "text-success" : "text-danger"
-                        }">
-                          ₫${inv.totalVND.toLocaleString('vi-VN', {maximumFractionDigits: 0})}
-                        </span>
-                        ` : '<span class="text-muted">-</span>'}
-                      </td>
-                      <td class="text-end pe-3">
                         ${
-                          (hasSGD && inv.totalSGD > 0) || (hasVND && inv.totalVND > 0)
+                          hasSGD && inv.totalSGD > 0
                             ? '<span class="badge bg-success">Will Receive</span>'
-                            : (hasSGD && inv.totalSGD < 0) || (hasVND && inv.totalVND < 0)
+                            : hasSGD && inv.totalSGD < 0
                             ? '<span class="badge bg-danger">Must Pay</span>'
                             : '<span class="badge bg-secondary">Balanced</span>'
                         }
@@ -634,10 +614,10 @@ class BulkPropertyReportsComponent {
                 </tbody>
                 <tfoot class="table-light">
                   <tr>
-                    <td colspan="5" class="text-center py-2">
+                    <td colspan="4" class="text-center py-2">
                       <small class="text-muted">
                         <i class="bi bi-info-circle me-1"></i>
-                        Positive amounts indicate investor will receive money. Negative amounts indicate investor must pay. Both SGD and VND are distributed separately to share exchange rate risk.
+                        Positive amounts indicate investor will receive money. Negative amounts indicate investor must pay.
                       </small>
                     </td>
                   </tr>
@@ -762,27 +742,43 @@ class BulkPropertyReportsComponent {
                           ${settlement.propertyBreakdown
                             .map((prop) => {
                               const isNegative = prop.amount < 0;
+                              const isPositive = prop.amount > 0;
                               const displayAmount = Math.abs(prop.amount);
+
+                              // Get VND breakdown if available
+                              let vndBreakdownHtml = '';
+                              if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
+                                vndBreakdownHtml = `
+                                  <div class="ms-3 mt-1 ps-2 border-start border-2 border-warning" style="font-size: 0.85em;">
+                                    ${prop.vndBreakdown.map(vnd => `
+                                      <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.9em;">
+                                        <span>
+                                          <i class="bi bi-info-circle me-1"></i>
+                                          ${escapeHtml(vnd.description)} @ ${vnd.exchangeRate.toLocaleString('vi-VN')}
+                                        </span>
+                                        <span class="text-info">₫${vnd.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</span>
+                                      </div>
+                                    `).join('')}
+                                  </div>
+                                `;
+                              }
+
                               return `
-                            <div class="d-flex justify-content-between align-items-center py-1">
-                              <small class="text-muted">
-                                <i class="bi bi-building me-1"></i>
-                                ${escapeHtml(
-                                  prop.propertyName || prop.propertyId
-                                )}
-                                ${
-                                  isNegative
-                                    ? '<span class="text-danger ms-1">(reverse)</span>'
-                                    : ""
-                                }
-                              </small>
-                              <small class="badge ${
-                                isNegative ? "bg-danger" : "bg-secondary"
-                              }">${isNegative ? "-" : ""}${
-                                settlement.currency === 'VND'
-                                  ? `₫${displayAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
-                                  : `$${displayAmount.toFixed(2)}`
-                              }</small>
+                            <div>
+                              <div class="d-flex justify-content-between align-items-center py-1">
+                                <small class="text-muted">
+                                  <i class="bi bi-building me-1"></i>
+                                  ${escapeHtml(
+                                    prop.propertyName || prop.propertyId
+                                  )}
+                                </small>
+                                <small class="badge ${
+                                  isNegative ? "bg-danger" : isPositive ? "bg-success" : "bg-secondary"
+                                } d-flex align-items-center gap-1">
+                                  ${isNegative ? '<i class="bi bi-dash-circle-fill"></i> -' : isPositive ? '<i class="bi bi-plus-circle-fill"></i> +' : ''}$${displayAmount.toFixed(2)}
+                                </small>
+                              </div>
+                              ${vndBreakdownHtml}
                             </div>
                           `;
                             })
@@ -792,21 +788,13 @@ class BulkPropertyReportsComponent {
                               <i class="bi bi-calculator me-1"></i>
                               Net Amount to Transfer
                             </small>
-                            <small class="badge bg-warning text-dark">${
-                              settlement.currency === 'VND'
-                                ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
-                                : `$${settlement.amount.toFixed(2)}`
-                            }</small>
+                            <small class="badge bg-warning text-dark">$${settlement.amount.toFixed(2)}</small>
                           </div>
                         </div>
                       `
                           : `
                         <small class="text-muted d-block mt-1">
-                          ${escapeHtml(settlement.fromName)} pays ${
-                            settlement.currency === 'VND'
-                              ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
-                              : `$${settlement.amount.toFixed(2)}`
-                          } to ${escapeHtml(settlement.toName)}
+                          ${escapeHtml(settlement.fromName)} pays $${settlement.amount.toFixed(2)} to ${escapeHtml(settlement.toName)}
                         </small>
                       `
                       }
@@ -828,16 +816,9 @@ class BulkPropertyReportsComponent {
                   <li><strong>Total Transactions:</strong> ${
                     settlements.length
                   }</li>
-                  <li><strong>SGD Transactions:</strong> ${
-                    sgdSettlements.length
-                  } (Total: $${sgdSettlements
+                  <li><strong>Total Amount:</strong> $${settlements
                     .reduce((sum, s) => sum + s.amount, 0)
-                    .toFixed(2)})</li>
-                  <li><strong>VND Transactions:</strong> ${
-                    vndSettlements.length
-                  } (Total: ₫${vndSettlements
-                    .reduce((sum, s) => sum + s.amount, 0)
-                    .toLocaleString('vi-VN', {maximumFractionDigits: 0})})</li>
+                    .toFixed(2)}</li>
                 </ul>
               </div>
             `
@@ -990,8 +971,7 @@ class BulkPropertyReportsComponent {
                               <tr>
                                 <th>Investor</th>
                                 <th class="text-end">Share %</th>
-                                <th class="text-end">SGD</th>
-                                <th class="text-end">VND</th>
+                                <th class="text-end">Amount (SGD)</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -999,7 +979,6 @@ class BulkPropertyReportsComponent {
                                 .map(
                                   (inv) => {
                                     const hasSGD = Math.abs(inv.sgdAmount || 0) >= 0.01;
-                                    const hasVND = Math.abs(inv.vndAmount || 0) >= 0.01;
                                     return `
                                 <tr>
                                   <td>
@@ -1018,17 +997,6 @@ class BulkPropertyReportsComponent {
                                         : "text-danger"
                                     }">
                                       $${inv.sgdAmount.toFixed(2)}
-                                    </small>
-                                    ` : '<small class="text-muted">-</small>'}
-                                  </td>
-                                  <td class="text-end">
-                                    ${hasVND ? `
-                                    <small class="fw-bold ${
-                                      inv.vndAmount >= 0
-                                        ? "text-success"
-                                        : "text-danger"
-                                    }">
-                                      ₫${inv.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}
                                     </small>
                                     ` : '<small class="text-muted">-</small>'}
                                   </td>
@@ -1063,11 +1031,7 @@ class BulkPropertyReportsComponent {
                                     <strong class="text-success">${escapeHtml(
                                       settlement.toName
                                     )}</strong>
-                                    <span class="badge bg-warning text-dark ms-2">${
-                                      settlement.currency === 'VND'
-                                        ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
-                                        : `$${settlement.amount.toFixed(2)}`
-                                    }</span>
+                                    <span class="badge bg-warning text-dark ms-2">$${settlement.amount.toFixed(2)}</span>
                                   </small>
                                 </div>
                               `
@@ -1244,7 +1208,7 @@ class BulkPropertyReportsComponent {
   calculatePropertySettlements(investors) {
     const settlements = [];
 
-    // Calculate settlements for SGD
+    // Calculate settlements for SGD (all amounts in SGD)
     const sgdInvestors = investors.filter(
       (inv) => Math.abs(inv.sgdAmount || 0) >= 0.01
     );
@@ -1291,59 +1255,22 @@ class BulkPropertyReportsComponent {
       }
     }
 
-    // Calculate settlements for VND
-    const vndInvestors = investors.filter(
-      (inv) => Math.abs(inv.vndAmount || 0) >= 0.01
-    );
-    if (vndInvestors.length > 0) {
-      const vndCreditors = vndInvestors
-        .filter((inv) => inv.vndAmount > 0)
-        .map((inv) => ({ ...inv, remaining: inv.vndAmount }))
-        .sort((a, b) => b.remaining - a.remaining);
-
-      const vndDebtors = vndInvestors
-        .filter((inv) => inv.vndAmount < 0)
-        .map((inv) => ({ ...inv, remaining: Math.abs(inv.vndAmount) }))
-        .sort((a, b) => b.remaining - a.remaining);
-
-      let creditorIndex = 0;
-      let debtorIndex = 0;
-
-      while (creditorIndex < vndCreditors.length && debtorIndex < vndDebtors.length) {
-        const creditor = vndCreditors[creditorIndex];
-        const debtor = vndDebtors[debtorIndex];
-
-        const settlementAmount = Math.min(creditor.remaining, debtor.remaining);
-
-        if (settlementAmount >= 0.01) {
-          settlements.push({
-            fromId: debtor.investorId,
-            fromName: debtor.investorName,
-            toId: creditor.investorId,
-            toName: creditor.investorName,
-            amount: settlementAmount,
-            currency: 'VND',
-          });
-        }
-
-        creditor.remaining -= settlementAmount;
-        debtor.remaining -= settlementAmount;
-
-        if (creditor.remaining < 0.01) {
-          creditorIndex++;
-        }
-        if (debtor.remaining < 0.01) {
-          debtorIndex++;
-        }
-      }
-    }
-
     return settlements;
   }
 
-  calculateSettlementsForCurrency(investorTotals, propertyMap, currency) {
+  calculateSettlementsForCurrency(investorTotals, propertyMap, reports, currency) {
     // Build settlements based on property-level relationships for a specific currency
     const settlementMap = new Map(); // Key: "fromId->toId", Value: {settlement data}
+
+    // Build a map of property reports for easy access
+    const propertyReportsMap = new Map();
+    if (reports && Array.isArray(reports)) {
+      reports.forEach(r => {
+        if (r.report) {
+          propertyReportsMap.set(r.propertyId, r.report);
+        }
+      });
+    }
 
     // Get all unique property IDs
     const propertyIds = new Set();
@@ -1362,7 +1289,7 @@ class BulkPropertyReportsComponent {
           (p) => p.propertyId === propertyId
         );
         if (prop) {
-          const finalAmount = currency === 'SGD' ? (prop.sgdAmount || 0) : (prop.vndAmount || 0);
+          const finalAmount = prop.sgdAmount || 0; // All amounts in SGD
           propertyInvestors.push({
             investorId: investor.investorId,
             investorName: investor.investorName,
@@ -1413,12 +1340,16 @@ class BulkPropertyReportsComponent {
           const settlement = settlementMap.get(settlementKey);
           const propertyData = propertyMap ? propertyMap.get(propertyId) : null;
 
+          // Get VND breakdown for this property
+          const vndBreakdown = this.getVNDBreakdownForProperty(propertyId, propertyReportsMap);
+
           settlement.propertyBreakdown.push({
             propertyId: propertyId,
             propertyName: propertyData
               ? propertyData.address || propertyId
               : propertyId,
             amount: settlementAmount,
+            vndBreakdown: vndBreakdown, // Add VND reference info
           });
           settlement.amount += settlementAmount;
 
@@ -1706,6 +1637,48 @@ class BulkPropertyReportsComponent {
     return nettedSettlements
       .filter((s) => s.amount >= 0.01)
       .sort((a, b) => b.amount - a.amount);
+  }
+
+  getVNDBreakdownForProperty(propertyId, propertyReportsMap) {
+    // Get VND transactions from the property report for reference
+    const report = propertyReportsMap.get(propertyId);
+    if (!report) return [];
+
+    const vndBreakdown = [];
+
+    // Collect VND income items
+    if (report.income && Array.isArray(report.income)) {
+      report.income.forEach(item => {
+        if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
+          const vndAmount = item.amount * item.exchangeRate;
+          vndBreakdown.push({
+            type: 'income',
+            description: `Income: ${item.item}`,
+            exchangeRate: item.exchangeRate,
+            sgdAmount: item.amount,
+            vndAmount: vndAmount
+          });
+        }
+      });
+    }
+
+    // Collect VND expense items
+    if (report.expenses && Array.isArray(report.expenses)) {
+      report.expenses.forEach(item => {
+        if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
+          const vndAmount = item.amount * item.exchangeRate;
+          vndBreakdown.push({
+            type: 'expense',
+            description: `Expense: ${item.item}`,
+            exchangeRate: item.exchangeRate,
+            sgdAmount: item.amount,
+            vndAmount: vndAmount
+          });
+        }
+      });
+    }
+
+    return vndBreakdown;
   }
 
   getOptimizedAvatarUrl(url, size = "small") {

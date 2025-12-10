@@ -14,6 +14,7 @@ import './components/financial-reports.js';
 import './components/bill-management.js'; // Bill Management component
 import './components/bulk-property-reports.js';
 import './components/investor-management.js';
+import './components/user-management.js'; // User Management component
 import './components/ac-clean-management.js'; // AC Clean Management component
 import './components/ac-service-company.js'; // AC Service Company component
 import './dashboard-controller.js';

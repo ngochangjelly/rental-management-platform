@@ -46,6 +46,10 @@ const API_CONFIG = {
     INVESTOR_ADD_PROPERTY: (investorId) => `/api/investors/${investorId}/properties`,
     INVESTOR_REMOVE_PROPERTY: (investorId, propertyId) => `/api/investors/${investorId}/properties/${propertyId}`,
 
+    // Users
+    USERS: "/api/users",
+    USER_BY_ID: (id) => `/api/users/${id}`,
+
     // Financial Reports
     FINANCIAL_REPORTS_BY_PROPERTY: (propertyId) => `/api/financial-reports/property/${propertyId}`,
     FINANCIAL_REPORT: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}`,

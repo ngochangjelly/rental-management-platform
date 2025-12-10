@@ -191,12 +191,26 @@ class DashboardController {
           window.investorManager = this.components.investorManagement;
         }
         break;
+      case "users":
+        if (!this.components.userManagement) {
+          this.components.userManagement = new UserManagement();
+          // Make it globally accessible for button onclick handlers
+          window.userManagement = this.components.userManagement;
+        }
+        break;
     }
   }
 
   async loadUserInfo() {
-    // Placeholder - would load from session/API
+    // Load user info from API and show/hide admin-only features
     const userInfoEl = document.getElementById("userInfo");
+
+    // Check if user is admin and show/hide users nav item
+    const user = getCurrentUser();
+    const usersNavItem = document.getElementById('usersNavItem');
+    if (usersNavItem && user && user.role === 'admin') {
+      usersNavItem.style.display = 'block';
+    }
     if (userInfoEl) {
       userInfoEl.textContent = "Admin User";
     }

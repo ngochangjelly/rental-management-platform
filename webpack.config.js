@@ -82,6 +82,8 @@ module.exports = {
     host: '0.0.0.0', // Allow access from network
     port: 3000,
     open: true,
+    hot: true, // Enable hot module replacement
+    liveReload: true, // Enable live reload
     historyApiFallback: {
       rewrites: [
         { from: /^\/$/, to: '/index.html' },
@@ -99,7 +101,14 @@ module.exports = {
         secure: false,
         logLevel: 'debug'
       }
-    ]
+    ],
+    // Preserve client state during HMR
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
   },
   resolve: {
     alias: {

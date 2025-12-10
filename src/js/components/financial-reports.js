@@ -1,4 +1,6 @@
 // Note: showToast and escapeHtml are expected to be available globally
+import html2canvas from 'html2canvas';
+
 /**
  * Financial Reports Component
  * Handles monthly financial report management with income, expenses, and investor calculations
@@ -146,6 +148,17 @@ class FinancialReportsComponent {
       });
     }
 
+    // Screenshot functionality
+    const screenshotBtn = document.getElementById("captureScreenshotBtn");
+    if (screenshotBtn) {
+      screenshotBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!screenshotBtn.disabled) {
+          this.captureScreenshot();
+        }
+      });
+    }
+
     // Close/Reopen functionality
     const closeBtn = document.getElementById("closeMonthBtn");
     const reopenBtn = document.getElementById("reopenMonthBtn");
@@ -230,7 +243,7 @@ class FinancialReportsComponent {
                }')">
             ${property.propertyImage ? `
             <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-              ${isSelected ? '<div class="position-absolute top-0 end-0 m-2" style="background: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"><i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem; margin: 0; padding: 0;"></i></div>' : ''}
+              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
             </div>
             ` : ''}
             <div class="card-header d-flex justify-content-between align-items-center bg-white">
@@ -251,7 +264,7 @@ class FinancialReportsComponent {
                 </div>
               </div>
               ${!property.propertyImage && isSelected
-                ? '<div style="background: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem;"></i></div>'
+                ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
                 : ""
               }
             </div>
@@ -294,37 +307,13 @@ class FinancialReportsComponent {
         .property-card {
           min-height: 200px;
           overflow: hidden;
-          border: 2px solid transparent;
-          transition: all 0.2s ease;
         }
         .property-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
-          border-color: #0d6efd !important;
         }
         .property-card.border-primary {
           border-width: 3px !important;
-          border-color: #0d6efd !important;
-          box-shadow: 0 6px 20px rgba(13, 110, 253, 0.3) !important;
-          background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.02) 100%);
-        }
-        .property-card.border-primary:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 10px 25px rgba(13, 110, 253, 0.4) !important;
-        }
-        .property-card.border-primary .card-header {
-          background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.05) 100%) !important;
-        }
-        .property-card .card-header,
-        .property-card .card-body {
-          border: none;
-          margin: 0;
-        }
-        .property-card .card-header {
-          border-radius: 0.375rem 0.375rem 0 0;
-        }
-        .property-card .card-body {
-          border-radius: 0 0 0.375rem 0.375rem;
         }
       `;
       document.head.appendChild(style);
@@ -586,6 +575,8 @@ class FinancialReportsComponent {
     }
 
     let total = 0;
+    let totalSGD = 0;
+    let totalVND = 0;
 
     // Create compact table format
     let html = `
@@ -607,6 +598,14 @@ class FinancialReportsComponent {
 
     this.currentReport.income.forEach((item, index) => {
       total += item.amount;
+
+      // Track currency totals
+      const currency = item.currency || 'SGD';
+      if (currency === 'VND') {
+        totalVND += item.amount;
+      } else {
+        totalSGD += item.amount;
+      }
 
       // Find investor name by ID (for income, show investor responsible instead of tenant)
       const investor = this.investors.find(
@@ -685,7 +684,7 @@ class FinancialReportsComponent {
           <td class="small border-0 align-middle text-center">
             ${this.renderCurrencyFlag(item.currency)}
           </td>
-          <td class="small border-0 align-middle text-end fw-bold text-success">$${item.amount.toFixed(
+          <td class="small border-0 align-middle text-end fw-bold text-success" style="font-size: 16px;">$${item.amount.toFixed(
             2
           )}</td>
           <td class="border-0 align-middle text-center actions-column">
@@ -728,7 +727,32 @@ class FinancialReportsComponent {
     `;
 
     incomeList.innerHTML = html;
-    if (totalIncomeEl) totalIncomeEl.textContent = `$${total.toFixed(2)}`;
+    if (totalIncomeEl) {
+      totalIncomeEl.textContent = `$${total.toFixed(2)}`;
+
+      // Display currency breakdown
+      let breakdownHtml = '';
+      if (totalSGD > 0 || totalVND > 0) {
+        breakdownHtml = '<div class="mt-2 small text-muted">';
+        if (totalSGD > 0) {
+          breakdownHtml += `<div class="d-flex justify-content-between"><span>🇸🇬 SGD:</span><span>$${totalSGD.toFixed(2)}</span></div>`;
+        }
+        if (totalVND > 0) {
+          breakdownHtml += `<div class="d-flex justify-content-between"><span>🇻🇳 VND:</span><span>$${totalVND.toFixed(2)}</span></div>`;
+        }
+        breakdownHtml += '</div>';
+      }
+
+      // Find or create breakdown container
+      let breakdownContainer = document.getElementById('incomeCurrencyBreakdown');
+      if (!breakdownContainer) {
+        // Create the breakdown container after the total income element
+        breakdownContainer = document.createElement('div');
+        breakdownContainer.id = 'incomeCurrencyBreakdown';
+        totalIncomeEl.parentElement.appendChild(breakdownContainer);
+      }
+      breakdownContainer.innerHTML = breakdownHtml;
+    }
 
     // Initialize tooltips
     this.initializeTooltips();
@@ -845,7 +869,7 @@ class FinancialReportsComponent {
               }
             </div>
           </td>
-          <td class="small border-0 align-middle text-end fw-bold text-danger">$${item.amount.toFixed(
+          <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size: 16px;">$${item.amount.toFixed(
             2
           )}</td>
           <td class="border-0 align-middle text-center actions-column">
@@ -945,8 +969,10 @@ class FinancialReportsComponent {
             <tr class="table-info">
               <th class="border-0 small">Investor</th>
               <th class="border-0 small text-center">Share %</th>
-              <th class="border-0 small text-end">SGD Amount</th>
-              <th class="border-0 small text-end">VND Amount</th>
+              <th class="border-0 small text-end">Profit Share</th>
+              <th class="border-0 small text-end">Paid</th>
+              <th class="border-0 small text-end">Received</th>
+              <th class="border-0 small text-end">Final</th>
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
@@ -958,26 +984,27 @@ class FinancialReportsComponent {
         (p) => p.propertyId === this.selectedProperty
       );
       const percentage = propertyData ? propertyData.percentage : 0;
-      const investorShare = (netProfit * percentage) / 100;
+      const profitShare = (netProfit * percentage) / 100;
 
-      // Find existing transaction data
-      const existingTransaction =
-        this.currentReport && this.currentReport.investorTransactions
-          ? this.currentReport.investorTransactions.find(
-              (t) => t.investorId === investor.investorId
-            )
-          : null;
-
-      // Get SGD and VND amounts from transaction data
-      const sgdAmount = existingTransaction && existingTransaction.sgdAmount !== undefined
-        ? existingTransaction.sgdAmount
-        : 0;
-      const vndAmount = existingTransaction && existingTransaction.vndAmount !== undefined
-        ? existingTransaction.vndAmount
+      // Calculate paid amount (expenses paid by this investor)
+      // Note: For expenses, the person who paid is stored in 'personInCharge' field
+      const paidAmount = this.currentReport && this.currentReport.expenses
+        ? this.currentReport.expenses
+            .filter(e => e.personInCharge === investor.investorId)
+            .reduce((sum, e) => sum + (e.amount || 0), 0)
         : 0;
 
-      const hasSGD = Math.abs(sgdAmount) >= 0.01;
-      const hasVND = Math.abs(vndAmount) >= 0.01;
+      // Calculate received amount (income received by this investor)
+      const receivedAmount = this.currentReport && this.currentReport.income
+        ? this.currentReport.income
+            .filter(i => i.personInCharge === investor.investorId)
+            .reduce((sum, i) => sum + (i.amount || 0), 0)
+        : 0;
+
+      // Calculate final amount (everything in SGD)
+      // Formula: Final = Profit Share + Paid - Received
+      // Always recalculate instead of using stored transaction data
+      const finalAmount = profitShare + paidAmount - receivedAmount;
 
       html += `
         <tr>
@@ -999,16 +1026,18 @@ class FinancialReportsComponent {
             </div>
           </td>
           <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
+          <td class="small border-0 align-middle text-end ${
+            profitShare >= 0 ? "text-primary" : "text-danger"
+          }" style="font-size: 16px;">$${profitShare.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end ${
+            paidAmount > 0 ? "text-warning" : "text-muted"
+          }" style="font-size: 16px;">$${paidAmount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end ${
+            receivedAmount > 0 ? "text-info" : "text-muted"
+          }" style="font-size: 16px;">$${receivedAmount.toFixed(2)}</td>
           <td class="small border-0 align-middle text-end fw-bold ${
-            sgdAmount >= 0 ? "text-success" : "text-danger"
-          }">
-            ${hasSGD ? `$${sgdAmount.toFixed(2)}` : '<span class="text-muted">-</span>'}
-          </td>
-          <td class="small border-0 align-middle text-end fw-bold ${
-            vndAmount >= 0 ? "text-success" : "text-danger"
-          }">
-            ${hasVND ? `₫${vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}` : '<span class="text-muted">-</span>'}
-          </td>
+            finalAmount >= 0 ? "text-success" : "text-danger"
+          }" style="font-size: 16px;">$${finalAmount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${
@@ -1164,17 +1193,20 @@ class FinancialReportsComponent {
           return;
         }
 
+        const collapseId = `unpaidRentCollapse_${this.selectedProperty}_${year}_${month}`;
         let html = `
           <div class="alert alert-warning mb-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
               <div>
                 <i class="bi bi-exclamation-triangle me-2"></i>
                 <strong>Unpaid Rent Reminder</strong> - ${tenantsWithRoomType.length} tenant${tenantsWithRoomType.length > 1 ? 's' : ''} haven't paid rent yet
               </div>
+              <i class="bi bi-chevron-down"></i>
             </div>
-            <div class="mt-2">
-              <small class="d-block mb-2 text-muted">The following tenants should have paid rent for this month:</small>
-              <ul class="mb-0">
+            <div class="collapse show" id="${collapseId}">
+              <div class="mt-2">
+                <small class="d-block mb-2 text-muted">The following tenants should have paid rent for this month:</small>
+                <ul class="mb-0">
         `;
 
         tenantsWithRoomType.forEach(tenant => {
@@ -1192,6 +1224,7 @@ class FinancialReportsComponent {
 
         html += `
               </ul>
+              </div>
             </div>
           </div>
         `;
@@ -3581,6 +3614,88 @@ class FinancialReportsComponent {
       console.error("Print error:", error);
       this.showError(`Failed to print financial report: ${error.message}`);
       this.restoreReportAfterExport();
+    }
+  }
+
+  async captureScreenshot() {
+    if (!this.selectedProperty || !this.currentReport) {
+      alert("Please select a property and load financial data first");
+      return;
+    }
+
+    const btn = document.getElementById("captureScreenshotBtn");
+    if (!btn) return;
+
+    try {
+      // Show loading state
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+      btn.disabled = true;
+
+      // Find the financial reports section - target the main content area
+      const reportSection = document.querySelector('#financialReportContent') ||
+                          document.querySelector('#financial-section');
+
+      if (!reportSection) {
+        throw new Error("Could not find report section to capture");
+      }
+
+      // Make sure the section is visible
+      if (reportSection.style.display === 'none') {
+        throw new Error("Please load a financial report first");
+      }
+
+      // Capture the screenshot
+      const canvas = await html2canvas(reportSection, {
+        backgroundColor: '#ffffff',
+        scale: 2, // Higher quality
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        windowWidth: reportSection.scrollWidth,
+        windowHeight: reportSection.scrollHeight
+      });
+
+      // Convert canvas to blob and copy to clipboard
+      canvas.toBlob(async (blob) => {
+        try {
+          // Copy to clipboard
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'image/png': blob
+            })
+          ]);
+
+          // Show success feedback
+          btn.innerHTML = '<i class="bi bi-check-circle"></i>';
+          btn.classList.remove('btn-light');
+          btn.classList.add('btn-success');
+
+          // Restore button after 2 seconds
+          setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-light');
+            btn.disabled = false;
+          }, 2000);
+
+        } catch (clipboardError) {
+          console.error("Clipboard error:", clipboardError);
+          alert("Screenshot captured but failed to copy to clipboard. Your browser may not support this feature.");
+
+          // Restore button
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+        }
+      }, 'image/png');
+
+    } catch (error) {
+      console.error("Screenshot capture error:", error);
+      alert(`Failed to capture screenshot: ${error.message}`);
+
+      // Restore button
+      btn.innerHTML = '<i class="bi bi-camera"></i>';
+      btn.disabled = false;
     }
   }
 

@@ -1354,30 +1354,16 @@
       .property-card {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         overflow: hidden;
-        border: 2px solid transparent;
-        cursor: pointer;
+        min-height: 200px;
       }
 
       .property-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
-        border-color: #0d6efd !important;
       }
 
       .property-card.border-primary {
         border-width: 3px !important;
-        border-color: #0d6efd !important;
-        box-shadow: 0 6px 20px rgba(13, 110, 253, 0.3) !important;
-        background: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 110, 253, 0.02) 100%);
-      }
-
-      .property-card.border-primary:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 10px 25px rgba(13, 110, 253, 0.4) !important;
-      }
-
-      .property-card.border-primary .card-header {
-        background: linear-gradient(135deg, rgba(13, 110, 253, 0.1) 0%, rgba(13, 110, 253, 0.05) 100%) !important;
       }
 
       .property-card .card-header {
@@ -1834,6 +1820,20 @@
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="investorsBadge"
+                  >0</span
+                >
+              </a>
+            </li>
+            <li class="nav-item" id="usersNavItem" style="display:none;">
+              <a
+                class="nav-link d-flex justify-content-between align-items-center"
+                href="#"
+                data-section="users"
+              >
+                <span> <i class="bi bi-people-fill me-2"></i>Users </span>
+                <span
+                  class="badge bg-light text-dark rounded-pill"
+                  id="usersBadge"
                   >0</span
                 >
               </a>
@@ -2870,7 +2870,7 @@
                           <div class="border-top pt-3 mt-3">
                             <div class="d-flex justify-content-between">
                               <strong>Total Income:</strong>
-                              <strong class="text-success" id="totalIncome"
+                              <strong class="text-success" id="totalIncome" style="font-size: 18px;"
                                 >$0.00</strong
                               >
                             </div>
@@ -2916,7 +2916,7 @@
                           <div class="border-top pt-3 mt-3">
                             <div class="d-flex justify-content-between">
                               <strong>Total Expenses:</strong>
-                              <strong class="text-danger" id="totalExpenses"
+                              <strong class="text-danger" id="totalExpenses" style="font-size: 18px;"
                                 >$0.00</strong
                               >
                             </div>
@@ -2947,7 +2947,7 @@
                           <div class="d-flex align-items-center" style="gap: 16px;">
                             <div class="text-center">
                               <div class="text-dark fw-semibold small mb-0" style="font-size: 0.75rem;">Net Profit</div>
-                              <div id="netProfit" class="fw-bold" style="font-size: 1.25rem; line-height: 1.2;">$0.00</div>
+                              <div id="netProfit" class="fw-bold" style="font-size: 1.375rem; line-height: 1.2;">$0.00</div>
                             </div>
                             <div class="d-flex" style="gap: 6px;">
                               <button
@@ -2981,6 +2981,22 @@
                                 "
                               >
                                 <i class="bi bi-printer" style="color: #0d6efd !important;"></i>
+                              </button>
+                              <button
+                                class="btn btn-sm btn-light"
+                                id="captureScreenshotBtn"
+                                title="Capture Screenshot"
+                                style="
+                                  background-color: #ffffff !important;
+                                  border: 2px solid #dee2e6 !important;
+                                  color: #0d6efd !important;
+                                  font-weight: 600;
+                                  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                                  padding: 6px 12px;
+                                  min-width: 44px;
+                                "
+                              >
+                                <i class="bi bi-camera" style="color: #0d6efd !important;"></i>
                               </button>
                               <button
                                 class="btn btn-sm btn-warning"
@@ -3439,7 +3455,155 @@
               </div>
             </div>
           </div>
+
+          <!-- Users Section (Admin Only) -->
+          <div id="users-section" class="content-section">
+            <div class="p-4">
+              <!-- Header -->
+              <div
+                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4"
+              >
+                <h2>User Management</h2>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                  <button
+                    type="button"
+                    class="btn btn-primary me-2"
+                    id="addUserBtn"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i>Add User
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary"
+                    onclick="dashboardController.goToDashboard()"
+                  >
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                  </button>
+                </div>
+              </div>
+
+              <!-- Users Content -->
+              <div id="usersContent">
+                <div class="row mb-4">
+                  <div class="col-12">
+                    <div class="card">
+                      <div class="card-header">
+                        <h5 class="mb-0">System Users</h5>
+                      </div>
+                      <div class="card-body">
+                        <div class="table-responsive">
+                          <table class="table table-hover">
+                            <thead>
+                              <tr>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Property Access</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                              <tr>
+                                <td colspan="5" class="text-center">
+                                  <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
+      </div>
+    </div>
+
+    <!-- User Management Modal -->
+    <div
+      class="modal fade"
+      id="userModal"
+      tabindex="-1"
+      aria-labelledby="userModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="userModalLabel">Add User</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <form id="userForm">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="userUsername" class="form-label">Username <span class="text-danger">*</span></label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="userUsername"
+                  required
+                  minlength="3"
+                  maxlength="50"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label for="userPassword" class="form-label">Password <span class="text-danger">*</span></label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="userPassword"
+                  required
+                  minlength="6"
+                />
+                <div class="form-text">Minimum 6 characters. Leave blank to keep existing password when editing.</div>
+              </div>
+
+              <div class="mb-3">
+                <label for="userRole" class="form-label">Role <span class="text-danger">*</span></label>
+                <select class="form-select" id="userRole" required>
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <div class="form-text">Admins have full access. Users only see assigned properties.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Property Access</label>
+                <div id="propertyAccessContainer" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                  <div class="text-center text-muted">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                      <span class="visually-hidden">Loading properties...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Loading properties...</p>
+                  </div>
+                </div>
+                <div class="form-text">Select which properties this user can access</div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary" id="userSubmitBtn">
+                <span id="userSubmitText">Add User</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
