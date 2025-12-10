@@ -750,15 +750,18 @@ class BulkPropertyReportsComponent {
                               if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
                                 vndBreakdownHtml = `
                                   <div class="ms-3 mt-1 ps-2 border-start border-2 border-warning" style="font-size: 0.85em;">
-                                    ${prop.vndBreakdown.map(vnd => `
-                                      <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.9em;">
-                                        <span>
-                                          <i class="bi bi-info-circle me-1"></i>
-                                          ${escapeHtml(vnd.description)} @ ${vnd.exchangeRate.toLocaleString('vi-VN')}
-                                        </span>
-                                        <span class="text-info">₫${vnd.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</span>
-                                      </div>
-                                    `).join('')}
+                                    ${prop.vndBreakdown.map(vnd => {
+                                      // Format: "username receive $X from [source], exchange rate X, VND amount"
+                                      return `
+                                        <div class="text-muted py-1" style="font-size: 0.9em;">
+                                          <i class="bi bi-arrow-right-circle me-1 text-info"></i>
+                                          <span class="fw-bold">Received $${vnd.sgdAmount.toFixed(2)}</span>
+                                          from <span class="fst-italic">${escapeHtml(vnd.item)}</span>,
+                                          exchange rate <span class="badge bg-secondary">${vnd.exchangeRate.toLocaleString('vi-VN')}</span>,
+                                          <span class="text-info fw-bold">₫${vnd.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</span> VND
+                                        </div>
+                                      `;
+                                    }).join('')}
                                   </div>
                                 `;
                               }
@@ -1340,8 +1343,8 @@ class BulkPropertyReportsComponent {
           const settlement = settlementMap.get(settlementKey);
           const propertyData = propertyMap ? propertyMap.get(propertyId) : null;
 
-          // Get VND breakdown for this property
-          const vndBreakdown = this.getVNDBreakdownForProperty(propertyId, propertyReportsMap);
+          // Get VND breakdown for this property - show VND amounts the receiver (creditor) received
+          const vndBreakdown = this.getVNDBreakdownForProperty(propertyId, propertyReportsMap, creditor.investorId);
 
           settlement.propertyBreakdown.push({
             propertyId: propertyId,
@@ -1639,40 +1642,53 @@ class BulkPropertyReportsComponent {
       .sort((a, b) => b.amount - a.amount);
   }
 
-  getVNDBreakdownForProperty(propertyId, propertyReportsMap) {
+  getVNDBreakdownForProperty(propertyId, propertyReportsMap, investorId) {
     // Get VND transactions from the property report for reference
     const report = propertyReportsMap.get(propertyId);
     if (!report) return [];
 
     const vndBreakdown = [];
 
-    // Collect VND income items
+    // Collect VND income items - only those related to this investor
     if (report.income && Array.isArray(report.income)) {
       report.income.forEach(item => {
         if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
           const vndAmount = item.amount * item.exchangeRate;
+
+          // Check if this income was received by this investor
+          const receivedByInvestor = item.personInCharge === investorId;
+
           vndBreakdown.push({
             type: 'income',
-            description: `Income: ${item.item}`,
+            item: item.item,
+            receivedBy: item.personInCharge,
+            paidBy: item.paidBy,
             exchangeRate: item.exchangeRate,
             sgdAmount: item.amount,
-            vndAmount: vndAmount
+            vndAmount: vndAmount,
+            isForInvestor: receivedByInvestor
           });
         }
       });
     }
 
-    // Collect VND expense items
+    // Collect VND expense items - only those related to this investor
     if (report.expenses && Array.isArray(report.expenses)) {
       report.expenses.forEach(item => {
         if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
           const vndAmount = item.amount * item.exchangeRate;
+
+          // Check if this expense was paid by this investor
+          const paidByInvestor = item.personInCharge === investorId;
+
           vndBreakdown.push({
             type: 'expense',
-            description: `Expense: ${item.item}`,
+            item: item.item,
+            paidBy: item.personInCharge,
             exchangeRate: item.exchangeRate,
             sgdAmount: item.amount,
-            vndAmount: vndAmount
+            vndAmount: vndAmount,
+            isForInvestor: paidByInvestor
           });
         }
       });
