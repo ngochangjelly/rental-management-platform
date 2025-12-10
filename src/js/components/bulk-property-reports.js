@@ -1678,8 +1678,8 @@ class BulkPropertyReportsComponent {
   }
 
   renderAllVNDReferences(settlements) {
-    // Collect all VND transactions from all settlements
-    const allVndData = [];
+    // Collect all UNIQUE VND transactions from all settlements
+    const vndTransactionMap = new Map(); // Use map to deduplicate
 
     settlements.forEach(settlement => {
       if (!settlement.propertyBreakdown) return;
@@ -1687,20 +1687,29 @@ class BulkPropertyReportsComponent {
       settlement.propertyBreakdown.forEach(prop => {
         if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
           prop.vndBreakdown.forEach(vnd => {
-            allVndData.push({
-              ...vnd,
-              propertyId: prop.propertyId,
-              propertyName: prop.propertyName,
-              investorTotalsMap: settlement.investorTotalsMap
-            });
+            // Create unique key: propertyId + item + personInCharge + date + amount
+            const uniqueKey = `${prop.propertyId}-${vnd.item}-${vnd.personInCharge}-${vnd.date}-${vnd.sgdAmount}`;
+
+            // Only add if not already in map (deduplicate)
+            if (!vndTransactionMap.has(uniqueKey)) {
+              vndTransactionMap.set(uniqueKey, {
+                ...vnd,
+                propertyId: prop.propertyId,
+                propertyName: prop.propertyName,
+                investorTotalsMap: settlement.investorTotalsMap
+              });
+            }
           });
         }
       });
     });
 
-    if (allVndData.length === 0) {
+    if (vndTransactionMap.size === 0) {
       return '';
     }
+
+    // Convert map to array
+    const allVndData = Array.from(vndTransactionMap.values());
 
     // Helper to get investor name
     const getInvestorName = (investorId, investorTotalsMap) => {
