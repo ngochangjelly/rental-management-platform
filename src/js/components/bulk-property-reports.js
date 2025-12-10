@@ -634,6 +634,9 @@ class BulkPropertyReportsComponent {
       `;
     }
 
+    // Create VND reference section HTML (completely separate)
+    let vndReferenceHtml = this.renderAllVNDReferences(settlements);
+
     // Create settlement instructions HTML
     let settlementHtml = "";
     if (settlements.length > 0) {
@@ -782,7 +785,6 @@ class BulkPropertyReportsComponent {
                         </small>
                       `
                       }
-                      ${this.renderVNDReferenceSection(settlement)}
                     </div>
                   </div>
                 </div>
@@ -856,6 +858,8 @@ class BulkPropertyReportsComponent {
           ${settlementHtml}
         </div>
       </div>
+
+      ${vndReferenceHtml}
 
       <h5 class="mb-3">
         <i class="bi bi-building me-2"></i>
@@ -1671,6 +1675,128 @@ class BulkPropertyReportsComponent {
     }
 
     return vndBreakdown;
+  }
+
+  renderAllVNDReferences(settlements) {
+    // Collect all VND transactions from all settlements
+    const allVndData = [];
+
+    settlements.forEach(settlement => {
+      if (!settlement.propertyBreakdown) return;
+
+      settlement.propertyBreakdown.forEach(prop => {
+        if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
+          prop.vndBreakdown.forEach(vnd => {
+            allVndData.push({
+              ...vnd,
+              propertyId: prop.propertyId,
+              propertyName: prop.propertyName,
+              investorTotalsMap: settlement.investorTotalsMap
+            });
+          });
+        }
+      });
+    });
+
+    if (allVndData.length === 0) {
+      return '';
+    }
+
+    // Helper to get investor name
+    const getInvestorName = (investorId, investorTotalsMap) => {
+      if (investorTotalsMap && investorTotalsMap.has(investorId)) {
+        return investorTotalsMap.get(investorId).investorName;
+      }
+      return investorId;
+    };
+
+    // Group by property
+    const byProperty = new Map();
+    allVndData.forEach(txn => {
+      if (!byProperty.has(txn.propertyId)) {
+        byProperty.set(txn.propertyId, {
+          propertyName: txn.propertyName,
+          transactions: []
+        });
+      }
+      byProperty.get(txn.propertyId).transactions.push(txn);
+    });
+
+    let html = `
+      <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">
+            <i class="bi bi-cash-coin me-2"></i>
+            VND Transaction Reference
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            Below are all VND transactions for reference. These amounts show who received VND income and the exchange rates used. All calculations in settlement instructions use SGD.
+          </div>
+    `;
+
+    for (const [propertyId, data] of byProperty) {
+      html += `
+        <div class="mb-4">
+          <h6 class="fw-bold text-dark mb-3">
+            <i class="bi bi-building me-2"></i>${escapeHtml(data.propertyName || propertyId)}
+          </h6>
+          <div class="row">
+      `;
+
+      data.transactions.forEach(txn => {
+        const dateStr = txn.date
+          ? new Date(txn.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "No date";
+
+        const recipientName = getInvestorName(txn.personInCharge, txn.investorTotalsMap);
+
+        html += `
+          <div class="col-md-6 mb-3">
+            <div class="card border-secondary h-100">
+              <div class="card-body">
+                <div class="mb-2">
+                  <span class="badge bg-success">${escapeHtml(recipientName)}</span>
+                  <span class="text-muted ms-1">received</span>
+                </div>
+                <div class="mb-2">
+                  <h6 class="mb-0 text-primary">$${txn.sgdAmount.toFixed(2)}</h6>
+                  <small class="text-muted">from <span class="fst-italic">${escapeHtml(txn.item)}</span></small>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between align-items-center">
+                  <small class="text-muted">
+                    <i class="bi bi-calendar3 me-1"></i>${dateStr}
+                  </small>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                  <small class="text-muted">Exchange rate:</small>
+                  <span class="badge bg-secondary">${txn.exchangeRate.toLocaleString('vi-VN')}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                  <small class="text-muted">VND Amount:</small>
+                  <strong class="text-info">₫${txn.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+        </div>
+      </div>
+    `;
+
+    return html;
   }
 
   renderVNDReferenceSection(settlement) {
