@@ -1839,6 +1839,93 @@ class BulkPropertyReportsComponent {
       </div>
     `;
 
+    // Calculate summary by exchange rate
+    const summaryByRate = new Map();
+    allVndData.forEach(txn => {
+      const rate = txn.exchangeRate;
+      if (!summaryByRate.has(rate)) {
+        summaryByRate.set(rate, {
+          exchangeRate: rate,
+          totalSGD: 0,
+          totalVND: 0,
+          count: 0
+        });
+      }
+      const summary = summaryByRate.get(rate);
+      summary.totalSGD += txn.sgdAmount;
+      summary.totalVND += txn.vndAmount;
+      summary.count += 1;
+    });
+
+    // Add summary section
+    if (summaryByRate.size > 0) {
+      html += `
+        <div class="mt-4 p-3 bg-light rounded border border-primary">
+          <h6 class="mb-3 text-primary">
+            <i class="bi bi-calculator me-2"></i>Summary by Exchange Rate
+          </h6>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Exchange Rate</th>
+                  <th class="text-end">Total SGD</th>
+                  <th class="text-end">Total VND</th>
+                  <th class="text-center">Transactions</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      // Sort by exchange rate
+      const sortedRates = Array.from(summaryByRate.values()).sort((a, b) => a.exchangeRate - b.exchangeRate);
+
+      sortedRates.forEach(summary => {
+        html += `
+          <tr>
+            <td>
+              <span class="badge bg-secondary">${summary.exchangeRate.toLocaleString('vi-VN')}</span>
+            </td>
+            <td class="text-end">
+              <strong class="text-primary">$${summary.totalSGD.toFixed(2)}</strong>
+            </td>
+            <td class="text-end">
+              <strong class="text-info">₫${summary.totalVND.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info">${summary.count}</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      // Calculate grand totals
+      const grandTotalSGD = sortedRates.reduce((sum, s) => sum + s.totalSGD, 0);
+      const grandTotalVND = sortedRates.reduce((sum, s) => sum + s.totalVND, 0);
+      const grandTotalCount = sortedRates.reduce((sum, s) => sum + s.count, 0);
+
+      html += `
+              </tbody>
+              <tfoot class="table-primary">
+                <tr class="fw-bold">
+                  <td>Total</td>
+                  <td class="text-end">
+                    <strong class="text-primary fs-6">$${grandTotalSGD.toFixed(2)}</strong>
+                  </td>
+                  <td class="text-end">
+                    <strong class="text-info fs-6">₫${grandTotalVND.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-primary">${grandTotalCount}</span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
     return html;
   }
 
