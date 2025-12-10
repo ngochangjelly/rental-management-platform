@@ -1783,10 +1783,22 @@ class BulkPropertyReportsComponent {
     for (const [propertyId, data] of byProperty) {
       html += `
         <div class="mb-4">
-          <h6 class="fw-bold text-dark mb-3">
+          <h6 class="fw-bold text-dark mb-2">
             <i class="bi bi-building me-2"></i>${escapeHtml(data.propertyName || propertyId)}
           </h6>
-          <div class="row">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>Recipient</th>
+                  <th>Item</th>
+                  <th>Date</th>
+                  <th class="text-end">SGD Amount</th>
+                  <th class="text-center">Exchange Rate</th>
+                  <th class="text-end">VND Amount</th>
+                </tr>
+              </thead>
+              <tbody>
       `;
 
       data.transactions.forEach(txn => {
@@ -1797,38 +1809,34 @@ class BulkPropertyReportsComponent {
         const recipientName = getInvestorName(txn.personInCharge);
 
         html += `
-          <div class="col-md-6 mb-3">
-            <div class="card border-secondary h-100">
-              <div class="card-body">
-                <div class="mb-2">
-                  <span class="badge bg-success">${escapeHtml(recipientName)}</span>
-                  <span class="text-muted ms-1">received</span>
-                </div>
-                <div class="mb-2">
-                  <h6 class="mb-0 text-primary">$${txn.sgdAmount.toFixed(2)}</h6>
-                  <small class="text-muted">from <span class="fst-italic">${escapeHtml(txn.item)}</span></small>
-                </div>
-                <hr class="my-2">
-                <div class="d-flex justify-content-between align-items-center">
-                  <small class="text-muted">
-                    <i class="bi bi-calendar3 me-1"></i>${dateStr}
-                  </small>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                  <small class="text-muted">Exchange rate:</small>
-                  <span class="badge bg-secondary">${txn.exchangeRate.toLocaleString('vi-VN')}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                  <small class="text-muted">VND Amount:</small>
-                  <strong class="text-info">₫${txn.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
+          <tr>
+            <td>
+              <span class="badge bg-success">${escapeHtml(recipientName)}</span>
+            </td>
+            <td>
+              <span class="fst-italic">${escapeHtml(txn.item)}</span>
+            </td>
+            <td>
+              <small class="text-muted">
+                <i class="bi bi-calendar3 me-1"></i>${dateStr}
+              </small>
+            </td>
+            <td class="text-end">
+              <strong class="text-primary">$${txn.sgdAmount.toFixed(2)}</strong>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-secondary">${txn.exchangeRate.toLocaleString('vi-VN')}</span>
+            </td>
+            <td class="text-end">
+              <strong class="text-info">₫${txn.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
+            </td>
+          </tr>
         `;
       });
 
       html += `
+              </tbody>
+            </table>
           </div>
         </div>
       `;
