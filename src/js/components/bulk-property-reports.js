@@ -546,6 +546,11 @@ class BulkPropertyReportsComponent {
     // Calculate settlement transactions between investors (SGD only)
     const settlements = this.calculateSettlementsForCurrency(investorTotals, propertyMap, reports, 'SGD');
 
+    // Attach investorTotals to each settlement for VND reference display
+    settlements.forEach(settlement => {
+      settlement.investorTotalsMap = investorTotals;
+    });
+
     // Create investor summary HTML
     let investorSummaryHtml = "";
     if (investorTotals.size > 0) {
@@ -1692,6 +1697,14 @@ class BulkPropertyReportsComponent {
       return '';
     }
 
+    // Get investor names from the map
+    const getInvestorName = (investorId) => {
+      if (settlement.investorTotalsMap && settlement.investorTotalsMap.has(investorId)) {
+        return settlement.investorTotalsMap.get(investorId).investorName;
+      }
+      return investorId;
+    };
+
     // Group by property for display
     const byProperty = new Map();
     allVndTransactions.forEach(txn => {
@@ -1707,9 +1720,9 @@ class BulkPropertyReportsComponent {
     let html = `
       <div class="mt-3 p-3 bg-light rounded border border-info">
         <h6 class="mb-2 text-info">
-          <i class="bi bi-cash-coin me-2"></i>VND Reference - For ${escapeHtml(settlement.toName)}
+          <i class="bi bi-cash-coin me-2"></i>VND Reference - Transaction Details
         </h6>
-        <small class="text-muted d-block mb-2">Below are VND amounts received by ${escapeHtml(settlement.toName)} (for reference only, calculations use SGD)</small>
+        <small class="text-muted d-block mb-2">Below are VND transactions from this property (for reference only, calculations use SGD)</small>
     `;
 
     for (const [propertyId, data] of byProperty) {
@@ -1725,11 +1738,14 @@ class BulkPropertyReportsComponent {
           ? new Date(txn.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
           : "No date";
 
+        // Get the actual person who received this income from the transaction
+        const recipientName = getInvestorName(txn.personInCharge);
+
         html += `
           <div class="ms-3 mb-2 p-2 bg-white rounded border border-secondary" style="font-size: 0.9em;">
             <div class="d-flex justify-content-between align-items-start">
               <div class="flex-grow-1">
-                <span class="fw-bold text-success">${escapeHtml(settlement.toName)}</span>
+                <span class="fw-bold text-success">${escapeHtml(recipientName)}</span>
                 <span class="text-muted">received</span>
                 <span class="fw-bold text-primary">$${txn.sgdAmount.toFixed(2)}</span>
                 <span class="text-muted">from</span>
