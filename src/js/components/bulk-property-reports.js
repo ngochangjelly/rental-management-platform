@@ -745,43 +745,19 @@ class BulkPropertyReportsComponent {
                               const isPositive = prop.amount > 0;
                               const displayAmount = Math.abs(prop.amount);
 
-                              // Get VND breakdown if available
-                              let vndBreakdownHtml = '';
-                              if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
-                                vndBreakdownHtml = `
-                                  <div class="ms-3 mt-1 ps-2 border-start border-2 border-warning" style="font-size: 0.85em;">
-                                    ${prop.vndBreakdown.map(vnd => {
-                                      // Format: "username receive $X from [source], exchange rate X, VND amount"
-                                      return `
-                                        <div class="text-muted py-1" style="font-size: 0.9em;">
-                                          <i class="bi bi-arrow-right-circle me-1 text-info"></i>
-                                          <span class="fw-bold">Received $${vnd.sgdAmount.toFixed(2)}</span>
-                                          from <span class="fst-italic">${escapeHtml(vnd.item)}</span>,
-                                          exchange rate <span class="badge bg-secondary">${vnd.exchangeRate.toLocaleString('vi-VN')}</span>,
-                                          <span class="text-info fw-bold">₫${vnd.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</span> VND
-                                        </div>
-                                      `;
-                                    }).join('')}
-                                  </div>
-                                `;
-                              }
-
                               return `
-                            <div>
-                              <div class="d-flex justify-content-between align-items-center py-1">
-                                <small class="text-muted">
-                                  <i class="bi bi-building me-1"></i>
-                                  ${escapeHtml(
-                                    prop.propertyName || prop.propertyId
-                                  )}
-                                </small>
-                                <small class="badge ${
-                                  isNegative ? "bg-danger" : isPositive ? "bg-success" : "bg-secondary"
-                                } d-flex align-items-center gap-1">
-                                  ${isNegative ? '<i class="bi bi-dash-circle-fill"></i> -' : isPositive ? '<i class="bi bi-plus-circle-fill"></i> +' : ''}$${displayAmount.toFixed(2)}
-                                </small>
-                              </div>
-                              ${vndBreakdownHtml}
+                            <div class="d-flex justify-content-between align-items-center py-1">
+                              <small class="text-muted">
+                                <i class="bi bi-building me-1"></i>
+                                ${escapeHtml(
+                                  prop.propertyName || prop.propertyId
+                                )}
+                              </small>
+                              <small class="badge ${
+                                isNegative ? "bg-danger" : isPositive ? "bg-success" : "bg-secondary"
+                              } d-flex align-items-center gap-1">
+                                ${isNegative ? '<i class="bi bi-dash-circle-fill"></i> -' : isPositive ? '<i class="bi bi-plus-circle-fill"></i> +' : ''}$${displayAmount.toFixed(2)}
+                              </small>
                             </div>
                           `;
                             })
@@ -801,6 +777,7 @@ class BulkPropertyReportsComponent {
                         </small>
                       `
                       }
+                      ${this.renderVNDReferenceSection(settlement)}
                     </div>
                   </div>
                 </div>
@@ -1643,58 +1620,142 @@ class BulkPropertyReportsComponent {
   }
 
   getVNDBreakdownForProperty(propertyId, propertyReportsMap, investorId) {
-    // Get VND transactions from the property report for reference
+    // Get ALL VND transactions from the property report for reference
     const report = propertyReportsMap.get(propertyId);
     if (!report) return [];
 
     const vndBreakdown = [];
 
-    // Collect VND income items - only those related to this investor
+    // Collect ALL VND income items
     if (report.income && Array.isArray(report.income)) {
       report.income.forEach(item => {
         if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
           const vndAmount = item.amount * item.exchangeRate;
 
-          // Check if this income was received by this investor
-          const receivedByInvestor = item.personInCharge === investorId;
-
           vndBreakdown.push({
             type: 'income',
             item: item.item,
-            receivedBy: item.personInCharge,
+            personInCharge: item.personInCharge,
             paidBy: item.paidBy,
+            date: item.date,
             exchangeRate: item.exchangeRate,
             sgdAmount: item.amount,
-            vndAmount: vndAmount,
-            isForInvestor: receivedByInvestor
+            vndAmount: vndAmount
           });
         }
       });
     }
 
-    // Collect VND expense items - only those related to this investor
+    // Collect ALL VND expense items
     if (report.expenses && Array.isArray(report.expenses)) {
       report.expenses.forEach(item => {
         if (item.currency === 'VND' && item.exchangeRate && item.amount > 0) {
           const vndAmount = item.amount * item.exchangeRate;
 
-          // Check if this expense was paid by this investor
-          const paidByInvestor = item.personInCharge === investorId;
-
           vndBreakdown.push({
             type: 'expense',
             item: item.item,
-            paidBy: item.personInCharge,
+            personInCharge: item.personInCharge,
+            date: item.date,
             exchangeRate: item.exchangeRate,
             sgdAmount: item.amount,
-            vndAmount: vndAmount,
-            isForInvestor: paidByInvestor
+            vndAmount: vndAmount
           });
         }
       });
     }
 
     return vndBreakdown;
+  }
+
+  renderVNDReferenceSection(settlement) {
+    // Collect all unique VND transactions across all properties in this settlement
+    if (!settlement.propertyBreakdown || settlement.propertyBreakdown.length === 0) {
+      return '';
+    }
+
+    // Flatten all VND breakdowns from all properties
+    const allVndTransactions = [];
+    settlement.propertyBreakdown.forEach(prop => {
+      if (prop.vndBreakdown && prop.vndBreakdown.length > 0) {
+        prop.vndBreakdown.forEach(vnd => {
+          allVndTransactions.push({
+            ...vnd,
+            propertyId: prop.propertyId,
+            propertyName: prop.propertyName
+          });
+        });
+      }
+    });
+
+    if (allVndTransactions.length === 0) {
+      return '';
+    }
+
+    // Group by property for display
+    const byProperty = new Map();
+    allVndTransactions.forEach(txn => {
+      if (!byProperty.has(txn.propertyId)) {
+        byProperty.set(txn.propertyId, {
+          propertyName: txn.propertyName,
+          transactions: []
+        });
+      }
+      byProperty.get(txn.propertyId).transactions.push(txn);
+    });
+
+    let html = `
+      <div class="mt-3 p-3 bg-light rounded border border-info">
+        <h6 class="mb-2 text-info">
+          <i class="bi bi-cash-coin me-2"></i>VND Reference - For ${escapeHtml(settlement.toName)}
+        </h6>
+        <small class="text-muted d-block mb-2">Below are VND amounts received by ${escapeHtml(settlement.toName)} (for reference only, calculations use SGD)</small>
+    `;
+
+    for (const [propertyId, data] of byProperty) {
+      html += `
+        <div class="mb-3">
+          <div class="fw-bold text-dark mb-2">
+            <i class="bi bi-building me-1"></i>${escapeHtml(data.propertyName || propertyId)}
+          </div>
+      `;
+
+      data.transactions.forEach(txn => {
+        const dateStr = txn.date
+          ? new Date(txn.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "No date";
+
+        html += `
+          <div class="ms-3 mb-2 p-2 bg-white rounded border border-secondary" style="font-size: 0.9em;">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="flex-grow-1">
+                <span class="fw-bold text-success">${escapeHtml(settlement.toName)}</span>
+                <span class="text-muted">received</span>
+                <span class="fw-bold text-primary">$${txn.sgdAmount.toFixed(2)}</span>
+                <span class="text-muted">from</span>
+                <span class="fst-italic">${escapeHtml(txn.item)}</span>
+              </div>
+            </div>
+            <div class="mt-1 d-flex justify-content-between align-items-center">
+              <small class="text-muted">
+                <i class="bi bi-calendar3 me-1"></i>${dateStr}
+              </small>
+              <div>
+                <span class="text-muted me-2">Exchange rate:</span>
+                <span class="badge bg-secondary">${txn.exchangeRate.toLocaleString('vi-VN')}</span>
+                <span class="mx-2">→</span>
+                <span class="text-info fw-bold">₫${txn.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+    return html;
   }
 
   getOptimizedAvatarUrl(url, size = "small") {
