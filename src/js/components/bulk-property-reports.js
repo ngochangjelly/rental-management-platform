@@ -1770,7 +1770,7 @@ class BulkPropertyReportsComponent {
         <div class="card-header bg-info text-white">
           <h5 class="mb-0">
             <i class="bi bi-cash-coin me-2"></i>
-            VND Transaction Reference
+            🇻🇳 VND Transaction Reference
           </h5>
         </div>
         <div class="card-body">
@@ -1787,15 +1787,15 @@ class BulkPropertyReportsComponent {
             <i class="bi bi-building me-2"></i>${escapeHtml(data.propertyName || propertyId)}
           </h6>
           <div class="table-responsive">
-            <table class="table table-sm table-hover">
+            <table class="table table-sm table-hover align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>Recipient</th>
-                  <th>Item</th>
-                  <th>Date</th>
-                  <th class="text-end">SGD Amount</th>
-                  <th class="text-center">Exchange Rate</th>
-                  <th class="text-end">VND Amount</th>
+                  <th style="width: 200px;">Recipient</th>
+                  <th style="width: 250px;">Item</th>
+                  <th style="width: 130px;">Date</th>
+                  <th class="text-end" style="width: 120px;">SGD Amount</th>
+                  <th class="text-center" style="width: 130px;">Exchange Rate</th>
+                  <th class="text-end" style="width: 150px;">VND Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -1808,13 +1808,31 @@ class BulkPropertyReportsComponent {
 
         const recipientName = getInvestorName(txn.personInCharge);
 
+        // Get investor avatar
+        const investorData = investorTotals.get(txn.personInCharge);
+        const avatar = investorData?.avatar;
+
         html += `
           <tr>
             <td>
-              <span class="badge bg-success">${escapeHtml(recipientName)}</span>
+              <div class="d-flex align-items-center">
+                ${
+                  avatar
+                    ? `<img src="${this.getOptimizedAvatarUrl(avatar, 'small')}"
+                           alt="${escapeHtml(recipientName)}"
+                           class="rounded-circle me-2"
+                           style="width: 32px; height: 32px; object-fit: cover;"
+                           onerror="this.style.display='none'">`
+                    : `<div class="rounded-circle me-2 d-flex align-items-center justify-content-center bg-success text-white fw-bold"
+                            style="width: 32px; height: 32px; font-size: 14px;">
+                         ${escapeHtml(recipientName.charAt(0).toUpperCase())}
+                       </div>`
+                }
+                <span class="fw-bold">${escapeHtml(recipientName)}</span>
+              </div>
             </td>
             <td>
-              <span class="fst-italic">${escapeHtml(txn.item)}</span>
+              <span class="fst-italic text-muted">${escapeHtml(txn.item)}</span>
             </td>
             <td>
               <small class="text-muted">
@@ -1825,7 +1843,7 @@ class BulkPropertyReportsComponent {
               <strong class="text-primary">$${txn.sgdAmount.toFixed(2)}</strong>
             </td>
             <td class="text-center">
-              <span class="badge bg-secondary">${txn.exchangeRate.toLocaleString('vi-VN')}</span>
+              <span class="badge bg-secondary">🇻🇳 ${txn.exchangeRate.toLocaleString('vi-VN')}</span>
             </td>
             <td class="text-end">
               <strong class="text-info">₫${txn.vndAmount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
@@ -1870,16 +1888,16 @@ class BulkPropertyReportsComponent {
       html += `
         <div class="mt-4 p-3 bg-light rounded border border-primary">
           <h6 class="mb-3 text-primary">
-            <i class="bi bi-calculator me-2"></i>Summary by Exchange Rate
+            <i class="bi bi-calculator me-2"></i>🇻🇳 Summary by Exchange Rate
           </h6>
           <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0">
+            <table class="table table-bordered table-hover mb-0 align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>Exchange Rate</th>
-                  <th class="text-end">Total SGD</th>
-                  <th class="text-end">Total VND</th>
-                  <th class="text-center">Transactions</th>
+                  <th style="width: 180px;">Exchange Rate</th>
+                  <th class="text-end" style="width: 150px;">Total SGD</th>
+                  <th class="text-end" style="width: 200px;">Total VND</th>
+                  <th class="text-center" style="width: 130px;">Transactions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1892,7 +1910,7 @@ class BulkPropertyReportsComponent {
         html += `
           <tr>
             <td>
-              <span class="badge bg-secondary">${summary.exchangeRate.toLocaleString('vi-VN')}</span>
+              <span class="badge bg-secondary">🇻🇳 ${summary.exchangeRate.toLocaleString('vi-VN')}</span>
             </td>
             <td class="text-end">
               <strong class="text-primary">$${summary.totalSGD.toFixed(2)}</strong>
@@ -1914,17 +1932,17 @@ class BulkPropertyReportsComponent {
 
       html += `
               </tbody>
-              <tfoot class="table-primary">
-                <tr class="fw-bold">
-                  <td>Total</td>
-                  <td class="text-end">
-                    <strong class="text-primary fs-6">$${grandTotalSGD.toFixed(2)}</strong>
+              <tfoot>
+                <tr class="table-primary border-top border-3 border-primary">
+                  <td class="fw-bold fs-5 py-3">Total</td>
+                  <td class="text-end py-3">
+                    <strong class="text-primary fs-4">$${grandTotalSGD.toFixed(2)}</strong>
                   </td>
-                  <td class="text-end">
-                    <strong class="text-info fs-6">₫${grandTotalVND.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
+                  <td class="text-end py-3">
+                    <strong class="text-info fs-4">₫${grandTotalVND.toLocaleString('vi-VN', {maximumFractionDigits: 0})}</strong>
                   </td>
-                  <td class="text-center">
-                    <span class="badge bg-primary">${grandTotalCount}</span>
+                  <td class="text-center py-3">
+                    <span class="badge bg-primary fs-6 px-3 py-2">${grandTotalCount}</span>
                   </td>
                 </tr>
               </tfoot>
