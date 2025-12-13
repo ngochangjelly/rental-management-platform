@@ -342,6 +342,7 @@ class PropertyManagementComponent {
         document.getElementById("rentPaymentDate").value =
           property.rentPaymentDate || 1;
         document.getElementById("rent").value = property.rent || 0;
+        document.getElementById("airconUnits").value = property.airconUnits || 0;
         document.getElementById("agentName").value = property.agentName || "";
         document.getElementById("agentPhone").value = property.agentPhone || "";
         document.getElementById("landlordBankAccount").value =
@@ -531,6 +532,7 @@ class PropertyManagementComponent {
           formData.get("moveInDate") || new Date().toISOString().split("T")[0],
         rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
         rent: parseFloat(formData.get("rent")) || 0,
+        airconUnits: parseInt(formData.get("airconUnits")) || 0,
         agentName: formData.get("agentName")?.trim() || "",
         agentPhone: formData.get("agentPhone")?.trim() || "",
         landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",
