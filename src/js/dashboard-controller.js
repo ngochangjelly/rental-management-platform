@@ -141,7 +141,7 @@ class DashboardController {
           // Make it globally accessible for button onclick handlers
           window.contractManager = this.components.contractManagement;
           console.log('✅ ContractManagementComponent created');
-          
+
           // Set up contract form after section is shown
           setTimeout(async () => {
             console.log('⏰ Setting up contract form...');
@@ -152,11 +152,26 @@ class DashboardController {
             this.components.contractManagement.populateTenantsDropdown();
             this.components.contractManagement.populatePropertiesDropdown();
             this.components.contractManagement.setupContractInputs();
-            
+
             // Initialize template section
             console.log('🔧 Initializing contract templates...');
             await this.components.contractManagement.initializeTemplateSection();
             this.components.contractManagement.updateContractPreview();
+          }, 100);
+        }
+        break;
+      case "custom-template":
+        if (!this.components.customTemplate) {
+          console.log('🏗️ Creating CustomContractTemplateComponent...');
+          this.components.customTemplate = new CustomContractTemplateComponent();
+          // Make it globally accessible for button onclick handlers
+          window.customTemplateEditor = this.components.customTemplate;
+          console.log('✅ CustomContractTemplateComponent created');
+
+          // Initialize the editor after section is shown
+          setTimeout(() => {
+            console.log('⏰ Initializing custom template editor...');
+            this.components.customTemplate.init();
           }, 100);
         }
         break;

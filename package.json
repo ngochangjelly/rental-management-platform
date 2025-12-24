@@ -50,8 +50,13 @@
     "webpack-dev-server": "^5.2.2"
   },
   "dependencies": {
+    "docx": "^9.5.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
+    "mammoth": "^1.11.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.4.449",
+    "quill": "^2.0.3",
     "xlsx": "^0.18.5"
   }
 }

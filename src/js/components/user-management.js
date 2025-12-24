@@ -58,6 +58,12 @@ class UserManagement {
       });
     }
 
+    // Toggle password visibility
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+    if (togglePasswordBtn) {
+      togglePasswordBtn.addEventListener('click', () => this.togglePasswordVisibility());
+    }
+
     // Modal reset on close
     const modalElement = document.getElementById('userModal');
     if (modalElement) {
@@ -369,6 +375,14 @@ class UserManagement {
     const passwordInput = document.getElementById('userPassword');
     if (passwordInput) {
       passwordInput.required = true;
+      passwordInput.type = 'password'; // Reset to hidden
+    }
+
+    // Reset password toggle icon
+    const toggleIcon = document.getElementById('togglePasswordIcon');
+    if (toggleIcon) {
+      toggleIcon.classList.remove('bi-eye-slash');
+      toggleIcon.classList.add('bi-eye');
     }
 
     // Clear property checkboxes
@@ -405,6 +419,27 @@ class UserManagement {
       showToast(message, 'error');
     } else {
       alert(message);
+    }
+  }
+
+  togglePasswordVisibility() {
+    const passwordInput = document.getElementById('userPassword');
+    const toggleIcon = document.getElementById('togglePasswordIcon');
+
+    if (passwordInput && toggleIcon) {
+      const currentType = passwordInput.getAttribute('type');
+
+      if (currentType === 'password') {
+        // Show password
+        passwordInput.setAttribute('type', 'text');
+        toggleIcon.classList.remove('bi-eye');
+        toggleIcon.classList.add('bi-eye-slash');
+      } else {
+        // Hide password
+        passwordInput.setAttribute('type', 'password');
+        toggleIcon.classList.remove('bi-eye-slash');
+        toggleIcon.classList.add('bi-eye');
+      }
     }
   }
 

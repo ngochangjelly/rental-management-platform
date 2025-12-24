@@ -1786,6 +1786,11 @@
               </a>
             </li>
             <li class="nav-item">
+              <a class="nav-link" href="#" data-section="custom-template">
+                <i class="bi bi-file-earmark-richtext me-2"></i>Custom Template Editor
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link" href="#" data-section="financial">
                 <i class="bi bi-graph-up me-2"></i>Financial Reports
               </a>
@@ -2726,6 +2731,193 @@
             </div>
           </div>
 
+          <!-- Custom Contract Template Editor Section -->
+          <div id="custom-template-section" class="content-section">
+            <div class="p-4">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-file-earmark-richtext me-2"></i>Custom Contract Template Editor</h2>
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="dashboardController.goToDashboard()"
+                >
+                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
+              </div>
+
+              <div class="row">
+                <!-- Left Sidebar - Tools and Actions -->
+                <div class="col-lg-3">
+                  <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                      <h6 class="mb-0"><i class="bi bi-tools me-2"></i>Document Tools</h6>
+                    </div>
+                    <div class="card-body">
+                      <!-- Upload Section -->
+                      <div class="mb-3">
+                        <label class="form-label fw-bold">Upload Document</label>
+                        <input
+                          type="file"
+                          id="template-file-input"
+                          accept=".pdf,.docx,.doc"
+                          style="display: none;"
+                        />
+                        <button
+                          id="upload-template-btn"
+                          class="btn btn-outline-primary w-100 mb-2"
+                        >
+                          <i class="bi bi-upload me-1"></i>Upload PDF/DOCX
+                        </button>
+                        <small class="text-muted d-block">
+                          Supports PDF and DOCX files
+                        </small>
+                      </div>
+
+                      <hr />
+
+                      <!-- Template Actions -->
+                      <div class="mb-3">
+                        <label class="form-label fw-bold">Template Actions</label>
+                        <div class="d-grid gap-2">
+                          <button
+                            id="new-template-btn"
+                            class="btn btn-outline-secondary btn-sm"
+                          >
+                            <i class="bi bi-file-earmark-plus me-1"></i>New Template
+                          </button>
+                          <button
+                            id="save-template-btn"
+                            class="btn btn-outline-success btn-sm"
+                          >
+                            <i class="bi bi-save me-1"></i>Save Template
+                          </button>
+                          <button
+                            id="load-template-btn"
+                            class="btn btn-outline-info btn-sm"
+                          >
+                            <i class="bi bi-folder-open me-1"></i>Load Template
+                          </button>
+                        </div>
+                      </div>
+
+                      <hr />
+
+                      <!-- Export Section -->
+                      <div class="mb-3">
+                        <label class="form-label fw-bold">Export</label>
+                        <div class="d-grid gap-2">
+                          <button
+                            id="preview-template-btn"
+                            class="btn btn-outline-dark btn-sm"
+                          >
+                            <i class="bi bi-eye me-1"></i>Preview
+                          </button>
+                          <button
+                            id="export-template-pdf-btn"
+                            class="btn btn-success btn-sm"
+                          >
+                            <i class="bi bi-file-pdf me-1"></i>Export to PDF
+                          </button>
+                        </div>
+                      </div>
+
+                      <hr />
+
+                      <!-- Variables Section -->
+                      <div class="mb-3">
+                        <label class="form-label fw-bold">Insert Variables</label>
+                        <button
+                          id="insert-variable-btn"
+                          class="btn btn-outline-warning w-100 btn-sm"
+                        >
+                          <i class="bi bi-code-square me-1"></i>Insert Placeholder
+                        </button>
+                        <small class="text-muted d-block mt-2">
+                          Add dynamic placeholders like {{TENANT_NAME}}
+                        </small>
+                      </div>
+
+                      <hr />
+
+                      <!-- Template Info -->
+                      <div id="template-info" class="mb-3">
+                        <label class="form-label fw-bold">Template Info</label>
+                        <div style="font-size: 12px; color: #999;">
+                          No template loaded
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Quick Tips Card -->
+                  <div class="card">
+                    <div class="card-header bg-info text-white">
+                      <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Quick Tips</h6>
+                    </div>
+                    <div class="card-body">
+                      <ul class="small mb-0" style="padding-left: 20px;">
+                        <li>Upload existing contracts to edit them</li>
+                        <li>Use variables for dynamic content</li>
+                        <li>Save templates for reuse</li>
+                        <li>Export to PDF when done</li>
+                        <li>Autosave keeps your work safe</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Main Editor Area -->
+                <div class="col-lg-9">
+                  <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                      <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Document Editor</h5>
+                      <span id="character-count" class="badge bg-secondary">
+                        0 words, 0 characters
+                      </span>
+                    </div>
+                    <div class="card-body p-0">
+                      <!-- Quill Editor Container -->
+                      <div
+                        id="custom-template-editor"
+                        style="height: 600px; background: white;"
+                      ></div>
+                    </div>
+                    <div class="card-footer text-muted">
+                      <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Your changes are automatically saved every 30 seconds
+                      </small>
+                    </div>
+                  </div>
+
+                  <!-- Help Section -->
+                  <div class="alert alert-info mt-3">
+                    <h6 class="alert-heading">
+                      <i class="bi bi-question-circle me-2"></i>How to use the Custom Template Editor
+                    </h6>
+                    <hr />
+                    <ol class="mb-0 small">
+                      <li>
+                        <strong>Upload a document:</strong> Click "Upload PDF/DOCX" to import an existing contract template
+                      </li>
+                      <li>
+                        <strong>Edit content:</strong> Use the rich text editor to modify text, add formatting, and customize your template
+                      </li>
+                      <li>
+                        <strong>Insert variables:</strong> Click "Insert Placeholder" to add dynamic fields like {{TENANT_NAME}} that can be replaced later
+                      </li>
+                      <li>
+                        <strong>Save your work:</strong> Click "Save Template" to store your template for future use
+                      </li>
+                      <li>
+                        <strong>Export:</strong> When finished, click "Export to PDF" to generate a downloadable PDF document
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Financial Reports Section -->
           <div id="financial-section" class="content-section">
             <div class="p-4">
@@ -3558,13 +3750,23 @@
 
               <div class="mb-3">
                 <label for="userPassword" class="form-label">Password <span class="text-danger">*</span></label>
-                <input
-                  type="password"
-                  class="form-control"
-                  id="userPassword"
-                  required
-                  minlength="6"
-                />
+                <div class="input-group">
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="userPassword"
+                    required
+                    minlength="6"
+                  />
+                  <button
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    id="togglePasswordBtn"
+                    title="Show/Hide Password"
+                  >
+                    <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                  </button>
+                </div>
                 <div class="form-text">Minimum 6 characters. Leave blank to keep existing password when editing.</div>
               </div>
 

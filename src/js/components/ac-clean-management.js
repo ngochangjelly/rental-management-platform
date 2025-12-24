@@ -248,10 +248,17 @@ class AcCleanManagementComponent {
                 </small>
                 ${service.completionImage ? `
                   <div class="mt-2">
-                    <a href="${this.escapeHtml(service.completionImage)}" target="_blank" rel="noopener noreferrer">
-                      <img src="${this.escapeHtml(service.completionImage)}" alt="Completion Evidence"
-                           style="max-width: 100%; max-height: 150px; border-radius: 4px; cursor: pointer; object-fit: cover;" />
-                    </a>
+                    <img src="${this.escapeHtml(service.completionImage)}"
+                         alt="Completion Receipt"
+                         onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(service.completionImage)}', '${this.escapeHtml(service.propertyId)}')"
+                         style="max-width: 100%; max-height: 150px; border-radius: 4px; cursor: pointer; object-fit: cover; transition: transform 0.2s;"
+                         onmouseover="this.style.transform='scale(1.05)'"
+                         onmouseout="this.style.transform='scale(1)'" />
+                    <div class="mt-1">
+                      <small class="text-muted">
+                        <i class="bi bi-zoom-in me-1"></i>Click to view full image
+                      </small>
+                    </div>
                   </div>
                 ` : ''}
               </div>
@@ -563,6 +570,53 @@ class AcCleanManagementComponent {
     return /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url) ||
            url.includes('cloudinary.com') ||
            url.includes('res.cloudinary.com');
+  }
+
+  // Show completion image in modal
+  showCompletionImageModal(imageUrl, propertyId) {
+    const modalHtml = `
+      <div class="modal fade" id="completionImageViewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                <i class="bi bi-image me-2"></i>Completion Receipt - ${this.escapeHtml(propertyId)}
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+              <img src="${this.escapeHtml(imageUrl)}"
+                   alt="Completion Receipt"
+                   style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 4px;" />
+            </div>
+            <div class="modal-footer">
+              <a href="${this.escapeHtml(imageUrl)}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="btn btn-primary">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open in New Tab
+              </a>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById("completionImageViewModal");
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById("completionImageViewModal"));
+    modal.show();
   }
 
   async updateServiceStatus(propertyId, isCompleted, completedDate = null, completionImage = null) {
