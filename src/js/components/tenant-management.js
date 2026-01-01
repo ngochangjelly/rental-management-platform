@@ -46,7 +46,11 @@ class TenantManagementComponent {
 
       if (result.success) {
         this.properties = result.properties || [];
-        this.renderPropertyCards(result.properties);
+
+        // Filter properties if current user is an investor
+        await this.filterPropertiesByInvestor();
+
+        this.renderPropertyCards(this.properties);
       } else {
         console.error("Failed to load properties:", result.error);
         this.renderPropertyCards([]);
@@ -54,6 +58,33 @@ class TenantManagementComponent {
     } catch (error) {
       console.error("Error loading properties:", error);
       this.renderPropertyCards([]);
+    }
+  }
+
+  async filterPropertiesByInvestor() {
+    try {
+      console.log('🔄 [Tenants] Starting property filter check...');
+      const investorPropertyIds = await getInvestorPropertyIds();
+      console.log('📋 [Tenants] Investor property IDs result:', investorPropertyIds);
+
+      // If null, user is not an investor - show all properties
+      if (investorPropertyIds === null) {
+        console.log('ℹ️ [Tenants] User is not an investor, showing all properties');
+        return;
+      }
+
+      // Filter to show only investor's properties
+      console.log('🔍 [Tenants] Filtering properties for investor:', investorPropertyIds);
+      const originalCount = this.properties.length;
+      console.log('📦 [Tenants] Properties before filter:', this.properties.map(p => p.propertyId));
+      this.properties = this.properties.filter(property =>
+        investorPropertyIds.includes(property.propertyId)
+      );
+      console.log(`📊 [Tenants] Filtered properties: ${originalCount} → ${this.properties.length}`);
+      console.log('📦 [Tenants] Properties after filter:', this.properties.map(p => p.propertyId));
+    } catch (error) {
+      console.error('❌ [Tenants] Error filtering properties by investor:', error);
+      // Don't throw - just log and continue with all properties
     }
   }
 

@@ -101,6 +101,10 @@ class PropertyManagementComponent {
       if (result.success) {
         this.properties = result.properties;
         console.log('📦 Loaded properties:', this.properties.length);
+
+        // Filter properties if current user is an investor
+        await this.filterPropertiesByInvestor();
+
         // Debug: Log first property to check if images are present
         if (this.properties.length > 0) {
           console.log('🔍 First property sample:', {
@@ -122,6 +126,33 @@ class PropertyManagementComponent {
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showEmptyState("Error loading properties. Please try again.");
+    }
+  }
+
+  async filterPropertiesByInvestor() {
+    try {
+      console.log('🔄 Starting property filter check...');
+      const investorPropertyIds = await getInvestorPropertyIds();
+      console.log('📋 Investor property IDs result:', investorPropertyIds);
+
+      // If null, user is not an investor - show all properties
+      if (investorPropertyIds === null) {
+        console.log('ℹ️ User is not an investor, showing all properties');
+        return;
+      }
+
+      // Filter to show only investor's properties
+      console.log('🔍 Filtering properties for investor:', investorPropertyIds);
+      const originalCount = this.properties.length;
+      console.log('📦 Properties before filter:', this.properties.map(p => p.propertyId));
+      this.properties = this.properties.filter(property =>
+        investorPropertyIds.includes(property.propertyId)
+      );
+      console.log(`📊 Filtered properties: ${originalCount} → ${this.properties.length}`);
+      console.log('📦 Properties after filter:', this.properties.map(p => p.propertyId));
+    } catch (error) {
+      console.error('❌ Error filtering properties by investor:', error);
+      // Don't throw - just log and continue with all properties
     }
   }
 

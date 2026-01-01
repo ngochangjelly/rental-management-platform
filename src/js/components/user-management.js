@@ -61,7 +61,7 @@ class UserManagement {
     // Toggle password visibility
     const togglePasswordBtn = document.getElementById('togglePasswordBtn');
     if (togglePasswordBtn) {
-      togglePasswordBtn.addEventListener('click', () => this.togglePasswordVisibility());
+      togglePasswordBtn.addEventListener('click', (e) => this.togglePasswordVisibility(e));
     }
 
     // Modal reset on close
@@ -107,6 +107,10 @@ class UserManagement {
 
       if (data.success) {
         this.properties = data.properties || [];
+
+        // Check if current user is an investor and filter properties accordingly
+        await this.filterPropertiesByInvestor();
+
         this.renderPropertyCheckboxes();
       } else {
         throw new Error(data.message || 'Failed to load properties');
@@ -122,6 +126,29 @@ class UserManagement {
           </div>
         `;
       }
+    }
+  }
+
+  async filterPropertiesByInvestor() {
+    try {
+      const investorPropertyIds = await getInvestorPropertyIds();
+
+      // If null, user is not an investor - show all properties
+      if (investorPropertyIds === null) {
+        console.log('ℹ️ User is not an investor, showing all properties for user management');
+        return;
+      }
+
+      // Filter to show only investor's properties
+      console.log('🔍 Filtering user management properties for investor:', investorPropertyIds);
+      const originalCount = this.properties.length;
+      this.properties = this.properties.filter(property =>
+        investorPropertyIds.includes(property.propertyId)
+      );
+      console.log(`📊 Filtered user management properties: ${originalCount} → ${this.properties.length}`);
+    } catch (error) {
+      console.error('❌ Error filtering user management properties by investor:', error);
+      // Don't throw - just log and continue with all properties
     }
   }
 
@@ -422,24 +449,36 @@ class UserManagement {
     }
   }
 
-  togglePasswordVisibility() {
+  togglePasswordVisibility(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     const passwordInput = document.getElementById('userPassword');
     const toggleIcon = document.getElementById('togglePasswordIcon');
 
     if (passwordInput && toggleIcon) {
-      const currentType = passwordInput.getAttribute('type');
+      const isPassword = passwordInput.type === 'password';
 
-      if (currentType === 'password') {
+      if (isPassword) {
         // Show password
+        passwordInput.type = 'text';
         passwordInput.setAttribute('type', 'text');
         toggleIcon.classList.remove('bi-eye');
         toggleIcon.classList.add('bi-eye-slash');
+        toggleIcon.setAttribute('aria-label', 'Hide password');
       } else {
         // Hide password
+        passwordInput.type = 'password';
         passwordInput.setAttribute('type', 'password');
         toggleIcon.classList.remove('bi-eye-slash');
         toggleIcon.classList.add('bi-eye');
+        toggleIcon.setAttribute('aria-label', 'Show password');
       }
+
+      // Force a reflow
+      void passwordInput.offsetHeight;
     }
   }
 

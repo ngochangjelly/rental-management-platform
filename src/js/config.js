@@ -41,6 +41,7 @@ const API_CONFIG = {
 
     // Investors
     INVESTORS: "/api/investors",
+    INVESTORS_ME: "/api/investors/me",
     INVESTOR_BY_ID: (id) => `/api/investors/${id}`,
     INVESTORS_BY_PROPERTY: (propertyId) => `/api/investors/property/${propertyId}`,
     INVESTOR_ADD_PROPERTY: (investorId) => `/api/investors/${investorId}/properties`,
@@ -247,6 +248,48 @@ const isAdmin = () => {
   return user && user.role === 'admin';
 };
 
+// Helper function to get investor data for current user
+const getCurrentInvestor = async () => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.username) {
+      return null;
+    }
+
+    // Use the /me endpoint which is accessible to all authenticated users
+    const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS_ME);
+
+    // Check if response is ok before parsing JSON
+    if (!response.ok) {
+      console.warn(`Investor /me API returned ${response.status}. User is not treated as investor.`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    // The /me endpoint returns { success: true, isInvestor: boolean, data: investor|null }
+    if (data.success && data.isInvestor && data.data) {
+      console.log('✅ User is an investor:', data.data.name);
+      return data.data;
+    }
+
+    console.log('ℹ️ User is not an investor');
+    return null;
+  } catch (error) {
+    console.warn('Could not fetch investor data (treating user as non-investor):', error.message);
+    return null;
+  }
+};
+
+// Helper function to get property IDs for current investor
+const getInvestorPropertyIds = async () => {
+  const investor = await getCurrentInvestor();
+  if (!investor || !investor.properties) {
+    return null; // null means user is not an investor (show all)
+  }
+  return investor.properties.map(p => p.propertyId);
+};
+
 // Image utility functions
 const ImageUtils = {
   // Normalize image URL to ensure it uses the proxy endpoint
@@ -337,4 +380,6 @@ window.getAuthHeaders = getAuthHeaders;
 window.clearAuth = clearAuth;
 window.getCurrentUser = getCurrentUser;
 window.isAdmin = isAdmin;
+window.getCurrentInvestor = getCurrentInvestor;
+window.getInvestorPropertyIds = getInvestorPropertyIds;
 window.ImageUtils = ImageUtils;
