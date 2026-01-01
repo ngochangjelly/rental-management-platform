@@ -3957,28 +3957,43 @@
             }
           }
 
-          // Fetch investors count
-          const investorsResponse = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+          // Fetch investors count (only for admins - skip if insufficient permissions)
+          try {
+            const investorsResponse = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
 
-          if (investorsResponse.ok) {
-            const investorsResult = await investorsResponse.json();
-            let investorsCount = 0;
-            
-            // Handle different possible response structures
-            if (investorsResult.success && investorsResult.investors && Array.isArray(investorsResult.investors)) {
-              investorsCount = investorsResult.investors.length;
-            } else if (Array.isArray(investorsResult)) {
-              investorsCount = investorsResult.length;
-            } else if (investorsResult.data && Array.isArray(investorsResult.data)) {
-              investorsCount = investorsResult.data.length;
-            }
+            if (investorsResponse.ok) {
+              const investorsResult = await investorsResponse.json();
+              let investorsCount = 0;
 
-            const investorsBadge = document.getElementById("investorsBadge");
-            if (investorsBadge) {
-              investorsBadge.textContent = investorsCount;
-              // Hide badge if count is 0
+              // Handle different possible response structures
+              if (investorsResult.success && investorsResult.investors && Array.isArray(investorsResult.investors)) {
+                investorsCount = investorsResult.investors.length;
+              } else if (Array.isArray(investorsResult)) {
+                investorsCount = investorsResult.length;
+              } else if (investorsResult.data && Array.isArray(investorsResult.data)) {
+                investorsCount = investorsResult.data.length;
+              }
+
+              const investorsBadge = document.getElementById("investorsBadge");
+              if (investorsBadge) {
+                investorsBadge.textContent = investorsCount;
+                // Hide badge if count is 0
               investorsBadge.style.display =
                 investorsCount > 0 ? "inline-block" : "none";
+            }
+          } else {
+            // Non-admin users get 403/503 - just hide the badge silently
+            const investorsBadge = document.getElementById("investorsBadge");
+            if (investorsBadge) {
+              investorsBadge.style.display = "none";
+            }
+          }
+          } catch (investorError) {
+            // Silently handle investor API errors (permission denied for non-admins)
+            console.log('Investors count not available (permission restricted)');
+            const investorsBadge = document.getElementById("investorsBadge");
+            if (investorsBadge) {
+              investorsBadge.style.display = "none";
             }
           }
         } catch (error) {
