@@ -251,7 +251,7 @@ class AcCleanManagementComponent {
                     <button
                       type="button"
                       class="btn btn-sm btn-outline-primary py-0 px-2"
-                      onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(service.completionImage)}', '${this.escapeHtml(service.propertyId)}')"
+                      onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(service.completionImage)}', '${this.escapeHtml(service.propertyId)}', '${this.escapeHtml(service.address)}', '${this.escapeHtml(service.unit)}')"
                       title="View evidence">
                       <i class="bi bi-eye"></i>
                     </button>
@@ -261,7 +261,7 @@ class AcCleanManagementComponent {
                   <div class="mt-2">
                     <img src="${this.escapeHtml(service.completionImage)}"
                          alt="Completion Receipt"
-                         onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(service.completionImage)}', '${this.escapeHtml(service.propertyId)}')"
+                         onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(service.completionImage)}', '${this.escapeHtml(service.propertyId)}', '${this.escapeHtml(service.address)}', '${this.escapeHtml(service.unit)}')"
                          style="max-width: 100%; max-height: 150px; border-radius: 4px; cursor: pointer; object-fit: cover; transition: transform 0.2s;"
                          onmouseover="this.style.transform='scale(1.05)'"
                          onmouseout="this.style.transform='scale(1)'" />
@@ -584,14 +584,17 @@ class AcCleanManagementComponent {
   }
 
   // Show completion image in modal
-  showCompletionImageModal(imageUrl, propertyId) {
+  showCompletionImageModal(imageUrl, propertyId, address = '', unit = '') {
+    // Format the full address display
+    const fullAddress = address && unit ? `${address}, ${unit}` : (address || propertyId);
+
     const modalHtml = `
       <div class="modal fade" id="completionImageViewModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">
-                <i class="bi bi-image me-2"></i>Completion Receipt - ${this.escapeHtml(propertyId)}
+                <i class="bi bi-image me-2"></i>Completion Receipt - ${this.escapeHtml(fullAddress)}
               </h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
