@@ -1,10 +1,20 @@
 class UserManagement {
   constructor() {
+    // Singleton pattern - return existing instance if it exists
+    if (window.userManagement) {
+      console.log('⚠️ UserManagement already exists, returning existing instance');
+      return window.userManagement;
+    }
+
     this.users = [];
     this.properties = [];
     this.currentUser = null;
     this.editingUserId = null;
     this.userModal = null;
+    this.isLoadingUsers = false; // Prevent duplicate loads
+
+    // Set global instance immediately
+    window.userManagement = this;
 
     this.init();
   }
@@ -28,7 +38,7 @@ class UserManagement {
         mutations.forEach((mutation) => {
           if (mutation.attributeName === 'style') {
             const isVisible = usersSection.style.display !== 'none';
-            if (isVisible && this.users.length === 0) {
+            if (isVisible) {
               this.loadUsers();
             }
           }
@@ -74,13 +84,17 @@ class UserManagement {
   }
 
   async loadUsers() {
+    if (this.isLoadingUsers) return; // Prevent concurrent loads
+
     try {
+      this.isLoadingUsers = true;
       console.log('📋 Loading users');
       const response = await API.get(API_CONFIG.ENDPOINTS.USERS);
       const data = await response.json();
 
       if (data.success) {
         this.users = data.users || [];
+        console.log('✅ Loaded users:', this.users.length, 'users');
         this.renderUsers();
         this.updateUsersBadge();
       } else {
@@ -96,6 +110,8 @@ class UserManagement {
           </td>
         </tr>
       `;
+    } finally {
+      this.isLoadingUsers = false;
     }
   }
 
@@ -263,11 +279,15 @@ class UserManagement {
   }
 
   async editUser(userId) {
+    console.log('🔍 Edit user called with ID:', userId);
+    console.log('🔍 Current users array:', this.users);
     const user = this.users.find(u => u._id === userId);
     if (!user) {
+      console.error('❌ User not found in array. Looking for:', userId, 'Available IDs:', this.users.map(u => u._id));
       this.showError('User not found');
       return;
     }
+    console.log('✅ Found user:', user);
 
     this.editingUserId = userId;
 
@@ -349,13 +369,13 @@ class UserManagement {
       if (data.success) {
         this.showSuccess(this.editingUserId ? 'User updated successfully' : 'User created successfully');
 
-        // Close modal
+        // Reload users first
+        await this.loadUsers();
+
+        // Then close modal
         if (this.userModal) {
           this.userModal.hide();
         }
-
-        // Reload users
-        await this.loadUsers();
       } else {
         throw new Error(data.message || 'Failed to save user');
       }
