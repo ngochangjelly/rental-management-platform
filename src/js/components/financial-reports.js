@@ -1,5 +1,6 @@
 // Note: showToast and escapeHtml are expected to be available globally
 import html2canvas from 'html2canvas';
+import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
 
 /**
  * Financial Reports Component
@@ -21,24 +22,9 @@ class FinancialReportsComponent {
     this.init();
   }
 
-  // Map room type enums to human-readable names
+  // Map room type enums to human-readable names (using shared utility)
   getRoomTypeDisplayName(roomType) {
-    const roomTypeMap = {
-      'COMMON1': 'Common 1',
-      'COMMON2': 'Common 2',
-      'MASTER': 'Master',
-      'COMPARTMENT1': 'Compartment 1',
-      'COMPARTMENT2': 'Compartment 2',
-      'STORE': 'Store',
-      'COMMON_1_PAX': 'Common 1 Pax',
-      'COMMON_2_PAX': 'Common 2 Pax',
-      'SMALL_SINGLE_1_PAX': 'Small Single 1 Pax',
-      'SMALL_SINGLE_2_PAX': 'Small Single 2 Pax',
-      'BIG_SINGLE_1_PAX': 'Big Single 1 Pax',
-      'BIG_SINGLE_2_PAX': 'Big Single 2 Pax'
-    };
-
-    return roomTypeMap[roomType] || roomType;
+    return getRoomTypeDisplayName(roomType);
   }
 
   init() {

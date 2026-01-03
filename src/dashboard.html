@@ -1815,7 +1815,7 @@
                 <i class="bi bi-building me-2"></i>AC Service Companies
               </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" id="investorsNavItem" style="display:none;">
               <a
                 class="nav-link d-flex justify-content-between align-items-center"
                 href="#"
@@ -5061,6 +5061,59 @@
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <!-- Notes and Todos Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-journal-text me-1"></i>Notes & Tasks
+                </h6>
+                <div class="mb-3">
+                  <label for="tenantNotes" class="form-label">
+                    <i class="bi bi-sticky me-1"></i>Notes
+                  </label>
+                  <textarea
+                    class="form-control"
+                    id="tenantNotes"
+                    name="notes"
+                    rows="4"
+                    placeholder="Add notes about this tenant (optional)"
+                    maxlength="5000"
+                  ></textarea>
+                  <div class="form-text">
+                    Optional notes about the tenant, max 5000 characters
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">
+                    <i class="bi bi-list-check me-1"></i>To-Do List
+                  </label>
+                  <div id="tenantTodoList" class="border rounded p-3 bg-light">
+                    <div id="tenantTodoItems"></div>
+                    <div class="input-group mt-2">
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="tenantNewTodoInput"
+                        placeholder="Add a new task..."
+                        maxlength="500"
+                        onkeypress="if(event.key==='Enter'){event.preventDefault();tenantManager.addTodoItem();}"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="tenantManager.addTodoItem()"
+                      >
+                        <i class="bi bi-plus-lg"></i> Add
+                      </button>
+                    </div>
+                  </div>
+                  <div class="form-text">
+                    Track tasks and to-dos for this tenant
+                  </div>
+                </div>
+                <input type="hidden" id="tenantTodosHidden" name="todos" />
               </div>
 
               <!-- Property Assignment Section -->

@@ -316,7 +316,7 @@ const ImageUtils = {
 
     // If it looks like just a Cloudinary filename (e.g., "wdhtnp08ugp4nhshmkpf.jpg")
     // or a path without version (e.g., "tenant-documents/wdhtnp08ugp4nhshmkpf.jpg")
-    if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png)$/i)) {
+    if (url.match(/^[a-zA-Z0-9\-_\/]+\.(jpg|jpeg|png|heic|heif)$/i)) {
       // Check if it already includes the folder path
       if (url.includes("/")) {
         proxyPath = `/api/upload/image-proxy/${url}`;

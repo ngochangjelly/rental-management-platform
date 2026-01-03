@@ -220,12 +220,20 @@ class DashboardController {
     // Load user info from API and show/hide admin-only features
     const userInfoEl = document.getElementById("userInfo");
 
-    // Check if user is admin and show/hide users nav item
+    // Check if user is admin and show/hide admin-only nav items
     const user = getCurrentUser();
     const usersNavItem = document.getElementById('usersNavItem');
-    if (usersNavItem && user && user.role === 'admin') {
-      usersNavItem.style.display = 'block';
+    const investorsNavItem = document.getElementById('investorsNavItem');
+
+    if (user && user.role === 'admin') {
+      if (usersNavItem) {
+        usersNavItem.style.display = 'block';
+      }
+      if (investorsNavItem) {
+        investorsNavItem.style.display = 'block';
+      }
     }
+
     if (userInfoEl) {
       userInfoEl.textContent = "Admin User";
     }

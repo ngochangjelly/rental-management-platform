@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { getRoomTypeDisplayName, getRoomTypeOptions } from '../utils/room-type-mapper.js';
 
 /**
  * Tenant Management Component (v2 - fixed update endpoint)
@@ -18,6 +19,7 @@ class TenantManagementComponent {
     this.avatar = ""; // Single avatar image URL
     this.signature = ""; // Signature image URL (for main tenants)
     this.originalTenantData = null; // Store original tenant data for change detection
+    this.todos = []; // Array of todo items
 
     this.init();
   }
@@ -513,10 +515,23 @@ class TenantManagementComponent {
     }
 
     // Properties cache is already loaded in loadTenantsForProperty
+    // Sort tenants: active tenants first, expired tenants last
+    const sortedTenants = [...this.tenants].sort((a, b) => {
+      const aIsOutdated = this.isTenantOutdated(a, this.selectedProperty);
+      const bIsOutdated = this.isTenantOutdated(b, this.selectedProperty);
+
+      // If one is outdated and the other isn't, sort accordingly
+      if (aIsOutdated && !bIsOutdated) return 1; // a goes after b
+      if (!aIsOutdated && bIsOutdated) return -1; // a goes before b
+
+      // If both have the same status, maintain original order
+      return 0;
+    });
+
     // Create simple list layout for single property
     let html = '<div class="row g-3">';
 
-    this.tenants.forEach((tenant) => {
+    sortedTenants.forEach((tenant) => {
       const registrationStatus =
         tenant.registrationStatus ||
         (tenant.isRegistered ? "registered" : "unregistered");
@@ -535,7 +550,7 @@ class TenantManagementComponent {
           return propId === this.selectedProperty;
         });
         if (propertyInfo && typeof propertyInfo === "object") {
-          roomInfo = propertyInfo.room || "No room";
+          roomInfo = propertyInfo.room ? getRoomTypeDisplayName(propertyInfo.room) : "No room";
           if (propertyInfo.moveinDate) {
             const date = new Date(propertyInfo.moveinDate);
             moveInDate = `${date.getDate().toString().padStart(2, "0")}/${(
@@ -697,7 +712,7 @@ class TenantManagementComponent {
       tenant.properties &&
       tenant.properties.length > 0 &&
       typeof tenant.properties[0] === "object"
-        ? tenant.properties[0].room || "No room"
+        ? (tenant.properties[0].room ? getRoomTypeDisplayName(tenant.properties[0].room) : "No room")
         : "No room";
 
     return `
@@ -993,6 +1008,9 @@ class TenantManagementComponent {
           rent: tenant.rent || null,
           deposit: tenant.deposit || null,
           depositReceiver: tenant.depositReceiver || "",
+          // Notes and todos
+          notes: tenant.notes || "",
+          todos: JSON.parse(JSON.stringify(tenant.todos || [])), // Deep copy
         };
 
         // Populate form with existing data
@@ -1009,6 +1027,11 @@ class TenantManagementComponent {
         // Populate financial fields (except depositReceiver which is populated after investors are loaded)
         document.getElementById("tenantRent").value = tenant.rent || "";
         document.getElementById("tenantDeposit").value = tenant.deposit || "";
+
+        // Populate notes and todos
+        document.getElementById("tenantNotes").value = tenant.notes || "";
+        this.todos = tenant.todos || [];
+        this.renderTodoList();
 
         // Set registration status (support backward compatibility)
         const registrationStatus =
@@ -1066,10 +1089,12 @@ class TenantManagementComponent {
         this.visaPics = [];
         this.avatar = "";
         this.signature = "";
+        this.todos = [];
         this.updateImageGallery("passport");
         this.updateImageGallery("visa");
         this.updateAvatarPreview();
         this.updateSignaturePreview();
+        this.renderTodoList();
 
         // Reset registration status to unregistered
         this.setRegistrationStatus("unregistered");
@@ -1456,78 +1481,10 @@ class TenantManagementComponent {
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small">Room</label>
-                                    <select class="form-select form-select-sm" 
+                                    <select class="form-select form-select-sm"
                                             onchange="tenantManager.updatePropertyDetail('${propertyId}', 'room', this.value)"
                                             value="${propertyDetails.room}">
-                                        <option value="">Select room</option>
-                                        <option value="COMMON1" ${
-                                          propertyDetails.room === "COMMON1"
-                                            ? "selected"
-                                            : ""
-                                        }>Common 1</option>
-                                        <option value="COMMON2" ${
-                                          propertyDetails.room === "COMMON2"
-                                            ? "selected"
-                                            : ""
-                                        }>Common 2</option>
-                                        <option value="MASTER" ${
-                                          propertyDetails.room === "MASTER"
-                                            ? "selected"
-                                            : ""
-                                        }>Master</option>
-                                        <option value="COMPARTMENT1" ${
-                                          propertyDetails.room ===
-                                          "COMPARTMENT1"
-                                            ? "selected"
-                                            : ""
-                                        }>Compartment 1</option>
-                                        <option value="COMPARTMENT2" ${
-                                          propertyDetails.room ===
-                                          "COMPARTMENT2"
-                                            ? "selected"
-                                            : ""
-                                        }>Compartment 2</option>
-                                        <option value="STORE" ${
-                                          propertyDetails.room === "STORE"
-                                            ? "selected"
-                                            : ""
-                                        }>Store</option>
-                                        <option value="COMMON_1_PAX" ${
-                                          propertyDetails.room ===
-                                          "COMMON_1_PAX"
-                                            ? "selected"
-                                            : ""
-                                        }>Common 1 Pax</option>
-                                        <option value="COMMON_2_PAX" ${
-                                          propertyDetails.room ===
-                                          "COMMON_2_PAX"
-                                            ? "selected"
-                                            : ""
-                                        }>Common 2 Pax</option>
-                                        <option value="SMALL_SINGLE_1_PAX" ${
-                                          propertyDetails.room ===
-                                          "SMALL_SINGLE_1_PAX"
-                                            ? "selected"
-                                            : ""
-                                        }>Small Single 1 Pax</option>
-                                        <option value="SMALL_SINGLE_2_PAX" ${
-                                          propertyDetails.room ===
-                                          "SMALL_SINGLE_2_PAX"
-                                            ? "selected"
-                                            : ""
-                                        }>Small Single 2 Pax</option>
-                                        <option value="BIG_SINGLE_1_PAX" ${
-                                          propertyDetails.room ===
-                                          "BIG_SINGLE_1_PAX"
-                                            ? "selected"
-                                            : ""
-                                        }>Big Single 1 Pax</option>
-                                        <option value="BIG_SINGLE_2_PAX" ${
-                                          propertyDetails.room ===
-                                          "BIG_SINGLE_2_PAX"
-                                            ? "selected"
-                                            : ""
-                                        }>Big Single 2 Pax</option>
+                                        ${getRoomTypeOptions(propertyDetails.room)}
                                     </select>
                                 </div>
                                 <div class="col-md-4">
@@ -1649,6 +1606,9 @@ class TenantManagementComponent {
           ? parseFloat(formData.get("deposit"))
           : null,
         depositReceiver: formData.get("depositReceiver").trim() || null,
+        // Notes and todos
+        notes: formData.get("notes")?.trim() || null,
+        todos: this.todos || [],
       };
 
       // Debug: log the properties being sent
@@ -2617,7 +2577,7 @@ class TenantManagementComponent {
       if (typeof prop === "object" && prop.propertyId) {
         // New format with detailed property info
         const propertyId = this.escapeHtml(prop.propertyId);
-        const room = this.escapeHtml(prop.room || "N/A");
+        const room = this.escapeHtml(prop.room ? getRoomTypeDisplayName(prop.room) : "N/A");
         const moveinDate = prop.moveinDate
           ? new Date(prop.moveinDate).toLocaleDateString()
           : "N/A";
@@ -2668,6 +2628,7 @@ class TenantManagementComponent {
       "tenantRent",
       "tenantDeposit",
       "tenantDepositReceiver",
+      "tenantNotes",
     ];
 
     fieldsToWatch.forEach((fieldId) => {
@@ -2741,6 +2702,9 @@ class TenantManagementComponent {
       depositReceiver: (
         document.getElementById("tenantDepositReceiver")?.value || ""
       ).trim(),
+      // Notes and todos
+      notes: (document.getElementById("tenantNotes")?.value || "").trim(),
+      todos: this.todos || [],
     };
   }
 
@@ -2758,6 +2722,7 @@ class TenantManagementComponent {
       "rent",
       "deposit",
       "depositReceiver",
+      "notes",
     ];
 
     for (const field of fieldsToCompare) {
@@ -2785,12 +2750,32 @@ class TenantManagementComponent {
       return true;
     }
 
+    // Compare todos array
+    if (!this.todosEqual(original.todos || [], current.todos || [])) {
+      return true;
+    }
+
     return false;
   }
 
   arraysEqual(arr1, arr2) {
     if (arr1.length !== arr2.length) return false;
     return arr1.every((item, index) => item === arr2[index]);
+  }
+
+  todosEqual(todos1, todos2) {
+    if (todos1.length !== todos2.length) return false;
+
+    return todos1.every((todo1, index) => {
+      const todo2 = todos2[index];
+      if (!todo2) return false;
+
+      return (
+        todo1.id === todo2.id &&
+        todo1.text === todo2.text &&
+        todo1.completed === todo2.completed
+      );
+    });
   }
 
   propertiesEqual(props1, props2) {
@@ -3744,6 +3729,93 @@ class TenantManagementComponent {
         messageDiv.remove();
       }
     }, 5000);
+  }
+
+  // Todo list management methods
+  addTodoItem() {
+    const input = document.getElementById("tenantNewTodoInput");
+    const text = input.value.trim();
+
+    if (!text) {
+      alert("Please enter a task");
+      return;
+    }
+
+    if (text.length > 500) {
+      alert("Task text cannot exceed 500 characters");
+      return;
+    }
+
+    const todo = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      text: text,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.todos.push(todo);
+    this.renderTodoList();
+    input.value = "";
+    this.checkForChanges(); // Trigger change detection
+  }
+
+  removeTodoItem(todoId) {
+    this.todos = this.todos.filter((todo) => todo.id !== todoId);
+    this.renderTodoList();
+    this.checkForChanges(); // Trigger change detection
+  }
+
+  toggleTodoItem(todoId) {
+    const todo = this.todos.find((t) => t.id === todoId);
+    if (todo) {
+      todo.completed = !todo.completed;
+      this.renderTodoList();
+      this.checkForChanges(); // Trigger change detection
+    }
+  }
+
+  renderTodoList() {
+    const container = document.getElementById("tenantTodoItems");
+    if (!container) return;
+
+    if (this.todos.length === 0) {
+      container.innerHTML = '<p class="text-muted mb-0">No tasks yet</p>';
+      return;
+    }
+
+    let html = '<div class="list-group list-group-flush">';
+
+    this.todos.forEach((todo) => {
+      html += `
+        <div class="list-group-item px-0 d-flex align-items-start gap-2">
+          <input
+            type="checkbox"
+            class="form-check-input mt-1 flex-shrink-0"
+            ${todo.completed ? 'checked' : ''}
+            onchange="tenantManager.toggleTodoItem('${todo.id}')"
+          />
+          <span class="flex-grow-1 ${todo.completed ? 'text-decoration-line-through text-muted' : ''}">
+            ${this.escapeHtml(todo.text)}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger flex-shrink-0"
+            onclick="tenantManager.removeTodoItem('${todo.id}')"
+          >
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Update hidden field for form submission
+    const hiddenField = document.getElementById("tenantTodosHidden");
+    if (hiddenField) {
+      hiddenField.value = JSON.stringify(this.todos);
+    }
   }
 }
 

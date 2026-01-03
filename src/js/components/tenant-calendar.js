@@ -1,3 +1,5 @@
+import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+
 /**
  * Tenant Timeline Calendar Component
  * Displays tenant move-in/move-out dates as a waterfall/timeline view
@@ -223,12 +225,15 @@ class TenantCalendar {
             ? Math.ceil((moveoutDate - moveinDate) / (1000 * 60 * 60 * 24))
             : Math.ceil((new Date() - moveinDate) / (1000 * 60 * 60 * 24));
 
+        // Get display name for room type
+        const roomDisplayName = tenant.room ? getRoomTypeDisplayName(tenant.room) : 'N/A';
+
         return `
             <div class="tenant-row">
                 <div class="tenant-name-column">
                     <div class="tenant-info">
                         <div class="tenant-name-text">${tenant.name}</div>
-                        <div class="tenant-room-text">${tenant.room || 'N/A'}</div>
+                        <div class="tenant-room-text">${roomDisplayName}</div>
                     </div>
                 </div>
                 <div class="timeline-container">
