@@ -119,7 +119,14 @@ class UserManagement {
     try {
       console.log('📋 Loading properties for access selection');
       const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      const data = await response.json();
+
+      // Handle non-JSON responses (e.g., "Network unavailable" from service worker)
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        throw new Error('Network unavailable or invalid response');
+      }
 
       if (data.success) {
         this.properties = data.properties || [];
@@ -218,15 +225,15 @@ class UserManagement {
 
     tbody.innerHTML = this.users.map(user => `
       <tr>
-        <td>
+        <td data-label="Username">
           <strong>${this.escapeHtml(user.username)}</strong>
         </td>
-        <td>
+        <td data-label="Role">
           <span class="badge bg-${user.role === 'admin' ? 'danger' : 'primary'}">
             ${user.role.toUpperCase()}
           </span>
         </td>
-        <td>
+        <td data-label="Property Access">
           ${user.role === 'admin'
             ? '<span class="text-muted">All Properties</span>'
             : user.propertyAccess && user.propertyAccess.length > 0
@@ -234,8 +241,8 @@ class UserManagement {
               : '<span class="text-muted">No access</span>'
           }
         </td>
-        <td>${new Date(user.createdAt).toLocaleDateString()}</td>
-        <td>
+        <td data-label="Created">${new Date(user.createdAt).toLocaleDateString()}</td>
+        <td data-label="Actions">
           <button
             class="btn btn-sm btn-outline-primary me-1"
             onclick="userManagement.editUser('${user._id}')"

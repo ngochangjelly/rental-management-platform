@@ -241,11 +241,22 @@ class AcCleanManagementComponent {
 
             ${service.isCompleted && service.completedAt ? `
               <div class="alert alert-success py-2 mb-3">
-                <small>
-                  <i class="bi bi-check-circle me-1"></i>
-                  Completed on ${new Date(service.completedAt).toLocaleDateString()}
-                  ${service.completedBy ? ` by ${this.escapeHtml(service.completedBy)}` : ''}
-                </small>
+                <div class="d-flex justify-content-between align-items-start">
+                  <small>
+                    <i class="bi bi-check-circle me-1"></i>
+                    Completed on ${new Date(service.completedAt).toLocaleDateString()}
+                    ${service.completedBy ? ` by ${this.escapeHtml(service.completedBy)}` : ''}
+                  </small>
+                  ${service.completionImage ? `
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary py-0 px-2"
+                      onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(service.completionImage)}', '${this.escapeHtml(service.propertyId)}')"
+                      title="View evidence">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  ` : ''}
+                </div>
                 ${service.completionImage ? `
                   <div class="mt-2">
                     <img src="${this.escapeHtml(service.completionImage)}"
@@ -589,16 +600,32 @@ class AcCleanManagementComponent {
                    alt="Completion Receipt"
                    style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 4px;" />
             </div>
-            <div class="modal-footer">
-              <a href="${this.escapeHtml(imageUrl)}"
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 class="btn btn-primary">
-                <i class="bi bi-box-arrow-up-right me-1"></i>Open in New Tab
-              </a>
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                Close
-              </button>
+            <div class="modal-footer justify-content-between">
+              <div class="btn-group" role="group">
+                <button type="button"
+                        class="btn btn-outline-primary"
+                        onclick="window.acCleanManagementComponent.copyImageUrl('${this.escapeHtml(imageUrl)}')"
+                        title="Copy image URL to clipboard">
+                  <i class="bi bi-link-45deg me-1"></i>Copy URL
+                </button>
+                <button type="button"
+                        class="btn btn-outline-primary"
+                        onclick="window.acCleanManagementComponent.downloadImage('${this.escapeHtml(imageUrl)}', '${this.escapeHtml(propertyId)}')"
+                        title="Download image">
+                  <i class="bi bi-download me-1"></i>Download
+                </button>
+              </div>
+              <div>
+                <a href="${this.escapeHtml(imageUrl)}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="btn btn-primary">
+                  <i class="bi bi-box-arrow-up-right me-1"></i>Open in New Tab
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -617,6 +644,70 @@ class AcCleanManagementComponent {
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById("completionImageViewModal"));
     modal.show();
+  }
+
+  // Copy image URL to clipboard
+  async copyImageUrl(imageUrl) {
+    try {
+      await navigator.clipboard.writeText(imageUrl);
+      showToast('Image URL copied to clipboard!', 'success');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+
+      // Fallback method
+      const textArea = document.createElement('textarea');
+      textArea.value = imageUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+
+      try {
+        document.execCommand('copy');
+        showToast('Image URL copied to clipboard!', 'success');
+      } catch (fallbackError) {
+        showToast('Failed to copy URL', 'error');
+      }
+
+      document.body.removeChild(textArea);
+    }
+  }
+
+  // Download image
+  async downloadImage(imageUrl, propertyId) {
+    try {
+      showToast('Downloading image...', 'info');
+
+      // Fetch the image
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Generate filename
+      const fileExtension = imageUrl.split('.').pop().split('?')[0] || 'jpg';
+      const timestamp = new Date().toISOString().split('T')[0];
+      link.download = `AC_Service_${propertyId}_${timestamp}.${fileExtension}`;
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+
+      showToast('Image downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+
+      // Fallback: open in new tab
+      showToast('Opening image in new tab...', 'info');
+      window.open(imageUrl, '_blank');
+    }
   }
 
   async updateServiceStatus(propertyId, isCompleted, completedDate = null, completionImage = null) {

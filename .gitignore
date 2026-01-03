@@ -35,6 +35,9 @@ temp/
 *.swo
 *~
 
+# MCP configuration (development only)
+.mcp.json
+
 # OS files
 .DS_Store
 .DS_Store?
