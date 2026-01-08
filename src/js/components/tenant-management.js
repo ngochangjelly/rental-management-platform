@@ -673,9 +673,18 @@ class TenantManagementComponent {
                                 </div>
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-start mb-1">
-                                        <h5 class="mb-0">${this.escapeHtml(
-                                          tenant.name
-                                        )}</h5>
+                                        <div>
+                                            <h5 class="mb-0">${this.escapeHtml(
+                                              tenant.name
+                                            )}</h5>
+                                            ${
+                                              tenant.nickname
+                                                ? `<small class="text-muted">（${this.escapeHtml(
+                                                    tenant.nickname
+                                                  )}）</small>`
+                                                : ""
+                                            }
+                                        </div>
                                         <div class="d-flex gap-2 align-items-center">
                                             ${this.renderTenantTodoBadge(tenant)}
                                             ${
@@ -2992,6 +3001,7 @@ class TenantManagementComponent {
 
     const fieldsToWatch = [
       "tenantName",
+      "tenantNickname",
       "tenantFin",
       "tenantPassport",
       "tenantPhoneNumber",
@@ -3058,6 +3068,7 @@ class TenantManagementComponent {
   getCurrentFormData() {
     return {
       name: (document.getElementById("tenantName")?.value || "").trim(),
+      nickname: (document.getElementById("tenantNickname")?.value || "").trim(),
       fin: (document.getElementById("tenantFin")?.value || "").trim(),
       passportNumber: (
         document.getElementById("tenantPassport")?.value || ""
@@ -3102,6 +3113,7 @@ class TenantManagementComponent {
     // Compare basic fields
     const fieldsToCompare = [
       "name",
+      "nickname",
       "fin",
       "passportNumber",
       "phoneNumber",

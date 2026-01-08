@@ -120,7 +120,7 @@ class TenantCalendar {
                     isMainTenant: propertyAssignment.isMainTenant
                 };
             })
-            .filter(t => t !== null)
+            .filter(t => t !== null && t.room) // Filter out tenants without a room
             .sort((a, b) => new Date(a.moveinDate) - new Date(b.moveinDate));
     }
 
@@ -228,24 +228,79 @@ class TenantCalendar {
         // Get display name for room type
         const roomDisplayName = tenant.room ? getRoomTypeDisplayName(tenant.room) : 'N/A';
 
+        // Generate avatar HTML
+        const displayName = tenant.nickname || tenant.name;
+        let avatarHtml = '';
+        if (tenant.avatar) {
+            avatarHtml = `<img src="${this.escapeHtml(tenant.avatar)}" alt="${this.escapeHtml(displayName)}" class="tenant-avatar">`;
+        } else {
+            const initial = displayName.charAt(0).toUpperCase();
+            avatarHtml = `<div class="tenant-avatar-placeholder">${this.escapeHtml(initial)}</div>`;
+        }
+
+        // Generate social media badges
+        let socialBadgesHtml = '';
+        if (tenant.facebookUrl) {
+            socialBadgesHtml += `<a href="${this.escapeHtml(tenant.facebookUrl)}" target="_blank" rel="noopener noreferrer" class="social-badge facebook-badge" title="Facebook"><i class="bi bi-facebook"></i></a>`;
+        }
+        if (tenant.phoneNumber) {
+            const cleanPhone = tenant.phoneNumber.replace(/[^0-9]/g, '');
+            socialBadgesHtml += `<a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener noreferrer" class="social-badge whatsapp-badge" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>`;
+        }
+
+        // Format move-out date for display (short format for badge)
+        const formatShortDate = (date) => {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        };
+
+        // Generate move-out date badge if tenant has moved out
+        let moveoutBadgeHtml = '';
+        if (tenant.moveoutDate && moveoutDate) {
+            const shortMoveoutStr = formatShortDate(moveoutDate);
+            moveoutBadgeHtml = `
+                <div class="moveout-date-marker" title="Move-out: ${moveoutStr}">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="moveout-date-text">${this.escapeHtml(shortMoveoutStr)}</span>
+                </div>
+            `;
+        }
+
         return `
             <div class="tenant-row">
                 <div class="tenant-name-column">
-                    <div class="tenant-info">
-                        <div class="tenant-name-text">${tenant.name}</div>
-                        <div class="tenant-room-text">${roomDisplayName}</div>
+                    <div class="tenant-info-wrapper">
+                        ${avatarHtml}
+                        <div class="tenant-info">
+                            <div class="tenant-name-text">${this.escapeHtml(displayName)}</div>
+                            <div class="tenant-room-text">${roomDisplayName}</div>
+                        </div>
+                        ${socialBadgesHtml ? `<div class="tenant-social-badges">${socialBadgesHtml}</div>` : ''}
                     </div>
                 </div>
                 <div class="timeline-container">
                     <div
                         class="occupancy-bar ${!tenant.moveoutDate ? 'current-tenant' : ''}"
                         style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};"
-                        title="${tenant.name}\n${moveinStr} - ${moveoutStr}\nDuration: ${duration} days">
-                        <span class="occupancy-bar-label">${tenant.name}</span>
+                        title="${displayName}\n${moveinStr} - ${moveoutStr}\nDuration: ${duration} days">
+                        <span class="occupancy-bar-label">${this.escapeHtml(displayName)}</span>
+                        ${moveoutBadgeHtml}
                     </div>
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 

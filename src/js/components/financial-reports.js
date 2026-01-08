@@ -1199,11 +1199,30 @@ class FinancialReportsComponent {
           const displayName = tenant.name || tenant.username || tenant.tenantId;
           const phoneNumber = tenant.phoneNumber || '';
           const roomType = this.getRoomTypeDisplayName(tenant.roomType);
+          const facebookUrl = tenant.facebookUrl || '';
+          const roommateName = tenant.roommateId?.name || '';
+          const roommateAvatar = tenant.roommateId?.avatar || '';
+
+          // Generate roommate avatar HTML
+          let roommateAvatarHtml = '';
+          if (roommateName) {
+            if (roommateAvatar) {
+              roommateAvatarHtml = `<img src="${escapeHtml(roommateAvatar)}" alt="${escapeHtml(roommateName)}" class="rounded-circle" style="width: 24px; height: 24px; object-fit: cover; border: 2px solid #0dcaf0;" title="Roommate: ${escapeHtml(roommateName)}" data-bs-toggle="tooltip">`;
+            } else {
+              const initial = roommateName.charAt(0).toUpperCase();
+              roommateAvatarHtml = `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 24px; height: 24px; font-size: 12px; border: 2px solid #0dcaf0;" title="Roommate: ${escapeHtml(roommateName)}" data-bs-toggle="tooltip">${escapeHtml(initial)}</div>`;
+            }
+          }
+
           html += `
-            <li class="mb-1">
-              <strong>${escapeHtml(displayName)}</strong>
-              <span class="text-muted ms-2">(${escapeHtml(roomType)})</span>
-              ${phoneNumber ? `<span class="text-muted ms-2">📞 ${escapeHtml(phoneNumber)}</span>` : ''}
+            <li class="mb-2">
+              <div class="d-flex align-items-center flex-wrap gap-2">
+                <strong>${escapeHtml(displayName)}</strong>
+                <span class="text-muted">(${escapeHtml(roomType)})</span>
+                ${phoneNumber ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ''))}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>` : ''}
+                ${facebookUrl ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile"><i class="bi bi-facebook me-1"></i>Facebook</a>` : ''}
+                ${roommateAvatarHtml}
+              </div>
             </li>
           `;
         });
@@ -1217,6 +1236,12 @@ class FinancialReportsComponent {
 
         reminderContainer.innerHTML = html;
         reminderContainer.style.display = "block";
+
+        // Initialize Bootstrap tooltips for roommate avatars
+        const tooltipTriggerList = reminderContainer.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipTriggerList.forEach(tooltipTriggerEl => {
+          new bootstrap.Tooltip(tooltipTriggerEl);
+        });
       }
     } catch (error) {
       console.error("Error loading unpaid rent reminder:", error);

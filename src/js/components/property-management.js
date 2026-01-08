@@ -1,3 +1,5 @@
+import { ROOM_TYPE_MAP } from '../utils/room-type-mapper.js';
+
 /**
  * Property Management Component
  * Handles property CRUD operations
@@ -15,6 +17,91 @@ class PropertyManagementComponent {
     this.setupEventListeners();
     this.loadProperties();
     this.loadAcServiceCompanies();
+    this.populateRoomTypesDropdown();
+  }
+
+  populateRoomTypesDropdown() {
+    const dropdownMenu = document.getElementById("propertyRoomsDropdownMenu");
+    const hiddenSelect = document.getElementById("propertyRooms");
+
+    if (!dropdownMenu || !hiddenSelect) return;
+
+    // Clear existing content
+    dropdownMenu.innerHTML = '';
+    hiddenSelect.innerHTML = '';
+
+    // Populate hidden select options
+    Object.entries(ROOM_TYPE_MAP).forEach(([value, label]) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      hiddenSelect.appendChild(option);
+    });
+
+    // Add checkboxes to dropdown menu
+    Object.entries(ROOM_TYPE_MAP).forEach(([value, label]) => {
+      dropdownMenu.innerHTML += `
+        <div class="form-check px-3 py-2" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
+          <input class="form-check-input property-room-checkbox" type="checkbox" value="${value}" id="room_${value}" style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
+          <label class="form-check-label" for="room_${value}" style="cursor: pointer; flex: 1; margin: 0;">
+            ${label}
+          </label>
+        </div>
+      `;
+    });
+
+    // Setup event listeners for checkboxes
+    this.setupPropertyRoomsCheckboxListeners();
+
+    // Prevent dropdown from closing when clicking inside
+    const dropdownMenuElement = document.getElementById('propertyRoomsDropdownMenu');
+    if (dropdownMenuElement) {
+      dropdownMenuElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
+  }
+
+  setupPropertyRoomsCheckboxListeners() {
+    const checkboxes = document.querySelectorAll('.property-room-checkbox');
+
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        this.updatePropertyRoomsSelection();
+      });
+    });
+  }
+
+  updatePropertyRoomsSelection() {
+    const checkboxes = document.querySelectorAll('.property-room-checkbox');
+    const hiddenSelect = document.getElementById("propertyRooms");
+    const selectedText = document.getElementById("propertyRoomsSelectedText");
+
+    if (!hiddenSelect || !selectedText) return;
+
+    // Get selected rooms
+    const selectedRooms = [];
+    checkboxes.forEach(checkbox => {
+      const option = Array.from(hiddenSelect.options).find(opt => opt.value === checkbox.value);
+      if (option) {
+        option.selected = checkbox.checked;
+        if (checkbox.checked) {
+          selectedRooms.push(option.textContent);
+        }
+      }
+    });
+
+    // Update display text
+    if (selectedRooms.length === 0) {
+      selectedText.textContent = 'Select rooms...';
+      selectedText.classList.add('text-muted');
+    } else if (selectedRooms.length <= 3) {
+      selectedText.textContent = selectedRooms.join(', ');
+      selectedText.classList.remove('text-muted');
+    } else {
+      selectedText.textContent = `${selectedRooms.length} rooms selected`;
+      selectedText.classList.remove('text-muted');
+    }
   }
 
   async loadAcServiceCompanies() {
@@ -443,6 +530,26 @@ class PropertyManagementComponent {
           this.updatePropertyImagePreview();
         }
 
+        // Handle property rooms selection
+        if (property.rooms && Array.isArray(property.rooms)) {
+          // Clear all checkboxes first
+          const checkboxes = document.querySelectorAll('.property-room-checkbox');
+          checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+          });
+
+          // Check the rooms that are in the property
+          property.rooms.forEach(room => {
+            const checkbox = document.getElementById(`room_${room}`);
+            if (checkbox) {
+              checkbox.checked = true;
+            }
+          });
+
+          // Update the selection display
+          this.updatePropertyRoomsSelection();
+        }
+
         // Make propertyId readonly in edit mode
         document.getElementById("propertyId").readOnly = true;
         document.getElementById("propertyId").classList.add("bg-light");
@@ -554,6 +661,10 @@ class PropertyManagementComponent {
       // Get AC service date and handle empty strings
       const acServiceDateValue = formData.get("acServiceDate")?.trim();
 
+      // Get selected rooms from multi-select
+      const roomsSelect = document.getElementById("propertyRooms");
+      const selectedRooms = roomsSelect ? Array.from(roomsSelect.selectedOptions).map(option => option.value) : [];
+
       const propertyData = {
         propertyId: formData.get("propertyId").trim().toUpperCase(),
         address: formData.get("address").trim(),
@@ -564,6 +675,7 @@ class PropertyManagementComponent {
         rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
         rent: parseFloat(formData.get("rent")) || 0,
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
+        rooms: selectedRooms,
         agentName: formData.get("agentName")?.trim() || "",
         agentPhone: formData.get("agentPhone")?.trim() || "",
         landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",
@@ -930,17 +1042,24 @@ class PropertyManagementComponent {
 
     if (this.propertyImage) {
       preview.innerHTML = `
-        <div class="position-relative">
-          <img src="${this.propertyImage}" class="img-thumbnail w-100" style="height: 200px; object-fit: cover;"
+        <div class="position-relative" style="width: 100%; height: 100%;">
+          <img src="${this.propertyImage}" class="w-100 h-100 rounded" style="object-fit: cover;"
                alt="Property Image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDUiIGZpbGw9IiNmOGY5ZmEiIHN0cm9rZT0iI2RlZTJlNiIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iNTAiIHk9IjU1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmM3NTdkIiBmb250LXNpemU9IjEyIj5JbWFnZTwvdGV4dD48L3N2Zz4='">
-          <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle p-1"
+          <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1"
                   onclick="propertyManager.removePropertyImage()" style="width: 24px; height: 24px; font-size: 0.7rem;">
             <i class="bi bi-x"></i>
           </button>
         </div>
       `;
     } else {
-      preview.innerHTML = '<p class="text-muted">No image selected</p>';
+      preview.innerHTML = `
+        <div class="d-flex align-items-center justify-content-center h-100">
+          <div class="text-center text-muted">
+            <i class="bi bi-image" style="font-size: 2rem;"></i>
+            <br><small>No image selected</small>
+          </div>
+        </div>
+      `;
     }
   }
 
