@@ -528,52 +528,130 @@ class TenantManagementComponent {
       return 0;
     });
 
+    // Group tenants by roommate relationships
+    const tenantGroups = this.groupTenantsByRoommates(sortedTenants);
+
     // Create simple list layout for single property
     let html = '<div class="row g-3">';
 
-    sortedTenants.forEach((tenant) => {
-      const registrationStatus =
-        tenant.registrationStatus ||
-        (tenant.isRegistered ? "registered" : "unregistered");
-      const isMainTenant = this.hasMainTenantProperty(tenant);
-      const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+    tenantGroups.forEach((group) => {
+      if (group.length > 1) {
+        // Render roommate group with special styling
+        html += this.renderRoommateGroup(group);
+      } else {
+        // Render single tenant
+        const tenant = group[0];
+        html += this.renderSingleTenant(tenant);
+      }
+    });
 
-      // Find room info for this tenant in the selected property
-      let roomInfo = "No property";
-      let moveInDate = "N/A";
-      let moveOutDate = "N/A";
-      let rentAmount = tenant.rent || "N/A";
+    html += "</div>";
+    tbody.innerHTML = html;
 
-      if (this.selectedProperty !== "UNASSIGNED") {
-        const propertyInfo = tenant.properties?.find((prop) => {
-          const propId = typeof prop === "object" ? prop.propertyId : prop;
-          return propId === this.selectedProperty;
-        });
-        if (propertyInfo && typeof propertyInfo === "object") {
-          roomInfo = propertyInfo.room ? getRoomTypeDisplayName(propertyInfo.room) : "No room";
-          if (propertyInfo.moveinDate) {
-            const date = new Date(propertyInfo.moveinDate);
-            moveInDate = `${date.getDate().toString().padStart(2, "0")}/${(
-              date.getMonth() + 1
-            )
-              .toString()
-              .padStart(2, "0")}/${date.getFullYear()}`;
-          }
-          if (propertyInfo.moveoutDate) {
-            const date = new Date(propertyInfo.moveoutDate);
-            moveOutDate = `${date.getDate().toString().padStart(2, "0")}/${(
-              date.getMonth() + 1
-            )
-              .toString()
-              .padStart(2, "0")}/${date.getFullYear()}`;
-          }
-        } else {
-          roomInfo = "No room";
+    // Add card styles if not already present
+    this.addTenantDetailCardStyles();
+
+    // Setup todo badge hover listeners
+    this.setupTodoBadgeListeners();
+  }
+
+  groupTenantsByRoommates(tenants) {
+    const groups = [];
+    const processed = new Set();
+
+    tenants.forEach((tenant) => {
+      if (processed.has(tenant._id)) return;
+
+      const group = [tenant];
+      processed.add(tenant._id);
+
+      // Find roommate
+      const roommateId = tenant.roommateId?._id || tenant.roommateId;
+      if (roommateId) {
+        const roommate = tenants.find(t => t._id === roommateId);
+        if (roommate && !processed.has(roommate._id)) {
+          group.push(roommate);
+          processed.add(roommate._id);
         }
       }
 
-      html += `
-                <div class="col-12 col-md-6 col-lg-3">
+      groups.push(group);
+    });
+
+    return groups;
+  }
+
+  renderRoommateGroup(group) {
+    const isOutdated = group.every(t => this.isTenantOutdated(t, this.selectedProperty));
+
+    let html = `
+      <div class="col-12">
+        <div class="roommate-group-container ${isOutdated ? 'group-outdated' : ''}">
+          <div class="roommate-group-header">
+            <i class="bi bi-people-fill me-2"></i>
+            <strong>Roommates in Same Room</strong>
+            <span class="badge bg-success ms-2">${group.length} tenants</span>
+          </div>
+          <div class="row g-3">
+    `;
+
+    group.forEach((tenant) => {
+      html += this.renderSingleTenant(tenant, true);
+    });
+
+    html += `
+          </div>
+        </div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  renderSingleTenant(tenant, isInGroup = false) {
+    const colClass = isInGroup ? "col-12 col-md-6" : "col-12 col-md-6 col-lg-3";
+    const registrationStatus =
+      tenant.registrationStatus ||
+      (tenant.isRegistered ? "registered" : "unregistered");
+    const isMainTenant = this.hasMainTenantProperty(tenant);
+    const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+
+    // Find room info for this tenant in the selected property
+    let roomInfo = "No property";
+    let moveInDate = "N/A";
+    let moveOutDate = "N/A";
+    let rentAmount = tenant.rent || "N/A";
+
+    if (this.selectedProperty !== "UNASSIGNED") {
+      const propertyInfo = tenant.properties?.find((prop) => {
+        const propId = typeof prop === "object" ? prop.propertyId : prop;
+        return propId === this.selectedProperty;
+      });
+      if (propertyInfo && typeof propertyInfo === "object") {
+        roomInfo = propertyInfo.room ? getRoomTypeDisplayName(propertyInfo.room) : "No room";
+        if (propertyInfo.moveinDate) {
+          const date = new Date(propertyInfo.moveinDate);
+          moveInDate = `${date.getDate().toString().padStart(2, "0")}/${(
+            date.getMonth() + 1
+          )
+            .toString()
+            .padStart(2, "0")}/${date.getFullYear()}`;
+        }
+        if (propertyInfo.moveoutDate) {
+          const date = new Date(propertyInfo.moveoutDate);
+          moveOutDate = `${date.getDate().toString().padStart(2, "0")}/${(
+            date.getMonth() + 1
+          )
+            .toString()
+            .padStart(2, "0")}/${date.getFullYear()}`;
+        }
+      } else {
+        roomInfo = "No room";
+      }
+    }
+
+    return `
+                <div class="${colClass}">
                     <div class="card h-100 tenant-detail-card shadow-sm ${
                       isOutdated ? "tenant-outdated" : ""
                     }">
@@ -599,13 +677,7 @@ class TenantManagementComponent {
                                           tenant.name
                                         )}</h5>
                                         <div class="d-flex gap-2 align-items-center">
-                                            ${
-                                              tenant.facebookUrl
-                                                ? `<a href="${this.escapeHtml(
-                                                    tenant.facebookUrl
-                                                  )}" target="_blank" rel="noopener noreferrer" class="text-primary" title="Facebook Profile"><i class="bi bi-facebook fs-5"></i></a>`
-                                                : ""
-                                            }
+                                            ${this.renderTenantTodoBadge(tenant)}
                                             ${
                                               isMainTenant
                                                 ? '<span class="badge bg-primary">Main</span>'
@@ -633,6 +705,16 @@ class TenantManagementComponent {
                                     ? "$" + rentAmount.toFixed(2)
                                     : rentAmount
                                 }</div>
+                                <div class="mb-2"><strong>Cleaning Fee:</strong> ${
+                                  typeof tenant.cleaningFee === "number"
+                                    ? "$" + tenant.cleaningFee.toFixed(2)
+                                    : "N/A"
+                                }</div>
+                                ${
+                                  tenant.isHouseCleaner
+                                    ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-person-broom me-1"></i>House Cleaner</span></div>'
+                                    : ""
+                                }
                                 <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(
                                   moveInDate
                                 )}</div>
@@ -640,7 +722,7 @@ class TenantManagementComponent {
                                   moveOutDate
                                 )}</div>
                             </div>
-                            <div class="d-flex gap-1 align-items-center mb-3">
+                            <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
                                 ${this.getRegistrationStatusBadge(
                                   registrationStatus
                                 )}
@@ -648,6 +730,24 @@ class TenantManagementComponent {
                                   tenant.properties &&
                                   tenant.properties.length > 1
                                     ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
+                                    : ""
+                                }
+                                ${
+                                  tenant.facebookUrl
+                                    ? `<a href="${this.escapeHtml(
+                                        tenant.facebookUrl
+                                      )}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile">
+                                        <i class="bi bi-facebook me-1"></i>Facebook
+                                      </a>`
+                                    : ""
+                                }
+                                ${
+                                  tenant.phoneNumber
+                                    ? `<a href="https://wa.me/${this.escapeHtml(
+                                        tenant.phoneNumber.replace(/[^0-9]/g, '')
+                                      )}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp">
+                                        <i class="bi bi-whatsapp me-1"></i>WhatsApp
+                                      </a>`
                                     : ""
                                 }
                             </div>
@@ -667,13 +767,6 @@ class TenantManagementComponent {
                     </div>
                 </div>
             `;
-    });
-
-    html += "</div>";
-    tbody.innerHTML = html;
-
-    // Add card styles if not already present
-    this.addTenantDetailCardStyles();
   }
 
   addTenantDetailCardStyles() {
@@ -695,6 +788,130 @@ class TenantManagementComponent {
                 }
                 .tenant-outdated:hover {
                     opacity: 0.7;
+                }
+                .roommate-group-container {
+                    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+                    border: 3px solid #2196F3;
+                    border-radius: 16px;
+                    padding: 20px;
+                    margin-bottom: 10px;
+                    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+                    position: relative;
+                }
+                .roommate-group-container::before {
+                    content: "";
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    bottom: -2px;
+                    background: linear-gradient(45deg, #2196F3, #9C27B0, #2196F3);
+                    border-radius: 16px;
+                    z-index: -1;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+                .roommate-group-container:hover::before {
+                    opacity: 1;
+                    animation: borderGlow 3s linear infinite;
+                }
+                @keyframes borderGlow {
+                    0%, 100% {
+                        background: linear-gradient(45deg, #2196F3, #9C27B0, #2196F3);
+                    }
+                    50% {
+                        background: linear-gradient(45deg, #9C27B0, #2196F3, #9C27B0);
+                    }
+                }
+                .roommate-group-container.group-outdated {
+                    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+                    border-color: #9e9e9e;
+                    opacity: 0.7;
+                }
+                .roommate-group-header {
+                    background: white;
+                    padding: 12px 20px;
+                    border-radius: 10px;
+                    margin-bottom: 15px;
+                    font-size: 1.1rem;
+                    color: #1976D2;
+                    display: flex;
+                    align-items: center;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+                .roommate-group-header i {
+                    font-size: 1.3rem;
+                }
+                .roommate-group-container .tenant-detail-card {
+                    border: 2px solid #ffffff;
+                    background: white;
+                }
+                .tenant-todo-badge {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    font-size: 0.75rem;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.25rem;
+                    transition: all 0.2s ease;
+                }
+                .tenant-todo-badge:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+                .tenant-todo-popover {
+                    position: absolute;
+                    top: calc(100% + 8px);
+                    right: 0;
+                    background: white;
+                    border: 1px solid #dee2e6;
+                    border-radius: 0.5rem;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 1000;
+                    min-width: 250px;
+                    max-width: 350px;
+                    animation: fadeIn 0.2s ease;
+                }
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-5px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .tenant-todo-popover .popover-header {
+                    background: #f8f9fa;
+                    border-bottom: 1px solid #dee2e6;
+                    padding: 0.75rem 1rem;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    border-radius: 0.5rem 0.5rem 0 0;
+                }
+                .tenant-todo-popover .popover-body {
+                    padding: 0.75rem 1rem;
+                    max-height: 300px;
+                    overflow-y: auto;
+                }
+                .tenant-todo-popover .todo-item {
+                    padding: 0.5rem 0;
+                    font-size: 0.875rem;
+                    line-height: 1.4;
+                    color: #212529;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .tenant-todo-popover .todo-item:last-child {
+                    border-bottom: none;
+                    padding-bottom: 0;
+                }
+                .tenant-todo-popover .todo-completion-info {
+                    font-size: 0.75rem;
+                    color: #6c757d;
+                    margin-top: 0.25rem;
+                    font-style: italic;
                 }
             `;
       document.head.appendChild(style);
@@ -742,11 +959,14 @@ class TenantManagementComponent {
                                   tenant.phoneNumber || "No phone"
                                 )}</small>
                             </div>
-                            ${
-                              isMainTenant
-                                ? '<span class="badge bg-primary">Main</span>'
-                                : ""
-                            }
+                            <div class="d-flex gap-1 align-items-center">
+                                ${this.renderTenantTodoBadge(tenant)}
+                                ${
+                                  isMainTenant
+                                    ? '<span class="badge bg-primary">Main</span>'
+                                    : ""
+                                }
+                            </div>
                         </div>
                         <div class="small text-muted mb-2">
                             <div><strong>FIN:</strong> ${
@@ -1008,6 +1228,10 @@ class TenantManagementComponent {
           rent: tenant.rent || null,
           deposit: tenant.deposit || null,
           depositReceiver: tenant.depositReceiver || "",
+          cleaningFee: tenant.cleaningFee || null,
+          isHouseCleaner: tenant.isHouseCleaner || false,
+          // Roommate relationship
+          roommateId: typeof tenant.roommateId === 'object' ? tenant.roommateId?._id || "" : tenant.roommateId || "",
           // Notes and todos
           notes: tenant.notes || "",
           todos: JSON.parse(JSON.stringify(tenant.todos || [])), // Deep copy
@@ -1027,6 +1251,8 @@ class TenantManagementComponent {
         // Populate financial fields (except depositReceiver which is populated after investors are loaded)
         document.getElementById("tenantRent").value = tenant.rent || "";
         document.getElementById("tenantDeposit").value = tenant.deposit || "";
+        document.getElementById("tenantCleaningFee").value = tenant.cleaningFee || "";
+        document.getElementById("tenantIsHouseCleaner").checked = tenant.isHouseCleaner || false;
 
         // Populate notes and todos
         document.getElementById("tenantNotes").value = tenant.notes || "";
@@ -1105,11 +1331,19 @@ class TenantManagementComponent {
     await this.loadPropertiesForSelect();
     // Load available investors for deposit receiver dropdown
     await this.loadInvestorsForSelect();
+    // Load potential roommates for roommate dropdown
+    await this.loadRoommatesForSelect(tenant?._id);
 
     // After investors are loaded, populate the depositReceiver field if in edit mode
     if (isEdit && tenant && tenant.depositReceiver) {
       document.getElementById("tenantDepositReceiver").value =
         tenant.depositReceiver;
+    }
+
+    // After roommates are loaded, populate the roommateId field if in edit mode
+    if (isEdit && tenant && tenant.roommateId) {
+      const roommateIdValue = typeof tenant.roommateId === 'object' ? tenant.roommateId._id : tenant.roommateId;
+      document.getElementById("tenantRoommateId").value = roommateIdValue || "";
     }
 
     this.updateSelectedPropertiesList();
@@ -1283,6 +1517,67 @@ class TenantManagementComponent {
     });
   }
 
+  async loadRoommatesForSelect(currentTenantId = null) {
+    try {
+      // Get current property from selected properties
+      const currentProperties = this.selectedPropertiesDetails.map(p => p.propertyId);
+
+      if (currentProperties.length === 0) {
+        this.populateRoommateDropdown([], currentTenantId);
+        return;
+      }
+
+      // Fetch all tenants from the same properties
+      const allTenants = [];
+      for (const propertyId of currentProperties) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.TENANTS}?property=${propertyId}&limit=1000`);
+        const result = await response.json();
+
+        if (result.success && result.tenants) {
+          allTenants.push(...result.tenants);
+        }
+      }
+
+      // Remove duplicates based on _id and filter out current tenant
+      const uniqueTenants = allTenants.filter((tenant, index, self) =>
+        index === self.findIndex((t) => t._id === tenant._id) &&
+        tenant._id !== currentTenantId
+      );
+
+      this.populateRoommateDropdown(uniqueTenants, currentTenantId);
+      console.log('✅ Roommates loaded for dropdown:', uniqueTenants.length, 'potential roommates');
+    } catch (error) {
+      console.error('Error loading roommates:', error);
+      this.populateRoommateDropdown([], currentTenantId);
+    }
+  }
+
+  populateRoommateDropdown(tenants, currentTenantId = null) {
+    const dropdown = document.getElementById("tenantRoommateId");
+    if (!dropdown) return;
+
+    // Clear existing options
+    dropdown.innerHTML = '<option value="">No roommate (lives alone in room)</option>';
+
+    if (tenants.length === 0) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Assign properties first to see potential roommates";
+      option.disabled = true;
+      dropdown.appendChild(option);
+      return;
+    }
+
+    tenants.forEach((tenant) => {
+      const option = document.createElement("option");
+      option.value = tenant._id;
+      const tenantName = tenant.name || 'Unnamed Tenant';
+      const tenantRoom = tenant.properties?.[0]?.room || 'No room';
+      option.textContent = `${tenantName} (${tenantRoom})`;
+      dropdown.appendChild(option);
+    });
+  }
+
   populatePropertyCheckboxes(result) {
     const checkboxList = document.getElementById("propertyCheckboxList");
     if (!checkboxList || !result.success) return;
@@ -1340,7 +1635,7 @@ class TenantManagementComponent {
     this.updateDropdownText();
   }
 
-  handleCheckboxChange(propertyId, isChecked) {
+  async handleCheckboxChange(propertyId, isChecked) {
     if (isChecked) {
       // Add property if not already selected
       if (!this.selectedProperties.includes(propertyId)) {
@@ -1379,6 +1674,11 @@ class TenantManagementComponent {
     this.updateSelectedPropertiesList();
     this.updateDropdownText();
     this.checkForChanges();
+
+    // Reload roommate dropdown when properties change
+    const form = document.getElementById("tenantForm");
+    const currentTenantId = form?.getAttribute("data-tenant-id") || null;
+    await this.loadRoommatesForSelect(currentTenantId);
   }
 
   updateDropdownText() {
@@ -1606,6 +1906,10 @@ class TenantManagementComponent {
           ? parseFloat(formData.get("deposit"))
           : null,
         depositReceiver: formData.get("depositReceiver").trim() || null,
+        cleaningFee: formData.get("cleaningFee") ? parseFloat(formData.get("cleaningFee")) : null,
+        isHouseCleaner: document.getElementById("tenantIsHouseCleaner")?.checked || false,
+        // Roommate relationship
+        roommateId: formData.get("roommateId")?.trim() || null,
         // Notes and todos
         notes: formData.get("notes")?.trim() || null,
         todos: this.todos || [],
@@ -1899,6 +2203,73 @@ class TenantManagementComponent {
       default:
         return '<span class="badge bg-secondary">Unregistered</span>';
     }
+  }
+
+  // Method to render todo badge with popover
+  renderTenantTodoBadge(tenant) {
+    if (!tenant.todos || tenant.todos.length === 0) {
+      return '';
+    }
+
+    const pendingTodos = tenant.todos.filter(todo => !todo.completed);
+    if (pendingTodos.length === 0) {
+      return '';
+    }
+
+    const todoListHtml = pendingTodos
+      .map(todo => {
+        let todoHtml = `<div class="todo-item">• ${this.escapeHtml(todo.text)}`;
+
+        // Add completion info if available (for historical data)
+        if (todo.completedBy && todo.completedAt) {
+          const completedDate = new Date(todo.completedAt);
+          const dateStr = completedDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+          todoHtml += `<div class="todo-completion-info">Completed by ${this.escapeHtml(todo.completedBy)} on ${dateStr}</div>`;
+        }
+
+        todoHtml += '</div>';
+        return todoHtml;
+      })
+      .join('');
+
+    const badgeId = `todo-badge-${tenant._id}`;
+    const popoverId = `todo-popover-${tenant._id}`;
+
+    return `
+      <span
+        class="badge bg-warning text-dark tenant-todo-badge position-relative"
+        id="${badgeId}"
+        data-tenant-id="${tenant._id}"
+        style="cursor: pointer;"
+      >
+        <i class="bi bi-list-task"></i> ${pendingTodos.length}
+        <div class="tenant-todo-popover" id="${popoverId}" style="display: none;">
+          <div class="popover-header">Pending Tasks (${pendingTodos.length})</div>
+          <div class="popover-body">${todoListHtml}</div>
+        </div>
+      </span>
+    `;
+  }
+
+  // Setup event listeners for todo badge hover interactions
+  setupTodoBadgeListeners() {
+    const badges = document.querySelectorAll('.tenant-todo-badge');
+    badges.forEach(badge => {
+      const popover = badge.querySelector('.tenant-todo-popover');
+      if (!popover) return;
+
+      badge.addEventListener('mouseenter', () => {
+        popover.style.display = 'block';
+      });
+
+      badge.addEventListener('mouseleave', () => {
+        popover.style.display = 'none';
+      });
+    });
   }
 
   // 3-state toggle button methods
@@ -2628,6 +2999,7 @@ class TenantManagementComponent {
       "tenantRent",
       "tenantDeposit",
       "tenantDepositReceiver",
+      "tenantCleaningFee",
       "tenantNotes",
     ];
 
@@ -2645,6 +3017,18 @@ class TenantManagementComponent {
     registrationButtons.forEach((button) => {
       button.addEventListener("change", () => this.checkForChanges());
     });
+
+    // Listen for checkbox changes
+    const isHouseCleanerCheckbox = document.getElementById("tenantIsHouseCleaner");
+    if (isHouseCleanerCheckbox) {
+      isHouseCleanerCheckbox.addEventListener("change", () => this.checkForChanges());
+    }
+
+    // Listen for roommate dropdown changes
+    const roommateDropdown = document.getElementById("tenantRoommateId");
+    if (roommateDropdown) {
+      roommateDropdown.addEventListener("change", () => this.checkForChanges());
+    }
   }
 
   checkForChanges() {
@@ -2702,6 +3086,12 @@ class TenantManagementComponent {
       depositReceiver: (
         document.getElementById("tenantDepositReceiver")?.value || ""
       ).trim(),
+      cleaningFee: document.getElementById("tenantCleaningFee")?.value
+        ? parseFloat(document.getElementById("tenantCleaningFee").value)
+        : null,
+      isHouseCleaner: document.getElementById("tenantIsHouseCleaner")?.checked || false,
+      // Roommate relationship
+      roommateId: (document.getElementById("tenantRoommateId")?.value || "").trim(),
       // Notes and todos
       notes: (document.getElementById("tenantNotes")?.value || "").trim(),
       todos: this.todos || [],
@@ -2722,14 +3112,39 @@ class TenantManagementComponent {
       "rent",
       "deposit",
       "depositReceiver",
+      "cleaningFee",
+      "isHouseCleaner",
+      "roommateId",
       "notes",
     ];
 
+    // Numeric fields that should be compared as numbers
+    const numericFields = ["rent", "deposit", "cleaningFee"];
+    // Boolean fields that should be compared as booleans
+    const booleanFields = ["isHouseCleaner"];
+
     for (const field of fieldsToCompare) {
-      const originalValue = (original[field] || "").toString().trim();
-      const currentValue = (current[field] || "").toString().trim();
-      if (originalValue !== currentValue) {
-        return true;
+      if (numericFields.includes(field)) {
+        // For numeric fields, compare as numbers (treat null, undefined, and empty string as null)
+        const originalValue = original[field] === null || original[field] === undefined || original[field] === "" ? null : Number(original[field]);
+        const currentValue = current[field] === null || current[field] === undefined || current[field] === "" ? null : Number(current[field]);
+        if (originalValue !== currentValue) {
+          return true;
+        }
+      } else if (booleanFields.includes(field)) {
+        // For boolean fields, compare as booleans
+        const originalValue = original[field] === true || original[field] === "true";
+        const currentValue = current[field] === true || current[field] === "true";
+        if (originalValue !== currentValue) {
+          return true;
+        }
+      } else {
+        // For string fields, compare as strings
+        const originalValue = (original[field] || "").toString().trim();
+        const currentValue = (current[field] || "").toString().trim();
+        if (originalValue !== currentValue) {
+          return true;
+        }
       }
     }
 
@@ -3488,6 +3903,8 @@ class TenantManagementComponent {
           "Monthly Rent (SGD)": tenant.rent || "",
           "Deposit Amount (SGD)": tenant.deposit || "",
           "Deposit Receiver": tenant.depositReceiver || "",
+          "Cleaning Fee (SGD)": tenant.cleaningFee || "",
+          "Is House Cleaner": tenant.isHouseCleaner ? "Yes" : "No",
           "Avatar URL": tenant.avatar || "",
           "Signature URL": tenant.signature || "",
           Status: isActive ? "Active" : "Inactive",
@@ -3516,6 +3933,8 @@ class TenantManagementComponent {
         { wch: 18 }, // Monthly Rent
         { wch: 18 }, // Deposit Amount
         { wch: 20 }, // Deposit Receiver
+        { wch: 18 }, // Cleaning Fee
+        { wch: 18 }, // Is House Cleaner
         { wch: 50 }, // Avatar URL
         { wch: 50 }, // Signature URL
         { wch: 10 }, // Status
@@ -3624,6 +4043,10 @@ class TenantManagementComponent {
                 ? parseFloat(row["Deposit Amount (SGD)"])
                 : null,
               depositReceiver: row["Deposit Receiver"] || null,
+              cleaningFee: row["Cleaning Fee (SGD)"]
+                ? parseFloat(row["Cleaning Fee (SGD)"])
+                : null,
+              isHouseCleaner: row["Is House Cleaner"] === "Yes",
               avatar: row["Avatar URL"] || null,
               signature: row["Signature URL"] || null,
               // Property assignment info
@@ -3769,6 +4192,19 @@ class TenantManagementComponent {
     const todo = this.todos.find((t) => t.id === todoId);
     if (todo) {
       todo.completed = !todo.completed;
+
+      // Track completion information
+      if (todo.completed) {
+        // Task is being marked as completed
+        todo.completedAt = new Date();
+        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+        todo.completedBy = currentUser ? currentUser.username : 'Unknown User';
+      } else {
+        // Task is being unmarked
+        todo.completedAt = null;
+        todo.completedBy = null;
+      }
+
       this.renderTodoList();
       this.checkForChanges(); // Trigger change detection
     }
@@ -3786,6 +4222,22 @@ class TenantManagementComponent {
     let html = '<div class="list-group list-group-flush">';
 
     this.todos.forEach((todo) => {
+      // Format completion info
+      let completionInfo = '';
+      if (todo.completed && todo.completedBy) {
+        const completedDate = todo.completedAt ? new Date(todo.completedAt) : null;
+        const dateStr = completedDate
+          ? completedDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+            completedDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+          : '';
+        completionInfo = `
+          <div class="small text-muted mt-1">
+            <i class="bi bi-check-circle-fill text-success me-1"></i>
+            Completed by ${this.escapeHtml(todo.completedBy)} ${dateStr ? 'on ' + dateStr : ''}
+          </div>
+        `;
+      }
+
       html += `
         <div class="list-group-item px-0 d-flex align-items-start gap-2">
           <input
@@ -3794,9 +4246,12 @@ class TenantManagementComponent {
             ${todo.completed ? 'checked' : ''}
             onchange="tenantManager.toggleTodoItem('${todo.id}')"
           />
-          <span class="flex-grow-1 ${todo.completed ? 'text-decoration-line-through text-muted' : ''}">
-            ${this.escapeHtml(todo.text)}
-          </span>
+          <div class="flex-grow-1">
+            <span class="${todo.completed ? 'text-decoration-line-through text-muted' : ''}">
+              ${this.escapeHtml(todo.text)}
+            </span>
+            ${completionInfo}
+          </div>
           <button
             type="button"
             class="btn btn-sm btn-outline-danger flex-shrink-0"

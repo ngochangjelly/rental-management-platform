@@ -8,7 +8,7 @@ class ContractManagementComponent {
     this.investors = [];
     this.properties = [];
     this.selectedTenantA = null;
-    this.selectedTenantB = null;
+    this.selectedTenantB = []; // Changed to array to support multiple tenants
     this.selectedPropertyId = null; // Track selected property for filtering
     this.additionalClauses = [];
     this.signatures = {
@@ -290,7 +290,7 @@ class ContractManagementComponent {
     // Clear existing options
     tenantASelect.innerHTML =
       '<option value="">Select Tenant A (Main Tenant)</option>';
-    tenantBSelect.innerHTML = '<option value="">Select Tenant B</option>';
+    tenantBSelect.innerHTML = ''; // No default option for multi-select
 
     // Add "Add New Tenant" options
     tenantASelect.innerHTML +=
@@ -303,6 +303,9 @@ class ContractManagementComponent {
       '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
     tenantBSelect.innerHTML +=
       '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+
+    // Populate custom checkbox dropdown for Tenant B
+    this.populateTenantBCheckboxDropdown(filteredTenants, filteredInvestors);
 
     // Check if we have filtered tenants or investors
     if (filteredTenants.length === 0 && filteredInvestors.length === 0) {
@@ -493,17 +496,233 @@ class ContractManagementComponent {
       this.handleTenantSelection("A", e.target.value);
     };
     this.tenantBChangeHandler = (e) => {
+      const selectedOptions = Array.from(e.target.selectedOptions);
+      const selectedValues = selectedOptions.map(opt => opt.value).filter(val => val);
       console.log(
-        "🔧 Tenant B change event triggered with value:",
-        e.target.value
+        "🔧 Tenant B change event triggered with values:",
+        selectedValues
       );
-      this.handleTenantSelection("B", e.target.value);
+      this.handleTenantBMultiSelection(selectedValues);
     };
 
     tenantASelect.addEventListener("change", this.tenantAChangeHandler);
     tenantBSelect.addEventListener("change", this.tenantBChangeHandler);
 
     console.log("✅ Event listeners attached successfully");
+  }
+
+  // Populate custom checkbox dropdown for Tenant B
+  populateTenantBCheckboxDropdown(filteredTenants, filteredInvestors) {
+    const dropdownMenu = document.getElementById("tenantBDropdownMenu");
+    const tenantBSelect = document.getElementById("contractTenantB");
+
+    if (!dropdownMenu) {
+      console.log("❌ Tenant B dropdown menu not found");
+      return;
+    }
+
+    // Clear existing options
+    dropdownMenu.innerHTML = '';
+
+    // Add search input
+    dropdownMenu.innerHTML += `
+      <div class="px-3 pt-3 pb-2">
+        <input type="text" class="form-control form-control-sm" id="tenantBSearchInput" placeholder="🔍 Search tenants..." style="border-radius: 4px;">
+      </div>
+      <div class="dropdown-divider my-0"></div>
+    `;
+
+    // Add special options
+    dropdownMenu.innerHTML += `
+      <div class="form-check px-3 py-2" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
+        <input class="form-check-input" type="checkbox" value="ADD_NEW_TENANT" id="tenantB_add_new" style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
+        <label class="form-check-label" for="tenantB_add_new" style="color: #0d6efd; font-weight: 500; cursor: pointer; flex: 1; margin: 0;">
+          <i class="bi bi-person-plus me-1"></i>Add New Tenant
+        </label>
+      </div>
+      <div class="form-check px-3 py-2" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
+        <input class="form-check-input" type="checkbox" value="CUSTOM_TEXT" id="tenantB_custom" style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
+        <label class="form-check-label" for="tenantB_custom" style="color: #198754; font-weight: 500; cursor: pointer; flex: 1; margin: 0;">
+          ✏️ Enter Custom Text
+        </label>
+      </div>
+      <div class="dropdown-divider my-0"></div>
+    `;
+
+    // Add tenants section
+    if (filteredTenants.length > 0) {
+      dropdownMenu.innerHTML += '<div class="px-3 py-2" style="background-color: #f8f9fa; font-weight: 600; font-size: 0.875rem;">Tenants</div>';
+
+      filteredTenants.forEach((tenant, index) => {
+        const fin = tenant.fin || tenant.id || "";
+        const passport = tenant.passportNumber || tenant.passport || "";
+        const name = tenant.name || "Unnamed Tenant";
+        const originalIndex = this.tenants.findIndex((t) => t === tenant);
+        const identifier = fin || `tenant_${originalIndex}`;
+
+        const displayText = `${name}${fin ? ` (FIN: ${fin})` : passport ? ` (Passport: ${passport})` : ''}`;
+
+        dropdownMenu.innerHTML += `
+          <div class="form-check px-3 py-2" data-search-text="${name.toLowerCase()} ${fin.toLowerCase()} ${passport.toLowerCase()}" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
+            <input class="form-check-input tenant-b-checkbox" type="checkbox" value="${identifier}"
+                   id="tenantB_${identifier}"
+                   data-type="tenant"
+                   data-index="${originalIndex}"
+                   data-name="${name}"
+                   data-passport="${passport}"
+                   style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
+            <label class="form-check-label" for="tenantB_${identifier}" style="cursor: pointer; flex: 1; margin: 0;">
+              ${displayText}
+            </label>
+          </div>
+        `;
+      });
+    }
+
+    // Add investors section
+    if (filteredInvestors.length > 0) {
+      dropdownMenu.innerHTML += '<div class="dropdown-divider my-0"></div>';
+      dropdownMenu.innerHTML += '<div class="px-3 py-2" style="background-color: #f8f9fa; font-weight: 600; font-size: 0.875rem;">Investors</div>';
+
+      filteredInvestors.forEach((investor, index) => {
+        const fin = investor.fin || "";
+        const passport = investor.passport || "";
+        const name = investor.name || "Unnamed Investor";
+        const investorId = investor.investorId;
+        const originalIndex = this.investors.findIndex((i) => i === investor);
+        const identifier = `investor_${investorId}`;
+
+        const displayText = `${name}${fin ? ` (FIN: ${fin})` : passport ? ` (Passport: ${passport})` : ''}`;
+
+        dropdownMenu.innerHTML += `
+          <div class="form-check px-3 py-2" data-search-text="${name.toLowerCase()} ${fin.toLowerCase()} ${passport.toLowerCase()}" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
+            <input class="form-check-input tenant-b-checkbox" type="checkbox" value="${identifier}"
+                   id="tenantB_${identifier}"
+                   data-type="investor"
+                   data-index="${originalIndex}"
+                   data-investor-id="${investorId}"
+                   data-name="${name}"
+                   data-passport="${passport}"
+                   style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
+            <label class="form-check-label" for="tenantB_${identifier}" style="cursor: pointer; flex: 1; margin: 0;">
+              ${displayText}
+            </label>
+          </div>
+        `;
+      });
+    }
+
+    // Setup event listeners for checkboxes
+    this.setupTenantBCheckboxListeners();
+
+    // Setup search functionality
+    this.setupTenantBSearch();
+
+    // Prevent dropdown from closing when clicking inside
+    const dropdownMenuElement = document.getElementById('tenantBDropdownMenu');
+    if (dropdownMenuElement) {
+      dropdownMenuElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
+  }
+
+  // Setup event listeners for Tenant B checkboxes
+  setupTenantBCheckboxListeners() {
+    const checkboxes = document.querySelectorAll('.tenant-b-checkbox');
+    const specialCheckboxes = document.querySelectorAll('#tenantB_add_new, #tenantB_custom');
+
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        this.handleTenantBCheckboxChange();
+      });
+    });
+
+    specialCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          // Uncheck all other options when special option is selected
+          checkboxes.forEach(cb => cb.checked = false);
+          specialCheckboxes.forEach(cb => {
+            if (cb !== e.target) cb.checked = false;
+          });
+
+          // Handle special options
+          if (e.target.value === 'ADD_NEW_TENANT') {
+            this.showNewTenantFields('B');
+          } else if (e.target.value === 'CUSTOM_TEXT') {
+            this.showCustomTenantField('B');
+          }
+        }
+      });
+    });
+  }
+
+  // Handle Tenant B checkbox changes
+  handleTenantBCheckboxChange() {
+    const checkboxes = document.querySelectorAll('.tenant-b-checkbox:checked');
+    const selectedValues = Array.from(checkboxes).map(cb => cb.value);
+
+    // Update the hidden select element
+    const tenantBSelect = document.getElementById('contractTenantB');
+    if (tenantBSelect) {
+      // Clear all selections
+      Array.from(tenantBSelect.options).forEach(opt => opt.selected = false);
+
+      // Select the checked options
+      selectedValues.forEach(value => {
+        const option = Array.from(tenantBSelect.options).find(opt => opt.value === value);
+        if (option) {
+          option.selected = true;
+        }
+      });
+    }
+
+    // Update the display text
+    this.updateTenantBDisplayText();
+
+    // Trigger the multi-selection handler
+    this.handleTenantBMultiSelection(selectedValues);
+  }
+
+  // Update the display text for selected tenants
+  updateTenantBDisplayText() {
+    const checkboxes = document.querySelectorAll('.tenant-b-checkbox:checked');
+    const displayText = document.getElementById('tenantBSelectedText');
+
+    if (!displayText) return;
+
+    if (checkboxes.length === 0) {
+      displayText.textContent = 'Select tenants...';
+      displayText.className = 'text-muted';
+    } else if (checkboxes.length === 1) {
+      const name = checkboxes[0].getAttribute('data-name');
+      displayText.textContent = name;
+      displayText.className = 'text-dark';
+    } else {
+      displayText.textContent = `${checkboxes.length} tenants selected`;
+      displayText.className = 'text-dark';
+    }
+  }
+
+  // Setup search for Tenant B checkbox dropdown
+  setupTenantBSearch() {
+    const searchInput = document.getElementById('tenantBSearchInput');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const checkboxItems = document.querySelectorAll('#tenantBDropdownMenu .form-check[data-search-text]');
+
+      checkboxItems.forEach(item => {
+        const searchText = item.getAttribute('data-search-text');
+        if (searchText.includes(searchTerm)) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
   }
 
   // Setup fuzzy search for tenant dropdowns
@@ -1035,6 +1254,108 @@ class ContractManagementComponent {
     console.log("✅ updateContractPreview called");
   }
 
+  handleTenantBMultiSelection(identifiers) {
+    console.log("🔄 Handling multiple Tenant B selections:", identifiers);
+
+    // Clear the existing selectedTenantB array
+    this.selectedTenantB = [];
+
+    // Handle special cases (ADD_NEW_TENANT, CUSTOM_TEXT)
+    if (identifiers.includes("ADD_NEW_TENANT")) {
+      console.log("🆕 Showing new tenant input fields for Tenant B");
+      this.showNewTenantFields("B");
+      return;
+    }
+
+    if (identifiers.includes("CUSTOM_TEXT")) {
+      console.log("✏️ Showing custom text field for Tenant B");
+      this.showCustomTenantField("B");
+      return;
+    }
+
+    // Hide custom/new tenant fields if real tenants are selected
+    if (identifiers.length > 0) {
+      this.hideNewTenantFields("B");
+    }
+
+    // Get the select element to access data attributes
+    const tenantBSelect = document.getElementById("contractTenantB");
+
+    if (!tenantBSelect) {
+      console.error("❌ Tenant B select element not found");
+      return;
+    }
+
+    // Process each selected identifier
+    identifiers.forEach(identifier => {
+      if (!identifier || identifier === "ADD_NEW_TENANT" || identifier === "CUSTOM_TEXT") {
+        return;
+      }
+
+      let tenant = null;
+
+      // Find the checkbox element for this identifier (not the hidden select option)
+      const checkbox = document.querySelector(`.tenant-b-checkbox[value="${identifier}"]`);
+
+      if (checkbox) {
+        const dataType = checkbox.getAttribute('data-type');
+        const index = checkbox.getAttribute('data-index');
+
+        console.log(`🔧 Processing: ${identifier}, type: ${dataType}, index: ${index}`);
+
+        if (index !== undefined && index !== "" && index !== null) {
+          const parsedIndex = parseInt(index);
+
+          if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+            if (dataType === "investor" && parsedIndex < this.investors.length) {
+              tenant = this.investors[parsedIndex];
+              console.log(`🎯 Found investor by index ${parsedIndex}:`, tenant);
+            } else if (dataType === "tenant" && parsedIndex < this.tenants.length) {
+              tenant = this.tenants[parsedIndex];
+              console.log(`🎯 Found tenant by index ${parsedIndex}:`, tenant);
+            }
+          }
+        }
+      }
+
+      // Fallback logic if index-based lookup fails
+      if (!tenant) {
+        console.log("🔄 Using fallback logic for:", identifier);
+
+        if (identifier.startsWith("investor_")) {
+          const investorId = identifier.replace("investor_", "");
+          tenant = this.investors.find((i) => i.investorId === investorId);
+        } else {
+          tenant = this.tenants.find(
+            (t) => t.fin === identifier || t.id === identifier
+          );
+
+          if (!tenant && identifier.startsWith("tenant_")) {
+            const index = parseInt(identifier.replace("tenant_", ""));
+            tenant = this.tenants[index];
+          }
+
+          if (!tenant && identifier) {
+            tenant = this.tenants.find((t) => t.name === identifier);
+          }
+        }
+      }
+
+      // Add tenant to selectedTenantB array if found
+      if (tenant) {
+        this.selectedTenantB.push(tenant);
+        console.log("✅ Added tenant to selectedTenantB:", tenant.name);
+      }
+    });
+
+    console.log("✅ Final selectedTenantB array:", this.selectedTenantB);
+
+    // Update the contract preview
+    console.log("🔄 Calling updateContractPreview...");
+    this.updateContractPreview();
+    console.log("✅ updateContractPreview called");
+  }
+
   showNewTenantFields(tenantType) {
     const fieldsId =
       tenantType === "A" ? "newTenantAFields" : "newTenantFields";
@@ -1137,14 +1458,21 @@ class ContractManagementComponent {
       // Only clear temporary tenant selections (those created from "Add New Tenant")
       if (tenantType === "A" && this.selectedTenantA?.isTemporary) {
         this.selectedTenantA = null;
-      } else if (tenantType === "B" && this.selectedTenantB?.isTemporary) {
-        this.selectedTenantB = null;
+      } else if (tenantType === "B") {
+        // For Tenant B (now an array), filter out temporary tenants
+        const hadTemporary = Array.isArray(this.selectedTenantB) &&
+                            this.selectedTenantB.some(t => t?.isTemporary);
+        if (hadTemporary) {
+          this.selectedTenantB = this.selectedTenantB.filter(t => !t?.isTemporary);
+        }
       }
 
       // Only update contract preview if we actually cleared a temporary tenant
+      const hadTemporaryB = tenantType === "B" && Array.isArray(this.selectedTenantB) &&
+                           this.selectedTenantB.some(t => t?.isTemporary);
       if (
         (tenantType === "A" && this.selectedTenantA?.isTemporary) ||
-        (tenantType === "B" && this.selectedTenantB?.isTemporary)
+        hadTemporaryB
       ) {
         this.updateContractPreview();
       }
@@ -1323,7 +1651,8 @@ class ContractManagementComponent {
       this.selectedTenantA = newTenant;
       console.log("✅ Created temporary tenant A:", this.selectedTenantA);
     } else {
-      this.selectedTenantB = newTenant;
+      // For Tenant B, replace the array with just this new tenant
+      this.selectedTenantB = [newTenant];
       console.log("✅ Created temporary tenant B:", this.selectedTenantB);
     }
 
@@ -1663,26 +1992,30 @@ class ContractManagementComponent {
           email: "[Email]",
         };
 
-    const tenantBInfo = this.selectedTenantB
-      ? {
-          name: this.selectedTenantB.name,
-          passport:
-            this.selectedTenantB.passportNumber ||
-            this.selectedTenantB.passport ||
-            "",
-          fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || "",
-        }
-      : customTenantBText && customTenantBText.value.trim()
-      ? {
-          name: customTenantBText.value.trim(),
-          passport: "",
-          fin: "",
-        }
-      : {
-          name: "[Tenant B Name]",
-          passport: "[Tenant B Passport]",
-          fin: "[Tenant B FIN]",
-        };
+    // Handle multiple Tenant B selections
+    let tenantBInfo;
+    if (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0) {
+      // Multiple tenants selected
+      tenantBInfo = this.selectedTenantB.map(tenant => ({
+        name: tenant.name,
+        passport: tenant.passportNumber || tenant.passport || "",
+        fin: tenant.finNumber || tenant.fin || "",
+      }));
+    } else if (customTenantBText && customTenantBText.value.trim()) {
+      // Custom text input
+      tenantBInfo = [{
+        name: customTenantBText.value.trim(),
+        passport: "",
+        fin: "",
+      }];
+    } else {
+      // No tenant selected - show placeholder
+      tenantBInfo = [{
+        name: "[Tenant B Name]",
+        passport: "[Tenant B Passport]",
+        fin: "[Tenant B FIN]",
+      }];
+    }
 
     console.log("🔧 tenantAInfo:", tenantAInfo);
     console.log("🔧 tenantBInfo:", tenantBInfo);
@@ -1738,19 +2071,22 @@ class ContractManagementComponent {
 
                 <div style="margin-bottom: 20px;">
                     <p><strong>AND</strong></p>
-                    <p style="margin-left: 20px;">
-                        <strong>Name:</strong> ${tenantBInfo.name}<br>
-                        ${
-                          tenantBInfo.passport
-                            ? `<strong>Passport:</strong> ${tenantBInfo.passport}<br>`
-                            : ""
-                        }
-                        ${
-                          tenantBInfo.fin
-                            ? `<strong>FIN:</strong> ${tenantBInfo.fin}`
-                            : ""
-                        }
-                    </p>
+                    ${tenantBInfo.map((tenant, index) => `
+                        <p style="margin-left: 20px;">
+                            ${tenantBInfo.length > 1 ? `<strong>Tenant ${index + 1}:</strong><br>` : ''}
+                            <strong>Name:</strong> ${tenant.name}<br>
+                            ${
+                              tenant.passport
+                                ? `<strong>Passport:</strong> ${tenant.passport}<br>`
+                                : ""
+                            }
+                            ${
+                              tenant.fin
+                                ? `<strong>FIN:</strong> ${tenant.fin}`
+                                : ""
+                            }
+                        </p>
+                    `).join('')}
                     <p style="margin-left: 20px; font-style: italic;">
                         (Hereinafter called "Tenant B", which expression together, where the context so admits, shall include all persons having title under 'Tenant B') of the other part.
                     </p>
@@ -2201,8 +2537,9 @@ class ContractManagementComponent {
       }
 
       // Create PDF filename in format: [tenantB]-[roomType]-[propertyAddress]
-      const tenantBName =
-        this.selectedTenantB?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "TenantB";
+      const tenantBName = (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0)
+        ? this.selectedTenantB.map(t => t.name).join("_").replace(/[^a-zA-Z0-9_]/g, "_")
+        : "TenantB";
       const roomType =
         this.contractData.room?.replace(/[^a-zA-Z0-9]/g, "_") || "Room";
 
@@ -2266,6 +2603,12 @@ class ContractManagementComponent {
 
       // Helper function to add text with automatic page breaks
       const addText = (text, options = {}) => {
+        // If text is empty/null/undefined, just add spacing if provided
+        if (!text || String(text).trim() === '') {
+          currentY += options.spacing || 0;
+          return;
+        }
+
         const fontSize = options.fontSize || 10;
         const isBold = options.bold || false;
         const isCenter = options.center || false;
@@ -2286,7 +2629,7 @@ class ContractManagementComponent {
 
         // Split text into lines that fit the width
         const maxWidth = contentWidth - (options.indent ? 10 : 0);
-        const lines = pdf.splitTextToSize(text, maxWidth);
+        const lines = pdf.splitTextToSize(String(text), maxWidth);
 
         for (let i = 0; i < lines.length; i++) {
           if (currentY > pageHeight - margin - 20) {
@@ -2332,23 +2675,30 @@ class ContractManagementComponent {
             email: "[Email]",
           };
 
-      const tenantBInfo = this.selectedTenantB
-        ? {
-            name: this.selectedTenantB.name,
-            passport: this.selectedTenantB.passportNumber || "",
-            fin: this.selectedTenantB.finNumber || "",
-          }
-        : (customTenantBText && customTenantBText.value.trim())
-        ? {
-            name: customTenantBText.value.trim(),
-            passport: "",
-            fin: "",
-          }
-        : {
-            name: "[Tenant B Name]",
-            passport: "[Tenant B Passport]",
-            fin: "[Tenant B FIN]",
-          };
+      // Handle multiple Tenant B selections for PDF
+      let tenantBInfo;
+      if (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0) {
+        // Multiple tenants selected
+        tenantBInfo = this.selectedTenantB.map(tenant => ({
+          name: tenant.name,
+          passport: tenant.passportNumber || tenant.passport || "",
+          fin: tenant.finNumber || tenant.fin || "",
+        }));
+      } else if (customTenantBText && customTenantBText.value.trim()) {
+        // Custom text input
+        tenantBInfo = [{
+          name: customTenantBText.value.trim(),
+          passport: "",
+          fin: "",
+        }];
+      } else {
+        // No tenant selected - show placeholder
+        tenantBInfo = [{
+          name: "[Tenant B Name]",
+          passport: "[Tenant B Passport]",
+          fin: "[Tenant B FIN]",
+        }];
+      }
 
       // Get property address from custom input if available
       const propertyAddressForPDF = (customAddressText && customAddressText.value.trim())
@@ -2393,12 +2743,27 @@ class ContractManagementComponent {
       );
 
       addText("AND", { bold: true, spacing: 5 });
-      addText(`Name: ${tenantBInfo.name}`, { indent: true });
-      if (tenantBInfo.passport) {
-        addText(`Passport: ${tenantBInfo.passport}`, { indent: true });
-      }
-      if (tenantBInfo.fin) {
-        addText(`FIN: ${tenantBInfo.fin}`, { indent: true });
+      // Handle multiple Tenant B entries
+      for (let index = 0; index < tenantBInfo.length; index++) {
+        const tenant = tenantBInfo[index];
+        const isLastTenant = index === tenantBInfo.length - 1;
+
+        if (tenantBInfo.length > 1) {
+          addText("Tenant " + (index + 1) + ":", { indent: true, bold: true, spacing: 2 });
+        }
+
+        const nameValue = tenant.name || "[Tenant Name]";
+        addText("Name: " + nameValue, { indent: true });
+
+        if (tenant.passport && String(tenant.passport).trim()) {
+          addText("Passport: " + String(tenant.passport), { indent: true });
+        }
+
+        if (tenant.fin && String(tenant.fin).trim()) {
+          addText("FIN: " + String(tenant.fin), { indent: true, spacing: isLastTenant ? 0 : 5 });
+        } else if (!isLastTenant) {
+          addText('', { spacing: 5 });
+        }
       }
       addText(
         "(Hereinafter called \"Tenant B\", which expresses together with where the context so admits, shall include all persons having title under ' Tenant B') of the one part.",
@@ -2680,8 +3045,17 @@ class ContractManagementComponent {
 
       currentY += 10;
       pdf.setFontSize(10);
-      pdf.text(tenantAInfo.name, 30, currentY);
-      pdf.text(tenantBInfo.name, 120, currentY);
+      pdf.text(tenantAInfo.name || "[Tenant A]", 30, currentY);
+
+      // Handle multiple Tenant B names - show each on a separate line
+      const tenantBX = 120; // X position for Tenant B
+      let tenantBY = currentY; // Starting Y position
+
+      tenantBInfo.forEach((tenant, index) => {
+        const tenantName = tenant.name || "[Tenant B]";
+        pdf.text(tenantName, tenantBX, tenantBY);
+        tenantBY += 5; // Move to next line for next tenant
+      });
 
       // Add page numbers to all pages
       addPageNumbers();
@@ -2777,26 +3151,30 @@ class ContractManagementComponent {
           email: "[Email]",
         };
 
-    const tenantBInfo = this.selectedTenantB
-      ? {
-          name: this.selectedTenantB.name,
-          passport:
-            this.selectedTenantB.passportNumber ||
-            this.selectedTenantB.passport ||
-            "",
-          fin: this.selectedTenantB.finNumber || this.selectedTenantB.fin || "",
-        }
-      : (customTenantBText && customTenantBText.value.trim())
-      ? {
-          name: customTenantBText.value.trim(),
-          passport: "",
-          fin: "",
-        }
-      : {
-          name: "[Tenant B Name]",
-          passport: "[Tenant B Passport]",
-          fin: "[Tenant B FIN]",
-        };
+    // Handle multiple Tenant B selections for clean PDF
+    let tenantBInfo;
+    if (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0) {
+      // Multiple tenants selected
+      tenantBInfo = this.selectedTenantB.map(tenant => ({
+        name: tenant.name,
+        passport: tenant.passportNumber || tenant.passport || "",
+        fin: tenant.finNumber || tenant.fin || "",
+      }));
+    } else if (customTenantBText && customTenantBText.value.trim()) {
+      // Custom text input
+      tenantBInfo = [{
+        name: customTenantBText.value.trim(),
+        passport: "",
+        fin: "",
+      }];
+    } else {
+      // No tenant selected - show placeholder
+      tenantBInfo = [{
+        name: "[Tenant B Name]",
+        passport: "[Tenant B Passport]",
+        fin: "[Tenant B FIN]",
+      }];
+    }
 
     // Get property address from custom input if available
     const propertyAddressForPDF = (customAddressText && customAddressText.value.trim())
@@ -2856,19 +3234,21 @@ class ContractManagementComponent {
 
                     <p style="margin-bottom: 12px;"><strong>AND</strong></p>
                     <div style="margin-left: 20px;">
-                        <p style="margin-bottom: 5px;"><strong>Name:</strong> ${
-                          tenantBInfo.name
-                        }</p>
-                        ${
-                          tenantBInfo.passport
-                            ? `<p style="margin-bottom: 5px;"><strong>Passport:</strong> ${tenantBInfo.passport}</p>`
-                            : ""
-                        }
-                        ${
-                          tenantBInfo.fin
-                            ? `<p style="margin-bottom: 12px;"><strong>FIN:</strong> ${tenantBInfo.fin}</p>`
-                            : ""
-                        }
+                        ${tenantBInfo.map((tenant, index) => `
+                            ${tenantBInfo.length > 1 ? `<p style="margin-bottom: 5px;"><strong>Tenant ${index + 1}:</strong></p>` : ''}
+                            <p style="margin-bottom: 5px;"><strong>Name:</strong> ${tenant.name}</p>
+                            ${
+                              tenant.passport
+                                ? `<p style="margin-bottom: 5px;"><strong>Passport:</strong> ${tenant.passport}</p>`
+                                : ""
+                            }
+                            ${
+                              tenant.fin
+                                ? `<p style="margin-bottom: 12px;"><strong>FIN:</strong> ${tenant.fin}</p>`
+                                : ""
+                            }
+                            ${index < tenantBInfo.length - 1 ? '<div style="margin-bottom: 10px;"></div>' : ''}
+                        `).join('')}
                         <p style="font-style: italic; margin-bottom: 20px;">
                             (Hereinafter called "Tenant B", which expresses together with where the context so admits, shall include all persons having title under ' Tenant B') of the one part.
                         </p>
@@ -3071,8 +3451,42 @@ class ContractManagementComponent {
     await this.loadAndRenderTemplates();
   }
 
+  renderTemplatesLoadingSkeleton() {
+    const templatesList = document.getElementById("templatesList");
+    if (!templatesList) return;
+
+    // Show loading skeleton with fixed height to prevent layout shift
+    templatesList.innerHTML = `
+      <div class="loading-skeleton" style="min-height: 300px;">
+        ${[1, 2, 3].map(() => `
+          <div class="template-item d-flex justify-content-between align-items-center p-2 border rounded mb-2 bg-light" style="animation: pulse 1.5s ease-in-out infinite;">
+            <div class="template-info flex-grow-1">
+              <div class="d-flex align-items-center">
+                <div style="width: 16px; height: 16px; background-color: #dee2e6; border-radius: 3px; margin-right: 8px;"></div>
+                <div style="flex: 1;">
+                  <div style="height: 16px; background-color: #dee2e6; border-radius: 3px; width: 70%; margin-bottom: 6px;"></div>
+                  <div style="height: 12px; background-color: #dee2e6; border-radius: 3px; width: 40%;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="width: 32px; height: 32px; background-color: #dee2e6; border-radius: 4px;"></div>
+          </div>
+        `).join('')}
+      </div>
+      <style>
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      </style>
+    `;
+  }
+
   async loadAndRenderTemplates() {
     try {
+      // Show loading skeleton first
+      this.renderTemplatesLoadingSkeleton();
+
       const result = await this.templateService.getAllTemplates();
       if (result.success && result.items && result.items.length > 0) {
         this.renderTemplatesList(result.items);
@@ -3223,12 +3637,25 @@ class ContractManagementComponent {
   }
 
   generateTemplateName() {
+    console.log("🏷️ Generating template name, selectedTenantB:", this.selectedTenantB);
+
     // Check for custom tenant B text
     const customTenantBText = document.getElementById("customTenantBText");
-    const tenantBSelect = document.getElementById("contractTenantB");
-    const tenantBName = (tenantBSelect && tenantBSelect.value === "CUSTOM_TEXT" && customTenantBText && customTenantBText.value.trim())
+    const customTenantBField = document.getElementById("customTenantBField");
+
+    // Check if custom field is visible and has value
+    const isCustomText = customTenantBField &&
+                        customTenantBField.style.display !== "none" &&
+                        customTenantBText &&
+                        customTenantBText.value.trim();
+
+    const tenantBName = isCustomText
       ? customTenantBText.value.trim()
-      : (this.selectedTenantB?.name || "No-TenantB");
+      : (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0)
+        ? this.selectedTenantB.map(t => t.name).join("_")
+        : "NoTenantB";
+
+    console.log("🏷️ Generated tenant B name:", tenantBName);
 
     const roomType =
       this.contractData.room ||
@@ -3370,8 +3797,21 @@ class ContractManagementComponent {
       }
 
       if (templateData.additionalData?.selectedTenantB) {
-        this.selectedTenantB = templateData.additionalData.selectedTenantB;
-        await this.loadTenantFromTemplate("B", this.selectedTenantB);
+        // Handle both old format (single object) and new format (array)
+        const tenantBData = templateData.additionalData.selectedTenantB;
+
+        if (Array.isArray(tenantBData)) {
+          // New format: already an array
+          this.selectedTenantB = tenantBData;
+        } else if (tenantBData && typeof tenantBData === 'object') {
+          // Old format: single object, convert to array
+          this.selectedTenantB = [tenantBData];
+        } else {
+          this.selectedTenantB = [];
+        }
+
+        // Load all tenant B selections
+        await this.loadMultipleTenantBFromTemplate(this.selectedTenantB);
       }
 
       // Load additional clauses
@@ -3416,6 +3856,43 @@ class ContractManagementComponent {
         this.populateNewTenantFields(tenantType, tenantData);
       }, 100);
     }
+  }
+
+  async loadMultipleTenantBFromTemplate(tenantsData) {
+    if (!Array.isArray(tenantsData) || tenantsData.length === 0) {
+      return;
+    }
+
+    // Get all checkboxes in the tenant B dropdown
+    const allCheckboxes = document.querySelectorAll('.tenant-b-checkbox');
+
+    // Clear all existing selections first
+    allCheckboxes.forEach(cb => cb.checked = false);
+
+    // Check the boxes for each tenant in the template
+    for (const tenantData of tenantsData) {
+      // Find the matching checkbox by FIN or other identifier
+      const identifier = tenantData.fin || tenantData.finNumber || tenantData.id;
+
+      if (identifier) {
+        // Try to find checkbox with this identifier
+        const checkbox = Array.from(allCheckboxes).find(cb => {
+          return cb.value === identifier ||
+                 cb.value.includes(identifier) ||
+                 cb.getAttribute('data-name') === tenantData.name;
+        });
+
+        if (checkbox) {
+          checkbox.checked = true;
+        }
+      }
+    }
+
+    // Trigger the change event to update display and process selections
+    this.handleTenantBCheckboxChange();
+
+    // Update the contract preview
+    this.updateContractPreview();
   }
 
   populateNewTenantFields(tenantType, tenantData) {
@@ -3507,7 +3984,7 @@ class ContractManagementComponent {
 
       // Reset tenant selections
       this.selectedTenantA = null;
-      this.selectedTenantB = null;
+      this.selectedTenantB = []; // Reset to empty array
 
       // Reset additional clauses
       this.additionalClauses = [];

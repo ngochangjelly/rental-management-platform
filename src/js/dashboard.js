@@ -16,8 +16,7 @@ import './components/bill-management.js'; // Bill Management component
 import './components/bulk-property-reports.js';
 import './components/investor-management.js';
 import './components/user-management.js'; // User Management component
-import './components/ac-clean-management.js'; // AC Clean Management component
-import './components/ac-service-company.js'; // AC Service Company component
+import './components/ac-clean-management.js'; // AC Clean Management component (includes AC Service Company management)
 import './dashboard-controller.js';
 
 // Suppress MetaMask-related errors that don't affect our application
