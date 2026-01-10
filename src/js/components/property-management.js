@@ -261,7 +261,7 @@ class PropertyManagementComponent {
     let cardsHtml = "";
     this.properties.forEach((property) => {
       const cardHtml = `
-        <div class="col-md-6 col-lg-4 mb-4">
+        <div class="col-md-6 col-lg-2 mb-4">
           <div class="card property-management-card h-100 overflow-hidden"
                style="transition: all 0.2s ease;">
             ${property.propertyImage ? `

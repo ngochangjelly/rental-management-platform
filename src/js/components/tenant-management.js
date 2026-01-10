@@ -584,8 +584,14 @@ class TenantManagementComponent {
   renderRoommateGroup(group) {
     const isOutdated = group.every(t => this.isTenantOutdated(t, this.selectedProperty));
 
+    // Calculate column classes based on number of roommates to match tenant card width
+    // Each card is col-lg-3 (25% width), so 2 cards = 50%, 3 cards = 75%, 4 cards = 100%
+    const groupColClass = group.length === 2 ? 'col-12 col-lg-6' :
+                         group.length === 3 ? 'col-12 col-lg-9' :
+                         'col-12';
+
     let html = `
-      <div class="col-12">
+      <div class="${groupColClass}">
         <div class="roommate-group-container ${isOutdated ? 'group-outdated' : ''}">
           <div class="roommate-group-header">
             <i class="bi bi-people-fill me-2"></i>
@@ -609,7 +615,7 @@ class TenantManagementComponent {
   }
 
   renderSingleTenant(tenant, isInGroup = false) {
-    const colClass = isInGroup ? "col-12 col-md-6" : "col-12 col-md-6 col-lg-3";
+    const colClass = isInGroup ? "col-12 col-md-6 col-lg-6" : "col-12 col-md-6 col-lg-3";
     const registrationStatus =
       tenant.registrationStatus ||
       (tenant.isRegistered ? "registered" : "unregistered");
