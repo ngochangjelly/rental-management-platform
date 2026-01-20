@@ -2625,6 +2625,21 @@ class ContractManagementComponent {
     return roomTypeLabels[roomType] || roomType;
   }
 
+  formatDateForFilename(dateString) {
+    if (!dateString) return "";
+
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate().toString().padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear().toString().slice(-2); // Last 2 digits of year
+      return `${day}${month}${year}`;
+    } catch (e) {
+      return "";
+    }
+  }
+
   calculateLeasePeriod(moveInDate, moveOutDate) {
     if (!moveInDate || !moveOutDate) {
       return null;
@@ -2824,13 +2839,12 @@ class ContractManagementComponent {
         ? `${this.contractData.monthlyRental}`
         : "0";
 
-      // Format dates for filename (YYYY-MM-DD)
-      const moveInDate = this.contractData.moveInDate
-        ? this.contractData.moveInDate.replace(/\//g, "-")
-        : "NoMoveIn";
-      const moveOutDate = this.contractData.moveOutDate
-        ? this.contractData.moveOutDate.replace(/\//g, "-")
-        : "NoMoveOut";
+      // Format dates for filename (DDMMMYY)
+      const moveInDateFormatted = this.formatDateForFilename(this.contractData.moveInDate);
+      const moveOutDateFormatted = this.formatDateForFilename(this.contractData.moveOutDate);
+      const dateRange = (moveInDateFormatted && moveOutDateFormatted)
+        ? `${moveInDateFormatted}-${moveOutDateFormatted}`
+        : "";
 
       // Get address from custom input if available, otherwise from contractData
       const customAddressText = document.getElementById("customAddressText");
@@ -2847,7 +2861,14 @@ class ContractManagementComponent {
       const propertyAddress =
         cleanAddress.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
 
-      const filename = `${tenantBName}-${roomType}-${monthlyRent}-${moveInDate}-${moveOutDate}-${propertyAddress}.pdf`;
+      // Build filename: [tenantB]-[roomType]-[rent]-[dateRange]-[address]
+      const filenameParts = [tenantBName, roomType, monthlyRent];
+      if (dateRange) {
+        filenameParts.push(dateRange);
+      }
+      filenameParts.push(propertyAddress);
+
+      const filename = `${filenameParts.join("-")}.pdf`;
 
       console.log("📄 Creating text-based PDF...");
 
