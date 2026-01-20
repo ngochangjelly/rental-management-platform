@@ -99,7 +99,14 @@ module.exports = {
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
-        logLevel: 'debug'
+        logLevel: 'debug',
+        // Don't parse binary responses (images, PDFs, etc.)
+        onProxyRes: (proxyRes, req, res) => {
+          // Allow binary content to pass through without modification
+          if (req.url.includes('/image-proxy/')) {
+            proxyRes.headers['content-type'] = proxyRes.headers['content-type'] || 'application/octet-stream';
+          }
+        }
       }
     ],
     // Preserve client state during HMR
