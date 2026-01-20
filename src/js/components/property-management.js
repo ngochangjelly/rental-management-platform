@@ -253,15 +253,20 @@ class PropertyManagementComponent {
       return;
     }
 
-    // Clear container and add card layout
-    container.innerHTML = '<div id="propertiesCardGrid" class="row"></div>';
+    // Clear container and set up CSS Grid layout
+    container.innerHTML = '<div id="propertiesCardGrid"></div>';
     const gridContainer = document.getElementById("propertiesCardGrid");
+
+    // Set CSS Grid with auto-fill and max-width 260px
+    gridContainer.style.display = "grid";
+    gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(min(260px, 100%), 1fr))";
+    gridContainer.style.gap = "1rem";
 
     // Render property cards
     let cardsHtml = "";
     this.properties.forEach((property) => {
       const cardHtml = `
-        <div class="col-md-6 col-lg-2 mb-4">
+        <div>
           <div class="card property-management-card h-100 overflow-hidden"
                style="transition: all 0.2s ease;">
             ${property.propertyImage ? `

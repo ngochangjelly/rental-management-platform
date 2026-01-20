@@ -97,12 +97,17 @@ class TenantManagementComponent {
       return;
     }
 
+    // Set container to use CSS Grid with auto-fill and max-width 260px
+    container.style.display = "grid";
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(min(260px, 100%), 1fr))";
+    container.style.gap = "1rem";
+
     // Clear existing cards
     container.innerHTML = "";
 
     if (!properties || properties.length === 0) {
       container.innerHTML = `
-                <div class="col-12 text-center text-muted py-4">
+                <div style="grid-column: 1 / -1; text-align: center;" class="text-muted py-4">
                     <i class="bi bi-building-slash me-2"></i>
                     No properties available
                 </div>
@@ -113,7 +118,7 @@ class TenantManagementComponent {
     // Add special card for unassigned tenants
     const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
     const unassignedCardHtml = `
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
+            <div>
                 <div class="card property-card h-100 ${
                   isUnassignedSelected ? "border-warning" : "border-secondary"
                 } overflow-hidden"
@@ -150,7 +155,7 @@ class TenantManagementComponent {
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-                <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
+                <div>
                     <div class="card property-card h-100 ${
                       isSelected ? "border-primary" : ""
                     } overflow-hidden"
