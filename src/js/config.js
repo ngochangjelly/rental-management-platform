@@ -301,14 +301,9 @@ const ImageUtils = {
       return url;
     }
 
-    // If it's already a proxy URL, convert to full URL if needed
+    // If it's already a proxy URL, return as-is (Netlify will proxy it)
     if (url.startsWith("/api/upload/image-proxy/")) {
-      // In production (not localhost), use the full backend URL
-      if (window.location.hostname !== "localhost") {
-        const backendUrl = "https://rental-management-backend-mocha.vercel.app";
-        return `${backendUrl}${url}`;
-      }
-      return url; // localhost case
+      return url;
     }
 
     // Build the proxy URL
@@ -332,12 +327,7 @@ const ImageUtils = {
       proxyPath = `/api/upload/image-proxy/${url}`;
     }
 
-    // In production (not localhost), use the full backend URL
-    if (window.location.hostname !== "localhost") {
-      const backendUrl = "https://rental-management-backend-mocha.vercel.app";
-      return `${backendUrl}${proxyPath}`;
-    }
-    return proxyPath; // localhost case
+    return proxyPath;
   },
 
   // Get optimized image URL with size transformations
