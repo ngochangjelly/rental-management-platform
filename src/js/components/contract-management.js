@@ -2394,53 +2394,71 @@ class ContractManagementComponent {
                         <p><strong>${
                           this.contractData.fullPaymentReceived ? "k" : "m"
                         })</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
-                        
-                        <p><strong>${
+
+                        ${this.hasAircon() ? `<p><strong>${
                           this.contractData.fullPaymentReceived ? "l" : "n"
-                        })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>
-                        
+                        })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>` : ''}
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "m" : "o"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "m" : "o")
+                            : (this.contractData.fullPaymentReceived ? "l" : "n")
                         })</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
                         
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "n" : "p"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "n" : "p")
+                            : (this.contractData.fullPaymentReceived ? "m" : "o")
                         })</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
-                        
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "o" : "q"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "o" : "q")
+                            : (this.contractData.fullPaymentReceived ? "n" : "p")
                         })</strong> No visitors without permission from Tenant B to Tenant A.</p>
-                        
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "p" : "r"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "p" : "r")
+                            : (this.contractData.fullPaymentReceived ? "o" : "q")
                         })</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
-                        
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "q" : "s"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "q" : "s")
+                            : (this.contractData.fullPaymentReceived ? "p" : "r")
                         })</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
-                        
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "r" : "t"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "r" : "t")
+                            : (this.contractData.fullPaymentReceived ? "q" : "s")
                         })</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
-                        
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "s" : "u"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "s" : "u")
+                            : (this.contractData.fullPaymentReceived ? "r" : "t")
                         })</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
-                        
+
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "t" : "v"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "t" : "v")
+                            : (this.contractData.fullPaymentReceived ? "s" : "u")
                         })</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
 
                         <p><strong>${
-                          this.contractData.fullPaymentReceived ? "u" : "w"
+                          this.hasAircon()
+                            ? (this.contractData.fullPaymentReceived ? "u" : "w")
+                            : (this.contractData.fullPaymentReceived ? "t" : "v")
                         })</strong> Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
 
                         ${
                           this.contractData.pestControlClause
                             ? `<p><strong>${
-                                this.contractData.fullPaymentReceived
-                                  ? "v"
-                                  : "x"
+                                this.hasAircon()
+                                  ? (this.contractData.fullPaymentReceived ? "v" : "x")
+                                  : (this.contractData.fullPaymentReceived ? "u" : "w")
                               })</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
                             : ""
                         }
@@ -2651,6 +2669,12 @@ class ContractManagementComponent {
     } catch (e) {
       return "";
     }
+  }
+
+  hasAircon() {
+    // Check if room type includes "NO_AIRCON"
+    const roomType = this.contractData.room || '';
+    return !roomType.includes('NO_AIRCON');
   }
 
   calculateLeasePeriod(moveInDate, moveOutDate) {
@@ -3228,11 +3252,21 @@ class ContractManagementComponent {
         );
       }
 
-      // Add remaining clauses with proper letter sequence
+      // Add remaining clauses with proper letter sequence, skipping air-conditioner clause if no aircon
+      let clauseOffset = 0;
       baseClauseTexts.forEach((clauseText, index) => {
+        // Check if this is the air-conditioner clause
+        const isAirconClause = clauseText.includes('air-conditioner servicing');
+
+        // Skip air-conditioner clause if room has no aircon
+        if (isAirconClause && !this.hasAircon()) {
+          clauseOffset = 1; // Adjust offset for subsequent clauses
+          return;
+        }
+
         const letterIndex = this.contractData.fullPaymentReceived
-          ? index
-          : index + 2;
+          ? index - clauseOffset
+          : index + 2 - clauseOffset;
         const letter = String.fromCharCode(97 + letterIndex); // a, b, c, etc.
         section1Clauses.push(`${letter}) ${clauseText}`);
       });
@@ -3662,30 +3696,30 @@ class ContractManagementComponent {
                         <p style="margin-bottom: 15px;"><strong>l)</strong> Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.</p>
                         
                         <p style="margin-bottom: 15px;"><strong>m)</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>n)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>o)</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>p)</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>q)</strong> No visitors without permission from Tenant B to Tenant A.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>r)</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>s)</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>t)</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>u)</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
-                        
-                        <p style="margin-bottom: 15px;"><strong>v)</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>w)</strong> EARLY TERMINATION AND NOTICE PERIOD: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
+                        ${this.hasAircon() ? '<p style="margin-bottom: 15px;"><strong>n)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>' : ''}
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'o' : 'n'})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
+                        
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'p' : 'o'})</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'q' : 'p'})</strong> No visitors without permission from Tenant B to Tenant A.</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'r' : 'q'})</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 's' : 'r'})</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 't' : 's'})</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'u' : 't'})</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'v' : 'u'})</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
+
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'w' : 'v'})</strong> EARLY TERMINATION AND NOTICE PERIOD: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
 
                         ${
                           this.contractData.pestControlClause
-                            ? '<p style="margin-bottom: 15px;"><strong>x)</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>'
+                            ? `<p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? 'x' : 'w'})</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
                             : ""
                         }
 
