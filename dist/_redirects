@@ -1,5 +1,2 @@
-/api/*  /.netlify/functions/server/api/:splat  200
-/auth/*  /.netlify/functions/server/auth/:splat  200
-/upload/*  /.netlify/functions/server/upload/:splat  200
-/analysis/*  /.netlify/functions/server/analysis/:splat  200
-/  /.netlify/functions/server/  200
+# Proxy all API requests to Vercel backend
+/api/*  https://rental-management-backend-mocha.vercel.app/api/:splat  200
