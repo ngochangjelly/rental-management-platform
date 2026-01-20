@@ -2868,8 +2868,8 @@ class ContractManagementComponent {
       const tenantBName = (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0)
         ? this.selectedTenantB.map(t => t.name).join("_").replace(/[^a-zA-Z0-9_]/g, "_")
         : "TenantB";
-      const roomType =
-        this.contractData.room?.replace(/[^a-zA-Z0-9]/g, "_") || "Room";
+      const roomType = this.formatRoomType(this.contractData.room)
+        .replace(/[^a-zA-Z0-9]/g, "_");
 
       // Add monthly rental to filename
       const monthlyRent = this.contractData.monthlyRental
