@@ -37,6 +37,9 @@ class ContractManagementComponent {
     // Track templates pending deletion confirmation
     this.pendingDeletes = new Set();
 
+    // Flag to prevent auto-fill of dates when loading templates
+    this.isLoadingTemplate = false;
+
     this.init();
   }
 
@@ -1030,7 +1033,57 @@ class ContractManagementComponent {
 
     // Refresh tenant dropdowns with property filter
     this.populateTenantsDropdown();
+
+    // Auto-select main tenant for Tenant A if a property is selected
+    if (this.selectedPropertyId && address && address !== "ADD_NEW_PROPERTY" && address !== "CUSTOM_TEXT") {
+      this.autoSelectMainTenantForProperty(this.selectedPropertyId);
+    }
+
     this.updateContractPreview();
+  }
+
+  autoSelectMainTenantForProperty(propertyId) {
+    console.log(`🔍 Looking for main tenant for property ID: ${propertyId}`);
+
+    // Find the main tenant for this property
+    const mainTenant = this.tenants.find(tenant => {
+      if (!tenant.properties || tenant.properties.length === 0) {
+        return false;
+      }
+
+      // Check if this tenant has this property and is marked as main tenant
+      return tenant.properties.some(prop =>
+        prop.propertyId === propertyId && prop.isMainTenant === true
+      );
+    });
+
+    if (mainTenant) {
+      console.log(`✅ Found main tenant for property: ${mainTenant.name}`);
+
+      // Set the selected tenant
+      this.selectedTenantA = mainTenant;
+
+      // Update the Tenant A dropdown
+      const tenantASelect = document.getElementById("contractTenantA");
+      if (tenantASelect) {
+        // Find the option that matches this tenant
+        const tenantOption = Array.from(tenantASelect.options).find(option => {
+          return option.value === mainTenant.fin ||
+                 option.value === mainTenant.id ||
+                 option.dataset.index !== undefined;
+        });
+
+        if (tenantOption) {
+          tenantASelect.value = tenantOption.value;
+          console.log(`✅ Auto-selected Tenant A: ${mainTenant.name}`);
+
+          // Trigger the tenant selection handler to populate other fields
+          this.handleTenantSelection("A", tenantOption.value);
+        }
+      }
+    } else {
+      console.log(`ℹ️ No main tenant found for property ID: ${propertyId}`);
+    }
   }
 
   handleTenantSelection(tenantType, identifier) {
@@ -1194,7 +1247,8 @@ class ContractManagementComponent {
       }
 
       // Auto-fill move-in and move-out dates if tenant has property information
-      if (tenant && tenant.properties && tenant.properties.length > 0) {
+      // BUT only if we're not currently loading a template (to preserve template dates)
+      if (!this.isLoadingTemplate && tenant && tenant.properties && tenant.properties.length > 0) {
         console.log(
           "🏠 Auto-filling move-in/move-out dates from tenant property info"
         );
@@ -1236,11 +1290,46 @@ class ContractManagementComponent {
               console.log("✅ Auto-filled move-out date:", moveOutDate);
             }
           }
+
+          // Auto-fill room type from property data
+          if (propertyWithDates.room) {
+            const roomInput = document.getElementById("contractRoom");
+            if (roomInput) {
+              roomInput.value = propertyWithDates.room;
+              this.contractData.room = propertyWithDates.room;
+              console.log("✅ Auto-filled room type:", propertyWithDates.room);
+            }
+          }
+
+          // Auto-fill rent and deposit from tenant data
+          if (tenant) {
+            // Auto-fill monthly rental
+            if (tenant.rent) {
+              const monthlyRentalInput = document.getElementById("contractMonthlyRental");
+              if (monthlyRentalInput) {
+                monthlyRentalInput.value = tenant.rent;
+                this.contractData.monthlyRental = tenant.rent;
+                console.log("✅ Auto-filled monthly rental:", tenant.rent);
+              }
+            }
+
+            // Auto-fill security deposit
+            if (tenant.deposit) {
+              const securityDepositInput = document.getElementById("contractSecurityDeposit");
+              if (securityDepositInput) {
+                securityDepositInput.value = tenant.deposit;
+                this.contractData.securityDeposit = tenant.deposit;
+                console.log("✅ Auto-filled security deposit:", tenant.deposit);
+              }
+            }
+          }
         } else {
           console.log(
             "ℹ️ No property with move-in/move-out dates found for tenant"
           );
         }
+      } else if (this.isLoadingTemplate) {
+        console.log("⏭️ Skipping auto-fill of dates (loading template)");
       }
 
       // Hide new tenant fields if a real tenant is selected (not ADD_NEW_TENANT or empty)
@@ -1349,6 +1438,101 @@ class ContractManagementComponent {
     });
 
     console.log("✅ Final selectedTenantB array:", this.selectedTenantB);
+
+    // Auto-fill move-in and move-out dates from the first selected tenant with property info
+    // BUT only if we're not currently loading a template (to preserve template dates)
+    if (!this.isLoadingTemplate && this.selectedTenantB.length > 0) {
+      // Find the first tenant with property information containing dates
+      let tenantWithDates = null;
+      let propertyWithDates = null;
+
+      for (const tenant of this.selectedTenantB) {
+        if (tenant && tenant.properties && tenant.properties.length > 0) {
+          for (const property of tenant.properties) {
+            if (property.moveinDate || property.moveoutDate) {
+              tenantWithDates = tenant;
+              propertyWithDates = property;
+              break;
+            }
+          }
+          if (propertyWithDates) break;
+        }
+      }
+
+      if (propertyWithDates) {
+        console.log("📅 Found property with dates for Tenant B:", propertyWithDates);
+
+        // Auto-fill move-in date
+        if (propertyWithDates.moveinDate) {
+          const moveInInput = document.getElementById("contractMoveInDate");
+          if (moveInInput) {
+            const moveInDate = new Date(propertyWithDates.moveinDate)
+              .toISOString()
+              .split("T")[0];
+            moveInInput.value = moveInDate;
+            this.contractData.moveInDate = moveInDate;
+            console.log("✅ Auto-filled move-in date from Tenant B:", moveInDate);
+          }
+        }
+
+        // Auto-fill move-out date
+        if (propertyWithDates.moveoutDate) {
+          const moveOutInput = document.getElementById("contractMoveOutDate");
+          if (moveOutInput) {
+            const moveOutDate = new Date(propertyWithDates.moveoutDate)
+              .toISOString()
+              .split("T")[0];
+            moveOutInput.value = moveOutDate;
+            this.contractData.moveOutDate = moveOutDate;
+            console.log("✅ Auto-filled move-out date from Tenant B:", moveOutDate);
+          }
+        }
+
+        // Auto-fill room type from property data
+        if (propertyWithDates.room) {
+          const roomInput = document.getElementById("contractRoom");
+          if (roomInput) {
+            roomInput.value = propertyWithDates.room;
+            this.contractData.room = propertyWithDates.room;
+            console.log("✅ Auto-filled room type from Tenant B:", propertyWithDates.room);
+          }
+        }
+
+        // Auto-fill rent and deposit from tenant data
+        if (tenantWithDates) {
+          // Auto-fill monthly rental
+          if (tenantWithDates.rent) {
+            const monthlyRentalInput = document.getElementById("contractMonthlyRental");
+            if (monthlyRentalInput) {
+              monthlyRentalInput.value = tenantWithDates.rent;
+              this.contractData.monthlyRental = tenantWithDates.rent;
+              console.log("✅ Auto-filled monthly rental from Tenant B:", tenantWithDates.rent);
+            }
+          }
+
+          // Auto-fill security deposit
+          if (tenantWithDates.deposit) {
+            const securityDepositInput = document.getElementById("contractSecurityDeposit");
+            if (securityDepositInput) {
+              securityDepositInput.value = tenantWithDates.deposit;
+              this.contractData.securityDeposit = tenantWithDates.deposit;
+              console.log("✅ Auto-filled security deposit from Tenant B:", tenantWithDates.deposit);
+            }
+          }
+        }
+
+        // Auto-populate signature if this is a main tenant with signature
+        if (tenantWithDates && tenantWithDates.signature && this.isMainTenant(tenantWithDates)) {
+          console.log("🖋️ Auto-populating Tenant B signature from tenant data");
+          this.signatures.tenantB = tenantWithDates.signature;
+          this.updateSignaturePreview("B");
+        }
+      } else {
+        console.log("ℹ️ No property with move-in/move-out dates found for selected Tenant B");
+      }
+    } else if (this.isLoadingTemplate) {
+      console.log("⏭️ Skipping auto-fill of dates (loading template)");
+    }
 
     // Update the contract preview
     console.log("🔄 Calling updateContractPreview...");
@@ -1687,11 +1871,22 @@ class ContractManagementComponent {
           input.value = this.contractData[field];
         }
 
+        // For date inputs, use 'change' event as well as 'input' for better compatibility
+        const eventType = input.type === "date" ? "change" : "input";
+
         // Set up event listener
-        input.addEventListener("input", () => {
+        input.addEventListener(eventType, () => {
           this.contractData[field] = input.value;
           this.updateContractPreview();
         });
+
+        // For date inputs, also add 'input' event to catch all changes
+        if (input.type === "date") {
+          input.addEventListener("input", () => {
+            this.contractData[field] = input.value;
+            this.updateContractPreview();
+          });
+        }
       }
     });
 
@@ -2040,7 +2235,7 @@ class ContractManagementComponent {
                     <h2 style="font-weight: bold; margin-bottom: 10px;">HOUSE SHARING AGREEMENT</h2>
                     <p><strong>Full address:</strong> ${propertyAddress}</p>
                     <p><strong>Room:</strong> ${
-                      this.contractData.room || "[Room Type]"
+                      this.formatRoomType(this.contractData.room)
                     }</p>
                     <p><strong>THIS AGREEMENT is made on:</strong> ${
                       this.contractData.agreementDate ||
@@ -2101,9 +2296,9 @@ class ContractManagementComponent {
                     
                     <div style="margin: 20px 0; line-height: 1.8;">
                         <p><strong>Lease Period:</strong> ${
-                          this.contractData.leasePeriod || "[Lease Period]"
+                          this.formatLeasePeriod()
                         }</p>
-                        
+
                         <p><strong>Tenancy Period:</strong> ${this.formatTenancyPeriod()}</p>
                         
                         <p><strong>Moving Time:</strong> Move in after 15:00, Move out before 11:00</p>
@@ -2388,11 +2583,11 @@ class ContractManagementComponent {
 
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
+      const day = date.getDate().toString().padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
     } catch (e) {
       return dateString;
     }
@@ -2406,6 +2601,87 @@ class ContractManagementComponent {
     };
 
     return paymentMethods[method] || method || "Cash";
+  }
+
+  formatRoomType(roomType) {
+    if (!roomType) return "[Room Type]";
+
+    // Map of room type codes to display labels
+    const roomTypeLabels = {
+      'SMALL_SINGLE_1_PAX': 'Small Single Room (1 Pax)',
+      'MEDIUM_SINGLE_1_PAX': 'Medium Single Room (1 Pax)',
+      'LARGE_SINGLE_1_PAX': 'Large Single Room (1 Pax)',
+      'SMALL_SHARED_2_PAX': 'Small Shared Room (2 Pax)',
+      'MEDIUM_SHARED_2_PAX': 'Medium Shared Room (2 Pax)',
+      'LARGE_SHARED_2_PAX': 'Large Shared Room (2 Pax)',
+      'MASTER_BEDROOM': 'Master Bedroom',
+      'COMMON_ROOM': 'Common Room',
+      'STUDIO': 'Studio',
+      'ONE_BEDROOM': '1 Bedroom',
+      'TWO_BEDROOM': '2 Bedroom',
+      'THREE_BEDROOM': '3 Bedroom',
+    };
+
+    return roomTypeLabels[roomType] || roomType;
+  }
+
+  calculateLeasePeriod(moveInDate, moveOutDate) {
+    if (!moveInDate || !moveOutDate) {
+      return null;
+    }
+
+    try {
+      const startDate = new Date(moveInDate);
+      const endDate = new Date(moveOutDate);
+
+      // Calculate total days
+      const totalDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+      if (totalDays < 0) {
+        return null; // Invalid date range
+      }
+
+      // Calculate months, weeks, and days
+      const months = Math.floor(totalDays / 30);
+      const remainingDaysAfterMonths = totalDays % 30;
+      const weeks = Math.floor(remainingDaysAfterMonths / 7);
+      const days = remainingDaysAfterMonths % 7;
+
+      // Build the lease period string
+      const parts = [];
+
+      if (months > 0) {
+        parts.push(`${months} month${months > 1 ? 's' : ''}`);
+      }
+
+      if (weeks > 0) {
+        parts.push(`${weeks} week${weeks > 1 ? 's' : ''}`);
+      }
+
+      if (days > 0) {
+        parts.push(`${days} day${days > 1 ? 's' : ''}`);
+      }
+
+      return parts.length > 0 ? parts.join(', ') : '0 days';
+    } catch (e) {
+      console.error('Error calculating lease period:', e);
+      return null;
+    }
+  }
+
+  formatLeasePeriod() {
+    // If lease period is manually entered, use it
+    if (this.contractData.leasePeriod && this.contractData.leasePeriod.trim() !== '') {
+      return this.contractData.leasePeriod;
+    }
+
+    // Otherwise, calculate from move-in and move-out dates
+    const calculated = this.calculateLeasePeriod(
+      this.contractData.moveInDate,
+      this.contractData.moveOutDate
+    );
+
+    return calculated || '[Lease Period]';
   }
 
   formatMonthsText(months) {
@@ -2536,12 +2812,25 @@ class ContractManagementComponent {
         throw new Error("Contract preview not found");
       }
 
-      // Create PDF filename in format: [tenantB]-[roomType]-[propertyAddress]
+      // Create PDF filename in format: [tenantB]-[roomType]-[rent]-[moveIn]-[moveOut]-[propertyAddress]
       const tenantBName = (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0)
         ? this.selectedTenantB.map(t => t.name).join("_").replace(/[^a-zA-Z0-9_]/g, "_")
         : "TenantB";
       const roomType =
         this.contractData.room?.replace(/[^a-zA-Z0-9]/g, "_") || "Room";
+
+      // Add monthly rental to filename
+      const monthlyRent = this.contractData.monthlyRental
+        ? `${this.contractData.monthlyRental}`
+        : "0";
+
+      // Format dates for filename (YYYY-MM-DD)
+      const moveInDate = this.contractData.moveInDate
+        ? this.contractData.moveInDate.replace(/\//g, "-")
+        : "NoMoveIn";
+      const moveOutDate = this.contractData.moveOutDate
+        ? this.contractData.moveOutDate.replace(/\//g, "-")
+        : "NoMoveOut";
 
       // Get address from custom input if available, otherwise from contractData
       const customAddressText = document.getElementById("customAddressText");
@@ -2558,7 +2847,7 @@ class ContractManagementComponent {
       const propertyAddress =
         cleanAddress.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
 
-      const filename = `${tenantBName}-${roomType}-${propertyAddress}.pdf`;
+      const filename = `${tenantBName}-${roomType}-${monthlyRent}-${moveInDate}-${moveOutDate}-${propertyAddress}.pdf`;
 
       console.log("📄 Creating text-based PDF...");
 
@@ -2716,7 +3005,7 @@ class ContractManagementComponent {
         `Full address: ${propertyAddressForPDF}`,
         { center: true }
       );
-      addText(`Room: ${this.contractData.room || "[Room Type]"}`, {
+      addText(`Room: ${this.formatRoomType(this.contractData.room)}`, {
         center: true,
       });
       addText(
@@ -2787,7 +3076,7 @@ class ContractManagementComponent {
 
       // Contract details as simple text
       addText(
-        `Lease Period: ${this.contractData.leasePeriod || "[Lease Period]"}`,
+        `Lease Period: ${this.formatLeasePeriod()}`,
         { bold: true, spacing: 8 }
       );
       addText(`Tenancy Period: ${this.formatTenancyPeriod()}`, {
@@ -3199,7 +3488,7 @@ class ContractManagementComponent {
                       propertyAddressForPDF
                     }</p>
                     <p style="margin-bottom: 8px;"><strong>Room:</strong> ${
-                      this.contractData.room || "[Room Type]"
+                      this.formatRoomType(this.contractData.room)
                     }</p>
                     <p style="margin-bottom: 20px;"><strong>THIS AGREEMENT is made on:</strong> ${
                       this.contractData.agreementDate ||
@@ -3266,9 +3555,9 @@ class ContractManagementComponent {
                     <!-- Contract Terms as Simple Text -->
                     <div style="margin-bottom: 25px; line-height: 1.8;">
                         <p style="margin-bottom: 12px;"><strong>Lease Period:</strong> ${
-                          this.contractData.leasePeriod || "[Lease Period]"
+                          this.formatLeasePeriod()
                         }</p>
-                        
+
                         <p style="margin-bottom: 12px;"><strong>Tenancy Period:</strong> ${this.formatTenancyPeriod()}</p>
                         
                         <p style="margin-bottom: 12px;"><strong>Moving Time:</strong> Move in after 15:00, Move out before 11:00</p>
@@ -3682,7 +3971,7 @@ class ContractManagementComponent {
       .replace(/[^a-zA-Z0-9\s]/g, "")
       .trim()
       .replace(/\s+/g, "-");
-    const cleanRental = rental.replace(/[^0-9]/g, "");
+    const cleanRental = String(rental).replace(/[^0-9]/g, "");
     const cleanAddress = address
       .replace(/[^a-zA-Z0-9\s]/g, "")
       .trim()
@@ -3716,10 +4005,6 @@ class ContractManagementComponent {
       );
       if (element) {
         contractData[field] = element.value;
-        // Debug logging for date fields
-        if (field === "moveInDate" || field === "moveOutDate") {
-          console.log(`📅 Gathering ${field}: ${element.value}`);
-        }
       }
     });
 
@@ -3764,8 +4049,15 @@ class ContractManagementComponent {
 
       const templateData = result.data;
 
+      // Set flag to prevent auto-fill of dates when loading template
+      this.isLoadingTemplate = true;
+
       // Populate contract data
       this.contractData = { ...templateData.contractData };
+
+      // Store the dates separately to restore them after tenant loading
+      const savedMoveInDate = templateData.contractData.moveInDate;
+      const savedMoveOutDate = templateData.contractData.moveOutDate;
 
       // Populate form fields
       Object.keys(this.contractData).forEach((field) => {
@@ -3782,10 +4074,6 @@ class ContractManagementComponent {
             element.checked = this.contractData[field];
           } else {
             element.value = this.contractData[field] || "";
-            // Debug logging for date fields
-            if (field === "moveInDate" || field === "moveOutDate") {
-              console.log(`📅 Loading ${field}: ${this.contractData[field]}`);
-            }
           }
         }
       });
@@ -3814,6 +4102,23 @@ class ContractManagementComponent {
         await this.loadMultipleTenantBFromTemplate(this.selectedTenantB);
       }
 
+      // Restore the dates after tenant loading to ensure they're not overwritten
+      if (savedMoveInDate) {
+        const moveInInput = document.getElementById("contractMoveInDate");
+        if (moveInInput) {
+          moveInInput.value = savedMoveInDate;
+          this.contractData.moveInDate = savedMoveInDate;
+        }
+      }
+
+      if (savedMoveOutDate) {
+        const moveOutInput = document.getElementById("contractMoveOutDate");
+        if (moveOutInput) {
+          moveOutInput.value = savedMoveOutDate;
+          this.contractData.moveOutDate = savedMoveOutDate;
+        }
+      }
+
       // Load additional clauses
       if (templateData.additionalData?.additionalClauses) {
         this.additionalClauses = [
@@ -3822,10 +4127,15 @@ class ContractManagementComponent {
         this.renderAdditionalClauses();
       }
 
+      // Clear the flag after loading is complete
+      this.isLoadingTemplate = false;
+
       showToast(`Template "${templateName}" loaded successfully!`, "success");
     } catch (error) {
       console.error("❌ Error loading template:", error);
       showToast("Error loading template", "error");
+      // Clear the flag in case of error
+      this.isLoadingTemplate = false;
     }
   }
 

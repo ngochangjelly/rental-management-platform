@@ -3052,7 +3052,27 @@
                         
                         <!-- Saved Templates List -->
                         <div id="templatesList" class="mb-3" style="min-height: 300px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px;">
-                          <!-- Templates will be populated here -->
+                          <!-- Initial Loading Skeleton -->
+                          <div class="loading-skeleton" style="min-height: 300px;">
+                            <div class="skeleton-item mb-2 p-3 border rounded bg-light" style="animation: pulse 1.5s ease-in-out infinite;">
+                              <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 70%;"></div>
+                              <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 50%;"></div>
+                            </div>
+                            <div class="skeleton-item mb-2 p-3 border rounded bg-light" style="animation: pulse 1.5s ease-in-out infinite; animation-delay: 0.2s;">
+                              <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 65%;"></div>
+                              <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 45%;"></div>
+                            </div>
+                            <div class="skeleton-item mb-2 p-3 border rounded bg-light" style="animation: pulse 1.5s ease-in-out infinite; animation-delay: 0.4s;">
+                              <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 75%;"></div>
+                              <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 55%;"></div>
+                            </div>
+                          </div>
+                          <style>
+                            @keyframes pulse {
+                              0%, 100% { opacity: 1; }
+                              50% { opacity: 0.5; }
+                            }
+                          </style>
                         </div>
                       </div>
 
