@@ -16,7 +16,9 @@ export const ROOM_TYPE_MAP = {
   'SMALL_SINGLE_1_PAX': 'Small Single 1 Pax',
   'SMALL_SINGLE_2_PAX': 'Small Single 2 Pax',
   'BIG_SINGLE_1_PAX': 'Big Single 1 Pax',
-  'BIG_SINGLE_2_PAX': 'Big Single 2 Pax'
+  'BIG_SINGLE_2_PAX': 'Big Single 2 Pax',
+  'SINGLE_1_PAX_NO_AIRCON': 'Single 1 Pax No Aircon',
+  'SINGLE_2_PAX_NO_AIRCON': 'Single 2 Pax No Aircon'
 };
 
 /**
