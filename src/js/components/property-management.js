@@ -259,14 +259,15 @@ class PropertyManagementComponent {
 
     // Set CSS Grid with auto-fill and max-width 260px
     gridContainer.style.display = "grid";
-    gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(min(260px, 100%), 1fr))";
-    gridContainer.style.gap = "1rem";
+    gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 1fr))";
+    gridContainer.style.gap = "0.125rem";
+    gridContainer.style.maxWidth = "100%";
 
     // Render property cards
     let cardsHtml = "";
     this.properties.forEach((property) => {
       const cardHtml = `
-        <div>
+        <div style="max-width: 260px; width: 100%; justify-self: center;">
           <div class="card property-management-card h-100 overflow-hidden"
                style="transition: all 0.2s ease;">
             ${property.propertyImage ? `
@@ -363,6 +364,15 @@ class PropertyManagementComponent {
         }
         .property-management-card .card-footer {
           background: linear-gradient(90deg, #f8f9fa 0%, #ffffff 100%);
+        }
+        .property-management-card .card-body {
+          padding: 0.75rem 0.5rem;
+        }
+        .property-management-card .card-header {
+          padding: 0.75rem 0.5rem;
+        }
+        .property-management-card .card-footer {
+          padding: 0.75rem 0.5rem;
         }
       `;
       document.head.appendChild(style);

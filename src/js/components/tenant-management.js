@@ -99,8 +99,9 @@ class TenantManagementComponent {
 
     // Set container to use CSS Grid with auto-fill and max-width 260px
     container.style.display = "grid";
-    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(min(260px, 100%), 1fr))";
-    container.style.gap = "1rem";
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 1fr))";
+    container.style.gap = "0.125rem";
+    container.style.maxWidth = "100%";
 
     // Clear existing cards
     container.innerHTML = "";
@@ -118,7 +119,7 @@ class TenantManagementComponent {
     // Add special card for unassigned tenants
     const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
     const unassignedCardHtml = `
-            <div>
+            <div style="max-width: 260px; width: 100%; justify-self: center;">
                 <div class="card property-card h-100 ${
                   isUnassignedSelected ? "border-warning" : "border-secondary"
                 } overflow-hidden"
@@ -155,7 +156,7 @@ class TenantManagementComponent {
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-                <div>
+                <div style="max-width: 260px; width: 100%; justify-self: center;">
                     <div class="card property-card h-100 ${
                       isSelected ? "border-primary" : ""
                     } overflow-hidden"
@@ -229,6 +230,12 @@ class TenantManagementComponent {
                 .property-card {
                     min-height: 200px;
                     overflow: hidden;
+                }
+                .property-card .card-header {
+                    padding: 0.75rem 0.5rem;
+                }
+                .property-card .card-body {
+                    padding: 0.75rem 0.5rem;
                 }
                 .property-card:hover {
                     transform: translateY(-2px);
@@ -536,8 +543,8 @@ class TenantManagementComponent {
     // Group tenants by roommate relationships
     const tenantGroups = this.groupTenantsByRoommates(sortedTenants);
 
-    // Create simple list layout for single property
-    let html = '<div class="row g-3">';
+    // Create CSS Grid layout for single property with max-width 260px per card
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
 
     tenantGroups.forEach((group) => {
       if (group.length > 1) {
@@ -552,6 +559,9 @@ class TenantManagementComponent {
 
     html += "</div>";
     tbody.innerHTML = html;
+
+    // Update registered tenants badge
+    this.updateRegisteredTenantsBadge();
 
     // Add card styles if not already present
     this.addTenantDetailCardStyles();
@@ -589,21 +599,24 @@ class TenantManagementComponent {
   renderRoommateGroup(group) {
     const isOutdated = group.every(t => this.isTenantOutdated(t, this.selectedProperty));
 
-    // Calculate column classes based on number of roommates to match tenant card width
-    // Each card is col-lg-3 (25% width), so 2 cards = 50%, 3 cards = 75%, 4 cards = 100%
-    const groupColClass = group.length === 2 ? 'col-12 col-lg-6' :
-                         group.length === 3 ? 'col-12 col-lg-9' :
-                         'col-12';
+    // Calculate width based on number of roommates (each card is 260px + 0.125rem gap)
+    const groupWidth = group.length === 2 ? '520px' :
+                       group.length === 3 ? '780px' :
+                       group.length === 4 ? '1040px' :
+                       '100%';
+
+    // Span columns based on group size
+    const gridColumnSpan = `span ${group.length}`;
 
     let html = `
-      <div class="${groupColClass}">
+      <div style="max-width: ${groupWidth}; width: fit-content; grid-column: ${gridColumnSpan};">
         <div class="roommate-group-container ${isOutdated ? 'group-outdated' : ''}">
           <div class="roommate-group-header">
             <i class="bi bi-people-fill me-2"></i>
             <strong>Roommates in Same Room</strong>
             <span class="badge bg-success ms-2">${group.length} tenants</span>
           </div>
-          <div class="row g-3">
+          <div style="display: flex; gap: 0.125rem;">
     `;
 
     group.forEach((tenant) => {
@@ -620,7 +633,6 @@ class TenantManagementComponent {
   }
 
   renderSingleTenant(tenant, isInGroup = false) {
-    const colClass = isInGroup ? "col-12 col-md-6 col-lg-6" : "col-12 col-md-6 col-lg-3";
     const registrationStatus =
       tenant.registrationStatus ||
       (tenant.isRegistered ? "registered" : "unregistered");
@@ -662,7 +674,7 @@ class TenantManagementComponent {
     }
 
     return `
-                <div class="${colClass}">
+                <div style="max-width: 260px; width: 100%; justify-self: center;">
                     <div class="card h-100 tenant-detail-card shadow-sm ${
                       isOutdated ? "tenant-outdated" : ""
                     }">
@@ -797,6 +809,9 @@ class TenantManagementComponent {
                 .tenant-detail-card {
                     transition: transform 0.2s ease, box-shadow 0.2s ease;
                     border: 1px solid #dee2e6;
+                }
+                .tenant-detail-card .card-body {
+                    padding: 0.75rem 0.5rem;
                 }
                 .tenant-detail-card:hover {
                     transform: translateY(-4px);
@@ -1129,6 +1144,20 @@ class TenantManagementComponent {
     return grouped;
   }
 
+  updateRegisteredTenantsBadge() {
+    const badge = document.getElementById("registeredTenantsBadge");
+    if (!badge) return;
+
+    // Count registered tenants
+    const registeredCount = this.tenants.filter(tenant => {
+      const status = tenant.registrationStatus || (tenant.isRegistered ? "registered" : "unregistered");
+      return status === "registered";
+    }).length;
+
+    // Update badge text
+    badge.textContent = `${registeredCount} registered`;
+  }
+
   showEmptyState(message = "No tenants found") {
     const tbody = document.getElementById("tenantsTableBody");
     if (!tbody) return;
@@ -1139,6 +1168,9 @@ class TenantManagementComponent {
                 <p class="fs-5">${message}</p>
             </div>
         `;
+
+    // Update badge to show 0 when empty
+    this.updateRegisteredTenantsBadge();
   }
 
   async filterTenants(searchTerm) {
