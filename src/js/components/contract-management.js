@@ -2829,6 +2829,9 @@ class ContractManagementComponent {
 
   async exportToPDF() {
     try {
+      // Sync form values to contractData before export to ensure we have the latest values
+      this.syncFormValuesToContractData();
+
       // Show loading state
       const exportBtn = document.querySelector(
         '[onclick="contractManager.exportToPDF()"]'
@@ -4047,6 +4050,61 @@ class ContractManagementComponent {
       .substring(0, 30); // Limit address length
 
     return `${cleanTenantB} ${cleanRoom} ${cleanRental} ${cleanAddress}`;
+  }
+
+  syncFormValuesToContractData() {
+    // Sync critical form values to contractData to ensure export has the latest data
+    const formFields = [
+      "moveInDate",
+      "moveOutDate",
+      "leasePeriod",
+      "monthlyRental",
+      "securityDeposit",
+      "room",
+      "address",
+      "agreementDate",
+      "electricityBudget",
+      "cleaningFee",
+    ];
+
+    formFields.forEach((field) => {
+      const element = document.getElementById(
+        `contract${field.charAt(0).toUpperCase() + field.slice(1)}`
+      );
+      if (element && element.value) {
+        this.contractData[field] = element.value;
+      }
+    });
+
+    // Handle custom address text
+    const contractAddressElement = document.getElementById("contractAddress");
+    const customAddressText = document.getElementById("customAddressText");
+    if (contractAddressElement && contractAddressElement.value === "CUSTOM_TEXT" && customAddressText && customAddressText.value.trim()) {
+      this.contractData.address = customAddressText.value.trim();
+    }
+
+    // Sync payment method
+    const paymentMethodElement = document.getElementById("contractPaymentMethod");
+    if (paymentMethodElement && paymentMethodElement.value) {
+      this.contractData.paymentMethod = paymentMethodElement.value;
+    }
+
+    // Sync checkbox states
+    const fullPaymentElement = document.getElementById("fullPaymentReceived");
+    if (fullPaymentElement) {
+      this.contractData.fullPaymentReceived = fullPaymentElement.checked;
+    }
+
+    const pestControlElement = document.getElementById("pestControlClause");
+    if (pestControlElement) {
+      this.contractData.pestControlClause = pestControlElement.checked;
+    }
+
+    console.log("✅ Synced form values to contractData:", {
+      moveInDate: this.contractData.moveInDate,
+      moveOutDate: this.contractData.moveOutDate,
+      leasePeriod: this.contractData.leasePeriod,
+    });
   }
 
   gatherCurrentContractData() {
