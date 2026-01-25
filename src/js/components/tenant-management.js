@@ -337,6 +337,9 @@ class TenantManagementComponent {
     try {
       console.log(`🔄 Loading tenants for property: ${propertyId}`);
 
+      // Show loading skeleton while fetching data
+      this.showLoadingSkeleton();
+
       // Use the property-specific endpoint to load only tenants for this property
       const response = await API.get(
         API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)
@@ -384,6 +387,9 @@ class TenantManagementComponent {
   async loadUnassignedTenants() {
     try {
       console.log("🔄 Loading unassigned tenants...");
+
+      // Show loading skeleton while fetching data
+      this.showLoadingSkeleton();
 
       // Load all tenants and filter for those with no properties
       const response = await API.get(
@@ -498,6 +504,80 @@ class TenantManagementComponent {
                 `;
       }
     }
+  }
+
+  showLoadingSkeleton() {
+    const tbody = document.getElementById("tenantsTableBody");
+    if (!tbody) return;
+
+    // Add shimmer animation styles if not already present
+    if (!document.getElementById("tenant-skeleton-styles")) {
+      const style = document.createElement("style");
+      style.id = "tenant-skeleton-styles";
+      style.textContent = `
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .skeleton-shimmer {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+          border-radius: 4px;
+        }
+        .skeleton-card {
+          background: #fff;
+          border: 1px solid #dee2e6;
+          border-radius: 0.375rem;
+          overflow: hidden;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Create skeleton cards matching the tenant card layout
+    const skeletonCount = 6; // Show 6 skeleton cards
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
+
+    for (let i = 0; i < skeletonCount; i++) {
+      html += `
+        <div style="max-width: 260px; width: 100%; justify-self: center;">
+          <div class="skeleton-card">
+            <!-- Header skeleton -->
+            <div class="d-flex align-items-center p-3 border-bottom" style="background: #f8f9fa;">
+              <div class="skeleton-shimmer rounded-circle me-3" style="width: 50px; height: 50px; flex-shrink: 0;"></div>
+              <div class="flex-grow-1">
+                <div class="skeleton-shimmer mb-2" style="height: 16px; width: 70%;"></div>
+                <div class="skeleton-shimmer" style="height: 12px; width: 50%;"></div>
+              </div>
+            </div>
+            <!-- Body skeleton -->
+            <div class="p-3">
+              <div class="d-flex justify-content-between mb-2">
+                <div class="skeleton-shimmer" style="height: 14px; width: 40%;"></div>
+                <div class="skeleton-shimmer" style="height: 14px; width: 30%;"></div>
+              </div>
+              <div class="d-flex justify-content-between mb-2">
+                <div class="skeleton-shimmer" style="height: 14px; width: 35%;"></div>
+                <div class="skeleton-shimmer" style="height: 14px; width: 45%;"></div>
+              </div>
+              <div class="d-flex justify-content-between mb-3">
+                <div class="skeleton-shimmer" style="height: 14px; width: 45%;"></div>
+                <div class="skeleton-shimmer" style="height: 14px; width: 25%;"></div>
+              </div>
+              <!-- Badge skeleton -->
+              <div class="d-flex gap-2">
+                <div class="skeleton-shimmer" style="height: 22px; width: 60px; border-radius: 12px;"></div>
+                <div class="skeleton-shimmer" style="height: 22px; width: 80px; border-radius: 12px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    html += "</div>";
+    tbody.innerHTML = html;
   }
 
   async renderTenantsTable() {
