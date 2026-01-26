@@ -2186,6 +2186,10 @@ class TenantManagementComponent {
       const result = await response.json();
 
       if (result.success) {
+        // Notify other modules that tenant data has changed
+        if (window.dashboardController) {
+          window.dashboardController.markTenantDataChanged();
+        }
         // Reload the list
         if (this.selectedProperty === "UNASSIGNED") {
           await this.loadUnassignedTenants();
@@ -2229,6 +2233,10 @@ class TenantManagementComponent {
       const result = await response.json();
 
       if (result.success) {
+        // Notify other modules that tenant data has changed
+        if (window.dashboardController) {
+          window.dashboardController.markTenantDataChanged();
+        }
         // Reload the list
         if (this.selectedProperty === "UNASSIGNED") {
           await this.loadUnassignedTenants();
@@ -2271,6 +2279,10 @@ class TenantManagementComponent {
       const result = await response.json();
 
       if (result.success) {
+        // Notify other modules that tenant data has changed
+        if (window.dashboardController) {
+          window.dashboardController.markTenantDataChanged();
+        }
         // Reload the list
         if (this.selectedProperty === "UNASSIGNED") {
           await this.loadUnassignedTenants();
@@ -2299,6 +2311,10 @@ class TenantManagementComponent {
       const result = await response.json();
 
       if (result.success) {
+        // Notify other modules that tenant data has changed
+        if (window.dashboardController) {
+          window.dashboardController.markTenantDataChanged();
+        }
         await this.loadTenants(); // Reload the list
       } else {
         alert("Failed to assign tenant to property: " + result.error);
@@ -4239,6 +4255,10 @@ class TenantManagementComponent {
       const result = await response.json();
 
       if (result.success) {
+        // Notify other modules that tenant data has changed
+        if (window.dashboardController) {
+          window.dashboardController.markTenantDataChanged();
+        }
         this.showSuccessMessage(
           `Successfully updated ${
             result.updatedCount || updates.length

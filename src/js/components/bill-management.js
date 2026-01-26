@@ -1,3 +1,5 @@
+import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+
 /**
  * Bill Management Component
  * Manages monthly bills for properties with tenant bill tracking and upload management
@@ -331,7 +333,7 @@ class BillManagementComponent {
             <strong>${escapeHtml(tenantBill.tenantName)}</strong><br>
             <small class="text-muted">${escapeHtml(tenantBill.tenantId)}</small>
           </td>
-          <td>${escapeHtml(tenantBill.room || '-')}</td>
+          <td>${escapeHtml(tenantBill.room ? getRoomTypeDisplayName(tenantBill.room) : '-')}</td>
           <td>$${tenantBill.baseRental.toFixed(2)}</td>
           <td>$${tenantBill.utilityFee.toFixed(2)}</td>
           <td>$${tenantBill.cleaningFee.toFixed(2)}</td>

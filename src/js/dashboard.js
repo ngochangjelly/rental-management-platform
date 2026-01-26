@@ -10,7 +10,6 @@ import './components/property-management.js';
 import './components/tenant-management.js';
 import './components/tenant-calendar.js'; // Tenant timeline calendar
 import './components/contract-management.js';
-import './components/custom-contract-template.js';
 import './components/financial-reports.js';
 import './components/bill-management.js'; // Bill Management component
 import './components/bulk-property-reports.js';

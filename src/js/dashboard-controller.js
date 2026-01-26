@@ -6,6 +6,12 @@ class DashboardController {
   constructor() {
     this.components = {};
     this.currentSection = "dashboard";
+    // Data version tracking for cross-module synchronization
+    this.dataVersions = {
+      tenants: 0,
+      properties: 0,
+      investors: 0
+    };
     this.init();
   }
 
@@ -82,6 +88,9 @@ class DashboardController {
 
       // Initialize component for this section if not already done
       this.initializeComponentForSection(sectionName);
+
+      // Refresh data if it has changed since last visit
+      this.refreshSectionDataIfNeeded(sectionName);
     }
 
     // Update active nav link
@@ -157,21 +166,6 @@ class DashboardController {
             console.log('🔧 Initializing contract templates...');
             await this.components.contractManagement.initializeTemplateSection();
             this.components.contractManagement.updateContractPreview();
-          }, 100);
-        }
-        break;
-      case "custom-template":
-        if (!this.components.customTemplate) {
-          console.log('🏗️ Creating CustomContractTemplateComponent...');
-          this.components.customTemplate = new CustomContractTemplateComponent();
-          // Make it globally accessible for button onclick handlers
-          window.customTemplateEditor = this.components.customTemplate;
-          console.log('✅ CustomContractTemplateComponent created');
-
-          // Initialize the editor after section is shown
-          setTimeout(() => {
-            console.log('⏰ Initializing custom template editor...');
-            this.components.customTemplate.init();
           }, 100);
         }
         break;
@@ -312,6 +306,114 @@ class DashboardController {
     if (component && component.refresh) {
       component.refresh();
     }
+  }
+
+  // Data version management for cross-module synchronization
+  markTenantDataChanged() {
+    this.dataVersions.tenants++;
+    console.log(`📊 Tenant data version updated to ${this.dataVersions.tenants}`);
+  }
+
+  markPropertyDataChanged() {
+    this.dataVersions.properties++;
+    console.log(`📊 Property data version updated to ${this.dataVersions.properties}`);
+  }
+
+  markInvestorDataChanged() {
+    this.dataVersions.investors++;
+    console.log(`📊 Investor data version updated to ${this.dataVersions.investors}`);
+  }
+
+  refreshSectionDataIfNeeded(sectionName) {
+    // Map sections to their data dependencies and refresh methods
+    const sectionDataDependencies = {
+      'contracts': {
+        dependencies: ['tenants', 'properties', 'investors'],
+        refresh: async () => {
+          if (this.components.contractManagement) {
+            console.log('🔄 Refreshing contract management data...');
+            await Promise.all([
+              this.components.contractManagement.loadTenants(),
+              this.components.contractManagement.loadInvestors(),
+              this.components.contractManagement.loadProperties()
+            ]);
+            this.components.contractManagement.populateTenantsDropdown();
+            this.components.contractManagement.populatePropertiesDropdown();
+          }
+        }
+      },
+      'properties': {
+        dependencies: ['tenants', 'properties'],
+        refresh: async () => {
+          if (this.components.propertyManagement && this.components.propertyManagement.refresh) {
+            console.log('🔄 Refreshing property management data...');
+            this.components.propertyManagement.refresh();
+          }
+        }
+      },
+      'financial': {
+        dependencies: ['tenants', 'properties'],
+        refresh: async () => {
+          if (this.components.financialReports && this.components.financialReports.loadProperties) {
+            console.log('🔄 Refreshing financial reports data...');
+            await this.components.financialReports.loadProperties();
+          }
+        }
+      },
+      'bulk-reports': {
+        dependencies: ['tenants', 'properties'],
+        refresh: async () => {
+          if (this.components.bulkPropertyReports && this.components.bulkPropertyReports.loadProperties) {
+            console.log('🔄 Refreshing bulk reports data...');
+            await this.components.bulkPropertyReports.loadProperties();
+          }
+        }
+      }
+    };
+
+    const config = sectionDataDependencies[sectionName];
+    if (!config) return;
+
+    // Get the component and check if it has tracked versions
+    const componentKey = this.getComponentKeyForSection(sectionName);
+    const component = this.components[componentKey];
+
+    if (!component) return;
+
+    // Initialize component's version tracking if not present
+    if (!component._dataVersions) {
+      component._dataVersions = { tenants: -1, properties: -1, investors: -1 };
+    }
+
+    // Check if any dependency has changed
+    let needsRefresh = false;
+    for (const dep of config.dependencies) {
+      if (component._dataVersions[dep] < this.dataVersions[dep]) {
+        needsRefresh = true;
+        console.log(`📊 ${sectionName}: ${dep} data changed (${component._dataVersions[dep]} -> ${this.dataVersions[dep]})`);
+      }
+    }
+
+    if (needsRefresh) {
+      // Update component's tracked versions
+      for (const dep of config.dependencies) {
+        component._dataVersions[dep] = this.dataVersions[dep];
+      }
+      // Trigger refresh
+      config.refresh();
+    }
+  }
+
+  getComponentKeyForSection(sectionName) {
+    const sectionToComponent = {
+      'contracts': 'contractManagement',
+      'properties': 'propertyManagement',
+      'financial': 'financialReports',
+      'bulk-reports': 'bulkPropertyReports',
+      'tenants': 'tenantManagement',
+      'investors': 'investorManagement'
+    };
+    return sectionToComponent[sectionName];
   }
 
   refreshDashboardStats() {
