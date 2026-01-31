@@ -381,9 +381,10 @@ class BillManagementComponent {
               <p><strong>Pending:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'pending').length}</p>
             </div>
             <div class="col-md-6">
-              <h6>Default Fees</h6>
-              <p><strong>Utility Fee:</strong> $${this.currentBill.utilityFee.toFixed(2)}</p>
-              <p><strong>Cleaning Fee:</strong> $${this.currentBill.cleaningFee.toFixed(2)}</p>
+              <h6>Fee Summary</h6>
+              <p><strong>Total Utility Fee (Shared):</strong> $${this.currentBill.utilityFee.toFixed(2)}</p>
+              <p><strong>Tenants Paying Utility:</strong> ${tenantBills.filter(tb => tb.utilityFee > 0).length}</p>
+              <p><strong>Utility Subsidized:</strong> ${tenantBills.filter(tb => tb.utilityFee === 0).length}</p>
             </div>
           </div>
         </div>
@@ -476,12 +477,17 @@ class BillManagementComponent {
                   <input type="text" class="form-control" value="${this.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}" readonly>
                 </div>
                 <div class="mb-3">
-                  <label for="utilityFee" class="form-label">Utility Fee (Default for all tenants)</label>
-                  <input type="number" class="form-control" id="utilityFee" name="utilityFee" min="0" step="0.01" value="0">
+                  <label for="totalUtilityFee" class="form-label">Total Utility Fee to Share</label>
+                  <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01" value="0">
+                  <div class="form-text">This amount will be divided equally among all tenants with room type assigned.</div>
                 </div>
-                <div class="mb-3">
-                  <label for="cleaningFee" class="form-label">Cleaning Fee (Default for all tenants)</label>
-                  <input type="number" class="form-control" id="cleaningFee" name="cleaningFee" min="0" step="0.01" value="0">
+                <div class="alert alert-info mb-0">
+                  <i class="bi bi-info-circle me-2"></i>
+                  <small>
+                    <strong>Note:</strong> Only tenants with room type will be included.<br>
+                    Cleaning fee uses each tenant's default from their contract.<br>
+                    Subsidized tenants (utility fee = $0 in profile) will show $0.
+                  </small>
                 </div>
               </form>
             </div>
@@ -506,15 +512,13 @@ class BillManagementComponent {
 
   async generateBill() {
     try {
-      const utilityFee = parseFloat(document.getElementById('utilityFee').value) || 0;
-      const cleaningFee = parseFloat(document.getElementById('cleaningFee').value) || 0;
+      const totalUtilityFee = parseFloat(document.getElementById('totalUtilityFee').value) || 0;
 
       const response = await API.post(API_CONFIG.ENDPOINTS.BILL_GENERATE, {
         propertyId: this.selectedProperty,
         year: this.currentDate.getFullYear(),
         month: this.currentDate.getMonth() + 1,
-        utilityFee,
-        cleaningFee
+        totalUtilityFee
       });
 
       const result = await response.json();
@@ -527,7 +531,7 @@ class BillManagementComponent {
         // Reload bill
         await this.loadBillForCurrentMonth();
 
-        showToast('Bill generated successfully', 'success');
+        showToast(result.message || 'Bill generated successfully', 'success');
       } else {
         showToast('Failed to generate bill: ' + result.error, 'error');
       }

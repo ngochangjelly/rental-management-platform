@@ -1,5 +1,8 @@
 import * as XLSX from "xlsx";
-import { getRoomTypeDisplayName, getRoomTypeOptions } from '../utils/room-type-mapper.js';
+import {
+  getRoomTypeDisplayName,
+  getRoomTypeOptions,
+} from "../utils/room-type-mapper.js";
 
 /**
  * Tenant Management Component (v2 - fixed update endpoint)
@@ -34,7 +37,7 @@ class TenantManagementComponent {
   setupAdminControls() {
     // Hide/disable upload button for non-admin users
     const uploadBtn = document.querySelector(
-      'button[onclick*="tenantExcelUpload"]'
+      'button[onclick*="tenantExcelUpload"]',
     );
     if (uploadBtn && !isAdmin()) {
       uploadBtn.style.display = "none";
@@ -65,27 +68,46 @@ class TenantManagementComponent {
 
   async filterPropertiesByInvestor() {
     try {
-      console.log('🔄 [Tenants] Starting property filter check...');
+      console.log("🔄 [Tenants] Starting property filter check...");
       const investorPropertyIds = await getInvestorPropertyIds();
-      console.log('📋 [Tenants] Investor property IDs result:', investorPropertyIds);
+      console.log(
+        "📋 [Tenants] Investor property IDs result:",
+        investorPropertyIds,
+      );
 
       // If null, user is not an investor - show all properties
       if (investorPropertyIds === null) {
-        console.log('ℹ️ [Tenants] User is not an investor, showing all properties');
+        console.log(
+          "ℹ️ [Tenants] User is not an investor, showing all properties",
+        );
         return;
       }
 
       // Filter to show only investor's properties
-      console.log('🔍 [Tenants] Filtering properties for investor:', investorPropertyIds);
-      const originalCount = this.properties.length;
-      console.log('📦 [Tenants] Properties before filter:', this.properties.map(p => p.propertyId));
-      this.properties = this.properties.filter(property =>
-        investorPropertyIds.includes(property.propertyId)
+      console.log(
+        "🔍 [Tenants] Filtering properties for investor:",
+        investorPropertyIds,
       );
-      console.log(`📊 [Tenants] Filtered properties: ${originalCount} → ${this.properties.length}`);
-      console.log('📦 [Tenants] Properties after filter:', this.properties.map(p => p.propertyId));
+      const originalCount = this.properties.length;
+      console.log(
+        "📦 [Tenants] Properties before filter:",
+        this.properties.map((p) => p.propertyId),
+      );
+      this.properties = this.properties.filter((property) =>
+        investorPropertyIds.includes(property.propertyId),
+      );
+      console.log(
+        `📊 [Tenants] Filtered properties: ${originalCount} → ${this.properties.length}`,
+      );
+      console.log(
+        "📦 [Tenants] Properties after filter:",
+        this.properties.map((p) => p.propertyId),
+      );
     } catch (error) {
-      console.error('❌ [Tenants] Error filtering properties by investor:', error);
+      console.error(
+        "❌ [Tenants] Error filtering properties by investor:",
+        error,
+      );
       // Don't throw - just log and continue with all properties
     }
   }
@@ -97,10 +119,12 @@ class TenantManagementComponent {
       return;
     }
 
-    // Set container to use CSS Grid with auto-fill and max-width 260px
+    // Set container to use CSS Grid with auto-fill and max-width 280px
     container.style.display = "grid";
-    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 1fr))";
-    container.style.gap = "0.125rem";
+    container.style.gridTemplateColumns =
+      "repeat(auto-fill, minmax(260px, 280px))";
+    container.style.gap = "1rem";
+    container.style.justifyContent = "center";
     container.style.maxWidth = "100%";
 
     // Clear existing cards
@@ -187,13 +211,13 @@ class TenantManagementComponent {
                                         ${this.escapeHtml(
                                           property.propertyId
                                             .substring(0, 2)
-                                            .toUpperCase()
+                                            .toUpperCase(),
                                         )}
                                     </div>
                                 </div>
                                 <div>
                                     <h6 class="mb-0 fw-bold">${this.escapeHtml(
-                                      property.propertyId
+                                      property.propertyId,
                                     )}</h6>
                                     <small class="text-muted">Property</small>
                                 </div>
@@ -206,10 +230,10 @@ class TenantManagementComponent {
                         </div>
                         <div class="card-body py-2 bg-white">
                             <p class="mb-1 small"><strong>Address:</strong> ${this.escapeHtml(
-                              property.address
+                              property.address,
                             )}</p>
                             <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(
-                              property.unit
+                              property.unit,
                             )}</p>
                         </div>
                     </div>
@@ -292,7 +316,7 @@ class TenantManagementComponent {
     // Handle unassigned tenants card
     if (propertyId === "UNASSIGNED") {
       const unassignedCard = document.querySelector(
-        `.property-card[onclick*="selectUnassignedTenants"]`
+        `.property-card[onclick*="selectUnassignedTenants"]`,
       );
       if (unassignedCard) {
         unassignedCard.classList.add("border-warning");
@@ -309,7 +333,7 @@ class TenantManagementComponent {
 
     // Add selection to the clicked card
     const selectedCardContainer = document.querySelector(
-      `.property-card[onclick*="'${propertyId}'"]`
+      `.property-card[onclick*="'${propertyId}'"]`,
     );
     if (selectedCardContainer) {
       selectedCardContainer.classList.add("border-primary");
@@ -342,7 +366,7 @@ class TenantManagementComponent {
 
       // Use the property-specific endpoint to load only tenants for this property
       const response = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId),
       );
       const result = await response.json();
 
@@ -359,7 +383,7 @@ class TenantManagementComponent {
       }
 
       console.log(
-        `✅ Loaded ${this.tenants.length} tenants for property ${propertyId}`
+        `✅ Loaded ${this.tenants.length} tenants for property ${propertyId}`,
       );
 
       // Ensure properties cache is loaded once
@@ -393,7 +417,7 @@ class TenantManagementComponent {
 
       // Load all tenants and filter for those with no properties
       const response = await API.get(
-        `${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`
+        `${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`,
       );
       const result = await response.json();
 
@@ -537,7 +561,8 @@ class TenantManagementComponent {
 
     // Create skeleton cards matching the tenant card layout
     const skeletonCount = 6; // Show 6 skeleton cards
-    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
+    let html =
+      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
 
     for (let i = 0; i < skeletonCount; i++) {
       html += `
@@ -624,7 +649,8 @@ class TenantManagementComponent {
     const tenantGroups = this.groupTenantsByRoommates(sortedTenants);
 
     // Create CSS Grid layout for single property with max-width 260px per card
-    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
+    let html =
+      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
 
     tenantGroups.forEach((group) => {
       if (group.length > 1) {
@@ -663,7 +689,7 @@ class TenantManagementComponent {
       // Find roommate
       const roommateId = tenant.roommateId?._id || tenant.roommateId;
       if (roommateId) {
-        const roommate = tenants.find(t => t._id === roommateId);
+        const roommate = tenants.find((t) => t._id === roommateId);
         if (roommate && !processed.has(roommate._id)) {
           group.push(roommate);
           processed.add(roommate._id);
@@ -677,20 +703,26 @@ class TenantManagementComponent {
   }
 
   renderRoommateGroup(group) {
-    const isOutdated = group.every(t => this.isTenantOutdated(t, this.selectedProperty));
+    const isOutdated = group.every((t) =>
+      this.isTenantOutdated(t, this.selectedProperty),
+    );
 
     // Calculate width based on number of roommates (each card is 260px + 0.125rem gap)
-    const groupWidth = group.length === 2 ? '520px' :
-                       group.length === 3 ? '780px' :
-                       group.length === 4 ? '1040px' :
-                       '100%';
+    const groupWidth =
+      group.length === 2
+        ? "520px"
+        : group.length === 3
+          ? "780px"
+          : group.length === 4
+            ? "1040px"
+            : "100%";
 
     // Span columns based on group size
     const gridColumnSpan = `span ${group.length}`;
 
     let html = `
       <div style="max-width: ${groupWidth}; width: fit-content; grid-column: ${gridColumnSpan};">
-        <div class="roommate-group-container ${isOutdated ? 'group-outdated' : ''}">
+        <div class="roommate-group-container ${isOutdated ? "group-outdated" : ""}">
           <div class="roommate-group-header">
             <i class="bi bi-people-fill me-2"></i>
             <strong>Roommates in Same Room</strong>
@@ -731,7 +763,9 @@ class TenantManagementComponent {
         return propId === this.selectedProperty;
       });
       if (propertyInfo && typeof propertyInfo === "object") {
-        roomInfo = propertyInfo.room ? getRoomTypeDisplayName(propertyInfo.room) : "No room";
+        roomInfo = propertyInfo.room
+          ? getRoomTypeDisplayName(propertyInfo.room)
+          : "No room";
         if (propertyInfo.moveinDate) {
           const date = new Date(propertyInfo.moveinDate);
           moveInDate = `${date.getDate().toString().padStart(2, "0")}/${(
@@ -765,12 +799,12 @@ class TenantManagementComponent {
                                       tenant.avatar
                                         ? `<img src="${this.getOptimizedAvatarUrl(
                                             tenant.avatar,
-                                            "small"
+                                            "small",
                                           )}" alt="${this.escapeHtml(
-                                            tenant.name
+                                            tenant.name,
                                           )}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">`
                                         : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(
-                                            tenant.name.charAt(0).toUpperCase()
+                                            tenant.name.charAt(0).toUpperCase(),
                                           )}</div>`
                                     }
                                 </div>
@@ -778,12 +812,12 @@ class TenantManagementComponent {
                                     <div class="d-flex justify-content-between align-items-start mb-1">
                                         <div>
                                             <h5 class="mb-0">${this.escapeHtml(
-                                              tenant.name
+                                              tenant.name,
                                             )}</h5>
                                             ${
                                               tenant.nickname
                                                 ? `<small class="text-muted">（${this.escapeHtml(
-                                                    tenant.nickname
+                                                    tenant.nickname,
                                                   )}）</small>`
                                                 : ""
                                             }
@@ -798,7 +832,7 @@ class TenantManagementComponent {
                                         </div>
                                     </div>
                                     <p class="text-muted mb-0">${this.escapeHtml(
-                                      tenant.phoneNumber || "No phone"
+                                      tenant.phoneNumber || "No phone",
                                     )}</p>
                                 </div>
                             </div>
@@ -807,10 +841,10 @@ class TenantManagementComponent {
                                   this.escapeHtml(tenant.fin) || "-"
                                 }</div>
                                 <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(
-                                  tenant.passportNumber
+                                  tenant.passportNumber,
                                 )}</div>
                                 <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(
-                                  roomInfo
+                                  roomInfo,
                                 )}</div>
                                 <div class="mb-2"><strong>Rent:</strong> ${
                                   typeof rentAmount === "number"
@@ -823,20 +857,25 @@ class TenantManagementComponent {
                                     : "N/A"
                                 }</div>
                                 ${
+                                  tenant.isUtilitySubsidized
+                                    ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>'
+                                    : ""
+                                }
+                                ${
                                   tenant.isHouseCleaner
-                                    ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-person-broom me-1"></i>House Cleaner</span></div>'
+                                    ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>'
                                     : ""
                                 }
                                 <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(
-                                  moveInDate
+                                  moveInDate,
                                 )}</div>
                                 <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(
-                                  moveOutDate
+                                  moveOutDate,
                                 )}</div>
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
                                 ${this.getRegistrationStatusBadge(
-                                  registrationStatus
+                                  registrationStatus,
                                 )}
                                 ${
                                   tenant.properties &&
@@ -847,7 +886,7 @@ class TenantManagementComponent {
                                 ${
                                   tenant.facebookUrl
                                     ? `<a href="${this.escapeHtml(
-                                        tenant.facebookUrl
+                                        tenant.facebookUrl,
                                       )}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile">
                                         <i class="bi bi-facebook me-1"></i>Facebook
                                       </a>`
@@ -856,7 +895,10 @@ class TenantManagementComponent {
                                 ${
                                   tenant.phoneNumber
                                     ? `<a href="https://wa.me/${this.escapeHtml(
-                                        tenant.phoneNumber.replace(/[^0-9]/g, '')
+                                        tenant.phoneNumber.replace(
+                                          /[^0-9]/g,
+                                          "",
+                                        ),
                                       )}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp">
                                         <i class="bi bi-whatsapp me-1"></i>WhatsApp
                                       </a>`
@@ -1044,7 +1086,9 @@ class TenantManagementComponent {
       tenant.properties &&
       tenant.properties.length > 0 &&
       typeof tenant.properties[0] === "object"
-        ? (tenant.properties[0].room ? getRoomTypeDisplayName(tenant.properties[0].room) : "No room")
+        ? tenant.properties[0].room
+          ? getRoomTypeDisplayName(tenant.properties[0].room)
+          : "No room"
         : "No room";
 
     return `
@@ -1055,12 +1099,12 @@ class TenantManagementComponent {
                           tenant.avatar
                             ? `<img src="${this.getOptimizedAvatarUrl(
                                 tenant.avatar,
-                                "small"
+                                "small",
                               )}" alt="${this.escapeHtml(
-                                tenant.name
+                                tenant.name,
                               )}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">`
                             : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 48px; height: 48px; font-size: 18px;">${this.escapeHtml(
-                                tenant.name.charAt(0).toUpperCase()
+                                tenant.name.charAt(0).toUpperCase(),
                               )}</div>`
                         }
                     </div>
@@ -1068,10 +1112,10 @@ class TenantManagementComponent {
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <div>
                                 <h6 class="mb-0">${this.escapeHtml(
-                                  tenant.name
+                                  tenant.name,
                                 )}</h6>
                                 <small class="text-muted">${this.escapeHtml(
-                                  tenant.phoneNumber || "No phone"
+                                  tenant.phoneNumber || "No phone",
                                 )}</small>
                             </div>
                             <div class="d-flex gap-1 align-items-center">
@@ -1088,15 +1132,15 @@ class TenantManagementComponent {
                               this.escapeHtml(tenant.fin) || "-"
                             }</div>
                             <div><strong>Passport:</strong> ${this.escapeHtml(
-                              tenant.passportNumber
+                              tenant.passportNumber,
                             )}</div>
                             <div><strong>Room:</strong> ${this.escapeHtml(
-                              roomInfo
+                              roomInfo,
                             )}</div>
                         </div>
                         <div class="d-flex gap-1 align-items-center mb-2">
                             ${this.getRegistrationStatusBadge(
-                              registrationStatus
+                              registrationStatus,
                             )}
                             ${
                               tenant.properties && tenant.properties.length > 1
@@ -1161,7 +1205,7 @@ class TenantManagementComponent {
   togglePropertyCard(propertyId) {
     // Find the card element
     const card = document.querySelector(
-      `.property-tenant-card[data-property-id="${propertyId}"]`
+      `.property-tenant-card[data-property-id="${propertyId}"]`,
     );
     if (!card) return;
 
@@ -1229,8 +1273,10 @@ class TenantManagementComponent {
     if (!badge) return;
 
     // Count registered tenants
-    const registeredCount = this.tenants.filter(tenant => {
-      const status = tenant.registrationStatus || (tenant.isRegistered ? "registered" : "unregistered");
+    const registeredCount = this.tenants.filter((tenant) => {
+      const status =
+        tenant.registrationStatus ||
+        (tenant.isRegistered ? "registered" : "unregistered");
       return status === "registered";
     }).length;
 
@@ -1361,9 +1407,13 @@ class TenantManagementComponent {
           deposit: tenant.deposit || null,
           depositReceiver: tenant.depositReceiver || "",
           cleaningFee: tenant.cleaningFee || null,
+          isUtilitySubsidized: tenant.isUtilitySubsidized || false,
           isHouseCleaner: tenant.isHouseCleaner || false,
           // Roommate relationship
-          roommateId: typeof tenant.roommateId === 'object' ? tenant.roommateId?._id || "" : tenant.roommateId || "",
+          roommateId:
+            typeof tenant.roommateId === "object"
+              ? tenant.roommateId?._id || ""
+              : tenant.roommateId || "",
           // Notes and todos
           notes: tenant.notes || "",
           todos: JSON.parse(JSON.stringify(tenant.todos || [])), // Deep copy
@@ -1383,8 +1433,12 @@ class TenantManagementComponent {
         // Populate financial fields (except depositReceiver which is populated after investors are loaded)
         document.getElementById("tenantRent").value = tenant.rent || "";
         document.getElementById("tenantDeposit").value = tenant.deposit || "";
-        document.getElementById("tenantCleaningFee").value = tenant.cleaningFee || "";
-        document.getElementById("tenantIsHouseCleaner").checked = tenant.isHouseCleaner || false;
+        document.getElementById("tenantCleaningFee").value =
+          tenant.cleaningFee || "";
+        document.getElementById("tenantIsUtilitySubsidized").checked =
+          tenant.isUtilitySubsidized || false;
+        document.getElementById("tenantIsHouseCleaner").checked =
+          tenant.isHouseCleaner || false;
 
         // Populate notes and todos
         document.getElementById("tenantNotes").value = tenant.notes || "";
@@ -1434,10 +1488,10 @@ class TenantManagementComponent {
                 moveoutDate: "",
               };
             }
-          }
+          },
         );
         this.selectedProperties = this.selectedPropertiesDetails.map(
-          (p) => p.propertyId
+          (p) => p.propertyId,
         );
       } else {
         // Reset for add mode
@@ -1474,7 +1528,10 @@ class TenantManagementComponent {
 
     // After roommates are loaded, populate the roommateId field if in edit mode
     if (isEdit && tenant && tenant.roommateId) {
-      const roommateIdValue = typeof tenant.roommateId === 'object' ? tenant.roommateId._id : tenant.roommateId;
+      const roommateIdValue =
+        typeof tenant.roommateId === "object"
+          ? tenant.roommateId._id
+          : tenant.roommateId;
       document.getElementById("tenantRoommateId").value = roommateIdValue || "";
     }
 
@@ -1493,7 +1550,7 @@ class TenantManagementComponent {
       () => {
         this.cleanupModal();
       },
-      { once: true }
+      { once: true },
     );
 
     // Add event listener for when modal is fully shown
@@ -1514,7 +1571,7 @@ class TenantManagementComponent {
         // Set up signature URL input listener
         this.setupSignatureUrlListener();
       },
-      { once: true }
+      { once: true },
     );
 
     modal.show();
@@ -1573,7 +1630,7 @@ class TenantManagementComponent {
         console.log(
           "✅ Properties cache loaded:",
           result.properties?.length || 0,
-          "properties"
+          "properties",
         );
       }
     } catch (error) {
@@ -1587,7 +1644,7 @@ class TenantManagementComponent {
 
     try {
       this.populatePropertyCheckboxes(
-        this.propertiesCache || { success: false, properties: [] }
+        this.propertiesCache || { success: false, properties: [] },
       );
     } catch (error) {
       console.error("Error loading properties:", error);
@@ -1609,12 +1666,12 @@ class TenantManagementComponent {
         console.log(
           "✅ Investors loaded for dropdown:",
           result.data.length,
-          "investors"
+          "investors",
         );
       } else {
         console.error(
           "Failed to load investors:",
-          result.error || "Unknown error"
+          result.error || "Unknown error",
         );
         this.populateInvestorDropdown([]);
       }
@@ -1652,7 +1709,9 @@ class TenantManagementComponent {
   async loadRoommatesForSelect(currentTenantId = null) {
     try {
       // Get current property from selected properties
-      const currentProperties = this.selectedPropertiesDetails.map(p => p.propertyId);
+      const currentProperties = this.selectedPropertiesDetails.map(
+        (p) => p.propertyId,
+      );
 
       if (currentProperties.length === 0) {
         this.populateRoommateDropdown([], currentTenantId);
@@ -1662,7 +1721,9 @@ class TenantManagementComponent {
       // Fetch all tenants from the same properties
       const allTenants = [];
       for (const propertyId of currentProperties) {
-        const response = await API.get(`${API_CONFIG.ENDPOINTS.TENANTS}?property=${propertyId}&limit=1000`);
+        const response = await API.get(
+          `${API_CONFIG.ENDPOINTS.TENANTS}?property=${propertyId}&limit=1000`,
+        );
         const result = await response.json();
 
         if (result.success && result.tenants) {
@@ -1671,15 +1732,20 @@ class TenantManagementComponent {
       }
 
       // Remove duplicates based on _id and filter out current tenant
-      const uniqueTenants = allTenants.filter((tenant, index, self) =>
-        index === self.findIndex((t) => t._id === tenant._id) &&
-        tenant._id !== currentTenantId
+      const uniqueTenants = allTenants.filter(
+        (tenant, index, self) =>
+          index === self.findIndex((t) => t._id === tenant._id) &&
+          tenant._id !== currentTenantId,
       );
 
       this.populateRoommateDropdown(uniqueTenants, currentTenantId);
-      console.log('✅ Roommates loaded for dropdown:', uniqueTenants.length, 'potential roommates');
+      console.log(
+        "✅ Roommates loaded for dropdown:",
+        uniqueTenants.length,
+        "potential roommates",
+      );
     } catch (error) {
-      console.error('Error loading roommates:', error);
+      console.error("Error loading roommates:", error);
       this.populateRoommateDropdown([], currentTenantId);
     }
   }
@@ -1689,7 +1755,8 @@ class TenantManagementComponent {
     if (!dropdown) return;
 
     // Clear existing options
-    dropdown.innerHTML = '<option value="">No roommate (lives alone in room)</option>';
+    dropdown.innerHTML =
+      '<option value="">No roommate (lives alone in room)</option>';
 
     if (tenants.length === 0) {
       const option = document.createElement("option");
@@ -1703,8 +1770,8 @@ class TenantManagementComponent {
     tenants.forEach((tenant) => {
       const option = document.createElement("option");
       option.value = tenant._id;
-      const tenantName = tenant.name || 'Unnamed Tenant';
-      const tenantRoom = tenant.properties?.[0]?.room || 'No room';
+      const tenantName = tenant.name || "Unnamed Tenant";
+      const tenantRoom = tenant.properties?.[0]?.room || "No room";
       option.textContent = `${tenantName} (${tenantRoom})`;
       dropdown.appendChild(option);
     });
@@ -1734,12 +1801,12 @@ class TenantManagementComponent {
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="${checkboxId}" 
                            value="${property.propertyId}" ${
-        isChecked ? "checked" : ""
-      }>
+                             isChecked ? "checked" : ""
+                           }>
                     <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
                         <strong>${property.propertyId}</strong> - ${
-        property.address
-      }, ${property.unit}
+                          property.address
+                        }, ${property.unit}
                     </label>
                 </div>
             `;
@@ -1779,7 +1846,7 @@ class TenantManagementComponent {
         // Add property details with defaults
         if (
           !this.selectedPropertiesDetails.find(
-            (p) => p.propertyId === propertyId
+            (p) => p.propertyId === propertyId,
           )
         ) {
           this.selectedPropertiesDetails.push({
@@ -1794,11 +1861,11 @@ class TenantManagementComponent {
     } else {
       // Remove property from selection
       this.selectedProperties = this.selectedProperties.filter(
-        (id) => id !== propertyId
+        (id) => id !== propertyId,
       );
       if (this.selectedPropertiesDetails) {
         this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(
-          (p) => p.propertyId !== propertyId
+          (p) => p.propertyId !== propertyId,
         );
       }
     }
@@ -1831,13 +1898,13 @@ class TenantManagementComponent {
   addPropertyToTenant() {
     // This function is no longer used with multiselect, but keeping for safety
     console.log(
-      "addPropertyToTenant called - now handled by handlePropertySelectionChange"
+      "addPropertyToTenant called - now handled by handlePropertySelectionChange",
     );
   }
 
   removePropertyFromTenant(propertyId) {
     this.selectedProperties = this.selectedProperties.filter(
-      (id) => id !== propertyId
+      (id) => id !== propertyId,
     );
     this.updateSelectedPropertiesList();
     this.updateDropdownText();
@@ -1866,7 +1933,7 @@ class TenantManagementComponent {
       let html = "";
       this.selectedProperties.forEach((propertyId) => {
         const propertyDetails = this.selectedPropertiesDetails.find(
-          (p) => p.propertyId === propertyId
+          (p) => p.propertyId === propertyId,
         ) || {
           propertyId,
           isMainTenant: false,
@@ -1925,7 +1992,7 @@ class TenantManagementComponent {
                                            value="${
                                              propertyDetails.moveinDate
                                                ? propertyDetails.moveinDate.split(
-                                                   "T"
+                                                   "T",
                                                  )[0]
                                                : ""
                                            }"
@@ -1937,7 +2004,7 @@ class TenantManagementComponent {
                                            value="${
                                              propertyDetails.moveoutDate
                                                ? propertyDetails.moveoutDate.split(
-                                                   "T"
+                                                   "T",
                                                  )[0]
                                                : ""
                                            }"
@@ -1962,7 +2029,7 @@ class TenantManagementComponent {
     }
 
     return this.propertiesCache.properties.find(
-      (prop) => prop.propertyId === propertyId
+      (prop) => prop.propertyId === propertyId,
     );
   }
 
@@ -1972,7 +2039,7 @@ class TenantManagementComponent {
     }
 
     let property = this.selectedPropertiesDetails.find(
-      (p) => p.propertyId === propertyId
+      (p) => p.propertyId === propertyId,
     );
     if (!property) {
       property = {
@@ -2038,8 +2105,14 @@ class TenantManagementComponent {
           ? parseFloat(formData.get("deposit"))
           : null,
         depositReceiver: formData.get("depositReceiver").trim() || null,
-        cleaningFee: formData.get("cleaningFee") ? parseFloat(formData.get("cleaningFee")) : null,
-        isHouseCleaner: document.getElementById("tenantIsHouseCleaner")?.checked || false,
+        cleaningFee: formData.get("cleaningFee")
+          ? parseFloat(formData.get("cleaningFee"))
+          : null,
+        isUtilitySubsidized:
+          document.getElementById("tenantIsUtilitySubsidized")?.checked ||
+          false,
+        isHouseCleaner:
+          document.getElementById("tenantIsHouseCleaner")?.checked || false,
         // Roommate relationship
         roommateId: formData.get("roommateId")?.trim() || null,
         // Notes and todos
@@ -2113,7 +2186,7 @@ class TenantManagementComponent {
 
       // Close modal on success
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("tenantModal")
+        document.getElementById("tenantModal"),
       );
       if (modal) {
         modal.hide();
@@ -2138,7 +2211,7 @@ class TenantManagementComponent {
       alert(
         `An error occurred while ${
           isEdit ? "updating" : "adding"
-        } the tenant. Please try again.`
+        } the tenant. Please try again.`,
       );
 
       // Reset button state
@@ -2162,7 +2235,7 @@ class TenantManagementComponent {
 
     const passportNumber = prompt(
       "Passport Number:",
-      existingTenant?.passportNumber || ""
+      existingTenant?.passportNumber || "",
     );
     if (!passportNumber) return null;
 
@@ -2228,7 +2301,7 @@ class TenantManagementComponent {
 
       const response = await API.put(
         API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenantId),
-        tenantData
+        tenantData,
       );
       const result = await response.json();
 
@@ -2273,7 +2346,7 @@ class TenantManagementComponent {
       }
 
       const response = await API.delete(
-        API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id)
+        API_CONFIG.ENDPOINTS.TENANT_BY_ID(tenant._id),
       );
 
       const result = await response.json();
@@ -2305,7 +2378,7 @@ class TenantManagementComponent {
     try {
       const response = await API.post(
         API_CONFIG.ENDPOINTS.TENANT_ADD_PROPERTY(fin),
-        { propertyId }
+        { propertyId },
       );
 
       const result = await response.json();
@@ -2356,33 +2429,33 @@ class TenantManagementComponent {
   // Method to render todo badge with popover
   renderTenantTodoBadge(tenant) {
     if (!tenant.todos || tenant.todos.length === 0) {
-      return '';
+      return "";
     }
 
-    const pendingTodos = tenant.todos.filter(todo => !todo.completed);
+    const pendingTodos = tenant.todos.filter((todo) => !todo.completed);
     if (pendingTodos.length === 0) {
-      return '';
+      return "";
     }
 
     const todoListHtml = pendingTodos
-      .map(todo => {
+      .map((todo) => {
         let todoHtml = `<div class="todo-item">• ${this.escapeHtml(todo.text)}`;
 
         // Add completion info if available (for historical data)
         if (todo.completedBy && todo.completedAt) {
           const completedDate = new Date(todo.completedAt);
-          const dateStr = completedDate.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
+          const dateStr = completedDate.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
           });
           todoHtml += `<div class="todo-completion-info">Completed by ${this.escapeHtml(todo.completedBy)} on ${dateStr}</div>`;
         }
 
-        todoHtml += '</div>';
+        todoHtml += "</div>";
         return todoHtml;
       })
-      .join('');
+      .join("");
 
     const badgeId = `todo-badge-${tenant._id}`;
     const popoverId = `todo-popover-${tenant._id}`;
@@ -2405,17 +2478,17 @@ class TenantManagementComponent {
 
   // Setup event listeners for todo badge hover interactions
   setupTodoBadgeListeners() {
-    const badges = document.querySelectorAll('.tenant-todo-badge');
-    badges.forEach(badge => {
-      const popover = badge.querySelector('.tenant-todo-popover');
+    const badges = document.querySelectorAll(".tenant-todo-badge");
+    badges.forEach((badge) => {
+      const popover = badge.querySelector(".tenant-todo-popover");
       if (!popover) return;
 
-      badge.addEventListener('mouseenter', () => {
-        popover.style.display = 'block';
+      badge.addEventListener("mouseenter", () => {
+        popover.style.display = "block";
       });
 
-      badge.addEventListener('mouseleave', () => {
-        popover.style.display = 'none';
+      badge.addEventListener("mouseleave", () => {
+        popover.style.display = "none";
       });
     });
   }
@@ -2424,7 +2497,7 @@ class TenantManagementComponent {
   toggleRegistrationStatus() {
     const button = document.getElementById("tenantRegistrationStatus");
     const hiddenInput = document.getElementById(
-      "tenantRegistrationStatusHidden"
+      "tenantRegistrationStatusHidden",
     );
 
     if (!button || !hiddenInput) return;
@@ -2453,7 +2526,7 @@ class TenantManagementComponent {
   setRegistrationStatus(status) {
     const button = document.getElementById("tenantRegistrationStatus");
     const hiddenInput = document.getElementById(
-      "tenantRegistrationStatusHidden"
+      "tenantRegistrationStatusHidden",
     );
     const statusText = button.querySelector(".status-text");
 
@@ -2517,7 +2590,7 @@ class TenantManagementComponent {
 
   async uploadMultipleImages(files, type) {
     const uploadButton = document.querySelector(
-      `button[onclick="tenantManager.openImageUpload('${type}')"]`
+      `button[onclick="tenantManager.openImageUpload('${type}')"]`,
     );
     const originalText = uploadButton.innerHTML;
 
@@ -2560,12 +2633,12 @@ class TenantManagementComponent {
 
       const successCount = results.filter((r) => r.success).length;
       console.log(
-        `✅ ${successCount}/${files.length} ${type} images uploaded successfully`
+        `✅ ${successCount}/${files.length} ${type} images uploaded successfully`,
       );
 
       if (successCount < files.length) {
         alert(
-          `${successCount}/${files.length} images uploaded successfully. Some uploads failed.`
+          `${successCount}/${files.length} images uploaded successfully. Some uploads failed.`,
         );
       }
     } catch (error) {
@@ -2584,7 +2657,7 @@ class TenantManagementComponent {
       formData.append("image", file);
 
       const uploadUrl = buildApiUrl(
-        API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT
+        API_CONFIG.ENDPOINTS.UPLOAD_TENANT_DOCUMENT,
       );
       console.log("🔧 Upload URL:", uploadUrl);
       console.log("🔧 Base URL:", API_CONFIG.BASE_URL);
@@ -2606,7 +2679,7 @@ class TenantManagementComponent {
 
   addImageFromUrl(type) {
     const urlInput = document.getElementById(
-      `tenant${type.charAt(0).toUpperCase() + type.slice(1)}PicUrl`
+      `tenant${type.charAt(0).toUpperCase() + type.slice(1)}PicUrl`,
     );
     const url = urlInput.value.trim();
 
@@ -2640,7 +2713,7 @@ class TenantManagementComponent {
     console.error("Current src attribute:", imgElement.src);
     console.error(
       "Has fallback been attempted?",
-      imgElement.hasAttribute("data-fallback-attempted")
+      imgElement.hasAttribute("data-fallback-attempted"),
     );
 
     // Try to extract Cloudinary path from proxy URL and create direct Cloudinary URL
@@ -2663,7 +2736,7 @@ class TenantManagementComponent {
               console.log(
                 "🧪 Direct URL test result:",
                 response.status,
-                response.statusText
+                response.statusText,
               );
               if (!response.ok) {
                 console.error("🚨 Direct URL also failed:", response.status);
@@ -2692,7 +2765,7 @@ class TenantManagementComponent {
     const gallery = document.getElementById(`${type}Gallery`);
     const imageArray = type === "passport" ? this.passportPics : this.visaPics;
     const hiddenInput = document.getElementById(
-      `tenant${type.charAt(0).toUpperCase() + type.slice(1)}Pics`
+      `tenant${type.charAt(0).toUpperCase() + type.slice(1)}Pics`,
     );
 
     if (!gallery || !hiddenInput) {
@@ -2716,7 +2789,7 @@ class TenantManagementComponent {
                 <div class="col-6 col-md-4 mb-3">
                     <div class="position-relative border rounded overflow-hidden">
                         <img src="${this.normalizeImageUrl(
-                          url
+                          url,
                         )}" alt="${type} ${index + 1}" 
                              class="img-fluid w-100" 
                              style="height: 150px; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
@@ -2732,8 +2805,8 @@ class TenantManagementComponent {
                         </button>
                         <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
                             <small><i class="bi ${icon} me-1"></i>${
-        type.charAt(0).toUpperCase() + type.slice(1)
-      } ${index + 1}</small>
+                              type.charAt(0).toUpperCase() + type.slice(1)
+                            } ${index + 1}</small>
                         </div>
                     </div>
                 </div>
@@ -2765,7 +2838,7 @@ class TenantManagementComponent {
 
   async uploadAvatar(file) {
     const uploadButton = document.querySelector(
-      'button[onclick="tenantManager.openAvatarUpload()"]'
+      'button[onclick="tenantManager.openAvatarUpload()"]',
     );
     const originalText = uploadButton.innerHTML;
 
@@ -2855,12 +2928,12 @@ class TenantManagementComponent {
             <div class="position-relative d-inline-block">
                 <img src="${this.getOptimizedAvatarUrl(
                   this.avatar,
-                  "medium"
+                  "medium",
                 )}" alt="Avatar preview" 
                      class="rounded-circle border" 
                      style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
                      onclick="window.open('${this.normalizeImageUrl(
-                       this.avatar
+                       this.avatar,
                      )}', '_blank')" />
                 <button type="button" 
                         class="btn btn-danger position-absolute top-0 end-0"
@@ -2902,7 +2975,7 @@ class TenantManagementComponent {
 
   async uploadSignature(file) {
     const uploadButton = document.querySelector(
-      'button[onclick="tenantManager.openSignatureUpload()"]'
+      'button[onclick="tenantManager.openSignatureUpload()"]',
     );
     const originalText = uploadButton.innerHTML;
 
@@ -3008,7 +3081,7 @@ class TenantManagementComponent {
 
     // Check if any selected property has this tenant as main tenant
     const isMainTenant = this.selectedPropertiesDetails.some(
-      (prop) => prop.isMainTenant
+      (prop) => prop.isMainTenant,
     );
 
     if (isMainTenant) {
@@ -3096,7 +3169,9 @@ class TenantManagementComponent {
       if (typeof prop === "object" && prop.propertyId) {
         // New format with detailed property info
         const propertyId = this.escapeHtml(prop.propertyId);
-        const room = this.escapeHtml(prop.room ? getRoomTypeDisplayName(prop.room) : "N/A");
+        const room = this.escapeHtml(
+          prop.room ? getRoomTypeDisplayName(prop.room) : "N/A",
+        );
         const moveinDate = prop.moveinDate
           ? new Date(prop.moveinDate).toLocaleDateString()
           : "N/A";
@@ -3122,7 +3197,7 @@ class TenantManagementComponent {
         html += `
                     <div class="mb-1 ${index > 0 ? "border-top pt-1" : ""}">
                         <div><strong>${this.escapeHtml(
-                          propertyId
+                          propertyId,
                         )}</strong></div>
                         <small class="text-muted">Legacy format - no details</small>
                     </div>
@@ -3161,16 +3236,20 @@ class TenantManagementComponent {
 
     // Also listen for registration status changes
     const registrationButtons = form.querySelectorAll(
-      'input[name="registrationStatus"]'
+      'input[name="registrationStatus"]',
     );
     registrationButtons.forEach((button) => {
       button.addEventListener("change", () => this.checkForChanges());
     });
 
     // Listen for checkbox changes
-    const isHouseCleanerCheckbox = document.getElementById("tenantIsHouseCleaner");
+    const isHouseCleanerCheckbox = document.getElementById(
+      "tenantIsHouseCleaner",
+    );
     if (isHouseCleanerCheckbox) {
-      isHouseCleanerCheckbox.addEventListener("change", () => this.checkForChanges());
+      isHouseCleanerCheckbox.addEventListener("change", () =>
+        this.checkForChanges(),
+      );
     }
 
     // Listen for roommate dropdown changes
@@ -3188,7 +3267,7 @@ class TenantManagementComponent {
     const currentData = this.getCurrentFormData();
     const hasChanges = this.hasDataChanged(
       this.originalTenantData,
-      currentData
+      currentData,
     );
 
     const submitBtn = document.getElementById("tenantSubmitBtn");
@@ -3239,9 +3318,14 @@ class TenantManagementComponent {
       cleaningFee: document.getElementById("tenantCleaningFee")?.value
         ? parseFloat(document.getElementById("tenantCleaningFee").value)
         : null,
-      isHouseCleaner: document.getElementById("tenantIsHouseCleaner")?.checked || false,
+      isUtilitySubsidized:
+        document.getElementById("tenantIsUtilitySubsidized")?.checked || false,
+      isHouseCleaner:
+        document.getElementById("tenantIsHouseCleaner")?.checked || false,
       // Roommate relationship
-      roommateId: (document.getElementById("tenantRoommateId")?.value || "").trim(),
+      roommateId: (
+        document.getElementById("tenantRoommateId")?.value || ""
+      ).trim(),
       // Notes and todos
       notes: (document.getElementById("tenantNotes")?.value || "").trim(),
       todos: this.todos || [],
@@ -3264,6 +3348,7 @@ class TenantManagementComponent {
       "deposit",
       "depositReceiver",
       "cleaningFee",
+      "isUtilitySubsidized",
       "isHouseCleaner",
       "roommateId",
       "notes",
@@ -3272,20 +3357,32 @@ class TenantManagementComponent {
     // Numeric fields that should be compared as numbers
     const numericFields = ["rent", "deposit", "cleaningFee"];
     // Boolean fields that should be compared as booleans
-    const booleanFields = ["isHouseCleaner"];
+    const booleanFields = ["isUtilitySubsidized", "isHouseCleaner"];
 
     for (const field of fieldsToCompare) {
       if (numericFields.includes(field)) {
         // For numeric fields, compare as numbers (treat null, undefined, and empty string as null)
-        const originalValue = original[field] === null || original[field] === undefined || original[field] === "" ? null : Number(original[field]);
-        const currentValue = current[field] === null || current[field] === undefined || current[field] === "" ? null : Number(current[field]);
+        const originalValue =
+          original[field] === null ||
+          original[field] === undefined ||
+          original[field] === ""
+            ? null
+            : Number(original[field]);
+        const currentValue =
+          current[field] === null ||
+          current[field] === undefined ||
+          current[field] === ""
+            ? null
+            : Number(current[field]);
         if (originalValue !== currentValue) {
           return true;
         }
       } else if (booleanFields.includes(field)) {
         // For boolean fields, compare as booleans
-        const originalValue = original[field] === true || original[field] === "true";
-        const currentValue = current[field] === true || current[field] === "true";
+        const originalValue =
+          original[field] === true || original[field] === "true";
+        const currentValue =
+          current[field] === true || current[field] === "true";
         if (originalValue !== currentValue) {
           return true;
         }
@@ -3434,7 +3531,7 @@ class TenantManagementComponent {
             console.log(
               `📋 Image pasted from clipboard to ${fieldId}:`,
               file.name,
-              file.type
+              file.type,
             );
             await this.uploadClipboardImage(file, fieldId);
             break; // Handle only the first image found
@@ -3450,7 +3547,7 @@ class TenantManagementComponent {
         if (text && this.isImageUrl(text)) {
           console.log(
             `📋 Image URL pasted from clipboard to ${fieldId}:`,
-            text
+            text,
           );
           document.getElementById(fieldId).value = text;
         } else {
@@ -3459,7 +3556,7 @@ class TenantManagementComponent {
           this.showPasteMessage(
             fieldId,
             "No image found in clipboard",
-            "warning"
+            "warning",
           );
         }
       }
@@ -3509,17 +3606,17 @@ class TenantManagementComponent {
         this.showPasteMessage(
           fieldId,
           "Image uploaded successfully!",
-          "success"
+          "success",
         );
         console.log(
           `✅ Clipboard image uploaded successfully to ${fieldId}:`,
-          imageUrl
+          imageUrl,
         );
       } else {
         this.showPasteMessage(
           fieldId,
           "Failed to upload image: " + result.error,
-          "error"
+          "error",
         );
       }
     } catch (error) {
@@ -3564,8 +3661,8 @@ class TenantManagementComponent {
               type === "success"
                 ? "check-circle"
                 : type === "warning"
-                ? "exclamation-triangle"
-                : "x-circle"
+                  ? "exclamation-triangle"
+                  : "x-circle"
             } me-1"></i>
             ${message}
         `;
@@ -3588,7 +3685,7 @@ class TenantManagementComponent {
     }
 
     const property = tenant.properties.find(
-      (prop) => typeof prop === "object" && prop.propertyId === propertyId
+      (prop) => typeof prop === "object" && prop.propertyId === propertyId,
     );
 
     if (property && property.moveinDate) {
@@ -3643,7 +3740,7 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
           );
         });
     } catch (error) {
@@ -3672,7 +3769,7 @@ class TenantManagementComponent {
 
       // Filter out outdated tenants
       const activeTenants = this.tenants.filter(
-        (tenant) => !this.isTenantOutdated(tenant, this.selectedProperty)
+        (tenant) => !this.isTenantOutdated(tenant, this.selectedProperty),
       );
 
       if (activeTenants.length === 0) {
@@ -3706,7 +3803,7 @@ class TenantManagementComponent {
           (tenant.isRegistered ? "registered" : "unregistered");
         const moveinDate = this.getTenantMoveInDate(
           tenant,
-          this.selectedProperty
+          this.selectedProperty,
         );
 
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
@@ -3730,7 +3827,7 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
           );
         });
     } catch (error) {
@@ -3799,7 +3896,7 @@ class TenantManagementComponent {
         const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
         const moveinDate = this.getTenantMoveInDate(
           tenant,
-          this.selectedProperty
+          this.selectedProperty,
         );
 
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
@@ -3823,7 +3920,7 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
           );
         });
     } catch (error) {
@@ -3852,7 +3949,7 @@ class TenantManagementComponent {
 
       // Filter for only outdated tenants
       const outdatedTenants = this.tenants.filter((tenant) =>
-        this.isTenantOutdated(tenant, this.selectedProperty)
+        this.isTenantOutdated(tenant, this.selectedProperty),
       );
 
       // Check if there are any outdated tenants
@@ -3891,7 +3988,7 @@ class TenantManagementComponent {
           (tenant.isRegistered ? "registered" : "unregistered");
         const moveinDate = this.getTenantMoveInDate(
           tenant,
-          this.selectedProperty
+          this.selectedProperty,
         );
 
         // Get moveout date
@@ -3938,7 +4035,7 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
           );
         });
     } catch (error) {
@@ -3962,8 +4059,8 @@ class TenantManagementComponent {
     messageDiv.innerHTML = `
             <i class="bi bi-check-circle me-2"></i>
             Copied ${tenantCount} tenant${
-      tenantCount !== 1 ? "s" : ""
-    } to clipboard!
+              tenantCount !== 1 ? "s" : ""
+            } to clipboard!
             <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
 
@@ -4026,7 +4123,7 @@ class TenantManagementComponent {
         // Get property info for this property
         const propertyInfo =
           tenant.properties?.find(
-            (p) => p.propertyId === this.selectedProperty
+            (p) => p.propertyId === this.selectedProperty,
           ) || {};
 
         const isActive =
@@ -4055,6 +4152,7 @@ class TenantManagementComponent {
           "Deposit Amount (SGD)": tenant.deposit || "",
           "Deposit Receiver": tenant.depositReceiver || "",
           "Cleaning Fee (SGD)": tenant.cleaningFee || "",
+          "Utility Subsidized": tenant.isUtilitySubsidized ? "Yes" : "No",
           "Is House Cleaner": tenant.isHouseCleaner ? "Yes" : "No",
           "Avatar URL": tenant.avatar || "",
           "Signature URL": tenant.signature || "",
@@ -4106,7 +4204,7 @@ class TenantManagementComponent {
       XLSX.writeFile(wb, filename);
 
       this.showSuccessMessage(
-        `Downloaded ${tenants.length} tenant(s) to ${filename}`
+        `Downloaded ${tenants.length} tenant(s) to ${filename}`,
       );
     } catch (error) {
       console.error("Error downloading Excel:", error);
@@ -4197,6 +4295,7 @@ class TenantManagementComponent {
               cleaningFee: row["Cleaning Fee (SGD)"]
                 ? parseFloat(row["Cleaning Fee (SGD)"])
                 : null,
+              isUtilitySubsidized: row["Utility Subsidized"] === "Yes",
               isHouseCleaner: row["Is House Cleaner"] === "Yes",
               avatar: row["Avatar URL"] || null,
               signature: row["Signature URL"] || null,
@@ -4220,7 +4319,7 @@ class TenantManagementComponent {
           const confirmed = confirm(
             `Upload ${updates.length} tenant update(s)?\n\n` +
               "This will update existing tenants based on Tenant ID.\n" +
-              "Make sure the data is correct before proceeding."
+              "Make sure the data is correct before proceeding.",
           );
 
           if (!confirmed) return;
@@ -4249,7 +4348,7 @@ class TenantManagementComponent {
         API_CONFIG.ENDPOINTS.TENANTS + "/bulk-update",
         {
           updates: updates,
-        }
+        },
       );
 
       const result = await response.json();
@@ -4262,7 +4361,7 @@ class TenantManagementComponent {
         this.showSuccessMessage(
           `Successfully updated ${
             result.updatedCount || updates.length
-          } tenant(s)`
+          } tenant(s)`,
         );
 
         // Reload tenants for current property
@@ -4352,8 +4451,10 @@ class TenantManagementComponent {
       if (todo.completed) {
         // Task is being marked as completed
         todo.completedAt = new Date();
-        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-        todo.completedBy = currentUser ? currentUser.username : 'Unknown User';
+        const currentUser = window.getCurrentUser
+          ? window.getCurrentUser()
+          : null;
+        todo.completedBy = currentUser ? currentUser.username : "Unknown User";
       } else {
         // Task is being unmarked
         todo.completedAt = null;
@@ -4378,17 +4479,27 @@ class TenantManagementComponent {
 
     this.todos.forEach((todo) => {
       // Format completion info
-      let completionInfo = '';
+      let completionInfo = "";
       if (todo.completed && todo.completedBy) {
-        const completedDate = todo.completedAt ? new Date(todo.completedAt) : null;
+        const completedDate = todo.completedAt
+          ? new Date(todo.completedAt)
+          : null;
         const dateStr = completedDate
-          ? completedDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
-            completedDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-          : '';
+          ? completedDate.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            }) +
+            " " +
+            completedDate.toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "";
         completionInfo = `
           <div class="small text-muted mt-1">
             <i class="bi bi-check-circle-fill text-success me-1"></i>
-            Completed by ${this.escapeHtml(todo.completedBy)} ${dateStr ? 'on ' + dateStr : ''}
+            Completed by ${this.escapeHtml(todo.completedBy)} ${dateStr ? "on " + dateStr : ""}
           </div>
         `;
       }
@@ -4398,11 +4509,11 @@ class TenantManagementComponent {
           <input
             type="checkbox"
             class="form-check-input mt-1 flex-shrink-0"
-            ${todo.completed ? 'checked' : ''}
+            ${todo.completed ? "checked" : ""}
             onchange="tenantManager.toggleTodoItem('${todo.id}')"
           />
           <div class="flex-grow-1">
-            <span class="${todo.completed ? 'text-decoration-line-through text-muted' : ''}">
+            <span class="${todo.completed ? "text-decoration-line-through text-muted" : ""}">
               ${this.escapeHtml(todo.text)}
             </span>
             ${completionInfo}
@@ -4418,7 +4529,7 @@ class TenantManagementComponent {
       `;
     });
 
-    html += '</div>';
+    html += "</div>";
     container.innerHTML = html;
 
     // Update hidden field for form submission

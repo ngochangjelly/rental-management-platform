@@ -9,6 +9,7 @@ class PropertyManagementComponent {
     this.properties = [];
     this.currentWifiImages = [];
     this.propertyImage = ''; // Store property image URL
+    this.editingProperty = null; // Store reference to property being edited
     this.currentAcContactNumbers = []; // Store AC service contact numbers
     this.init();
   }
@@ -257,17 +258,18 @@ class PropertyManagementComponent {
     container.innerHTML = '<div id="propertiesCardGrid"></div>';
     const gridContainer = document.getElementById("propertiesCardGrid");
 
-    // Set CSS Grid with auto-fill and max-width 260px
+    // Set CSS Grid with auto-fill and max-width 280px
     gridContainer.style.display = "grid";
-    gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 1fr))";
-    gridContainer.style.gap = "0.125rem";
+    gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 280px))";
+    gridContainer.style.gap = "1rem";
+    gridContainer.style.justifyContent = "center";
     gridContainer.style.maxWidth = "100%";
 
     // Render property cards
     let cardsHtml = "";
     this.properties.forEach((property) => {
       const cardHtml = `
-        <div style="max-width: 260px; width: 100%; justify-self: center;">
+        <div style="width: 100%;">
           <div class="card property-management-card h-100 overflow-hidden"
                style="transition: all 0.2s ease;">
             ${property.propertyImage ? `
@@ -434,6 +436,9 @@ class PropertyManagementComponent {
   }
 
   showPropertyModal(property = null) {
+    // Store reference to property being edited
+    this.editingProperty = property;
+
     // Update modal title and button text
     const isEdit = !!property;
     document.getElementById("propertyModalTitle").textContent = isEdit
@@ -476,6 +481,7 @@ class PropertyManagementComponent {
           property.rentPaymentDate || 1;
         document.getElementById("rent").value = property.rent || 0;
         document.getElementById("airconUnits").value = property.airconUnits || 0;
+        document.getElementById("subsidizedPub").value = property.subsidizedPub ?? 400;
         document.getElementById("agentName").value = property.agentName || "";
         document.getElementById("agentPhone").value = property.agentPhone || "";
         document.getElementById("landlordBankAccount").value =
@@ -484,6 +490,44 @@ class PropertyManagementComponent {
           property.landlordBankName || "";
         document.getElementById("landlordAccountName").value =
           property.landlordAccountName || "";
+
+        // Settlement accounts (custom dropdown with bank logos)
+        const sgdBankValue = property.settlementSgd?.bankName || "";
+        document.getElementById("settlementSgdBank").value = sgdBankValue;
+        const sgdBankText = document.getElementById("settlementSgdBankText");
+        if (sgdBankText) {
+          if (sgdBankValue) {
+            sgdBankText.classList.remove('text-muted');
+            const badgeHtml = window.getBankBadgeHtml ? window.getBankBadgeHtml(sgdBankValue) : '';
+            sgdBankText.innerHTML = badgeHtml + sgdBankValue;
+          } else {
+            sgdBankText.classList.add('text-muted');
+            sgdBankText.textContent = 'Select bank...';
+          }
+        }
+        document.getElementById("settlementSgdAccountNumber").value =
+          property.settlementSgd?.accountNumber || "";
+        document.getElementById("settlementSgdAccountHolder").value =
+          property.settlementSgd?.accountHolderName || "";
+
+        const vndBankValue = property.settlementVnd?.bankName || "";
+        document.getElementById("settlementVndBank").value = vndBankValue;
+        const vndBankText = document.getElementById("settlementVndBankText");
+        if (vndBankText) {
+          if (vndBankValue) {
+            vndBankText.classList.remove('text-muted');
+            const badgeHtml = window.getBankBadgeHtml ? window.getBankBadgeHtml(vndBankValue) : '';
+            vndBankText.innerHTML = badgeHtml + vndBankValue;
+          } else {
+            vndBankText.classList.add('text-muted');
+            vndBankText.textContent = 'Select bank...';
+          }
+        }
+        document.getElementById("settlementVndAccountNumber").value =
+          property.settlementVnd?.accountNumber || "";
+        document.getElementById("settlementVndAccountHolder").value =
+          property.settlementVnd?.accountHolderName || "";
+
         document.getElementById("telegramBotToken").value =
           property.telegramBotToken || "";
         document.getElementById("telegramChannelId").value =
@@ -591,6 +635,18 @@ class PropertyManagementComponent {
         this.currentAcContactNumbers = [];
         this.renderAcContactNumbersList();
 
+        // Reset settlement bank dropdowns for add mode
+        const sgdBankText = document.getElementById("settlementSgdBankText");
+        if (sgdBankText) {
+          sgdBankText.classList.add('text-muted');
+          sgdBankText.textContent = 'Select bank...';
+        }
+        const vndBankText = document.getElementById("settlementVndBankText");
+        if (vndBankText) {
+          vndBankText.classList.add('text-muted');
+          vndBankText.textContent = 'Select bank...';
+        }
+
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
         document.getElementById("propertyId").classList.remove("bg-light");
@@ -627,6 +683,9 @@ class PropertyManagementComponent {
     document.body.classList.remove("modal-open");
     document.body.style.paddingRight = "";
     document.body.style.overflow = "";
+
+    // Clear editing property reference
+    this.editingProperty = null;
   }
 
   getPropertyDataFromUser(existingProperty = null) {
@@ -690,19 +749,31 @@ class PropertyManagementComponent {
         rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
         rent: parseFloat(formData.get("rent")) || 0,
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
+        subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
         rooms: selectedRooms,
         agentName: formData.get("agentName")?.trim() || "",
         agentPhone: formData.get("agentPhone")?.trim() || "",
         landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",
         landlordBankName: formData.get("landlordBankName")?.trim() || "",
         landlordAccountName: formData.get("landlordAccountName")?.trim() || "",
+        settlementSgd: {
+          bankName: formData.get("settlementSgdBank")?.trim() || "",
+          accountNumber: formData.get("settlementSgdAccountNumber")?.trim() || "",
+          accountHolderName: formData.get("settlementSgdAccountHolder")?.trim() || "",
+        },
+        settlementVnd: {
+          bankName: formData.get("settlementVndBank")?.trim() || "",
+          accountNumber: formData.get("settlementVndAccountNumber")?.trim() || "",
+          accountHolderName: formData.get("settlementVndAccountHolder")?.trim() || "",
+        },
         telegramIntegrationEnabled: formData.get("telegramIntegrationEnabled") === "true",
         telegramBotToken: formData.get("telegramBotToken")?.trim() || "",
         telegramChannelId: formData.get("telegramChannelId")?.trim() || "",
         wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
-        propertyImage: this.propertyImage || "",
+        // Use current propertyImage, or fall back to editing property's image if somehow lost
+        propertyImage: this.propertyImage || this.editingProperty?.propertyImage || "",
         acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
       };
@@ -710,9 +781,9 @@ class PropertyManagementComponent {
       // Debug logging
       console.log('🔍 Property data being saved:', {
         propertyImage: propertyData.propertyImage,
-        acServiceDate: propertyData.acServiceDate,
-        acServiceName: propertyData.acServiceName,
-        acServiceContactNumbers: propertyData.acServiceContactNumbers
+        thisPropertyImage: this.propertyImage,
+        editingPropertyImage: this.editingProperty?.propertyImage,
+        acServiceDate: propertyData.acServiceDate
       });
 
       // Validate required fields
