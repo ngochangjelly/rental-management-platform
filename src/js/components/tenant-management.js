@@ -123,8 +123,8 @@ class TenantManagementComponent {
     container.style.display = "grid";
     container.style.gridTemplateColumns =
       "repeat(auto-fill, minmax(260px, 280px))";
-    container.style.gap = "1rem";
     container.style.justifyContent = "center";
+    container.style.rowGap = "1rem";
     container.style.maxWidth = "100%";
 
     // Clear existing cards
@@ -143,7 +143,7 @@ class TenantManagementComponent {
     // Add special card for unassigned tenants
     const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
     const unassignedCardHtml = `
-            <div style="max-width: 260px; width: 100%; justify-self: center;">
+            <div style="max-width: 280px; width: 100%; justify-self: center;">
                 <div class="card property-card h-100 ${
                   isUnassignedSelected ? "border-warning" : "border-secondary"
                 } overflow-hidden"
@@ -180,7 +180,7 @@ class TenantManagementComponent {
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-                <div style="max-width: 260px; width: 100%; justify-self: center;">
+                <div style="max-width: 280px; width: 100%; justify-self: center;">
                     <div class="card property-card h-100 ${
                       isSelected ? "border-primary" : ""
                     } overflow-hidden"
@@ -562,7 +562,7 @@ class TenantManagementComponent {
     // Create skeleton cards matching the tenant card layout
     const skeletonCount = 6; // Show 6 skeleton cards
     let html =
-      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
+      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 280px)); gap: 0.125rem; max-width: 100%;">';
 
     for (let i = 0; i < skeletonCount; i++) {
       html += `
@@ -650,7 +650,7 @@ class TenantManagementComponent {
 
     // Create CSS Grid layout for single property with max-width 260px per card
     let html =
-      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.125rem; max-width: 100%;">';
+      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 280px)); gap: 0.125rem; max-width: 100%;">';
 
     tenantGroups.forEach((group) => {
       if (group.length > 1) {
