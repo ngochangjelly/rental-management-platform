@@ -2451,18 +2451,18 @@
             data-section="dashboard"
           >
             <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
-            <h4 class="text-white mb-0">Rental Hub</h4>
+            <h4 class="text-white mb-0" data-i18n="sidebar.title">Rental Hub</h4>
           </a>
 
           <ul class="nav nav-pills flex-column">
             <li class="nav-item">
               <a class="nav-link active" href="#" data-section="dashboard">
-                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                <i class="bi bi-speedometer2 me-2"></i><span data-i18n="sidebar.dashboard">Dashboard</span>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="analysis">
-                <i class="bi bi-file-text me-2"></i>Contract Analysis
+                <i class="bi bi-file-text me-2"></i><span data-i18n="sidebar.contractAnalysis">Contract Analysis</span>
               </a>
             </li>
             <li class="nav-item">
@@ -2471,7 +2471,7 @@
                 href="#"
                 data-section="properties"
               >
-                <span> <i class="bi bi-building me-2"></i>Properties </span>
+                <span> <i class="bi bi-building me-2"></i><span data-i18n="sidebar.properties">Properties</span> </span>
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="propertiesBadge"
@@ -2485,7 +2485,7 @@
                 href="#"
                 data-section="tenants"
               >
-                <span> <i class="bi bi-people me-2"></i>Tenants </span>
+                <span> <i class="bi bi-people me-2"></i><span data-i18n="sidebar.tenants">Tenants</span> </span>
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="tenantsBadge"
@@ -2495,27 +2495,27 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="contracts">
-                <i class="bi bi-file-text me-2"></i>Create Contract
+                <i class="bi bi-file-text me-2"></i><span data-i18n="sidebar.createContract">Create Contract</span>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="financial">
-                <i class="bi bi-graph-up me-2"></i>Financial Reports
+                <i class="bi bi-graph-up me-2"></i><span data-i18n="sidebar.financialReports">Financial Reports</span>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="bills">
-                <i class="bi bi-receipt me-2"></i>Bill Management
+                <i class="bi bi-receipt me-2"></i><span data-i18n="sidebar.billManagement">Bill Management</span>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="bulk-reports">
-                <i class="bi bi-bar-chart-fill me-2"></i>Bulk Property Reports
+                <i class="bi bi-bar-chart-fill me-2"></i><span data-i18n="sidebar.bulkPropertyReports">Bulk Property Reports</span>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="ac-clean">
-                <i class="bi bi-snow me-2"></i>AC Clean Management
+                <i class="bi bi-snow me-2"></i><span data-i18n="sidebar.acCleanManagement">AC Clean Management</span>
               </a>
             </li>
             <li class="nav-item" id="investorsNavItem" style="display: none">
@@ -2524,7 +2524,7 @@
                 href="#"
                 data-section="investors"
               >
-                <span> <i class="bi bi-person-badge me-2"></i>Investors </span>
+                <span> <i class="bi bi-person-badge me-2"></i><span data-i18n="sidebar.investors">Investors</span> </span>
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="investorsBadge"
@@ -2538,7 +2538,7 @@
                 href="#"
                 data-section="users"
               >
-                <span> <i class="bi bi-people-fill me-2"></i>Users </span>
+                <span> <i class="bi bi-people-fill me-2"></i><span data-i18n="sidebar.users">Users</span> </span>
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="usersBadge"
@@ -2548,11 +2548,14 @@
             </li>
           </ul>
 
-          <div class="mt-auto pt-4">
-            <p class="text-white-50 mb-2">Logged in as:</p>
+          <div class="mt-auto pt-4 text-center">
+            <button type="button" id="languageToggle" class="btn btn-outline-light btn-sm mb-3" title="Switch Language">
+              🇻🇳
+            </button>
+            <p class="text-white-50 mb-2" data-i18n="sidebar.loggedInAs">Logged in as:</p>
             <p class="text-white mb-3" id="userInfo">Admin User</p>
             <button onclick="logout()" class="btn btn-outline-light btn-sm">
-              <i class="bi bi-box-arrow-right me-1"></i>Logout
+              <i class="bi bi-box-arrow-right me-1"></i><span data-i18n="sidebar.logout">Logout</span>
             </button>
           </div>
         </nav>
@@ -2578,10 +2581,10 @@
               <div
                 class="d-flex justify-content-between align-items-center mb-4"
               >
-                <h2>Dashboard</h2>
+                <h2 data-i18n="dashboard.title">Dashboard</h2>
                 <div class="text-muted">
                   <i class="bi bi-calendar me-1"></i>
-                  <span id="currentDate"></span>
+                  <span id="currentDate" data-i18n="dashboard.currentDate">Current Date:</span>
                 </div>
               </div>
 

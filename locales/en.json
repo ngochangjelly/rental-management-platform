@@ -1,0 +1,22 @@
+{
+  "sidebar": {
+    "title": "Rental Hub",
+    "dashboard": "Dashboard",
+    "contractAnalysis": "Contract Analysis",
+    "properties": "Properties",
+    "tenants": "Tenants",
+    "createContract": "Create Contract",
+    "financialReports": "Financial Reports",
+    "billManagement": "Bill Management",
+    "bulkPropertyReports": "Bulk Property Reports",
+    "acCleanManagement": "AC Clean Management",
+    "investors": "Investors",
+    "users": "Users",
+    "loggedInAs": "Logged in as:",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "currentDate": "Current Date:"
+  }
+}

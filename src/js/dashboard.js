@@ -1,4 +1,5 @@
 // Dashboard entry point
+import './i18n.js';
 import './config.js';
 import './lib/html2canvas-loader.js'; // Load html2canvas locally
 import './lib/jspdf-loader.js'; // Load jsPDF for PDF export

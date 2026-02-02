@@ -71,6 +71,10 @@ module.exports = {
           globOptions: {
             ignore: ['**/index.html', '**/login.html', '**/investor-management.html', '**/dashboard.html', '**/404.html', '**/js/**']
           }
+        },
+        {
+          from: 'locales',
+          to: 'locales'
         }
       ]
     })

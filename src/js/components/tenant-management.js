@@ -14,6 +14,8 @@ class TenantManagementComponent {
     this.selectedProperty = null; // Currently selected property for filtering tenants
     this.properties = []; // List of all properties for navigation
     this.selectedProperties = [];
+    this.selectedPropertiesDetails = []; // Initialize property details array
+    this.originalPropertiesDetails = []; // Store original properties for edit mode fallback
     this.propertiesCache = null; // Cache for properties
     this.propertiesCacheTime = null;
     this.cacheTimeout = 30000; // Cache for 30 seconds
@@ -1490,6 +1492,8 @@ class TenantManagementComponent {
             }
           },
         );
+        // Store original properties for fallback during save (deep copy)
+        this.originalPropertiesDetails = JSON.parse(JSON.stringify(this.selectedPropertiesDetails));
         this.selectedProperties = this.selectedPropertiesDetails.map(
           (p) => p.propertyId,
         );
@@ -1497,6 +1501,7 @@ class TenantManagementComponent {
         // Reset for add mode
         this.selectedProperties = [];
         this.selectedPropertiesDetails = [];
+        this.originalPropertiesDetails = [];
         this.passportPics = [];
         this.visaPics = [];
         this.avatar = "";
@@ -1603,8 +1608,11 @@ class TenantManagementComponent {
     document.body.style.paddingRight = "";
     document.body.style.overflow = "";
 
-    // Reset selected properties
+    // Reset selected properties and details
+    // Note: This is called AFTER the form has been submitted, so it doesn't affect the save
     this.selectedProperties = [];
+    this.selectedPropertiesDetails = [];
+    this.originalPropertiesDetails = [];
   }
 
   async loadPropertiesCache() {
@@ -2087,14 +2095,17 @@ class TenantManagementComponent {
           document.getElementById("tenantRegistrationStatusHidden").value ===
           "registered",
         properties:
-          this.selectedPropertiesDetails ||
-          this.selectedProperties.map((propertyId) => ({
-            propertyId,
-            isMainTenant: false,
-            room: "",
-            moveinDate: "",
-            moveoutDate: "",
-          })),
+          (this.selectedPropertiesDetails && this.selectedPropertiesDetails.length > 0)
+            ? this.selectedPropertiesDetails
+            : (this.originalPropertiesDetails && this.originalPropertiesDetails.length > 0)
+              ? this.originalPropertiesDetails
+              : this.selectedProperties.map((propertyId) => ({
+                  propertyId,
+                  isMainTenant: false,
+                  room: "",
+                  moveinDate: "",
+                  moveoutDate: "",
+                })),
         passportPics: this.passportPics,
         visaPics: this.visaPics,
         avatar: this.avatar || null,
@@ -2123,8 +2134,10 @@ class TenantManagementComponent {
       // Debug: log the properties being sent
       console.log("🔄 Tenant update data:", {
         ...tenantData,
-        propertiesType: typeof this.selectedProperties[0],
-        propertiesContent: this.selectedProperties,
+        selectedProperties: this.selectedProperties,
+        selectedPropertiesDetails: this.selectedPropertiesDetails,
+        originalPropertiesDetails: this.originalPropertiesDetails,
+        propertiesBeingSent: tenantData.properties,
       });
 
       // Validate required fields

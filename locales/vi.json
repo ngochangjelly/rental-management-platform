@@ -1,0 +1,22 @@
+{
+    "sidebar": {
+        "title": "Rental Hub",
+        "dashboard": "Bảng điều khiển",
+        "contractAnalysis": "Phân tích hợp đồng",
+        "properties": "Danh sách nhà",
+        "tenants": "Quản lí Người thuê",
+        "createContract": "Tạo hợp đồng",
+        "financialReports": "Báo cáo tài chính",
+        "billManagement": "Tạo hóa đơn",
+        "bulkPropertyReports": "Báo cáo nhiều nhà",
+        "acCleanManagement": "Vệ sinh máy lạnh",
+        "investors": "Nhà đầu tư",
+        "users": "Người dùng",
+        "loggedInAs": "Người đăng nhập:",
+        "logout": "Đăng xuất"
+    },
+    "dashboard": {
+        "title": "Trang chủ",
+        "currentDate": "Ngày hiện tại:"
+    }
+}

@@ -9,6 +9,7 @@ class PropertyManagementComponent {
     this.properties = [];
     this.currentWifiImages = [];
     this.propertyImage = ''; // Store property image URL
+    this.originalPropertyImage = ''; // Store original property image URL for edit mode (to preserve if not changed)
     this.editingProperty = null; // Store reference to property being edited
     this.currentAcContactNumbers = []; // Store AC service contact numbers
     this.init();
@@ -578,16 +579,12 @@ class PropertyManagementComponent {
           this.currentWifiImages = [];
         }
 
-        // Handle property image
-        if (property.propertyImage) {
-          this.propertyImage = property.propertyImage;
-          console.log('✅ Loaded property image:', this.propertyImage);
-          this.updatePropertyImagePreview();
-        } else {
-          this.propertyImage = '';
-          console.log('⚠️ No property image found');
-          this.updatePropertyImagePreview();
-        }
+        // Handle property image - store both current and original for fallback
+        const imageUrl = property.propertyImage || '';
+        this.propertyImage = imageUrl;
+        this.originalPropertyImage = imageUrl; // Store original for fallback during save
+        console.log('✅ Loaded property image:', this.propertyImage);
+        this.updatePropertyImagePreview();
 
         // Handle property rooms selection
         if (property.rooms && Array.isArray(property.rooms)) {
@@ -629,6 +626,7 @@ class PropertyManagementComponent {
 
         // Clear property image for add mode
         this.propertyImage = '';
+        this.originalPropertyImage = '';
         this.updatePropertyImagePreview();
 
         // Clear AC service contact numbers for add mode
@@ -684,8 +682,10 @@ class PropertyManagementComponent {
     document.body.style.paddingRight = "";
     document.body.style.overflow = "";
 
-    // Clear editing property reference
+    // Clear editing property reference and original image
+    // Note: These are cleared AFTER the form has been submitted, so they don't affect the save
     this.editingProperty = null;
+    this.originalPropertyImage = '';
   }
 
   getPropertyDataFromUser(existingProperty = null) {
@@ -772,8 +772,8 @@ class PropertyManagementComponent {
         wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
-        // Use current propertyImage, or fall back to editing property's image if somehow lost
-        propertyImage: this.propertyImage || this.editingProperty?.propertyImage || "",
+        // Use current propertyImage, or fall back to original image stored at edit start, then editing property's image
+        propertyImage: this.propertyImage || this.originalPropertyImage || this.editingProperty?.propertyImage || "",
         acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
       };
@@ -782,6 +782,7 @@ class PropertyManagementComponent {
       console.log('🔍 Property data being saved:', {
         propertyImage: propertyData.propertyImage,
         thisPropertyImage: this.propertyImage,
+        originalPropertyImage: this.originalPropertyImage,
         editingPropertyImage: this.editingProperty?.propertyImage,
         acServiceDate: propertyData.acServiceDate
       });

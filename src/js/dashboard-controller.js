@@ -1,3 +1,5 @@
+import i18next from './i18n.js';
+
 /**
  * Dashboard Controller
  * Main controller that manages the dashboard sections and components
@@ -21,6 +23,8 @@ class DashboardController {
     this.setupFeatureCards();
     this.loadUserInfo();
     this.loadDashboardStats();
+    this.setupLanguageSwitcher();
+    this.updateTranslations();
 
     // Initialize components when their sections are first accessed
     this.initializeComponentsLazily();
@@ -33,7 +37,7 @@ class DashboardController {
     const now = new Date();
     const currentDateEl = document.getElementById("currentDate");
     if (currentDateEl) {
-      currentDateEl.textContent = now.toLocaleDateString("en-US", {
+      currentDateEl.textContent = i18next.t('dashboard.currentDate') + ' ' + now.toLocaleDateString(i18next.language === 'vi' ? 'vi-VN' : 'en-US', {
         weekday: "long",
         year: "numeric",
         month: "long",
@@ -457,6 +461,30 @@ class DashboardController {
       // Load tenant data immediately
       this.components.tenantManagement.loadTenants();
     }
+  }
+
+  setupLanguageSwitcher() {
+    const languageToggle = document.getElementById('languageToggle');
+    if (languageToggle) {
+      // Set initial flag
+      languageToggle.textContent = i18next.language === 'vi' ? '🇻🇳' : '🇺🇸';
+      languageToggle.addEventListener('click', () => {
+        const newLang = i18next.language === 'vi' ? 'en' : 'vi';
+        i18next.changeLanguage(newLang).then(() => {
+          languageToggle.textContent = newLang === 'vi' ? '🇻🇳' : '🇺🇸';
+          this.updateTranslations();
+          this.updateCurrentDate();
+        });
+      });
+    }
+  }
+
+  updateTranslations() {
+    // Update all elements with data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      el.textContent = i18next.t(key);
+    });
   }
 }
 
