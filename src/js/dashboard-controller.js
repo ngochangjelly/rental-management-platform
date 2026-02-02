@@ -1,4 +1,4 @@
-import i18next from './i18n.js';
+import i18next from "./i18n.js";
 
 /**
  * Dashboard Controller
@@ -12,7 +12,7 @@ class DashboardController {
     this.dataVersions = {
       tenants: 0,
       properties: 0,
-      investors: 0
+      investors: 0,
     };
     this.init();
   }
@@ -28,7 +28,7 @@ class DashboardController {
 
     // Initialize components when their sections are first accessed
     this.initializeComponentsLazily();
-    
+
     // Preload tenants data on dashboard entry for better UX
     this.preloadTenantData();
   }
@@ -37,12 +37,15 @@ class DashboardController {
     const now = new Date();
     const currentDateEl = document.getElementById("currentDate");
     if (currentDateEl) {
-      currentDateEl.textContent = i18next.t('dashboard.currentDate') + ' ' + now.toLocaleDateString(i18next.language === 'vi' ? 'vi-VN' : 'en-US', {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+      currentDateEl.textContent =
+        i18next.t("dashboard.currentDate") +
+        " " +
+        now.toLocaleDateString(i18next.language === "vi" ? "vi-VN" : "en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
     }
   }
 
@@ -102,7 +105,7 @@ class DashboardController {
       .querySelectorAll(".nav-link")
       .forEach((l) => l.classList.remove("active"));
     const navLink = document.querySelector(
-      `.nav-link[data-section="${sectionName}"]`
+      `.nav-link[data-section="${sectionName}"]`,
     );
     if (navLink) {
       navLink.classList.add("active");
@@ -132,42 +135,45 @@ class DashboardController {
         break;
       case "tenants":
         if (!this.components.tenantManagement) {
-          console.log('🏗️ Creating TenantManagementComponent...');
+          console.log("🏗️ Creating TenantManagementComponent...");
           this.components.tenantManagement = new TenantManagementComponent();
           // Make it globally accessible for button onclick handlers
           window.tenantManager = this.components.tenantManagement;
-          console.log('✅ TenantManagementComponent created');
-          
+          console.log("✅ TenantManagementComponent created");
+
           // Load tenants after section is shown
           setTimeout(() => {
-            console.log('⏰ Loading tenants after section display...');
+            console.log("⏰ Loading tenants after section display...");
             this.components.tenantManagement.loadTenants();
           }, 100);
         } else {
-          console.log('♻️ Using preloaded TenantManagementComponent - data already available');
+          console.log(
+            "♻️ Using preloaded TenantManagementComponent - data already available",
+          );
         }
         break;
       case "contracts":
         if (!this.components.contractManagement) {
-          console.log('🏗️ Creating ContractManagementComponent...');
-          this.components.contractManagement = new ContractManagementComponent();
+          console.log("🏗️ Creating ContractManagementComponent...");
+          this.components.contractManagement =
+            new ContractManagementComponent();
           // Make it globally accessible for button onclick handlers
           window.contractManager = this.components.contractManagement;
-          console.log('✅ ContractManagementComponent created');
+          console.log("✅ ContractManagementComponent created");
 
           // Set up contract form after section is shown
           setTimeout(async () => {
-            console.log('⏰ Setting up contract form...');
+            console.log("⏰ Setting up contract form...");
             await Promise.all([
               this.components.contractManagement.loadTenants(),
-              this.components.contractManagement.loadProperties()
+              this.components.contractManagement.loadProperties(),
             ]);
             this.components.contractManagement.populateTenantsDropdown();
             this.components.contractManagement.populatePropertiesDropdown();
             this.components.contractManagement.setupContractInputs();
 
             // Initialize template section
-            console.log('🔧 Initializing contract templates...');
+            console.log("🔧 Initializing contract templates...");
             await this.components.contractManagement.initializeTemplateSection();
             this.components.contractManagement.updateContractPreview();
           }, 100);
@@ -182,18 +188,19 @@ class DashboardController {
         break;
       case "bulk-reports":
         if (!this.components.bulkPropertyReports) {
-          this.components.bulkPropertyReports = new BulkPropertyReportsComponent();
+          this.components.bulkPropertyReports =
+            new BulkPropertyReportsComponent();
           // Make it globally accessible for button onclick handlers
           window.bulkPropertyReports = this.components.bulkPropertyReports;
         }
         break;
       case "bills":
         if (!this.components.billManagement) {
-          console.log('🏗️ Creating BillManagementComponent...');
+          console.log("🏗️ Creating BillManagementComponent...");
           this.components.billManagement = new BillManagementComponent();
           // Make it globally accessible for button onclick handlers
           window.billManager = this.components.billManagement;
-          console.log('✅ BillManagementComponent created');
+          console.log("✅ BillManagementComponent created");
         }
         break;
       case "investors":
@@ -220,15 +227,15 @@ class DashboardController {
 
     // Check if user is admin and show/hide admin-only nav items
     const user = getCurrentUser();
-    const usersNavItem = document.getElementById('usersNavItem');
-    const investorsNavItem = document.getElementById('investorsNavItem');
+    const usersNavItem = document.getElementById("usersNavItem");
+    const investorsNavItem = document.getElementById("investorsNavItem");
 
-    if (user && user.role === 'admin') {
+    if (user && user.role === "admin") {
       if (usersNavItem) {
-        usersNavItem.style.display = 'block';
+        usersNavItem.style.display = "block";
       }
       if (investorsNavItem) {
-        investorsNavItem.style.display = 'block';
+        investorsNavItem.style.display = "block";
       }
     }
 
@@ -241,7 +248,7 @@ class DashboardController {
     try {
       // Load properties stats
       const propertiesResponse = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTY_STATS
+        API_CONFIG.ENDPOINTS.PROPERTY_STATS,
       );
       const propertiesResult = await propertiesResponse.json();
 
@@ -315,64 +322,79 @@ class DashboardController {
   // Data version management for cross-module synchronization
   markTenantDataChanged() {
     this.dataVersions.tenants++;
-    console.log(`📊 Tenant data version updated to ${this.dataVersions.tenants}`);
+    console.log(
+      `📊 Tenant data version updated to ${this.dataVersions.tenants}`,
+    );
   }
 
   markPropertyDataChanged() {
     this.dataVersions.properties++;
-    console.log(`📊 Property data version updated to ${this.dataVersions.properties}`);
+    console.log(
+      `📊 Property data version updated to ${this.dataVersions.properties}`,
+    );
   }
 
   markInvestorDataChanged() {
     this.dataVersions.investors++;
-    console.log(`📊 Investor data version updated to ${this.dataVersions.investors}`);
+    console.log(
+      `📊 Investor data version updated to ${this.dataVersions.investors}`,
+    );
   }
 
   refreshSectionDataIfNeeded(sectionName) {
     // Map sections to their data dependencies and refresh methods
     const sectionDataDependencies = {
-      'contracts': {
-        dependencies: ['tenants', 'properties', 'investors'],
+      contracts: {
+        dependencies: ["tenants", "properties", "investors"],
         refresh: async () => {
           if (this.components.contractManagement) {
-            console.log('🔄 Refreshing contract management data...');
+            console.log("🔄 Refreshing contract management data...");
             await Promise.all([
               this.components.contractManagement.loadTenants(),
               this.components.contractManagement.loadInvestors(),
-              this.components.contractManagement.loadProperties()
+              this.components.contractManagement.loadProperties(),
             ]);
             this.components.contractManagement.populateTenantsDropdown();
             this.components.contractManagement.populatePropertiesDropdown();
           }
-        }
+        },
       },
-      'properties': {
-        dependencies: ['tenants', 'properties'],
+      properties: {
+        dependencies: ["tenants", "properties"],
         refresh: async () => {
-          if (this.components.propertyManagement && this.components.propertyManagement.refresh) {
-            console.log('🔄 Refreshing property management data...');
+          if (
+            this.components.propertyManagement &&
+            this.components.propertyManagement.refresh
+          ) {
+            console.log("🔄 Refreshing property management data...");
             this.components.propertyManagement.refresh();
           }
-        }
+        },
       },
-      'financial': {
-        dependencies: ['tenants', 'properties'],
+      financial: {
+        dependencies: ["tenants", "properties"],
         refresh: async () => {
-          if (this.components.financialReports && this.components.financialReports.loadProperties) {
-            console.log('🔄 Refreshing financial reports data...');
+          if (
+            this.components.financialReports &&
+            this.components.financialReports.loadProperties
+          ) {
+            console.log("🔄 Refreshing financial reports data...");
             await this.components.financialReports.loadProperties();
           }
-        }
+        },
       },
-      'bulk-reports': {
-        dependencies: ['tenants', 'properties'],
+      "bulk-reports": {
+        dependencies: ["tenants", "properties"],
         refresh: async () => {
-          if (this.components.bulkPropertyReports && this.components.bulkPropertyReports.loadProperties) {
-            console.log('🔄 Refreshing bulk reports data...');
+          if (
+            this.components.bulkPropertyReports &&
+            this.components.bulkPropertyReports.loadProperties
+          ) {
+            console.log("🔄 Refreshing bulk reports data...");
             await this.components.bulkPropertyReports.loadProperties();
           }
-        }
-      }
+        },
+      },
     };
 
     const config = sectionDataDependencies[sectionName];
@@ -394,7 +416,9 @@ class DashboardController {
     for (const dep of config.dependencies) {
       if (component._dataVersions[dep] < this.dataVersions[dep]) {
         needsRefresh = true;
-        console.log(`📊 ${sectionName}: ${dep} data changed (${component._dataVersions[dep]} -> ${this.dataVersions[dep]})`);
+        console.log(
+          `📊 ${sectionName}: ${dep} data changed (${component._dataVersions[dep]} -> ${this.dataVersions[dep]})`,
+        );
       }
     }
 
@@ -410,12 +434,12 @@ class DashboardController {
 
   getComponentKeyForSection(sectionName) {
     const sectionToComponent = {
-      'contracts': 'contractManagement',
-      'properties': 'propertyManagement',
-      'financial': 'financialReports',
-      'bulk-reports': 'bulkPropertyReports',
-      'tenants': 'tenantManagement',
-      'investors': 'investorManagement'
+      contracts: "contractManagement",
+      properties: "propertyManagement",
+      financial: "financialReports",
+      "bulk-reports": "bulkPropertyReports",
+      tenants: "tenantManagement",
+      investors: "investorManagement",
     };
     return sectionToComponent[sectionName];
   }
@@ -451,27 +475,27 @@ class DashboardController {
 
   // Preload tenant data when dashboard loads for better UX
   preloadTenantData() {
-    console.log('🚀 Preloading tenant data on dashboard entry...');
+    console.log("🚀 Preloading tenant data on dashboard entry...");
     // Initialize tenant management component early
     if (!this.components.tenantManagement) {
       this.components.tenantManagement = new TenantManagementComponent();
       window.tenantManager = this.components.tenantManagement;
-      console.log('✅ Tenant management component preloaded');
-      
+      console.log("✅ Tenant management component preloaded");
+
       // Load tenant data immediately
       this.components.tenantManagement.loadTenants();
     }
   }
 
   setupLanguageSwitcher() {
-    const languageToggle = document.getElementById('languageToggle');
+    const languageToggle = document.getElementById("languageToggle");
     if (languageToggle) {
       // Set initial flag
-      languageToggle.textContent = i18next.language === 'vi' ? '🇻🇳' : '🇺🇸';
-      languageToggle.addEventListener('click', () => {
-        const newLang = i18next.language === 'vi' ? 'en' : 'vi';
+      languageToggle.textContent = i18next.language === "vi" ? "🇻🇳" : "🇺🇸";
+      languageToggle.addEventListener("click", () => {
+        const newLang = i18next.language === "vi" ? "en" : "vi";
         i18next.changeLanguage(newLang).then(() => {
-          languageToggle.textContent = newLang === 'vi' ? '🇻🇳' : '🇺🇸';
+          languageToggle.textContent = newLang === "vi" ? "🇻🇳" : "🇺🇸";
           this.updateTranslations();
           this.updateCurrentDate();
         });
@@ -481,8 +505,8 @@ class DashboardController {
 
   updateTranslations() {
     // Update all elements with data-i18n
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      const key = el.getAttribute("data-i18n");
       el.textContent = i18next.t(key);
     });
   }

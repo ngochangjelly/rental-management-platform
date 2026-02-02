@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,15 +8,15 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23667eea' d='M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z'/><path fill='%23667eea' d='m8 3.293 6 6V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V9.293l6-6Z'/></svg>"
     />
-    
+
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#667eea">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Rental Hub">
-    <meta name="msapplication-TileColor" content="#667eea">
-    <meta name="msapplication-config" content="/browserconfig.xml">
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#667eea" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Rental Hub" />
+    <meta name="msapplication-TileColor" content="#667eea" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
@@ -28,8 +28,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
       // Configure PDF.js worker when library is loaded
-      window.addEventListener('load', function() {
-        if (typeof pdfjsLib !== 'undefined') {
+      window.addEventListener("load", function () {
+        if (typeof pdfjsLib !== "undefined") {
           pdfjsLib.GlobalWorkerOptions.workerSrc =
             "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
         }
@@ -148,7 +148,9 @@
         opacity: 1;
       }
       .feature-card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
         cursor: pointer;
       }
       .feature-card:hover {
@@ -395,20 +397,30 @@
           class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4"
           id="sidebar"
         >
-          <a class="d-flex align-items-center mb-4" href="#" data-section="dashboard">
+          <a
+            class="d-flex align-items-center mb-4"
+            href="#"
+            data-section="dashboard"
+          >
             <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
-            <h4 class="text-white mb-0" data-i18n="sidebar.title">Rental Hub</h4>
+            <h4 class="text-white mb-0" data-i18n="sidebar.title">
+              Rental Hub
+            </h4>
           </a>
 
           <ul class="nav nav-pills flex-column">
             <li class="nav-item">
               <a class="nav-link active" href="#" data-section="dashboard">
-                <i class="bi bi-speedometer2 me-2"></i><span data-i18n="sidebar.dashboard">Dashboard</span>
+                <i class="bi bi-speedometer2 me-2"></i
+                ><span data-i18n="sidebar.dashboard">Dashboard</span>
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="analysis">
-                <i class="bi bi-file-text me-2"></i><span data-i18n="sidebar.contractAnalysis">Contract Analysis</span>
+                <i class="bi bi-file-text me-2"></i
+                ><span data-i18n="sidebar.contractAnalysis"
+                  >Contract Analysis</span
+                >
               </a>
             </li>
             <li class="nav-item">
@@ -417,7 +429,10 @@
                 href="#"
                 data-section="properties"
               >
-                <span> <i class="bi bi-building me-2"></i><span data-i18n="sidebar.properties">Properties</span> </span>
+                <span>
+                  <i class="bi bi-building me-2"></i
+                  ><span data-i18n="sidebar.properties">Properties</span>
+                </span>
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="propertiesBadge"
@@ -431,7 +446,10 @@
                 href="#"
                 data-section="tenants"
               >
-                <span> <i class="bi bi-people me-2"></i><span data-i18n="sidebar.tenants">Tenants</span> </span>
+                <span>
+                  <i class="bi bi-people me-2"></i
+                  ><span data-i18n="sidebar.tenants">Tenants</span>
+                </span>
                 <span
                   class="badge bg-light text-dark rounded-pill"
                   id="tenantsBadge"
@@ -441,24 +459,35 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="financial">
-                <i class="bi bi-graph-up me-2"></i><span data-i18n="sidebar.financialReports">Financial Reports</span>
+                <i class="bi bi-graph-up me-2"></i
+                ><span data-i18n="sidebar.financialReports"
+                  >Financial Reports</span
+                >
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="investors">
-                <i class="bi bi-person-badge me-2"></i><span data-i18n="sidebar.investors">Investors</span>
+                <i class="bi bi-person-badge me-2"></i
+                ><span data-i18n="sidebar.investors">Investors</span>
               </a>
             </li>
           </ul>
 
           <div class="mt-auto pt-4 text-center">
-            <button id="languageToggle" class="btn btn-outline-light btn-sm mb-3" title="Switch Language">
+            <button
+              id="languageToggle"
+              class="btn btn-outline-light btn-sm mb-3"
+              title="Switch Language"
+            >
               🇻🇳
             </button>
-            <p class="text-white-50 mb-2" data-i18n="sidebar.loggedInAs">Logged in as:</p>
+            <p class="text-white-50 mb-2" data-i18n="sidebar.loggedInAs">
+              Logged in as:
+            </p>
             <p class="text-white mb-3" id="userInfo">Admin User</p>
             <button onclick="logout()" class="btn btn-outline-light btn-sm">
-              <i class="bi bi-box-arrow-right me-1"></i><span data-i18n="sidebar.logout">Logout</span>
+              <i class="bi bi-box-arrow-right me-1"></i
+              ><span data-i18n="sidebar.logout">Logout</span>
             </button>
           </div>
         </nav>
@@ -487,7 +516,9 @@
                 <h2 data-i18n="dashboard.title">Dashboard</h2>
                 <div class="text-muted">
                   <i class="bi bi-calendar me-1"></i>
-                  <span id="currentDate" data-i18n="dashboard.currentDate">Current Date</span>
+                  <span id="currentDate" data-i18n="dashboard.currentDate"
+                    >Current Date</span
+                  >
                 </div>
               </div>
 
@@ -558,10 +589,7 @@
                   </div>
                 </div>
                 <div class="col-md-6 col-lg-4 mb-4">
-                  <div
-                    class="card feature-card h-100"
-                    data-section="investors"
-                  >
+                  <div class="card feature-card h-100" data-section="investors">
                     <div class="card-body text-center p-4">
                       <i
                         class="bi bi-person-badge text-info"
@@ -705,13 +733,21 @@
                     </button>
                     <button
                       class="btn btn-sm btn-outline-secondary"
-                      onclick="dashboardController.getComponent('contractAnalysis')?.zoomOut()"
+                      onclick="
+                        dashboardController
+                          .getComponent('contractAnalysis')
+                          ?.zoomOut()
+                      "
                     >
                       <i class="bi bi-zoom-out"></i>
                     </button>
                     <button
                       class="btn btn-sm btn-outline-secondary"
-                      onclick="dashboardController.getComponent('contractAnalysis')?.zoomIn()"
+                      onclick="
+                        dashboardController
+                          .getComponent('contractAnalysis')
+                          ?.zoomIn()
+                      "
                     >
                       <i class="bi bi-zoom-in"></i>
                     </button>
@@ -1107,16 +1143,23 @@
                 <div class="row mb-4">
                   <div class="col-12">
                     <div class="card">
-                      <div class="card-header d-flex justify-content-between align-items-center">
+                      <div
+                        class="card-header d-flex justify-content-between align-items-center"
+                      >
                         <h5 class="mb-0">
                           <i class="bi bi-person-badge me-2"></i>All Investors
                         </h5>
-                        <span class="badge bg-primary" id="investorCount">Loading...</span>
+                        <span class="badge bg-primary" id="investorCount"
+                          >Loading...</span
+                        >
                       </div>
                       <div class="card-body">
                         <div id="investorsList">
                           <div class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status">
+                            <div
+                              class="spinner-border text-primary"
+                              role="status"
+                            >
                               <span class="visually-hidden">Loading...</span>
                             </div>
                             <p class="mt-2 text-muted">Loading investors...</p>
@@ -1158,7 +1201,7 @@
           if (!result.authenticated) {
             // Token invalid or expired, clear auth and redirect
             console.log(
-              "Authentication failed, clearing auth and redirecting to login"
+              "Authentication failed, clearing auth and redirecting to login",
             );
             clearAuth();
             window.location.href = "/login.html";
@@ -1169,7 +1212,7 @@
             "Authentication successful, token valid for",
             localStorage.getItem("rememberMe") === "true"
               ? "30 days"
-              : "this session"
+              : "this session",
           );
 
           // Initialize dashboard controller if authenticated
@@ -1239,12 +1282,12 @@
         try {
           console.log(
             "🔄 Updating sidebar badges - using API:",
-            buildApiUrl(API_CONFIG.ENDPOINTS.PROPERTIES)
+            buildApiUrl(API_CONFIG.ENDPOINTS.PROPERTIES),
           );
 
           // Fetch properties count
           const propertiesResponse = await API.get(
-            API_CONFIG.ENDPOINTS.PROPERTIES
+            API_CONFIG.ENDPOINTS.PROPERTIES,
           );
 
           if (propertiesResponse.ok) {
@@ -1297,11 +1340,11 @@
           console.log("userInfo element not found");
           console.log(
             "All elements with ID userInfo:",
-            document.querySelectorAll("#userInfo")
+            document.querySelectorAll("#userInfo"),
           );
           console.log(
             'All elements with text "Admin User":',
-            document.querySelectorAll('*:contains("Admin User")')
+            document.querySelectorAll('*:contains("Admin User")'),
           );
           return;
         }
@@ -1309,7 +1352,7 @@
         console.log("Found userInfo element:", userInfoElement);
         console.log(
           "Current content before update:",
-          userInfoElement.textContent
+          userInfoElement.textContent,
         );
 
         // Try to get user info from stored data
@@ -1340,20 +1383,24 @@
         setTimeout(() => {
           console.log(
             "Element content after 1 second:",
-            userInfoElement.textContent
+            userInfoElement.textContent,
           );
         }, 1000);
       }
 
       // Register Service Worker
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
-            .then(function(registration) {
-              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then(function (registration) {
+              console.log(
+                "ServiceWorker registration successful with scope: ",
+                registration.scope,
+              );
             })
-            .catch(function(error) {
-              console.log('ServiceWorker registration failed: ', error);
+            .catch(function (error) {
+              console.log("ServiceWorker registration failed: ", error);
             });
         });
       }
@@ -1365,7 +1412,7 @@
           userInfoElement.textContent = testName || "TEST USER";
           console.log(
             "Test update applied, element now shows:",
-            userInfoElement.textContent
+            userInfoElement.textContent,
           );
         } else {
           console.log("userInfo element not found for test");
@@ -1823,19 +1870,15 @@
                       name="avatar"
                       placeholder="https://example.com/avatar.jpg (optional)"
                     />
-                    <div class="form-text">Optional - URL to tenant's avatar image</div>
+                    <div class="form-text">
+                      Optional - URL to tenant's avatar image
+                    </div>
                   </div>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="tenantRoom" class="form-label"
-                      >Room</label
-                    >
-                    <select
-                      class="form-select"
-                      id="tenantRoom"
-                      name="room"
-                    >
+                    <label for="tenantRoom" class="form-label">Room</label>
+                    <select class="form-select" id="tenantRoom" name="room">
                       <option value="">Select room type (optional)...</option>
                       <option value="COMMON1">Common Room 1</option>
                       <option value="COMMON2">Common Room 2</option>
@@ -1844,7 +1887,9 @@
                       <option value="COMPARTMENT2">Compartment 2</option>
                       <option value="STORE">Store Room</option>
                     </select>
-                    <div class="form-text">Optional - select which room tenant rents</div>
+                    <div class="form-text">
+                      Optional - select which room tenant rents
+                    </div>
                   </div>
                 </div>
                 <div class="row">
@@ -1858,7 +1903,9 @@
                       id="tenantMoveinDate"
                       name="moveinDate"
                     />
-                    <div class="form-text">Optional - tenant's move-in date</div>
+                    <div class="form-text">
+                      Optional - tenant's move-in date
+                    </div>
                   </div>
                   <div class="col-md-6 mb-3">
                     <label for="tenantMoveoutDate" class="form-label"
@@ -1870,7 +1917,9 @@
                       id="tenantMoveoutDate"
                       name="moveoutDate"
                     />
-                    <div class="form-text">Optional - leave blank if still residing</div>
+                    <div class="form-text">
+                      Optional - leave blank if still residing
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1892,12 +1941,20 @@
                         id="tenantPassportPicUrl"
                         placeholder="Paste Cloudinary URL here"
                       />
-                      <button class="btn btn-outline-secondary" type="button" onclick="tenantManager.addImageFromUrl('passport')">
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        onclick="tenantManager.addImageFromUrl('passport')"
+                      >
                         <i class="bi bi-plus"></i> Add
                       </button>
                     </div>
                     <div class="d-grid gap-2">
-                      <button class="btn btn-outline-primary" type="button" onclick="tenantManager.openImageUpload('passport')">
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        onclick="tenantManager.openImageUpload('passport')"
+                      >
                         <i class="bi bi-cloud-upload"></i> Upload Images
                       </button>
                     </div>
@@ -1910,7 +1967,7 @@
                   </div>
                   <div class="col-md-6 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-credit-card me-1"></i>Visa Pictures  
+                      <i class="bi bi-credit-card me-1"></i>Visa Pictures
                     </label>
                     <div class="input-group mb-2">
                       <input
@@ -1919,12 +1976,20 @@
                         id="tenantVisaPicUrl"
                         placeholder="Paste Cloudinary URL here"
                       />
-                      <button class="btn btn-outline-secondary" type="button" onclick="tenantManager.addImageFromUrl('visa')">
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        onclick="tenantManager.addImageFromUrl('visa')"
+                      >
                         <i class="bi bi-plus"></i> Add
                       </button>
                     </div>
                     <div class="d-grid gap-2">
-                      <button class="btn btn-outline-primary" type="button" onclick="tenantManager.openImageUpload('visa')">
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        onclick="tenantManager.openImageUpload('visa')"
+                      >
                         <i class="bi bi-cloud-upload"></i> Upload Images
                       </button>
                     </div>
@@ -1938,14 +2003,26 @@
                 </div>
                 <div class="alert alert-info">
                   <i class="bi bi-info-circle me-2"></i>
-                  <strong>Multiple Images:</strong> Upload multiple passport/visa pages or sides. Click "Upload Images" to select multiple files at once, 
-                  or paste individual Cloudinary URLs. Images are automatically resized and optimized.
+                  <strong>Multiple Images:</strong> Upload multiple
+                  passport/visa pages or sides. Click "Upload Images" to select
+                  multiple files at once, or paste individual Cloudinary URLs.
+                  Images are automatically resized and optimized.
                 </div>
               </div>
 
               <!-- Hidden file inputs for uploads -->
-              <input type="file" id="imageUploadInput" accept="image/*" multiple style="display: none;" />
-              <input type="hidden" id="tenantPassportPics" name="passportPics" />
+              <input
+                type="file"
+                id="imageUploadInput"
+                accept="image/*"
+                multiple
+                style="display: none"
+              />
+              <input
+                type="hidden"
+                id="tenantPassportPics"
+                name="passportPics"
+              />
               <input type="hidden" id="tenantVisaPics" name="visaPics" />
 
               <!-- Status Information Section -->
