@@ -957,14 +957,35 @@ class TenancyOccupancyComponent {
           ? `\n${i18next.t("tenancyOccupancy.reason", "Reason")}: ${leavePlan.reason}`
           : "";
 
+        const reasonHtml = leavePlan.reason
+          ? `<div class="leave-plan-tooltip-reason">
+               <i class="bi bi-chat-left-text"></i>
+               <span>${this.escapeHtml(leavePlan.reason)}</span>
+             </div>`
+          : "";
+
         leavePlansHtml += `
                     <div class="leave-plan-bar"
                         data-leave-plan-id="${leavePlan.id}"
                         data-tenant-id="${tenant._id}"
                         data-property-id="${tenant.propertyId}"
                         style="left: ${lpLeftPercent}%; width: ${lpWidthPercent}%;"
-                        title="${i18next.t("tenancyOccupancy.leavePlan", "Leave/Holiday")}\n${lpStartStr} - ${lpEndStr}\n${lpDuration} ${daysText}${reasonText}"
                         onclick="tenancyOccupancyComponent.openLeavePlanModal('${tenant._id}', '${tenant.propertyId}', '${leavePlan.id}')">
+                        <div class="leave-plan-tooltip">
+                            <div class="leave-plan-tooltip-header">
+                                <i class="bi bi-luggage-fill"></i>
+                                <span>${i18next.t("tenancyOccupancy.leavePlan", "Leave/Holiday")}</span>
+                            </div>
+                            <div class="leave-plan-tooltip-dates">
+                                <i class="bi bi-calendar-event"></i>
+                                <span>${lpStartStr} - ${lpEndStr}</span>
+                            </div>
+                            <div class="leave-plan-tooltip-duration">
+                                <i class="bi bi-clock"></i>
+                                <span>${lpDuration} ${daysText}</span>
+                            </div>
+                            ${reasonHtml}
+                        </div>
                         <span class="leave-plan-delete-btn"
                             title="${i18next.t("tenancyOccupancy.delete", "Delete")}"
                             onclick="event.stopPropagation(); tenancyOccupancyComponent.deleteLeavePlanQuick('${tenant._id}', '${tenant.propertyId}', '${leavePlan.id}')">

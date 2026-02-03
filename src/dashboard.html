@@ -2465,6 +2465,94 @@
       opacity: 0.8;
     }
 
+    /* Leave plan tooltip */
+    .leave-plan-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      pointer-events: none;
+    }
+
+    .leave-plan-tooltip::before {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #374151;
+    }
+
+    .leave-plan-bar:hover .leave-plan-tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .leave-plan-tooltip-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #fbbf24;
+    }
+
+    .leave-plan-tooltip-header i {
+      font-size: 14px;
+    }
+
+    .leave-plan-tooltip-dates {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .leave-plan-tooltip-dates i {
+      color: #9ca3af;
+      font-size: 11px;
+    }
+
+    .leave-plan-tooltip-duration {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #d1d5db;
+    }
+
+    .leave-plan-tooltip-duration i {
+      color: #9ca3af;
+      font-size: 11px;
+    }
+
+    .leave-plan-tooltip-reason {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e5e7eb;
+      font-style: italic;
+    }
+
+    .leave-plan-tooltip-reason i {
+      color: #9ca3af;
+      font-size: 11px;
+    }
+
     .leave-days-badge {
       display: inline-flex;
       align-items: center;
