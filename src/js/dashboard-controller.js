@@ -554,6 +554,14 @@ class DashboardController {
         el.textContent = translated;
       }
     });
+    // Update all elements with data-i18n-placeholder
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      const translated = i18next.t(key);
+      if (translated) {
+        el.placeholder = translated;
+      }
+    });
   }
 }
 

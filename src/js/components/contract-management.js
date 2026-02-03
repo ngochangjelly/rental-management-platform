@@ -2,6 +2,8 @@
  * Contract Management Component
  * Handles contract creation with editor-like interface
  */
+import i18next from "i18next";
+
 class ContractManagementComponent {
   constructor() {
     this.tenants = [];
@@ -292,20 +294,20 @@ class ContractManagementComponent {
 
     // Clear existing options
     tenantASelect.innerHTML =
-      '<option value="">Select Tenant A (Main Tenant)</option>';
+      `<option value="">${i18next.t("createContract.tenantAMain", "Tenant A (Main Tenant)")}</option>`;
     tenantBSelect.innerHTML = ''; // No default option for multi-select
 
     // Add "Add New Tenant" options
     tenantASelect.innerHTML +=
-      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
+      `<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>${i18next.t("createContract.addNewTenant", "+ Add New Tenant")}</option>`;
     tenantBSelect.innerHTML +=
-      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>+ Add New Tenant</option>';
+      `<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-person-plus me-1"></i>${i18next.t("createContract.addNewTenant", "+ Add New Tenant")}</option>`;
 
     // Add "Enter Custom Text" option
     tenantASelect.innerHTML +=
-      '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+      `<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ ${i18next.t("createContract.enterCustomText", "Enter Custom Text")}</option>`;
     tenantBSelect.innerHTML +=
-      '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+      `<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ ${i18next.t("createContract.enterCustomText", "Enter Custom Text")}</option>`;
 
     // Populate custom checkbox dropdown for Tenant B
     this.populateTenantBCheckboxDropdown(filteredTenants, filteredInvestors);
@@ -313,8 +315,8 @@ class ContractManagementComponent {
     // Check if we have filtered tenants or investors
     if (filteredTenants.length === 0 && filteredInvestors.length === 0) {
       const message = this.selectedPropertyId
-        ? "No tenants or investors for selected property"
-        : "No tenants or investors available";
+        ? i18next.t("createContract.noTenantsForProperty", "No tenants or investors for selected property")
+        : i18next.t("createContract.noTenantsAvailable", "No tenants or investors available");
       console.warn(`⚠️ ${message}`);
       tenantASelect.innerHTML += `<option value="" disabled>${message}</option>`;
       tenantBSelect.innerHTML += `<option value="" disabled>${message}</option>`;
@@ -323,14 +325,14 @@ class ContractManagementComponent {
 
     // Add section header for tenants (only if we have filtered tenants)
     if (filteredTenants.length > 0) {
-      tenantASelect.innerHTML += '<optgroup label="── Tenants ──">';
-      tenantBSelect.innerHTML += '<optgroup label="── Tenants ──">';
+      tenantASelect.innerHTML += `<optgroup label="── ${i18next.t("createContract.tenants", "Tenants")} ──">`;
+      tenantBSelect.innerHTML += `<optgroup label="── ${i18next.t("createContract.tenants", "Tenants")} ──">`;
 
       // Populate with filtered tenant data
       filteredTenants.forEach((tenant) => {
         const fin = tenant.fin || tenant.id || "";
         const passport = tenant.passportNumber || tenant.passport || "";
-        const name = tenant.name || "Unnamed Tenant";
+        const name = tenant.name || i18next.t("createContract.unnamedTenant", "Unnamed Tenant");
 
         // Find the ORIGINAL index in the unfiltered array
         const originalIndex = this.tenants.findIndex((t) => t === tenant);
@@ -360,7 +362,7 @@ class ContractManagementComponent {
                 return this.getPropertyAddress(propId);
               })
               .join(", ");
-            propertyInfo = ` - Main tenant of: ${propertyAddresses}`;
+            propertyInfo = ` - ${i18next.t("createContract.mainTenantOf", "Main tenant of")}: ${propertyAddresses}`;
           } else {
             // Show first property if no main tenant status
             const firstProp = tenant.properties[0];
@@ -407,14 +409,14 @@ class ContractManagementComponent {
 
     // Add section header for investors (only if we have filtered investors)
     if (filteredInvestors.length > 0) {
-      tenantASelect.innerHTML += '<optgroup label="── Investors ──">';
-      tenantBSelect.innerHTML += '<optgroup label="── Investors ──">';
+      tenantASelect.innerHTML += `<optgroup label="── ${i18next.t("createContract.investors", "Investors")} ──">`;
+      tenantBSelect.innerHTML += `<optgroup label="── ${i18next.t("createContract.investors", "Investors")} ──">`;
 
       // Populate with filtered investor data
       filteredInvestors.forEach((investor) => {
         const fin = investor.fin || "";
         const passport = investor.passport || "";
-        const name = investor.name || "Unnamed Investor";
+        const name = investor.name || i18next.t("createContract.unnamedInvestor", "Unnamed Investor");
         const investorId = investor.investorId;
 
         // Find the ORIGINAL index in the unfiltered array
@@ -530,7 +532,7 @@ class ContractManagementComponent {
     // Add search input
     dropdownMenu.innerHTML += `
       <div class="px-3 pt-3 pb-2">
-        <input type="text" class="form-control form-control-sm" id="tenantBSearchInput" placeholder="🔍 Search tenants..." style="border-radius: 4px;">
+        <input type="text" class="form-control form-control-sm" id="tenantBSearchInput" placeholder="🔍 ${i18next.t("createContract.searchTenant", "Search tenant...")}" style="border-radius: 4px;">
       </div>
       <div class="dropdown-divider my-0"></div>
     `;
@@ -540,13 +542,13 @@ class ContractManagementComponent {
       <div class="form-check px-3 py-2" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
         <input class="form-check-input" type="checkbox" value="ADD_NEW_TENANT" id="tenantB_add_new" style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
         <label class="form-check-label" for="tenantB_add_new" style="color: #0d6efd; font-weight: 500; cursor: pointer; flex: 1; margin: 0;">
-          <i class="bi bi-person-plus me-1"></i>Add New Tenant
+          <i class="bi bi-person-plus me-1"></i>${i18next.t("createContract.addNewTenant", "+ Add New Tenant")}
         </label>
       </div>
       <div class="form-check px-3 py-2" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
         <input class="form-check-input" type="checkbox" value="CUSTOM_TEXT" id="tenantB_custom" style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
         <label class="form-check-label" for="tenantB_custom" style="color: #198754; font-weight: 500; cursor: pointer; flex: 1; margin: 0;">
-          ✏️ Enter Custom Text
+          ✏️ ${i18next.t("createContract.enterCustomText", "Enter Custom Text")}
         </label>
       </div>
       <div class="dropdown-divider my-0"></div>
@@ -554,12 +556,12 @@ class ContractManagementComponent {
 
     // Add tenants section
     if (filteredTenants.length > 0) {
-      dropdownMenu.innerHTML += '<div class="px-3 py-2" style="background-color: #f8f9fa; font-weight: 600; font-size: 0.875rem;">Tenants</div>';
+      dropdownMenu.innerHTML += `<div class="px-3 py-2" style="background-color: #f8f9fa; font-weight: 600; font-size: 0.875rem;">${i18next.t("createContract.tenants", "Tenants")}</div>`;
 
       filteredTenants.forEach((tenant, index) => {
         const fin = tenant.fin || tenant.id || "";
         const passport = tenant.passportNumber || tenant.passport || "";
-        const name = tenant.name || "Unnamed Tenant";
+        const name = tenant.name || i18next.t("createContract.unnamedTenant", "Unnamed Tenant");
         const originalIndex = this.tenants.findIndex((t) => t === tenant);
         const identifier = fin || `tenant_${originalIndex}`;
 
@@ -585,12 +587,12 @@ class ContractManagementComponent {
     // Add investors section
     if (filteredInvestors.length > 0) {
       dropdownMenu.innerHTML += '<div class="dropdown-divider my-0"></div>';
-      dropdownMenu.innerHTML += '<div class="px-3 py-2" style="background-color: #f8f9fa; font-weight: 600; font-size: 0.875rem;">Investors</div>';
+      dropdownMenu.innerHTML += `<div class="px-3 py-2" style="background-color: #f8f9fa; font-weight: 600; font-size: 0.875rem;">${i18next.t("createContract.investors", "Investors")}</div>`;
 
       filteredInvestors.forEach((investor, index) => {
         const fin = investor.fin || "";
         const passport = investor.passport || "";
-        const name = investor.name || "Unnamed Investor";
+        const name = investor.name || i18next.t("createContract.unnamedInvestor", "Unnamed Investor");
         const investorId = investor.investorId;
         const originalIndex = this.investors.findIndex((i) => i === investor);
         const identifier = `investor_${investorId}`;
@@ -696,14 +698,14 @@ class ContractManagementComponent {
     if (!displayText) return;
 
     if (checkboxes.length === 0) {
-      displayText.textContent = 'Select tenants...';
+      displayText.textContent = i18next.t("createContract.selectTenants", "Select tenants...");
       displayText.className = 'text-muted';
     } else if (checkboxes.length === 1) {
       const name = checkboxes[0].getAttribute('data-name');
       displayText.textContent = name;
       displayText.className = 'text-dark';
     } else {
-      displayText.textContent = `${checkboxes.length} tenants selected`;
+      displayText.textContent = i18next.t("createContract.tenantsSelected", "{{count}} tenants selected").replace("{{count}}", checkboxes.length);
       displayText.className = 'text-dark';
     }
   }
@@ -747,7 +749,7 @@ class ContractManagementComponent {
         searchInput.id = searchId;
         searchInput.className = "form-control form-control-sm mb-2";
         searchInput.placeholder =
-          "🔍 Search tenant by name, FIN, or passport...";
+          `🔍 ${i18next.t("createContract.searchTenantDetailed", "Search tenant by name, FIN, or passport...")}`;
         searchInput.style.fontSize = "0.875rem";
 
         // Insert before the select element
@@ -802,13 +804,13 @@ class ContractManagementComponent {
     });
 
     // Rebuild select options
-    selectElement.innerHTML = '<option value="">Select Tenant</option>';
+    selectElement.innerHTML = `<option value="">${i18next.t("createContract.selectTenant", "Select Tenant")}</option>`;
     selectElement.innerHTML +=
-      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
+      `<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">${i18next.t("createContract.addNewTenant", "+ Add New Tenant")}</option>`;
 
     if (matchingOptions.length === 0) {
       selectElement.innerHTML +=
-        '<option value="" disabled>No matching tenants found</option>';
+        `<option value="" disabled>${i18next.t("createContract.noTenantsAvailable", "No tenants or investors available")}</option>`;
     } else {
       // Group by type (tenant vs investor)
       const tenantOptions = matchingOptions.filter(
@@ -820,7 +822,7 @@ class ContractManagementComponent {
 
       if (tenantOptions.length > 0) {
         const optgroup = document.createElement("optgroup");
-        optgroup.label = "── Tenants ──";
+        optgroup.label = `── ${i18next.t("createContract.tenants", "Tenants")} ──`;
         tenantOptions.forEach((opt) =>
           optgroup.appendChild(opt.cloneNode(true))
         );
@@ -829,7 +831,7 @@ class ContractManagementComponent {
 
       if (investorOptions.length > 0) {
         const optgroup = document.createElement("optgroup");
-        optgroup.label = "── Investors ──";
+        optgroup.label = `── ${i18next.t("createContract.investors", "Investors")} ──`;
         investorOptions.forEach((opt) =>
           optgroup.appendChild(opt.cloneNode(true))
         );
@@ -850,9 +852,9 @@ class ContractManagementComponent {
   restoreAllOptions(selectElement, allOptions) {
     const currentValue = selectElement.value;
 
-    selectElement.innerHTML = '<option value="">Select Tenant</option>';
+    selectElement.innerHTML = `<option value="">${i18next.t("createContract.selectTenant", "Select Tenant")}</option>`;
     selectElement.innerHTML +=
-      '<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">+ Add New Tenant</option>';
+      `<option value="ADD_NEW_TENANT" style="color: #0d6efd; font-weight: 500;">${i18next.t("createContract.addNewTenant", "+ Add New Tenant")}</option>`;
 
     // Group by type
     const tenantOptions = allOptions.filter(
@@ -864,14 +866,14 @@ class ContractManagementComponent {
 
     if (tenantOptions.length > 0) {
       const optgroup = document.createElement("optgroup");
-      optgroup.label = "── Tenants ──";
+      optgroup.label = `── ${i18next.t("createContract.tenants", "Tenants")} ──`;
       tenantOptions.forEach((opt) => optgroup.appendChild(opt.cloneNode(true)));
       selectElement.appendChild(optgroup);
     }
 
     if (investorOptions.length > 0) {
       const optgroup = document.createElement("optgroup");
-      optgroup.label = "── Investors ──";
+      optgroup.label = `── ${i18next.t("createContract.investors", "Investors")} ──`;
       investorOptions.forEach((opt) =>
         optgroup.appendChild(opt.cloneNode(true))
       );
@@ -903,21 +905,20 @@ class ContractManagementComponent {
 
     // Clear existing options
     addressSelect.innerHTML =
-      '<option value="">Select property address</option>';
+      `<option value="">${i18next.t("createContract.selectPropertyAddress", "Select property address")}</option>`;
 
     // Add "Add New Property" option
     addressSelect.innerHTML +=
-      '<option value="ADD_NEW_PROPERTY" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-building-plus me-1"></i>+ Add New Property</option>';
+      `<option value="ADD_NEW_PROPERTY" style="color: #0d6efd; font-weight: 500;"><i class="bi bi-building-plus me-1"></i>${i18next.t("createContract.addNewProperty", "+ Add New Property")}</option>`;
 
     // Add "Enter Custom Text" option
     addressSelect.innerHTML +=
-      '<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ Enter Custom Text</option>';
+      `<option value="CUSTOM_TEXT" style="color: #198754; font-weight: 500;">✏️ ${i18next.t("createContract.enterCustomText", "Enter Custom Text")}</option>`;
 
     // Check if we have properties
     if (!this.properties || this.properties.length === 0) {
-      console.warn("⚠️ No properties available to populate dropdown");
       addressSelect.innerHTML +=
-        '<option value="" disabled>No properties available</option>';
+        `<option value="" disabled>${i18next.t("createContract.noPropertiesAvailable", "No properties available")}</option>`;
       return;
     }
 
@@ -927,7 +928,7 @@ class ContractManagementComponent {
         property.address ||
         property.location ||
         property.name ||
-        "Unknown Address";
+        i18next.t("createContract.unknownAddress", "Unknown Address");
       const id = property.propertyId || property.id || property._id || "";
 
       console.log(
@@ -1955,7 +1956,7 @@ class ContractManagementComponent {
                 <div class="mb-3 additional-clause" data-id="${clause.id}">
                     <div class="input-group">
                         <span class="input-group-text">${letter})</span>
-                        <textarea class="form-control" rows="3" placeholder="Enter additional clause..."
+                        <textarea class="form-control" rows="3" placeholder="${i18next.t("createContract.enterAdditionalClause", "Enter additional clause...")}"
                                   onchange="contractManager.updateClause(${clause.id}, this.value)"
                                   onfocus="this.style.minHeight='120px'">${clause.text}</textarea>
                         <button class="btn btn-outline-danger" type="button" 
@@ -2025,13 +2026,13 @@ class ContractManagementComponent {
 
       // Validate file type and size
       if (!file.type.startsWith("image/")) {
-        alert("Please select an image file (PNG, JPG, etc.)");
+        alert(i18next.t("createContract.pleaseSelectImage", "Please select an image file (PNG, JPG, etc.)"));
         return;
       }
 
       if (file.size > 10 * 1024 * 1024) {
         // 10MB limit
-        alert("File size must be less than 10MB");
+        alert(i18next.t("createContract.fileSizeMustBeLess", "File size must be less than 10MB"));
         return;
       }
 

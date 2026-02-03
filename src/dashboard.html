@@ -4109,7 +4109,7 @@
                           >Property Address</label
                         >
                         <select class="form-select" id="contractAddress">
-                          <option value="">Select property address</option>
+                          <option value="" data-i18n="createContract.selectPropertyAddress">Select property address</option>
                         </select>
 
                         <!-- Custom Text Input (initially hidden) -->
@@ -4160,33 +4160,21 @@
                           >Room Type</label
                         >
                         <select class="form-select" id="contractRoom">
-                          <option value="">Select room type</option>
-                          <option value="COMMON1">Common 1</option>
-                          <option value="COMMON2">Common 2</option>
-                          <option value="MASTER">Master</option>
-                          <option value="COMPARTMENT1">Compartment 1</option>
-                          <option value="COMPARTMENT2">Compartment 2</option>
-                          <option value="STORE">Store</option>
-                          <option value="COMMON_1_PAX">Common 1 Pax</option>
-                          <option value="COMMON_2_PAX">Common 2 Pax</option>
-                          <option value="SMALL_SINGLE_1_PAX">
-                            Small Single 1 Pax
-                          </option>
-                          <option value="SMALL_SINGLE_2_PAX">
-                            Small Single 2 Pax
-                          </option>
-                          <option value="BIG_SINGLE_1_PAX">
-                            Big Single 1 Pax
-                          </option>
-                          <option value="BIG_SINGLE_2_PAX">
-                            Big Single 2 Pax
-                          </option>
-                          <option value="SINGLE_1_PAX_NO_AIRCON">
-                            Single 1 Pax No Aircon
-                          </option>
-                          <option value="SINGLE_2_PAX_NO_AIRCON">
-                            Single 2 Pax No Aircon
-                          </option>
+                          <option value="" data-i18n="createContract.selectRoomType">Select room type</option>
+                          <option value="COMMON1" data-i18n="createContract.roomTypes.common1">Common 1</option>
+                          <option value="COMMON2" data-i18n="createContract.roomTypes.common2">Common 2</option>
+                          <option value="MASTER" data-i18n="createContract.roomTypes.master">Master</option>
+                          <option value="COMPARTMENT1" data-i18n="createContract.roomTypes.compartment1">Compartment 1</option>
+                          <option value="COMPARTMENT2" data-i18n="createContract.roomTypes.compartment2">Compartment 2</option>
+                          <option value="STORE" data-i18n="createContract.roomTypes.store">Store</option>
+                          <option value="COMMON_1_PAX" data-i18n="createContract.roomTypes.common1Pax">Common 1 Pax</option>
+                          <option value="COMMON_2_PAX" data-i18n="createContract.roomTypes.common2Pax">Common 2 Pax</option>
+                          <option value="SMALL_SINGLE_1_PAX" data-i18n="createContract.roomTypes.smallSingle1Pax">Small Single 1 Pax</option>
+                          <option value="SMALL_SINGLE_2_PAX" data-i18n="createContract.roomTypes.smallSingle2Pax">Small Single 2 Pax</option>
+                          <option value="BIG_SINGLE_1_PAX" data-i18n="createContract.roomTypes.bigSingle1Pax">Big Single 1 Pax</option>
+                          <option value="BIG_SINGLE_2_PAX" data-i18n="createContract.roomTypes.bigSingle2Pax">Big Single 2 Pax</option>
+                          <option value="SINGLE_1_PAX_NO_AIRCON" data-i18n="createContract.roomTypes.single1PaxNoAircon">Single 1 Pax No Aircon</option>
+                          <option value="SINGLE_2_PAX_NO_AIRCON" data-i18n="createContract.roomTypes.single2PaxNoAircon">Single 2 Pax No Aircon</option>
                         </select>
                       </div>
 
@@ -4196,7 +4184,7 @@
                           >Tenant A (Main Tenant)</label
                         >
                         <select class="form-select" id="contractTenantA">
-                          <option value="">Select Tenant A</option>
+                          <option value="" data-i18n="createContract.selectTenantA">Select Tenant A</option>
                         </select>
 
                         <!-- Custom Text Input (initially hidden) -->
@@ -4285,9 +4273,9 @@
 
                       <div class="mb-3">
                         <label class="form-label"
-                          >Tenant B
+                          ><span data-i18n="createContract.tenantB">Tenant B</span>
                           <small class="text-muted"
-                            >(Can select multiple)</small
+                            >(<span data-i18n="createContract.canSelectMultiple">Can select multiple</span>)</small
                           ></label
                         >
 
@@ -4308,7 +4296,7 @@
                             aria-expanded="false"
                             style="min-height: 38px; padding-right: 40px"
                           >
-                            <span id="tenantBSelectedText" class="text-muted"
+                            <span id="tenantBSelectedText" class="text-muted" data-i18n="createContract.selectTenants"
                               >Select tenants...</span
                             >
                           </button>
@@ -4408,6 +4396,7 @@
                           class="form-control"
                           id="contractLeasePeriod"
                           placeholder="e.g., 6 months"
+                          data-i18n-placeholder="createContract.leasePeriodPlaceholder"
                         />
                       </div>
 
@@ -4544,11 +4533,9 @@
                           >Payment Method</label
                         >
                         <select class="form-select" id="contractPaymentMethod">
-                          <option value="CASH">Cash</option>
-                          <option value="BANK_TRANSFER" selected>
-                            Bank Transfer
-                          </option>
-                          <option value="CHECK">Check</option>
+                          <option value="CASH" data-i18n="createContract.paymentMethods.cash">Cash</option>
+                          <option value="BANK_TRANSFER" selected data-i18n="createContract.paymentMethods.bankTransfer">Bank Transfer</option>
+                          <option value="CHECK" data-i18n="createContract.paymentMethods.check">Check</option>
                         </select>
                       </div>
 
