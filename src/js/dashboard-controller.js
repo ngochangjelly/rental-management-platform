@@ -223,6 +223,10 @@ class DashboardController {
         // Just trigger data load when section is shown
         if (window.tenancyOccupancyComponent) {
           window.tenancyOccupancyComponent.loadData();
+        } else {
+          console.error(
+            "[DEBUG] tenancyOccupancyComponent not found on window!",
+          );
         }
         break;
     }
@@ -495,26 +499,60 @@ class DashboardController {
   }
 
   setupLanguageSwitcher() {
-    const languageToggle = document.getElementById("languageToggle");
-    if (languageToggle) {
-      // Set initial flag
-      languageToggle.textContent = i18next.language === "vi" ? "🇻🇳" : "🇺🇸";
-      languageToggle.addEventListener("click", () => {
-        const newLang = i18next.language === "vi" ? "en" : "vi";
-        i18next.changeLanguage(newLang).then(() => {
-          languageToggle.textContent = newLang === "vi" ? "🇻🇳" : "🇺🇸";
+    const languageControl = document.getElementById("languageSwitcherControl");
+    if (!languageControl) return;
+
+    // Helper to update UI state
+    const updateToggleUI = (lang) => {
+      const normalizedLang = (lang || "vi").substring(0, 2).toLowerCase();
+
+      // Update active state
+      const options = newControl.querySelectorAll(".segment-option");
+      options.forEach(opt => {
+        if (opt.getAttribute("data-lang") === normalizedLang) {
+          opt.classList.add("active");
+        } else {
+          opt.classList.remove("active");
+        }
+      });
+    };
+
+    // Remove existing listener to prevent duplicates (using cloneNode approach on container)
+    const newControl = languageControl.cloneNode(true);
+    languageControl.parentNode.replaceChild(newControl, languageControl);
+
+    // Initial setup
+    updateToggleUI(i18next.language);
+
+    // Add click listeners to segments
+    newControl.querySelectorAll(".segment-option").forEach(option => {
+      option.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const targetLang = option.getAttribute("data-lang");
+
+        // Don't do anything if already active
+        if (option.classList.contains("active")) return;
+
+        try {
+          await i18next.changeLanguage(targetLang);
+          updateToggleUI(targetLang);
           this.updateTranslations();
           this.updateCurrentDate();
-        });
+        } catch (err) {
+          console.error("Failed to switch language:", err);
+        }
       });
-    }
+    });
   }
 
   updateTranslations() {
     // Update all elements with data-i18n
     document.querySelectorAll("[data-i18n]").forEach((el) => {
       const key = el.getAttribute("data-i18n");
-      el.textContent = i18next.t(key);
+      const translated = i18next.t(key);
+      if (translated) {
+        el.textContent = translated;
+      }
     });
   }
 }

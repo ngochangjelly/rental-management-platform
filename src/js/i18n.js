@@ -26,6 +26,31 @@ i18next.init({
         dashboard: {
           title: "Dashboard",
           currentDate: "Current Date:",
+          features: {
+            contractAnalysis: "Contract Analysis",
+            contractAnalysisDesc: "Upload and analyze tenancy agreements for potentially unfavorable terms",
+            propertyManagement: "Property Management",
+            propertyManagementDesc: "Manage your rental properties and track performance",
+            tenantManagement: "Tenant Management",
+            tenantManagementDesc: "Manage tenant information and property assignments",
+            createContract: "Create Contract",
+            createContractDesc: "Generate rental agreements with tenant information",
+            financialReports: "Financial Reports",
+            financialReportsDesc: "Track monthly income, expenses, and investor profits",
+            investorManagement: "Investor Management",
+            investorManagementDesc: "Manage investors, their property investments and percentages",
+          },
+          badges: {
+            availableNow: "Available Now",
+            newFeature: "New Feature",
+            new: "New",
+          },
+          stats: {
+            totalProperties: "Total Properties",
+            totalTenants: "Total Tenants",
+            registeredTenants: "Registered Tenants",
+            occupiedProperties: "Occupied Properties",
+          },
         },
         tenancyOccupancy: {
           title: "Tenancy Occupancy",
@@ -101,6 +126,31 @@ i18next.init({
         dashboard: {
           title: "Trang chủ",
           currentDate: "Ngày hiện tại:",
+          features: {
+            contractAnalysis: "Phân tích hợp đồng",
+            contractAnalysisDesc: "Tải lên và phân tích hợp đồng thuê để tìm các điều khoản bất lợi",
+            propertyManagement: "Quản lý bất động sản",
+            propertyManagementDesc: "Quản lý bất động sản cho thuê và theo dõi hiệu suất",
+            tenantManagement: "Quản lý người thuê",
+            tenantManagementDesc: "Quản lý thông tin người thuê và phân công nhà",
+            createContract: "Tạo hợp đồng",
+            createContractDesc: "Tạo hợp đồng thuê với thông tin người thuê",
+            financialReports: "Báo cáo tài chính",
+            financialReportsDesc: "Theo dõi thu nhập, chi phí và lợi nhuận nhà đầu tư",
+            investorManagement: "Quản lý nhà đầu tư",
+            investorManagementDesc: "Quản lý nhà đầu tư, khoản đầu tư và tỷ lệ phần trăm",
+          },
+          badges: {
+            availableNow: "Có sẵn",
+            newFeature: "Tính năng mới",
+            new: "Mới",
+          },
+          stats: {
+            totalProperties: "Tổng số nhà",
+            totalTenants: "Tổng người thuê",
+            registeredTenants: "Đã đăng ký",
+            occupiedProperties: "Đang có khách",
+          },
         },
         tenancyOccupancy: {
           title: "Quản lí trống phòng",
