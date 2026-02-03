@@ -407,10 +407,12 @@ class TenancyOccupancyComponent {
 
         // Calculate today marker position
         const todayPosition = this.getTodayMarkerPosition();
+        const today = new Date();
+        const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
         const todayMarkerHtml = todayPosition !== null ? `
-            <div class="today-marker" style="left: ${todayPosition}%;" title="${i18next.t('tenancyOccupancy.today', 'Today')}">
+            <div class="today-marker" style="left: ${todayPosition}%;" title="${i18next.t('tenancyOccupancy.today', 'Today')} - ${todayFormatted}">
                 <div class="today-marker-line"></div>
-                <div class="today-marker-label">${i18next.t('tenancyOccupancy.today', 'Today')}</div>
+                <div class="today-marker-label">${todayFormatted}</div>
             </div>
         ` : '';
 
