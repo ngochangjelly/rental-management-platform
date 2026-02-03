@@ -56,7 +56,8 @@ i18next.init({
           // Leave plan translations
           leavePlan: "Leave/Holiday",
           addLeavePlan: "Add Leave Plan",
-          addLeavePlanTooltip: "Add away days when tenant is on holiday or away from home. This will be deducted from utility expenses.",
+          addLeavePlanTooltip:
+            "Add away days when tenant is on holiday or away from home. This will be deducted from utility expenses.",
           awayDays: "Away",
           editLeavePlan: "Edit Leave Plan",
           totalLeaveDays: "Total leave days",
@@ -90,7 +91,7 @@ i18next.init({
           createContract: "Tạo hợp đồng",
           financialReports: "Báo cáo tài chính",
           billManagement: "Quản lý hóa đơn",
-          bulkPropertyReports: "Báo cáo bất động sản hàng loạt",
+          bulkPropertyReports: "Báo cáo nhiều nhà",
           acCleanManagement: "Vệ sinh máy lạnh",
           investors: "Nhà đầu tư",
           users: "Người dùng",
@@ -130,7 +131,8 @@ i18next.init({
           // Leave plan translations
           leavePlan: "Vắng nhà",
           addLeavePlan: "Thêm ngày vắng nhà",
-          addLeavePlanTooltip: "Thêm ngày vắng nhà khi người thuê đi du lịch hoặc về quê. Số ngày này sẽ được trừ vào chi phí điện nước.",
+          addLeavePlanTooltip:
+            "Thêm ngày vắng nhà khi người thuê đi du lịch hoặc về quê. Số ngày này sẽ được trừ vào chi phí điện nước.",
           awayDays: "Vắng",
           editLeavePlan: "Sửa ngày vắng nhà",
           totalLeaveDays: "Tổng ngày vắng nhà",
