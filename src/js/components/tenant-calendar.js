@@ -125,6 +125,26 @@ class TenantCalendar {
     }
 
     /**
+     * Calculate today marker position as percentage
+     */
+    getTodayMarkerPosition() {
+        const today = new Date();
+        const todayYear = today.getFullYear();
+
+        // Only show marker if viewing current year
+        if (todayYear !== this.currentYear) {
+            return null;
+        }
+
+        const yearStart = new Date(this.currentYear, 0, 1);
+        const yearEnd = new Date(this.currentYear, 11, 31);
+        const totalDaysInYear = Math.ceil((yearEnd - yearStart) / (1000 * 60 * 60 * 24)) + 1;
+        const daysFromYearStart = Math.floor((today - yearStart) / (1000 * 60 * 60 * 24));
+
+        return (daysFromYearStart / totalDaysInYear) * 100;
+    }
+
+    /**
      * Generate the calendar HTML with timeline bars
      */
     generateCalendarHTML(tenants) {
@@ -140,12 +160,24 @@ class TenantCalendar {
 
         const totalDaysInYear = daysInMonths.reduce((sum, days) => sum + days, 0);
 
+        // Calculate today marker position
+        const todayPosition = this.getTodayMarkerPosition();
+        const today = new Date();
+        const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+        const todayMarkerHtml = todayPosition !== null ? `
+            <div class="today-marker" style="left: ${todayPosition}%;" title="Today - ${todayFormatted}">
+                <div class="today-marker-line"></div>
+                <div class="today-marker-label">${todayFormatted}</div>
+            </div>
+        ` : '';
+
         let html = `
-            <div class="tenant-timeline-calendar">
+            <div class="tenant-timeline-calendar" style="position: relative;">
+                ${todayMarkerHtml}
                 <!-- Month Headers -->
                 <div class="calendar-header">
                     <div class="tenant-name-column">Tenant</div>
-                    <div class="timeline-container">
+                    <div class="timeline-container" style="position: relative;">
         `;
 
         // Render month headers
@@ -203,11 +235,18 @@ class TenantCalendar {
         const widthPercent = (barDuration / totalDaysInYear) * 100;
 
         // Determine bar color based on status
+        const today = new Date();
+        const fortyDaysFromNow = new Date(today.getTime() + (40 * 24 * 60 * 60 * 1000));
+
         let barColor = '#667eea'; // Default blue
+        let isFutureMoveout = false;
         if (!tenant.moveoutDate) {
             barColor = '#48bb78'; // Green for current tenants
-        } else if (moveoutDate && moveoutDate < new Date()) {
+        } else if (moveoutDate && moveoutDate < today) {
             barColor = '#a0aec0'; // Gray for past tenants
+        } else if (moveoutDate && moveoutDate >= today && moveoutDate <= fortyDaysFromNow) {
+            barColor = '#ef4444'; // Red for tenants moving out within 40 days (Sắp trả phòng)
+            isFutureMoveout = true;
         }
 
         // Format dates for tooltip
@@ -282,7 +321,7 @@ class TenantCalendar {
                 </div>
                 <div class="timeline-container">
                     <div
-                        class="occupancy-bar ${!tenant.moveoutDate ? 'current-tenant' : ''}"
+                        class="occupancy-bar ${!tenant.moveoutDate ? 'current-tenant' : ''} ${isFutureMoveout ? 'future-moveout' : ''}"
                         style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};"
                         title="${displayName}\n${moveinStr} - ${moveoutStr}\nDuration: ${duration} days">
                         <span class="occupancy-bar-label">${this.escapeHtml(displayName)}</span>

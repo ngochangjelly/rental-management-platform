@@ -480,11 +480,18 @@ class TenancyOccupancyComponent {
         const widthPercent = (barDuration / totalDaysInYear) * 100;
 
         // Determine bar color based on status
+        const today = new Date();
+        const fortyDaysFromNow = new Date(today.getTime() + (40 * 24 * 60 * 60 * 1000));
+
         let barColor = '#667eea'; // Default blue
+        let isFutureMoveout = false;
         if (!tenant.moveoutDate) {
             barColor = '#48bb78'; // Green for current tenants
-        } else if (moveoutDate && moveoutDate < new Date()) {
+        } else if (moveoutDate && moveoutDate < today) {
             barColor = '#a0aec0'; // Gray for past tenants
+        } else if (moveoutDate && moveoutDate >= today && moveoutDate <= fortyDaysFromNow) {
+            barColor = '#ef4444'; // Red for tenants moving out within 40 days (Sắp trả phòng)
+            isFutureMoveout = true;
         }
 
         // Format dates for tooltip
@@ -562,7 +569,7 @@ class TenancyOccupancyComponent {
                 </div>
                 <div class="timeline-container">
                     <div
-                        class="occupancy-bar ${!tenant.moveoutDate ? 'current-tenant' : ''}"
+                        class="occupancy-bar ${!tenant.moveoutDate ? 'current-tenant' : ''} ${isFutureMoveout ? 'future-moveout' : ''}"
                         style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};"
                         title="${displayName}\n${moveinStr} - ${moveoutStr}\n${durationText}: ${duration} ${daysText}">
                         <span class="occupancy-bar-label">${this.escapeHtml(displayName)}</span>
