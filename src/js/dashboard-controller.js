@@ -218,6 +218,13 @@ class DashboardController {
           window.userManagement = this.components.userManagement;
         }
         break;
+      case "tenancy-occupancy":
+        // Tenancy occupancy component is initialized globally
+        // Just trigger data load when section is shown
+        if (window.tenancyOccupancyComponent) {
+          window.tenancyOccupancyComponent.loadData();
+        }
+        break;
     }
   }
 

@@ -5,6 +5,7 @@
         "contractAnalysis": "Contract Analysis",
         "properties": "Properties",
         "tenants": "Tenants",
+        "tenancyOccupancy": "Tenancy Occupancy",
         "createContract": "Create Contract",
         "financialReports": "Financial Reports",
         "billManagement": "Bill Management",
@@ -18,5 +19,32 @@
     "dashboard": {
         "title": "Dashboard",
         "currentDate": "Current Date:"
+    },
+    "tenancyOccupancy": {
+        "title": "Tenancy Occupancy",
+        "loading": "Loading...",
+        "loadingData": "Loading occupancy data...",
+        "error": "Error loading occupancy data. Please try again.",
+        "retry": "Retry",
+        "noProperties": "No properties found.",
+        "noTenants": "No tenant occupancy data for {{year}}",
+        "tenant": "Tenant",
+        "present": "Present",
+        "moveOut": "Move-out",
+        "duration": "Duration",
+        "days": "days",
+        "currentTenants": "Current tenants",
+        "totalInYear": "Total in {{year}}",
+        "active": "active",
+        "total": "total",
+        "currentTenant": "Current Tenant",
+        "futureMoveout": "Future Move-out",
+        "pastTenant": "Past Tenant",
+        "selectToLoad": "Loading occupancy data...",
+        "searchPlaceholder": "Search tenant...",
+        "allRooms": "All Rooms",
+        "activeOnly": "Active Only",
+        "clear": "Clear",
+        "today": "Today"
     }
 }

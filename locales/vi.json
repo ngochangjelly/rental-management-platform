@@ -5,6 +5,7 @@
         "contractAnalysis": "Phân tích hợp đồng",
         "properties": "Danh sách nhà",
         "tenants": "Quản lí Người thuê",
+        "tenancyOccupancy": "Quản lí trống phòng",
         "createContract": "Tạo hợp đồng",
         "financialReports": "Báo cáo tài chính",
         "billManagement": "Tạo hóa đơn",
@@ -18,5 +19,32 @@
     "dashboard": {
         "title": "Trang chủ",
         "currentDate": "Ngày hiện tại:"
+    },
+    "tenancyOccupancy": {
+        "title": "Quản lí trống phòng",
+        "loading": "Đang tải...",
+        "loadingData": "Đang tải dữ liệu...",
+        "error": "Lỗi tải dữ liệu. Vui lòng thử lại.",
+        "retry": "Thử lại",
+        "noProperties": "Không tìm thấy nhà.",
+        "noTenants": "Không có dữ liệu cho năm {{year}}",
+        "tenant": "Người thuê",
+        "present": "Hiện tại",
+        "moveOut": "Ngày trả phòng",
+        "duration": "Thời gian",
+        "days": "ngày",
+        "currentTenants": "Người thuê hiện tại",
+        "totalInYear": "Tổng trong năm {{year}}",
+        "active": "đang ở",
+        "total": "tổng",
+        "currentTenant": "Đang ở",
+        "futureMoveout": "Sắp trả phòng",
+        "pastTenant": "Đã trả phòng",
+        "selectToLoad": "Đang tải dữ liệu...",
+        "searchPlaceholder": "Tìm người thuê...",
+        "allRooms": "Tất cả phòng",
+        "activeOnly": "Chỉ đang ở",
+        "clear": "Xóa",
+        "today": "Hôm nay"
     }
 }
