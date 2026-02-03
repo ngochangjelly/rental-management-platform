@@ -45,6 +45,27 @@
         "allRooms": "Tất cả phòng",
         "activeOnly": "Chỉ đang ở",
         "clear": "Xóa",
-        "today": "Hôm nay"
+        "today": "Hôm nay",
+        "leavePlan": "Vắng nhà",
+        "addLeavePlan": "Thêm ngày vắng nhà",
+        "addLeavePlanTooltip": "Thêm ngày vắng nhà khi người thuê đi du lịch hoặc về quê. Số ngày này sẽ được trừ vào chi phí điện nước.",
+        "awayDays": "Vắng",
+        "editLeavePlan": "Sửa ngày vắng nhà",
+        "totalLeaveDays": "Tổng ngày vắng nhà",
+        "startDate": "Ngày bắt đầu",
+        "endDate": "Ngày kết thúc",
+        "reason": "Lý do",
+        "reasonPlaceholder": "VD: Về quê, Du lịch",
+        "save": "Lưu",
+        "cancel": "Hủy",
+        "delete": "Xóa",
+        "confirmDelete": "Bạn có chắc muốn xóa ngày vắng nhà này?",
+        "leavePlanAdded": "Đã thêm ngày vắng nhà",
+        "leavePlanUpdated": "Đã cập nhật ngày vắng nhà",
+        "leavePlanDeleted": "Đã xóa ngày vắng nhà",
+        "datesRequired": "Ngày bắt đầu và kết thúc là bắt buộc",
+        "invalidDateRange": "Ngày bắt đầu phải trước ngày kết thúc",
+        "saveFailed": "Lỗi lưu ngày vắng nhà",
+        "deleteFailed": "Lỗi xóa ngày vắng nhà"
     }
 }

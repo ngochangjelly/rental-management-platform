@@ -117,7 +117,9 @@ class TenantCalendar {
                     moveinDate: propertyAssignment.moveinDate,
                     moveoutDate: propertyAssignment.moveoutDate,
                     room: propertyAssignment.room,
-                    isMainTenant: propertyAssignment.isMainTenant
+                    isMainTenant: propertyAssignment.isMainTenant,
+                    leavePlans: propertyAssignment.leavePlans || [],
+                    propertyId: propertyAssignment.propertyId
                 };
             })
             .filter(t => t !== null && t.room) // Filter out tenants without a room
@@ -307,13 +309,58 @@ class TenantCalendar {
             `;
         }
 
+        // Generate leave plan intervals (yellow bars)
+        let leavePlansHtml = '';
+        let totalLeaveDays = 0;
+
+        if (tenant.leavePlans && tenant.leavePlans.length > 0) {
+            tenant.leavePlans.forEach(leavePlan => {
+                const lpStart = new Date(leavePlan.startDate);
+                const lpEnd = new Date(leavePlan.endDate);
+
+                // Only show leave plans that overlap with current year
+                if (lpEnd < yearStart || lpStart > yearEnd) return;
+
+                // Clamp to current year
+                const clampedStart = lpStart < yearStart ? yearStart : lpStart;
+                const clampedEnd = lpEnd > yearEnd ? yearEnd : lpEnd;
+
+                // Calculate position and width
+                const lpDaysFromYearStart = Math.floor((clampedStart - yearStart) / (1000 * 60 * 60 * 24));
+                const lpDuration = Math.ceil((clampedEnd - clampedStart) / (1000 * 60 * 60 * 24)) + 1;
+                totalLeaveDays += lpDuration;
+
+                const lpLeftPercent = (lpDaysFromYearStart / totalDaysInYear) * 100;
+                const lpWidthPercent = (lpDuration / totalDaysInYear) * 100;
+
+                const lpStartStr = formatDate(lpStart);
+                const lpEndStr = formatDate(lpEnd);
+                const reasonText = leavePlan.reason ? `\nReason: ${leavePlan.reason}` : '';
+
+                leavePlansHtml += `
+                    <div class="leave-plan-bar"
+                        data-leave-plan-id="${leavePlan.id}"
+                        style="left: ${lpLeftPercent}%; width: ${lpWidthPercent}%;"
+                        title="Away/Holiday\n${lpStartStr} - ${lpEndStr}\n${lpDuration} days${reasonText}">
+                    </div>
+                `;
+            });
+        }
+
+        // Add leave days badge if any
+        const leaveDaysBadgeHtml = totalLeaveDays > 0 ? `
+            <span class="leave-days-badge" title="Total leave days: ${totalLeaveDays}">
+                <i class="bi bi-luggage"></i> ${totalLeaveDays}
+            </span>
+        ` : '';
+
         return `
             <div class="tenant-row">
                 <div class="tenant-name-column">
                     <div class="tenant-info-wrapper">
                         ${avatarHtml}
                         <div class="tenant-info">
-                            <div class="tenant-name-text">${this.escapeHtml(displayName)}</div>
+                            <div class="tenant-name-text">${this.escapeHtml(displayName)} ${leaveDaysBadgeHtml}</div>
                             <div class="tenant-room-text">${roomDisplayName}</div>
                         </div>
                         ${socialBadgesHtml ? `<div class="tenant-social-badges">${socialBadgesHtml}</div>` : ''}
@@ -326,6 +373,7 @@ class TenantCalendar {
                         title="${displayName}\n${moveinStr} - ${moveoutStr}\nDuration: ${duration} days">
                         <span class="occupancy-bar-label">${this.escapeHtml(displayName)}</span>
                         ${moveoutBadgeHtml}
+                        ${leavePlansHtml}
                     </div>
                 </div>
             </div>

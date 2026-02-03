@@ -45,6 +45,27 @@
         "allRooms": "All Rooms",
         "activeOnly": "Active Only",
         "clear": "Clear",
-        "today": "Today"
+        "today": "Today",
+        "leavePlan": "Leave/Holiday",
+        "addLeavePlan": "Add Leave Plan",
+        "addLeavePlanTooltip": "Add away days when tenant is on holiday or away from home. This will be deducted from utility expenses.",
+        "awayDays": "Away",
+        "editLeavePlan": "Edit Leave Plan",
+        "totalLeaveDays": "Total leave days",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g., Holiday, Family visit",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "confirmDelete": "Are you sure you want to delete this leave plan?",
+        "leavePlanAdded": "Leave plan added successfully",
+        "leavePlanUpdated": "Leave plan updated successfully",
+        "leavePlanDeleted": "Leave plan deleted successfully",
+        "datesRequired": "Start and end dates are required",
+        "invalidDateRange": "Start date must be before end date",
+        "saveFailed": "Failed to save leave plan",
+        "deleteFailed": "Failed to delete leave plan"
     }
 }
