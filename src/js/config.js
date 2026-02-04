@@ -214,6 +214,21 @@ const API = {
     });
     return handleAuthResponse(response);
   },
+
+  postFormData: async (endpoint, formData, options = {}) => {
+    // Get auth headers but remove Content-Type to let browser set it with boundary
+    const authHeaders = getAuthHeaders();
+    delete authHeaders["Content-Type"];
+
+    const response = await fetch(buildApiUrl(endpoint), {
+      method: "POST",
+      credentials: "include",
+      headers: { ...authHeaders, ...(options.headers || {}) },
+      body: formData,
+      ...options,
+    });
+    return handleAuthResponse(response);
+  },
 };
 
 // Helper function to clear authentication

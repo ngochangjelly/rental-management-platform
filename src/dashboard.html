@@ -3950,7 +3950,10 @@
                   class="btn btn-outline-secondary"
                   onclick="dashboardController.goToDashboard()"
                 >
-                  <i class="bi bi-arrow-left me-1"></i><span data-i18n="createContract.backToDashboard">Back to Dashboard</span>
+                  <i class="bi bi-arrow-left me-1"></i
+                  ><span data-i18n="createContract.backToDashboard"
+                    >Back to Dashboard</span
+                  >
                 </button>
               </div>
 
@@ -3959,7 +3962,12 @@
                 <div class="col-lg-4">
                   <div class="card">
                     <div class="card-header">
-                      <h5 class="mb-0" data-i18n="createContract.contractDetails">Contract Details</h5>
+                      <h5
+                        class="mb-0"
+                        data-i18n="createContract.contractDetails"
+                      >
+                        Contract Details
+                      </h5>
                     </div>
                     <div class="card-body">
                       <!-- Template Section -->
@@ -3968,21 +3976,30 @@
                           class="d-flex justify-content-between align-items-center mb-3"
                         >
                           <h6 class="mb-0">
-                            <i class="bi bi-bookmark me-1"></i><span data-i18n="createContract.contractTemplates">Contract Templates</span>
+                            <i class="bi bi-bookmark me-1"></i
+                            ><span data-i18n="createContract.contractTemplates"
+                              >Contract Templates</span
+                            >
                           </h6>
                           <div class="btn-group">
                             <button
                               class="btn btn-outline-secondary btn-sm"
                               onclick="contractManager.resetForm()"
                             >
-                              <i class="bi bi-arrow-clockwise me-1"></i><span data-i18n="createContract.resetForm">Reset Form</span>
+                              <i class="bi bi-arrow-clockwise me-1"></i
+                              ><span data-i18n="createContract.resetForm"
+                                >Reset Form</span
+                              >
                             </button>
                             <button
                               class="btn btn-outline-primary btn-sm"
                               id="saveTemplateBtn"
                               onclick="contractManager.showSaveTemplateModal()"
                             >
-                              <i class="bi bi-save me-1"></i><span data-i18n="createContract.saveTemplate">Save Template</span>
+                              <i class="bi bi-save me-1"></i
+                              ><span data-i18n="createContract.saveTemplate"
+                                >Save Template</span
+                              >
                             </button>
                           </div>
                         </div>
@@ -4099,17 +4116,28 @@
                           class="btn btn-success w-100"
                           onclick="contractManager.exportToPDF()"
                         >
-                          <i class="bi bi-file-pdf me-1"></i><span data-i18n="createContract.exportPdf">Export PDF</span>
+                          <i class="bi bi-file-pdf me-1"></i
+                          ><span data-i18n="createContract.exportPdf"
+                            >Export PDF</span
+                          >
                         </button>
                       </div>
 
                       <!-- Property Details -->
                       <div class="mb-3">
-                        <label for="contractAddress" class="form-label" data-i18n="createContract.propertyAddress"
+                        <label
+                          for="contractAddress"
+                          class="form-label"
+                          data-i18n="createContract.propertyAddress"
                           >Property Address</label
                         >
                         <select class="form-select" id="contractAddress">
-                          <option value="" data-i18n="createContract.selectPropertyAddress">Select property address</option>
+                          <option
+                            value=""
+                            data-i18n="createContract.selectPropertyAddress"
+                          >
+                            Select property address
+                          </option>
                         </select>
 
                         <!-- Custom Text Input (initially hidden) -->
@@ -4156,35 +4184,121 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractRoom" class="form-label" data-i18n="createContract.roomType"
+                        <label
+                          for="contractRoom"
+                          class="form-label"
+                          data-i18n="createContract.roomType"
                           >Room Type</label
                         >
                         <select class="form-select" id="contractRoom">
-                          <option value="" data-i18n="createContract.selectRoomType">Select room type</option>
-                          <option value="COMMON1" data-i18n="createContract.roomTypes.common1">Common 1</option>
-                          <option value="COMMON2" data-i18n="createContract.roomTypes.common2">Common 2</option>
-                          <option value="MASTER" data-i18n="createContract.roomTypes.master">Master</option>
-                          <option value="COMPARTMENT1" data-i18n="createContract.roomTypes.compartment1">Compartment 1</option>
-                          <option value="COMPARTMENT2" data-i18n="createContract.roomTypes.compartment2">Compartment 2</option>
-                          <option value="STORE" data-i18n="createContract.roomTypes.store">Store</option>
-                          <option value="COMMON_1_PAX" data-i18n="createContract.roomTypes.common1Pax">Common 1 Pax</option>
-                          <option value="COMMON_2_PAX" data-i18n="createContract.roomTypes.common2Pax">Common 2 Pax</option>
-                          <option value="SMALL_SINGLE_1_PAX" data-i18n="createContract.roomTypes.smallSingle1Pax">Small Single 1 Pax</option>
-                          <option value="SMALL_SINGLE_2_PAX" data-i18n="createContract.roomTypes.smallSingle2Pax">Small Single 2 Pax</option>
-                          <option value="BIG_SINGLE_1_PAX" data-i18n="createContract.roomTypes.bigSingle1Pax">Big Single 1 Pax</option>
-                          <option value="BIG_SINGLE_2_PAX" data-i18n="createContract.roomTypes.bigSingle2Pax">Big Single 2 Pax</option>
-                          <option value="SINGLE_1_PAX_NO_AIRCON" data-i18n="createContract.roomTypes.single1PaxNoAircon">Single 1 Pax No Aircon</option>
-                          <option value="SINGLE_2_PAX_NO_AIRCON" data-i18n="createContract.roomTypes.single2PaxNoAircon">Single 2 Pax No Aircon</option>
+                          <option
+                            value=""
+                            data-i18n="createContract.selectRoomType"
+                          >
+                            Select room type
+                          </option>
+                          <option
+                            value="COMMON1"
+                            data-i18n="createContract.roomTypes.common1"
+                          >
+                            Common 1
+                          </option>
+                          <option
+                            value="COMMON2"
+                            data-i18n="createContract.roomTypes.common2"
+                          >
+                            Common 2
+                          </option>
+                          <option
+                            value="MASTER"
+                            data-i18n="createContract.roomTypes.master"
+                          >
+                            Master
+                          </option>
+                          <option
+                            value="COMPARTMENT1"
+                            data-i18n="createContract.roomTypes.compartment1"
+                          >
+                            Compartment 1
+                          </option>
+                          <option
+                            value="COMPARTMENT2"
+                            data-i18n="createContract.roomTypes.compartment2"
+                          >
+                            Compartment 2
+                          </option>
+                          <option
+                            value="STORE"
+                            data-i18n="createContract.roomTypes.store"
+                          >
+                            Store
+                          </option>
+                          <option
+                            value="COMMON_1_PAX"
+                            data-i18n="createContract.roomTypes.common1Pax"
+                          >
+                            Common 1 Pax
+                          </option>
+                          <option
+                            value="COMMON_2_PAX"
+                            data-i18n="createContract.roomTypes.common2Pax"
+                          >
+                            Common 2 Pax
+                          </option>
+                          <option
+                            value="SMALL_SINGLE_1_PAX"
+                            data-i18n="createContract.roomTypes.smallSingle1Pax"
+                          >
+                            Small Single 1 Pax
+                          </option>
+                          <option
+                            value="SMALL_SINGLE_2_PAX"
+                            data-i18n="createContract.roomTypes.smallSingle2Pax"
+                          >
+                            Small Single 2 Pax
+                          </option>
+                          <option
+                            value="BIG_SINGLE_1_PAX"
+                            data-i18n="createContract.roomTypes.bigSingle1Pax"
+                          >
+                            Big Single 1 Pax
+                          </option>
+                          <option
+                            value="BIG_SINGLE_2_PAX"
+                            data-i18n="createContract.roomTypes.bigSingle2Pax"
+                          >
+                            Big Single 2 Pax
+                          </option>
+                          <option
+                            value="SINGLE_1_PAX_NO_AIRCON"
+                            data-i18n="createContract.roomTypes.single1PaxNoAircon"
+                          >
+                            Single 1 Pax No Aircon
+                          </option>
+                          <option
+                            value="SINGLE_2_PAX_NO_AIRCON"
+                            data-i18n="createContract.roomTypes.single2PaxNoAircon"
+                          >
+                            Single 2 Pax No Aircon
+                          </option>
                         </select>
                       </div>
 
                       <!-- Tenant Selection -->
                       <div class="mb-3">
-                        <label for="contractTenantA" class="form-label" data-i18n="createContract.tenantAMain"
+                        <label
+                          for="contractTenantA"
+                          class="form-label"
+                          data-i18n="createContract.tenantAMain"
                           >Tenant A (Main Tenant)</label
                         >
                         <select class="form-select" id="contractTenantA">
-                          <option value="" data-i18n="createContract.selectTenantA">Select Tenant A</option>
+                          <option
+                            value=""
+                            data-i18n="createContract.selectTenantA"
+                          >
+                            Select Tenant A
+                          </option>
                         </select>
 
                         <!-- Custom Text Input (initially hidden) -->
@@ -4273,9 +4387,13 @@
 
                       <div class="mb-3">
                         <label class="form-label"
-                          ><span data-i18n="createContract.tenantB">Tenant B</span>
+                          ><span data-i18n="createContract.tenantB"
+                            >Tenant B</span
+                          >
                           <small class="text-muted"
-                            >(<span data-i18n="createContract.canSelectMultiple">Can select multiple</span>)</small
+                            >(<span data-i18n="createContract.canSelectMultiple"
+                              >Can select multiple</span
+                            >)</small
                           ></label
                         >
 
@@ -4296,7 +4414,10 @@
                             aria-expanded="false"
                             style="min-height: 38px; padding-right: 40px"
                           >
-                            <span id="tenantBSelectedText" class="text-muted" data-i18n="createContract.selectTenants"
+                            <span
+                              id="tenantBSelectedText"
+                              class="text-muted"
+                              data-i18n="createContract.selectTenants"
                               >Select tenants...</span
                             >
                           </button>
@@ -4377,7 +4498,10 @@
 
                       <!-- Contract Details -->
                       <div class="mb-3">
-                        <label for="contractAgreementDate" class="form-label" data-i18n="createContract.agreementDate"
+                        <label
+                          for="contractAgreementDate"
+                          class="form-label"
+                          data-i18n="createContract.agreementDate"
                           >Agreement Date</label
                         >
                         <input
@@ -4388,7 +4512,10 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractLeasePeriod" class="form-label" data-i18n="createContract.leasePeriod"
+                        <label
+                          for="contractLeasePeriod"
+                          class="form-label"
+                          data-i18n="createContract.leasePeriod"
                           >Lease Period</label
                         >
                         <input
@@ -4401,10 +4528,17 @@
                       </div>
 
                       <div class="mb-3">
-                        <label class="form-label" data-i18n="createContract.tenancyPeriod">Tenancy Period</label>
+                        <label
+                          class="form-label"
+                          data-i18n="createContract.tenancyPeriod"
+                          >Tenancy Period</label
+                        >
                         <div class="row">
                           <div class="col-md-6">
-                            <label for="contractMoveInDate" class="form-label" data-i18n="createContract.moveInDate"
+                            <label
+                              for="contractMoveInDate"
+                              class="form-label"
+                              data-i18n="createContract.moveInDate"
                               >Move-in Date</label
                             >
                             <input
@@ -4414,7 +4548,10 @@
                             />
                           </div>
                           <div class="col-md-6">
-                            <label for="contractMoveOutDate" class="form-label" data-i18n="createContract.moveOutDate"
+                            <label
+                              for="contractMoveOutDate"
+                              class="form-label"
+                              data-i18n="createContract.moveOutDate"
                               >Move-out Date</label
                             >
                             <input
@@ -4428,7 +4565,10 @@
 
                       <!-- Financial Details -->
                       <div class="mb-3">
-                        <label for="contractMonthlyRental" class="form-label" data-i18n="createContract.monthlyRental"
+                        <label
+                          for="contractMonthlyRental"
+                          class="form-label"
+                          data-i18n="createContract.monthlyRental"
                           >Monthly Rental (S$)</label
                         >
                         <input
@@ -4447,7 +4587,9 @@
                             class="form-check-label"
                             for="contractFullPaymentReceived"
                           >
-                            <small class="text-muted" data-i18n="createContract.fullPaymentReceived"
+                            <small
+                              class="text-muted"
+                              data-i18n="createContract.fullPaymentReceived"
                               >Tenant A has fully received rent for the entire
                               tenancy period</small
                             >
@@ -4456,7 +4598,10 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractSecurityDeposit" class="form-label" data-i18n="createContract.securityDeposit"
+                        <label
+                          for="contractSecurityDeposit"
+                          class="form-label"
+                          data-i18n="createContract.securityDeposit"
                           >Security Deposit (S$)</label
                         >
                         <input
@@ -4469,7 +4614,10 @@
 
                       <div class="row mb-3">
                         <div class="col-md-6">
-                          <label for="contractDepositMonths" class="form-label" data-i18n="createContract.depositMonths"
+                          <label
+                            for="contractDepositMonths"
+                            class="form-label"
+                            data-i18n="createContract.depositMonths"
                             >Deposit (Months)</label
                           >
                           <input
@@ -4480,12 +4628,17 @@
                             min="0"
                             step="0.5"
                           />
-                          <small class="text-muted" data-i18n="createContract.paidOnAgreementDate"
+                          <small
+                            class="text-muted"
+                            data-i18n="createContract.paidOnAgreementDate"
                             >Paid on agreement date</small
                           >
                         </div>
                         <div class="col-md-6">
-                          <label for="contractAdvanceMonths" class="form-label" data-i18n="createContract.advanceMonths"
+                          <label
+                            for="contractAdvanceMonths"
+                            class="form-label"
+                            data-i18n="createContract.advanceMonths"
                             >Advance (Months)</label
                           >
                           <input
@@ -4496,7 +4649,11 @@
                             min="0"
                             step="0.5"
                           />
-                          <small class="text-muted" data-i18n="createContract.paidOnMoveInDate">Paid on move-in date</small>
+                          <small
+                            class="text-muted"
+                            data-i18n="createContract.paidOnMoveInDate"
+                            >Paid on move-in date</small
+                          >
                         </div>
                       </div>
 
@@ -4516,7 +4673,10 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractCleaningFee" class="form-label" data-i18n="createContract.cleaningFee"
+                        <label
+                          for="contractCleaningFee"
+                          class="form-label"
+                          data-i18n="createContract.cleaningFee"
                           >Cleaning Fee (S$)</label
                         >
                         <input
@@ -4529,13 +4689,32 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractPaymentMethod" class="form-label" data-i18n="createContract.paymentMethod"
+                        <label
+                          for="contractPaymentMethod"
+                          class="form-label"
+                          data-i18n="createContract.paymentMethod"
                           >Payment Method</label
                         >
                         <select class="form-select" id="contractPaymentMethod">
-                          <option value="CASH" data-i18n="createContract.paymentMethods.cash">Cash</option>
-                          <option value="BANK_TRANSFER" selected data-i18n="createContract.paymentMethods.bankTransfer">Bank Transfer</option>
-                          <option value="CHECK" data-i18n="createContract.paymentMethods.check">Check</option>
+                          <option
+                            value="CASH"
+                            data-i18n="createContract.paymentMethods.cash"
+                          >
+                            Cash
+                          </option>
+                          <option
+                            value="BANK_TRANSFER"
+                            selected
+                            data-i18n="createContract.paymentMethods.bankTransfer"
+                          >
+                            Bank Transfer
+                          </option>
+                          <option
+                            value="CHECK"
+                            data-i18n="createContract.paymentMethods.check"
+                          >
+                            Check
+                          </option>
                         </select>
                       </div>
 
@@ -4552,10 +4731,14 @@
                             class="form-check-label"
                             for="pestControlClause"
                           >
-                            <strong data-i18n="createContract.pestControlClause">Pest Control Clause</strong>
+                            <strong data-i18n="createContract.pestControlClause"
+                              >Pest Control Clause</strong
+                            >
                           </label>
                         </div>
-                        <small class="text-muted" data-i18n="createContract.pestControlClauseDesc"
+                        <small
+                          class="text-muted"
+                          data-i18n="createContract.pestControlClauseDesc"
                           >If checked, adds a pest infestation liability clause
                           to the contract</small
                         >
@@ -4566,7 +4749,9 @@
                         <div
                           class="d-flex justify-content-between align-items-center mb-2"
                         >
-                          <label class="form-label mb-0" data-i18n="createContract.additionalClauses"
+                          <label
+                            class="form-label mb-0"
+                            data-i18n="createContract.additionalClauses"
                             >Additional Clauses</label
                           >
                           <button
@@ -4574,7 +4759,10 @@
                             class="btn btn-sm btn-outline-primary"
                             onclick="contractManager.addClause()"
                           >
-                            <i class="bi bi-plus"></i> <span data-i18n="createContract.addClause">Add Clause</span>
+                            <i class="bi bi-plus"></i>
+                            <span data-i18n="createContract.addClause"
+                              >Add Clause</span
+                            >
                           </button>
                         </div>
                         <div id="additionalClausesContainer">
@@ -4584,13 +4772,21 @@
 
                       <!-- Signature Upload -->
                       <div class="mb-3">
-                        <label class="form-label" data-i18n="createContract.signatures">Signatures</label>
+                        <label
+                          class="form-label"
+                          data-i18n="createContract.signatures"
+                          >Signatures</label
+                        >
 
                         <div class="mb-3">
                           <div
                             class="d-flex justify-content-between align-items-center mb-2"
                           >
-                            <span class="small" data-i18n="createContract.tenantASignature">Tenant A Signature</span>
+                            <span
+                              class="small"
+                              data-i18n="createContract.tenantASignature"
+                              >Tenant A Signature</span
+                            >
                             <button
                               type="button"
                               class="btn btn-sm btn-outline-primary"
@@ -4598,7 +4794,10 @@
                                 contractManager.openSignatureUpload('tenantA')
                               "
                             >
-                              <i class="bi bi-plus"></i> <span data-i18n="createContract.upload">Upload</span>
+                              <i class="bi bi-plus"></i>
+                              <span data-i18n="createContract.upload"
+                                >Upload</span
+                              >
                             </button>
                           </div>
                           <div id="signatureAPreview">
@@ -4617,7 +4816,11 @@
                           <div
                             class="d-flex justify-content-between align-items-center mb-2"
                           >
-                            <span class="small" data-i18n="createContract.tenantBSignature">Tenant B Signature</span>
+                            <span
+                              class="small"
+                              data-i18n="createContract.tenantBSignature"
+                              >Tenant B Signature</span
+                            >
                             <button
                               type="button"
                               class="btn btn-sm btn-outline-primary"
@@ -4625,7 +4828,10 @@
                                 contractManager.openSignatureUpload('tenantB')
                               "
                             >
-                              <i class="bi bi-plus"></i> <span data-i18n="createContract.upload">Upload</span>
+                              <i class="bi bi-plus"></i>
+                              <span data-i18n="createContract.upload"
+                                >Upload</span
+                              >
                             </button>
                           </div>
                           <div id="signatureBPreview">
@@ -4648,7 +4854,12 @@
                 <div class="col-lg-8">
                   <div class="card">
                     <div class="card-header">
-                      <h5 class="mb-0" data-i18n="createContract.contractPreview">Contract Preview</h5>
+                      <h5
+                        class="mb-0"
+                        data-i18n="createContract.contractPreview"
+                      >
+                        Contract Preview
+                      </h5>
                     </div>
                     <div
                       class="card-body"
@@ -4661,7 +4872,10 @@
                       >
                         <div class="text-center text-muted">
                           <i class="bi bi-file-text fs-1"></i>
-                          <p class="mt-2" data-i18n="createContract.contractPreviewPlaceholder">
+                          <p
+                            class="mt-2"
+                            data-i18n="createContract.contractPreviewPlaceholder"
+                          >
                             Contract preview will appear here after filling in
                             the details
                           </p>
@@ -5700,6 +5914,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Tesseract.js v7 for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
 
     <script>
       // Initialize dashboard and check authentication

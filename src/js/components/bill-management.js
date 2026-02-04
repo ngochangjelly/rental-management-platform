@@ -374,17 +374,55 @@ class BillManagementComponent {
       <div class="card mt-3">
         <div class="card-body">
           <div class="row">
-            <div class="col-md-6">
+            <div class="col-md-4">
               <h6>Bill Summary</h6>
               <p><strong>Total Tenants:</strong> ${tenantBills.length}</p>
               <p><strong>Paid:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'uploaded' || tb.paymentStatus === 'verified').length}</p>
               <p><strong>Pending:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'pending').length}</p>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
               <h6>Fee Summary</h6>
-              <p><strong>Total Utility Fee (Shared):</strong> $${this.currentBill.utilityFee.toFixed(2)}</p>
+              <p id="billingPeriodDisplay"><strong>Billing Period:</strong> ${this.currentBill.billingPeriod ? escapeHtml(this.currentBill.billingPeriod) : '<span class="text-muted">-</span>'}</p>
+              <p id="utilityFeeDisplay"><strong>Total Utility Fee (Shared):</strong> $${this.currentBill.utilityFee.toFixed(2)}</p>
               <p><strong>Tenants Paying Utility:</strong> ${tenantBills.filter(tb => tb.utilityFee > 0).length}</p>
               <p><strong>Utility Subsidized:</strong> ${tenantBills.filter(tb => tb.utilityFee === 0).length}</p>
+              <div id="ocrReadStatus"></div>
+            </div>
+            <div class="col-md-4">
+              <h6>Utility Bill</h6>
+              ${this.currentBill.utilityBillImage ? `
+                <div class="position-relative" style="width: 100px;">
+                  <button class="btn btn-sm btn-danger position-absolute"
+                          style="top: -8px; right: -8px; z-index: 10; padding: 2px 6px; border-radius: 50%;"
+                          onclick="event.stopPropagation(); billManager.removeBillImage()"
+                          title="Remove bill image">
+                    <i class="bi bi-x"></i>
+                  </button>
+                  <div class="border rounded overflow-hidden" style="width: 100px; height: 250px; cursor: pointer;"
+                       onclick="billManager.viewUpload('${this.currentBill.utilityBillImage}')">
+                    <img id="storedBillImage" src="${this.currentBill.utilityBillImage}" alt="Utility Bill"
+                         style="width: 100%; height: 100%; object-fit: cover;"
+                         crossorigin="anonymous">
+                  </div>
+                </div>
+                <small class="text-muted d-block mt-1">Click to view full size</small>
+                ${(!this.currentBill.billingPeriod || this.currentBill.utilityFee === 0) ? `
+                  <button class="btn btn-sm btn-outline-primary mt-2" onclick="billManager.readBillFromImage()">
+                    <i class="bi bi-magic me-1"></i>Read from bill
+                  </button>
+                ` : ''}
+              ` : `
+                <div class="border rounded bg-light d-flex align-items-center justify-content-center text-muted position-relative"
+                     style="width: 100px; height: 250px; cursor: pointer;"
+                     onclick="document.getElementById('replaceBillImageInput').click()">
+                  <div class="text-center">
+                    <i class="bi bi-cloud-upload"></i>
+                    <p class="mb-0 small">Upload bill</p>
+                  </div>
+                </div>
+                <input type="file" id="replaceBillImageInput" accept="image/*" style="display: none;"
+                       onchange="billManager.uploadReplacementBillImage(this)">
+              `}
             </div>
           </div>
         </div>
@@ -458,9 +496,12 @@ class BillManagementComponent {
       return;
     }
 
+    // Reset uploaded bill data
+    this.uploadedUtilityBill = null;
+
     const modalHtml = `
       <div class="modal fade" id="generateBillModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Generate Bill</h5>
@@ -468,20 +509,47 @@ class BillManagementComponent {
             </div>
             <div class="modal-body">
               <form id="generateBillForm">
-                <div class="mb-3">
-                  <label class="form-label">Property</label>
-                  <input type="text" class="form-control" value="${this.selectedProperty || 'No property selected'}" readonly>
+                <div class="row">
+                  <div class="col-md-7">
+                    <div class="mb-3">
+                      <label class="form-label">Property</label>
+                      <input type="text" class="form-control" value="${this.selectedProperty || 'No property selected'}" readonly>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Month/Year</label>
+                      <input type="text" class="form-control" value="${this.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}" readonly>
+                    </div>
+                    <div class="mb-3">
+                      <label for="utilityBillImage" class="form-label">Upload Utility Bill Screenshot</label>
+                      <input type="file" class="form-control" id="utilityBillImage" accept="image/*" onchange="billManager.handleUtilityBillUpload(event)">
+                      <div class="form-text"><i class="bi bi-magic me-1"></i>OCR will auto-fill billing period and charges</div>
+                    </div>
+                    <div class="mb-3">
+                      <label for="billingPeriod" class="form-label">Billing Period</label>
+                      <input type="text" class="form-control" id="billingPeriod" placeholder="e.g., 03 Jan 2026 - 02 Feb 2026">
+                    </div>
+                    <div class="mb-3">
+                      <label for="totalUtilityFee" class="form-label">Total Utility Fee to Share (Current Charges incl. GST)</label>
+                      <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01" value="0">
+                      </div>
+                      <div class="form-text">This amount will be divided equally among all tenants with room type assigned.</div>
+                    </div>
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label">Bill Preview</label>
+                    <div id="utilityBillPreview" class="border rounded d-flex align-items-center justify-content-center bg-light"
+                         style="width: 100%; height: 250px; overflow: hidden; cursor: pointer;"
+                         onclick="billManager.viewUtilityBillFullSize()">
+                      <div class="text-center text-muted">
+                        <i class="bi bi-image fs-1"></i>
+                        <p class="mb-0 small">No bill uploaded</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="mb-3">
-                  <label class="form-label">Month/Year</label>
-                  <input type="text" class="form-control" value="${this.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}" readonly>
-                </div>
-                <div class="mb-3">
-                  <label for="totalUtilityFee" class="form-label">Total Utility Fee to Share</label>
-                  <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01" value="0">
-                  <div class="form-text">This amount will be divided equally among all tenants with room type assigned.</div>
-                </div>
-                <div class="alert alert-info mb-0">
+                <div class="alert alert-info mb-0 mt-3">
                   <i class="bi bi-info-circle me-2"></i>
                   <small>
                     <strong>Note:</strong> Only tenants with room type will be included.<br>
@@ -510,16 +578,523 @@ class BillManagementComponent {
     modal.show();
   }
 
+  async handleUtilityBillUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Store the file for later upload
+    this.uploadedUtilityBill = file;
+
+    const previewContainer = document.getElementById('utilityBillPreview');
+
+    // Show loading state
+    if (previewContainer) {
+      previewContainer.innerHTML = `
+        <div class="text-center">
+          <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+          <p class="mb-0 small text-muted">Loading preview...</p>
+        </div>
+      `;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const imageDataUrl = e.target.result;
+
+      if (previewContainer) {
+        previewContainer.innerHTML = `
+          <img src="${imageDataUrl}" alt="Utility Bill"
+               style="max-width: 100%; max-height: 100%; object-fit: contain;">
+          <div id="ocrStatus" class="position-absolute bottom-0 start-0 end-0 bg-primary text-white text-center py-1" style="font-size: 11px;">
+            <span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>
+            Reading bill...
+          </div>
+        `;
+        previewContainer.style.position = 'relative';
+        previewContainer.setAttribute('data-full-image', imageDataUrl);
+      }
+
+      // Perform OCR
+      await this.performOCR(imageDataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async performOCR(imageDataUrl) {
+    try {
+      // Check if Tesseract is available
+      if (typeof Tesseract === 'undefined') {
+        console.warn('Tesseract.js not loaded, skipping OCR');
+        this.hideOcrStatus();
+        return;
+      }
+
+      console.log('Starting OCR...');
+      const result = await Tesseract.recognize(imageDataUrl, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            const progress = Math.round(m.progress * 100);
+            const ocrStatus = document.getElementById('ocrStatus');
+            if (ocrStatus) {
+              ocrStatus.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>
+                Reading bill... ${progress}%
+              `;
+            }
+          }
+        }
+      });
+
+      const text = result.data.text;
+      console.log('OCR Text:', text);
+
+      // Extract billing information
+      const extractedData = this.extractBillData(text);
+
+      // Auto-populate fields
+      if (extractedData.billingPeriod) {
+        const billingPeriodInput = document.getElementById('billingPeriod');
+        if (billingPeriodInput) {
+          billingPeriodInput.value = extractedData.billingPeriod;
+        }
+      }
+
+      if (extractedData.currentCharges) {
+        const totalUtilityFeeInput = document.getElementById('totalUtilityFee');
+        if (totalUtilityFeeInput) {
+          totalUtilityFeeInput.value = extractedData.currentCharges;
+        }
+      }
+
+      // Show success status
+      const ocrStatus = document.getElementById('ocrStatus');
+      const foundItems = [];
+      if (extractedData.billingPeriod) foundItems.push('period');
+      if (extractedData.currentCharges) foundItems.push('charges');
+
+      if (ocrStatus) {
+        if (foundItems.length > 0) {
+          ocrStatus.className = 'position-absolute bottom-0 start-0 end-0 bg-success text-white text-center py-1';
+          ocrStatus.style.fontSize = '11px';
+          ocrStatus.innerHTML = `<i class="bi bi-check-circle me-1"></i>Found: ${foundItems.join(', ')}`;
+        } else {
+          ocrStatus.className = 'position-absolute bottom-0 start-0 end-0 bg-warning text-dark text-center py-1';
+          ocrStatus.style.fontSize = '11px';
+          ocrStatus.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Could not extract data';
+        }
+        setTimeout(() => this.hideOcrStatus(), 4000);
+      }
+
+      if (foundItems.length > 0) {
+        showToast(`Extracted: ${foundItems.join(' and ')}`, 'success');
+      } else {
+        showToast('Could not extract data - check console for OCR text', 'warning');
+      }
+
+    } catch (error) {
+      console.error('OCR Error:', error);
+      this.hideOcrStatus();
+    }
+  }
+
+  hideOcrStatus() {
+    const ocrStatus = document.getElementById('ocrStatus');
+    if (ocrStatus) {
+      ocrStatus.remove();
+    }
+  }
+
+  extractBillData(text) {
+    const result = {
+      billingPeriod: null,
+      currentCharges: null
+    };
+
+    // Keep original text for some patterns, normalize for others
+    const normalizedText = text.replace(/\s+/g, ' ').trim();
+
+    // Log raw text for debugging
+    console.log('Raw OCR text (first 500 chars):', text.substring(0, 500));
+
+    // Extract Billing Period
+    // Pattern: date range like "03 Jan 2026 - 02 Feb 2026"
+    // Support various dash types: -, –, —, ~
+    const months = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+
+    const billingPeriodPatterns = [
+      // "Billing Period" followed by dates
+      new RegExp(`Billing\\s*Period[:\\s]*?(\\d{1,2}\\s*${months}\\s*\\d{4})\\s*[-–—~]\\s*(\\d{1,2}\\s*${months}\\s*\\d{4})`, 'i'),
+      // Just date range pattern (more flexible)
+      new RegExp(`(\\d{1,2}\\s*${months}\\s*\\d{4})\\s*[-–—~]\\s*(\\d{1,2}\\s*${months}\\s*\\d{4})`, 'i'),
+      // Date format: DD/MM/YYYY - DD/MM/YYYY or DD.MM.YYYY
+      /(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{4})\s*[-–—~]\s*(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{4})/i,
+      // Handle OCR misreads - "O3" instead of "03", etc.
+      new RegExp(`([O0]?\\d{1,2}\\s*${months}\\s*\\d{4})\\s*[-–—~]\\s*([O0]?\\d{1,2}\\s*${months}\\s*\\d{4})`, 'i'),
+    ];
+
+    for (const pattern of billingPeriodPatterns) {
+      const match = normalizedText.match(pattern);
+      if (match) {
+        // Combine the two date parts
+        const startDate = match[1].replace(/\s+/g, ' ').trim().replace(/^O/, '0');
+        const endDate = match[2].replace(/\s+/g, ' ').trim().replace(/^O/, '0');
+        result.billingPeriod = `${startDate} - ${endDate}`;
+        console.log('Found billing period:', result.billingPeriod);
+        break;
+      }
+    }
+
+    // If still not found, try to find any date-like pattern near "Billing" or "Period"
+    if (!result.billingPeriod) {
+      const looseMatch = normalizedText.match(/(\d{1,2}\s*\w{3,9}\s*\d{4})\s*[-–—~to]+\s*(\d{1,2}\s*\w{3,9}\s*\d{4})/i);
+      if (looseMatch) {
+        result.billingPeriod = `${looseMatch[1].trim()} - ${looseMatch[2].trim()}`;
+        console.log('Found billing period (loose match):', result.billingPeriod);
+      }
+    }
+
+    // Extract Current Charges (inclusive of GST)
+    // Look for patterns like "Current Charges:" followed by "$645.85" or just a dollar amount
+    const chargesPatterns = [
+      /Current\s*Charges[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Current\s*Charges\s*\(inclusive\s*of\s*GST\)[:\s]*\$?([\d,]+\.?\d*)/i,
+      /Total\s*Amount\s*Payable[:\s]*\$?([\d,]+\.?\d*)/i,
+      /\$\s*([\d,]+\.\d{2})\s*$/m  // Dollar amount at end of line
+    ];
+
+    for (const pattern of chargesPatterns) {
+      const match = normalizedText.match(pattern);
+      if (match) {
+        // Remove commas and parse as float
+        const amount = parseFloat(match[1].replace(/,/g, ''));
+        if (!isNaN(amount) && amount > 0) {
+          result.currentCharges = amount;
+          break;
+        }
+      }
+    }
+
+    // If no current charges found, try to find the largest reasonable amount (likely the total)
+    if (!result.currentCharges) {
+      const allAmounts = normalizedText.match(/\$\s*([\d,]+\.\d{2})/g);
+      if (allAmounts) {
+        const amounts = allAmounts
+          .map(a => parseFloat(a.replace(/[$,\s]/g, '')))
+          .filter(a => !isNaN(a) && a > 50 && a < 10000) // Filter reasonable utility bill amounts
+          .sort((a, b) => b - a); // Sort descending
+
+        if (amounts.length > 0) {
+          // Look for amount that appears multiple times (likely the total)
+          const amountCounts = {};
+          amounts.forEach(a => {
+            amountCounts[a] = (amountCounts[a] || 0) + 1;
+          });
+
+          // Find the largest amount that appears at least twice, or just the largest
+          for (const amount of amounts) {
+            if (amountCounts[amount] >= 2 || amount === amounts[0]) {
+              result.currentCharges = amount;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    console.log('Extracted bill data:', result);
+    return result;
+  }
+
+  async readBillFromImage() {
+    if (!this.currentBill?.utilityBillImage) {
+      showToast('No bill image available', 'error');
+      return;
+    }
+
+    const statusContainer = document.getElementById('ocrReadStatus');
+    if (statusContainer) {
+      statusContainer.innerHTML = `
+        <div class="alert alert-info py-2 mb-0">
+          <span class="spinner-border spinner-border-sm me-2"></span>
+          <small>Reading bill image...</small>
+        </div>
+      `;
+    }
+
+    try {
+      // Check if Tesseract is available
+      if (typeof Tesseract === 'undefined') {
+        throw new Error('OCR library not loaded');
+      }
+
+      // Get the image URL - need to convert proxy URL to full URL for OCR
+      let imageUrl = this.currentBill.utilityBillImage;
+      if (imageUrl.startsWith('/api/')) {
+        imageUrl = window.location.origin + imageUrl;
+      }
+
+      console.log('Reading bill from image:', imageUrl);
+
+      // Perform OCR
+      const result = await Tesseract.recognize(imageUrl, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text' && statusContainer) {
+            const progress = Math.round(m.progress * 100);
+            statusContainer.innerHTML = `
+              <div class="alert alert-info py-2 mb-0">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                <small>Reading bill... ${progress}%</small>
+              </div>
+            `;
+          }
+        }
+      });
+
+      const text = result.data.text;
+      console.log('OCR Text from stored image:', text);
+      console.log('Full OCR text length:', text.length);
+
+      // Extract billing information
+      const extractedData = this.extractBillData(text);
+
+      // Track what was found
+      const foundItems = [];
+
+      if (extractedData.billingPeriod) {
+        const billingPeriodDisplay = document.getElementById('billingPeriodDisplay');
+        if (billingPeriodDisplay) {
+          billingPeriodDisplay.innerHTML = `<strong>Billing Period:</strong> ${escapeHtml(extractedData.billingPeriod)}`;
+        }
+        foundItems.push('billing period');
+      }
+
+      if (extractedData.currentCharges && extractedData.currentCharges > 0) {
+        const utilityFeeDisplay = document.getElementById('utilityFeeDisplay');
+        if (utilityFeeDisplay) {
+          utilityFeeDisplay.innerHTML = `<strong>Total Utility Fee (Shared):</strong> $${extractedData.currentCharges.toFixed(2)}`;
+        }
+        foundItems.push('charges');
+      }
+
+      if (foundItems.length > 0) {
+        // Save extracted data to the server
+        await this.updateBillWithExtractedData(extractedData);
+
+        if (statusContainer) {
+          statusContainer.innerHTML = `
+            <div class="alert alert-success py-2 mb-0">
+              <i class="bi bi-check-circle me-1"></i>
+              <small>Found: ${foundItems.join(', ')}</small>
+            </div>
+          `;
+          setTimeout(() => {
+            if (statusContainer) statusContainer.innerHTML = '';
+          }, 4000);
+        }
+        showToast(`Extracted: ${foundItems.join(' and ')}`, 'success');
+      } else {
+        if (statusContainer) {
+          statusContainer.innerHTML = `
+            <div class="alert alert-warning py-2 mb-0">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              <small>Could not extract - check console</small>
+            </div>
+          `;
+          setTimeout(() => {
+            if (statusContainer) statusContainer.innerHTML = '';
+          }, 5000);
+        }
+        showToast('Could not extract data - check browser console for OCR text', 'warning');
+      }
+
+    } catch (error) {
+      console.error('Error reading bill from image:', error);
+      if (statusContainer) {
+        statusContainer.innerHTML = `
+          <div class="alert alert-danger py-2 mb-0">
+            <i class="bi bi-x-circle me-1"></i>
+            <small>Failed to read bill</small>
+          </div>
+        `;
+        setTimeout(() => {
+          if (statusContainer) statusContainer.innerHTML = '';
+        }, 3000);
+      }
+      showToast('Failed to read bill image', 'error');
+    }
+  }
+
+  async updateBillWithExtractedData(extractedData) {
+    try {
+      const updates = {};
+      if (extractedData.billingPeriod) {
+        updates.billingPeriod = extractedData.billingPeriod;
+      }
+      if (extractedData.currentCharges && extractedData.currentCharges > 0) {
+        updates.utilityFee = extractedData.currentCharges;
+      }
+
+      if (Object.keys(updates).length === 0) return;
+
+      const response = await API.put(
+        API_CONFIG.ENDPOINTS.BILL_UPDATE_FEES(
+          this.selectedProperty,
+          this.currentDate.getFullYear(),
+          this.currentDate.getMonth() + 1
+        ),
+        updates
+      );
+
+      const result = await response.json();
+      if (result.success) {
+        // Update local bill data
+        if (updates.billingPeriod) {
+          this.currentBill.billingPeriod = updates.billingPeriod;
+        }
+        if (updates.utilityFee) {
+          this.currentBill.utilityFee = updates.utilityFee;
+        }
+        console.log('Bill updated with extracted data');
+      }
+    } catch (error) {
+      console.error('Error updating bill with extracted data:', error);
+    }
+  }
+
+  viewUtilityBillFullSize() {
+    const previewContainer = document.getElementById('utilityBillPreview');
+    const fullImage = previewContainer?.getAttribute('data-full-image');
+    if (fullImage) {
+      window.open(fullImage, '_blank');
+    }
+  }
+
+  async removeBillImage() {
+    if (!this.currentBill) {
+      showToast('No bill selected', 'error');
+      return;
+    }
+
+    if (!confirm('Remove the utility bill image? You can upload a new one after.')) {
+      return;
+    }
+
+    try {
+      // Update bill to remove the image URL
+      const response = await API.put(
+        API_CONFIG.ENDPOINTS.BILL_UPDATE_FEES(
+          this.selectedProperty,
+          this.currentDate.getFullYear(),
+          this.currentDate.getMonth() + 1
+        ),
+        {
+          utilityBillImage: ''
+        }
+      );
+
+      const result = await response.json();
+      if (result.success) {
+        this.currentBill.utilityBillImage = '';
+        this.renderBillTable();
+        showToast('Bill image removed', 'success');
+      } else {
+        throw new Error(result.error || 'Failed to remove bill image');
+      }
+    } catch (error) {
+      console.error('Error removing bill image:', error);
+      showToast('Failed to remove bill image', 'error');
+    }
+  }
+
+  async uploadReplacementBillImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file', 'error');
+      return;
+    }
+
+    try {
+      showToast('Uploading bill image...', 'info');
+
+      // Upload to Cloudinary via backend
+      const formData = new FormData();
+      formData.append('files', file);
+
+      const authToken = localStorage.getItem('authToken');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/upload/bill-evidence`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: formData
+      });
+
+      const uploadResult = await response.json();
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Upload failed');
+      }
+
+      const imageUrl = uploadResult.files[0].url;
+      console.log('Uploaded bill image URL:', imageUrl);
+
+      // Update bill with new image URL
+      const updateResponse = await API.put(
+        API_CONFIG.ENDPOINTS.BILL_UPDATE_FEES(
+          this.selectedProperty,
+          this.currentDate.getFullYear(),
+          this.currentDate.getMonth() + 1
+        ),
+        {
+          utilityBillImage: imageUrl
+        }
+      );
+
+      const updateResult = await updateResponse.json();
+      if (updateResult.success) {
+        this.currentBill.utilityBillImage = imageUrl;
+        this.renderBillTable();
+        showToast('Bill image uploaded successfully', 'success');
+
+        // Optionally perform OCR to extract data
+        setTimeout(() => {
+          if (!this.currentBill.billingPeriod || this.currentBill.utilityFee === 0) {
+            this.readBillFromImage();
+          }
+        }, 500);
+      } else {
+        throw new Error(updateResult.error || 'Failed to update bill');
+      }
+    } catch (error) {
+      console.error('Error uploading bill image:', error);
+      showToast('Failed to upload bill image', 'error');
+    }
+
+    // Reset input
+    input.value = '';
+  }
+
   async generateBill() {
     try {
       const totalUtilityFee = parseFloat(document.getElementById('totalUtilityFee').value) || 0;
+      const billingPeriod = document.getElementById('billingPeriod').value || '';
 
-      const response = await API.post(API_CONFIG.ENDPOINTS.BILL_GENERATE, {
-        propertyId: this.selectedProperty,
-        year: this.currentDate.getFullYear(),
-        month: this.currentDate.getMonth() + 1,
-        totalUtilityFee
-      });
+      // Use FormData to support file upload
+      const formData = new FormData();
+      formData.append('propertyId', this.selectedProperty);
+      formData.append('year', this.currentDate.getFullYear());
+      formData.append('month', this.currentDate.getMonth() + 1);
+      formData.append('totalUtilityFee', totalUtilityFee);
+      formData.append('billingPeriod', billingPeriod);
+
+      // Add utility bill image if uploaded
+      if (this.uploadedUtilityBill) {
+        formData.append('utilityBillImage', this.uploadedUtilityBill);
+      }
+
+      const response = await API.postFormData(API_CONFIG.ENDPOINTS.BILL_GENERATE, formData);
 
       const result = await response.json();
 
@@ -527,6 +1102,9 @@ class BillManagementComponent {
         // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('generateBillModal'));
         if (modal) modal.hide();
+
+        // Clear uploaded file reference
+        this.uploadedUtilityBill = null;
 
         // Reload bill
         await this.loadBillForCurrentMonth();
