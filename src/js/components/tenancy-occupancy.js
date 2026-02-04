@@ -909,6 +909,15 @@ class TenancyOccupancyComponent {
       });
     };
 
+    // Generate move-in date badge
+    const shortMoveinStr = formatShortDate(moveinDate);
+    const moveinBadgeHtml = `
+                <div class="movein-date-marker" title="${i18next.t("tenancyOccupancy.moveIn", "Move-in")}: ${moveinStr}">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span class="movein-date-text">${this.escapeHtml(shortMoveinStr)}</span>
+                </div>
+            `;
+
     // Generate move-out date badge if tenant has moved out
     let moveoutBadgeHtml = "";
     if (tenant.moveoutDate && moveoutDate) {
@@ -1033,9 +1042,9 @@ class TenancyOccupancyComponent {
                 <div class="timeline-container">
                     <div
                         class="occupancy-bar ${!tenant.moveoutDate ? "current-tenant" : ""} ${isFutureMoveout ? "future-moveout" : ""}"
-                        style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};"
-                        title="${displayName}\n${moveinStr} - ${moveoutStr}\n${durationText}: ${duration} ${daysText}">
-                        <span class="occupancy-bar-label">${this.escapeHtml(displayName)}</span>
+                        style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};">
+                        ${moveinBadgeHtml}
+                        <span class="occupancy-bar-label" title="${this.escapeHtml(displayName)}&#10;${roomDisplayName}&#10;${i18next.t("tenancyOccupancy.moveIn", "Move-in")}: ${moveinStr}&#10;${i18next.t("tenancyOccupancy.moveOut", "Move-out")}: ${moveoutStr}&#10;${durationText}: ${duration} ${daysText}${totalLeaveDays > 0 ? `&#10;${i18next.t("tenancyOccupancy.totalLeaveDays", "Total leave days")}: ${totalLeaveDays}` : ""}">${this.escapeHtml(displayName)}</span>
                         ${moveoutBadgeHtml}
                         ${leavePlansHtml}
                     </div>

@@ -146,9 +146,8 @@ class TenantManagementComponent {
     const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
     const unassignedCardHtml = `
             <div style="max-width: 280px; width: 100%; justify-self: center;">
-                <div class="card property-card h-100 ${
-                  isUnassignedSelected ? "border-warning" : "border-secondary"
-                } overflow-hidden"
+                <div class="card property-card h-100 ${isUnassignedSelected ? "border-warning" : "border-secondary"
+      } overflow-hidden"
                      style="cursor: pointer; transition: all 0.2s ease; opacity: 0.95;"
                      onclick="tenantManager.selectUnassignedTenants()">
                     <div class="card-header d-flex justify-content-between align-items-center bg-light">
@@ -164,11 +163,10 @@ class TenantManagementComponent {
                                 <small class="text-muted">No Property</small>
                             </div>
                         </div>
-                        ${
-                          isUnassignedSelected
-                            ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 1.2rem;"></i>'
-                            : ""
-                        }
+                        ${isUnassignedSelected
+        ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 1.2rem;"></i>'
+        : ""
+      }
                     </div>
                     <div class="card-body py-2 bg-light">
                         <p class="mb-1 small text-muted">Tenants not assigned to any property</p>
@@ -183,60 +181,54 @@ class TenantManagementComponent {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
                 <div style="max-width: 280px; width: 100%; justify-self: center;">
-                    <div class="card property-card h-100 ${
-                      isSelected ? "border-primary" : ""
-                    } overflow-hidden"
+                    <div class="card property-card h-100 ${isSelected ? "border-primary" : ""
+        } overflow-hidden"
                          style="cursor: pointer; transition: all 0.2s ease;"
-                         onclick="tenantManager.selectProperty('${
-                           property.propertyId
-                         }')">
-                        ${
-                          property.propertyImage
-                            ? `
-                        <div class="card-img-top position-relative" style="height: 160px; background-image: url('${
-                          property.propertyImage
-                        }'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-                            ${
-                              isSelected
-                                ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>'
-                                : ""
-                            }
+                         onclick="tenantManager.selectProperty('${property.propertyId
+        }')">
+                        ${property.propertyImage
+          ? `
+                        <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage
+          }'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+                            ${isSelected
+            ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>'
+            : ""
+          }
                         </div>
                         `
-                            : ""
-                        }
+          : ""
+        }
                         <div class="card-header d-flex justify-content-between align-items-center bg-white">
                             <div class="d-flex align-items-center">
                                 <div class="me-3">
                                     <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
                                          style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
                                         ${this.escapeHtml(
-                                          property.propertyId
-                                            .substring(0, 2)
-                                            .toUpperCase(),
-                                        )}
+          property.propertyId
+            .substring(0, 2)
+            .toUpperCase(),
+        )}
                                     </div>
                                 </div>
                                 <div>
                                     <h6 class="mb-0 fw-bold">${this.escapeHtml(
-                                      property.propertyId,
-                                    )}</h6>
+          property.propertyId,
+        )}</h6>
                                     <small class="text-muted">Property</small>
                                 </div>
                             </div>
-                            ${
-                              !property.propertyImage && isSelected
-                                ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
-                                : ""
-                            }
+                            ${!property.propertyImage && isSelected
+          ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
+          : ""
+        }
                         </div>
                         <div class="card-body py-2 bg-white">
                             <p class="mb-1 small"><strong>Address:</strong> ${this.escapeHtml(
-                              property.address,
-                            )}</p>
+          property.address,
+        )}</p>
                             <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(
-                              property.unit,
-                            )}</p>
+          property.unit,
+        )}</p>
                         </div>
                     </div>
                 </div>
@@ -791,131 +783,117 @@ class TenantManagementComponent {
 
     return `
                 <div style="max-width: 260px; width: 100%; justify-self: center;">
-                    <div class="card h-100 tenant-detail-card shadow-sm ${
-                      isOutdated ? "tenant-outdated" : ""
-                    }">
+                    <div class="card h-100 tenant-detail-card shadow-sm ${isOutdated ? "tenant-outdated" : ""
+      }">
                         <div class="card-body">
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="flex-shrink-0">
-                                    ${
-                                      tenant.avatar
-                                        ? `<img src="${this.getOptimizedAvatarUrl(
-                                            tenant.avatar,
-                                            "small",
-                                          )}" alt="${this.escapeHtml(
-                                            tenant.name,
-                                          )}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">`
-                                        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(
-                                            tenant.name.charAt(0).toUpperCase(),
-                                          )}</div>`
-                                    }
+                                    ${tenant.avatar
+        ? `<img src="${this.getOptimizedAvatarUrl(
+          tenant.avatar,
+          "small",
+        )}" alt="${this.escapeHtml(
+          tenant.name,
+        )}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(
+          tenant.name.charAt(0).toUpperCase(),
+        )}</div>`
+      }
                                 </div>
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-start mb-1">
                                         <div>
                                             <h5 class="mb-0">${this.escapeHtml(
-                                              tenant.name,
-                                            )}</h5>
-                                            ${
-                                              tenant.nickname
-                                                ? `<small class="text-muted">（${this.escapeHtml(
-                                                    tenant.nickname,
-                                                  )}）</small>`
-                                                : ""
-                                            }
+        tenant.name,
+      )}</h5>
+                                            ${tenant.nickname
+        ? `<small class="text-muted">（${this.escapeHtml(
+          tenant.nickname,
+        )}）</small>`
+        : ""
+      }
                                         </div>
                                         <div class="d-flex gap-2 align-items-center">
                                             ${this.renderTenantTodoBadge(tenant)}
-                                            ${
-                                              isMainTenant
-                                                ? '<span class="badge bg-primary">Main</span>'
-                                                : ""
-                                            }
+                                            ${isMainTenant
+        ? '<span class="badge bg-primary">Main</span>'
+        : ""
+      }
                                         </div>
                                     </div>
                                     <p class="text-muted mb-0">${this.escapeHtml(
-                                      tenant.phoneNumber || "No phone",
-                                    )}</p>
+        tenant.phoneNumber || "No phone",
+      )}</p>
                                 </div>
                             </div>
                             <div class="small mb-3">
-                                <div class="mb-2"><strong>FIN:</strong> ${
-                                  this.escapeHtml(tenant.fin) || "-"
-                                }</div>
+                                <div class="mb-2"><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || "-"
+      }</div>
                                 <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(
-                                  tenant.passportNumber,
-                                )}</div>
+        tenant.passportNumber,
+      )}</div>
                                 <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(
-                                  roomInfo,
-                                )}</div>
-                                <div class="mb-2"><strong>Rent:</strong> ${
-                                  typeof rentAmount === "number"
-                                    ? "$" + rentAmount.toFixed(2)
-                                    : rentAmount
-                                }</div>
-                                <div class="mb-2"><strong>Cleaning Fee:</strong> ${
-                                  typeof tenant.cleaningFee === "number"
-                                    ? "$" + tenant.cleaningFee.toFixed(2)
-                                    : "N/A"
-                                }</div>
-                                ${
-                                  tenant.isUtilitySubsidized
-                                    ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>'
-                                    : ""
-                                }
-                                ${
-                                  tenant.isHouseCleaner
-                                    ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>'
-                                    : ""
-                                }
+        roomInfo,
+      )}</div>
+                                <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === "number"
+        ? "$" + rentAmount.toFixed(2)
+        : rentAmount
+      }</div>
+                                <div class="mb-2"><strong>Cleaning Fee:</strong> ${typeof tenant.cleaningFee === "number"
+        ? "$" + tenant.cleaningFee.toFixed(2)
+        : "N/A"
+      }</div>
+                                ${tenant.isUtilitySubsidized
+        ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>'
+        : ""
+      }
+                                ${tenant.isHouseCleaner
+        ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>'
+        : ""
+      }
                                 <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(
-                                  moveInDate,
-                                )}</div>
+        moveInDate,
+      )}</div>
                                 <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(
-                                  moveOutDate,
-                                )}</div>
+        moveOutDate,
+      )}</div>
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
                                 ${this.getRegistrationStatusBadge(
-                                  registrationStatus,
-                                )}
-                                ${
-                                  tenant.properties &&
-                                  tenant.properties.length > 1
-                                    ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
-                                    : ""
-                                }
-                                ${
-                                  tenant.facebookUrl
-                                    ? `<a href="${this.escapeHtml(
-                                        tenant.facebookUrl,
-                                      )}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile">
+        registrationStatus,
+      )}
+                                ${tenant.properties &&
+        tenant.properties.length > 1
+        ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
+        : ""
+      }
+                                ${tenant.facebookUrl
+        ? `<a href="${this.escapeHtml(
+          tenant.facebookUrl,
+        )}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile">
                                         <i class="bi bi-facebook me-1"></i>Facebook
                                       </a>`
-                                    : ""
-                                }
-                                ${
-                                  tenant.phoneNumber
-                                    ? `<a href="https://wa.me/${this.escapeHtml(
-                                        tenant.phoneNumber.replace(
-                                          /[^0-9]/g,
-                                          "",
-                                        ),
-                                      )}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp">
+        : ""
+      }
+                                ${tenant.phoneNumber
+        ? `<a href="https://wa.me/${this.escapeHtml(
+          tenant.phoneNumber.replace(
+            /[^0-9]/g,
+            "",
+          ),
+        )}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp">
                                         <i class="bi bi-whatsapp me-1"></i>WhatsApp
                                       </a>`
-                                    : ""
-                                }
+        : ""
+      }
                             </div>
                             <div class="btn-group w-100" role="group">
-                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${
-                                  tenant._id
-                                }')">
+                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant._id
+      }')">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${
-                                  tenant._id
-                                }')">
+                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant._id
+      }')">
                                     <i class="bi bi-trash"></i> Delete
                                 </button>
                             </div>
@@ -1086,8 +1064,8 @@ class TenantManagementComponent {
     // Find room info for this tenant
     const roomInfo =
       tenant.properties &&
-      tenant.properties.length > 0 &&
-      typeof tenant.properties[0] === "object"
+        tenant.properties.length > 0 &&
+        typeof tenant.properties[0] === "object"
         ? tenant.properties[0].room
           ? getRoomTypeDisplayName(tenant.properties[0].room)
           : "No room"
@@ -1097,68 +1075,62 @@ class TenantManagementComponent {
             <div class="list-group-item">
                 <div class="d-flex align-items-start gap-3">
                     <div class="flex-shrink-0">
-                        ${
-                          tenant.avatar
-                            ? `<img src="${this.getOptimizedAvatarUrl(
-                                tenant.avatar,
-                                "small",
-                              )}" alt="${this.escapeHtml(
-                                tenant.name,
-                              )}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">`
-                            : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 48px; height: 48px; font-size: 18px;">${this.escapeHtml(
-                                tenant.name.charAt(0).toUpperCase(),
-                              )}</div>`
-                        }
+                        ${tenant.avatar
+        ? `<img src="${this.getOptimizedAvatarUrl(
+          tenant.avatar,
+          "small",
+        )}" alt="${this.escapeHtml(
+          tenant.name,
+        )}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 48px; height: 48px; font-size: 18px;">${this.escapeHtml(
+          tenant.name.charAt(0).toUpperCase(),
+        )}</div>`
+      }
                     </div>
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <div>
                                 <h6 class="mb-0">${this.escapeHtml(
-                                  tenant.name,
-                                )}</h6>
+        tenant.name,
+      )}</h6>
                                 <small class="text-muted">${this.escapeHtml(
-                                  tenant.phoneNumber || "No phone",
-                                )}</small>
+        tenant.phoneNumber || "No phone",
+      )}</small>
                             </div>
                             <div class="d-flex gap-1 align-items-center">
                                 ${this.renderTenantTodoBadge(tenant)}
-                                ${
-                                  isMainTenant
-                                    ? '<span class="badge bg-primary">Main</span>'
-                                    : ""
-                                }
+                                ${isMainTenant
+        ? '<span class="badge bg-primary">Main</span>'
+        : ""
+      }
                             </div>
                         </div>
                         <div class="small text-muted mb-2">
-                            <div><strong>FIN:</strong> ${
-                              this.escapeHtml(tenant.fin) || "-"
-                            }</div>
+                            <div><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || "-"
+      }</div>
                             <div><strong>Passport:</strong> ${this.escapeHtml(
-                              tenant.passportNumber,
-                            )}</div>
+        tenant.passportNumber,
+      )}</div>
                             <div><strong>Room:</strong> ${this.escapeHtml(
-                              roomInfo,
-                            )}</div>
+        roomInfo,
+      )}</div>
                         </div>
                         <div class="d-flex gap-1 align-items-center mb-2">
                             ${this.getRegistrationStatusBadge(
-                              registrationStatus,
-                            )}
-                            ${
-                              tenant.properties && tenant.properties.length > 1
-                                ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
-                                : ""
-                            }
+        registrationStatus,
+      )}
+                            ${tenant.properties && tenant.properties.length > 1
+        ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
+        : ""
+      }
                         </div>
                         <div class="btn-group btn-group-sm w-100" role="group">
-                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${
-                              tenant._id
-                            }')">
+                            <button class="btn btn-outline-primary" onclick="tenantManager.editTenant('${tenant._id
+      }')">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
-                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${
-                              tenant._id
-                            }')">
+                            <button class="btn btn-outline-danger" onclick="tenantManager.deleteTenant('${tenant._id
+      }')">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
                         </div>
@@ -1330,13 +1302,13 @@ class TenantManagementComponent {
       const roomMatch =
         tenant.properties && Array.isArray(tenant.properties)
           ? tenant.properties.some((prop) => {
-              if (typeof prop === "object" && prop.room) {
-                return prop.room
-                  .toLowerCase()
-                  .includes(searchTerm.toLowerCase());
-              }
-              return false;
-            })
+            if (typeof prop === "object" && prop.room) {
+              return prop.room
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase());
+            }
+            return false;
+          })
           : false;
 
       return basicMatch || roomMatch;
@@ -1808,13 +1780,11 @@ class TenantManagementComponent {
       listItem.innerHTML = `
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="${checkboxId}" 
-                           value="${property.propertyId}" ${
-                             isChecked ? "checked" : ""
-                           }>
+                           value="${property.propertyId}" ${isChecked ? "checked" : ""
+        }>
                     <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
-                        <strong>${property.propertyId}</strong> - ${
-                          property.address
-                        }, ${property.unit}
+                        <strong>${property.propertyId}</strong> - ${property.address
+        }, ${property.unit}
                     </label>
                 </div>
             `;
@@ -1975,11 +1945,10 @@ class TenantManagementComponent {
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" 
                                                id="mainTenant_${propertyId}" 
-                                               ${
-                                                 propertyDetails.isMainTenant
-                                                   ? "checked"
-                                                   : ""
-                                               }
+                                               ${propertyDetails.isMainTenant
+            ? "checked"
+            : ""
+          }
                                                onchange="tenantManager.updatePropertyDetail('${propertyId}', 'isMainTenant', this.checked)">
                                         <label class="form-check-label" for="mainTenant_${propertyId}">
                                             Main Tenant for this property
@@ -1997,25 +1966,23 @@ class TenantManagementComponent {
                                 <div class="col-md-4">
                                     <label class="form-label small">Move-in Date</label>
                                     <input type="date" class="form-control form-control-sm" 
-                                           value="${
-                                             propertyDetails.moveinDate
-                                               ? propertyDetails.moveinDate.split(
-                                                   "T",
-                                                 )[0]
-                                               : ""
-                                           }"
+                                           value="${propertyDetails.moveinDate
+            ? propertyDetails.moveinDate.split(
+              "T",
+            )[0]
+            : ""
+          }"
                                            onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveinDate', this.value)">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small">Move-out Date</label>
                                     <input type="date" class="form-control form-control-sm" 
-                                           value="${
-                                             propertyDetails.moveoutDate
-                                               ? propertyDetails.moveoutDate.split(
-                                                   "T",
-                                                 )[0]
-                                               : ""
-                                           }"
+                                           value="${propertyDetails.moveoutDate
+            ? propertyDetails.moveoutDate.split(
+              "T",
+            )[0]
+            : ""
+          }"
                                            onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveoutDate', this.value)">
                                 </div>
                             </div>
@@ -2100,12 +2067,12 @@ class TenantManagementComponent {
             : (this.originalPropertiesDetails && this.originalPropertiesDetails.length > 0)
               ? this.originalPropertiesDetails
               : this.selectedProperties.map((propertyId) => ({
-                  propertyId,
-                  isMainTenant: false,
-                  room: "",
-                  moveinDate: "",
-                  moveoutDate: "",
-                })),
+                propertyId,
+                isMainTenant: false,
+                room: "",
+                moveinDate: "",
+                moveoutDate: "",
+              })),
         passportPics: this.passportPics,
         visaPics: this.visaPics,
         avatar: this.avatar || null,
@@ -2222,8 +2189,7 @@ class TenantManagementComponent {
       console.error("Error in handleTenantSubmit:", error);
       const isEdit = event.target.getAttribute("data-mode") === "edit";
       alert(
-        `An error occurred while ${
-          isEdit ? "updating" : "adding"
+        `An error occurred while ${isEdit ? "updating" : "adding"
         } the tenant. Please try again.`,
       );
 
@@ -2802,8 +2768,8 @@ class TenantManagementComponent {
                 <div class="col-6 col-md-4 mb-3">
                     <div class="position-relative border rounded overflow-hidden">
                         <img src="${this.normalizeImageUrl(
-                          url,
-                        )}" alt="${type} ${index + 1}" 
+        url,
+      )}" alt="${type} ${index + 1}" 
                              class="img-fluid w-100" 
                              style="height: 150px; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
                              onclick="window.open('${url}', '_blank')" />
@@ -2817,9 +2783,8 @@ class TenantManagementComponent {
                             ✕
                         </button>
                         <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
-                            <small><i class="bi ${icon} me-1"></i>${
-                              type.charAt(0).toUpperCase() + type.slice(1)
-                            } ${index + 1}</small>
+                            <small><i class="bi ${icon} me-1"></i>${type.charAt(0).toUpperCase() + type.slice(1)
+        } ${index + 1}</small>
                         </div>
                     </div>
                 </div>
@@ -2940,14 +2905,14 @@ class TenantManagementComponent {
     preview.innerHTML = `
             <div class="position-relative d-inline-block">
                 <img src="${this.getOptimizedAvatarUrl(
-                  this.avatar,
-                  "medium",
-                )}" alt="Avatar preview" 
+      this.avatar,
+      "medium",
+    )}" alt="Avatar preview" 
                      class="rounded-circle border" 
                      style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" 
                      onclick="window.open('${this.normalizeImageUrl(
-                       this.avatar,
-                     )}', '_blank')" />
+      this.avatar,
+    )}', '_blank')" />
                 <button type="button" 
                         class="btn btn-danger position-absolute top-0 end-0"
                         onclick="tenantManager.removeAvatar()"
@@ -3210,8 +3175,8 @@ class TenantManagementComponent {
         html += `
                     <div class="mb-1 ${index > 0 ? "border-top pt-1" : ""}">
                         <div><strong>${this.escapeHtml(
-                          propertyId,
-                        )}</strong></div>
+          propertyId,
+        )}</strong></div>
                         <small class="text-muted">Legacy format - no details</small>
                     </div>
                 `;
@@ -3261,6 +3226,14 @@ class TenantManagementComponent {
     );
     if (isHouseCleanerCheckbox) {
       isHouseCleanerCheckbox.addEventListener("change", () =>
+        this.checkForChanges(),
+      );
+    }
+    const isUtilitySubsidizedCheckbox = document.getElementById(
+      "tenantIsUtilitySubsidized",
+    );
+    if (isUtilitySubsidizedCheckbox) {
+      isUtilitySubsidizedCheckbox.addEventListener("change", () =>
         this.checkForChanges(),
       );
     }
@@ -3377,14 +3350,14 @@ class TenantManagementComponent {
         // For numeric fields, compare as numbers (treat null, undefined, and empty string as null)
         const originalValue =
           original[field] === null ||
-          original[field] === undefined ||
-          original[field] === ""
+            original[field] === undefined ||
+            original[field] === ""
             ? null
             : Number(original[field]);
         const currentValue =
           current[field] === null ||
-          current[field] === undefined ||
-          current[field] === ""
+            current[field] === undefined ||
+            current[field] === ""
             ? null
             : Number(current[field]);
         if (originalValue !== currentValue) {
@@ -3665,18 +3638,16 @@ class TenantManagementComponent {
 
     const messageDiv = document.createElement("div");
     messageDiv.id = messageId;
-    messageDiv.className = `alert alert-${
-      type === "success" ? "success" : type === "warning" ? "warning" : "danger"
-    } alert-dismissible fade show mt-2`;
+    messageDiv.className = `alert alert-${type === "success" ? "success" : type === "warning" ? "warning" : "danger"
+      } alert-dismissible fade show mt-2`;
     messageDiv.style.fontSize = "0.875rem";
     messageDiv.innerHTML = `
-            <i class="bi bi-${
-              type === "success"
-                ? "check-circle"
-                : type === "warning"
-                  ? "exclamation-triangle"
-                  : "x-circle"
-            } me-1"></i>
+            <i class="bi bi-${type === "success"
+        ? "check-circle"
+        : type === "warning"
+          ? "exclamation-triangle"
+          : "x-circle"
+      } me-1"></i>
             ${message}
         `;
 
@@ -4071,9 +4042,8 @@ class TenantManagementComponent {
         `;
     messageDiv.innerHTML = `
             <i class="bi bi-check-circle me-2"></i>
-            Copied ${tenantCount} tenant${
-              tenantCount !== 1 ? "s" : ""
-            } to clipboard!
+            Copied ${tenantCount} tenant${tenantCount !== 1 ? "s" : ""
+      } to clipboard!
             <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
 
@@ -4331,8 +4301,8 @@ class TenantManagementComponent {
           // Confirm before updating
           const confirmed = confirm(
             `Upload ${updates.length} tenant update(s)?\n\n` +
-              "This will update existing tenants based on Tenant ID.\n" +
-              "Make sure the data is correct before proceeding.",
+            "This will update existing tenants based on Tenant ID.\n" +
+            "Make sure the data is correct before proceeding.",
           );
 
           if (!confirmed) return;
@@ -4372,8 +4342,7 @@ class TenantManagementComponent {
           window.dashboardController.markTenantDataChanged();
         }
         this.showSuccessMessage(
-          `Successfully updated ${
-            result.updatedCount || updates.length
+          `Successfully updated ${result.updatedCount || updates.length
           } tenant(s)`,
         );
 
@@ -4499,15 +4468,15 @@ class TenantManagementComponent {
           : null;
         const dateStr = completedDate
           ? completedDate.toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            }) +
-            " " +
-            completedDate.toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }) +
+          " " +
+          completedDate.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : "";
         completionInfo = `
           <div class="small text-muted mt-1">

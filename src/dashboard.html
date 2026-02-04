@@ -2416,6 +2416,38 @@
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
       }
 
+      .movein-date-marker {
+        position: absolute;
+        left: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: white;
+        border: 2px solid currentColor;
+        border-radius: 12px;
+        padding: 2px 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+        white-space: nowrap;
+      }
+
+      .movein-date-marker i {
+        font-size: 10px;
+      }
+
+      .movein-date-text {
+        font-size: 11px;
+      }
+
+      .occupancy-bar:hover .movein-date-marker {
+        transform: translateY(-50%) scale(1.1);
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+      }
+
       /* Leave plan (away days) styles */
       .leave-plan-bar {
         position: absolute;
@@ -2695,6 +2727,20 @@
         }
 
         .moveout-date-text {
+          font-size: 10px;
+        }
+
+        .movein-date-marker {
+          padding: 2px 6px;
+          font-size: 10px;
+          border-radius: 10px;
+        }
+
+        .movein-date-marker i {
+          font-size: 9px;
+        }
+
+        .movein-date-text {
           font-size: 10px;
         }
 
