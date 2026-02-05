@@ -774,7 +774,9 @@ class PropertyManagementComponent {
       const roomsSelect = document.getElementById("propertyRooms");
       const selectedRooms = roomsSelect ? Array.from(roomsSelect.selectedOptions).map(option => option.value) : [];
 
+      // When editing, spread existing property first to preserve unchanged fields (like propertyImage)
       const propertyData = {
+        ...(isEdit && this.editingProperty ? this.editingProperty : {}),
         propertyId: formData.get("propertyId").trim().toUpperCase(),
         address: formData.get("address").trim(),
         unit: formData.get("unit").trim(),
@@ -807,20 +809,11 @@ class PropertyManagementComponent {
         wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
-        // Use current propertyImage, or fall back to original image stored at edit start, then editing property's image
-        propertyImage: this.propertyImage || this.originalPropertyImage || this.editingProperty?.propertyImage || "",
+        // Only override propertyImage if user explicitly changed it
+        propertyImage: this.propertyImage || this.editingProperty?.propertyImage || "",
         acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
       };
-
-      // Debug logging
-      console.log('🔍 Property data being saved:', {
-        propertyImage: propertyData.propertyImage,
-        thisPropertyImage: this.propertyImage,
-        originalPropertyImage: this.originalPropertyImage,
-        editingPropertyImage: this.editingProperty?.propertyImage,
-        acServiceDate: propertyData.acServiceDate
-      });
 
       // Validate required fields
       if (
