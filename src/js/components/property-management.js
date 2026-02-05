@@ -316,8 +316,43 @@ class PropertyManagementComponent {
                 </div>
               </div>
               <div class="mt-2">
-                <p class="mb-0 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate} of month` : 'Not set'}</p>
+                <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate}` : 'Not set'}</p>
+                <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
+                <p class="mb-1 small"><strong>PUB Subsidy:</strong> $${(property.subsidizedPub || 0).toLocaleString()}</p>
               </div>
+              ${property.rooms && property.rooms.length > 0 ? `
+              <div class="mt-2">
+                <p class="mb-1 small"><strong>Rooms:</strong></p>
+                <div class="d-flex flex-wrap gap-1">
+                  ${property.rooms.map(room => `<span class="badge bg-secondary">${ROOM_TYPE_MAP[room] || room}</span>`).join('')}
+                </div>
+              </div>
+              ` : ''}
+              ${property.landlordBankName || property.landlordAccountName ? `
+              <div class="mt-2 p-2 bg-light rounded">
+                <p class="mb-1 small fw-bold"><i class="bi bi-bank me-1"></i>Landlord Bank</p>
+                ${property.landlordBankName ? `<p class="mb-0 small text-truncate" title="${this.escapeHtml(property.landlordBankName)}">${this.escapeHtml(property.landlordBankName)}</p>` : ''}
+                ${property.landlordAccountName ? `<p class="mb-0 small text-muted text-truncate" title="${this.escapeHtml(property.landlordAccountName)}">${this.escapeHtml(property.landlordAccountName)}</p>` : ''}
+                ${property.landlordBankAccount ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.landlordBankAccount)}">${this.escapeHtml(property.landlordBankAccount)}</p>` : ''}
+              </div>
+              ` : ''}
+              ${(property.settlementSgd?.bankName || property.settlementVnd?.bankName) ? `
+              <div class="mt-2 p-2 bg-light rounded">
+                <p class="mb-1 small fw-bold"><i class="bi bi-cash-stack me-1"></i>Settlement</p>
+                ${property.settlementSgd?.bankName ? `
+                <div class="mb-1">
+                  <span class="badge bg-success me-1">SGD</span>
+                  <span class="small text-truncate" title="${this.escapeHtml(property.settlementSgd.bankName)}">${this.escapeHtml(property.settlementSgd.bankName)}</span>
+                </div>
+                ` : ''}
+                ${property.settlementVnd?.bankName ? `
+                <div>
+                  <span class="badge bg-warning text-dark me-1">VND</span>
+                  <span class="small text-truncate" title="${this.escapeHtml(property.settlementVnd.bankName)}">${this.escapeHtml(property.settlementVnd.bankName)}</span>
+                </div>
+                ` : ''}
+              </div>
+              ` : ''}
             </div>
             <div class="card-footer bg-white border-0 pt-0">
               <div class="d-flex gap-2">

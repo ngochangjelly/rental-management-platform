@@ -1,6 +1,6 @@
 // Note: showToast and escapeHtml are expected to be available globally
-import html2canvas from 'html2canvas';
-import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+import html2canvas from "html2canvas";
+import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
 
 /**
  * Financial Reports Component
@@ -188,7 +188,7 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showError(
-        "Failed to load properties. Please check your connection and try again."
+        "Failed to load properties. Please check your connection and try again.",
       );
       this.renderPropertyCards([]); // Show empty cards with default message
     }
@@ -227,39 +227,44 @@ class FinancialReportsComponent {
                onclick="window.financialReports.selectProperty('${
                  property.propertyId
                }')">
-            ${property.propertyImage ? `
+            ${
+              property.propertyImage
+                ? `
             <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
+              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ""}
             </div>
-            ` : ''}
+            `
+                : ""
+            }
             <div class="card-header d-flex justify-content-between align-items-center bg-white">
               <div class="d-flex align-items-center">
                 <div class="me-3">
                   <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
                        style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
                     ${escapeHtml(
-                      property.propertyId.substring(0, 2).toUpperCase()
+                      property.propertyId.substring(0, 2).toUpperCase(),
                     )}
                   </div>
                 </div>
                 <div>
                   <h6 class="mb-0 fw-bold">${escapeHtml(
-                    property.propertyId
+                    property.propertyId,
                   )}</h6>
                   <small class="text-muted">Property ID</small>
                 </div>
               </div>
-              ${!property.propertyImage && isSelected
-                ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
-                : ""
+              ${
+                !property.propertyImage && isSelected
+                  ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
+                  : ""
               }
             </div>
             <div class="card-body py-2 bg-white">
               <p class="mb-1 small"><strong>Address:</strong> ${escapeHtml(
-                property.address
+                property.address,
               )}</p>
               <p class="mb-1 small"><strong>Unit:</strong> ${escapeHtml(
-                property.unit
+                property.unit,
               )}</p>
               ${
                 property.rent
@@ -269,7 +274,7 @@ class FinancialReportsComponent {
               ${
                 property.description
                   ? `<p class="mb-1 small text-muted">${escapeHtml(
-                      property.description
+                      property.description,
                     )}</p>`
                   : ""
               }
@@ -308,8 +313,10 @@ class FinancialReportsComponent {
 
   initializeTooltips() {
     // Dispose of existing tooltips first to prevent memory leaks
-    const existingTooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    existingTooltips.forEach(el => {
+    const existingTooltips = document.querySelectorAll(
+      '[data-bs-toggle="tooltip"]',
+    );
+    existingTooltips.forEach((el) => {
       const existingTooltip = bootstrap.Tooltip.getInstance(el);
       if (existingTooltip) {
         existingTooltip.dispose();
@@ -317,11 +324,16 @@ class FinancialReportsComponent {
     });
 
     // Initialize new tooltips with custom placement
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl, {
-      placement: 'top',
-      offset: [15, 0]  // Offset to the right
-    }));
+    const tooltipTriggerList = document.querySelectorAll(
+      '[data-bs-toggle="tooltip"]',
+    );
+    [...tooltipTriggerList].map(
+      (tooltipTriggerEl) =>
+        new bootstrap.Tooltip(tooltipTriggerEl, {
+          placement: "top",
+          offset: [15, 0], // Offset to the right
+        }),
+    );
 
     // Add custom tooltip styles if not already added
     if (!document.getElementById("custom-tooltip-styles")) {
@@ -362,7 +374,7 @@ class FinancialReportsComponent {
       const selectedCard = Array.from(allCards).find(
         (card) =>
           card.onclick &&
-          card.onclick.toString().includes(this.selectedProperty)
+          card.onclick.toString().includes(this.selectedProperty),
       );
 
       if (selectedCard) {
@@ -415,7 +427,7 @@ class FinancialReportsComponent {
   async loadInvestors(propertyId) {
     try {
       const response = await API.get(
-        API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(propertyId)
+        API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(propertyId),
       );
       const result = await response.json();
 
@@ -436,7 +448,7 @@ class FinancialReportsComponent {
 
       // Use the corrected property-specific endpoint
       const response = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId),
       );
       const result = await response.json();
 
@@ -445,7 +457,7 @@ class FinancialReportsComponent {
         console.log(
           "✅ Loaded tenants for property:",
           this.tenants.length,
-          this.tenants
+          this.tenants,
         );
       } else {
         this.tenants = [];
@@ -467,29 +479,20 @@ class FinancialReportsComponent {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
 
-      console.log(
-        `loadFinancialReport: Loading data for ${this.selectedProperty} - ${year}/${month}`
-      );
-
       const response = await API.get(
         API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
           this.selectedProperty,
           year,
-          month
-        )
+          month,
+        ),
       );
 
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
           this.currentReport = result.data;
-          console.log(
-            `loadFinancialReport: Loaded existing report:`,
-            this.currentReport
-          );
         } else {
           this.currentReport = null;
-          console.log(`loadFinancialReport: API returned error:`, result);
         }
       } else if (response.status === 404) {
         // No report exists for this month - start fresh
@@ -505,13 +508,13 @@ class FinancialReportsComponent {
           netProfit: 0,
         };
         console.log(
-          `loadFinancialReport: Created empty report for ${year}/${month}`
+          `loadFinancialReport: Created empty report for ${year}/${month}`,
         );
       }
 
       console.log(
         `loadFinancialReport: Calling updateDisplays with:`,
-        this.currentReport
+        this.currentReport,
       );
       await this.updateDisplays();
     } catch (error) {
@@ -586,8 +589,8 @@ class FinancialReportsComponent {
       total += item.amount;
 
       // Track currency totals
-      const currency = item.currency || 'SGD';
-      if (currency === 'VND') {
+      const currency = item.currency || "SGD";
+      if (currency === "VND") {
         totalVND += item.amount;
       } else {
         totalSGD += item.amount;
@@ -595,7 +598,7 @@ class FinancialReportsComponent {
 
       // Find investor name by ID (for income, show investor responsible instead of tenant)
       const investor = this.investors.find(
-        (inv) => inv.investorId === item.personInCharge
+        (inv) => inv.investorId === item.personInCharge,
       );
       const investorName = investor ? investor.name : item.personInCharge;
       const investorAvatar = investor?.avatar;
@@ -631,7 +634,7 @@ class FinancialReportsComponent {
             ${
               hasDetails
                 ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(
-                    item.details
+                    item.details,
                   )}">${escapeHtml(item.details.substring(0, 50))}${
                     item.details.length > 50 ? "..." : ""
                   }</div>`
@@ -650,16 +653,16 @@ class FinancialReportsComponent {
                 investorAvatar
                   ? `<img src="${this.getOptimizedAvatarUrl(
                       investorAvatar,
-                      "small"
+                      "small",
                     )}" alt="${escapeHtml(
-                      investorName
+                      investorName,
                     )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName
+                      investorName,
                     )}">`
                   : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName
+                      investorName,
                     )}">${escapeHtml(
-                      investorName.charAt(0).toUpperCase()
+                      investorName.charAt(0).toUpperCase(),
                     )}</div>`
               }
             </div>
@@ -671,7 +674,7 @@ class FinancialReportsComponent {
             ${this.renderCurrencyFlag(item.currency)}
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-success" style="font-size: 16px;">$${item.amount.toFixed(
-            2
+            2,
           )}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
@@ -717,7 +720,7 @@ class FinancialReportsComponent {
       totalIncomeEl.textContent = `$${total.toFixed(2)}`;
 
       // Display currency breakdown
-      let breakdownHtml = '';
+      let breakdownHtml = "";
       if (totalSGD > 0 || totalVND > 0) {
         breakdownHtml = '<div class="mt-2 small text-muted">';
         if (totalSGD > 0) {
@@ -726,15 +729,17 @@ class FinancialReportsComponent {
         if (totalVND > 0) {
           breakdownHtml += `<div class="d-flex justify-content-between"><span>🇻🇳 VND:</span><span>$${totalVND.toFixed(2)}</span></div>`;
         }
-        breakdownHtml += '</div>';
+        breakdownHtml += "</div>";
       }
 
       // Find or create breakdown container
-      let breakdownContainer = document.getElementById('incomeCurrencyBreakdown');
+      let breakdownContainer = document.getElementById(
+        "incomeCurrencyBreakdown",
+      );
       if (!breakdownContainer) {
         // Create the breakdown container after the total income element
-        breakdownContainer = document.createElement('div');
-        breakdownContainer.id = 'incomeCurrencyBreakdown';
+        breakdownContainer = document.createElement("div");
+        breakdownContainer.id = "incomeCurrencyBreakdown";
         totalIncomeEl.parentElement.appendChild(breakdownContainer);
       }
       breakdownContainer.innerHTML = breakdownHtml;
@@ -786,7 +791,7 @@ class FinancialReportsComponent {
 
       // Find investor name by ID
       const investor = this.investors.find(
-        (inv) => inv.investorId === item.personInCharge
+        (inv) => inv.investorId === item.personInCharge,
       );
       const investorName = investor ? investor.name : item.personInCharge;
       const investorAvatar = investor?.avatar;
@@ -822,7 +827,7 @@ class FinancialReportsComponent {
             ${
               hasDetails
                 ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(
-                    item.details
+                    item.details,
                   )}">${escapeHtml(item.details.substring(0, 50))}${
                     item.details.length > 50 ? "..." : ""
                   }</div>`
@@ -841,22 +846,22 @@ class FinancialReportsComponent {
                 investorAvatar
                   ? `<img src="${this.getOptimizedAvatarUrl(
                       investorAvatar,
-                      "small"
+                      "small",
                     )}" alt="${escapeHtml(
-                      investorName
+                      investorName,
                     )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName
+                      investorName,
                     )}">`
                   : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName
+                      investorName,
                     )}">${escapeHtml(
-                      investorName.charAt(0).toUpperCase()
+                      investorName.charAt(0).toUpperCase(),
                     )}</div>`
               }
             </div>
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size: 16px;">$${item.amount.toFixed(
-            2
+            2,
           )}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">
@@ -929,9 +934,23 @@ class FinancialReportsComponent {
 
   updateInvestorDisplay() {
     const investorDistribution = document.getElementById(
-      "investorDistribution"
+      "investorDistribution",
     );
 
+    // Check if report is closed and has snapshot data - use frozen snapshot instead of recalculating
+    const isClosed = this.currentReport && this.currentReport.isClosed;
+    const hasSnapshot =
+      this.currentReport &&
+      this.currentReport.investorSnapshot &&
+      this.currentReport.investorSnapshot.length > 0;
+
+    // For closed reports with snapshot, use the snapshot data
+    if (isClosed && hasSnapshot) {
+      this.renderInvestorDisplayFromSnapshot();
+      return;
+    }
+
+    // For open reports or reports without snapshot, calculate dynamically
     if (!this.investors || this.investors.length === 0) {
       investorDistribution.innerHTML = `
                 <div class="text-center text-muted py-3">
@@ -967,29 +986,30 @@ class FinancialReportsComponent {
 
     this.investors.forEach((investor) => {
       const propertyData = investor.properties.find(
-        (p) => p.propertyId === this.selectedProperty
+        (p) => p.propertyId === this.selectedProperty,
       );
       const percentage = propertyData ? propertyData.percentage : 0;
       const profitShare = (netProfit * percentage) / 100;
 
       // Calculate paid amount (expenses paid by this investor)
       // Note: For expenses, the person who paid is stored in 'personInCharge' field
-      const paidAmount = this.currentReport && this.currentReport.expenses
-        ? this.currentReport.expenses
-            .filter(e => e.personInCharge === investor.investorId)
-            .reduce((sum, e) => sum + (e.amount || 0), 0)
-        : 0;
+      const paidAmount =
+        this.currentReport && this.currentReport.expenses
+          ? this.currentReport.expenses
+              .filter((e) => e.personInCharge === investor.investorId)
+              .reduce((sum, e) => sum + (e.amount || 0), 0)
+          : 0;
 
       // Calculate received amount (income received by this investor)
-      const receivedAmount = this.currentReport && this.currentReport.income
-        ? this.currentReport.income
-            .filter(i => i.personInCharge === investor.investorId)
-            .reduce((sum, i) => sum + (i.amount || 0), 0)
-        : 0;
+      const receivedAmount =
+        this.currentReport && this.currentReport.income
+          ? this.currentReport.income
+              .filter((i) => i.personInCharge === investor.investorId)
+              .reduce((sum, i) => sum + (i.amount || 0), 0)
+          : 0;
 
       // Calculate final amount (everything in SGD)
       // Formula: Final = Profit Share + Paid - Received
-      // Always recalculate instead of using stored transaction data
       const finalAmount = profitShare + paidAmount - receivedAmount;
 
       html += `
@@ -1000,12 +1020,12 @@ class FinancialReportsComponent {
                 investor.avatar
                   ? `<img src="${this.getOptimizedAvatarUrl(
                       investor.avatar,
-                      "small"
+                      "small",
                     )}" alt="${escapeHtml(
-                      investor.name
+                      investor.name,
                     )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">`
                   : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(
-                      investor.name.charAt(0).toUpperCase()
+                      investor.name.charAt(0).toUpperCase(),
                     )}</div>`
               }
               <span class="fw-semibold">${escapeHtml(investor.name)}</span>
@@ -1054,6 +1074,100 @@ class FinancialReportsComponent {
     this.initializeTooltips();
   }
 
+  // Render investor display using frozen snapshot data (for closed reports)
+  renderInvestorDisplayFromSnapshot() {
+    const investorDistribution = document.getElementById(
+      "investorDistribution",
+    );
+
+    const snapshot = this.currentReport.investorSnapshot;
+
+    if (!snapshot || snapshot.length === 0) {
+      investorDistribution.innerHTML = `
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-person-lines-fill fs-1"></i>
+                    <p class="mt-2">No investor data available for this closed report</p>
+                </div>
+            `;
+      return;
+    }
+
+    // Create compact table format - same layout but with frozen data and no action buttons
+    let html = `
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr class="table-info">
+              <th class="border-0 small">Investor</th>
+              <th class="border-0 small text-center">Share %</th>
+              <th class="border-0 small text-end">Profit Share</th>
+              <th class="border-0 small text-end">Paid</th>
+              <th class="border-0 small text-end">Received</th>
+              <th class="border-0 small text-end">Final</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    snapshot.forEach((investorData) => {
+      const {
+        name,
+        avatar,
+        percentage,
+        profitShare,
+        paidAmount,
+        receivedAmount,
+        finalAmount,
+      } = investorData;
+
+      html += `
+        <tr>
+          <td class="small border-0 align-middle">
+            <div class="d-flex align-items-center gap-2">
+              ${
+                avatar
+                  ? `<img src="${this.getOptimizedAvatarUrl(
+                      avatar,
+                      "small",
+                    )}" alt="${escapeHtml(
+                      name,
+                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">`
+                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(
+                      name.charAt(0).toUpperCase(),
+                    )}</div>`
+              }
+              <span class="fw-semibold">${escapeHtml(name)}</span>
+            </div>
+          </td>
+          <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
+          <td class="small border-0 align-middle text-end ${
+            profitShare >= 0 ? "text-primary" : "text-danger"
+          }" style="font-size: 16px;">$${profitShare.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end ${
+            paidAmount > 0 ? "text-warning" : "text-muted"
+          }" style="font-size: 16px;">$${paidAmount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end ${
+            receivedAmount > 0 ? "text-info" : "text-muted"
+          }" style="font-size: 16px;">$${receivedAmount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold ${
+            finalAmount >= 0 ? "text-success" : "text-danger"
+          }" style="font-size: 16px;">$${finalAmount.toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    investorDistribution.innerHTML = html;
+
+    // Initialize tooltips
+    this.initializeTooltips();
+  }
+
   async updateUnpaidRentReminder() {
     const reminderContainer = document.getElementById("unpaidRentReminder");
     if (!reminderContainer || !this.selectedProperty || !this.currentReport) {
@@ -1066,7 +1180,7 @@ class FinancialReportsComponent {
 
       // Fetch tenants for this property
       const tenantsResponse = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
       );
 
       if (!tenantsResponse.ok) {
@@ -1075,19 +1189,24 @@ class FinancialReportsComponent {
       }
 
       const tenantsResult = await tenantsResponse.json();
-      const allTenants = tenantsResult.success ? (tenantsResult.tenants || []) : [];
+      const allTenants = tenantsResult.success
+        ? tenantsResult.tenants || []
+        : [];
 
       // Filter tenants whose rental period overlaps with current month
-      const currentMonthTenants = allTenants.filter(tenant => {
+      const currentMonthTenants = allTenants.filter((tenant) => {
         if (!tenant.properties || !Array.isArray(tenant.properties)) {
           return false;
         }
 
         // Find the property record for current property
         // Properties can be either strings or objects with propertyId
-        const propertyRecord = tenant.properties.find(prop => {
-          const propId = typeof prop === 'object' ? prop.propertyId : prop;
-          return propId && propId.toUpperCase() === this.selectedProperty.toUpperCase();
+        const propertyRecord = tenant.properties.find((prop) => {
+          const propId = typeof prop === "object" ? prop.propertyId : prop;
+          return (
+            propId &&
+            propId.toUpperCase() === this.selectedProperty.toUpperCase()
+          );
         });
 
         if (!propertyRecord) {
@@ -1096,12 +1215,18 @@ class FinancialReportsComponent {
 
         // Check if tenant has move-in/move-out dates in the property record
         // Property record can be an object with moveinDate/moveoutDate fields
-        const moveInDate = propertyRecord && typeof propertyRecord === 'object' && propertyRecord.moveinDate
-          ? new Date(propertyRecord.moveinDate)
-          : null;
-        const moveOutDate = propertyRecord && typeof propertyRecord === 'object' && propertyRecord.moveoutDate
-          ? new Date(propertyRecord.moveoutDate)
-          : null;
+        const moveInDate =
+          propertyRecord &&
+          typeof propertyRecord === "object" &&
+          propertyRecord.moveinDate
+            ? new Date(propertyRecord.moveinDate)
+            : null;
+        const moveOutDate =
+          propertyRecord &&
+          typeof propertyRecord === "object" &&
+          propertyRecord.moveoutDate
+            ? new Date(propertyRecord.moveoutDate)
+            : null;
 
         const reportDate = new Date(year, month - 1, 1); // First day of report month
         const reportEndDate = new Date(year, month, 0); // Last day of report month
@@ -1120,19 +1245,23 @@ class FinancialReportsComponent {
 
       // Get list of tenants who have paid (appear in income as paidBy)
       const paidTenantIdentifiers = new Set();
-      if (this.currentReport.income && Array.isArray(this.currentReport.income)) {
-        this.currentReport.income.forEach(incomeItem => {
+      if (
+        this.currentReport.income &&
+        Array.isArray(this.currentReport.income)
+      ) {
+        this.currentReport.income.forEach((incomeItem) => {
           if (incomeItem.paidBy && incomeItem.paidBy.startsWith("tenant_")) {
             // Extract tenant ID from "tenant_" prefix
             const tenantId = incomeItem.paidBy.replace("tenant_", "");
 
             // Find the tenant to get all their identifiers
-            const tenant = this.tenants.find(t =>
-              (t._id && t._id === tenantId) ||
-              (t.tenantId && t.tenantId === tenantId) ||
-              (t.name && t.name === tenantId) ||
-              (t.fin && t.fin === tenantId) ||
-              (t.passportNumber && t.passportNumber === tenantId)
+            const tenant = this.tenants.find(
+              (t) =>
+                (t._id && t._id === tenantId) ||
+                (t.tenantId && t.tenantId === tenantId) ||
+                (t.name && t.name === tenantId) ||
+                (t.fin && t.fin === tenantId) ||
+                (t.passportNumber && t.passportNumber === tenantId),
             );
 
             if (tenant) {
@@ -1141,7 +1270,8 @@ class FinancialReportsComponent {
               if (tenant.tenantId) paidTenantIdentifiers.add(tenant.tenantId);
               if (tenant.name) paidTenantIdentifiers.add(tenant.name);
               if (tenant.fin) paidTenantIdentifiers.add(tenant.fin);
-              if (tenant.passportNumber) paidTenantIdentifiers.add(tenant.passportNumber);
+              if (tenant.passportNumber)
+                paidTenantIdentifiers.add(tenant.passportNumber);
             }
           }
         });
@@ -1149,16 +1279,16 @@ class FinancialReportsComponent {
 
       // Find unpaid tenants
       // Match by multiple identifiers: _id, name, fin, passportNumber
-      const unpaidTenants = currentMonthTenants.filter(tenant => {
+      const unpaidTenants = currentMonthTenants.filter((tenant) => {
         const identifiers = [
           tenant._id,
           tenant.tenantId,
           tenant.name,
           tenant.fin,
-          tenant.passportNumber
+          tenant.passportNumber,
         ].filter(Boolean);
 
-        return !identifiers.some(id => paidTenantIdentifiers.has(id));
+        return !identifiers.some((id) => paidTenantIdentifiers.has(id));
       });
 
       // Display the reminder
@@ -1172,7 +1302,9 @@ class FinancialReportsComponent {
         reminderContainer.style.display = "block";
       } else {
         // Filter out tenants without room type
-        const tenantsWithRoomType = unpaidTenants.filter(tenant => tenant.roomType);
+        const tenantsWithRoomType = unpaidTenants.filter(
+          (tenant) => tenant.roomType,
+        );
 
         if (tenantsWithRoomType.length === 0) {
           reminderContainer.style.display = "none";
@@ -1185,7 +1317,7 @@ class FinancialReportsComponent {
             <div class="d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="true" aria-controls="${collapseId}">
               <div>
                 <i class="bi bi-exclamation-triangle me-2"></i>
-                <strong>Unpaid Rent Reminder</strong> - ${tenantsWithRoomType.length} tenant${tenantsWithRoomType.length > 1 ? 's' : ''} haven't paid rent yet
+                <strong>Unpaid Rent Reminder</strong> - ${tenantsWithRoomType.length} tenant${tenantsWithRoomType.length > 1 ? "s" : ""} haven't paid rent yet
               </div>
               <i class="bi bi-chevron-down"></i>
             </div>
@@ -1195,16 +1327,16 @@ class FinancialReportsComponent {
                 <ul class="mb-0">
         `;
 
-        tenantsWithRoomType.forEach(tenant => {
+        tenantsWithRoomType.forEach((tenant) => {
           const displayName = tenant.name || tenant.username || tenant.tenantId;
-          const phoneNumber = tenant.phoneNumber || '';
+          const phoneNumber = tenant.phoneNumber || "";
           const roomType = this.getRoomTypeDisplayName(tenant.roomType);
-          const facebookUrl = tenant.facebookUrl || '';
-          const roommateName = tenant.roommateId?.name || '';
-          const roommateAvatar = tenant.roommateId?.avatar || '';
+          const facebookUrl = tenant.facebookUrl || "";
+          const roommateName = tenant.roommateId?.name || "";
+          const roommateAvatar = tenant.roommateId?.avatar || "";
 
           // Generate roommate avatar HTML
-          let roommateAvatarHtml = '';
+          let roommateAvatarHtml = "";
           if (roommateName) {
             if (roommateAvatar) {
               roommateAvatarHtml = `<img src="${escapeHtml(roommateAvatar)}" alt="${escapeHtml(roommateName)}" class="rounded-circle" style="width: 24px; height: 24px; object-fit: cover; border: 2px solid #0dcaf0;" title="Roommate: ${escapeHtml(roommateName)}" data-bs-toggle="tooltip">`;
@@ -1219,8 +1351,8 @@ class FinancialReportsComponent {
               <div class="d-flex align-items-center flex-wrap gap-2">
                 <strong>${escapeHtml(displayName)}</strong>
                 <span class="text-muted">(${escapeHtml(roomType)})</span>
-                ${phoneNumber ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ''))}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>` : ''}
-                ${facebookUrl ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile"><i class="bi bi-facebook me-1"></i>Facebook</a>` : ''}
+                ${phoneNumber ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>` : ""}
+                ${facebookUrl ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile"><i class="bi bi-facebook me-1"></i>Facebook</a>` : ""}
                 ${roommateAvatarHtml}
               </div>
             </li>
@@ -1238,8 +1370,10 @@ class FinancialReportsComponent {
         reminderContainer.style.display = "block";
 
         // Initialize Bootstrap tooltips for roommate avatars
-        const tooltipTriggerList = reminderContainer.querySelectorAll('[data-bs-toggle="tooltip"]');
-        tooltipTriggerList.forEach(tooltipTriggerEl => {
+        const tooltipTriggerList = reminderContainer.querySelectorAll(
+          '[data-bs-toggle="tooltip"]',
+        );
+        tooltipTriggerList.forEach((tooltipTriggerEl) => {
           new bootstrap.Tooltip(tooltipTriggerEl);
         });
       }
@@ -1296,7 +1430,7 @@ class FinancialReportsComponent {
     // Check if there are required people for this property (investors for both income and expenses)
     if (type === "income" && (!this.investors || this.investors.length === 0)) {
       this.showError(
-        "Please add investors to this property before adding income items."
+        "Please add investors to this property before adding income items.",
       );
       return;
     }
@@ -1306,7 +1440,7 @@ class FinancialReportsComponent {
       (!this.investors || this.investors.length === 0)
     ) {
       this.showError(
-        "Please add investors to this property before adding expense items."
+        "Please add investors to this property before adding expense items.",
       );
       return;
     }
@@ -1348,7 +1482,7 @@ class FinancialReportsComponent {
       if (firstInput) {
         // Remove any disabled attributes and ensure inputs are interactive
         const allInputs = modalElement.querySelectorAll(
-          "input, select, textarea"
+          "input, select, textarea",
         );
         allInputs.forEach((input) => {
           input.removeAttribute("disabled");
@@ -1393,8 +1527,11 @@ class FinancialReportsComponent {
       // Setup currency and exchange rate handling for income
       if (type === "income") {
         const currencySelect = modalElement.querySelector("#currencySelect");
-        const exchangeRateContainer = modalElement.querySelector("#exchangeRateContainer");
-        const exchangeRateInput = modalElement.querySelector("#exchangeRateInput");
+        const exchangeRateContainer = modalElement.querySelector(
+          "#exchangeRateContainer",
+        );
+        const exchangeRateInput =
+          modalElement.querySelector("#exchangeRateInput");
 
         // Show/hide exchange rate field based on currency selection
         if (currencySelect && exchangeRateContainer) {
@@ -1499,9 +1636,11 @@ class FinancialReportsComponent {
       .map((tenant) => {
         const isSelected = tenant.tenantId === selectedValue ? " selected" : "";
         const baseName = tenant.name || "Unknown Tenant";
-        const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+        const displayName = tenant.nickname
+          ? `${baseName} (${tenant.nickname})`
+          : baseName;
         return `<option value="${tenant.tenantId}"${isSelected}>${escapeHtml(
-          displayName
+          displayName,
         )}</option>`;
       })
       .join("");
@@ -1538,7 +1677,9 @@ class FinancialReportsComponent {
           }`;
           const isSelected = tenantValue === selectedValue ? " selected" : "";
           const baseName = tenant.name || "Unknown Tenant";
-          const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+          const displayName = tenant.nickname
+            ? `${baseName} (${tenant.nickname})`
+            : baseName;
 
           // Build additional info string
           const additionalInfo = [];
@@ -1549,10 +1690,11 @@ class FinancialReportsComponent {
             additionalInfo.push(`$${tenant.monthlyRent}`);
           }
 
-          const infoString = additionalInfo.length > 0 ? ` - ${additionalInfo.join(', ')}` : '';
+          const infoString =
+            additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
 
           return `<option value="${tenantValue}"${isSelected}>${escapeHtml(
-            displayName
+            displayName,
           )}${infoString}</option>`;
         })
         .join("");
@@ -1589,7 +1731,7 @@ class FinancialReportsComponent {
           (t._id && t._id === tenantId) ||
           (t.tenantId && t.tenantId === tenantId) ||
           (t.id && t.id === tenantId) ||
-          (t.fin && t.fin === tenantId)
+          (t.fin && t.fin === tenantId),
       );
       if (person) {
         displayName = person.name || "Unknown Tenant";
@@ -1598,7 +1740,7 @@ class FinancialReportsComponent {
         // Find room type for the current property
         if (person.properties && this.selectedProperty) {
           const propertyAssociation = person.properties.find(
-            (prop) => prop.propertyId === this.selectedProperty
+            (prop) => prop.propertyId === this.selectedProperty,
           );
           if (propertyAssociation && propertyAssociation.room) {
             roomType = propertyAssociation.room;
@@ -1629,27 +1771,27 @@ class FinancialReportsComponent {
             avatar
               ? `<img src="${this.getOptimizedAvatarUrl(
                   avatar,
-                  "small"
+                  "small",
                 )}" alt="${escapeHtml(
-                  displayName
+                  displayName,
                 )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                  displayName
+                  displayName,
                 )}">`
               : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                  displayName
+                  displayName,
                 )}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`
           }
         </div>
-        ${roomType ? `<div class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 6px;">${escapeHtml(this.getRoomTypeDisplayName(roomType))}</div>` : ''}
+        ${roomType ? `<div class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 6px;">${escapeHtml(this.getRoomTypeDisplayName(roomType))}</div>` : ""}
       </div>
     `;
   }
 
   renderCurrencyFlag(currency) {
     // Default to SGD if currency is not specified
-    const curr = currency || 'SGD';
+    const curr = currency || "SGD";
 
-    if (curr === 'VND') {
+    if (curr === "VND") {
       return '<span style="font-size: 1.2rem;" title="Vietnamese Dong">🇻🇳</span>';
     } else {
       return '<span style="font-size: 1.2rem;" title="Singapore Dollar">🇸🇬</span>';
@@ -1658,7 +1800,7 @@ class FinancialReportsComponent {
 
   renderPaidByName(paidBy) {
     if (!paidBy) {
-      return '-';
+      return "-";
     }
 
     let person = null;
@@ -1673,7 +1815,7 @@ class FinancialReportsComponent {
           (t._id && t._id === tenantId) ||
           (t.tenantId && t.tenantId === tenantId) ||
           (t.id && t.id === tenantId) ||
-          (t.fin && t.fin === tenantId)
+          (t.fin && t.fin === tenantId),
       );
       if (person) {
         displayName = person.name || "Unknown Tenant";
@@ -1681,7 +1823,7 @@ class FinancialReportsComponent {
         // Find room type for the current property
         if (person.properties && this.selectedProperty) {
           const propertyAssociation = person.properties.find(
-            (prop) => prop.propertyId === this.selectedProperty
+            (prop) => prop.propertyId === this.selectedProperty,
           );
           if (propertyAssociation && propertyAssociation.room) {
             roomType = propertyAssociation.room;
@@ -1697,7 +1839,7 @@ class FinancialReportsComponent {
     }
 
     if (!person || !displayName) {
-      return 'Unknown';
+      return "Unknown";
     }
 
     // Return name with room type if available
@@ -1716,8 +1858,8 @@ class FinancialReportsComponent {
         ? "Edit Income Item"
         : "Edit Expense Item"
       : isIncome
-      ? "Add Income Item"
-      : "Add Expense Item";
+        ? "Add Income Item"
+        : "Add Expense Item";
     const icon = isIncome ? "plus-circle" : "dash-circle";
     const editIcon = "pencil";
     const color = isIncome ? "success" : "danger";
@@ -1738,10 +1880,11 @@ class FinancialReportsComponent {
       existingItem && existingItem.date
         ? new Date(existingItem.date).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0]; // Default to today
-    const currencyValue = existingItem ? (existingItem.currency || 'SGD') : 'SGD';
-    const exchangeRateValue = existingItem && existingItem.exchangeRate
-      ? existingItem.exchangeRate.toLocaleString('en-US')
-      : '';
+    const currencyValue = existingItem ? existingItem.currency || "SGD" : "SGD";
+    const exchangeRateValue =
+      existingItem && existingItem.exchangeRate
+        ? existingItem.exchangeRate.toLocaleString("en-US")
+        : "";
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -1774,12 +1917,12 @@ class FinancialReportsComponent {
                                 <div class="mb-3">
                                     <label class="form-label">Currency <span class="text-danger">*</span></label>
                                     <select class="form-select" name="currency" id="currencySelect" required>
-                                        <option value="SGD" ${currencyValue === 'SGD' ? 'selected' : ''}>\ud83c\uddf8\ud83c\uddec SGD - Singapore Dollar</option>
-                                        <option value="VND" ${currencyValue === 'VND' ? 'selected' : ''}>\ud83c\uddfb\ud83c\uddf3 VND - Vietnamese Dong</option>
+                                        <option value="SGD" ${currencyValue === "SGD" ? "selected" : ""}>\ud83c\uddf8\ud83c\uddec SGD - Singapore Dollar</option>
+                                        <option value="VND" ${currencyValue === "VND" ? "selected" : ""}>\ud83c\uddfb\ud83c\uddf3 VND - Vietnamese Dong</option>
                                     </select>
                                     <div class="form-text">Select the currency for this income</div>
                                 </div>
-                                <div class="mb-3" id="exchangeRateContainer" style="display: ${currencyValue === 'VND' ? 'block' : 'none'};">
+                                <div class="mb-3" id="exchangeRateContainer" style="display: ${currencyValue === "VND" ? "block" : "none"};">
                                     <label class="form-label">Exchange Rate</label>
                                     <input type="text" class="form-control" name="exchangeRate" id="exchangeRateInput" placeholder="e.g., 20,800" autocomplete="off" value="${exchangeRateValue}">
                                     <div class="form-text">Enter the exchange rate (e.g., 20800 VND = 1 SGD)</div>
@@ -1797,7 +1940,7 @@ class FinancialReportsComponent {
                                     <select class="form-select" name="personInCharge" required>
                                         <option value="">Select investor...</option>
                                         ${this.generateInvestorOptions(
-                                          personInChargeValue
+                                          personInChargeValue,
                                         )}
                                     </select>
                                     <div class="form-text">Select the ${
@@ -1814,7 +1957,7 @@ class FinancialReportsComponent {
                                     <select class="form-select" name="paidBy">
                                         <option value="">Select who paid (optional)...</option>
                                         ${this.generatePaidByOptions(
-                                          paidByValue
+                                          paidByValue,
                                         )}
                                     </select>
                                     <div class="form-text">Optional: Select who actually paid/initiated this transaction</div>
@@ -1849,8 +1992,8 @@ class FinancialReportsComponent {
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="submit" class="btn btn-${color}">
                                     <i class="bi bi-${buttonIcon} me-1"></i>${buttonText} ${
-      isIncome ? "Income" : "Expense"
-    }
+                                      isIncome ? "Income" : "Expense"
+                                    }
                                 </button>
                             </div>
                         </form>
@@ -1919,12 +2062,12 @@ class FinancialReportsComponent {
             ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
                 this.selectedProperty,
                 year,
-                month
+                month,
               )
             : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
                 this.selectedProperty,
                 year,
-                month
+                month,
               )) + `/${this.editingItemIndex}`;
         httpMethod = "PUT";
       } else {
@@ -1934,12 +2077,12 @@ class FinancialReportsComponent {
             ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
                 this.selectedProperty,
                 year,
-                month
+                month,
               )
             : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
                 this.selectedProperty,
                 year,
-                month
+                month,
               );
         httpMethod = "POST";
       }
@@ -1972,19 +2115,19 @@ class FinancialReportsComponent {
         this.showSuccess(
           `${type.charAt(0).toUpperCase() + type.slice(1)} item ${
             isEditing ? "updated" : "added"
-          } successfully`
+          } successfully`,
         );
       } else {
         throw new Error(
           result.message ||
-            `Failed to ${isEditing ? "update" : "add"} ${type} item`
+            `Failed to ${isEditing ? "update" : "add"} ${type} item`,
         );
       }
     } catch (error) {
       console.error(`Error saving ${type} item:`, error);
       this.showError(
         error.message ||
-          `Failed to ${isEditing ? "update" : "add"} ${type} item`
+          `Failed to ${isEditing ? "update" : "add"} ${type} item`,
       );
     } finally {
       // Hide loading state when done (whether success or error)
@@ -2197,7 +2340,7 @@ class FinancialReportsComponent {
     console.log("Selected property:", this.selectedProperty);
 
     const investor = this.investors.find(
-      (inv) => inv.investorId === investorId
+      (inv) => inv.investorId === investorId,
     );
 
     console.log("Found investor:", investor);
@@ -2253,13 +2396,13 @@ class FinancialReportsComponent {
         (p) =>
           p.propertyId === this.selectedProperty ||
           p.propertyId === this.selectedProperty?.toUpperCase() ||
-          p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase()
+          p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase(),
       );
       console.log("Property data found:", propertyData);
       console.log("Looking for propertyId:", this.selectedProperty);
       console.log(
         "Looking for propertyId (uppercase):",
-        this.selectedProperty?.toUpperCase()
+        this.selectedProperty?.toUpperCase(),
       );
       console.log("Investor properties:", investor.properties);
 
@@ -2276,7 +2419,7 @@ class FinancialReportsComponent {
       console.error("Investor not found with ID:", investorId);
       console.log(
         "Available investor IDs:",
-        this.investors.map((inv) => inv.investorId)
+        this.investors.map((inv) => inv.investorId),
       );
     }
   }
@@ -2323,7 +2466,7 @@ class FinancialReportsComponent {
 
         if (wasExistingInvestor) {
           this.showSuccess(
-            "Existing investor added to this property successfully"
+            "Existing investor added to this property successfully",
           );
         } else {
           this.showSuccess("New investor created and added successfully");
@@ -2332,7 +2475,7 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error(`Error saving investor:`, error);
       this.showError(
-        error.message || `Failed to ${investorId ? "update" : "add"} investor`
+        error.message || `Failed to ${investorId ? "update" : "add"} investor`,
       );
     }
   }
@@ -2341,7 +2484,7 @@ class FinancialReportsComponent {
     try {
       // First, check if an investor with this username already exists
       const allInvestorsResponse = await API.get(
-        API_CONFIG.ENDPOINTS.INVESTORS
+        API_CONFIG.ENDPOINTS.INVESTORS,
       );
       const allInvestorsResult = await allInvestorsResponse.json();
 
@@ -2361,7 +2504,7 @@ class FinancialReportsComponent {
         if (existingInvestor) {
           // Check if this property is already in the investor's portfolio
           const hasProperty = existingInvestor.properties.some(
-            (p) => p.propertyId === this.selectedProperty
+            (p) => p.propertyId === this.selectedProperty,
           );
 
           if (hasProperty) {
@@ -2372,12 +2515,12 @@ class FinancialReportsComponent {
 
           const addPropertyResponse = await API.post(
             API_CONFIG.ENDPOINTS.INVESTOR_ADD_PROPERTY(
-              existingInvestor.investorId
+              existingInvestor.investorId,
             ),
             {
               propertyId: this.selectedProperty,
               percentage: investorData.percentage,
-            }
+            },
           );
 
           const addPropertyResult = await addPropertyResponse.json();
@@ -2385,7 +2528,7 @@ class FinancialReportsComponent {
           if (!addPropertyResult.success) {
             throw new Error(
               addPropertyResult.message ||
-                "Failed to add property to existing investor"
+                "Failed to add property to existing investor",
             );
           }
 
@@ -2413,7 +2556,7 @@ class FinancialReportsComponent {
 
       const response = await API.post(
         API_CONFIG.ENDPOINTS.INVESTORS,
-        newInvestor
+        newInvestor,
       );
       const result = await response.json();
 
@@ -2454,7 +2597,7 @@ class FinancialReportsComponent {
   async updateInvestor(investorId, investorData) {
     const response = await API.put(
       API_CONFIG.ENDPOINTS.INVESTOR_BY_ID(investorId),
-      investorData
+      investorData,
     );
     const result = await response.json();
 
@@ -2470,7 +2613,7 @@ class FinancialReportsComponent {
   async removeInvestor(investorId) {
     if (
       !confirm(
-        "Are you sure you want to remove this investor from this property?"
+        "Are you sure you want to remove this investor from this property?",
       )
     ) {
       return;
@@ -2480,8 +2623,8 @@ class FinancialReportsComponent {
       const response = await API.delete(
         API_CONFIG.ENDPOINTS.INVESTOR_REMOVE_PROPERTY(
           investorId,
-          this.selectedProperty
-        )
+          this.selectedProperty,
+        ),
       );
       const result = await response.json();
 
@@ -2491,7 +2634,7 @@ class FinancialReportsComponent {
         // Show different messages based on the action taken
         if (result.action === "deleted_completely") {
           this.showSuccess(
-            "Investor removed completely from database (no more property investments)"
+            "Investor removed completely from database (no more property investments)",
           );
         } else {
           this.showSuccess("Investor removed from this property successfully");
@@ -2527,7 +2670,7 @@ class FinancialReportsComponent {
     if (!this.currentReport) {
       console.error("No current report loaded");
       this.showError(
-        "No financial report loaded. Please select a property and month."
+        "No financial report loaded. Please select a property and month.",
       );
       return;
     }
@@ -2535,7 +2678,7 @@ class FinancialReportsComponent {
     if (!this.currentReport[propertyName]) {
       console.error(
         `Property '${propertyName}' not found in current report:`,
-        this.currentReport
+        this.currentReport,
       );
       this.showError(`No ${type} data found in current report`);
       return;
@@ -2544,7 +2687,7 @@ class FinancialReportsComponent {
     if (!Array.isArray(this.currentReport[propertyName])) {
       console.error(
         `Property '${propertyName}' is not an array:`,
-        this.currentReport[propertyName]
+        this.currentReport[propertyName],
       );
       this.showError(`Invalid ${type} data format`);
       return;
@@ -2552,14 +2695,14 @@ class FinancialReportsComponent {
 
     if (index >= this.currentReport[propertyName].length) {
       console.error(
-        `Index ${index} is out of bounds for ${propertyName} array of length ${this.currentReport[propertyName].length}`
+        `Index ${index} is out of bounds for ${propertyName} array of length ${this.currentReport[propertyName].length}`,
       );
       console.error(
         `Current ${propertyName} array:`,
-        this.currentReport[propertyName]
+        this.currentReport[propertyName],
       );
       this.showError(
-        `Item not found - index out of bounds. Refreshing data...`
+        `Item not found - index out of bounds. Refreshing data...`,
       );
       // Refresh the financial report to fix the display
       this.loadFinancialReport();
@@ -2569,11 +2712,11 @@ class FinancialReportsComponent {
     const item = this.currentReport[propertyName][index];
     if (!item) {
       console.error(
-        `Item at index ${index} is null/undefined in ${propertyName}`
+        `Item at index ${index} is null/undefined in ${propertyName}`,
       );
       console.error(
         `Current ${propertyName} array:`,
-        this.currentReport[propertyName]
+        this.currentReport[propertyName],
       );
       this.showError("Item not found - item is empty. Refreshing data...");
       // Refresh the financial report to fix the display
@@ -2638,12 +2781,12 @@ class FinancialReportsComponent {
           ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
               this.selectedProperty,
               year,
-              month
+              month,
             ) + `/${index}`
           : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
               this.selectedProperty,
               year,
-              month
+              month,
             ) + `/${index}`;
 
       const response = await API.delete(endpoint);
@@ -2656,7 +2799,7 @@ class FinancialReportsComponent {
         this.showSuccess(
           `${
             type.charAt(0).toUpperCase() + type.slice(1)
-          } item deleted successfully`
+          } item deleted successfully`,
         );
       } else {
         throw new Error(result.message || `Failed to delete ${type} item`);
@@ -2740,8 +2883,8 @@ class FinancialReportsComponent {
         API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_CLOSE(
           this.selectedProperty,
           year,
-          month
-        )
+          month,
+        ),
       );
 
       const result = await response.json();
@@ -2780,8 +2923,8 @@ class FinancialReportsComponent {
         API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_REOPEN(
           this.selectedProperty,
           year,
-          month
-        )
+          month,
+        ),
       );
 
       const result = await response.json();
@@ -2964,10 +3107,10 @@ class FinancialReportsComponent {
 
     // Update existing action buttons in the tables
     const editButtons = document.querySelectorAll(
-      '[id^="editIncomeBtn-"], [id^="editExpenseBtn-"]'
+      '[id^="editIncomeBtn-"], [id^="editExpenseBtn-"]',
     );
     const deleteButtons = document.querySelectorAll(
-      'button[onclick*="toggleDeleteConfirm"], button[onclick*="confirmDeleteItem"]'
+      'button[onclick*="toggleDeleteConfirm"], button[onclick*="confirmDeleteItem"]',
     );
 
     editButtons.forEach((btn) => {
@@ -3025,18 +3168,18 @@ class FinancialReportsComponent {
       const pageWidth = pdf.internal.pageSize.getWidth();
       let yPos = 15;
       const margin = 12;
-      const contentWidth = pageWidth - (2 * margin);
+      const contentWidth = pageWidth - 2 * margin;
 
       // Helper function to get last 2 words of a name
       const getShortName = (fullName) => {
-        if (!fullName) return '-';
-        const words = fullName.trim().split(' ');
-        return words.length >= 2 ? words.slice(-2).join(' ') : fullName;
+        if (!fullName) return "-";
+        const words = fullName.trim().split(" ");
+        return words.length >= 2 ? words.slice(-2).join(" ") : fullName;
       };
 
       // Helper to get paid by details for PDF (name + room type)
       const getPaidByForPDF = (paidBy) => {
-        if (!paidBy) return { name: '-', roomType: null };
+        if (!paidBy) return { name: "-", roomType: null };
 
         let person = null;
         let displayName = "";
@@ -3050,7 +3193,7 @@ class FinancialReportsComponent {
               (t._id && t._id === tenantId) ||
               (t.tenantId && t.tenantId === tenantId) ||
               (t.id && t.id === tenantId) ||
-              (t.fin && t.fin === tenantId)
+              (t.fin && t.fin === tenantId),
           );
           if (person) {
             displayName = person.name || "Unknown Tenant";
@@ -3060,7 +3203,7 @@ class FinancialReportsComponent {
               roomType = person.roomType;
             } else if (person.properties && this.selectedProperty) {
               const propertyAssociation = person.properties.find(
-                (prop) => prop.propertyId === this.selectedProperty
+                (prop) => prop.propertyId === this.selectedProperty,
               );
               if (propertyAssociation && propertyAssociation.room) {
                 roomType = propertyAssociation.room;
@@ -3076,39 +3219,40 @@ class FinancialReportsComponent {
         }
 
         if (!person || !displayName) {
-          return { name: 'Unknown', roomType: null };
+          return { name: "Unknown", roomType: null };
         }
 
         return {
           name: getShortName(displayName),
-          roomType: roomType ? this.getRoomTypeDisplayName(roomType) : null
+          roomType: roomType ? this.getRoomTypeDisplayName(roomType) : null,
         };
       };
 
       // Helper to remove Vietnamese diacritics for better PDF rendering
       const removeDiacritics = (str) => {
-        if (!str) return '';
-        return str.normalize('NFD')
-                  .replace(/[\u0300-\u036f]/g, '')
-                  .replace(/đ/g, 'd')
-                  .replace(/Đ/g, 'D');
+        if (!str) return "";
+        return str
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/đ/g, "d")
+          .replace(/Đ/g, "D");
       };
 
       // Helper to normalize Vietnamese text for PDF display
       // This keeps the text readable by normalizing to NFC (composed form)
       const normalizeVietnamese = (str) => {
-        if (!str) return '';
+        if (!str) return "";
         // Normalize to composed form (NFC) which jsPDF handles better
-        return str.normalize('NFC');
+        return str.normalize("NFC");
       };
 
       // Helper to wrap text into multiple lines
       const wrapText = (text, maxWidth) => {
-        const words = text.split(' ');
+        const words = text.split(" ");
         const lines = [];
-        let currentLine = '';
+        let currentLine = "";
 
-        words.forEach(word => {
+        words.forEach((word) => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const width = pdf.getTextWidth(testLine);
 
@@ -3135,10 +3279,10 @@ class FinancialReportsComponent {
         // Split by newlines first to preserve line breaks
         const paragraphs = text.split(/\n/);
 
-        paragraphs.forEach(paragraph => {
-          if (paragraph.trim() === '') {
+        paragraphs.forEach((paragraph) => {
+          if (paragraph.trim() === "") {
             // Preserve empty lines
-            allLines.push('');
+            allLines.push("");
           } else {
             // Wrap each paragraph
             const wrappedLines = wrapText(paragraph, maxWidth);
@@ -3151,36 +3295,43 @@ class FinancialReportsComponent {
 
       // Helper to get last word from name
       const getLastWord = (name) => {
-        if (!name) return '?';
-        const words = name.trim().split(' ');
+        if (!name) return "?";
+        const words = name.trim().split(" ");
         return words[words.length - 1];
       };
 
       // Title with month/year on same line
-      const reportMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
-      const monthName = reportMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const reportMonth = new Date(
+        this.currentDate.getFullYear(),
+        this.currentDate.getMonth(),
+        1,
+      );
+      const monthName = reportMonth.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
 
       pdf.setFontSize(16);
-      pdf.setFont(undefined, 'bold');
-      pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: 'center' });
+      pdf.setFont(undefined, "bold");
+      pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: "center" });
 
       // Add month/year on the right side of the same line
       pdf.setFontSize(12);
-      pdf.text(monthName, pageWidth - margin, yPos, { align: 'right' });
+      pdf.text(monthName, pageWidth - margin, yPos, { align: "right" });
 
       yPos += 6;
       pdf.setFontSize(9);
-      pdf.setFont(undefined, 'normal');
-      const propertyLines = propertyHeader.split('\n');
-      propertyLines.forEach(line => {
-        pdf.text(line, pageWidth / 2, yPos, { align: 'center' });
+      pdf.setFont(undefined, "normal");
+      const propertyLines = propertyHeader.split("\n");
+      propertyLines.forEach((line) => {
+        pdf.text(line, pageWidth / 2, yPos, { align: "center" });
         yPos += 4;
       });
 
       yPos += 4;
 
       // INCOME SECTION
-      pdf.setFont(undefined, 'bold');
+      pdf.setFont(undefined, "bold");
       pdf.setFontSize(11);
       pdf.text("INCOME", margin, yPos);
       yPos += 5;
@@ -3198,24 +3349,31 @@ class FinancialReportsComponent {
         // Draw table header with professional gray
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
-        pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
-        pdf.setFont(undefined, 'bold');
+        pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
+        pdf.setFont(undefined, "bold");
         pdf.setFontSize(8);
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
         pdf.text("Person", colPerson, yPos);
         pdf.text("Paid By", colPaidBy, yPos);
-        pdf.text("Amount", colAmount, yPos, { align: 'right' });
+        pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont(undefined, 'normal');
+        pdf.setFont(undefined, "normal");
 
         // Process income items with avatars
         for (let idx = 0; idx < this.currentReport.income.length; idx++) {
           const item = this.currentReport.income[idx];
-          const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
+          const investor = this.investors.find(
+            (inv) => inv.investorId === item.personInCharge,
+          );
           const paidByData = getPaidByForPDF(item.paidBy);
-          const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+          const dateStr = item.date
+            ? new Date(item.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            : "-";
 
           // Wrap item text into multiple lines
           const itemText = removeDiacritics(item.item);
@@ -3236,7 +3394,8 @@ class FinancialReportsComponent {
             detailsLines = wrapMultiLineText(detailsText, contentWidth - 8);
             pdf.setFontSize(8);
             // Calculate height: 3.2mm per line + 3mm padding between item and details
-            detailsHeight = detailsLines.length > 0 ? (detailsLines.length * 3.2) + 3 : 0;
+            detailsHeight =
+              detailsLines.length > 0 ? detailsLines.length * 3.2 + 3 : 0;
           }
 
           const totalRowHeight = itemHeight + detailsHeight;
@@ -3250,7 +3409,7 @@ class FinancialReportsComponent {
           // Draw alternating row background
           if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, 'F');
+            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, "F");
           }
 
           // Store starting Y position for this row
@@ -3259,7 +3418,7 @@ class FinancialReportsComponent {
           // Draw item text (multi-line)
           pdf.setFontSize(8);
           itemLines.forEach((line, lineIdx) => {
-            pdf.text(line, colItem, rowStartY + (lineIdx * mainLineHeight));
+            pdf.text(line, colItem, rowStartY + lineIdx * mainLineHeight);
           });
 
           // Draw other columns on first line
@@ -3287,7 +3446,15 @@ class FinancialReportsComponent {
             const badgeWidth = pdf.getTextWidth(badgeText) + 2;
             const badgeHeight = 2.5;
 
-            pdf.roundedRect(badgeX, rowStartY - 2.2, badgeWidth, badgeHeight, 0.5, 0.5, 'FD');
+            pdf.roundedRect(
+              badgeX,
+              rowStartY - 2.2,
+              badgeWidth,
+              badgeHeight,
+              0.5,
+              0.5,
+              "FD",
+            );
             pdf.setTextColor(255, 255, 255);
             pdf.text(badgeText, badgeX + 1, rowStartY - 0.2);
             pdf.setTextColor(0, 0, 0);
@@ -3296,7 +3463,9 @@ class FinancialReportsComponent {
 
           // Draw amount
           pdf.setTextColor(0, 128, 0);
-          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, { align: 'right' });
+          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, {
+            align: "right",
+          });
           pdf.setTextColor(0, 0, 0);
 
           // Draw details below item if available
@@ -3304,16 +3473,16 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont(undefined, 'normal');
+            pdf.setFont(undefined, "normal");
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
-              if (line.trim() !== '') {
-                pdf.text(line, colItem + 2, detailsStartY + (lineIdx * 3.2));
+              if (line.trim() !== "") {
+                pdf.text(line, colItem + 2, detailsStartY + lineIdx * 3.2);
               }
             });
 
-            pdf.setFont(undefined, 'normal');
+            pdf.setFont(undefined, "normal");
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -3322,48 +3491,63 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont(undefined, 'bold');
+        pdf.setFont(undefined, "bold");
         pdf.setTextColor(0, 128, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
-        pdf.text(`$${this.currentReport.totalIncome.toFixed(2)}`, colAmount, yPos, { align: 'right' });
+        pdf.text(
+          `$${this.currentReport.totalIncome.toFixed(2)}`,
+          colAmount,
+          yPos,
+          { align: "right" },
+        );
 
         pdf.setTextColor(0, 0, 0);
         pdf.setDrawColor(0, 0, 0);
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont(undefined, 'normal');
+        pdf.setFont(undefined, "normal");
         pdf.text("No income items", margin + 1, yPos);
         yPos += 6;
       }
 
       // EXPENSES SECTION
-      pdf.setFont(undefined, 'bold');
+      pdf.setFont(undefined, "bold");
       pdf.setFontSize(11);
       pdf.text("EXPENSES", margin, yPos);
       yPos += 5;
 
       pdf.setFontSize(8);
 
-      if (this.currentReport.expenses && this.currentReport.expenses.length > 0) {
+      if (
+        this.currentReport.expenses &&
+        this.currentReport.expenses.length > 0
+      ) {
         // Draw table header (same columns as income)
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
-        pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
-        pdf.setFont(undefined, 'bold');
+        pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
+        pdf.setFont(undefined, "bold");
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
         pdf.text("Person", colPerson, yPos);
-        pdf.text("Amount", colAmount, yPos, { align: 'right' });
+        pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont(undefined, 'normal');
+        pdf.setFont(undefined, "normal");
 
         // Process expense items with avatars
         for (let idx = 0; idx < this.currentReport.expenses.length; idx++) {
           const item = this.currentReport.expenses[idx];
-          const investor = this.investors.find(inv => inv.investorId === item.personInCharge);
-          const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+          const investor = this.investors.find(
+            (inv) => inv.investorId === item.personInCharge,
+          );
+          const dateStr = item.date
+            ? new Date(item.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            : "-";
 
           // Wrap item text into multiple lines
           const itemText = removeDiacritics(item.item);
@@ -3384,7 +3568,8 @@ class FinancialReportsComponent {
             detailsLines = wrapMultiLineText(detailsText, contentWidth - 8);
             pdf.setFontSize(8);
             // Calculate height: 3.2mm per line + 3mm padding between item and details
-            detailsHeight = detailsLines.length > 0 ? (detailsLines.length * 3.2) + 3 : 0;
+            detailsHeight =
+              detailsLines.length > 0 ? detailsLines.length * 3.2 + 3 : 0;
           }
 
           const totalRowHeight = itemHeight + detailsHeight;
@@ -3398,7 +3583,7 @@ class FinancialReportsComponent {
           // Draw alternating row background
           if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, 'F');
+            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, "F");
           }
 
           // Store starting Y position for this row
@@ -3407,7 +3592,7 @@ class FinancialReportsComponent {
           // Draw item text (multi-line)
           pdf.setFontSize(8);
           itemLines.forEach((line, lineIdx) => {
-            pdf.text(line, colItem, rowStartY + (lineIdx * mainLineHeight));
+            pdf.text(line, colItem, rowStartY + lineIdx * mainLineHeight);
           });
 
           // Draw other columns on first line
@@ -3421,7 +3606,9 @@ class FinancialReportsComponent {
 
           // Draw amount
           pdf.setTextColor(128, 0, 0);
-          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, { align: 'right' });
+          pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, {
+            align: "right",
+          });
           pdf.setTextColor(0, 0, 0);
 
           // Draw details below item if available
@@ -3429,16 +3616,16 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont(undefined, 'normal');
+            pdf.setFont(undefined, "normal");
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
-              if (line.trim() !== '') {
-                pdf.text(line, colItem + 2, detailsStartY + (lineIdx * 3.2));
+              if (line.trim() !== "") {
+                pdf.text(line, colItem + 2, detailsStartY + lineIdx * 3.2);
               }
             });
 
-            pdf.setFont(undefined, 'normal');
+            pdf.setFont(undefined, "normal");
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -3447,116 +3634,166 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont(undefined, 'bold');
+        pdf.setFont(undefined, "bold");
         pdf.setTextColor(128, 0, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
-        pdf.text(`$${this.currentReport.totalExpenses.toFixed(2)}`, colAmount, yPos, { align: 'right' });
+        pdf.text(
+          `$${this.currentReport.totalExpenses.toFixed(2)}`,
+          colAmount,
+          yPos,
+          { align: "right" },
+        );
 
         pdf.setTextColor(0, 0, 0);
         pdf.setDrawColor(0, 0, 0);
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont(undefined, 'normal');
+        pdf.setFont(undefined, "normal");
         pdf.text("No expense items", margin + 1, yPos);
         yPos += 6;
       }
 
       // NET PROFIT SECTION
-      const netProfit = (this.currentReport.totalIncome || 0) - (this.currentReport.totalExpenses || 0);
+      const netProfit =
+        (this.currentReport.totalIncome || 0) -
+        (this.currentReport.totalExpenses || 0);
 
       // Add spacing before NET PROFIT
       yPos += 6;
 
       // NET PROFIT - no box, no background
       pdf.setFontSize(10);
-      pdf.setFont(undefined, 'bold');
+      pdf.setFont(undefined, "bold");
       pdf.text("NET PROFIT:", margin, yPos);
       pdf.setTextColor(netProfit >= 0 ? 0 : 150, netProfit >= 0 ? 100 : 0, 0);
       pdf.setFontSize(11);
-      pdf.text(`$${netProfit.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      pdf.text(`$${netProfit.toFixed(2)}`, pageWidth - margin, yPos, {
+        align: "right",
+      });
       pdf.setTextColor(0, 0, 0);
 
       // Add spacing after NET PROFIT
       yPos += 10;
 
       // INVESTOR DISTRIBUTION SECTION
-      if (this.investors && this.investors.length > 0) {
+      // Check if report is closed and has snapshot data - use frozen snapshot instead of recalculating
+      const isClosed = this.currentReport && this.currentReport.isClosed;
+      const hasSnapshot =
+        this.currentReport &&
+        this.currentReport.investorSnapshot &&
+        this.currentReport.investorSnapshot.length > 0;
+
+      // Determine which data source to use
+      const investorDataSource =
+        isClosed && hasSnapshot
+          ? this.currentReport.investorSnapshot
+          : this.investors;
+
+      if (investorDataSource && investorDataSource.length > 0) {
         pdf.setFontSize(11);
-        pdf.setFont(undefined, 'bold');
+        pdf.setFont(undefined, "bold");
         pdf.text("INVESTOR DISTRIBUTION", margin, yPos);
         yPos += 5;
 
         pdf.setFontSize(8);
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
-        pdf.rect(margin, yPos - 4, contentWidth, 5, 'FD');
-        pdf.setFont(undefined, 'bold');
+        pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
+        pdf.setFont(undefined, "bold");
         pdf.text("Investor", margin + 1, yPos);
         pdf.text("Share", margin + 48, yPos);
         pdf.text("Profit", margin + 63, yPos);
         pdf.text("Paid", margin + 85, yPos);
         pdf.text("Received", margin + 107, yPos);
-        pdf.text("Final", pageWidth - margin - 1, yPos, { align: 'right' });
+        pdf.text("Final", pageWidth - margin - 1, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont(undefined, 'normal');
+        pdf.setFont(undefined, "normal");
 
-        // Process investor distribution with avatars
-        for (let idx = 0; idx < this.investors.length; idx++) {
-          const investor = this.investors[idx];
-          const propertyData = investor.properties.find(p => p.propertyId === this.selectedProperty);
-          const percentage = propertyData ? propertyData.percentage : 0;
-          const investorShare = (netProfit * percentage) / 100;
+        // Process investor distribution
+        for (let idx = 0; idx < investorDataSource.length; idx++) {
+          let investorName,
+            percentage,
+            investorShare,
+            expensesPaid,
+            incomeReceived,
+            finalAmount;
 
-          const expensesPaid = this.currentReport.expenses
-            ? this.currentReport.expenses.filter(e => e.personInCharge === investor.investorId)
-                .reduce((sum, e) => sum + e.amount, 0)
-            : 0;
+          if (isClosed && hasSnapshot) {
+            // Use snapshot data (frozen at time of closing)
+            const snapshotData = investorDataSource[idx];
+            investorName = snapshotData.name;
+            percentage = snapshotData.percentage;
+            investorShare = snapshotData.profitShare;
+            expensesPaid = snapshotData.paidAmount;
+            incomeReceived = snapshotData.receivedAmount;
+            finalAmount = snapshotData.finalAmount;
+          } else {
+            // Calculate dynamically (for open reports)
+            const investor = investorDataSource[idx];
+            investorName = investor.name;
+            const propertyData = investor.properties.find(
+              (p) => p.propertyId === this.selectedProperty,
+            );
+            percentage = propertyData ? propertyData.percentage : 0;
+            investorShare = (netProfit * percentage) / 100;
 
-          const incomeReceived = this.currentReport.income
-            ? this.currentReport.income.filter(i => i.personInCharge === investor.investorId)
-                .reduce((sum, i) => sum + i.amount, 0)
-            : 0;
+            expensesPaid = this.currentReport.expenses
+              ? this.currentReport.expenses
+                  .filter((e) => e.personInCharge === investor.investorId)
+                  .reduce((sum, e) => sum + e.amount, 0)
+              : 0;
 
-          const existingTrans = this.currentReport.investorTransactions
-            ? this.currentReport.investorTransactions.find(t => t.investorId === investor.investorId)
-            : null;
+            incomeReceived = this.currentReport.income
+              ? this.currentReport.income
+                  .filter((i) => i.personInCharge === investor.investorId)
+                  .reduce((sum, i) => sum + i.amount, 0)
+              : 0;
 
-          const alreadyPaid = existingTrans ? existingTrans.alreadyPaid : 0;
-          const alreadyReceived = existingTrans ? existingTrans.alreadyReceived : 0;
-
-          const finalAmount = investorShare - alreadyPaid + alreadyReceived + expensesPaid - incomeReceived;
+            finalAmount = investorShare + expensesPaid - incomeReceived;
+          }
 
           // Alternating row colors
           if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
-            pdf.rect(margin, yPos - 3.5, contentWidth, 4, 'F');
+            pdf.rect(margin, yPos - 3.5, contentWidth, 4, "F");
           }
 
           // Show investor name
           pdf.setTextColor(0, 0, 0);
           pdf.setFontSize(8);
-          let truncInvName = removeDiacritics(investor.name);
-          truncInvName = truncInvName.length > 30 ? truncInvName.substring(0, 28) + '..' : truncInvName;
+          let truncInvName = removeDiacritics(investorName);
+          truncInvName =
+            truncInvName.length > 30
+              ? truncInvName.substring(0, 28) + ".."
+              : truncInvName;
           pdf.text(truncInvName, margin + 1, yPos);
 
           pdf.text(`${percentage}%`, margin + 48, yPos);
           pdf.text(`$${investorShare.toFixed(2)}`, margin + 63, yPos);
           pdf.text(`$${expensesPaid.toFixed(2)}`, margin + 85, yPos);
           pdf.text(`$${incomeReceived.toFixed(2)}`, margin + 107, yPos);
-          pdf.setTextColor(finalAmount >= 0 ? 0 : 150, finalAmount >= 0 ? 100 : 0, 0);
-          pdf.setFont(undefined, 'bold');
-          pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 1, yPos, { align: 'right' });
-          pdf.setFont(undefined, 'normal');
+          pdf.setTextColor(
+            finalAmount >= 0 ? 0 : 150,
+            finalAmount >= 0 ? 100 : 0,
+            0,
+          );
+          pdf.setFont(undefined, "bold");
+          pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 1, yPos, {
+            align: "right",
+          });
+          pdf.setFont(undefined, "normal");
           pdf.setTextColor(0, 0, 0);
           yPos += 4;
         }
       }
 
       // Download PDF
-      const fileNameBase = property ? `${removeDiacritics(property.propertyId)}_${removeDiacritics(property.unit)}` : this.selectedProperty;
-      const fileName = `Financial_Report_${fileNameBase}_${removeDiacritics(monthName).replace(/\s+/g, '_')}.pdf`;
+      const fileNameBase = property
+        ? `${removeDiacritics(property.propertyId)}_${removeDiacritics(property.unit)}`
+        : this.selectedProperty;
+      const fileName = `Financial_Report_${fileNameBase}_${removeDiacritics(monthName).replace(/\s+/g, "_")}.pdf`;
       pdf.save(fileName);
 
       this.showSuccess("Financial report exported as PDF successfully!");
@@ -3575,9 +3812,9 @@ class FinancialReportsComponent {
   async getPropertyDetails(propertyId) {
     // First try to find in cached properties
     if (this.properties && this.properties.length > 0) {
-      const cached = this.properties.find(p => p.propertyId === propertyId);
+      const cached = this.properties.find((p) => p.propertyId === propertyId);
       if (cached) {
-        console.log('Using cached property:', cached);
+        console.log("Using cached property:", cached);
         return cached;
       }
     }
@@ -3591,7 +3828,7 @@ class FinancialReportsComponent {
       });
       if (response.ok) {
         const property = await response.json();
-        console.log('Fetched property from API:', property);
+        console.log("Fetched property from API:", property);
         return property;
       }
     } catch (error) {
@@ -3620,7 +3857,6 @@ class FinancialReportsComponent {
       setTimeout(() => {
         this.restoreReportAfterExport();
       }, 500);
-
     } catch (error) {
       console.error("Print error:", error);
       this.showError(`Failed to print financial report: ${error.message}`);
@@ -3644,27 +3880,28 @@ class FinancialReportsComponent {
       btn.disabled = true;
 
       // Find the financial reports section - target the main content area
-      const reportSection = document.querySelector('#financialReportContent') ||
-                          document.querySelector('#financial-section');
+      const reportSection =
+        document.querySelector("#financialReportContent") ||
+        document.querySelector("#financial-section");
 
       if (!reportSection) {
         throw new Error("Could not find report section to capture");
       }
 
       // Make sure the section is visible
-      if (reportSection.style.display === 'none') {
+      if (reportSection.style.display === "none") {
         throw new Error("Please load a financial report first");
       }
 
       // Capture the screenshot
       const canvas = await html2canvas(reportSection, {
-        backgroundColor: '#ffffff',
+        backgroundColor: "#ffffff",
         scale: 2, // Higher quality
         logging: false,
         useCORS: true,
         allowTaint: true,
         windowWidth: reportSection.scrollWidth,
-        windowHeight: reportSection.scrollHeight
+        windowHeight: reportSection.scrollHeight,
       });
 
       // Convert canvas to blob and copy to clipboard
@@ -3673,33 +3910,33 @@ class FinancialReportsComponent {
           // Copy to clipboard
           await navigator.clipboard.write([
             new ClipboardItem({
-              'image/png': blob
-            })
+              "image/png": blob,
+            }),
           ]);
 
           // Show success feedback
           btn.innerHTML = '<i class="bi bi-check-circle"></i>';
-          btn.classList.remove('btn-light');
-          btn.classList.add('btn-success');
+          btn.classList.remove("btn-light");
+          btn.classList.add("btn-success");
 
           // Restore button after 2 seconds
           setTimeout(() => {
             btn.innerHTML = originalHTML;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-light');
+            btn.classList.remove("btn-success");
+            btn.classList.add("btn-light");
             btn.disabled = false;
           }, 2000);
-
         } catch (clipboardError) {
           console.error("Clipboard error:", clipboardError);
-          alert("Screenshot captured but failed to copy to clipboard. Your browser may not support this feature.");
+          alert(
+            "Screenshot captured but failed to copy to clipboard. Your browser may not support this feature.",
+          );
 
           // Restore button
           btn.innerHTML = originalHTML;
           btn.disabled = false;
         }
-      }, 'image/png');
-
+      }, "image/png");
     } catch (error) {
       console.error("Screenshot capture error:", error);
       alert(`Failed to capture screenshot: ${error.message}`);
@@ -3738,7 +3975,7 @@ class FinancialReportsComponent {
     this._hiddenElements = [];
     elementsToHide.forEach((selector) => {
       const elements = document.querySelectorAll(
-        `#exportableFinancialReport ${selector}`
+        `#exportableFinancialReport ${selector}`,
       );
       elements.forEach((el) => {
         if (!el.id.includes("export") && !el.id.includes("Export")) {
@@ -3766,7 +4003,6 @@ class FinancialReportsComponent {
     }
   }
 
-
   async prepareExportData() {
     // Update export header with current property and date info
     const exportPropertyInfo = document.getElementById("exportPropertyInfo");
@@ -3780,7 +4016,7 @@ class FinancialReportsComponent {
 
         if (result.success) {
           const property = result.properties.find(
-            (p) => p.propertyId === this.selectedProperty
+            (p) => p.propertyId === this.selectedProperty,
           );
           if (property) {
             exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
@@ -3846,7 +4082,7 @@ class FinancialReportsComponent {
       0,
       0,
       sourceCanvas.width,
-      sourceCanvas.height
+      sourceCanvas.height,
     );
     const data = imageData.data;
 
@@ -3907,7 +4143,7 @@ class FinancialReportsComponent {
       0,
       0,
       croppedWidth,
-      croppedHeight
+      croppedHeight,
     );
 
     return croppedCanvas;
@@ -3942,7 +4178,7 @@ class FinancialReportsComponent {
         for (const file of files) {
           if (file.size > maxSize) {
             this.showError(
-              `File "${file.name}" is too large. Maximum size is 10MB.`
+              `File "${file.name}" is too large. Maximum size is 10MB.`,
             );
             e.target.value = "";
             return;
@@ -3950,7 +4186,7 @@ class FinancialReportsComponent {
 
           if (!allowedTypes.includes(file.type)) {
             this.showError(
-              `File "${file.name}" is not supported. Only images and PDFs are allowed.`
+              `File "${file.name}" is not supported. Only images and PDFs are allowed.`,
             );
             e.target.value = "";
             return;
@@ -3988,7 +4224,7 @@ class FinancialReportsComponent {
         this.uploadedBillEvidence = result.files.map((file) => file.url);
         console.log(
           "Bill evidence uploaded successfully:",
-          this.uploadedBillEvidence
+          this.uploadedBillEvidence,
         );
       } else {
         throw new Error(result.error || "Upload failed");
@@ -4200,14 +4436,14 @@ class FinancialReportsComponent {
                 ${
                   item.date
                     ? `<strong>Date:</strong> ${new Date(
-                        item.date
+                        item.date,
                       ).toLocaleDateString()}<br>`
                     : ""
                 }
                 ${
                   item.details
                     ? `<strong>Details:</strong> ${escapeHtml(
-                        item.details
+                        item.details,
                       )}<br>`
                     : ""
                 }
