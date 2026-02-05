@@ -1243,8 +1243,8 @@ class FinancialReportsComponent {
         return true; // Tenant was/is in property during this month
       });
 
-      // Get list of tenants who have paid (appear in income as paidBy)
-      const paidTenantIdentifiers = new Set();
+      // Get payment amounts per tenant (appear in income as paidBy)
+      const paidAmountsByTenantId = new Map();
       if (
         this.currentReport.income &&
         Array.isArray(this.currentReport.income)
@@ -1254,7 +1254,7 @@ class FinancialReportsComponent {
             // Extract tenant ID from "tenant_" prefix
             const tenantId = incomeItem.paidBy.replace("tenant_", "");
 
-            // Find the tenant to get all their identifiers
+            // Find the tenant to get their _id
             const tenant = this.tenants.find(
               (t) =>
                 (t._id && t._id === tenantId) ||
@@ -1264,31 +1264,77 @@ class FinancialReportsComponent {
                 (t.passportNumber && t.passportNumber === tenantId),
             );
 
-            if (tenant) {
-              // Add all possible identifiers for this tenant
-              if (tenant._id) paidTenantIdentifiers.add(tenant._id);
-              if (tenant.tenantId) paidTenantIdentifiers.add(tenant.tenantId);
-              if (tenant.name) paidTenantIdentifiers.add(tenant.name);
-              if (tenant.fin) paidTenantIdentifiers.add(tenant.fin);
-              if (tenant.passportNumber)
-                paidTenantIdentifiers.add(tenant.passportNumber);
+            if (tenant && tenant._id) {
+              const currentAmount = paidAmountsByTenantId.get(tenant._id) || 0;
+              paidAmountsByTenantId.set(
+                tenant._id,
+                currentAmount + (incomeItem.amount || 0),
+              );
             }
           }
         });
       }
 
-      // Find unpaid tenants
-      // Match by multiple identifiers: _id, name, fin, passportNumber
-      const unpaidTenants = currentMonthTenants.filter((tenant) => {
-        const identifiers = [
-          tenant._id,
-          tenant.tenantId,
-          tenant.name,
-          tenant.fin,
-          tenant.passportNumber,
-        ].filter(Boolean);
+      // Build roommate groups: tenants sharing the same room
+      // A tenant with roommateId is linked to another tenant
+      const roomGroups = new Map(); // groupKey -> [tenant1, tenant2, ...]
+      const tenantToGroup = new Map(); // tenantId -> groupKey
 
-        return !identifiers.some((id) => paidTenantIdentifiers.has(id));
+      currentMonthTenants.forEach((tenant) => {
+        if (tenantToGroup.has(tenant._id)) return; // Already assigned
+
+        const roommateId =
+          tenant.roommateId?._id || tenant.roommateId || null;
+
+        // Check if roommate is already in a group
+        if (roommateId && tenantToGroup.has(roommateId)) {
+          const groupKey = tenantToGroup.get(roommateId);
+          roomGroups.get(groupKey).push(tenant);
+          tenantToGroup.set(tenant._id, groupKey);
+        } else {
+          // Create new group
+          const groupKey = tenant._id;
+          roomGroups.set(groupKey, [tenant]);
+          tenantToGroup.set(tenant._id, groupKey);
+
+          // If roommate exists, add them to this group too
+          if (roommateId) {
+            const roommateTenant = currentMonthTenants.find(
+              (t) => t._id === roommateId,
+            );
+            if (roommateTenant && !tenantToGroup.has(roommateId)) {
+              roomGroups.get(groupKey).push(roommateTenant);
+              tenantToGroup.set(roommateId, groupKey);
+            }
+          }
+        }
+      });
+
+      // Find unpaid tenants - exclude roommates if room rent is fully covered
+      const unpaidTenants = currentMonthTenants.filter((tenant) => {
+        const groupKey = tenantToGroup.get(tenant._id);
+        const roommates = roomGroups.get(groupKey) || [tenant];
+
+        // Calculate total rent for this room (all roommates)
+        const totalRoomRent = roommates.reduce(
+          (sum, t) => sum + (t.rent || 0),
+          0,
+        );
+
+        // Calculate total paid by all roommates in this room
+        const totalPaid = roommates.reduce(
+          (sum, t) => sum + (paidAmountsByTenantId.get(t._id) || 0),
+          0,
+        );
+
+        // If total paid covers the room rent, don't show any tenant from this room
+        if (totalPaid >= totalRoomRent && totalRoomRent > 0) {
+          return false;
+        }
+
+        // Otherwise, check if this individual tenant has paid
+        const hasPaid = paidAmountsByTenantId.has(tenant._id);
+        return !hasPaid;
       });
 
       // Display the reminder

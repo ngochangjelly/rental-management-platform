@@ -26,6 +26,8 @@ class ContractManagementComponent {
       moveOutDate: "",
       monthlyRental: "",
       securityDeposit: "",
+      partialDepositReceived: false,
+      partialDepositAmount: "",
       electricityBudget: "400",
       cleaningFee: "20",
       paymentMethod: "BANK_TRANSFER",
@@ -1983,9 +1985,33 @@ class ContractManagementComponent {
     const fullPaymentCheckbox = document.getElementById(
       "contractFullPaymentReceived",
     );
+
+    // Handle partial deposit received checkbox
+    const partialDepositCheckbox = document.getElementById(
+      "contractPartialDepositReceived",
+    );
+    const partialDepositAmountContainer = document.getElementById(
+      "partialDepositAmountContainer",
+    );
+    const partialDepositAmountInput = document.getElementById(
+      "contractPartialDepositAmount",
+    );
+
     if (fullPaymentCheckbox) {
       fullPaymentCheckbox.addEventListener("change", () => {
         this.contractData.fullPaymentReceived = fullPaymentCheckbox.checked;
+        // Mutual exclusion: uncheck partial deposit if full payment is checked
+        if (fullPaymentCheckbox.checked && partialDepositCheckbox) {
+          partialDepositCheckbox.checked = false;
+          this.contractData.partialDepositReceived = false;
+          this.contractData.partialDepositAmount = "";
+          if (partialDepositAmountContainer) {
+            partialDepositAmountContainer.style.display = "none";
+          }
+          if (partialDepositAmountInput) {
+            partialDepositAmountInput.value = "";
+          }
+        }
         this.updateContractPreview();
       });
     }
@@ -1995,6 +2021,36 @@ class ContractManagementComponent {
     if (pestControlCheckbox) {
       pestControlCheckbox.addEventListener("change", () => {
         this.contractData.pestControlClause = pestControlCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
+    if (partialDepositCheckbox) {
+      partialDepositCheckbox.addEventListener("change", () => {
+        this.contractData.partialDepositReceived = partialDepositCheckbox.checked;
+        // Mutual exclusion: uncheck full payment if partial deposit is checked
+        if (partialDepositCheckbox.checked && fullPaymentCheckbox) {
+          fullPaymentCheckbox.checked = false;
+          this.contractData.fullPaymentReceived = false;
+        }
+        if (partialDepositAmountContainer) {
+          partialDepositAmountContainer.style.display = partialDepositCheckbox.checked
+            ? "block"
+            : "none";
+        }
+        if (!partialDepositCheckbox.checked) {
+          this.contractData.partialDepositAmount = "";
+          if (partialDepositAmountInput) {
+            partialDepositAmountInput.value = "";
+          }
+        }
+        this.updateContractPreview();
+      });
+    }
+
+    if (partialDepositAmountInput) {
+      partialDepositAmountInput.addEventListener("input", () => {
+        this.contractData.partialDepositAmount = partialDepositAmountInput.value;
         this.updateContractPreview();
       });
     }
@@ -2428,6 +2484,11 @@ class ContractManagementComponent {
                           this.contractData.securityDeposit ||
                           this.contractData.monthlyRental ||
                           "[Security Deposit]"
+                        }${
+                          this.contractData.partialDepositReceived &&
+                          this.contractData.partialDepositAmount
+                            ? ` <em>(Partial deposit received: $${this.contractData.partialDepositAmount})</em>`
+                            : ""
                         }<br>
                         <small style="margin-left: 20px;">*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement</small></p>
                     </div>
@@ -3211,8 +3272,11 @@ class ContractManagementComponent {
       const tenantAInfo = this.selectedTenantA
         ? {
             name: this.selectedTenantA.name,
-            passport: this.selectedTenantA.passportNumber || "",
-            fin: this.selectedTenantA.finNumber || "",
+            passport:
+              this.selectedTenantA.passportNumber ||
+              this.selectedTenantA.passport ||
+              "",
+            fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
             email: this.selectedTenantA.email || "",
           }
         : customTenantAText && customTenantAText.value.trim()
@@ -3400,6 +3464,11 @@ class ContractManagementComponent {
           this.contractData.securityDeposit ||
           this.contractData.monthlyRental ||
           "[Security Deposit]"
+        }${
+          this.contractData.partialDepositReceived &&
+          this.contractData.partialDepositAmount
+            ? ` (Partial deposit received: $${this.contractData.partialDepositAmount})`
+            : ""
         }`,
         { bold: true, spacing: 5 },
       );
@@ -3883,6 +3952,11 @@ class ContractManagementComponent {
                           this.contractData.securityDeposit ||
                           this.contractData.monthlyRental ||
                           "[Security Deposit]"
+                        }${
+                          this.contractData.partialDepositReceived &&
+                          this.contractData.partialDepositAmount
+                            ? ` <em>(Partial deposit received: $${this.contractData.partialDepositAmount})</em>`
+                            : ""
                         }</p>
                         <div style="margin-left: 20px; margin-bottom: 12px;">
                             <small style="font-size: 10px;">*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement</small>
@@ -4358,6 +4432,20 @@ class ContractManagementComponent {
       this.contractData.fullPaymentReceived = fullPaymentElement.checked;
     }
 
+    const partialDepositElement = document.getElementById(
+      "contractPartialDepositReceived",
+    );
+    if (partialDepositElement) {
+      this.contractData.partialDepositReceived = partialDepositElement.checked;
+    }
+
+    const partialDepositAmountElement = document.getElementById(
+      "contractPartialDepositAmount",
+    );
+    if (partialDepositAmountElement) {
+      this.contractData.partialDepositAmount = partialDepositAmountElement.value;
+    }
+
     const pestControlElement = document.getElementById("pestControlClause");
     if (pestControlElement) {
       this.contractData.pestControlClause = pestControlElement.checked;
@@ -4423,6 +4511,22 @@ class ContractManagementComponent {
       contractData.fullPaymentReceived = fullPaymentElement.checked;
     }
 
+    // Get partial deposit received status
+    const partialDepositElement = document.getElementById(
+      "contractPartialDepositReceived",
+    );
+    if (partialDepositElement) {
+      contractData.partialDepositReceived = partialDepositElement.checked;
+    }
+
+    // Get partial deposit amount
+    const partialDepositAmountElement = document.getElementById(
+      "contractPartialDepositAmount",
+    );
+    if (partialDepositAmountElement) {
+      contractData.partialDepositAmount = partialDepositAmountElement.value;
+    }
+
     // Get pest control clause status
     const pestControlElement = document.getElementById("pestControlClause");
     if (pestControlElement) {
@@ -4471,6 +4575,17 @@ class ContractManagementComponent {
           }
         }
       });
+
+      // Handle partial deposit amount container visibility
+      const partialDepositAmountContainer = document.getElementById(
+        "partialDepositAmountContainer",
+      );
+      if (partialDepositAmountContainer) {
+        partialDepositAmountContainer.style.display = this.contractData
+          .partialDepositReceived
+          ? "block"
+          : "none";
+      }
 
       // Load tenant selections if available
       if (templateData.additionalData?.selectedTenantA) {
@@ -4682,6 +4797,8 @@ class ContractManagementComponent {
         moveOutDate: "",
         monthlyRental: "",
         securityDeposit: "",
+        partialDepositReceived: false,
+        partialDepositAmount: "",
         electricityBudget: "400",
         cleaningFee: "20",
         paymentMethod: "BANK_TRANSFER",
@@ -4766,6 +4883,28 @@ class ContractManagementComponent {
     const fullPaymentElement = document.getElementById("fullPaymentReceived");
     if (fullPaymentElement) {
       fullPaymentElement.checked = false;
+    }
+
+    // Reset partial deposit checkbox and input
+    const partialDepositCheckbox = document.getElementById(
+      "contractPartialDepositReceived",
+    );
+    if (partialDepositCheckbox) {
+      partialDepositCheckbox.checked = false;
+    }
+
+    const partialDepositAmountContainer = document.getElementById(
+      "partialDepositAmountContainer",
+    );
+    if (partialDepositAmountContainer) {
+      partialDepositAmountContainer.style.display = "none";
+    }
+
+    const partialDepositAmountInput = document.getElementById(
+      "contractPartialDepositAmount",
+    );
+    if (partialDepositAmountInput) {
+      partialDepositAmountInput.value = "";
     }
 
     // Reset pest control checkbox
