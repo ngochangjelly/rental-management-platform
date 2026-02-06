@@ -2111,12 +2111,18 @@ class TenantManagementComponent {
     }));
 
     if (mapped.length === 0) {
-      console.warn("⚠️ No properties to submit! This may cause tenant to become unassigned.");
+      console.warn("⚠️ No properties found in primary sources, checking originalPropertiesDetails...");
       console.warn("Debug info:", {
         selectedProperties: this.selectedProperties,
         selectedPropertiesDetails: this.selectedPropertiesDetails,
         originalPropertiesDetails: this.originalPropertiesDetails,
       });
+
+      // CRITICAL: If we have original properties, use them as last resort to prevent data loss
+      if (this.originalPropertiesDetails && this.originalPropertiesDetails.length > 0) {
+        console.log("📋 Using originalPropertiesDetails as last resort fallback:", this.originalPropertiesDetails);
+        return this.originalPropertiesDetails;
+      }
     }
 
     return mapped;
