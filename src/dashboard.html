@@ -66,6 +66,19 @@
       .segment-option {
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
+
+      /* Spin animation for refresh button */
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spin-animation {
+        animation: spin 1s linear infinite;
+      }
     </style>
 
     <!-- Webpack will inject scripts here automatically -->
@@ -5059,6 +5072,13 @@
                           </div>
                         </div>
                         <div class="col-md-6 text-end">
+                          <button
+                            id="refreshFinancialReport"
+                            class="btn btn-outline-secondary btn-sm me-2"
+                            title="Refresh financial report"
+                          >
+                            <i class="bi bi-arrow-clockwise"></i>
+                          </button>
                           <span
                             class="badge bg-info fs-6"
                             id="currentMonthBadge"

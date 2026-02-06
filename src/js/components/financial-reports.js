@@ -166,6 +166,31 @@ class FinancialReportsComponent {
         }
       });
     }
+
+    // Refresh button
+    const refreshBtn = document.getElementById("refreshFinancialReport");
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (this.selectedProperty) {
+          // Show loading state
+          refreshBtn.disabled = true;
+          const icon = refreshBtn.querySelector("i");
+          if (icon) {
+            icon.classList.add("spin-animation");
+          }
+
+          try {
+            await this.loadFinancialReport();
+          } finally {
+            refreshBtn.disabled = false;
+            if (icon) {
+              icon.classList.remove("spin-animation");
+            }
+          }
+        }
+      });
+    }
   }
 
   async loadProperties() {
