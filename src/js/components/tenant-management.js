@@ -1884,6 +1884,12 @@ class TenantManagementComponent {
     this.selectedProperties = this.selectedProperties.filter(
       (id) => id !== propertyId,
     );
+    // Also remove from selectedPropertiesDetails to keep arrays in sync
+    if (this.selectedPropertiesDetails) {
+      this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(
+        (p) => p.propertyId !== propertyId,
+      );
+    }
     this.updateSelectedPropertiesList();
     this.updateDropdownText();
     this.checkForChanges();
@@ -2017,14 +2023,21 @@ class TenantManagementComponent {
       (p) => p.propertyId === propertyId,
     );
     if (!property) {
-      property = {
-        propertyId,
-        isMainTenant: false,
-        room: "",
-        moveinDate: "",
-        moveoutDate: "",
-      };
+      // Try to get the original property data to preserve existing values
+      const originalProperty = (this.originalPropertiesDetails || []).find(
+        (p) => p.propertyId === propertyId,
+      );
+      property = originalProperty
+        ? { ...originalProperty } // Copy from original to preserve all fields
+        : {
+            propertyId,
+            isMainTenant: false,
+            room: "",
+            moveinDate: "",
+            moveoutDate: "",
+          };
       this.selectedPropertiesDetails.push(property);
+      console.log(`Created new property detail for ${propertyId} from ${originalProperty ? 'original' : 'default'}`);
     }
 
     property[field] = value;
@@ -2037,6 +2050,76 @@ class TenantManagementComponent {
 
     // Check for changes to enable/disable submit button
     this.checkForChanges();
+  }
+
+  // Helper method to get properties for form submission with proper fallback logic
+  getPropertiesToSubmit() {
+    // Ensure selectedPropertiesDetails is synchronized with selectedProperties
+    // This fixes an issue where editing dates could cause properties to be lost
+    if (this.selectedProperties && this.selectedProperties.length > 0) {
+      // Make sure each selected property has a corresponding detail entry
+      const detailsMap = new Map(
+        (this.selectedPropertiesDetails || []).map(p => [p.propertyId, p])
+      );
+      const originalMap = new Map(
+        (this.originalPropertiesDetails || []).map(p => [p.propertyId, p])
+      );
+
+      const syncedProperties = this.selectedProperties.map(propertyId => {
+        // First try selectedPropertiesDetails
+        if (detailsMap.has(propertyId)) {
+          return detailsMap.get(propertyId);
+        }
+        // Then try originalPropertiesDetails
+        if (originalMap.has(propertyId)) {
+          return originalMap.get(propertyId);
+        }
+        // Fallback to default
+        return {
+          propertyId,
+          isMainTenant: false,
+          room: "",
+          moveinDate: "",
+          moveoutDate: "",
+        };
+      });
+
+      if (syncedProperties.length > 0) {
+        console.log("📋 Using synced properties:", syncedProperties);
+        return syncedProperties;
+      }
+    }
+
+    // Original fallback logic
+    if (this.selectedPropertiesDetails && this.selectedPropertiesDetails.length > 0) {
+      console.log("📋 Using selectedPropertiesDetails:", this.selectedPropertiesDetails);
+      return this.selectedPropertiesDetails;
+    }
+
+    if (this.originalPropertiesDetails && this.originalPropertiesDetails.length > 0) {
+      console.log("📋 Using originalPropertiesDetails (fallback):", this.originalPropertiesDetails);
+      return this.originalPropertiesDetails;
+    }
+
+    // Final fallback - map from selectedProperties
+    const mapped = (this.selectedProperties || []).map((propertyId) => ({
+      propertyId,
+      isMainTenant: false,
+      room: "",
+      moveinDate: "",
+      moveoutDate: "",
+    }));
+
+    if (mapped.length === 0) {
+      console.warn("⚠️ No properties to submit! This may cause tenant to become unassigned.");
+      console.warn("Debug info:", {
+        selectedProperties: this.selectedProperties,
+        selectedPropertiesDetails: this.selectedPropertiesDetails,
+        originalPropertiesDetails: this.originalPropertiesDetails,
+      });
+    }
+
+    return mapped;
   }
 
   async handleTenantSubmit(event) {
@@ -2061,18 +2144,7 @@ class TenantManagementComponent {
         isRegistered:
           document.getElementById("tenantRegistrationStatusHidden").value ===
           "registered",
-        properties:
-          (this.selectedPropertiesDetails && this.selectedPropertiesDetails.length > 0)
-            ? this.selectedPropertiesDetails
-            : (this.originalPropertiesDetails && this.originalPropertiesDetails.length > 0)
-              ? this.originalPropertiesDetails
-              : this.selectedProperties.map((propertyId) => ({
-                propertyId,
-                isMainTenant: false,
-                room: "",
-                moveinDate: "",
-                moveoutDate: "",
-              })),
+        properties: this.getPropertiesToSubmit(),
         passportPics: this.passportPics,
         visaPics: this.visaPics,
         avatar: this.avatar || null,

@@ -12,6 +12,7 @@ class PropertyManagementComponent {
     this.originalPropertyImage = ''; // Store original property image URL for edit mode (to preserve if not changed)
     this.editingProperty = null; // Store reference to property being edited
     this.currentAcContactNumbers = []; // Store AC service contact numbers
+    this.allInvestors = []; // Store all investors for management fee payee dropdown
     this.init();
   }
 
@@ -19,6 +20,7 @@ class PropertyManagementComponent {
     this.setupEventListeners();
     this.loadProperties();
     this.loadAcServiceCompanies();
+    this.loadAllInvestors();
     this.populateRoomTypesDropdown();
   }
 
@@ -123,6 +125,53 @@ class PropertyManagementComponent {
       console.error("Error loading AC service companies:", error);
       this.acServiceCompanies = [];
     }
+  }
+
+  async loadAllInvestors() {
+    try {
+      const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+      const result = await response.json();
+
+      if (result.success) {
+        this.allInvestors = result.investors;
+        console.log(`📋 Loaded ${this.allInvestors.length} investors for management fee dropdown`);
+      } else {
+        console.error("Failed to load investors:", result.error);
+        this.allInvestors = [];
+      }
+    } catch (error) {
+      console.error("Error loading investors:", error);
+      this.allInvestors = [];
+    }
+  }
+
+  populateManagementFeePayeeDropdown(propertyId = null) {
+    const dropdown = document.getElementById("managementFeePayee");
+    if (!dropdown) return;
+
+    // Clear existing options except the first one
+    dropdown.innerHTML = '<option value="">-- Select Investor --</option>';
+
+    // If a propertyId is provided, filter investors for that property
+    // Otherwise, show all investors
+    let investorsToShow = this.allInvestors;
+
+    if (propertyId) {
+      // Filter to show only investors who own this property
+      investorsToShow = this.allInvestors.filter(investor =>
+        investor.properties && investor.properties.some(p => p.propertyId === propertyId)
+      );
+    }
+
+    // Add investors as options
+    investorsToShow.forEach(investor => {
+      const option = document.createElement('option');
+      option.value = investor.investorId;
+      option.textContent = `${investor.name} (${investor.investorId})`;
+      dropdown.appendChild(option);
+    });
+
+    console.log(`📋 Populated management fee payee dropdown with ${investorsToShow.length} investors`);
   }
 
   populateAcServiceCompanyDropdown() {
@@ -606,6 +655,24 @@ class PropertyManagementComponent {
           }
         }
 
+        // Handle Management Fee fields
+        this.populateManagementFeePayeeDropdown(property.propertyId);
+
+        if (property.managementFeeStart) {
+          const feeDate = new Date(property.managementFeeStart);
+          document.getElementById("managementFeeStart").value = feeDate
+            .toISOString()
+            .split("T")[0];
+        } else {
+          document.getElementById("managementFeeStart").value = "";
+        }
+
+        if (property.managementFeePayee) {
+          document.getElementById("managementFeePayee").value = property.managementFeePayee;
+        } else {
+          document.getElementById("managementFeePayee").value = "";
+        }
+
         // Handle WiFi images
         if (property.wifiImages && property.wifiImages.length > 0) {
           this.currentWifiImages = [...property.wifiImages];
@@ -667,6 +734,11 @@ class PropertyManagementComponent {
         // Clear AC service contact numbers for add mode
         this.currentAcContactNumbers = [];
         this.renderAcContactNumbersList();
+
+        // Reset Management Fee fields for add mode
+        this.populateManagementFeePayeeDropdown(); // Show all investors for new property
+        document.getElementById("managementFeeStart").value = "";
+        document.getElementById("managementFeePayee").value = "";
 
         // Reset settlement bank dropdowns for add mode
         const sgdBankText = document.getElementById("settlementSgdBankText");
@@ -813,6 +885,8 @@ class PropertyManagementComponent {
         propertyImage: this.propertyImage || this.editingProperty?.propertyImage || "",
         acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
+        managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
+        managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
       };
 
       // Validate required fields
