@@ -2367,13 +2367,48 @@ class TenantManagementComponent {
         if (window.dashboardController) {
           window.dashboardController.markTenantDataChanged();
         }
-        // Reload the list
-        if (this.selectedProperty === "UNASSIGNED") {
-          await this.loadUnassignedTenants();
-        } else if (this.selectedProperty) {
-          await this.loadTenantsForProperty(this.selectedProperty);
+
+        // Optimized update: Update tenant in place instead of reloading entire list
+        const updatedTenant = result.tenant;
+        if (updatedTenant) {
+          // Check if tenant's property assignment changed (requires full reload)
+          const oldTenant = this.tenants.find((t) => t._id === tenantId);
+          const oldPropertyIds = (oldTenant?.properties || []).map(p => p.propertyId).sort().join(',');
+          const newPropertyIds = (updatedTenant.properties || []).map(p => p.propertyId).sort().join(',');
+          const propertyChanged = oldPropertyIds !== newPropertyIds;
+
+          if (propertyChanged) {
+            // Property assignment changed - need full reload to handle list membership
+            console.log("📋 Property assignment changed, reloading list...");
+            if (this.selectedProperty === "UNASSIGNED") {
+              await this.loadUnassignedTenants();
+            } else if (this.selectedProperty) {
+              await this.loadTenantsForProperty(this.selectedProperty);
+            } else {
+              await this.loadTenants();
+            }
+          } else {
+            // Same property - update in place for better performance
+            const tenantIndex = this.tenants.findIndex((t) => t._id === tenantId);
+            if (tenantIndex !== -1) {
+              // Preserve any extra fields that might have been added during display
+              this.tenants[tenantIndex] = { ...this.tenants[tenantIndex], ...updatedTenant };
+              console.log("📋 Tenant updated in place, re-rendering table...");
+              await this.renderTenantsTable();
+            } else {
+              // Tenant not in current list - might be viewing different property
+              console.log("📋 Tenant not in current view, skipping re-render");
+            }
+          }
         } else {
-          await this.loadTenants();
+          // No tenant data returned - fallback to reload
+          if (this.selectedProperty === "UNASSIGNED") {
+            await this.loadUnassignedTenants();
+          } else if (this.selectedProperty) {
+            await this.loadTenantsForProperty(this.selectedProperty);
+          } else {
+            await this.loadTenants();
+          }
         }
       } else {
         alert("Failed to update tenant: " + result.error);
