@@ -1445,6 +1445,11 @@ class FinancialReportsComponent {
           '[data-bs-toggle="tooltip"]',
         );
         tooltipTriggerList.forEach((tooltipTriggerEl) => {
+          // Dispose existing tooltip first to prevent conflicts
+          const existingTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+          if (existingTooltip) {
+            existingTooltip.dispose();
+          }
           new bootstrap.Tooltip(tooltipTriggerEl);
         });
       }
