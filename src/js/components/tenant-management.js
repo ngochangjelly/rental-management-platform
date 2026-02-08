@@ -22,7 +22,7 @@ class TenantManagementComponent {
     this.passportPics = []; // Array of passport image URLs
     this.visaPics = []; // Array of visa image URLs
     this.avatar = ""; // Single avatar image URL
-    this.signature = ""; // Signature image URL (for main tenants)
+    this.signature = ""; // Signature image URL
     this.originalTenantData = null; // Store original tenant data for change detection
     this.todos = []; // Array of todo items
 
@@ -3170,21 +3170,8 @@ class TenantManagementComponent {
     const signatureSection = document.getElementById("signatureSection");
     if (!signatureSection) return;
 
-    // Check if any selected property has this tenant as main tenant
-    const isMainTenant = this.selectedPropertiesDetails.some(
-      (prop) => prop.isMainTenant,
-    );
-
-    if (isMainTenant) {
-      signatureSection.style.display = "";
-      console.log("📝 Showing signature section for main tenant");
-    } else {
-      signatureSection.style.display = "none";
-      // Clear signature if not main tenant
-      this.signature = "";
-      this.updateSignaturePreview();
-      console.log("🚫 Hiding signature section (not main tenant)");
-    }
+    // Always show signature section for all tenants (not just main tenants)
+    signatureSection.style.display = "";
   }
 
   setupSignatureUrlListener() {
