@@ -29,6 +29,8 @@ class TenancyOccupancyComponent {
   init() {
     // Bind navigation events
     this.bindEvents();
+    // Initialize year display
+    this.updateYearDisplay();
   }
 
   /**
@@ -392,6 +394,11 @@ class TenancyOccupancyComponent {
     const yearDisplay = document.getElementById("tenancyOccupancyYearDisplay");
     if (yearDisplay) {
       yearDisplay.textContent = this.currentYear;
+    }
+    // Also update the inline year display in the filter area
+    const yearDisplayInline = document.getElementById("tenancyOccupancyYearDisplayInline");
+    if (yearDisplayInline) {
+      yearDisplayInline.textContent = this.currentYear;
     }
   }
 
