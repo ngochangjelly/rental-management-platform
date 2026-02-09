@@ -49,7 +49,7 @@ class ContractManagementComponent {
 
   init() {
     this.setupEventListeners();
-    this.loadTenants();
+    // Don't load tenants upfront - load them when property is selected
     this.loadInvestors();
     this.loadProperties();
   }
@@ -60,9 +60,13 @@ class ContractManagementComponent {
 
   async loadTenants() {
     try {
-      const response = await API.get(
-        API_CONFIG.ENDPOINTS.TENANTS + "?limit=100",
-      );
+      // Only load tenants for the selected property
+      let url = API_CONFIG.ENDPOINTS.TENANTS + "?limit=100";
+      if (this.selectedPropertyId) {
+        url += `&property=${this.selectedPropertyId}`;
+      }
+
+      const response = await API.get(url);
       const result = await response.json();
 
       if (result.success && result.tenants) {
@@ -82,7 +86,7 @@ class ContractManagementComponent {
       console.log(
         "✅ Loaded",
         this.tenants.length,
-        "tenants for contract creation",
+        `tenants for contract creation${this.selectedPropertyId ? ` (property: ${this.selectedPropertyId})` : ""}`,
       );
 
       // Populate dropdowns when data is loaded
@@ -256,42 +260,38 @@ class ContractManagementComponent {
       return;
     }
 
+    // If no property selected yet, show message to select property first
+    if (!this.selectedPropertyId) {
+      const selectPropertyMessage = i18next.t(
+        "createContract.selectPropertyFirst",
+        "Please select a property first",
+      );
+      tenantASelect.innerHTML = `<option value="">${i18next.t("createContract.tenantAMain", "Tenant A (Main Tenant)")}</option>`;
+      tenantASelect.innerHTML += `<option value="" disabled>${selectPropertyMessage}</option>`;
+      tenantBSelect.innerHTML = `<option value="" disabled>${selectPropertyMessage}</option>`;
+      // Also clear the checkbox dropdown
+      this.populateTenantBCheckboxDropdown([], []);
+      return;
+    }
+
     // Store all tenant/investor data for fuzzy search
     this._allTenantOptions = [];
     this._allInvestorOptions = [];
 
-    // Filter tenants by selected property
-    const filteredTenants = this.tenants.filter((tenant) => {
-      const belongs = this.tenantBelongsToProperty(
-        tenant,
-        this.selectedPropertyId,
-      );
-      if (this.selectedPropertyId) {
-        console.log(`🔍 Tenant "${tenant.name}":`, {
-          properties: tenant.properties,
-          belongs: belongs,
-        });
-      }
-      return belongs;
-    });
+    // Tenants are already filtered by property from the API
+    const filteredTenants = this.tenants;
 
-    // Filter investors by selected property
+    // Filter investors by selected property (client-side since API doesn't support it)
     const filteredInvestors = this.investors.filter((investor) => {
       const belongs = this.tenantBelongsToProperty(
         investor,
         this.selectedPropertyId,
       );
-      if (this.selectedPropertyId) {
-        console.log(`🔍 Investor "${investor.name}":`, {
-          properties: investor.properties,
-          belongs: belongs,
-        });
-      }
       return belongs;
     });
 
     console.log(
-      `🔍 Filtered to ${filteredTenants.length} tenants and ${filteredInvestors.length} investors`,
+      `📋 Showing ${filteredTenants.length} tenants and ${filteredInvestors.length} investors`,
     );
 
     // Clear existing options
@@ -965,7 +965,7 @@ class ContractManagementComponent {
     addressSelect.addEventListener("change", this.addressChangeHandler);
   }
 
-  handleAddressSelection(address) {
+  async handleAddressSelection(address) {
     console.log(`🏠 Address selected: ${address}`);
 
     const newPropertyFields = document.getElementById("newPropertyFields");
@@ -1049,6 +1049,9 @@ class ContractManagementComponent {
             : "not found",
         );
       }
+
+      // Load tenants only when a valid property is selected
+      await this.loadTenants();
     }
 
     // Refresh tenant dropdowns with property filter
@@ -4107,7 +4110,12 @@ class ContractManagementComponent {
 
   // Public method to refresh the component
   refresh() {
-    this.loadTenants();
+    // Only reload tenants if a property is already selected
+    if (this.selectedPropertyId) {
+      this.loadTenants();
+    }
+    this.loadInvestors();
+    this.loadProperties();
   }
 
   // ================== TEMPLATE FUNCTIONALITY ==================

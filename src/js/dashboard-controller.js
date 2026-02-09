@@ -164,10 +164,8 @@ class DashboardController {
           // Set up contract form after section is shown
           setTimeout(async () => {
             console.log("⏰ Setting up contract form...");
-            await Promise.all([
-              this.components.contractManagement.loadTenants(),
-              this.components.contractManagement.loadProperties(),
-            ]);
+            // Only load properties upfront - tenants will be loaded when property is selected
+            await this.components.contractManagement.loadProperties();
             this.components.contractManagement.populateTenantsDropdown();
             this.components.contractManagement.populatePropertiesDropdown();
             this.components.contractManagement.setupContractInputs();
@@ -356,12 +354,12 @@ class DashboardController {
     // Map sections to their data dependencies and refresh methods
     const sectionDataDependencies = {
       contracts: {
-        dependencies: ["tenants", "properties", "investors"],
+        dependencies: ["properties", "investors"],
         refresh: async () => {
           if (this.components.contractManagement) {
             console.log("🔄 Refreshing contract management data...");
+            // Only load investors and properties - tenants will be loaded when property is selected
             await Promise.all([
-              this.components.contractManagement.loadTenants(),
               this.components.contractManagement.loadInvestors(),
               this.components.contractManagement.loadProperties(),
             ]);

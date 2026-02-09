@@ -114,7 +114,7 @@ class PropertyManagementComponent {
       const result = await response.json();
 
       if (result.success) {
-        this.acServiceCompanies = result.companies;
+        this.acServiceCompanies = result.companies || [];
         console.log(`📋 Loaded ${this.acServiceCompanies.length} AC service companies`);
         this.populateAcServiceCompanyDropdown();
       } else {
@@ -133,7 +133,7 @@ class PropertyManagementComponent {
       const result = await response.json();
 
       if (result.success) {
-        this.allInvestors = result.investors;
+        this.allInvestors = result.investors || [];
         console.log(`📋 Loaded ${this.allInvestors.length} investors for management fee dropdown`);
       } else {
         console.error("Failed to load investors:", result.error);
@@ -143,6 +143,25 @@ class PropertyManagementComponent {
       console.error("Error loading investors:", error);
       this.allInvestors = [];
     }
+  }
+
+  getNextPropertyId() {
+    if (!this.properties || this.properties.length === 0) return 1;
+
+    // Find all numeric IDs
+    const numericIds = this.properties
+      .map(p => {
+        const id = p.propertyId;
+        // Try to match numbers in the ID (handles cases like "PROP001" or "123")
+        const match = id?.toString().match(/\d+/);
+        return match ? parseInt(match[0], 10) : null;
+      })
+      .filter(id => id !== null);
+
+    if (numericIds.length === 0) return this.properties.length + 1;
+
+    // Return max + 1
+    return Math.max(...numericIds) + 1;
   }
 
   populateManagementFeePayeeDropdown(propertyId = null) {
@@ -229,6 +248,84 @@ class PropertyManagementComponent {
         this.filterProperties(e.target.value);
       });
     }
+
+    // OneMap API - Fetch address from postcode
+    const fetchAddressBtn = document.getElementById("fetchAddressBtn");
+    if (fetchAddressBtn) {
+      fetchAddressBtn.addEventListener("click", () => {
+        const postcode = document.getElementById("postcode").value;
+        this.fetchAddressFromPostcode(postcode);
+      });
+    }
+
+    // Auto-fetch when 6 digits are entered
+    const postcodeInput = document.getElementById("postcode");
+    if (postcodeInput) {
+      postcodeInput.addEventListener("input", (e) => {
+        const postcode = e.target.value.trim();
+        if (postcode.length === 6 && /^\d+$/.test(postcode)) {
+          this.fetchAddressFromPostcode(postcode);
+        }
+      });
+    }
+  }
+
+  async fetchAddressFromPostcode(postcode) {
+    if (!postcode || postcode.length !== 6 || !/^\d+$/.test(postcode)) {
+      if (postcode.length === 6) {
+        alert("Please enter a valid 6-digit postal code.");
+      }
+      return;
+    }
+
+    const fetchBtn = document.getElementById("fetchAddressBtn");
+    const originalBtnHtml = fetchBtn?.innerHTML;
+
+    try {
+      if (fetchBtn) {
+        fetchBtn.disabled = true;
+        fetchBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+      }
+
+      console.log(`🔍 Fetching address for postcode: ${postcode}`);
+      const onemapToken = process.env.ONEMAP_API_TOKEN;
+      const response = await fetch(
+        `https://www.onemap.gov.sg/api/common/elastic/search?searchVal=${postcode}&returnGeom=N&getAddrDetails=Y`,
+        {
+          headers: onemapToken ? { Authorization: onemapToken } : {},
+        }
+      );
+      const data = await response.json();
+
+      if (data && data.results && data.results.length > 0) {
+        const result = data.results[0];
+        // OneMap returns a full ADDRESS field like "122 MIDDLE ROAD SINGAPORE 188065"
+        // We'll use it and strip the " SINGAPORE 188065" part for a cleaner look
+        let address = result.ADDRESS || "";
+        if (address) {
+          address = address.replace(/ SINGAPORE \d{6}$/i, "");
+        }
+
+        const addressInput = document.getElementById("address");
+        if (addressInput) {
+          addressInput.value = address;
+          // Trigger input event to ensure any listeners (like validation) are fired
+          addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        console.log(`✅ Address found: ${address}`);
+      } else {
+        console.warn("No results found for this postcode.");
+        alert("No address found for this postal code. Please enter manually.");
+      }
+    } catch (error) {
+      console.error("Error fetching address from OneMap:", error);
+      alert("Error connecting to OneMap API. Please enter address manually.");
+    } finally {
+      if (fetchBtn) {
+        fetchBtn.disabled = false;
+        fetchBtn.innerHTML = originalBtnHtml;
+      }
+    }
   }
 
   async loadProperties() {
@@ -237,7 +334,7 @@ class PropertyManagementComponent {
       const result = await response.json();
 
       if (result.success) {
-        this.properties = result.properties;
+        this.properties = result.properties || [];
         console.log('📦 Loaded properties:', this.properties.length);
 
         // Filter properties if current user is an investor
@@ -543,7 +640,31 @@ class PropertyManagementComponent {
       form.setAttribute("data-property-id", property?.propertyId || "");
       form.setAttribute("data-mode", isEdit ? "edit" : "add");
 
+      const propertyIdInput = document.getElementById("propertyId");
+      const propertyIdHelp = document.getElementById("propertyIdHelp");
+
+      if (!isEdit) {
+        const nextId = this.getNextPropertyId();
+        if (propertyIdInput) {
+          propertyIdInput.value = nextId;
+          propertyIdInput.readOnly = true;
+          propertyIdInput.classList.add("bg-light");
+        }
+        if (propertyIdHelp) {
+          propertyIdHelp.textContent = "Property ID is automatically generated.";
+        }
+      }
+
       if (isEdit && property) {
+        if (propertyIdInput) {
+          propertyIdInput.value = property.propertyId || "";
+          propertyIdInput.readOnly = true;
+          propertyIdInput.classList.add("bg-light");
+        }
+        if (propertyIdHelp) {
+          propertyIdHelp.textContent = "Property ID cannot be changed after creation.";
+        }
+
         // Populate form with existing data
         document.getElementById("propertyId").value = property.propertyId || "";
         document.getElementById("address").value = property.address || "";
@@ -617,13 +738,13 @@ class PropertyManagementComponent {
           property.telegramBotToken || "";
         document.getElementById("telegramChannelId").value =
           property.telegramChannelId || "";
-        
+
         // Set Telegram integration checkbox
         const telegramIntegrationCheckbox = document.getElementById("telegramIntegrationEnabled");
         if (telegramIntegrationCheckbox) {
           telegramIntegrationCheckbox.checked = property.telegramIntegrationEnabled === true;
         }
-        
+
         document.getElementById("wifiAccountNumber").value =
           property.wifiAccountNumber || "";
         document.getElementById("wifiAccountHolderName").value =
@@ -756,6 +877,12 @@ class PropertyManagementComponent {
         document.getElementById("propertyId").readOnly = false;
         document.getElementById("propertyId").classList.remove("bg-light");
       }
+
+      // Reset postcode field
+      const postcodeField = document.getElementById("postcode");
+      if (postcodeField) {
+        postcodeField.value = "";
+      }
     }
 
     // Show modal
@@ -849,7 +976,7 @@ class PropertyManagementComponent {
       // When editing, spread existing property first to preserve unchanged fields (like propertyImage)
       const propertyData = {
         ...(isEdit && this.editingProperty ? this.editingProperty : {}),
-        propertyId: formData.get("propertyId").trim().toUpperCase(),
+        propertyId: (formData.get("propertyId") || this.getNextPropertyId().toString()).trim().toUpperCase(),
         address: formData.get("address").trim(),
         unit: formData.get("unit").trim(),
         maxPax: parseInt(formData.get("maxPax")) || 1,
@@ -960,8 +1087,7 @@ class PropertyManagementComponent {
       console.error("Error in handlePropertySubmit:", error);
       const isEdit = event.target.getAttribute("data-mode") === "edit";
       alert(
-        `An error occurred while ${
-          isEdit ? "updating" : "adding"
+        `An error occurred while ${isEdit ? "updating" : "adding"
         } the property. Please try again.`
       );
 
@@ -1055,7 +1181,7 @@ class PropertyManagementComponent {
   openWifiImagesUpload() {
     const fileInput = document.getElementById('wifiImagesUploadInput');
     fileInput.click();
-    
+
     // Add event listener for file selection
     fileInput.onchange = async (event) => {
       const files = event.target.files;
@@ -1068,14 +1194,14 @@ class PropertyManagementComponent {
   async uploadWifiImages(files) {
     const uploadButton = document.querySelector("button[onclick=\"propertyManager.openWifiImagesUpload()\"]");
     const originalText = uploadButton.innerHTML;
-    
+
     try {
       uploadButton.disabled = true;
       uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
-      
+
       for (const file of files) {
         const result = await this.uploadSingleImage(file);
-        
+
         if (result.success) {
           console.log('🔗 WiFi image uploaded successfully:', result.url);
 
@@ -1099,10 +1225,10 @@ class PropertyManagementComponent {
           throw new Error(result.error || 'Upload failed');
         }
       }
-      
+
       // Update the gallery display
       this.renderWifiImagesGallery();
-      
+
     } catch (error) {
       console.error('Error uploading WiFi images:', error);
       alert(`Error uploading images: ${error.message}`);
@@ -1150,7 +1276,7 @@ class PropertyManagementComponent {
       `;
     });
     galleryHtml += '</div>';
-    
+
     gallery.innerHTML = galleryHtml;
   }
 
@@ -1378,9 +1504,9 @@ class PropertyManagementComponent {
     try {
       const url = new URL(text);
       return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url.pathname) ||
-             text.includes('cloudinary.com') ||
-             text.includes('imgur.com') ||
-             text.includes('postimg.cc');
+        text.includes('cloudinary.com') ||
+        text.includes('imgur.com') ||
+        text.includes('postimg.cc');
     } catch {
       return false;
     }

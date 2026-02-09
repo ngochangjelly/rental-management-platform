@@ -1,6 +1,34 @@
 const path = require("path");
+const fs = require("fs");
+const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+
+// Helper to load simple .env variables for frontend injection
+const loadEnv = () => {
+  const envPath = path.resolve(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return {};
+
+  const envContent = fs.readFileSync(envPath, "utf8");
+  const env = {};
+
+  envContent.split("\n").forEach(line => {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (match) {
+      const key = match[1];
+      let value = match[2] || "";
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.substring(1, value.length - 1);
+      } else if (value.startsWith("'") && value.endsWith("'")) {
+        value = value.substring(1, value.length - 1);
+      }
+      env[key] = value;
+    }
+  });
+  return env;
+};
+
+const envVars = loadEnv();
 
 module.exports = {
   mode: "development",
@@ -84,6 +112,10 @@ module.exports = {
           to: "locales",
         },
       ],
+    }),
+    // Inject environment variables
+    new webpack.DefinePlugin({
+      "process.env.ONEMAP_API_TOKEN": JSON.stringify(envVars.ONEMAP_API_TOKEN || ""),
     }),
   ],
   devServer: {
