@@ -216,6 +216,14 @@ class DashboardController {
           window.userManagement = this.components.userManagement;
         }
         break;
+      case "investor-profit-report":
+        // Investor profit report component is initialized globally
+        // Just trigger data load when section is shown
+        if (window.investorProfitReport) {
+          // Update date filter dropdowns to match component state
+          this.updateInvestorProfitDateFilters();
+        }
+        break;
       case "tenancy-occupancy":
         // Tenancy occupancy component is initialized globally
         // Just trigger data load when section is shown
@@ -239,12 +247,17 @@ class DashboardController {
     const usersNavItem = document.getElementById("usersNavItem");
     const investorsNavItem = document.getElementById("investorsNavItem");
 
+    const investorProfitReportNavItem = document.getElementById("investorProfitReportNavItem");
+
     if (user && user.role === "admin") {
       if (usersNavItem) {
         usersNavItem.style.display = "block";
       }
       if (investorsNavItem) {
         investorsNavItem.style.display = "block";
+      }
+      if (investorProfitReportNavItem) {
+        investorProfitReportNavItem.style.display = "block";
       }
     }
 
@@ -449,8 +462,24 @@ class DashboardController {
       "bulk-reports": "bulkPropertyReports",
       tenants: "tenantManagement",
       investors: "investorManagement",
+      "investor-profit-report": "investorProfitReport",
     };
     return sectionToComponent[sectionName];
+  }
+
+  updateInvestorProfitDateFilters() {
+    if (!window.investorProfitReport) return;
+
+    const component = window.investorProfitReport;
+    const startYearSelect = document.getElementById("investorProfitStartYear");
+    const startMonthSelect = document.getElementById("investorProfitStartMonth");
+    const endYearSelect = document.getElementById("investorProfitEndYear");
+    const endMonthSelect = document.getElementById("investorProfitEndMonth");
+
+    if (startYearSelect) startYearSelect.value = component.startYear;
+    if (startMonthSelect) startMonthSelect.value = component.startMonth;
+    if (endYearSelect) endYearSelect.value = component.endYear;
+    if (endMonthSelect) endMonthSelect.value = component.endMonth;
   }
 
   refreshDashboardStats() {

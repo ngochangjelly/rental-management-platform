@@ -16,6 +16,7 @@ import "./components/financial-reports.js";
 import "./components/bill-management.js"; // Bill Management component
 import "./components/bulk-property-reports.js";
 import "./components/investor-management.js";
+import "./components/investor-profit-report.js"; // Investor Profit Report component
 import "./components/user-management.js"; // User Management component
 import "./components/ac-clean-management.js"; // AC Clean Management component (includes AC Service Company management)
 import "./dashboard-controller.js";

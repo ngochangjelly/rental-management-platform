@@ -2902,6 +2902,11 @@
               <span class="badge bg-light text-dark rounded-pill" id="investorsBadge">0</span>
             </a>
           </li>
+          <li class="nav-item" id="investorProfitReportNavItem" style="display: none">
+            <a class="nav-link" href="#" data-section="investor-profit-report">
+              <i class="bi bi-graph-up-arrow me-2"></i><span data-i18n="sidebar.investorProfitReport">Investor Profit Report</span>
+            </a>
+          </li>
           <li class="nav-item" id="usersNavItem" style="display: none">
             <a class="nav-link d-flex justify-content-between align-items-center" href="#" data-section="users">
               <span>
@@ -4771,6 +4776,151 @@
           </div>
         </div>
 
+        <!-- Investor Profit Report Section -->
+        <div id="investor-profit-report-section" class="content-section" style="display: none;">
+          <div class="p-4">
+            <!-- Header -->
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4">
+              <h2 data-i18n="investorProfitReport.title">Investor Profit Report</h2>
+              <div class="btn-toolbar mb-2 mb-md-0">
+                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+                  <i class="bi bi-arrow-left me-1"></i><span data-i18n="investorProfitReport.backToDashboard">Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Date Filter -->
+            <div class="card mb-4">
+              <div class="card-body">
+                <div class="row align-items-end g-3">
+                  <div class="col-12 col-md-auto">
+                    <label class="form-label small text-muted" data-i18n="investorProfitReport.dateRange">Date Range</label>
+                    <div class="d-flex align-items-center gap-2">
+                      <select class="form-select form-select-sm" id="investorProfitStartMonth" style="width: auto;"
+                        onchange="investorProfitReport.handleDateFilterChange()">
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                      </select>
+                      <select class="form-select form-select-sm" id="investorProfitStartYear" style="width: auto;"
+                        onchange="investorProfitReport.handleDateFilterChange()">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                      </select>
+                      <span class="text-muted">-</span>
+                      <select class="form-select form-select-sm" id="investorProfitEndMonth" style="width: auto;"
+                        onchange="investorProfitReport.handleDateFilterChange()">
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                      </select>
+                      <select class="form-select form-select-sm" id="investorProfitEndYear" style="width: auto;"
+                        onchange="investorProfitReport.handleDateFilterChange()">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-auto">
+                    <label class="form-label small text-muted" data-i18n="investorProfitReport.chartType">Chart Type</label>
+                    <div class="btn-group" role="group">
+                      <button type="button" class="btn btn-sm btn-primary chart-type-btn" data-chart-type="bar"
+                        onclick="investorProfitReport.handleChartTypeChange('bar')">
+                        <i class="bi bi-bar-chart-fill"></i>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-primary chart-type-btn" data-chart-type="line"
+                        onclick="investorProfitReport.handleChartTypeChange('line')">
+                        <i class="bi bi-graph-up"></i>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-primary chart-type-btn" data-chart-type="doughnut"
+                        onclick="investorProfitReport.handleChartTypeChange('doughnut')">
+                        <i class="bi bi-pie-chart-fill"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Investor Selection -->
+            <div class="card mb-4">
+              <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <h6 class="mb-0">
+                    <i class="bi bi-person-badge me-2"></i>
+                    <span data-i18n="investorProfitReport.selectInvestor">Select Investors</span>
+                  </h6>
+                  <div class="d-flex align-items-center gap-2">
+                    <span id="investorProfitSelectedCount" class="text-muted small">0 investors selected</span>
+                    <div class="btn-group btn-group-sm">
+                      <button type="button" class="btn btn-outline-primary" onclick="investorProfitReport.selectAllInvestors()">
+                        <i class="bi bi-check-all me-1"></i><span data-i18n="investorProfitReport.selectAll">Select All</span>
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" onclick="investorProfitReport.deselectAllInvestors()">
+                        <i class="bi bi-x-lg me-1"></i><span data-i18n="investorProfitReport.deselectAll">Deselect All</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div id="investorProfitReportInvestorList" class="row g-2">
+                  <!-- Investor cards will be rendered here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart Area -->
+            <div class="card mb-4">
+              <div class="card-header bg-white">
+                <h6 class="mb-0">
+                  <i class="bi bi-graph-up me-2"></i>
+                  <span data-i18n="investorProfitReport.profitChart">Profit Chart</span>
+                </h6>
+              </div>
+              <div class="card-body">
+                <div id="investorProfitChartContainer">
+                  <div class="text-center text-muted py-5">
+                    <i class="bi bi-graph-up fs-1 mb-3 d-block"></i>
+                    <p data-i18n="investorProfitReport.selectInvestorToView">Select an investor to view profit report</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Monthly Details -->
+            <div class="card">
+              <div class="card-body">
+                <div id="investorProfitMonthlyDetails">
+                  <!-- Monthly breakdown will be rendered here -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Users Section (Admin Only) -->
         <div id="users-section" class="content-section">
           <div class="p-4">
@@ -4900,6 +5050,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Chart.js for charts and visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <!-- Tesseract.js v7 for OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
 
