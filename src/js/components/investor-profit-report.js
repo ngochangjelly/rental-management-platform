@@ -4,7 +4,7 @@ import i18next from "i18next";
  * Investor Profit Report Component
  * Displays profit charts and detailed reports for multiple investors
  */
-class InvestorProfitReportComponent {
+class investorProfitChartComponent {
   constructor() {
     this.investors = [];
     this.selectedInvestors = new Set(); // Support multiple investor selection
@@ -12,6 +12,7 @@ class InvestorProfitReportComponent {
     this.isLoading = false;
     this.isLoadingData = false;
     this.chart = null;
+    this.fullscreenChart = null;
     this.chartType = "bar"; // bar, line, doughnut
     this.expandedMonth = null; // Track which month detail is expanded
 
@@ -93,14 +94,16 @@ class InvestorProfitReportComponent {
    * Render investor selection cards
    */
   renderInvestorList() {
-    const container = document.getElementById("investorProfitReportInvestorList");
+    const container = document.getElementById(
+      "investorProfitChartInvestorList",
+    );
     if (!container) return;
 
     if (this.isLoading) {
       container.innerHTML = `
         <div class="col-12 text-center py-4">
           <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">${i18next.t("investorProfitReport.loading", "Loading...")}</span>
+            <span class="visually-hidden">${i18next.t("investorProfitChart.loading", "Loading...")}</span>
           </div>
         </div>
       `;
@@ -111,7 +114,7 @@ class InvestorProfitReportComponent {
       container.innerHTML = `
         <div class="col-12 text-center text-muted py-4">
           <i class="bi bi-person-x me-2"></i>
-          ${i18next.t("investorProfitReport.noInvestors", "No investors found")}
+          ${i18next.t("investorProfitChart.noInvestors", "No investors found")}
         </div>
       `;
       return;
@@ -124,7 +127,9 @@ class InvestorProfitReportComponent {
         const avatarUrl = investor.avatar
           ? ImageUtils.getOptimizedImageUrl(investor.avatar, "small")
           : null;
-        const color = isSelected ? this.getInvestorColor(investor.investorId) : null;
+        const color = isSelected
+          ? this.getInvestorColor(investor.investorId)
+          : null;
 
         return `
           <div class="col-6 col-sm-4 col-md-3 col-lg-2 investor-card-col mb-3">
@@ -136,21 +141,26 @@ class InvestorProfitReportComponent {
             >
               <div class="card-body text-center p-3">
                 <div class="position-relative d-inline-block mb-2">
-                  ${avatarUrl
-                    ? `<img src="${avatarUrl}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover; ${isSelected ? `box-shadow: 0 0 0 3px ${color.border};` : ""}" alt="${this.escapeHtml(investor.name)}">`
-                    : `<div class="rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.5rem; background-color: ${isSelected ? color.border : "#667eea"};">${this.getInitials(investor.name)}</div>`
+                  ${
+                    avatarUrl
+                      ? `<img src="${avatarUrl}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover; ${isSelected ? `box-shadow: 0 0 0 3px ${color.border};` : ""}" alt="${this.escapeHtml(investor.name)}">`
+                      : `<div class="rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.5rem; background-color: ${isSelected ? color.border : "#667eea"};">${this.getInitials(investor.name)}</div>`
                   }
-                  ${isSelected ? `
+                  ${
+                    isSelected
+                      ? `
                     <div class="position-absolute bottom-0 end-0">
                       <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 20px; height: 20px; background-color: ${color.border};">
                         <i class="bi bi-check-lg" style="font-size: 0.7rem;"></i>
                       </div>
                     </div>
-                  ` : ""}
+                  `
+                      : ""
+                  }
                 </div>
                 <h6 class="card-title mb-1 text-truncate">${this.escapeHtml(investor.name)}</h6>
                 <small class="text-muted">
-                  <i class="bi bi-building me-1"></i>${propertyCount} ${i18next.t("investorProfitReport.properties", "properties")}
+                  <i class="bi bi-building me-1"></i>${propertyCount} ${i18next.t("investorProfitChart.properties", "properties")}
                 </small>
               </div>
             </div>
@@ -171,9 +181,17 @@ class InvestorProfitReportComponent {
     const countEl = document.getElementById("investorProfitSelectedCount");
     if (countEl) {
       const count = this.selectedInvestors.size;
-      countEl.textContent = `${count} ${count === 1
-        ? i18next.t("investorProfitReport.investorSelected", "investor selected")
-        : i18next.t("investorProfitReport.investorsSelected", "investors selected")}`;
+      countEl.textContent = `${count} ${
+        count === 1
+          ? i18next.t(
+              "investorProfitChart.investorSelected",
+              "investor selected",
+            )
+          : i18next.t(
+              "investorProfitChart.investorsSelected",
+              "investors selected",
+            )
+      }`;
     }
   }
 
@@ -194,7 +212,9 @@ class InvestorProfitReportComponent {
    * Bind click events to investor cards
    */
   bindInvestorCardEvents() {
-    const cards = document.querySelectorAll("#investorProfitReportInvestorList .investor-select-card");
+    const cards = document.querySelectorAll(
+      "#investorProfitChartInvestorList .investor-select-card",
+    );
     cards.forEach((card) => {
       card.addEventListener("click", (e) => {
         const investorId = card.dataset.investorId;
@@ -282,13 +302,13 @@ class InvestorProfitReportComponent {
             this.startYear,
             this.startMonth,
             this.endYear,
-            this.endMonth
+            this.endMonth,
           );
           fetchPromises.push(
             API.get(endpoint)
               .then((res) => res.json())
               .then((result) => ({ investorId, result }))
-              .catch((error) => ({ investorId, error }))
+              .catch((error) => ({ investorId, error })),
           );
         }
       }
@@ -297,7 +317,10 @@ class InvestorProfitReportComponent {
 
       for (const { investorId, result, error } of results) {
         if (error) {
-          console.error(`Error loading profit data for investor ${investorId}:`, error);
+          console.error(
+            `Error loading profit data for investor ${investorId}:`,
+            error,
+          );
           continue;
         }
         if (result.success) {
@@ -373,7 +396,7 @@ class InvestorProfitReportComponent {
       container.innerHTML = `
         <div class="text-center text-muted py-5">
           <i class="bi bi-graph-up fs-1 mb-3 d-block"></i>
-          <p>${i18next.t("investorProfitReport.selectInvestorToView", "Select an investor to view profit report")}</p>
+          <p>${i18next.t("investorProfitChart.selectInvestorToView", "Select an investor to view profit report")}</p>
         </div>
       `;
       return;
@@ -383,9 +406,9 @@ class InvestorProfitReportComponent {
       container.innerHTML = `
         <div class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">${i18next.t("investorProfitReport.loadingData", "Loading data...")}</span>
+            <span class="visually-hidden">${i18next.t("investorProfitChart.loadingData", "Loading data...")}</span>
           </div>
-          <p class="mt-3 text-muted">${i18next.t("investorProfitReport.loadingProfitData", "Loading profit data...")}</p>
+          <p class="mt-3 text-muted">${i18next.t("investorProfitChart.loadingProfitData", "Loading profit data...")}</p>
         </div>
       `;
       return;
@@ -404,7 +427,7 @@ class InvestorProfitReportComponent {
       container.innerHTML = `
         <div class="text-center text-muted py-5">
           <i class="bi bi-inbox fs-1 mb-3 d-block"></i>
-          <p>${i18next.t("investorProfitReport.noDataForPeriod", "No profit data available for the selected period")}</p>
+          <p>${i18next.t("investorProfitChart.noDataForPeriod", "No profit data available for the selected period")}</p>
         </div>
       `;
       return;
@@ -423,14 +446,41 @@ class InvestorProfitReportComponent {
    */
   getAllMonthLabels() {
     const monthSet = new Set();
-    const monthNames = i18next.language === "vi"
-      ? ["Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"]
-      : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthNames =
+      i18next.language === "vi"
+        ? [
+            "Th1",
+            "Th2",
+            "Th3",
+            "Th4",
+            "Th5",
+            "Th6",
+            "Th7",
+            "Th8",
+            "Th9",
+            "Th10",
+            "Th11",
+            "Th12",
+          ]
+        : [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ];
 
     for (const data of this.profitDataMap.values()) {
       if (data && data.monthlyProfits) {
         for (const m of data.monthlyProfits) {
-          monthSet.add(`${m.year}-${String(m.month).padStart(2, '0')}`);
+          monthSet.add(`${m.year}-${String(m.month).padStart(2, "0")}`);
         }
       }
     }
@@ -477,7 +527,9 @@ class InvestorProfitReportComponent {
     for (let i = 0; i < selectedArray.length; i++) {
       const investorId = selectedArray[i];
       const data = this.profitDataMap.get(investorId);
-      const investor = this.investors.find((inv) => inv.investorId === investorId);
+      const investor = this.investors.find(
+        (inv) => inv.investorId === investorId,
+      );
       const color = this.investorColors[i % this.investorColors.length];
 
       if (!data || !data.monthlyProfits) continue;
@@ -485,7 +537,7 @@ class InvestorProfitReportComponent {
       // Create a map for quick lookup
       const profitMap = new Map();
       for (const m of data.monthlyProfits) {
-        const key = `${m.year}-${String(m.month).padStart(2, '0')}`;
+        const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
         profitMap.set(key, m.sgdProfit || m.totalProfit);
       }
 
@@ -493,12 +545,29 @@ class InvestorProfitReportComponent {
       const profitValues = allMonths.map((m) => profitMap.get(m.key) || 0);
 
       if (this.chartType === "bar") {
+        // Add bar dataset
         datasets.push({
           label: investor?.name || investorId,
           data: profitValues,
           backgroundColor: color.bg,
           borderColor: color.border,
           borderWidth: 1,
+          maxBarThickness: 50,
+          order: 2, // Bars render behind line
+        });
+        // Add trend line for this investor
+        datasets.push({
+          label: `${investor?.name || investorId} (Trend)`,
+          data: profitValues,
+          type: "line",
+          borderColor: color.border,
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: false,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          order: 1, // Line renders on top of bars
         });
       } else if (this.chartType === "line") {
         datasets.push({
@@ -519,10 +588,44 @@ class InvestorProfitReportComponent {
     // Chart configuration based on type
     let chartConfig;
 
+    // Custom plugin to display data labels on top of bars
+    const dataLabelsPlugin = {
+      id: "dataLabels",
+      afterDatasetsDraw: (chart) => {
+        if (this.chartType !== "bar") return;
+
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          // Skip trend line datasets
+          if (dataset.label.includes("(Trend)")) return;
+
+          const meta = chart.getDatasetMeta(datasetIndex);
+          meta.data.forEach((bar, index) => {
+            const value = dataset.data[index];
+            if (value === 0) return;
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.font = "bold 11px sans-serif";
+            ctx.fillStyle = value >= 0 ? "#198754" : "#dc3545";
+
+            const text = `${value >= 0 ? "+" : "-"}$${Math.abs(value).toFixed(0)}`;
+            const x = bar.x;
+            const y = bar.y - 5;
+
+            ctx.fillText(text, x, y);
+            ctx.restore();
+          });
+        });
+      },
+    };
+
     if (this.chartType === "bar" || this.chartType === "line") {
       chartConfig = {
         type: this.chartType,
         data: { labels, datasets },
+        plugins: [dataLabelsPlugin],
         options: {
           responsive: true,
           maintainAspectRatio: false,
@@ -536,8 +639,12 @@ class InvestorProfitReportComponent {
             legend: {
               display: true,
               position: "top",
+              labels: {
+                filter: (item) => !item.text.includes("(Trend)"),
+              },
             },
             tooltip: {
+              filter: (item) => !item.dataset.label.includes("(Trend)"),
               callbacks: {
                 label: (context) => {
                   const value = context.raw;
@@ -547,6 +654,17 @@ class InvestorProfitReportComponent {
             },
           },
           scales: {
+            x: {
+              title: {
+                display: true,
+                text: `${this.startMonth}/${this.startYear} - ${this.endMonth}/${this.endYear}`,
+                font: {
+                  size: 12,
+                  weight: "normal",
+                },
+                color: "#6c757d",
+              },
+            },
             y: {
               beginAtZero: true,
               ticks: {
@@ -562,13 +680,15 @@ class InvestorProfitReportComponent {
       for (let i = 0; i < selectedArray.length; i++) {
         const investorId = selectedArray[i];
         const data = this.profitDataMap.get(investorId);
-        const investor = this.investors.find((inv) => inv.investorId === investorId);
+        const investor = this.investors.find(
+          (inv) => inv.investorId === investorId,
+        );
 
         if (!data || !data.monthlyProfits) continue;
 
         const totalProfit = data.monthlyProfits.reduce(
           (sum, m) => sum + (m.sgdProfit || m.totalProfit),
-          0
+          0,
         );
 
         investorTotals.push({
@@ -648,14 +768,41 @@ class InvestorProfitReportComponent {
       return;
     }
 
-    const monthNames = i18next.language === "vi"
-      ? ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"]
-      : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthNames =
+      i18next.language === "vi"
+        ? [
+            "Tháng 1",
+            "Tháng 2",
+            "Tháng 3",
+            "Tháng 4",
+            "Tháng 5",
+            "Tháng 6",
+            "Tháng 7",
+            "Tháng 8",
+            "Tháng 9",
+            "Tháng 10",
+            "Tháng 11",
+            "Tháng 12",
+          ]
+        : [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
 
     container.innerHTML = `
       <h6 class="mb-3">
         <i class="bi bi-calendar3 me-2"></i>
-        ${i18next.t("investorProfitReport.monthlyBreakdown", "Monthly Breakdown")}
+        ${i18next.t("investorProfitChart.monthlyBreakdown", "Monthly Breakdown")}
       </h6>
       <div class="accordion" id="monthlyProfitAccordion">
         ${allMonths
@@ -669,12 +816,14 @@ class InvestorProfitReportComponent {
             for (const [investorId, data] of this.profitDataMap) {
               if (!data || !data.monthlyProfits) continue;
               const monthData = data.monthlyProfits.find(
-                (m) => m.year === month.year && m.month === month.month
+                (m) => m.year === month.year && m.month === month.month,
               );
               if (monthData) {
                 const profit = monthData.sgdProfit || monthData.totalProfit;
                 totalProfit += profit;
-                const investor = this.investors.find((i) => i.investorId === investorId);
+                const investor = this.investors.find(
+                  (i) => i.investorId === investorId,
+                );
                 investorProfits.push({
                   investorId,
                   name: investor?.name || investorId,
@@ -685,14 +834,16 @@ class InvestorProfitReportComponent {
               }
             }
 
-            const profitClass = totalProfit >= 0 ? "text-success" : "text-danger";
-            const profitIcon = totalProfit >= 0 ? "bi-arrow-up-circle" : "bi-arrow-down-circle";
+            const profitClass =
+              totalProfit >= 0 ? "text-success" : "text-danger";
+            const profitIcon =
+              totalProfit >= 0 ? "bi-arrow-up-circle" : "bi-arrow-down-circle";
 
             return `
               <div class="accordion-item">
                 <h2 class="accordion-header">
                   <button class="accordion-button ${isExpanded ? "" : "collapsed"}" type="button"
-                    onclick="investorProfitReport.toggleMonthDetail(${index})">
+                    onclick="investorProfitChart.toggleMonthDetail(${index})">
                     <div class="d-flex justify-content-between align-items-center w-100 me-3">
                       <span>
                         <i class="bi bi-calendar-event me-2"></i>
@@ -723,7 +874,7 @@ class InvestorProfitReportComponent {
    */
   renderMultiInvestorDetails(investorProfits) {
     if (!investorProfits || investorProfits.length === 0) {
-      return `<p class="text-muted mb-0">${i18next.t("investorProfitReport.noData", "No data")}</p>`;
+      return `<p class="text-muted mb-0">${i18next.t("investorProfitChart.noData", "No data")}</p>`;
     }
 
     return investorProfits
@@ -751,14 +902,15 @@ class InvestorProfitReportComponent {
    */
   renderPropertyDetails(properties) {
     if (!properties || properties.length === 0) {
-      return `<p class="text-muted mb-0 small">${i18next.t("investorProfitReport.noProperties", "No property data")}</p>`;
+      return `<p class="text-muted mb-0 small">${i18next.t("investorProfitChart.noProperties", "No property data")}</p>`;
     }
 
     return `
       <div class="row g-3">
         ${properties
           .map((prop) => {
-            const profitClass = prop.sgdProfit >= 0 ? "text-success" : "text-danger";
+            const profitClass =
+              prop.sgdProfit >= 0 ? "text-success" : "text-danger";
             const imageUrl = prop.propertyImage
               ? ImageUtils.getOptimizedImageUrl(prop.propertyImage, "medium")
               : null;
@@ -768,9 +920,10 @@ class InvestorProfitReportComponent {
                 <div class="card h-100 border">
                   <div class="row g-0">
                     <div class="col-4">
-                      ${imageUrl
-                        ? `<img src="${imageUrl}" class="img-fluid rounded-start h-100" style="object-fit: cover; min-height: 120px;" alt="${this.escapeHtml(prop.propertyId)}">`
-                        : `<div class="bg-light d-flex align-items-center justify-content-center h-100 rounded-start" style="min-height: 120px;">
+                      ${
+                        imageUrl
+                          ? `<img src="${imageUrl}" class="img-fluid rounded-start h-100" style="object-fit: cover; min-height: 120px;" alt="${this.escapeHtml(prop.propertyId)}">`
+                          : `<div class="bg-light d-flex align-items-center justify-content-center h-100 rounded-start" style="min-height: 120px;">
                             <i class="bi bi-building fs-1 text-muted"></i>
                           </div>`
                       }
@@ -784,7 +937,7 @@ class InvestorProfitReportComponent {
                         </p>
                         <div class="d-flex justify-content-between align-items-center">
                           <small class="text-muted">
-                            ${i18next.t("investorProfitReport.ownership", "Ownership")}: ${prop.percentage}%
+                            ${i18next.t("investorProfitChart.ownership", "Ownership")}: ${prop.percentage}%
                           </small>
                           <span class="${profitClass} fw-bold">
                             ${prop.sgdProfit >= 0 ? "+" : ""}$${prop.sgdProfit.toFixed(2)}
@@ -794,15 +947,15 @@ class InvestorProfitReportComponent {
                           <div class="row text-center small">
                             <div class="col-4">
                               <div class="text-success">$${prop.totalIncome.toFixed(0)}</div>
-                              <div class="text-muted">${i18next.t("investorProfitReport.income", "Income")}</div>
+                              <div class="text-muted">${i18next.t("investorProfitChart.income", "Income")}</div>
                             </div>
                             <div class="col-4">
                               <div class="text-danger">$${prop.totalExpenses.toFixed(0)}</div>
-                              <div class="text-muted">${i18next.t("investorProfitReport.expenses", "Expenses")}</div>
+                              <div class="text-muted">${i18next.t("investorProfitChart.expenses", "Expenses")}</div>
                             </div>
                             <div class="col-4">
                               <div class="${prop.netProfit >= 0 ? "text-success" : "text-danger"}">$${prop.netProfit.toFixed(0)}</div>
-                              <div class="text-muted">${i18next.t("investorProfitReport.net", "Net")}</div>
+                              <div class="text-muted">${i18next.t("investorProfitChart.net", "Net")}</div>
                             </div>
                           </div>
                         </div>
@@ -829,6 +982,275 @@ class InvestorProfitReportComponent {
   }
 
   /**
+   * Open fullscreen chart modal
+   */
+  openFullscreenChart() {
+    if (this.profitDataMap.size === 0) {
+      return;
+    }
+
+    const modal = new bootstrap.Modal(
+      document.getElementById("fullscreenChartModal"),
+    );
+    modal.show();
+
+    // Render chart after modal is shown
+    const modalEl = document.getElementById("fullscreenChartModal");
+    modalEl.addEventListener(
+      "shown.bs.modal",
+      () => {
+        this.renderFullscreenChart();
+      },
+      { once: true },
+    );
+
+    // Destroy fullscreen chart when modal is hidden
+    modalEl.addEventListener(
+      "hidden.bs.modal",
+      () => {
+        if (this.fullscreenChart) {
+          this.fullscreenChart.destroy();
+          this.fullscreenChart = null;
+        }
+      },
+      { once: true },
+    );
+  }
+
+  /**
+   * Render chart in fullscreen modal
+   */
+  renderFullscreenChart() {
+    const canvas = document.getElementById("fullscreenProfitChart");
+    if (!canvas) return;
+
+    // Destroy existing fullscreen chart
+    if (this.fullscreenChart) {
+      this.fullscreenChart.destroy();
+      this.fullscreenChart = null;
+    }
+
+    const ctx = canvas.getContext("2d");
+    const allMonths = this.getAllMonthLabels();
+
+    if (allMonths.length === 0) return;
+
+    const labels = allMonths.map((m) => m.label);
+
+    // Build datasets for each selected investor
+    const datasets = [];
+    const selectedArray = Array.from(this.selectedInvestors);
+
+    for (let i = 0; i < selectedArray.length; i++) {
+      const investorId = selectedArray[i];
+      const data = this.profitDataMap.get(investorId);
+      const investor = this.investors.find(
+        (inv) => inv.investorId === investorId,
+      );
+      const color = this.investorColors[i % this.investorColors.length];
+
+      if (!data || !data.monthlyProfits) continue;
+
+      // Create a map for quick lookup
+      const profitMap = new Map();
+      for (const m of data.monthlyProfits) {
+        const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
+        profitMap.set(key, m.sgdProfit || m.totalProfit);
+      }
+
+      // Build data array aligned with labels
+      const profitValues = allMonths.map((m) => profitMap.get(m.key) || 0);
+
+      if (this.chartType === "bar") {
+        // Add bar dataset
+        datasets.push({
+          label: investor?.name || investorId,
+          data: profitValues,
+          backgroundColor: color.bg,
+          borderColor: color.border,
+          borderWidth: 1,
+          maxBarThickness: 80,
+          order: 2,
+        });
+        // Add trend line for this investor
+        datasets.push({
+          label: `${investor?.name || investorId} (Trend)`,
+          data: profitValues,
+          type: "line",
+          borderColor: color.border,
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: false,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          order: 1,
+        });
+      } else if (this.chartType === "line") {
+        datasets.push({
+          label: investor?.name || investorId,
+          data: profitValues,
+          borderColor: color.border,
+          backgroundColor: color.bg.replace("0.7", "0.1"),
+          fill: false,
+          tension: 0.4,
+          pointBackgroundColor: color.border,
+          pointBorderColor: color.border,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+        });
+      }
+    }
+
+    // Custom plugin for data labels in fullscreen
+    const dataLabelsPlugin = {
+      id: "fullscreenDataLabels",
+      afterDatasetsDraw: (chart) => {
+        if (this.chartType !== "bar") return;
+
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          // Skip trend line datasets
+          if (dataset.label.includes("(Trend)")) return;
+
+          const meta = chart.getDatasetMeta(datasetIndex);
+          meta.data.forEach((bar, index) => {
+            const value = dataset.data[index];
+            if (value === 0) return;
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.font = "bold 14px sans-serif";
+            ctx.fillStyle = value >= 0 ? "#198754" : "#dc3545";
+
+            const text = `${value >= 0 ? "+" : "-"}$${Math.abs(value).toFixed(0)}`;
+            const x = bar.x;
+            const y = bar.y - 8;
+
+            ctx.fillText(text, x, y);
+            ctx.restore();
+          });
+        });
+      },
+    };
+
+    let chartConfig;
+
+    if (this.chartType === "bar" || this.chartType === "line") {
+      chartConfig = {
+        type: this.chartType,
+        data: { labels, datasets },
+        plugins: [dataLabelsPlugin],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: "top",
+              labels: {
+                font: { size: 14 },
+                filter: (item) => !item.text.includes("(Trend)"),
+              },
+            },
+            tooltip: {
+              filter: (item) => !item.dataset.label.includes("(Trend)"),
+              callbacks: {
+                label: (context) => {
+                  const value = context.raw;
+                  return `${context.dataset.label}: ${value >= 0 ? "+" : ""}$${value.toFixed(2)}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: `${this.startMonth}/${this.startYear} - ${this.endMonth}/${this.endYear}`,
+                font: { size: 14 },
+                color: "#6c757d",
+              },
+              ticks: {
+                font: { size: 12 },
+              },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => `$${value}`,
+                font: { size: 12 },
+              },
+            },
+          },
+        },
+      };
+    } else if (this.chartType === "doughnut") {
+      const investorTotals = [];
+      for (let i = 0; i < selectedArray.length; i++) {
+        const investorId = selectedArray[i];
+        const data = this.profitDataMap.get(investorId);
+        const investor = this.investors.find(
+          (inv) => inv.investorId === investorId,
+        );
+
+        if (!data || !data.monthlyProfits) continue;
+
+        const totalProfit = data.monthlyProfits.reduce(
+          (sum, m) => sum + (m.sgdProfit || m.totalProfit),
+          0,
+        );
+
+        investorTotals.push({
+          label: investor?.name || investorId,
+          profit: totalProfit,
+          color: this.investorColors[i % this.investorColors.length],
+        });
+      }
+
+      chartConfig = {
+        type: "doughnut",
+        data: {
+          labels: investorTotals.map((i) => i.label),
+          datasets: [
+            {
+              data: investorTotals.map((i) => Math.abs(i.profit)),
+              backgroundColor: investorTotals.map((i) => i.color.bg),
+              borderColor: investorTotals.map((i) => i.color.border),
+              borderWidth: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "right",
+              labels: {
+                boxWidth: 16,
+                padding: 16,
+                font: { size: 14 },
+              },
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = investorTotals[context.dataIndex].profit;
+                  return `${context.label}: ${value >= 0 ? "+" : ""}$${value.toFixed(2)}`;
+                },
+              },
+            },
+          },
+        },
+      };
+    }
+
+    this.fullscreenChart = new Chart(ctx, chartConfig);
+  }
+
+  /**
    * Refresh data
    */
   refresh() {
@@ -837,5 +1259,5 @@ class InvestorProfitReportComponent {
 }
 
 // Global initialization
-const investorProfitReport = new InvestorProfitReportComponent();
-window.investorProfitReport = investorProfitReport;
+const investorProfitChart = new investorProfitChartComponent();
+window.investorProfitChart = investorProfitChart;

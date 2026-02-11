@@ -1,7 +1,10 @@
 import i18next from "i18next";
 
+// Get stored language preference, default to Vietnamese
+const storedLang = localStorage.getItem("preferredLanguage") || "vi";
+
 i18next.init({
-  lng: "vi", // default language
+  lng: storedLang, // use stored language or default to Vietnamese
   fallbackLng: "en",
   resources: {
     en: {
@@ -19,7 +22,7 @@ i18next.init({
           bulkPropertyReports: "Bulk Property Reports",
           acCleanManagement: "AC Clean Management",
           investors: "Investors",
-          investorProfitReport: "Investor Profit Report",
+          investorProfitChart: "Investor Profit Report",
           users: "Users",
           loggedInAs: "Logged in as:",
           logout: "Logout",
@@ -29,17 +32,23 @@ i18next.init({
           currentDate: "Current Date:",
           features: {
             contractAnalysis: "Contract Analysis",
-            contractAnalysisDesc: "Upload and analyze tenancy agreements for potentially unfavorable terms",
+            contractAnalysisDesc:
+              "Upload and analyze tenancy agreements for potentially unfavorable terms",
             propertyManagement: "Property Management",
-            propertyManagementDesc: "Manage your rental properties and track performance",
+            propertyManagementDesc:
+              "Manage your rental properties and track performance",
             tenantManagement: "Tenant Management",
-            tenantManagementDesc: "Manage tenant information and property assignments",
+            tenantManagementDesc:
+              "Manage tenant information and property assignments",
             createContract: "Create Contract",
-            createContractDesc: "Generate rental agreements with tenant information",
+            createContractDesc:
+              "Generate rental agreements with tenant information",
             financialReports: "Financial Reports",
-            financialReportsDesc: "Track monthly income, expenses, and investor profits",
+            financialReportsDesc:
+              "Track monthly income, expenses, and investor profits",
             investorManagement: "Investor Management",
-            investorManagementDesc: "Manage investors, their property investments and percentages",
+            investorManagementDesc:
+              "Manage investors, their property investments and percentages",
           },
           badges: {
             availableNow: "Available Now",
@@ -53,7 +62,7 @@ i18next.init({
             occupiedProperties: "Occupied Properties",
           },
         },
-        investorProfitReport: {
+        investorProfitChart: {
           title: "Investor Profit Report",
           backToDashboard: "Back to Dashboard",
           dateRange: "Date Range",
@@ -141,7 +150,8 @@ i18next.init({
           propertyAddress: "Property Address",
           selectPropertyAddress: "Select property address",
           enterPropertyAddressManually: "Enter property address manually",
-          propertyInfo: "This property will be used for this contract only. Complete property information can be added later in Property Management.",
+          propertyInfo:
+            "This property will be used for this contract only. Complete property information can be added later in Property Management.",
           roomType: "Room Type",
           selectRoomType: "Select room type",
           roomTypes: {
@@ -171,7 +181,8 @@ i18next.init({
           enterFinNumber: "Enter FIN number",
           emailAddress: "Email Address",
           enterEmailAddress: "Enter email address",
-          tenantAInfo: "This tenant will be created as a temporary entry for this contract. Complete tenant information can be added later in Tenant Management.",
+          tenantAInfo:
+            "This tenant will be created as a temporary entry for this contract. Complete tenant information can be added later in Tenant Management.",
           tenantB: "Tenant B",
           canSelectMultiple: "Can select multiple",
           selectTenants: "Select tenants...",
@@ -183,7 +194,8 @@ i18next.init({
           moveInDate: "Move-in Date",
           moveOutDate: "Move-out Date",
           monthlyRental: "Monthly Rental (S$)",
-          fullPaymentReceived: "Tenant A has fully received rent for the entire tenancy period",
+          fullPaymentReceived:
+            "Tenant A has fully received rent for the entire tenancy period",
           securityDeposit: "Security Deposit (S$)",
           partialDepositReceived: "Tenant A has received partial deposit",
           partialDepositAmount: "Partial Deposit Amount (S$)",
@@ -200,7 +212,8 @@ i18next.init({
             check: "Check",
           },
           pestControlClause: "Pest Control Clause",
-          pestControlClauseDesc: "If checked, adds a pest infestation liability clause to the contract",
+          pestControlClauseDesc:
+            "If checked, adds a pest infestation liability clause to the contract",
           additionalClauses: "Additional Clauses",
           addClause: "Add Clause",
           signatures: "Signatures",
@@ -209,7 +222,8 @@ i18next.init({
           upload: "Upload",
           noSignatureUploaded: "No signature uploaded",
           contractPreview: "Contract Preview",
-          contractPreviewPlaceholder: "Contract preview will appear here after filling in the details",
+          contractPreviewPlaceholder:
+            "Contract preview will appear here after filling in the details",
           addNewTenant: "+ Add New Tenant",
           enterCustomText: "Enter Custom Text",
           tenants: "Tenants",
@@ -249,7 +263,7 @@ i18next.init({
           bulkPropertyReports: "Báo cáo nhiều nhà",
           acCleanManagement: "Vệ sinh máy lạnh",
           investors: "Nhà đầu tư",
-          investorProfitReport: "Báo cáo lợi nhuận",
+          investorProfitChart: "Báo cáo lợi nhuận",
           users: "Người dùng",
           loggedInAs: "Người đăng nhập:",
           logout: "Đăng xuất",
@@ -259,17 +273,22 @@ i18next.init({
           currentDate: "Ngày hiện tại:",
           features: {
             contractAnalysis: "Phân tích hợp đồng",
-            contractAnalysisDesc: "Tải lên và phân tích hợp đồng thuê để tìm các điều khoản bất lợi",
+            contractAnalysisDesc:
+              "Tải lên và phân tích hợp đồng thuê để tìm các điều khoản bất lợi",
             propertyManagement: "Quản lý bất động sản",
-            propertyManagementDesc: "Quản lý bất động sản cho thuê và theo dõi hiệu suất",
+            propertyManagementDesc:
+              "Quản lý bất động sản cho thuê và theo dõi hiệu suất",
             tenantManagement: "Quản lý người thuê",
-            tenantManagementDesc: "Quản lý thông tin người thuê và phân công nhà",
+            tenantManagementDesc:
+              "Quản lý thông tin người thuê và phân công nhà",
             createContract: "Tạo hợp đồng",
             createContractDesc: "Tạo hợp đồng thuê với thông tin người thuê",
             financialReports: "Báo cáo tài chính",
-            financialReportsDesc: "Theo dõi thu nhập, chi phí và lợi nhuận nhà đầu tư",
+            financialReportsDesc:
+              "Theo dõi thu nhập, chi phí và lợi nhuận nhà đầu tư",
             investorManagement: "Quản lý nhà đầu tư",
-            investorManagementDesc: "Quản lý nhà đầu tư, khoản đầu tư và tỷ lệ phần trăm",
+            investorManagementDesc:
+              "Quản lý nhà đầu tư, khoản đầu tư và tỷ lệ phần trăm",
           },
           badges: {
             availableNow: "Có sẵn",
@@ -283,19 +302,20 @@ i18next.init({
             occupiedProperties: "Đang có khách",
           },
         },
-        investorProfitReport: {
-          title: "Báo cáo lợi nhuận nhà đầu tư",
+        investorProfitChart: {
+          title: "Biểu đồ lợi nhuận nhà đầu tư",
           backToDashboard: "Quay lại trang chủ",
           dateRange: "Khoảng thời gian",
           chartType: "Loại biểu đồ",
           selectInvestor: "Chọn nhà đầu tư",
           profitChart: "Biểu đồ lợi nhuận",
-          selectInvestorToView: "Chọn nhà đầu tư để xem báo cáo lợi nhuận",
+          selectInvestorToView: "Chọn nhà đầu tư để xem biểu đồ lợi nhuận",
           loading: "Đang tải...",
           loadingData: "Đang tải dữ liệu...",
           loadingProfitData: "Đang tải dữ liệu lợi nhuận...",
           noInvestors: "Không tìm thấy nhà đầu tư",
-          noDataForPeriod: "Không có dữ liệu lợi nhuận trong khoảng thời gian đã chọn",
+          noDataForPeriod:
+            "Không có dữ liệu lợi nhuận trong khoảng thời gian đã chọn",
           monthlyBreakdown: "Chi tiết theo tháng",
           properties: "bất động sản",
           profitSGD: "Lợi nhuận (SGD)",
@@ -371,7 +391,8 @@ i18next.init({
           propertyAddress: "Địa chỉ nhà",
           selectPropertyAddress: "Chọn địa chỉ nhà",
           enterPropertyAddressManually: "Nhập địa chỉ nhà thủ công",
-          propertyInfo: "Nhà này sẽ chỉ được sử dụng cho hợp đồng này. Thông tin đầy đủ có thể được thêm sau trong phần Quản lý bất động sản.",
+          propertyInfo:
+            "Nhà này sẽ chỉ được sử dụng cho hợp đồng này. Thông tin đầy đủ có thể được thêm sau trong phần Quản lý bất động sản.",
           roomType: "Loại phòng",
           selectRoomType: "Chọn loại phòng",
           roomTypes: {
@@ -401,7 +422,8 @@ i18next.init({
           enterFinNumber: "Nhập số FIN",
           emailAddress: "Địa chỉ email",
           enterEmailAddress: "Nhập địa chỉ email",
-          tenantAInfo: "Người thuê này sẽ được tạo tạm thời cho hợp đồng này. Thông tin đầy đủ có thể được thêm sau trong phần Quản lý người thuê.",
+          tenantAInfo:
+            "Người thuê này sẽ được tạo tạm thời cho hợp đồng này. Thông tin đầy đủ có thể được thêm sau trong phần Quản lý người thuê.",
           tenantB: "Người thuê B",
           canSelectMultiple: "Có thể chọn nhiều",
           selectTenants: "Chọn người thuê...",
@@ -413,7 +435,8 @@ i18next.init({
           moveInDate: "Ngày vào ở",
           moveOutDate: "Ngày trả phòng",
           monthlyRental: "Tiền thuê hàng tháng (S$)",
-          fullPaymentReceived: "Người thuê A đã nhận đủ tiền thuê cho toàn bộ thời gian thuê",
+          fullPaymentReceived:
+            "Người thuê A đã nhận đủ tiền thuê cho toàn bộ thời gian thuê",
           securityDeposit: "Tiền đặt cọc (S$)",
           partialDepositReceived: "Người thuê A đã nhận một phần tiền cọc",
           partialDepositAmount: "Số tiền cọc đã nhận (S$)",
@@ -430,7 +453,8 @@ i18next.init({
             check: "Séc",
           },
           pestControlClause: "Điều khoản kiểm soát côn trùng",
-          pestControlClauseDesc: "Nếu được chọn, thêm điều khoản trách nhiệm về côn trùng vào hợp đồng",
+          pestControlClauseDesc:
+            "Nếu được chọn, thêm điều khoản trách nhiệm về côn trùng vào hợp đồng",
           additionalClauses: "Điều khoản bổ sung",
           addClause: "Thêm điều khoản",
           signatures: "Chữ ký",
@@ -439,7 +463,8 @@ i18next.init({
           upload: "Tải lên",
           noSignatureUploaded: "Chưa tải chữ ký",
           contractPreview: "Xem trước hợp đồng",
-          contractPreviewPlaceholder: "Bản xem trước hợp đồng sẽ xuất hiện ở đây sau khi điền thông tin",
+          contractPreviewPlaceholder:
+            "Bản xem trước hợp đồng sẽ xuất hiện ở đây sau khi điền thông tin",
           addNewTenant: "+ Thêm người thuê mới",
           enterCustomText: "Nhập văn bản tùy chỉnh",
           tenants: "Người thuê",
@@ -447,11 +472,13 @@ i18next.init({
           unnamedTenant: "Người thuê chưa đặt tên",
           unnamedInvestor: "Nhà đầu tư chưa đặt tên",
           selectTenant: "Chọn người thuê",
-          noTenantsForProperty: "Không có người thuê hoặc nhà đầu tư cho nhà đã chọn",
+          noTenantsForProperty:
+            "Không có người thuê hoặc nhà đầu tư cho nhà đã chọn",
           noTenantsAvailable: "Không có người thuê hoặc nhà đầu tư",
           mainTenantOf: "Người thuê chính của",
           searchTenant: "Tìm người thuê...",
-          searchTenantDetailed: "Tìm người thuê theo tên, FIN, hoặc hộ chiếu...",
+          searchTenantDetailed:
+            "Tìm người thuê theo tên, FIN, hoặc hộ chiếu...",
           fin: "FIN",
           passport: "Hộ chiếu",
           tenantsSelected: "{{count}} người thuê đã chọn",

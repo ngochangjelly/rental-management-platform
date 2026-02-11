@@ -26,6 +26,9 @@ class DashboardController {
     this.setupLanguageSwitcher();
     this.updateTranslations();
 
+    // Mark body as ready to show content (prevents language flash)
+    document.body.classList.add("i18n-ready");
+
     // Initialize components when their sections are first accessed
     this.initializeComponentsLazily();
 
@@ -219,7 +222,7 @@ class DashboardController {
       case "investor-profit-report":
         // Investor profit report component is initialized globally
         // Just trigger data load when section is shown
-        if (window.investorProfitReport) {
+        if (window.investorProfitChart) {
           // Update date filter dropdowns to match component state
           this.updateInvestorProfitDateFilters();
         }
@@ -247,7 +250,9 @@ class DashboardController {
     const usersNavItem = document.getElementById("usersNavItem");
     const investorsNavItem = document.getElementById("investorsNavItem");
 
-    const investorProfitReportNavItem = document.getElementById("investorProfitReportNavItem");
+    const investorProfitChartNavItem = document.getElementById(
+      "investorProfitChartNavItem",
+    );
 
     if (user && user.role === "admin") {
       if (usersNavItem) {
@@ -256,8 +261,8 @@ class DashboardController {
       if (investorsNavItem) {
         investorsNavItem.style.display = "block";
       }
-      if (investorProfitReportNavItem) {
-        investorProfitReportNavItem.style.display = "block";
+      if (investorProfitChartNavItem) {
+        investorProfitChartNavItem.style.display = "block";
       }
     }
 
@@ -462,17 +467,19 @@ class DashboardController {
       "bulk-reports": "bulkPropertyReports",
       tenants: "tenantManagement",
       investors: "investorManagement",
-      "investor-profit-report": "investorProfitReport",
+      "investor-profit-report": "investorProfitChart",
     };
     return sectionToComponent[sectionName];
   }
 
   updateInvestorProfitDateFilters() {
-    if (!window.investorProfitReport) return;
+    if (!window.investorProfitChart) return;
 
-    const component = window.investorProfitReport;
+    const component = window.investorProfitChart;
     const startYearSelect = document.getElementById("investorProfitStartYear");
-    const startMonthSelect = document.getElementById("investorProfitStartMonth");
+    const startMonthSelect = document.getElementById(
+      "investorProfitStartMonth",
+    );
     const endYearSelect = document.getElementById("investorProfitEndYear");
     const endMonthSelect = document.getElementById("investorProfitEndMonth");
 
@@ -535,7 +542,7 @@ class DashboardController {
 
       // Update active state
       const options = newControl.querySelectorAll(".segment-option");
-      options.forEach(opt => {
+      options.forEach((opt) => {
         if (opt.getAttribute("data-lang") === normalizedLang) {
           opt.classList.add("active");
         } else {
@@ -552,7 +559,7 @@ class DashboardController {
     updateToggleUI(i18next.language);
 
     // Add click listeners to segments
-    newControl.querySelectorAll(".segment-option").forEach(option => {
+    newControl.querySelectorAll(".segment-option").forEach((option) => {
       option.addEventListener("click", async (e) => {
         e.preventDefault();
         const targetLang = option.getAttribute("data-lang");
@@ -562,6 +569,7 @@ class DashboardController {
 
         try {
           await i18next.changeLanguage(targetLang);
+          localStorage.setItem("preferredLanguage", targetLang);
           updateToggleUI(targetLang);
           this.updateTranslations();
           this.updateCurrentDate();
