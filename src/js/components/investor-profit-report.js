@@ -87,7 +87,9 @@ class investorProfitChartComponent {
   getInvestorColor(investorId) {
     const selectedArray = Array.from(this.selectedInvestors);
     const index = selectedArray.indexOf(investorId);
-    return this.investorColors[index % this.investorColors.length];
+    // Handle case when investor not found (-1 index)
+    const colorIndex = index >= 0 ? index % this.investorColors.length : 0;
+    return this.investorColors[colorIndex];
   }
 
   /**
@@ -538,7 +540,11 @@ class investorProfitChartComponent {
       const profitMap = new Map();
       for (const m of data.monthlyProfits) {
         const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
-        profitMap.set(key, m.sgdProfit || m.totalProfit);
+        // Use sgdProfit which is the pre-calculated investor profit share
+        const profitShare = (m.properties || []).reduce((sum, prop) => {
+          return sum + (prop.sgdProfit ?? 0);
+        }, 0);
+        profitMap.set(key, profitShare);
       }
 
       // Build data array aligned with labels
@@ -686,10 +692,13 @@ class investorProfitChartComponent {
 
         if (!data || !data.monthlyProfits) continue;
 
-        const totalProfit = data.monthlyProfits.reduce(
-          (sum, m) => sum + (m.sgdProfit || m.totalProfit),
-          0,
-        );
+        // Use sgdProfit which is the pre-calculated investor profit share
+        const totalProfit = data.monthlyProfits.reduce((sum, m) => {
+          const monthProfitShare = (m.properties || []).reduce((propSum, prop) => {
+            return propSum + (prop.sgdProfit ?? 0);
+          }, 0);
+          return sum + monthProfitShare;
+        }, 0);
 
         investorTotals.push({
           label: investor?.name || investorId,
@@ -819,7 +828,10 @@ class investorProfitChartComponent {
                 (m) => m.year === month.year && m.month === month.month,
               );
               if (monthData) {
-                const profit = monthData.sgdProfit || monthData.totalProfit;
+                // Use sgdProfit which is the pre-calculated investor profit share
+                const profit = (monthData.properties || []).reduce((sum, prop) => {
+                  return sum + (prop.sgdProfit ?? 0);
+                }, 0);
                 totalProfit += profit;
                 const investor = this.investors.find(
                   (i) => i.investorId === investorId,
@@ -1055,7 +1067,11 @@ class investorProfitChartComponent {
       const profitMap = new Map();
       for (const m of data.monthlyProfits) {
         const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
-        profitMap.set(key, m.sgdProfit || m.totalProfit);
+        // Use sgdProfit which is the pre-calculated investor profit share
+        const profitShare = (m.properties || []).reduce((sum, prop) => {
+          return sum + (prop.sgdProfit ?? 0);
+        }, 0);
+        profitMap.set(key, profitShare);
       }
 
       // Build data array aligned with labels
@@ -1197,10 +1213,13 @@ class investorProfitChartComponent {
 
         if (!data || !data.monthlyProfits) continue;
 
-        const totalProfit = data.monthlyProfits.reduce(
-          (sum, m) => sum + (m.sgdProfit || m.totalProfit),
-          0,
-        );
+        // Use sgdProfit which is the pre-calculated investor profit share
+        const totalProfit = data.monthlyProfits.reduce((sum, m) => {
+          const monthProfitShare = (m.properties || []).reduce((propSum, prop) => {
+            return propSum + (prop.sgdProfit ?? 0);
+          }, 0);
+          return sum + monthProfitShare;
+        }, 0);
 
         investorTotals.push({
           label: investor?.name || investorId,

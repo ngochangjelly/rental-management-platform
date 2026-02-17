@@ -1487,6 +1487,28 @@ class TenantManagementComponent {
 
         // Reset registration status to unregistered
         this.setRegistrationStatus("unregistered");
+
+        // Reset room/date/main tenant fields for add mode
+        const roomField = document.getElementById("tenantRoom");
+        const moveInField = document.getElementById("tenantMoveInDate");
+        const moveOutField = document.getElementById("tenantMoveOutDate");
+        const mainTenantField = document.getElementById("tenantIsMainTenant");
+        if (roomField) roomField.value = "";
+        if (moveInField) moveInField.value = "";
+        if (moveOutField) moveOutField.value = "";
+        if (mainTenantField) mainTenantField.checked = false;
+
+        // Auto-assign the currently selected property (if not UNASSIGNED)
+        if (this.selectedProperty && this.selectedProperty !== "UNASSIGNED") {
+          this.selectedProperties = [this.selectedProperty];
+          this.selectedPropertiesDetails = [{
+            propertyId: this.selectedProperty,
+            isMainTenant: false,
+            room: "",
+            moveinDate: "",
+            moveoutDate: "",
+          }];
+        }
       }
     }
 
@@ -1904,6 +1926,11 @@ class TenantManagementComponent {
   updateSelectedPropertiesList() {
     const listContainer = document.getElementById("selectedPropertiesList");
     const hiddenInput = document.getElementById("tenantProperties");
+
+    // Guard against null elements (modal not yet in DOM)
+    if (!listContainer || !hiddenInput) {
+      return;
+    }
 
     if (!this.selectedPropertiesDetails) {
       this.selectedPropertiesDetails = [];
@@ -2722,6 +2749,7 @@ class TenantManagementComponent {
 
       // Update gallery display
       this.updateImageGallery(type);
+      this.checkForChanges();
 
       const successCount = results.filter((r) => r.success).length;
       console.log(

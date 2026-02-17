@@ -337,6 +337,11 @@ class PropertyManagementComponent {
         this.properties = result.properties || [];
         console.log('📦 Loaded properties:', this.properties.length);
 
+        // Debug: Log rent values from API
+        this.properties.forEach(p => {
+          console.log(`🔍 DEBUG - Property ${p.propertyId} rent from API:`, p.rent, 'type:', typeof p.rent);
+        });
+
         // Filter properties if current user is an investor
         await this.filterPropertiesByInvestor();
 
@@ -667,6 +672,7 @@ class PropertyManagementComponent {
 
         // Populate form with existing data
         document.getElementById("propertyId").value = property.propertyId || "";
+        document.getElementById("postcode").value = property.postcode || "";
         document.getElementById("address").value = property.address || "";
         document.getElementById("unit").value = property.unit || "";
         document.getElementById("maxPax").value = property.maxPax || 1;
@@ -686,6 +692,7 @@ class PropertyManagementComponent {
         document.getElementById("rentPaymentDate").value =
           property.rentPaymentDate || 1;
         document.getElementById("rent").value = property.rent || 0;
+        console.log('🔍 DEBUG - Editing property, rent value set to form:', property.rent);
         document.getElementById("airconUnits").value = property.airconUnits || 0;
         document.getElementById("subsidizedPub").value = property.subsidizedPub ?? 400;
         document.getElementById("agentName").value = property.agentName || "";
@@ -876,12 +883,12 @@ class PropertyManagementComponent {
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
         document.getElementById("propertyId").classList.remove("bg-light");
-      }
 
-      // Reset postcode field
-      const postcodeField = document.getElementById("postcode");
-      if (postcodeField) {
-        postcodeField.value = "";
+        // Reset postcode field for add mode only (form.reset() may not clear it if it has a default)
+        const postcodeField = document.getElementById("postcode");
+        if (postcodeField) {
+          postcodeField.value = "";
+        }
       }
     }
 
@@ -977,6 +984,7 @@ class PropertyManagementComponent {
       const propertyData = {
         ...(isEdit && this.editingProperty ? this.editingProperty : {}),
         propertyId: (formData.get("propertyId") || this.getNextPropertyId().toString()).trim().toUpperCase(),
+        postcode: formData.get("postcode")?.trim() || "",
         address: formData.get("address").trim(),
         unit: formData.get("unit").trim(),
         maxPax: parseInt(formData.get("maxPax")) || 1,
@@ -1015,6 +1023,11 @@ class PropertyManagementComponent {
         managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
         managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
       };
+
+      // Debug: Log the rent value at different stages
+      console.log('🔍 DEBUG - Rent value from form:', formData.get("rent"));
+      console.log('🔍 DEBUG - Rent after parseFloat:', propertyData.rent);
+      console.log('🔍 DEBUG - Rent typeof:', typeof propertyData.rent);
 
       // Validate required fields
       if (
