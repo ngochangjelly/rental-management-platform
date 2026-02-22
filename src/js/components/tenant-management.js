@@ -1469,6 +1469,31 @@ class TenantManagementComponent {
         this.selectedProperties = this.selectedPropertiesDetails.map(
           (p) => p.propertyId,
         );
+
+        // Populate global room/date/main tenant fields from first property (if exists)
+        if (this.selectedPropertiesDetails.length > 0) {
+          const firstProperty = this.selectedPropertiesDetails[0];
+          const roomField = document.getElementById("tenantRoom");
+          const moveInField = document.getElementById("tenantMoveInDate");
+          const moveOutField = document.getElementById("tenantMoveOutDate");
+          const mainTenantField = document.getElementById("tenantIsMainTenant");
+
+          if (roomField && firstProperty.room) {
+            // Convert uppercase DB value (e.g., COMMON_1_PAX) to lowercase HTML option value (e.g., common_1_pax)
+            roomField.value = firstProperty.room.toLowerCase();
+          }
+          if (moveInField && firstProperty.moveinDate) {
+            // Convert ISO date string to YYYY-MM-DD format for date input
+            moveInField.value = firstProperty.moveinDate.split("T")[0];
+          }
+          if (moveOutField && firstProperty.moveoutDate) {
+            // Convert ISO date string to YYYY-MM-DD format for date input
+            moveOutField.value = firstProperty.moveoutDate.split("T")[0];
+          }
+          if (mainTenantField) {
+            mainTenantField.checked = firstProperty.isMainTenant || false;
+          }
+        }
       } else {
         // Reset for add mode
         this.selectedProperties = [];
@@ -3371,6 +3396,43 @@ class TenantManagementComponent {
     if (roommateDropdown) {
       roommateDropdown.addEventListener("change", () => this.checkForChanges());
     }
+
+    // Listen for global room/date/main tenant field changes
+    const roomField = document.getElementById("tenantRoom");
+    const moveInField = document.getElementById("tenantMoveInDate");
+    const moveOutField = document.getElementById("tenantMoveOutDate");
+    const mainTenantField = document.getElementById("tenantIsMainTenant");
+
+    if (roomField) {
+      roomField.addEventListener("change", () => {
+        this.syncGlobalFieldToFirstProperty("room", roomField.value.toUpperCase());
+      });
+    }
+    if (moveInField) {
+      moveInField.addEventListener("change", () => {
+        this.syncGlobalFieldToFirstProperty("moveinDate", moveInField.value);
+      });
+    }
+    if (moveOutField) {
+      moveOutField.addEventListener("change", () => {
+        this.syncGlobalFieldToFirstProperty("moveoutDate", moveOutField.value);
+      });
+    }
+    if (mainTenantField) {
+      mainTenantField.addEventListener("change", () => {
+        this.syncGlobalFieldToFirstProperty("isMainTenant", mainTenantField.checked);
+      });
+    }
+  }
+
+  // Sync global form field to first property in selectedPropertiesDetails
+  syncGlobalFieldToFirstProperty(field, value) {
+    if (this.selectedPropertiesDetails && this.selectedPropertiesDetails.length > 0) {
+      this.selectedPropertiesDetails[0][field] = value;
+      // Also update the property card UI if it exists
+      this.updateSelectedPropertiesList();
+    }
+    this.checkForChanges();
   }
 
   checkForChanges() {

@@ -178,9 +178,10 @@ class ContractManagementComponent {
     );
 
     if (property) {
-      return (
-        property.address || property.location || property.name || propertyId
-      );
+      const baseAddress =
+        property.address || property.location || property.name || propertyId;
+      // Include unit number if available
+      return property.unit ? `${baseAddress}, ${property.unit}` : baseAddress;
     }
 
     return propertyId; // Fallback to ID if property not found
@@ -942,11 +943,15 @@ class ContractManagementComponent {
 
     // Populate with property data
     this.properties.forEach((property) => {
-      const address =
+      const baseAddress =
         property.address ||
         property.location ||
         property.name ||
         i18next.t("createContract.unknownAddress", "Unknown Address");
+      // Include unit number if available
+      const address = property.unit
+        ? `${baseAddress}, ${property.unit}`
+        : baseAddress;
       const id = property.propertyId || property.id || property._id || "";
 
       const option = `<option value="${address}" data-property-id="${id}">
@@ -1094,15 +1099,17 @@ class ContractManagementComponent {
       // Update the Tenant A dropdown
       const tenantASelect = document.getElementById("contractTenantA");
       if (tenantASelect) {
-        // Find the option that matches this tenant
+        // Compute the identifier for the main tenant (same way as when creating options)
+        const mainTenantFin = mainTenant.fin || mainTenant.id || "";
+        const mainTenantOriginalIndex = this.tenants.findIndex(
+          (t) => t === mainTenant,
+        );
+        const mainTenantIdentifier =
+          mainTenantFin || `tenant_${mainTenantOriginalIndex}`;
+
+        // Find the option that matches this tenant's identifier
         const tenantOption = Array.from(tenantASelect.options).find(
-          (option) => {
-            return (
-              option.value === mainTenant.fin ||
-              option.value === mainTenant.id ||
-              option.dataset.index !== undefined
-            );
-          },
+          (option) => option.value === mainTenantIdentifier,
         );
 
         if (tenantOption) {
