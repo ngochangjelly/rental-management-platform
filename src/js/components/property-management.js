@@ -1024,10 +1024,9 @@ class PropertyManagementComponent {
         managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
       };
 
-      // Debug: Log the rent value at different stages
-      console.log('🔍 DEBUG - Rent value from form:', formData.get("rent"));
-      console.log('🔍 DEBUG - Rent after parseFloat:', propertyData.rent);
-      console.log('🔍 DEBUG - Rent typeof:', typeof propertyData.rent);
+      // Debug: Log property data being saved
+      console.log('🔍 DEBUG - Postcode from form:', formData.get("postcode"));
+      console.log('🔍 DEBUG - PropertyData being saved:', propertyData);
 
       // Validate required fields
       if (
