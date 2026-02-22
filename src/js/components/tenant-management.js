@@ -1441,25 +1441,42 @@ class TenantManagementComponent {
         this.avatar = tenant.avatar || "";
         this.updateAvatarPreview();
 
-        // Set up properties - store full property objects with details
+        // Set up properties - store full property objects with details including roomAssignments
         this.selectedPropertiesDetails = (tenant.properties || []).map(
           (prop) => {
             if (typeof prop === "object" && prop.propertyId) {
+              // Handle roomAssignments - migrate from legacy if needed
+              let roomAssignments = prop.roomAssignments || [];
+              if (roomAssignments.length === 0 && prop.room && prop.moveinDate) {
+                // Migrate from legacy single room/date fields
+                roomAssignments = [{
+                  id: `ra_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                  room: prop.room,
+                  moveinDate: prop.moveinDate,
+                  moveoutDate: prop.moveoutDate || "",
+                  rent: tenant.rent || null  // Use tenant's rent for legacy migration
+                }];
+              }
               return {
                 propertyId: prop.propertyId,
                 isMainTenant: prop.isMainTenant || false,
+                roomAssignments: roomAssignments,
+                // Keep legacy fields for backward compatibility
                 room: prop.room || "",
                 moveinDate: prop.moveinDate || "",
                 moveoutDate: prop.moveoutDate || "",
+                leavePlans: prop.leavePlans || []
               };
             } else {
               return {
                 propertyId:
                   typeof prop === "string" ? prop : prop.propertyId || prop._id,
                 isMainTenant: false,
+                roomAssignments: [],
                 room: "",
                 moveinDate: "",
                 moveoutDate: "",
+                leavePlans: []
               };
             }
           },
@@ -1877,6 +1894,7 @@ class TenantManagementComponent {
           this.selectedPropertiesDetails.push({
             propertyId,
             isMainTenant: false,
+            roomAssignments: [],
             room: "",
             moveinDate: "",
             moveoutDate: "",
@@ -1973,16 +1991,88 @@ class TenantManagementComponent {
         ) || {
           propertyId,
           isMainTenant: false,
+          roomAssignments: [],
           room: "",
           moveinDate: "",
           moveoutDate: "",
         };
+
+        // Get room assignments (migrate from legacy if needed)
+        let roomAssignments = propertyDetails.roomAssignments || [];
+        if (roomAssignments.length === 0 && propertyDetails.room && propertyDetails.moveinDate) {
+          // Migrate from legacy single room/date fields
+          roomAssignments = [{
+            id: `ra_legacy_${propertyId}`,
+            room: propertyDetails.room,
+            moveinDate: propertyDetails.moveinDate,
+            moveoutDate: propertyDetails.moveoutDate || "",
+            rent: this.originalTenantData?.rent || null  // Use tenant's rent for legacy migration
+          }];
+          // Update the property details to include the migrated roomAssignments
+          propertyDetails.roomAssignments = roomAssignments;
+        }
 
         // Get property info from cache
         const propertyInfo = this.getPropertyInfo(propertyId);
         const propertyTitle = propertyInfo
           ? `${propertyId} - ${propertyInfo.address}, ${propertyInfo.unit}`
           : propertyId;
+
+        // Render room assignments cards
+        const roomAssignmentsHtml = roomAssignments.map((ra, index) => {
+          const isActive = !ra.moveoutDate;
+          const canDelete = roomAssignments.length > 1;
+          return `
+            <div class="card mb-2 ${isActive ? 'border-success' : 'border-secondary'}" data-assignment-id="${ra.id}">
+              <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <small class="text-muted">
+                    ${isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Historical</span>'}
+                  </small>
+                  ${canDelete ? `
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                            onclick="tenantManager.removeRoomAssignment('${propertyId}', '${ra.id}')"
+                            title="Remove this room assignment">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  ` : ''}
+                </div>
+                <div class="row g-2">
+                  <div class="col-6 col-md-3">
+                    <label class="form-label small mb-1">Room</label>
+                    <select class="form-select form-select-sm"
+                            onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'room', this.value)">
+                      ${getRoomTypeOptions(ra.room)}
+                    </select>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Rent</label>
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text">$</span>
+                      <input type="number" class="form-control form-control-sm"
+                             value="${ra.rent || ''}"
+                             min="0" step="0.01"
+                             placeholder="0"
+                             onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'rent', this.value ? parseFloat(this.value) : null)">
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-3">
+                    <label class="form-label small mb-1">Move-in</label>
+                    <input type="date" class="form-control form-control-sm"
+                           value="${ra.moveinDate ? ra.moveinDate.split('T')[0] : ''}"
+                           onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'moveinDate', this.value)">
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label small mb-1">Move-out</label>
+                    <input type="date" class="form-control form-control-sm"
+                           value="${ra.moveoutDate ? ra.moveoutDate.split('T')[0] : ''}"
+                           onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'moveoutDate', this.value)">
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
 
         html += `
                     <div class="card mb-2">
@@ -1991,57 +2081,39 @@ class TenantManagementComponent {
                                 <h6 class="card-title mb-0">
                                     <i class="bi bi-building me-2"></i>${propertyTitle}
                                 </h6>
-                                <button type="button" class="btn btn-sm btn-outline-danger" 
-                                        onclick="tenantManager.removePropertyFromTenant('${propertyId}')" 
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="tenantManager.removePropertyFromTenant('${propertyId}')"
                                         title="Remove property">
                                     <i class="bi bi-x"></i>
                                 </button>
                             </div>
-                            
-                            <div class="row g-2">
+
+                            <!-- Main Tenant Checkbox -->
+                            <div class="row g-2 mb-3">
                                 <div class="col-12">
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" 
-                                               id="mainTenant_${propertyId}" 
-                                               ${propertyDetails.isMainTenant
-            ? "checked"
-            : ""
-          }
+                                        <input class="form-check-input" type="checkbox"
+                                               id="mainTenant_${propertyId}"
+                                               ${propertyDetails.isMainTenant ? "checked" : ""}
                                                onchange="tenantManager.updatePropertyDetail('${propertyId}', 'isMainTenant', this.checked)">
                                         <label class="form-check-label" for="mainTenant_${propertyId}">
                                             Main Tenant for this property
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small">Room</label>
-                                    <select class="form-select form-select-sm"
-                                            onchange="tenantManager.updatePropertyDetail('${propertyId}', 'room', this.value)"
-                                            value="${propertyDetails.room}">
-                                        ${getRoomTypeOptions(propertyDetails.room)}
-                                    </select>
+                            </div>
+
+                            <!-- Room Assignments Section -->
+                            <div class="room-assignments-section">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label small mb-0 fw-bold">Room Assignments</label>
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            onclick="tenantManager.addRoomAssignment('${propertyId}')">
+                                        <i class="bi bi-plus"></i> Add Room
+                                    </button>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small">Move-in Date</label>
-                                    <input type="date" class="form-control form-control-sm" 
-                                           value="${propertyDetails.moveinDate
-            ? propertyDetails.moveinDate.split(
-              "T",
-            )[0]
-            : ""
-          }"
-                                           onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveinDate', this.value)">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small">Move-out Date</label>
-                                    <input type="date" class="form-control form-control-sm" 
-                                           value="${propertyDetails.moveoutDate
-            ? propertyDetails.moveoutDate.split(
-              "T",
-            )[0]
-            : ""
-          }"
-                                           onchange="tenantManager.updatePropertyDetail('${propertyId}', 'moveoutDate', this.value)">
+                                <div id="roomAssignments_${propertyId}">
+                                    ${roomAssignmentsHtml || '<div class="text-muted small">No room assignments. Click "Add Room" to add one.</div>'}
                                 </div>
                             </div>
                         </div>
@@ -2104,6 +2176,135 @@ class TenantManagementComponent {
     this.checkForChanges();
   }
 
+  // Add a new room assignment to a property
+  addRoomAssignment(propertyId) {
+    const propertyDetail = this.selectedPropertiesDetails.find(
+      (p) => p.propertyId === propertyId
+    );
+
+    if (!propertyDetail) {
+      console.warn(`Property ${propertyId} not found in selectedPropertiesDetails`);
+      return;
+    }
+
+    // Initialize roomAssignments array if needed
+    if (!propertyDetail.roomAssignments) {
+      // Migrate from legacy single room
+      if (propertyDetail.room && propertyDetail.moveinDate) {
+        propertyDetail.roomAssignments = [{
+          id: `ra_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+          room: propertyDetail.room,
+          moveinDate: propertyDetail.moveinDate,
+          moveoutDate: propertyDetail.moveoutDate || "",
+          rent: this.originalTenantData?.rent || null  // Use tenant's rent for legacy migration
+        }];
+      } else {
+        propertyDetail.roomAssignments = [];
+      }
+    }
+
+    // Get the previous active assignment's rent to carry over (optional)
+    const previousActiveAssignment = propertyDetail.roomAssignments.find(ra => !ra.moveoutDate);
+    const previousRent = previousActiveAssignment?.rent || null;
+
+    // Close previous active assignment (set moveout date to today)
+    const today = new Date().toISOString().split('T')[0];
+    propertyDetail.roomAssignments.forEach(ra => {
+      if (!ra.moveoutDate) {
+        ra.moveoutDate = today;
+      }
+    });
+
+    // Add new active assignment (rent starts empty - user should enter new rent)
+    propertyDetail.roomAssignments.push({
+      id: `ra_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      room: "",
+      moveinDate: today,
+      moveoutDate: "",
+      rent: null  // New room assignment starts with no rent - user should enter it
+    });
+
+    console.log(`Added new room assignment to property ${propertyId}`);
+    this.updateSelectedPropertiesList();
+    this.checkForChanges();
+  }
+
+  // Update a specific room assignment field
+  updateRoomAssignment(propertyId, assignmentId, field, value) {
+    const propertyDetail = this.selectedPropertiesDetails.find(
+      (p) => p.propertyId === propertyId
+    );
+
+    if (!propertyDetail || !propertyDetail.roomAssignments) {
+      console.warn(`Property ${propertyId} or roomAssignments not found`);
+      return;
+    }
+
+    const assignment = propertyDetail.roomAssignments.find(
+      (ra) => ra.id === assignmentId
+    );
+
+    if (assignment) {
+      // Convert room to uppercase for consistency with backend
+      if (field === 'room') {
+        assignment[field] = value ? value.toUpperCase() : value;
+      } else {
+        assignment[field] = value;
+      }
+      console.log(`Updated room assignment ${assignmentId} ${field} to:`, value);
+
+      // Also sync legacy fields from the most recent/active assignment
+      this.syncLegacyFieldsFromRoomAssignments(propertyDetail);
+
+      this.checkForChanges();
+    }
+  }
+
+  // Remove a room assignment (only allowed if more than one exists)
+  removeRoomAssignment(propertyId, assignmentId) {
+    const propertyDetail = this.selectedPropertiesDetails.find(
+      (p) => p.propertyId === propertyId
+    );
+
+    if (!propertyDetail || !propertyDetail.roomAssignments) {
+      console.warn(`Property ${propertyId} or roomAssignments not found`);
+      return;
+    }
+
+    // Only allow deletion if more than one assignment exists
+    if (propertyDetail.roomAssignments.length <= 1) {
+      alert('Cannot delete the only room assignment. Remove the property instead.');
+      return;
+    }
+
+    propertyDetail.roomAssignments = propertyDetail.roomAssignments.filter(
+      (ra) => ra.id !== assignmentId
+    );
+
+    // Sync legacy fields after removal
+    this.syncLegacyFieldsFromRoomAssignments(propertyDetail);
+
+    console.log(`Removed room assignment ${assignmentId} from property ${propertyId}`);
+    this.updateSelectedPropertiesList();
+    this.checkForChanges();
+  }
+
+  // Helper to sync legacy room/moveinDate/moveoutDate fields from roomAssignments
+  syncLegacyFieldsFromRoomAssignments(propertyDetail) {
+    const roomAssignments = propertyDetail.roomAssignments || [];
+    if (roomAssignments.length > 0) {
+      // Find active assignment (no moveoutDate) or get the most recent one
+      const activeAssignment = roomAssignments.find(ra => !ra.moveoutDate);
+      const latestAssignment = activeAssignment || roomAssignments[roomAssignments.length - 1];
+      const firstAssignment = roomAssignments[0];
+
+      // Sync legacy fields
+      propertyDetail.room = latestAssignment?.room || propertyDetail.room;
+      propertyDetail.moveinDate = firstAssignment?.moveinDate || propertyDetail.moveinDate;
+      propertyDetail.moveoutDate = latestAssignment?.moveoutDate || propertyDetail.moveoutDate;
+    }
+  }
+
   // Helper method to get properties for form submission with proper fallback logic
   getPropertiesToSubmit() {
     // Ensure selectedPropertiesDetails is synchronized with selectedProperties
@@ -2130,6 +2331,7 @@ class TenantManagementComponent {
         return {
           propertyId,
           isMainTenant: false,
+          roomAssignments: [],
           room: "",
           moveinDate: "",
           moveoutDate: "",
@@ -2137,6 +2339,12 @@ class TenantManagementComponent {
       });
 
       if (syncedProperties.length > 0) {
+        // Ensure all properties have synced legacy fields before returning
+        syncedProperties.forEach(prop => {
+          if (prop.roomAssignments && prop.roomAssignments.length > 0) {
+            this.syncLegacyFieldsFromRoomAssignments(prop);
+          }
+        });
         console.log("📋 Using synced properties:", syncedProperties);
         return syncedProperties;
       }
@@ -2144,6 +2352,12 @@ class TenantManagementComponent {
 
     // Original fallback logic
     if (this.selectedPropertiesDetails && this.selectedPropertiesDetails.length > 0) {
+      // Ensure all properties have synced legacy fields
+      this.selectedPropertiesDetails.forEach(prop => {
+        if (prop.roomAssignments && prop.roomAssignments.length > 0) {
+          this.syncLegacyFieldsFromRoomAssignments(prop);
+        }
+      });
       console.log("📋 Using selectedPropertiesDetails:", this.selectedPropertiesDetails);
       return this.selectedPropertiesDetails;
     }
@@ -2157,6 +2371,7 @@ class TenantManagementComponent {
     const mapped = (this.selectedProperties || []).map((propertyId) => ({
       propertyId,
       isMainTenant: false,
+      roomAssignments: [],
       room: "",
       moveinDate: "",
       moveoutDate: "",

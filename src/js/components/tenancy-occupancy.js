@@ -606,7 +606,30 @@ class TenancyOccupancyComponent {
   }
 
   /**
+   * Get room assignments for a property assignment (with legacy migration)
+   */
+  getRoomAssignments(propertyAssignment) {
+    // If roomAssignments exist, use them
+    if (propertyAssignment.roomAssignments && propertyAssignment.roomAssignments.length > 0) {
+      return propertyAssignment.roomAssignments;
+    }
+
+    // Migrate from legacy single room/dates
+    if (propertyAssignment.room && propertyAssignment.moveinDate) {
+      return [{
+        id: 'legacy',
+        room: propertyAssignment.room,
+        moveinDate: propertyAssignment.moveinDate,
+        moveoutDate: propertyAssignment.moveoutDate
+      }];
+    }
+
+    return [];
+  }
+
+  /**
    * Get tenants for a specific property with occupancy in current year
+   * Now returns multiple rows per tenant when they have multiple room assignments
    */
   getPropertyTenants(propertyId) {
     if (!this.tenants || this.tenants.length === 0) return [];
@@ -614,42 +637,49 @@ class TenancyOccupancyComponent {
     const yearStart = new Date(this.currentYear, 0, 1);
     const yearEnd = new Date(this.currentYear, 11, 31, 23, 59, 59);
 
-    return this.tenants
-      .map((tenant) => {
-        // Find the property assignment for the selected property
-        const propertyAssignment = tenant.properties?.find(
-          (p) => p.propertyId === propertyId,
-        );
+    const tenantRows = [];
 
-        if (!propertyAssignment || !propertyAssignment.moveinDate) {
-          return null;
-        }
+    this.tenants.forEach((tenant) => {
+      // Find the property assignment for the selected property
+      const propertyAssignment = tenant.properties?.find(
+        (p) => p.propertyId === propertyId,
+      );
 
-        const moveinDate = new Date(propertyAssignment.moveinDate);
-        const moveoutDate = propertyAssignment.moveoutDate
-          ? new Date(propertyAssignment.moveoutDate)
+      if (!propertyAssignment) return;
+
+      // Get room assignments (with migration from legacy)
+      const roomAssignments = this.getRoomAssignments(propertyAssignment);
+
+      // Create a row for each room assignment that overlaps with current year
+      roomAssignments.forEach(assignment => {
+        if (!assignment.moveinDate) return;
+
+        const moveinDate = new Date(assignment.moveinDate);
+        const moveoutDate = assignment.moveoutDate
+          ? new Date(assignment.moveoutDate)
           : null; // null means still residing
 
-        // Check if occupancy overlaps with current year
         const occupancyStart = moveinDate;
         const occupancyEnd = moveoutDate || new Date(); // Use today if no moveout date
 
         // Skip if occupancy doesn't overlap with current year
-        if (occupancyEnd < yearStart || occupancyStart > yearEnd) {
-          return null;
-        }
+        if (occupancyEnd < yearStart || occupancyStart > yearEnd) return;
 
-        return {
+        tenantRows.push({
           ...tenant,
-          moveinDate: propertyAssignment.moveinDate,
-          moveoutDate: propertyAssignment.moveoutDate,
-          room: propertyAssignment.room,
+          moveinDate: assignment.moveinDate,
+          moveoutDate: assignment.moveoutDate,
+          room: assignment.room,
+          roomAssignmentId: assignment.id,
           isMainTenant: propertyAssignment.isMainTenant,
           leavePlans: propertyAssignment.leavePlans || [],
           propertyId: propertyAssignment.propertyId,
-        };
-      })
-      .filter((t) => t !== null && t.room) // Filter out tenants without a room
+        });
+      });
+    });
+
+    return tenantRows
+      .filter((t) => t.room) // Filter out entries without a room
       .sort((a, b) => new Date(a.moveinDate) - new Date(b.moveinDate));
   }
 

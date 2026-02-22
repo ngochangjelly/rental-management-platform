@@ -8845,68 +8845,100 @@
                   </div>
                 </div>
 
-                <!-- Room & Tenancy Details -->
-                <div class="row">
-                  <div class="col-md-4 mb-3">
-                    <label for="tenantRoom" class="form-label">
-                      <i class="bi bi-door-open me-1"></i>Room Type
+                <!-- Assigned Properties Section -->
+                <div class="mb-4">
+                  <h6 class="text-secondary mb-3">
+                    <i class="bi bi-building me-1"></i>Assigned Properties
+                  </h6>
+                  <div class="mb-3">
+                    <label class="form-label">
+                      <i class="bi bi-plus-circle me-1"></i>Add Property
                     </label>
-                    <select class="form-select" id="tenantRoom" name="room">
-                      <option value="">Select room type</option>
-                      <option value="common_1">Common Room 1</option>
-                      <option value="common_2">Common Room 2</option>
-                      <option value="master">Master Room</option>
-                      <option value="compartment_1">Compartment 1</option>
-                      <option value="compartment_2">Compartment 2</option>
-                      <option value="store">Store Room</option>
-                      <option value="common_1_pax">Common Room (1 Pax)</option>
-                      <option value="common_2_pax">Common Room (2 Pax)</option>
-                      <option value="small_single_1_pax">Small Single (1 Pax)</option>
-                      <option value="small_single_2_pax">Small Single (2 Pax)</option>
-                      <option value="big_single_1_pax">Big Single (1 Pax)</option>
-                      <option value="big_single_2_pax">Big Single (2 Pax)</option>
-                      <option value="single_1_pax_no_aircon">Single 1 Pax (No Aircon)</option>
-                      <option value="single_2_pax_no_aircon">Single 2 Pax (No Aircon)</option>
-                    </select>
+                    <div class="dropdown w-100">
+                      <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
+                              type="button"
+                              id="propertyDropdownBtn"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                              data-bs-auto-close="outside">
+                        <span id="propertyDropdownText">Select properties...</span>
+                      </button>
+                      <ul class="dropdown-menu w-100" id="propertyCheckboxList" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Properties will be loaded dynamically -->
+                      </ul>
+                    </div>
+                    <div class="form-text">Select properties to assign to this tenant</div>
                   </div>
-                  <div class="col-md-4 mb-3">
-                    <label for="tenantMoveInDate" class="form-label">
-                      <i class="bi bi-calendar-plus me-1"></i>Move-in Date
-                    </label>
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="tenantMoveInDate"
-                      name="moveinDate"
-                    />
-                  </div>
-                  <div class="col-md-4 mb-3">
-                    <label for="tenantMoveOutDate" class="form-label">
-                      <i class="bi bi-calendar-minus me-1"></i>Move-out Date
-                    </label>
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="tenantMoveOutDate"
-                      name="moveoutDate"
-                    />
+                  <div id="selectedPropertiesList">
+                    <!-- Property cards with room assignments will be rendered here -->
+                    <div class="text-muted">No properties assigned</div>
                   </div>
                 </div>
-                <div class="row">
-                  <div class="col-12 mb-3">
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="tenantIsMainTenant"
-                        name="isMainTenant"
-                      />
-                      <label class="form-check-label" for="tenantIsMainTenant">
-                        <i class="bi bi-star me-1"></i><strong>Main Tenant</strong>
+
+                <!-- Room & Tenancy Details - HIDDEN: Now managed per property in Room Assignments section -->
+                <div style="display: none;">
+                  <div class="row">
+                    <div class="col-md-4 mb-3">
+                      <label for="tenantRoom" class="form-label">
+                        <i class="bi bi-door-open me-1"></i>Room Type
                       </label>
+                      <select class="form-select" id="tenantRoom" name="room">
+                        <option value="">Select room type</option>
+                        <option value="common_1">Common Room 1</option>
+                        <option value="common_2">Common Room 2</option>
+                        <option value="master">Master Room</option>
+                        <option value="compartment_1">Compartment 1</option>
+                        <option value="compartment_2">Compartment 2</option>
+                        <option value="store">Store Room</option>
+                        <option value="common_1_pax">Common Room (1 Pax)</option>
+                        <option value="common_2_pax">Common Room (2 Pax)</option>
+                        <option value="small_single_1_pax">Small Single (1 Pax)</option>
+                        <option value="small_single_2_pax">Small Single (2 Pax)</option>
+                        <option value="big_single_1_pax">Big Single (1 Pax)</option>
+                        <option value="big_single_2_pax">Big Single (2 Pax)</option>
+                        <option value="single_1_pax_no_aircon">Single 1 Pax (No Aircon)</option>
+                        <option value="single_2_pax_no_aircon">Single 2 Pax (No Aircon)</option>
+                      </select>
                     </div>
-                    <div class="form-text ms-4">
-                      Main tenant for this property (signature required for contracts)
+                    <div class="col-md-4 mb-3">
+                      <label for="tenantMoveInDate" class="form-label">
+                        <i class="bi bi-calendar-plus me-1"></i>Move-in Date
+                      </label>
+                      <input
+                        type="date"
+                        class="form-control"
+                        id="tenantMoveInDate"
+                        name="moveinDate"
+                      />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                      <label for="tenantMoveOutDate" class="form-label">
+                        <i class="bi bi-calendar-minus me-1"></i>Move-out Date
+                      </label>
+                      <input
+                        type="date"
+                        class="form-control"
+                        id="tenantMoveOutDate"
+                        name="moveoutDate"
+                      />
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col-12 mb-3">
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="tenantIsMainTenant"
+                          name="isMainTenant"
+                        />
+                        <label class="form-check-label" for="tenantIsMainTenant">
+                          <i class="bi bi-star me-1"></i><strong>Main Tenant</strong>
+                        </label>
+                      </div>
+                      <div class="form-text ms-4">
+                        Main tenant for this property (signature required for contracts)
+                      </div>
                     </div>
                   </div>
                 </div>
