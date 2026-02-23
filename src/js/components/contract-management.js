@@ -19,6 +19,7 @@ class ContractManagementComponent {
     };
     this.contractData = {
       address: "",
+      unit: "",
       room: "",
       agreementDate: new Date().toISOString().split("T")[0],
       leasePeriod: "",
@@ -987,6 +988,7 @@ class ContractManagementComponent {
       }
       // Clear address data and property filter
       this.contractData.address = "";
+      this.contractData.unit = "";
       this.selectedPropertyId = null;
       console.log("🔍 No property filter (adding new property)");
     } else if (address === "CUSTOM_TEXT") {
@@ -1021,6 +1023,7 @@ class ContractManagementComponent {
       }
       // Clear address data and property filter
       this.contractData.address = "";
+      this.contractData.unit = "";
       this.selectedPropertyId = null;
       console.log("✏️ Custom text entry selected for property address");
     } else {
@@ -1034,7 +1037,7 @@ class ContractManagementComponent {
       // Set selected address
       this.contractData.address = address;
 
-      // Extract property ID from selected option
+      // Extract property ID and unit from selected option
       if (addressSelect && address) {
         const selectedOption = addressSelect.querySelector(
           `option[value="${address}"]`,
@@ -1042,6 +1045,11 @@ class ContractManagementComponent {
         this.selectedPropertyId = selectedOption
           ? selectedOption.dataset.propertyId
           : null;
+        // Store unit number from selected property
+        if (this.selectedPropertyId && this.properties) {
+          const selectedProperty = this.properties.find(p => p.propertyId === this.selectedPropertyId);
+          this.contractData.unit = selectedProperty?.unit || "";
+        }
         console.log(`🔍 Selected property ID: "${this.selectedPropertyId}"`);
         console.log(
           `🔍 Selected option data:`,
@@ -3138,7 +3146,10 @@ class ContractManagementComponent {
         throw new Error("Contract preview not found");
       }
 
-      // Create PDF filename in format: [tenantB]-[roomType]-[rent]-[moveIn]-[moveOut]-[propertyAddress]
+      // Create PDF filename in format: [unit]-[tenantB]-[roomType]-[rent]-[moveIn]-[moveOut]-[propertyAddress]
+      const unitNumber = this.contractData.unit
+        ? this.contractData.unit.replace(/[^a-zA-Z0-9#-]/g, "_")
+        : "";
       const tenantBName =
         Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0
           ? this.selectedTenantB
@@ -3184,8 +3195,10 @@ class ContractManagementComponent {
       const propertyAddress =
         cleanAddress.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
 
-      // Build filename: [tenantB]-[roomType]-[rent]-[dateRange]-[address]
-      const filenameParts = [tenantBName, roomType, monthlyRent];
+      // Build filename: [unit]-[tenantB]-[roomType]-[rent]-[dateRange]-[address]
+      const filenameParts = [];
+      if (unitNumber) filenameParts.push(unitNumber);
+      filenameParts.push(tenantBName, roomType, monthlyRent);
       if (dateRange) {
         filenameParts.push(dateRange);
       }
