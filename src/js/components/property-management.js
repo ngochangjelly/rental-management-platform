@@ -469,6 +469,7 @@ class PropertyManagementComponent {
               <div class="mt-2">
                 <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate}` : 'Not set'}</p>
                 <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
+                <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
                 <p class="mb-1 small"><strong>PUB Subsidy:</strong> $${(property.subsidizedPub || 0).toLocaleString()}</p>
               </div>
               ${property.rooms && property.rooms.length > 0 ? `
@@ -689,6 +690,16 @@ class PropertyManagementComponent {
             .split("T")[0];
         }
 
+        // Format move-out date for input
+        if (property.moveOutDate) {
+          const moveOutDate = new Date(property.moveOutDate);
+          document.getElementById("moveOutDate").value = moveOutDate
+            .toISOString()
+            .split("T")[0];
+        } else {
+          document.getElementById("moveOutDate").value = "";
+        }
+
         document.getElementById("rentPaymentDate").value =
           property.rentPaymentDate || 1;
         document.getElementById("rent").value = property.rent || 0;
@@ -846,6 +857,12 @@ class PropertyManagementComponent {
           moveInDateInput.value = new Date().toISOString().split("T")[0];
         }
 
+        // Clear move-out date for add mode
+        const moveOutDateInput = document.getElementById("moveOutDate");
+        if (moveOutDateInput) {
+          moveOutDateInput.value = "";
+        }
+
         document.getElementById("maxPax").value = "1";
         document.getElementById("rentPaymentDate").value = "1";
         document.getElementById("rent").value = "0";
@@ -990,6 +1007,7 @@ class PropertyManagementComponent {
         maxPax: parseInt(formData.get("maxPax")) || 1,
         moveInDate:
           formData.get("moveInDate") || new Date().toISOString().split("T")[0],
+        moveOutDate: formData.get("moveOutDate")?.trim() || null,
         rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
         rent: parseFloat(formData.get("rent")) || 0,
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
@@ -1026,6 +1044,9 @@ class PropertyManagementComponent {
 
       // Debug: Log property data being saved
       console.log('🔍 DEBUG - Postcode from form:', formData.get("postcode"));
+      console.log('🔍 DEBUG - this.propertyImage:', this.propertyImage);
+      console.log('🔍 DEBUG - editingProperty.propertyImage:', this.editingProperty?.propertyImage);
+      console.log('🔍 DEBUG - Final propertyImage being saved:', propertyData.propertyImage);
       console.log('🔍 DEBUG - PropertyData being saved:', propertyData);
 
       // Validate required fields
@@ -1351,14 +1372,17 @@ class PropertyManagementComponent {
   addImageFromUrl() {
     const urlInput = document.getElementById('propertyImageUrl');
     const url = urlInput.value.trim();
+    console.log('🖼️ addImageFromUrl called, url:', url);
 
     if (!url) {
+      console.log('🖼️ addImageFromUrl - URL is empty, not setting');
       alert('Please enter a valid image URL');
       return;
     }
 
     // Set the property image
     this.propertyImage = url;
+    console.log('🖼️ addImageFromUrl - this.propertyImage set to:', this.propertyImage);
     this.updatePropertyImagePreview();
     urlInput.value = ''; // Clear input after adding
   }

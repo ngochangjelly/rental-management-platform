@@ -4318,6 +4318,121 @@ class TenantManagementComponent {
     }
   }
 
+  copyRegisteredAndPendingTenants(includeMoveIn = true) {
+    try {
+      // Check if a property is selected
+      if (!this.selectedProperty) {
+        alert("Please select a property first");
+        return;
+      }
+
+      // Check if there are tenants to copy
+      if (!this.tenants || this.tenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No unassigned tenants to copy"
+            : "No tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Helper to get registration status
+      const getStatus = (tenant) =>
+        tenant.registrationStatus ||
+        (tenant.isRegistered ? "registered" : "unregistered");
+
+      // Filter for registered tenants (non-outdated)
+      const registeredTenants = this.tenants.filter((tenant) => {
+        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+        return getStatus(tenant) === "registered" && !isOutdated;
+      });
+
+      // Filter for pending tenants (non-outdated)
+      const pendingTenants = this.tenants.filter((tenant) => {
+        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+        return getStatus(tenant) === "pending" && !isOutdated;
+      });
+
+      const totalCount = registeredTenants.length + pendingTenants.length;
+
+      // Check if there are any matching tenants
+      if (totalCount === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No registered or pending active unassigned tenants to copy"
+            : "No registered or pending active tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Get property info for display
+      let propertyDisplay = "";
+      if (this.selectedProperty === "UNASSIGNED") {
+        propertyDisplay = "Unassigned Tenants";
+      } else {
+        const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+        propertyDisplay = propertyInfo
+          ? `${propertyInfo.address}, ${propertyInfo.unit}`
+          : this.selectedProperty;
+      }
+
+      // Helper to format a single tenant entry (WhatsApp/Messenger friendly)
+      const formatTenant = (tenant, index) => {
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+        const mainTenantIndicator = isMainTenant ? " (Main)" : "";
+
+        let entry = `${index}. *${tenant.name}*${mainTenantIndicator}`;
+        entry += `\nFIN: ${tenant.fin || "-"}`;
+        entry += `\nPassport: ${tenant.passportNumber || "-"}`;
+        if (includeMoveIn) {
+          const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
+          if (moveinDate) {
+            entry += `\nMove-in: ${moveinDate}`;
+          }
+        }
+        return entry;
+      };
+
+      // Build the copy text (WhatsApp/Messenger friendly format)
+      let copyText = `📍 *${propertyDisplay}*\n\n`;
+
+      let runningIndex = 1;
+
+      // Registered tenants section
+      if (registeredTenants.length > 0) {
+        copyText += `✅ *REGISTERED* (${registeredTenants.length})\n\n`;
+        registeredTenants.forEach((tenant) => {
+          copyText += formatTenant(tenant, runningIndex++) + "\n\n";
+        });
+      }
+
+      // Pending tenants section
+      if (pendingTenants.length > 0) {
+        copyText += `⏳ *PENDING* (${pendingTenants.length})\n\n`;
+        pendingTenants.forEach((tenant) => {
+          copyText += formatTenant(tenant, runningIndex++) + "\n\n";
+        });
+      }
+
+      // Summary
+      copyText += `📊 *Total: ${totalCount}*`;
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          this.showCopySuccessMessage(totalCount);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          alert("Copy failed. Here's the text to copy manually:\n\n" + copyText);
+        });
+    } catch (error) {
+      console.error("Error copying registered and pending tenant list:", error);
+      alert("Error copying tenant list. Please try again.");
+    }
+  }
+
   copyOutdatedTenants() {
     try {
       // Check if a property is selected
