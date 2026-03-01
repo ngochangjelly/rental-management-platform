@@ -1034,8 +1034,8 @@ class PropertyManagementComponent {
         wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
         wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
         wifiImages: this.currentWifiImages || [],
-        // Only override propertyImage if user explicitly changed it
-        propertyImage: this.propertyImage || this.editingProperty?.propertyImage || "",
+        // Use hidden field as primary source (more reliable), fallback to this.propertyImage and existing value
+        propertyImage: formData.get("propertyImage")?.trim() || this.propertyImage || this.editingProperty?.propertyImage || "",
         acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
         managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
@@ -1044,6 +1044,7 @@ class PropertyManagementComponent {
 
       // Debug: Log property data being saved
       console.log('🔍 DEBUG - Postcode from form:', formData.get("postcode"));
+      console.log('🔍 DEBUG - Hidden field propertyImage:', formData.get("propertyImage"));
       console.log('🔍 DEBUG - this.propertyImage:', this.propertyImage);
       console.log('🔍 DEBUG - editingProperty.propertyImage:', this.editingProperty?.propertyImage);
       console.log('🔍 DEBUG - Final propertyImage being saved:', propertyData.propertyImage);
@@ -1390,6 +1391,12 @@ class PropertyManagementComponent {
   updatePropertyImagePreview() {
     const preview = document.getElementById('propertyImagePreview');
     if (!preview) return;
+
+    // Always sync the hidden field with this.propertyImage
+    const hiddenField = document.getElementById('propertyImageHidden');
+    if (hiddenField) {
+      hiddenField.value = this.propertyImage || '';
+    }
 
     if (this.propertyImage) {
       preview.innerHTML = `

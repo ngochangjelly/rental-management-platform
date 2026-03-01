@@ -238,6 +238,13 @@ class DashboardController {
           );
         }
         break;
+      case "common-prompt":
+        // Common Prompt component is auto-initialized at module load
+        // Just refresh data when section is shown
+        if (window.commonPromptComponent) {
+          window.commonPromptComponent.refresh();
+        }
+        break;
     }
   }
 
