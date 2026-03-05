@@ -87,15 +87,28 @@ class BulkPropertyReportsComponent {
 
   async loadProperties() {
     try {
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      const result = await response.json();
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
 
-      if (result.success) {
-        this.properties = result.properties || [];
-        this.renderPropertyList();
-      } else {
-        this.showError("Failed to load properties");
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const result = await response.json();
+
+        if (result.success) {
+          allProperties = allProperties.concat(result.properties || []);
+          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          currentPage++;
+        } else {
+          this.showError("Failed to load properties");
+          hasMorePages = false;
+        }
       }
+
+      this.properties = allProperties;
+      this.renderPropertyList();
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showError("Error loading properties. Please try again.");

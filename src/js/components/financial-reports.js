@@ -145,6 +145,19 @@ class FinancialReportsComponent {
       });
     }
 
+    // Copy report summary functionality
+    const copyReportSummaryBtn = document.getElementById(
+      "copyReportSummaryBtn",
+    );
+    if (copyReportSummaryBtn) {
+      copyReportSummaryBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!copyReportSummaryBtn.disabled) {
+          this.copyReportSummary();
+        }
+      });
+    }
+
     // Close/Reopen functionality
     const closeBtn = document.getElementById("closeMonthBtn");
     const reopenBtn = document.getElementById("reopenMonthBtn");
@@ -195,21 +208,32 @@ class FinancialReportsComponent {
 
   async loadProperties() {
     try {
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      const result = await response.json();
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
 
-      if (result.success) {
-        this.renderPropertyCards(result.properties);
-      } else {
-        // Handle API errors (like authentication required)
-        if (response.status === 401 || response.status === 403) {
-          this.showError("Please log in to load properties");
-          this.renderPropertyCards([]); // Show empty cards
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const result = await response.json();
+
+        if (result.success) {
+          allProperties = allProperties.concat(result.properties || []);
+          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          currentPage++;
         } else {
-          this.showError(result.error || "Failed to load properties");
-          this.renderPropertyCards([]); // Show empty cards
+          // Handle API errors (like authentication required)
+          if (response.status === 401 || response.status === 403) {
+            this.showError("Please log in to load properties");
+            this.renderPropertyCards([]);
+            return;
+          }
+          hasMorePages = false;
         }
       }
+
+      this.renderPropertyCards(allProperties);
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showError(
@@ -4023,6 +4047,107 @@ class FinancialReportsComponent {
     }
   }
 
+  /**
+   * Get person name from investor ID or tenant ID
+   */
+  getPersonName(personId) {
+    if (!personId) return "";
+
+    // Check if it's a tenant (prefixed with 'tenant_')
+    if (personId.startsWith("tenant_")) {
+      const tenantId = personId.replace("tenant_", "");
+      const tenant = this.tenants.find(
+        (t) =>
+          (t._id && t._id === tenantId) ||
+          (t.tenantId && t.tenantId === tenantId) ||
+          (t.id && t.id === tenantId) ||
+          (t.fin && t.fin === tenantId),
+      );
+      return tenant ? tenant.name : personId;
+    }
+
+    // It's an investor
+    const investor = this.investors.find((i) => i.investorId === personId);
+    return investor ? investor.name : personId;
+  }
+
+  /**
+   * Copy a formatted summary of income and expenses to clipboard
+   */
+  async copyReportSummary() {
+    if (!this.selectedProperty || !this.currentReport) {
+      showToast("Please select a property and load financial data first", "warning");
+      return;
+    }
+
+    const btn = document.getElementById("copyReportSummaryBtn");
+    if (!btn) return;
+
+    try {
+      // Get current month name and year
+      const monthNames = [
+        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+        "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+      ];
+      const currentMonth = monthNames[this.currentDate.getMonth()];
+      const currentYear = this.currentDate.getFullYear();
+
+      // Build the summary text
+      let summary = `THU CHI ${currentMonth} - ${currentYear}\n\n`;
+
+      // Income section (THU)
+      summary += "THU\n";
+      if (this.currentReport.income && this.currentReport.income.length > 0) {
+        this.currentReport.income.forEach((item) => {
+          const amount = item.amount.toFixed(2);
+          const fullName = this.getPersonName(item.personInCharge);
+          const shortName = fullName.split(" ").pop(); // Get last word only
+          summary += `- ${item.item} - $${amount} - ${shortName}\n`;
+        });
+      } else {
+        summary += "- (không có)\n";
+      }
+
+      // Expense section (CHI)
+      summary += "\nCHI\n";
+      if (this.currentReport.expenses && this.currentReport.expenses.length > 0) {
+        this.currentReport.expenses.forEach((item) => {
+          const amount = item.amount.toFixed(2);
+          const fullName = this.getPersonName(item.personInCharge);
+          const shortName = fullName.split(" ").pop(); // Get last word only
+          summary += `- ${item.item} - $${amount} - ${shortName}\n`;
+        });
+      } else {
+        summary += "- (không có)\n";
+      }
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(summary);
+
+      // Show success feedback
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-check-circle" style="color: #ffffff !important"></i>';
+      btn.classList.remove("btn-light");
+      btn.classList.add("btn-success");
+      btn.style.backgroundColor = "#28a745";
+      btn.style.borderColor = "#28a745";
+
+      showToast("Report summary copied to clipboard", "success");
+
+      // Restore button after 2 seconds
+      setTimeout(() => {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove("btn-success");
+        btn.classList.add("btn-light");
+        btn.style.backgroundColor = "#ffffff";
+        btn.style.borderColor = "#dee2e6";
+      }, 2000);
+    } catch (error) {
+      console.error("Copy to clipboard error:", error);
+      showToast("Failed to copy to clipboard", "error");
+    }
+  }
+
   async prepareReportForExport() {
     // Update export header with property info and current data
     await this.prepareExportData();
@@ -4085,23 +4210,13 @@ class FinancialReportsComponent {
     const exportDateRange = document.getElementById("exportDateRange");
 
     if (exportPropertyInfo && this.selectedProperty) {
-      try {
-        // Get property details
-        const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-        const result = await response.json();
-
-        if (result.success) {
-          const property = result.properties.find(
-            (p) => p.propertyId === this.selectedProperty,
-          );
-          if (property) {
-            exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
-          } else {
-            exportPropertyInfo.textContent = `Property ID: ${this.selectedProperty}`;
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching property details for export:", error);
+      // Use already loaded properties instead of fetching again
+      const property = this.properties?.find(
+        (p) => p.propertyId === this.selectedProperty,
+      );
+      if (property) {
+        exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
+      } else {
         exportPropertyInfo.textContent = `Property ID: ${this.selectedProperty}`;
       }
     }

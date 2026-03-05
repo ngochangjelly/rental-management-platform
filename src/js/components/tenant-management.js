@@ -48,20 +48,32 @@ class TenantManagementComponent {
 
   async loadProperties() {
     try {
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      const result = await response.json();
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
 
-      if (result.success) {
-        this.properties = result.properties || [];
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const result = await response.json();
 
-        // Filter properties if current user is an investor
-        await this.filterPropertiesByInvestor();
-
-        this.renderPropertyCards(this.properties);
-      } else {
-        console.error("Failed to load properties:", result.error);
-        this.renderPropertyCards([]);
+        if (result.success) {
+          allProperties = allProperties.concat(result.properties || []);
+          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          currentPage++;
+        } else {
+          console.error("Failed to load properties:", result.error);
+          hasMorePages = false;
+        }
       }
+
+      this.properties = allProperties;
+
+      // Filter properties if current user is an investor
+      await this.filterPropertiesByInvestor();
+
+      this.renderPropertyCards(this.properties);
     } catch (error) {
       console.error("Error loading properties:", error);
       this.renderPropertyCards([]);
@@ -1664,19 +1676,33 @@ class TenantManagementComponent {
         return;
       }
 
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      const result = await response.json();
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
+
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const result = await response.json();
+
+        if (result.success) {
+          allProperties = allProperties.concat(result.properties || []);
+          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          currentPage++;
+        } else {
+          hasMorePages = false;
+        }
+      }
 
       // Cache the result
-      if (result.success) {
-        this.propertiesCache = result;
-        this.propertiesCacheTime = now;
-        console.log(
-          "✅ Properties cache loaded:",
-          result.properties?.length || 0,
-          "properties",
-        );
-      }
+      this.propertiesCache = { success: true, properties: allProperties };
+      this.propertiesCacheTime = now;
+      console.log(
+        "✅ Properties cache loaded:",
+        allProperties.length,
+        "properties",
+      );
     } catch (error) {
       console.error("Error loading properties cache:", error);
     }
@@ -2779,6 +2805,8 @@ class TenantManagementComponent {
         return '<span class="badge bg-success">Registered</span>';
       case "pending":
         return '<span class="badge bg-warning">Pending Registration</span>';
+      case "pending_deregistration":
+        return '<span class="badge bg-info">Pending Deregistration</span>';
       case "unregistered":
       default:
         return '<span class="badge bg-secondary">Unregistered</span>';
@@ -2864,7 +2892,7 @@ class TenantManagementComponent {
     const currentStatus = button.getAttribute("data-status");
     let nextStatus;
 
-    // Cycle through states: unregistered → pending → registered → unregistered
+    // Cycle through states: unregistered → pending → registered → pending_deregistration → unregistered
     switch (currentStatus) {
       case "unregistered":
         nextStatus = "pending";
@@ -2873,6 +2901,9 @@ class TenantManagementComponent {
         nextStatus = "registered";
         break;
       case "registered":
+        nextStatus = "pending_deregistration";
+        break;
+      case "pending_deregistration":
         nextStatus = "unregistered";
         break;
       default:
@@ -2902,6 +2933,9 @@ class TenantManagementComponent {
         break;
       case "pending":
         statusText.textContent = "Pending Registration";
+        break;
+      case "pending_deregistration":
+        statusText.textContent = "Pending Deregistration";
         break;
       case "unregistered":
       default:

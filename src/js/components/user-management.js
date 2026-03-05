@@ -118,26 +118,39 @@ class UserManagement {
   async loadProperties() {
     try {
       console.log('📋 Loading properties for access selection');
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
 
-      // Handle non-JSON responses (e.g., "Network unavailable" from service worker)
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        throw new Error('Network unavailable or invalid response');
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
+
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+
+        // Handle non-JSON responses (e.g., "Network unavailable" from service worker)
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          throw new Error('Network unavailable or invalid response');
+        }
+
+        if (data.success) {
+          allProperties = allProperties.concat(data.properties || []);
+          hasMorePages = data.pagination && currentPage < data.pagination.totalPages;
+          currentPage++;
+        } else {
+          throw new Error(data.message || 'Failed to load properties');
+        }
       }
 
-      if (data.success) {
-        this.properties = data.properties || [];
+      this.properties = allProperties;
 
-        // Check if current user is an investor and filter properties accordingly
-        await this.filterPropertiesByInvestor();
+      // Check if current user is an investor and filter properties accordingly
+      await this.filterPropertiesByInvestor();
 
-        this.renderPropertyCheckboxes();
-      } else {
-        throw new Error(data.message || 'Failed to load properties');
-      }
+      this.renderPropertyCheckboxes();
     } catch (error) {
       console.error('❌ Error loading properties:', error);
       const container = document.getElementById('propertyAccessContainer');

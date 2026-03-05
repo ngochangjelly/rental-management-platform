@@ -100,17 +100,29 @@ Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật
 
   async loadProperties() {
     try {
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      const result = await response.json();
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
 
-      if (result.success) {
-        this.properties = result.properties || [];
-        console.log(`📋 [CommonPrompt] Loaded ${this.properties.length} properties`);
-        this.populatePropertyDropdown();
-      } else {
-        console.error('[CommonPrompt] Failed to load properties:', result.error);
-        this.properties = [];
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const result = await response.json();
+
+        if (result.success) {
+          allProperties = allProperties.concat(result.properties || []);
+          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          currentPage++;
+        } else {
+          console.error('[CommonPrompt] Failed to load properties:', result.error);
+          hasMorePages = false;
+        }
       }
+
+      this.properties = allProperties;
+      console.log(`📋 [CommonPrompt] Loaded ${this.properties.length} properties`);
+      this.populatePropertyDropdown();
     } catch (error) {
       console.error('[CommonPrompt] Error loading properties:', error);
       this.properties = [];

@@ -422,29 +422,38 @@ class TenancyOccupancyComponent {
         tenantQuery += `&activeOnly=true`;
       }
 
+      // Fetch all properties with pagination
+      const fetchAllProperties = async () => {
+        let allProperties = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+        let hasMorePages = true;
+
+        while (hasMorePages) {
+          const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.properties) {
+              allProperties = allProperties.concat(result.properties);
+              hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+              currentPage++;
+            } else {
+              hasMorePages = false;
+            }
+          } else {
+            hasMorePages = false;
+          }
+        }
+        return allProperties;
+      };
+
       // Fetch properties and tenants in parallel
-      const [propertiesResponse, tenantsResponse] = await Promise.all([
-        API.get(API_CONFIG.ENDPOINTS.PROPERTIES),
+      const [properties, tenantsResponse] = await Promise.all([
+        fetchAllProperties(),
         API.get(tenantQuery),
       ]);
 
-      if (propertiesResponse.ok) {
-        const result = await propertiesResponse.json();
-
-        // API returns { success: true, properties: [...] }
-        if (result.success && result.properties) {
-          this.properties = result.properties;
-        } else if (Array.isArray(result.properties)) {
-          this.properties = result.properties;
-        } else if (Array.isArray(result)) {
-          this.properties = result;
-        } else {
-          this.properties = [];
-          this.properties = [];
-        }
-      } else {
-        this.properties = [];
-      }
+      this.properties = properties;
 
       if (tenantsResponse.ok) {
         const result = await tenantsResponse.json();

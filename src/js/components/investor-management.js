@@ -74,27 +74,39 @@ class InvestorManagementComponent {
   async loadProperties() {
     try {
       console.log("Loading properties from:", API_CONFIG.BASE_URL + API_CONFIG.ENDPOINTS.PROPERTIES);
-      const response = await API.get(API_CONFIG.ENDPOINTS.PROPERTIES);
-      
-      if (!response.ok) {
-        console.warn(`Properties API returned ${response.status}: ${response.statusText}`);
-        if (response.status === 401 || response.status === 403) {
-          console.warn("Authentication required for properties API");
-        }
-        this.properties = [];
-        return;
-      }
-      
-      const result = await response.json();
-      console.log("Properties API response:", result);
 
-      if (result.success && Array.isArray(result.properties)) {
-        this.properties = result.properties;
-        console.log(`Loaded ${this.properties.length} properties:`, this.properties);
-      } else {
-        console.warn("Properties API response format issue:", result);
-        this.properties = [];
+      // Fetch all properties with pagination
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 50;
+      let hasMorePages = true;
+
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+
+        if (!response.ok) {
+          console.warn(`Properties API returned ${response.status}: ${response.statusText}`);
+          if (response.status === 401 || response.status === 403) {
+            console.warn("Authentication required for properties API");
+          }
+          hasMorePages = false;
+          continue;
+        }
+
+        const result = await response.json();
+
+        if (result.success && Array.isArray(result.properties)) {
+          allProperties = allProperties.concat(result.properties);
+          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          currentPage++;
+        } else {
+          console.warn("Properties API response format issue:", result);
+          hasMorePages = false;
+        }
       }
+
+      this.properties = allProperties;
+      console.log(`Loaded ${this.properties.length} properties:`, this.properties);
     } catch (error) {
       console.error("Error loading properties:", error);
       this.properties = [];
