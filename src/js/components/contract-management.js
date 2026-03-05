@@ -45,6 +45,9 @@ class ContractManagementComponent {
     // Flag to prevent auto-fill of dates when loading templates
     this.isLoadingTemplate = false;
 
+    // Flag to prevent checkbox change handlers during restoration
+    this.isRestoringCheckboxes = false;
+
     this.init();
   }
 
@@ -638,6 +641,9 @@ class ContractManagementComponent {
     // Setup search functionality
     this.setupTenantBSearch();
 
+    // Restore checkbox selections based on this.selectedTenantB
+    this.restoreTenantBCheckboxSelections();
+
     // Prevent dropdown from closing when clicking inside
     const dropdownMenuElement = document.getElementById("tenantBDropdownMenu");
     if (dropdownMenuElement) {
@@ -645,6 +651,58 @@ class ContractManagementComponent {
         e.stopPropagation();
       });
     }
+  }
+
+  // Restore checkbox selections based on the current selectedTenantB array
+  restoreTenantBCheckboxSelections() {
+    if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
+      return;
+    }
+
+    console.log("🔄 Restoring tenant B checkbox selections:", this.selectedTenantB.map(t => t.name));
+
+    // Set flag to prevent change handlers from clearing selectedTenantB
+    this.isRestoringCheckboxes = true;
+
+    const allCheckboxes = document.querySelectorAll(".tenant-b-checkbox");
+
+    // Check the boxes for each tenant in selectedTenantB
+    for (const tenant of this.selectedTenantB) {
+      // Try multiple ways to identify the tenant
+      const fin = tenant.fin || tenant.finNumber || "";
+      const name = tenant.name || "";
+      const investorId = tenant.investorId;
+
+      // Try to find checkbox with this identifier
+      const checkbox = Array.from(allCheckboxes).find((cb) => {
+        const cbValue = cb.value;
+        const cbName = cb.getAttribute("data-name") || "";
+
+        // Match by exact FIN
+        if (fin && cbValue === fin) return true;
+        // Match by investor ID
+        if (investorId && cbValue === `investor_${investorId}`) return true;
+        // Match by name as fallback
+        if (name && cbName === name) return true;
+        // Match by tenant index pattern (tenant_0, tenant_1, etc.)
+        if (cbValue.startsWith("tenant_") && cbName === name) return true;
+
+        return false;
+      });
+
+      if (checkbox) {
+        checkbox.checked = true;
+        console.log(`✅ Restored checkbox for: ${tenant.name}`);
+      } else {
+        console.warn(`⚠️ Could not find checkbox for tenant: ${tenant.name}`);
+      }
+    }
+
+    // Clear the flag
+    this.isRestoringCheckboxes = false;
+
+    // Update the display text to reflect restored selections
+    this.updateTenantBDisplayText();
   }
 
   // Setup event listeners for Tenant B checkboxes
@@ -682,6 +740,12 @@ class ContractManagementComponent {
 
   // Handle Tenant B checkbox changes
   handleTenantBCheckboxChange() {
+    // Skip if we're programmatically restoring checkbox selections
+    if (this.isRestoringCheckboxes) {
+      console.log("⏭️ Skipping handleTenantBCheckboxChange (restoring checkboxes)");
+      return;
+    }
+
     const checkboxes = document.querySelectorAll(".tenant-b-checkbox:checked");
     const selectedValues = Array.from(checkboxes).map((cb) => cb.value);
 
@@ -1611,6 +1675,21 @@ class ContractManagementComponent {
               );
             }
           }
+
+          // Auto-fill cleaning fee
+          if (tenantWithDates.cleaningFee) {
+            const cleaningFeeInput = document.getElementById(
+              "contractCleaningFee",
+            );
+            if (cleaningFeeInput) {
+              cleaningFeeInput.value = tenantWithDates.cleaningFee;
+              this.contractData.cleaningFee = tenantWithDates.cleaningFee;
+              console.log(
+                "✅ Auto-filled cleaning fee from Tenant B:",
+                tenantWithDates.cleaningFee,
+              );
+            }
+          }
         }
 
         // Auto-populate signature if this is a main tenant with signature
@@ -2361,6 +2440,31 @@ class ContractManagementComponent {
           };
 
     // Handle multiple Tenant B selections
+    // Sync selectedTenantB from checkboxes if it's empty but checkboxes are checked
+    if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
+      const checkedBoxes = document.querySelectorAll(".tenant-b-checkbox:checked");
+      if (checkedBoxes.length > 0) {
+        console.log("⚠️ Preview - selectedTenantB is empty but checkboxes are checked, syncing...");
+        this.selectedTenantB = [];
+        checkedBoxes.forEach((checkbox) => {
+          const dataType = checkbox.getAttribute("data-type");
+          const index = parseInt(checkbox.getAttribute("data-index"));
+
+          let tenant = null;
+          if (dataType === "investor" && !isNaN(index) && index >= 0 && index < this.investors.length) {
+            tenant = this.investors[index];
+          } else if (dataType === "tenant" && !isNaN(index) && index >= 0 && index < this.tenants.length) {
+            tenant = this.tenants[index];
+          }
+
+          if (tenant) {
+            this.selectedTenantB.push(tenant);
+            console.log("✅ Preview - synced tenant:", tenant.name);
+          }
+        });
+      }
+    }
+
     let tenantBInfo;
     if (
       Array.isArray(this.selectedTenantB) &&
@@ -3111,6 +3215,31 @@ class ContractManagementComponent {
       // Sync form values to contractData before export to ensure we have the latest values
       this.syncFormValuesToContractData();
 
+      // Sync selectedTenantB from checkboxes if it's empty but checkboxes are checked
+      if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
+        const checkedBoxes = document.querySelectorAll(".tenant-b-checkbox:checked");
+        if (checkedBoxes.length > 0) {
+          console.log("⚠️ PDF Export - syncing selectedTenantB from checkboxes at start...");
+          this.selectedTenantB = [];
+          checkedBoxes.forEach((checkbox) => {
+            const dataType = checkbox.getAttribute("data-type");
+            const index = parseInt(checkbox.getAttribute("data-index"));
+
+            let tenant = null;
+            if (dataType === "investor" && !isNaN(index) && index >= 0 && index < this.investors.length) {
+              tenant = this.investors[index];
+            } else if (dataType === "tenant" && !isNaN(index) && index >= 0 && index < this.tenants.length) {
+              tenant = this.tenants[index];
+            }
+
+            if (tenant) {
+              this.selectedTenantB.push(tenant);
+              console.log("✅ PDF Export - synced tenant for filename:", tenant.name);
+            }
+          });
+        }
+      }
+
       // Show loading state
       const exportBtn = document.querySelector(
         '[onclick="contractManager.exportToPDF()"]',
@@ -3325,6 +3454,9 @@ class ContractManagementComponent {
             };
 
       // Handle multiple Tenant B selections for PDF
+      console.log("📄 PDF Export - selectedTenantB:", this.selectedTenantB);
+      console.log("📄 PDF Export - length:", this.selectedTenantB?.length);
+
       let tenantBInfo;
       if (
         Array.isArray(this.selectedTenantB) &&
