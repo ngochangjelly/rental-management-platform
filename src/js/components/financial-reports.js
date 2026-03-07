@@ -19,6 +19,7 @@ class FinancialReportsComponent {
     this.editingItemIndex = null;
     this.pendingDeletes = new Set(); // Track items pending deletion confirmation
     this.pendingClose = false; // Track month close confirmation
+    this.propertyReportStatus = {}; // Track {propertyId: {isClosed: boolean}} for current month
     this.init();
   }
 
@@ -234,6 +235,8 @@ class FinancialReportsComponent {
       }
 
       this.renderPropertyCards(allProperties);
+      // Load report statuses for all properties (async, will re-render when done)
+      this.loadPropertyReportStatuses();
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showError(
@@ -241,6 +244,43 @@ class FinancialReportsComponent {
       );
       this.renderPropertyCards([]); // Show empty cards with default message
     }
+  }
+
+  async loadPropertyReportStatuses() {
+    if (!this.properties || this.properties.length === 0) {
+      return;
+    }
+
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+
+    // Reset status for current month
+    this.propertyReportStatus = {};
+
+    // Fetch report status for each property in parallel
+    const statusPromises = this.properties.map(async (property) => {
+      try {
+        const response = await API.get(
+          API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(property.propertyId, year, month)
+        );
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            this.propertyReportStatus[property.propertyId] = {
+              isClosed: result.data.isClosed || false,
+            };
+          }
+        }
+      } catch (error) {
+        // Ignore errors for individual property status checks
+        console.debug(`Could not fetch report status for ${property.propertyId}:`, error);
+      }
+    });
+
+    await Promise.all(statusPromises);
+
+    // Re-render property cards with updated status
+    this.renderPropertyCards(this.properties);
   }
 
   renderPropertyCards(properties) {
@@ -267,11 +307,13 @@ class FinancialReportsComponent {
     // Generate property cards
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
+      const reportStatus = this.propertyReportStatus[property.propertyId];
+      const isReportClosed = reportStatus && reportStatus.isClosed;
       const cardHtml = `
         <div class="col-6 col-md-3 col-lg-2 mb-3">
           <div class="card property-card h-100 ${
             isSelected ? "border-primary" : ""
-          } overflow-hidden"
+          } ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
                style="cursor: pointer; transition: all 0.2s ease;"
                onclick="window.financialReports.selectProperty('${
                  property.propertyId
@@ -280,6 +322,7 @@ class FinancialReportsComponent {
               property.propertyImage
                 ? `
             <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+              ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-2"><span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Done</span></div>' : ""}
               ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ""}
             </div>
             `
@@ -288,9 +331,9 @@ class FinancialReportsComponent {
             <div class="card-header d-flex justify-content-between align-items-center bg-white">
               <div class="d-flex align-items-center">
                 <div class="me-3">
-                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
+                  <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white"
                        style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                    ${escapeHtml(
+                    ${isReportClosed ? '<i class="bi bi-lock-fill"></i>' : escapeHtml(
                       property.propertyId.substring(0, 2).toUpperCase(),
                     )}
                   </div>
@@ -305,7 +348,7 @@ class FinancialReportsComponent {
               ${
                 !property.propertyImage && isSelected
                   ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
-                  : ""
+                  : (!property.propertyImage && isReportClosed ? '<span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Done</span>' : "")
               }
             </div>
             <div class="card-body py-2 bg-white">
@@ -354,6 +397,16 @@ class FinancialReportsComponent {
         }
         .property-card.border-primary {
           border-width: 3px !important;
+        }
+        .property-card.property-card-closed {
+          border: 2px solid #198754 !important;
+          background: linear-gradient(135deg, rgba(25, 135, 84, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+        }
+        .property-card.property-card-closed .card-header {
+          background: linear-gradient(135deg, rgba(25, 135, 84, 0.08) 0%, rgba(255, 255, 255, 1) 100%) !important;
+        }
+        .property-card.property-card-closed.border-primary {
+          border: 3px solid #0d6efd !important;
         }
       `;
       document.head.appendChild(style);
@@ -1513,6 +1566,8 @@ class FinancialReportsComponent {
 
     await this.updateMonthDisplay();
     await this.loadFinancialReport();
+    // Reload property report statuses for the new month
+    this.loadPropertyReportStatuses();
   }
 
   async showIncomeExpenseModal(type, existingItem = null, itemIndex = null) {
@@ -2992,6 +3047,9 @@ class FinancialReportsComponent {
       if (result.success) {
         this.currentReport = result.data;
         await this.updateClosedStatus();
+        // Update property card to show closed status
+        this.propertyReportStatus[this.selectedProperty] = { isClosed: true };
+        this.renderPropertyCards(this.properties);
         this.showSuccess("Month closed successfully!");
       } else {
         throw new Error(result.message || "Failed to close month");
@@ -3032,6 +3090,9 @@ class FinancialReportsComponent {
       if (result.success) {
         this.currentReport = result.data;
         await this.updateClosedStatus();
+        // Update property card to show reopened status
+        this.propertyReportStatus[this.selectedProperty] = { isClosed: false };
+        this.renderPropertyCards(this.properties);
         this.showSuccess("Month reopened successfully!");
       } else {
         throw new Error(result.message || "Failed to reopen month");
@@ -4071,6 +4132,24 @@ class FinancialReportsComponent {
     return investor ? investor.name : personId;
   }
 
+  getPersonRoomType(personId) {
+    if (!personId || !personId.startsWith("tenant_")) return null;
+
+    const tenantId = personId.replace("tenant_", "");
+    const tenant = this.tenants.find(
+      (t) =>
+        (t._id && t._id === tenantId) ||
+        (t.tenantId && t.tenantId === tenantId) ||
+        (t.id && t.id === tenantId) ||
+        (t.fin && t.fin === tenantId),
+    );
+
+    if (tenant && tenant.roomType) {
+      return this.getRoomTypeDisplayName(tenant.roomType);
+    }
+    return null;
+  }
+
   /**
    * Copy a formatted summary of income and expenses to clipboard
    */
@@ -4102,7 +4181,14 @@ class FinancialReportsComponent {
           const amount = item.amount.toFixed(2);
           const fullName = this.getPersonName(item.personInCharge);
           const shortName = fullName.split(" ").pop(); // Get last word only
-          summary += `- ${item.item} - $${amount} - ${shortName}\n`;
+          let payeeInfo = "";
+          if (item.paidBy) {
+            const payeeName = this.getPersonName(item.paidBy);
+            const roomType = this.getPersonRoomType(item.paidBy);
+            payeeInfo = roomType ? `${payeeName} (${roomType})` : payeeName;
+          }
+          const itemWithPayee = payeeInfo ? `${item.item} (${payeeInfo})` : item.item;
+          summary += `- ${itemWithPayee} - $${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";
