@@ -196,24 +196,43 @@ class InvestorManagementComponent {
                 <div class="properties-list">
                   ${investor.properties.map(property => {
                     // Look up full property details
-                    const fullProperty = this.properties.find(p => 
-                      p.propertyId === property.propertyId || 
+                    const fullProperty = this.properties.find(p =>
+                      p.propertyId === property.propertyId ||
                       String(p.propertyId) === String(property.propertyId)
                     );
-                    
-                    const displayText = fullProperty ? 
+
+                    const displayText = fullProperty ?
                       `${fullProperty.address || 'Address N/A'}${fullProperty.unit ? `, ${fullProperty.unit}` : ''}` :
                       property.propertyId;
-                    
+
+                    const hasHistory = property.history && property.history.length > 0;
+
                     return `
-                      <div class="mb-1">
+                      <div class="mb-2 p-2 border rounded bg-light">
                         <div class="d-flex justify-content-between align-items-start">
                           <div class="flex-grow-1 me-2">
                             <div class="small text-dark fw-medium">${displayText}</div>
                             <div class="text-muted" style="font-size: 0.75rem;">ID: ${property.propertyId}</div>
                           </div>
-                          <span class="badge bg-primary">${property.percentage}%</span>
+                          <div class="d-flex align-items-center gap-1">
+                            <span class="badge bg-primary">${property.percentage}%</span>
+                            <button class="btn btn-sm btn-outline-secondary p-1"
+                                    onclick="window.investorManager.showChangePercentageModal('${investor.investorId}', '${property.propertyId}')"
+                                    title="Change Percentage">
+                              <i class="bi bi-pencil-square" style="font-size: 0.7rem;"></i>
+                            </button>
+                          </div>
                         </div>
+                        ${hasHistory ? `
+                          <div class="mt-1">
+                            <button class="btn btn-link btn-sm p-0 text-muted"
+                                    onclick="window.investorManager.togglePercentageHistory(this, '${investor.investorId}', '${property.propertyId}')"
+                                    style="font-size: 0.7rem;">
+                              <i class="bi bi-clock-history me-1"></i>View history
+                            </button>
+                            <div class="percentage-history-container" style="display: none;"></div>
+                          </div>
+                        ` : ''}
                       </div>
                     `;
                   }).join('')}
@@ -755,6 +774,204 @@ class InvestorManagementComponent {
 
     // For now, just edit the investor - could be expanded to a detailed view
     this.editInvestor(investorId);
+  }
+
+  showChangePercentageModal(investorId, propertyId) {
+    const investor = this.investors.find(inv => inv.investorId === investorId);
+    if (!investor) return;
+
+    const property = investor.properties.find(p => p.propertyId === propertyId);
+    if (!property) return;
+
+    const fullProperty = this.properties.find(p =>
+      p.propertyId === propertyId || String(p.propertyId) === String(propertyId)
+    );
+
+    const displayText = fullProperty ?
+      `${fullProperty.address || 'Address N/A'}${fullProperty.unit ? `, ${fullProperty.unit}` : ''}` :
+      propertyId;
+
+    // Get the first of current month as default effective date
+    const now = new Date();
+    const defaultDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+
+    const modalHtml = `
+      <div class="modal fade" id="changePercentageModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                <i class="bi bi-percent me-2"></i>Change Investment Percentage
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="changePercentageForm">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label text-muted">Investor</label>
+                  <div class="fw-bold">${escapeHtml(investor.name)}</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label text-muted">Property</label>
+                  <div class="fw-bold">${displayText}</div>
+                  <small class="text-muted">ID: ${propertyId}</small>
+                </div>
+                <hr>
+                <div class="mb-3">
+                  <label class="form-label">Current Percentage</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" value="${property.percentage}" disabled>
+                    <span class="input-group-text">%</span>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">New Percentage <span class="text-danger">*</span></label>
+                  <div class="input-group">
+                    <input type="number" class="form-control" name="newPercentage"
+                           min="0" max="100" step="0.1" required
+                           placeholder="Enter new percentage">
+                    <span class="input-group-text">%</span>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Effective From <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control" name="effectiveFrom"
+                         value="${defaultDate}" required>
+                  <small class="text-muted">Select the 1st of the month when this percentage should take effect</small>
+                </div>
+                <div class="alert alert-warning">
+                  <i class="bi bi-exclamation-triangle me-2"></i>
+                  <strong>Note:</strong> This change will affect financial reports from the effective date onwards.
+                  Past closed reports will not be affected.
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-check-circle me-1"></i>Update Percentage
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modal = new bootstrap.Modal(document.getElementById('changePercentageModal'));
+
+    // Form submission
+    document.getElementById('changePercentageForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.updatePropertyPercentage(investorId, propertyId, e.target);
+      modal.hide();
+    });
+
+    // Clean up on close
+    document.getElementById('changePercentageModal').addEventListener('hidden.bs.modal', () => {
+      document.getElementById('changePercentageModal').remove();
+    });
+
+    modal.show();
+  }
+
+  async updatePropertyPercentage(investorId, propertyId, form) {
+    const formData = new FormData(form);
+    const newPercentage = parseFloat(formData.get('newPercentage'));
+    const effectiveFrom = formData.get('effectiveFrom');
+
+    if (isNaN(newPercentage) || newPercentage < 0 || newPercentage > 100) {
+      this.showError('Please enter a valid percentage between 0 and 100');
+      return;
+    }
+
+    if (!effectiveFrom) {
+      this.showError('Please select an effective date');
+      return;
+    }
+
+    try {
+      const response = await API.put(
+        `${API_CONFIG.ENDPOINTS.INVESTORS}/${investorId}/properties/${propertyId}/percentage`,
+        {
+          percentage: newPercentage,
+          effectiveFrom: effectiveFrom
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to update percentage');
+      }
+
+      this.showSuccess(`Percentage updated to ${newPercentage}% effective from ${effectiveFrom}`);
+      await this.loadData();
+
+    } catch (error) {
+      console.error('Error updating percentage:', error);
+      this.showError(error.message || 'Failed to update percentage');
+    }
+  }
+
+  async togglePercentageHistory(button, investorId, propertyId) {
+    const container = button.nextElementSibling;
+    if (!container) return;
+
+    if (container.style.display === 'none') {
+      // Load and show history
+      container.innerHTML = '<div class="text-muted small py-2">Loading history...</div>';
+      container.style.display = 'block';
+      button.innerHTML = '<i class="bi bi-clock-history me-1"></i>Hide history';
+
+      try {
+        const response = await API.get(
+          `${API_CONFIG.ENDPOINTS.INVESTORS}/${investorId}/properties/${propertyId}/history`
+        );
+        const result = await response.json();
+
+        if (result.success && result.data && result.data.history) {
+          const history = result.data.history;
+          if (history.length === 0) {
+            container.innerHTML = '<div class="text-muted small py-2">No history available</div>';
+          } else {
+            // Sort by effectiveFrom descending (newest first)
+            const sortedHistory = [...history].sort((a, b) =>
+              new Date(b.effectiveFrom) - new Date(a.effectiveFrom)
+            );
+
+            container.innerHTML = `
+              <div class="mt-2 ps-2 border-start border-primary" style="font-size: 0.75rem;">
+                ${sortedHistory.map((entry, index) => {
+                  const fromDate = new Date(entry.effectiveFrom).toLocaleDateString();
+                  const toDate = entry.effectiveTo
+                    ? new Date(entry.effectiveTo).toLocaleDateString()
+                    : null;
+                  const isCurrent = !entry.effectiveTo;
+
+                  return `
+                    <div class="mb-1 ${isCurrent ? 'fw-bold text-primary' : 'text-muted'}">
+                      <i class="bi bi-${isCurrent ? 'circle-fill' : 'circle'} me-1" style="font-size: 0.5rem;"></i>
+                      ${entry.percentage}% from ${fromDate}${toDate ? ` to ${toDate}` : ' (current)'}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `;
+          }
+        } else {
+          container.innerHTML = '<div class="text-muted small py-2">Unable to load history</div>';
+        }
+      } catch (error) {
+        console.error('Error loading percentage history:', error);
+        container.innerHTML = '<div class="text-danger small py-2">Error loading history</div>';
+      }
+    } else {
+      // Hide history
+      container.style.display = 'none';
+      button.innerHTML = '<i class="bi bi-clock-history me-1"></i>View history';
+    }
   }
 
   showToast(message, type = "info") {

@@ -1087,10 +1087,15 @@ class FinancialReportsComponent {
     `;
 
     this.investors.forEach((investor) => {
+      // Try to get percentage from report's investorTransactions (snapshot) first
+      const investorTransaction = this.currentReport?.investorTransactions?.find(
+        (t) => t.investorId === investor.investorId,
+      );
+      // Fall back to live investor data if no snapshot exists
       const propertyData = investor.properties.find(
         (p) => p.propertyId === this.selectedProperty,
       );
-      const percentage = propertyData ? propertyData.percentage : 0;
+      const percentage = investorTransaction?.percentage ?? (propertyData ? propertyData.percentage : 0);
       const profitShare = (netProfit * percentage) / 100;
 
       // Calculate paid amount (expenses paid by this investor)
@@ -3894,10 +3899,15 @@ class FinancialReportsComponent {
             // Calculate dynamically (for open reports)
             const investor = investorDataSource[idx];
             investorName = investor.name;
+            // Try to get percentage from report's investorTransactions (snapshot) first
+            const investorTransaction = this.currentReport?.investorTransactions?.find(
+              (t) => t.investorId === investor.investorId,
+            );
+            // Fall back to live investor data if no snapshot exists
             const propertyData = investor.properties.find(
               (p) => p.propertyId === this.selectedProperty,
             );
-            percentage = propertyData ? propertyData.percentage : 0;
+            percentage = investorTransaction?.percentage ?? (propertyData ? propertyData.percentage : 0);
             investorShare = (netProfit * percentage) / 100;
 
             expensesPaid = this.currentReport.expenses
