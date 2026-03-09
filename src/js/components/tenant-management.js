@@ -36,6 +36,11 @@ class TenantManagementComponent {
     this.loadProperties();
   }
 
+  // Call this when section becomes visible to ensure listeners are attached
+  ensureEventListeners() {
+    this.setupEventListeners();
+  }
+
   setupAdminControls() {
     // Hide/disable upload button for non-admin users
     const uploadBtn = document.querySelector(
@@ -421,26 +426,22 @@ class TenantManagementComponent {
       // Show loading skeleton while fetching data
       this.showLoadingSkeleton();
 
-      // Load all tenants and filter for those with no properties
+      // Use server-side filter for unassigned tenants (much faster)
       const response = await API.get(
-        `${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`,
+        `${API_CONFIG.ENDPOINTS.TENANTS}?unassigned=true&limit=10000`,
       );
       const result = await response.json();
 
       // Handle different response formats
-      let allTenants = [];
       if (result.success && result.tenants) {
-        allTenants = result.tenants;
+        this.tenants = result.tenants;
       } else if (result.tenants && Array.isArray(result.tenants)) {
-        allTenants = result.tenants;
+        this.tenants = result.tenants;
       } else if (Array.isArray(result)) {
-        allTenants = result;
+        this.tenants = result;
+      } else {
+        this.tenants = [];
       }
-
-      // Filter for tenants with no properties or empty properties array
-      this.tenants = allTenants.filter((tenant) => {
-        return !tenant.properties || tenant.properties.length === 0;
-      });
 
       console.log(`✅ Found ${this.tenants.length} unassigned tenants`);
 
@@ -476,29 +477,32 @@ class TenantManagementComponent {
   }
 
   setupEventListeners() {
-    // Add tenant button
+    // Add tenant button - use window.tenantManager to ensure correct instance
     const addTenantBtn = document.getElementById("addTenantBtn");
-    if (addTenantBtn) {
+    if (addTenantBtn && !addTenantBtn._tenantListenerAttached) {
       addTenantBtn.addEventListener("click", () => {
-        this.showAddTenantModal();
+        window.tenantManager?.showAddTenantModal();
       });
+      addTenantBtn._tenantListenerAttached = true;
     }
 
     // Tenant form submission (add/edit)
     const tenantForm = document.getElementById("tenantForm");
-    if (tenantForm) {
+    if (tenantForm && !tenantForm._tenantListenerAttached) {
       tenantForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        this.handleTenantSubmit(e);
+        window.tenantManager?.handleTenantSubmit(e);
       });
+      tenantForm._tenantListenerAttached = true;
     }
 
     // Search functionality
     const searchInput = document.getElementById("tenantSearchInput");
-    if (searchInput) {
+    if (searchInput && !searchInput._tenantListenerAttached) {
       searchInput.addEventListener("input", (e) => {
-        this.filterTenants(e.target.value);
+        window.tenantManager?.filterTenants(e.target.value);
       });
+      searchInput._tenantListenerAttached = true;
     }
 
     // Set up clipboard paste functionality for image URL fields
@@ -1342,6 +1346,11 @@ class TenantManagementComponent {
   }
 
   showAddTenantModal() {
+    // Check if a property is selected
+    if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
+      alert("Please select a property first before adding a tenant");
+      return;
+    }
     this.showTenantModal();
   }
 
@@ -1709,21 +1718,9 @@ class TenantManagementComponent {
   }
 
   async loadPropertiesForSelect() {
-    // First load the cache
+    // Load the cache for property name lookups
     await this.loadPropertiesCache();
-
-    try {
-      this.populatePropertyCheckboxes(
-        this.propertiesCache || { success: false, properties: [] },
-      );
-    } catch (error) {
-      console.error("Error loading properties:", error);
-      const checkboxList = document.getElementById("propertyCheckboxList");
-      if (checkboxList) {
-        checkboxList.innerHTML =
-          '<li class="px-3 py-2 text-danger">Error loading properties</li>';
-      }
-    }
+    // Property dropdown is no longer used - tenant is assigned to currentselected property
   }
 
   async loadInvestorsForSelect() {
@@ -1848,119 +1845,17 @@ class TenantManagementComponent {
   }
 
   populatePropertyCheckboxes(result) {
-    const checkboxList = document.getElementById("propertyCheckboxList");
-    if (!checkboxList || !result.success) return;
-
-    // Clear existing items
-    checkboxList.innerHTML = "";
-
-    if (result.properties.length === 0) {
-      checkboxList.innerHTML =
-        '<li class="px-3 py-2 text-muted">No properties available</li>';
-      return;
-    }
-
-    result.properties.forEach((property) => {
-      const listItem = document.createElement("li");
-      listItem.className = "px-3 py-2";
-
-      const checkboxId = `property-${property.propertyId}`;
-      const isChecked = this.selectedProperties.includes(property.propertyId);
-
-      listItem.innerHTML = `
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="${checkboxId}" 
-                           value="${property.propertyId}" ${isChecked ? "checked" : ""
-        }>
-                    <label class="form-check-label" for="${checkboxId}" style="cursor: pointer;">
-                        <strong>${property.propertyId}</strong> - ${property.address
-        }, ${property.unit}
-                    </label>
-                </div>
-            `;
-
-      // Add click handler to the checkbox
-      const checkbox = listItem.querySelector('input[type="checkbox"]');
-      checkbox.addEventListener("change", (e) => {
-        this.handleCheckboxChange(e.target.value, e.target.checked);
-      });
-
-      // Prevent dropdown from closing when clicking on list items
-      listItem.addEventListener("click", (e) => {
-        e.stopPropagation();
-        // If clicking on the item (not checkbox), toggle the checkbox
-        if (e.target.tagName !== "INPUT") {
-          checkbox.checked = !checkbox.checked;
-          this.handleCheckboxChange(checkbox.value, checkbox.checked);
-        }
-      });
-
-      checkboxList.appendChild(listItem);
-    });
-
-    // Update dropdown text
-    this.updateDropdownText();
+    // Property dropdown checkbox list is no longer used
+    // Tenant is assigned to single selected property
   }
 
   async handleCheckboxChange(propertyId, isChecked) {
-    if (isChecked) {
-      // Add property if not already selected
-      if (!this.selectedProperties.includes(propertyId)) {
-        this.selectedProperties.push(propertyId);
-        // Initialize details if not exists
-        if (!this.selectedPropertiesDetails) {
-          this.selectedPropertiesDetails = [];
-        }
-        // Add property details with defaults
-        if (
-          !this.selectedPropertiesDetails.find(
-            (p) => p.propertyId === propertyId,
-          )
-        ) {
-          this.selectedPropertiesDetails.push({
-            propertyId,
-            isMainTenant: false,
-            roomAssignments: [],
-            room: "",
-            moveinDate: "",
-            moveoutDate: "",
-          });
-        }
-      }
-    } else {
-      // Remove property from selection
-      this.selectedProperties = this.selectedProperties.filter(
-        (id) => id !== propertyId,
-      );
-      if (this.selectedPropertiesDetails) {
-        this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(
-          (p) => p.propertyId !== propertyId,
-        );
-      }
-    }
-
-    this.updateSelectedPropertiesList();
-    this.updateDropdownText();
-    this.checkForChanges();
-
-    // Reload roommate dropdown when properties change
-    const form = document.getElementById("tenantForm");
-    const currentTenantId = form?.getAttribute("data-tenant-id") || null;
-    await this.loadRoommatesForSelect(currentTenantId);
+    // Property dropdown checkbox is no longer used
+    // Tenant is assigned to single selected property
   }
 
   updateDropdownText() {
-    const dropdownText = document.getElementById("propertyDropdownText");
-    if (!dropdownText) return;
-
-    const count = this.selectedProperties.length;
-    if (count === 0) {
-      dropdownText.textContent = "Select properties...";
-    } else if (count === 1) {
-      dropdownText.textContent = "1 property selected";
-    } else {
-      dropdownText.textContent = `${count} properties selected`;
-    }
+    // Property dropdown is no longer used - tenant is assigned to single property
   }
 
   // Keep old function for backward compatibility but redirect to new logic
@@ -1972,24 +1867,8 @@ class TenantManagementComponent {
   }
 
   removePropertyFromTenant(propertyId) {
-    this.selectedProperties = this.selectedProperties.filter(
-      (id) => id !== propertyId,
-    );
-    // Also remove from selectedPropertiesDetails to keep arrays in sync
-    if (this.selectedPropertiesDetails) {
-      this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(
-        (p) => p.propertyId !== propertyId,
-      );
-    }
-    this.updateSelectedPropertiesList();
-    this.updateDropdownText();
-    this.checkForChanges();
-
-    // Update checkbox to reflect removal
-    const checkbox = document.getElementById(`property-${propertyId}`);
-    if (checkbox) {
-      checkbox.checked = false;
-    }
+    // Property removal is no longer supported - tenant is assigned to single property
+    console.warn("removePropertyFromTenant is deprecated - tenant is assigned to single property");
   }
 
   updateSelectedPropertiesList() {
@@ -2007,7 +1886,7 @@ class TenantManagementComponent {
 
     if (this.selectedProperties.length === 0) {
       listContainer.innerHTML =
-        '<div class="text-muted">No properties assigned</div>';
+        '<div class="text-muted">No property assigned. Please select a property first.</div>';
       hiddenInput.value = "";
     } else {
       let html = "";
@@ -2107,11 +1986,6 @@ class TenantManagementComponent {
                                 <h6 class="card-title mb-0">
                                     <i class="bi bi-building me-2"></i>${propertyTitle}
                                 </h6>
-                                <button type="button" class="btn btn-sm btn-outline-danger"
-                                        onclick="tenantManager.removePropertyFromTenant('${propertyId}')"
-                                        title="Remove property">
-                                    <i class="bi bi-x"></i>
-                                </button>
                             </div>
 
                             <!-- Main Tenant Checkbox -->
@@ -2481,6 +2355,12 @@ class TenantManagementComponent {
       // Validate required fields
       if (!tenantData.name) {
         alert("Please fill in the required field: Name");
+        return;
+      }
+
+      // Validate property is assigned
+      if (!tenantData.properties || tenantData.properties.length === 0) {
+        alert("Please select a property before adding a tenant");
         return;
       }
 

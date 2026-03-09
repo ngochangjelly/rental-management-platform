@@ -153,6 +153,8 @@ class DashboardController {
           console.log(
             "♻️ Using preloaded TenantManagementComponent - data already available",
           );
+          // Ensure event listeners are attached now that section is visible
+          this.components.tenantManagement.ensureEventListeners();
         }
         break;
       case "contracts":
