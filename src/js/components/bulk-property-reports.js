@@ -1348,7 +1348,7 @@ class BulkPropertyReportsComponent {
           settlement.propertyBreakdown.push({
             propertyId: propertyId,
             propertyName: propertyData
-              ? propertyData.address || propertyId
+              ? [propertyData.unit, propertyData.address].filter(Boolean).join(', ') || propertyId
               : propertyId,
             amount: settlementAmount,
             vndBreakdown: vndBreakdown, // Add VND reference info
@@ -1532,7 +1532,7 @@ class BulkPropertyReportsComponent {
           settlement.propertyBreakdown.push({
             propertyId: propertyId,
             propertyName: propertyData
-              ? propertyData.address || propertyId
+              ? [propertyData.unit, propertyData.address].filter(Boolean).join(', ') || propertyId
               : propertyId,
             amount: settlementAmount,
           });
