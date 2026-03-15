@@ -655,11 +655,17 @@ class ContractManagementComponent {
 
   // Restore checkbox selections based on the current selectedTenantB array
   restoreTenantBCheckboxSelections() {
-    if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
+    if (
+      !Array.isArray(this.selectedTenantB) ||
+      this.selectedTenantB.length === 0
+    ) {
       return;
     }
 
-    console.log("🔄 Restoring tenant B checkbox selections:", this.selectedTenantB.map(t => t.name));
+    console.log(
+      "🔄 Restoring tenant B checkbox selections:",
+      this.selectedTenantB.map((t) => t.name),
+    );
 
     // Set flag to prevent change handlers from clearing selectedTenantB
     this.isRestoringCheckboxes = true;
@@ -742,7 +748,9 @@ class ContractManagementComponent {
   handleTenantBCheckboxChange() {
     // Skip if we're programmatically restoring checkbox selections
     if (this.isRestoringCheckboxes) {
-      console.log("⏭️ Skipping handleTenantBCheckboxChange (restoring checkboxes)");
+      console.log(
+        "⏭️ Skipping handleTenantBCheckboxChange (restoring checkboxes)",
+      );
       return;
     }
 
@@ -1111,7 +1119,9 @@ class ContractManagementComponent {
           : null;
         // Store unit number from selected property
         if (this.selectedPropertyId && this.properties) {
-          const selectedProperty = this.properties.find(p => p.propertyId === this.selectedPropertyId);
+          const selectedProperty = this.properties.find(
+            (p) => p.propertyId === this.selectedPropertyId,
+          );
           this.contractData.unit = selectedProperty?.unit || "";
         }
         console.log(`🔍 Selected property ID: "${this.selectedPropertyId}"`);
@@ -2124,16 +2134,16 @@ class ContractManagementComponent {
 
     if (partialDepositCheckbox) {
       partialDepositCheckbox.addEventListener("change", () => {
-        this.contractData.partialDepositReceived = partialDepositCheckbox.checked;
+        this.contractData.partialDepositReceived =
+          partialDepositCheckbox.checked;
         // Mutual exclusion: uncheck full payment if partial deposit is checked
         if (partialDepositCheckbox.checked && fullPaymentCheckbox) {
           fullPaymentCheckbox.checked = false;
           this.contractData.fullPaymentReceived = false;
         }
         if (partialDepositAmountContainer) {
-          partialDepositAmountContainer.style.display = partialDepositCheckbox.checked
-            ? "block"
-            : "none";
+          partialDepositAmountContainer.style.display =
+            partialDepositCheckbox.checked ? "block" : "none";
         }
         if (!partialDepositCheckbox.checked) {
           this.contractData.partialDepositAmount = "";
@@ -2147,7 +2157,8 @@ class ContractManagementComponent {
 
     if (partialDepositAmountInput) {
       partialDepositAmountInput.addEventListener("input", () => {
-        this.contractData.partialDepositAmount = partialDepositAmountInput.value;
+        this.contractData.partialDepositAmount =
+          partialDepositAmountInput.value;
         this.updateContractPreview();
       });
     }
@@ -2441,19 +2452,36 @@ class ContractManagementComponent {
 
     // Handle multiple Tenant B selections
     // Sync selectedTenantB from checkboxes if it's empty but checkboxes are checked
-    if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
-      const checkedBoxes = document.querySelectorAll(".tenant-b-checkbox:checked");
+    if (
+      !Array.isArray(this.selectedTenantB) ||
+      this.selectedTenantB.length === 0
+    ) {
+      const checkedBoxes = document.querySelectorAll(
+        ".tenant-b-checkbox:checked",
+      );
       if (checkedBoxes.length > 0) {
-        console.log("⚠️ Preview - selectedTenantB is empty but checkboxes are checked, syncing...");
+        console.log(
+          "⚠️ Preview - selectedTenantB is empty but checkboxes are checked, syncing...",
+        );
         this.selectedTenantB = [];
         checkedBoxes.forEach((checkbox) => {
           const dataType = checkbox.getAttribute("data-type");
           const index = parseInt(checkbox.getAttribute("data-index"));
 
           let tenant = null;
-          if (dataType === "investor" && !isNaN(index) && index >= 0 && index < this.investors.length) {
+          if (
+            dataType === "investor" &&
+            !isNaN(index) &&
+            index >= 0 &&
+            index < this.investors.length
+          ) {
             tenant = this.investors[index];
-          } else if (dataType === "tenant" && !isNaN(index) && index >= 0 && index < this.tenants.length) {
+          } else if (
+            dataType === "tenant" &&
+            !isNaN(index) &&
+            index >= 0 &&
+            index < this.tenants.length
+          ) {
             tenant = this.tenants[index];
           }
 
@@ -2517,7 +2545,7 @@ class ContractManagementComponent {
     preview.innerHTML = `
             <div class="contract-content" style="font-family: 'Times New Roman', serif; line-height: 1.6; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h2 style="font-weight: bold; margin-bottom: 10px;">HOUSE SHARING AGREEMENT</h2>
+                    <h2 style="font-weight: bold; margin-bottom: 10px;">TENANCY AGREEMENT</h2>
                     <p><strong>Full address:</strong> ${propertyAddress}</p>
                     <p><strong>Room:</strong> ${this.formatRoomType(
                       this.contractData.room,
@@ -3216,25 +3244,45 @@ class ContractManagementComponent {
       this.syncFormValuesToContractData();
 
       // Sync selectedTenantB from checkboxes if it's empty but checkboxes are checked
-      if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
-        const checkedBoxes = document.querySelectorAll(".tenant-b-checkbox:checked");
+      if (
+        !Array.isArray(this.selectedTenantB) ||
+        this.selectedTenantB.length === 0
+      ) {
+        const checkedBoxes = document.querySelectorAll(
+          ".tenant-b-checkbox:checked",
+        );
         if (checkedBoxes.length > 0) {
-          console.log("⚠️ PDF Export - syncing selectedTenantB from checkboxes at start...");
+          console.log(
+            "⚠️ PDF Export - syncing selectedTenantB from checkboxes at start...",
+          );
           this.selectedTenantB = [];
           checkedBoxes.forEach((checkbox) => {
             const dataType = checkbox.getAttribute("data-type");
             const index = parseInt(checkbox.getAttribute("data-index"));
 
             let tenant = null;
-            if (dataType === "investor" && !isNaN(index) && index >= 0 && index < this.investors.length) {
+            if (
+              dataType === "investor" &&
+              !isNaN(index) &&
+              index >= 0 &&
+              index < this.investors.length
+            ) {
               tenant = this.investors[index];
-            } else if (dataType === "tenant" && !isNaN(index) && index >= 0 && index < this.tenants.length) {
+            } else if (
+              dataType === "tenant" &&
+              !isNaN(index) &&
+              index >= 0 &&
+              index < this.tenants.length
+            ) {
               tenant = this.tenants[index];
             }
 
             if (tenant) {
               this.selectedTenantB.push(tenant);
-              console.log("✅ PDF Export - synced tenant for filename:", tenant.name);
+              console.log(
+                "✅ PDF Export - synced tenant for filename:",
+                tenant.name,
+              );
             }
           });
         }
@@ -3436,7 +3484,8 @@ class ContractManagementComponent {
               this.selectedTenantA.passportNumber ||
               this.selectedTenantA.passport ||
               "",
-            fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
+            fin:
+              this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
             email: this.selectedTenantA.email || "",
           }
         : customTenantAText && customTenantAText.value.trim()
@@ -3495,7 +3544,7 @@ class ContractManagementComponent {
           : this.contractData.address || "[Property Address]";
 
       // Header
-      addText("HOUSE SHARING AGREEMENT", {
+      addText("TENANCY AGREEMENT", {
         fontSize: 16,
         bold: true,
         center: true,
@@ -4016,7 +4065,7 @@ class ContractManagementComponent {
             <div style="padding: 0; margin: 0; font-family: 'Times New Roman', serif; line-height: 1.8; color: #000;">
                 <!-- Header Section -->
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">HOUSE SHARING AGREEMENT</h2>
+                    <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">TENANCY AGREEMENT</h2>
                     <p style="margin-bottom: 8px;"><strong>Full address:</strong> ${
                       propertyAddressForPDF
                     }</p>
@@ -4617,7 +4666,8 @@ class ContractManagementComponent {
       "contractPartialDepositAmount",
     );
     if (partialDepositAmountElement) {
-      this.contractData.partialDepositAmount = partialDepositAmountElement.value;
+      this.contractData.partialDepositAmount =
+        partialDepositAmountElement.value;
     }
 
     const pestControlElement = document.getElementById("pestControlClause");
