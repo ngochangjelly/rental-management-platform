@@ -34,6 +34,7 @@ class ContractManagementComponent {
       paymentMethod: "BANK_TRANSFER",
       fullPaymentReceived: false,
       pestControlClause: false,
+      airconFreeOfCharge: false,
     };
 
     // Initialize template service
@@ -2132,6 +2133,15 @@ class ContractManagementComponent {
       });
     }
 
+    // Handle the aircon free of charge checkbox
+    const airconFreeOfChargeCheckbox = document.getElementById("airconFreeOfCharge");
+    if (airconFreeOfChargeCheckbox) {
+      airconFreeOfChargeCheckbox.addEventListener("change", () => {
+        this.contractData.airconFreeOfCharge = airconFreeOfChargeCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
     if (partialDepositCheckbox) {
       partialDepositCheckbox.addEventListener("change", () => {
         this.contractData.partialDepositReceived =
@@ -2733,7 +2743,7 @@ class ContractManagementComponent {
                                 this.contractData.fullPaymentReceived
                                   ? "n"
                                   : "p"
-                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>`
+                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>`
                             : ""
                         }
 
@@ -3739,7 +3749,7 @@ class ContractManagementComponent {
         "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
         "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
         "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
-        "For a 6-month agreement, SGD$100 will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$200 will be deducted. This applies only to rooms with an air-conditioner.",
+        `For a 6-month agreement, SGD$100 will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$200 will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}`,
         "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
         "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
         "No visitors without permission from Tenant B to Tenant A.",
@@ -4222,7 +4232,7 @@ class ContractManagementComponent {
 
                         <p style="margin-bottom: 15px;"><strong>o)</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
 
-                        ${this.hasAircon() ? '<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.</p>' : ""}
+                        ${this.hasAircon() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>` : ""}
 
                         <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "q" : "p"})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
 
@@ -4675,6 +4685,11 @@ class ContractManagementComponent {
       this.contractData.pestControlClause = pestControlElement.checked;
     }
 
+    const airconFreeOfChargeElement = document.getElementById("airconFreeOfCharge");
+    if (airconFreeOfChargeElement) {
+      this.contractData.airconFreeOfCharge = airconFreeOfChargeElement.checked;
+    }
+
     console.log("✅ Synced form values to contractData:", {
       moveInDate: this.contractData.moveInDate,
       moveOutDate: this.contractData.moveOutDate,
@@ -4757,6 +4772,12 @@ class ContractManagementComponent {
       contractData.pestControlClause = pestControlElement.checked;
     }
 
+    // Get aircon free of charge status
+    const airconFreeOfChargeElement = document.getElementById("airconFreeOfCharge");
+    if (airconFreeOfChargeElement) {
+      contractData.airconFreeOfCharge = airconFreeOfChargeElement.checked;
+    }
+
     return contractData;
   }
 
@@ -4787,6 +4808,8 @@ class ContractManagementComponent {
         const element =
           field === "pestControlClause"
             ? document.getElementById("pestControlClause")
+            : field === "airconFreeOfCharge"
+            ? document.getElementById("airconFreeOfCharge")
             : document.getElementById(
                 `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
               );
@@ -4809,6 +4832,42 @@ class ContractManagementComponent {
           .partialDepositReceived
           ? "block"
           : "none";
+      }
+
+      // Restore property selection so tenant dropdowns are populated before loading tenants.
+      // Setting .value directly doesn't fire the change event, so we must manually resolve
+      // selectedPropertyId and load tenants here.
+      if (this.contractData.address) {
+        const addressSelect = document.getElementById("contractAddress");
+        if (addressSelect) {
+          const matchingOption = Array.from(addressSelect.options).find(
+            (opt) => opt.value === this.contractData.address,
+          );
+          if (matchingOption) {
+            this.selectedPropertyId = matchingOption.dataset.propertyId || null;
+          } else if (this.properties) {
+            // Fallback: match against properties array
+            const matchingProperty = this.properties.find((p) => {
+              const baseAddress = p.address || p.location || p.name || "";
+              const fullAddress = p.unit
+                ? `${baseAddress}, ${p.unit}`
+                : baseAddress;
+              return fullAddress === this.contractData.address;
+            });
+            if (matchingProperty) {
+              this.selectedPropertyId =
+                matchingProperty.propertyId ||
+                matchingProperty.id ||
+                matchingProperty._id ||
+                null;
+            }
+          }
+        }
+
+        if (this.selectedPropertyId) {
+          await this.loadTenants();
+          this.populateTenantsDropdown();
+        }
       }
 
       // Load tenant selections if available
@@ -5028,6 +5087,7 @@ class ContractManagementComponent {
         paymentMethod: "BANK_TRANSFER",
         fullPaymentReceived: false,
         pestControlClause: false,
+        airconFreeOfCharge: false,
       };
 
       // Reset tenant selections
@@ -5135,6 +5195,12 @@ class ContractManagementComponent {
     const pestControlElement = document.getElementById("pestControlClause");
     if (pestControlElement) {
       pestControlElement.checked = false;
+    }
+
+    // Reset aircon free of charge checkbox
+    const airconFreeOfChargeElement = document.getElementById("airconFreeOfCharge");
+    if (airconFreeOfChargeElement) {
+      airconFreeOfChargeElement.checked = false;
     }
 
     // Reset new tenant fields

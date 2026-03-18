@@ -214,6 +214,9 @@ i18next.init({
           pestControlClause: "Pest Control Clause",
           pestControlClauseDesc:
             "If checked, adds a pest infestation liability clause to the contract",
+          airconFreeOfCharge: "Aircon Servicing Free of Charge",
+          airconFreeOfChargeDesc:
+            "If checked, the aircon deduction clause is kept in the contract but the deduction is waived for this tenant as a special arrangement",
           additionalClauses: "Additional Clauses",
           addClause: "Add Clause",
           signatures: "Signatures",
@@ -455,6 +458,9 @@ i18next.init({
           pestControlClause: "Điều khoản kiểm soát côn trùng",
           pestControlClauseDesc:
             "Nếu được chọn, thêm điều khoản trách nhiệm về côn trùng vào hợp đồng",
+          airconFreeOfCharge: "Miễn phí dịch vụ bảo trì điều hòa",
+          airconFreeOfChargeDesc:
+            "Nếu được chọn, điều khoản khấu trừ điều hòa vẫn giữ trong hợp đồng nhưng khoản khấu trừ được miễn cho người thuê này như một thỏa thuận đặc biệt",
           additionalClauses: "Điều khoản bổ sung",
           addClause: "Thêm điều khoản",
           signatures: "Chữ ký",
