@@ -225,6 +225,7 @@ i18next.init({
           upload: "Upload",
           noSignatureUploaded: "No signature uploaded",
           contractPreview: "Contract Preview",
+          downloadTemplate: "Download Template",
           contractPreviewPlaceholder:
             "Contract preview will appear here after filling in the details",
           addNewTenant: "+ Add New Tenant",
@@ -469,6 +470,7 @@ i18next.init({
           upload: "Tải lên",
           noSignatureUploaded: "Chưa tải chữ ký",
           contractPreview: "Xem trước hợp đồng",
+          downloadTemplate: "Tải mẫu hợp đồng",
           contractPreviewPlaceholder:
             "Bản xem trước hợp đồng sẽ xuất hiện ở đây sau khi điền thông tin",
           addNewTenant: "+ Thêm người thuê mới",

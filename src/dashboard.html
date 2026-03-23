@@ -190,9 +190,10 @@
           top: 0;
           height: 100vh;
           z-index: 100;
-          transition: width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      min-width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition:
+            width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+            min-width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+            transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
           overflow-x: hidden;
           overflow-y: auto;
         }
@@ -211,8 +212,9 @@
         .sidebar .ios-segmented-control,
         .sidebar .badge {
           opacity: 1;
-          transition: opacity 0.25s cubic-bezier(0.25, 0.1, 0.25, 1) 0.1s,
-                      transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition:
+            opacity 0.25s cubic-bezier(0.25, 0.1, 0.25, 1) 0.1s,
+            transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
           white-space: nowrap;
         }
 
@@ -225,8 +227,9 @@
         .sidebar.collapsed .badge {
           opacity: 0;
           transform: translateX(-10px);
-          transition: opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition:
+            opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1),
+            transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
           pointer-events: none;
           position: absolute;
         }
@@ -298,9 +301,10 @@
           margin-left: 280px !important;
           width: calc(100% - 280px) !important;
           max-width: calc(100% - 280px) !important;
-          transition: margin-left 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      max-width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition:
+            margin-left 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+            width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+            max-width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
         .sidebar.collapsed ~ .main-content,
@@ -341,7 +345,9 @@
           white-space: nowrap;
           opacity: 0;
           visibility: hidden;
-          transition: opacity 0.2s ease, visibility 0.2s ease;
+          transition:
+            opacity 0.2s ease,
+            visibility 0.2s ease;
           margin-left: 10px;
           z-index: 1000;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -3579,7 +3585,7 @@
                 <div class="col-lg-6">
                   <div class="card mb-4">
                     <div class="card-header">
-                      <h5 class="mb-0">Upload Tenancy Agreement</h5>
+                      <h5 class="mb-0">Upload House Sharing</h5>
                     </div>
                     <div class="card-body">
                       <div
@@ -3891,14 +3897,18 @@
                     </button>
                     <button
                       class="btn btn-outline-info btn-sm"
-                      onclick="tenantManager.copyRegisteredAndPendingTenants(true)"
+                      onclick="
+                        tenantManager.copyRegisteredAndPendingTenants(true)
+                      "
                       title="Copy registered and pending tenants with move-in date"
                     >
                       <i class="bi bi-clipboard-plus"></i> Reg & Pending
                     </button>
                     <button
                       class="btn btn-outline-secondary btn-sm"
-                      onclick="tenantManager.copyRegisteredAndPendingTenants(false)"
+                      onclick="
+                        tenantManager.copyRegisteredAndPendingTenants(false)
+                      "
                       title="Copy registered and pending tenants without move-in date"
                     >
                       <i class="bi bi-clipboard"></i> Reg & Pending (Simple)
@@ -5131,7 +5141,8 @@
                             class="form-check-label"
                             for="airconFreeOfCharge"
                           >
-                            <strong data-i18n="createContract.airconFreeOfCharge"
+                            <strong
+                              data-i18n="createContract.airconFreeOfCharge"
                               >Aircon Servicing Free of Charge</strong
                             >
                           </label>
@@ -5254,13 +5265,26 @@
                 <!-- Contract Preview -->
                 <div class="col-lg-8">
                   <div class="card">
-                    <div class="card-header">
+                    <div
+                      class="card-header d-flex justify-content-between align-items-center"
+                    >
                       <h5
                         class="mb-0"
                         data-i18n="createContract.contractPreview"
                       >
                         Contract Preview
                       </h5>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        onclick="contractManager.downloadContractTemplate()"
+                        title="Download blank contract template for editing in Word"
+                      >
+                        <i class="bi bi-download me-1"></i>
+                        <span data-i18n="createContract.downloadTemplate"
+                          >Download Template</span
+                        >
+                      </button>
                     </div>
                     <div
                       class="card-body"
@@ -6362,7 +6386,9 @@
 
               <!-- Chart Area -->
               <div class="card mb-4">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div
+                  class="card-header bg-white d-flex justify-content-between align-items-center"
+                >
                   <h6 class="mb-0">
                     <i class="bi bi-graph-up me-2"></i>
                     <span data-i18n="investorProfitChart.profitChart"
@@ -6521,22 +6547,22 @@
                     </select>
                     <small class="text-muted mt-2 d-block">
                       <i class="bi bi-info-circle me-1"></i>
-                      Thông tin tài khoản ngân hàng sẽ được lấy từ cài đặt Settlement của căn hộ
+                      Thông tin tài khoản ngân hàng sẽ được lấy từ cài đặt
+                      Settlement của căn hộ
                     </small>
                   </div>
                 </div>
 
                 <!-- Prompt Preview -->
                 <div class="card">
-                  <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                  <div
+                    class="card-header bg-success text-white d-flex justify-content-between align-items-center"
+                  >
                     <h5 class="mb-0">
                       <i class="bi bi-eye me-2"></i>
                       <span id="activePromptTitle">Xem trước tin nhắn</span>
                     </h5>
-                    <button
-                      id="copyPromptBtn"
-                      class="btn btn-light btn-sm"
-                    >
+                    <button id="copyPromptBtn" class="btn btn-light btn-sm">
                       <i class="bi bi-clipboard me-1"></i>Copy tin nhắn
                     </button>
                   </div>
@@ -6546,7 +6572,14 @@
                       class="form-control"
                       rows="18"
                       readonly
-                      style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; background-color: #f8f9fa;"
+                      style="
+                        font-family:
+                          -apple-system, BlinkMacSystemFont,
+                          &quot;Segoe UI&quot;, Roboto, sans-serif;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        background-color: #f8f9fa;
+                      "
                     ></textarea>
                   </div>
                 </div>
@@ -6788,7 +6821,9 @@
         function updateNavLinkTooltips() {
           const navLinks = sidebar.querySelectorAll(".nav-link");
           navLinks.forEach((link) => {
-            const textSpan = link.querySelector("span[data-i18n]") || link.querySelector("span");
+            const textSpan =
+              link.querySelector("span[data-i18n]") ||
+              link.querySelector("span");
             if (textSpan) {
               link.setAttribute("data-tooltip", textSpan.textContent.trim());
             }
@@ -6808,9 +6843,11 @@
           }
 
           // Dispatch custom event for any components that need to respond
-          window.dispatchEvent(new CustomEvent("sidebarToggle", {
-            detail: { collapsed: isCollapsed }
-          }));
+          window.dispatchEvent(
+            new CustomEvent("sidebarToggle", {
+              detail: { collapsed: isCollapsed },
+            }),
+          );
         }
 
         // Restore saved state
@@ -6837,8 +6874,12 @@
         window.addEventListener("languageChanged", updateNavLinkTooltips);
 
         // Handle keyboard shortcut (Ctrl/Cmd + B)
-        document.addEventListener("keydown", function(e) {
-          if ((e.ctrlKey || e.metaKey) && e.key === "b" && window.innerWidth >= 768) {
+        document.addEventListener("keydown", function (e) {
+          if (
+            (e.ctrlKey || e.metaKey) &&
+            e.key === "b" &&
+            window.innerWidth >= 768
+          ) {
             e.preventDefault();
             toggleSidebar();
           }
@@ -6846,7 +6887,7 @@
       }
 
       // Call the initialization function after DOMContentLoaded
-      document.addEventListener("DOMContentLoaded", function() {
+      document.addEventListener("DOMContentLoaded", function () {
         initializeDesktopSidebarCollapse();
       });
 
@@ -7165,7 +7206,12 @@
           </div>
           <form id="propertyForm">
             <!-- Hidden field to store property image URL -->
-            <input type="hidden" id="propertyImageHidden" name="propertyImage" value="" />
+            <input
+              type="hidden"
+              id="propertyImageHidden"
+              name="propertyImage"
+              value=""
+            />
             <div class="modal-body">
               <!-- Required Fields Section -->
               <div class="mb-4">
@@ -9031,7 +9077,7 @@
                 </div>
 
                 <!-- Room & Tenancy Details - HIDDEN: Now managed per property in Room Assignments section -->
-                <div style="display: none;">
+                <div style="display: none">
                   <div class="row">
                     <div class="col-md-4 mb-3">
                       <label for="tenantRoom" class="form-label">
@@ -9045,14 +9091,30 @@
                         <option value="compartment_1">Compartment 1</option>
                         <option value="compartment_2">Compartment 2</option>
                         <option value="store">Store Room</option>
-                        <option value="common_1_pax">Common Room (1 Pax)</option>
-                        <option value="common_2_pax">Common Room (2 Pax)</option>
-                        <option value="small_single_1_pax">Small Single (1 Pax)</option>
-                        <option value="small_single_2_pax">Small Single (2 Pax)</option>
-                        <option value="big_single_1_pax">Big Single (1 Pax)</option>
-                        <option value="big_single_2_pax">Big Single (2 Pax)</option>
-                        <option value="single_1_pax_no_aircon">Single 1 Pax (No Aircon)</option>
-                        <option value="single_2_pax_no_aircon">Single 2 Pax (No Aircon)</option>
+                        <option value="common_1_pax">
+                          Common Room (1 Pax)
+                        </option>
+                        <option value="common_2_pax">
+                          Common Room (2 Pax)
+                        </option>
+                        <option value="small_single_1_pax">
+                          Small Single (1 Pax)
+                        </option>
+                        <option value="small_single_2_pax">
+                          Small Single (2 Pax)
+                        </option>
+                        <option value="big_single_1_pax">
+                          Big Single (1 Pax)
+                        </option>
+                        <option value="big_single_2_pax">
+                          Big Single (2 Pax)
+                        </option>
+                        <option value="single_1_pax_no_aircon">
+                          Single 1 Pax (No Aircon)
+                        </option>
+                        <option value="single_2_pax_no_aircon">
+                          Single 2 Pax (No Aircon)
+                        </option>
                       </select>
                     </div>
                     <div class="col-md-4 mb-3">
@@ -9087,12 +9149,17 @@
                           id="tenantIsMainTenant"
                           name="isMainTenant"
                         />
-                        <label class="form-check-label" for="tenantIsMainTenant">
-                          <i class="bi bi-star me-1"></i><strong>Main Tenant</strong>
+                        <label
+                          class="form-check-label"
+                          for="tenantIsMainTenant"
+                        >
+                          <i class="bi bi-star me-1"></i
+                          ><strong>Main Tenant</strong>
                         </label>
                       </div>
                       <div class="form-text ms-4">
-                        Main tenant for this property (signature required for contracts)
+                        Main tenant for this property (signature required for
+                        contracts)
                       </div>
                     </div>
                   </div>
@@ -9395,7 +9462,9 @@
           <div class="modal-header">
             <h5 class="modal-title" id="fullscreenChartModalLabel">
               <i class="bi bi-graph-up me-2"></i>
-              <span data-i18n="investorProfitChart.profitChart">Profit Chart</span>
+              <span data-i18n="investorProfitChart.profitChart"
+                >Profit Chart</span
+              >
             </h5>
             <button
               type="button"
@@ -9405,7 +9474,10 @@
             ></button>
           </div>
           <div class="modal-body">
-            <div id="fullscreenChartContainer" style="height: calc(100vh - 120px);">
+            <div
+              id="fullscreenChartContainer"
+              style="height: calc(100vh - 120px)"
+            >
               <canvas id="fullscreenProfitChart"></canvas>
             </div>
           </div>

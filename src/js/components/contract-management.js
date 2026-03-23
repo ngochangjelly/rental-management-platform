@@ -2134,10 +2134,12 @@ class ContractManagementComponent {
     }
 
     // Handle the aircon free of charge checkbox
-    const airconFreeOfChargeCheckbox = document.getElementById("airconFreeOfCharge");
+    const airconFreeOfChargeCheckbox =
+      document.getElementById("airconFreeOfCharge");
     if (airconFreeOfChargeCheckbox) {
       airconFreeOfChargeCheckbox.addEventListener("change", () => {
-        this.contractData.airconFreeOfCharge = airconFreeOfChargeCheckbox.checked;
+        this.contractData.airconFreeOfCharge =
+          airconFreeOfChargeCheckbox.checked;
         this.updateContractPreview();
       });
     }
@@ -2555,7 +2557,7 @@ class ContractManagementComponent {
     preview.innerHTML = `
             <div class="contract-content" style="font-family: 'Times New Roman', serif; line-height: 1.6; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h2 style="font-weight: bold; margin-bottom: 10px;">TENANCY AGREEMENT</h2>
+                    <h2 style="font-weight: bold; margin-bottom: 10px;">HOUSE SHARING AGREEMENT</h2>
                     <p><strong>Full address:</strong> ${propertyAddress}</p>
                     <p><strong>Room:</strong> ${this.formatRoomType(
                       this.contractData.room,
@@ -3554,7 +3556,7 @@ class ContractManagementComponent {
           : this.contractData.address || "[Property Address]";
 
       // Header
-      addText("TENANCY AGREEMENT", {
+      addText("HOUSE SHARING AGREEMENT", {
         fontSize: 16,
         bold: true,
         center: true,
@@ -4075,7 +4077,7 @@ class ContractManagementComponent {
             <div style="padding: 0; margin: 0; font-family: 'Times New Roman', serif; line-height: 1.8; color: #000;">
                 <!-- Header Section -->
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">TENANCY AGREEMENT</h2>
+                    <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">HOUSE SHARING AGREEMENT</h2>
                     <p style="margin-bottom: 8px;"><strong>Full address:</strong> ${
                       propertyAddressForPDF
                     }</p>
@@ -4685,7 +4687,8 @@ class ContractManagementComponent {
       this.contractData.pestControlClause = pestControlElement.checked;
     }
 
-    const airconFreeOfChargeElement = document.getElementById("airconFreeOfCharge");
+    const airconFreeOfChargeElement =
+      document.getElementById("airconFreeOfCharge");
     if (airconFreeOfChargeElement) {
       this.contractData.airconFreeOfCharge = airconFreeOfChargeElement.checked;
     }
@@ -4773,7 +4776,8 @@ class ContractManagementComponent {
     }
 
     // Get aircon free of charge status
-    const airconFreeOfChargeElement = document.getElementById("airconFreeOfCharge");
+    const airconFreeOfChargeElement =
+      document.getElementById("airconFreeOfCharge");
     if (airconFreeOfChargeElement) {
       contractData.airconFreeOfCharge = airconFreeOfChargeElement.checked;
     }
@@ -4809,10 +4813,10 @@ class ContractManagementComponent {
           field === "pestControlClause"
             ? document.getElementById("pestControlClause")
             : field === "airconFreeOfCharge"
-            ? document.getElementById("airconFreeOfCharge")
-            : document.getElementById(
-                `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
-              );
+              ? document.getElementById("airconFreeOfCharge")
+              : document.getElementById(
+                  `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
+                );
 
         if (element) {
           if (element.type === "checkbox") {
@@ -5198,7 +5202,8 @@ class ContractManagementComponent {
     }
 
     // Reset aircon free of charge checkbox
-    const airconFreeOfChargeElement = document.getElementById("airconFreeOfCharge");
+    const airconFreeOfChargeElement =
+      document.getElementById("airconFreeOfCharge");
     if (airconFreeOfChargeElement) {
       airconFreeOfChargeElement.checked = false;
     }
@@ -5233,6 +5238,428 @@ class ContractManagementComponent {
 
     if (tenantBSelect) {
       tenantBSelect.value = "";
+    }
+  }
+
+  async downloadContractTemplate() {
+    try {
+      const {
+        Document,
+        Paragraph,
+        TextRun,
+        AlignmentType,
+        Packer,
+        Table,
+        TableRow,
+        TableCell,
+        WidthType,
+        BorderStyle,
+      } = await import("docx");
+
+      const u = "_______________";
+      const uDate = "__________";
+
+      const bold = (text) => new TextRun({ text, bold: true });
+      const normal = (text) => new TextRun({ text });
+      const italic = (text) => new TextRun({ text, italics: true });
+      const blankPara = () => new Paragraph({ text: "" });
+      const centerPara = (children) =>
+        new Paragraph({
+          children: Array.isArray(children) ? children : [children],
+          alignment: AlignmentType.CENTER,
+        });
+      const indentPara = (children) =>
+        new Paragraph({
+          children: Array.isArray(children) ? children : [children],
+          indent: { left: 360 },
+        });
+      const clausePara = (letter, runs) =>
+        new Paragraph({
+          children: [bold(`${letter}) `), ...runs],
+          indent: { left: 360 },
+          spacing: { after: 120 },
+        });
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 },
+              },
+            },
+            children: [
+              // Title
+              centerPara([bold("HOUSE SHARING AGREEMENT")]),
+              blankPara(),
+              centerPara([bold("Full address: "), normal(u)]),
+              centerPara([bold("Room: "), normal(u)]),
+              centerPara([bold("THIS AGREEMENT is made on: "), normal(uDate)]),
+              blankPara(),
+
+              // BETWEEN
+              new Paragraph({ children: [bold("BETWEEN")] }),
+              blankPara(),
+              indentPara([bold("Main tenant: "), normal(u)]),
+              indentPara([bold("Passport: "), normal(u)]),
+              indentPara([bold("FIN: "), normal(u)]),
+              indentPara([bold("Email: "), normal(u)]),
+              indentPara([
+                italic(
+                  "(Hereinafter called \"Tenant A\", which expression together, where the context so admits, shall include all persons having title under 'Tenant A') of the one part.",
+                ),
+              ]),
+              blankPara(),
+
+              // AND
+              new Paragraph({ children: [bold("AND")] }),
+              blankPara(),
+              indentPara([bold("Name: "), normal(u)]),
+              indentPara([bold("Passport: "), normal(u)]),
+              indentPara([bold("FIN: "), normal(u)]),
+              indentPara([
+                italic(
+                  "(Hereinafter called \"Tenant B\", which expression together, where the context so admits, shall include all persons having title under 'Tenant B') of the other part.",
+                ),
+              ]),
+              blankPara(),
+
+              new Paragraph({
+                children: [bold("Payment method: "), normal(u)],
+              }),
+              blankPara(),
+              new Paragraph({
+                children: [bold("NOW IT IS HEREBY AGREED AS FOLLOWS:")],
+              }),
+              blankPara(),
+              indentPara([bold("Lease Period: "), normal(u)]),
+              indentPara([
+                bold("Tenancy Period: "),
+                normal(uDate + " \u2013 " + uDate),
+              ]),
+              indentPara([
+                bold("Moving Time: "),
+                normal("Move in after " + u + ", Move out before " + u),
+              ]),
+              blankPara(),
+
+              // Opening paragraphs
+              indentPara([
+                normal(
+                  "Tenant A agrees to let and Tenant B agrees to take the Room at the property address above for a period of " +
+                    u +
+                    " at a monthly rate of SGD$" +
+                    u +
+                    " (SINGAPORE DOLLARS " +
+                    u +
+                    " ONLY).",
+                ),
+              ]),
+              blankPara(),
+              indentPara([
+                normal(
+                  "Tenant B shall pay the rental of SGD$" +
+                    u +
+                    " per month by " +
+                    u +
+                    " of each calendar month.",
+                ),
+              ]),
+              blankPara(),
+              indentPara([
+                normal(
+                  "The Tenant B shall pay to Tenant A a security deposit of SGD$" +
+                    u +
+                    " (SINGAPORE DOLLARS " +
+                    u +
+                    " ONLY) upon signing of this Agreement, together with " +
+                    u +
+                    " month(s) rent as an advance on the move-in date (" +
+                    uDate +
+                    "). The deposit is to be held by Tenant A as security for the due performance and observance by Tenant B of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which Tenant B shall forfeit to Tenant A the said deposit or such part thereof as may be necessary to remedy such default. PROVIDED ALWAYS that Tenant B shall duly perform the said covenants, conditions, and stipulations as aforesaid, up to and including the date of expiration of the term hereby created, Tenant A shall repay the said deposit within 7 (SEVEN) days from the date of such expiration without any interest. This deposit shall not be utilised to offset any rent due and payable during the currency of this Agreement. Such deposit shall be refundable at the end of the term, less deduction for damages caused by the negligence of Tenant B and of any breach of this Agreement.",
+                ),
+              ]),
+              blankPara(),
+
+              // Clauses b-y
+              clausePara("b", [
+                normal(
+                  "In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due (whether any formal or legal demand therefore shall have been made or not) then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B\u2019s belongings from The Room without being liable for any loss or damage of such removal. Tenant A shall be entitled to recover all legal fees arising from the recovery of unpaid rent by Tenant B.",
+                ),
+              ]),
+              clausePara("c", [
+                normal(
+                  "To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.",
+                ),
+              ]),
+              clausePara("d", [
+                normal(
+                  "Not to do so permits to be done upon the premises or room, which may be unlawful, immoral, or become a nuisance or annoyance to occupiers of adjoining or adjacent room(s).",
+                ),
+              ]),
+              clausePara("e", [
+                normal(
+                  "To use the premises for the purpose of private residence only and not to assign, sublet, or otherwise part possession of the premises or any part thereof without the written consent of Tenant A.",
+                ),
+              ]),
+              clausePara("f", [
+                normal(
+                  "To peaceably and quietly at the expiration of the tenancy deliver up to Tenant A the room in like condition as if the same were delivered to Tenant B at the commencement of this Agreement, fair wear and tear.",
+                ),
+              ]),
+              clausePara("g", [
+                normal(
+                  "Not to create a nuisance, not to use the premises or any part thereof in a manner which may become a nuisance or annoyance to Tenant A or the occupants of the premises, building or to neighbouring parties.",
+                ),
+              ]),
+              clausePara("h", [normal("Strictly NO PETS in the premises.")]),
+              clausePara("i", [
+                normal(
+                  "No illegal or immoral activities, not to do or suffer to be done anything in or upon the said premises or any part thereof, any activities of an illegal or immoral nature.",
+                ),
+              ]),
+              clausePara("j", [
+                normal(
+                  "To permit Tenant A to carryout due diligence checks to ensure that all times during the currency of this Agreement that Tenant B and/or permitted occupants are not illegal immigrants and comply with all the rules and regulations relating to the Immigration Act and the Employment of Foreign Workers Act (if applicable) and any other Act of Parliament, regulations, or any rules of orders thereunder which relates to foreign residents and workers.",
+                ),
+              ]),
+              clausePara("k", [
+                normal(
+                  "To provide Tenant A, upon request, for physical inspection, all immigration and employment documents, including but not limited to the passports of all non-local occupants, the employment pass and/or work permits, proof of employment, and to provide Tenant A with certified true copies of such documents.",
+                ),
+              ]),
+              clausePara("l", [
+                normal(
+                  "To permit the Main tenant and workmen with all necessary appliances to enter upon the said premises at all reasonable times by prior appointment for the purpose whether of viewing the condition thereof or of doing such works and things as may be required for any repairs, alterations or improvements whether of the said premises or of any parts of any building to which the said premises may form a part of or adjoin.",
+                ),
+              ]),
+              clausePara("m", [
+                normal(
+                  "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B\u2019s belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
+                ),
+              ]),
+              clausePara("n", [
+                normal(
+                  "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
+                ),
+              ]),
+              clausePara("o", [
+                normal(
+                  "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.",
+                ),
+              ]),
+              clausePara("p", [
+                normal(
+                  "For 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.",
+                ),
+              ]),
+              clausePara("q", [
+                normal(
+                  "Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.",
+                ),
+              ]),
+              clausePara("r", [
+                normal(
+                  "No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract\u2019s termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.",
+                ),
+              ]),
+              clausePara("s", [
+                normal(
+                  "No visitors without permission from Tenant B to Tenant A.",
+                ),
+              ]),
+              clausePara("t", [
+                normal(
+                  "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
+                ),
+              ]),
+              clausePara("u", [
+                normal(
+                  "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract\u2019s termination).",
+                ),
+              ]),
+              clausePara("v", [
+                normal(
+                  "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease\u2019s conclusion.",
+                ),
+              ]),
+              clausePara("w", [
+                normal(
+                  "Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.",
+                ),
+              ]),
+              clausePara("x", [
+                normal(
+                  "No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.",
+                ),
+              ]),
+              clausePara("y", [
+                normal(
+                  "EARLY TERMINATION AND NOTICE PERIOD: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days\u2019 prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days\u2019 written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.",
+                ),
+              ]),
+              blankPara(),
+
+              // Section 2
+              new Paragraph({
+                children: [
+                  bold(
+                    "2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:",
+                  ),
+                ],
+                spacing: { before: 240 },
+              }),
+              blankPara(),
+              indentPara([
+                normal(
+                  "If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B\u2019s part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B\u2019s belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B\u2019s covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith.",
+                ),
+              ]),
+              blankPara(),
+              indentPara([
+                normal(
+                  "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
+                ),
+              ]),
+              blankPara(),
+              clausePara("a", [
+                bold("ELECTRICITY: "),
+                normal(
+                  "A monthly budget of SGD$" +
+                    u +
+                    " is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.",
+                ),
+              ]),
+              clausePara("b", [
+                normal(
+                  "Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
+                ),
+              ]),
+              clausePara("c", [
+                normal(
+                  "Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.",
+                ),
+              ]),
+              clausePara("d", [
+                normal(
+                  "Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month.",
+                ),
+              ]),
+              clausePara("e", [
+                normal(
+                  "The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.",
+                ),
+              ]),
+              clausePara("f", [
+                normal(
+                  "Cleaning fee: SGD$_____ / 1pax (if all tenants agree to hire a cleaning service)",
+                ),
+              ]),
+              blankPara(),
+              blankPara(),
+
+              // Signature
+              centerPara([
+                bold(
+                  "By signing below, both parties agree to abide by all the above terms and conditions",
+                ),
+              ]),
+              blankPara(),
+              blankPara(),
+              blankPara(),
+
+              // Signature block — DXA absolute widths (A4 usable = ~9026 twips)
+              new Table({
+                width: { size: 9026, type: WidthType.DXA },
+                columnWidths: [4300, 426, 4300],
+                borders: {
+                  top: { style: BorderStyle.NONE, size: 0 },
+                  bottom: { style: BorderStyle.NONE, size: 0 },
+                  left: { style: BorderStyle.NONE, size: 0 },
+                  right: { style: BorderStyle.NONE, size: 0 },
+                  insideH: { style: BorderStyle.NONE, size: 0 },
+                  insideV: { style: BorderStyle.NONE, size: 0 },
+                },
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        width: { size: 4300, type: WidthType.DXA },
+                        borders: {
+                          top: { style: BorderStyle.NONE, size: 0 },
+                          bottom: { style: BorderStyle.NONE, size: 0 },
+                          left: { style: BorderStyle.NONE, size: 0 },
+                          right: { style: BorderStyle.NONE, size: 0 },
+                        },
+                        children: [
+                          new Paragraph({ children: [bold("Tenant A")] }),
+                          blankPara(),
+                          blankPara(),
+                          blankPara(),
+                          new Paragraph({ children: [normal(u)] }),
+                          new Paragraph({
+                            children: [normal("Name & Signature")],
+                          }),
+                          blankPara(),
+                          new Paragraph({
+                            children: [normal("Date: " + uDate)],
+                          }),
+                        ],
+                      }),
+                      new TableCell({
+                        width: { size: 426, type: WidthType.DXA },
+                        borders: {
+                          top: { style: BorderStyle.NONE, size: 0 },
+                          bottom: { style: BorderStyle.NONE, size: 0 },
+                          left: { style: BorderStyle.NONE, size: 0 },
+                          right: { style: BorderStyle.NONE, size: 0 },
+                        },
+                        children: [blankPara()],
+                      }),
+                      new TableCell({
+                        width: { size: 4300, type: WidthType.DXA },
+                        borders: {
+                          top: { style: BorderStyle.NONE, size: 0 },
+                          bottom: { style: BorderStyle.NONE, size: 0 },
+                          left: { style: BorderStyle.NONE, size: 0 },
+                          right: { style: BorderStyle.NONE, size: 0 },
+                        },
+                        children: [
+                          new Paragraph({ children: [bold("Tenant B")] }),
+                          blankPara(),
+                          blankPara(),
+                          blankPara(),
+                          new Paragraph({ children: [normal(u)] }),
+                          new Paragraph({
+                            children: [normal("Name & Signature")],
+                          }),
+                          blankPara(),
+                          new Paragraph({
+                            children: [normal("Date: " + uDate)],
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Tenancy_Agreement_Template.docx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("\u274C Error generating DOCX template:", error);
+      showToast("Error generating template", "error");
     }
   }
 
