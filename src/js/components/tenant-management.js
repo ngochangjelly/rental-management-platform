@@ -138,12 +138,11 @@ class TenantManagementComponent {
       return;
     }
 
-    // Set container to use CSS Grid with auto-fill and max-width 280px
+    // Set container to use CSS Grid — compact cards, ~10 per row on wide screens
     container.style.display = "grid";
     container.style.gridTemplateColumns =
-      "repeat(auto-fill, minmax(260px, 280px))";
-    container.style.justifyContent = "center";
-    container.style.rowGap = "1rem";
+      "repeat(auto-fill, minmax(120px, 1fr))";
+    container.style.gap = "0.5rem";
     container.style.maxWidth = "100%";
 
     // Clear existing cards
@@ -162,32 +161,19 @@ class TenantManagementComponent {
     // Add special card for unassigned tenants
     const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
     const unassignedCardHtml = `
-            <div style="max-width: 280px; width: 100%; justify-self: center;">
-                <div class="card property-card h-100 ${isUnassignedSelected ? "border-warning" : "border-secondary"
-      } overflow-hidden"
-                     style="cursor: pointer; transition: all 0.2s ease; opacity: 0.95;"
-                     onclick="tenantManager.selectUnassignedTenants()">
-                    <div class="card-header d-flex justify-content-between align-items-center bg-light">
-                        <div class="d-flex align-items-center">
-                            <div class="me-3">
-                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
-                                     style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                                    <i class="bi bi-question-circle"></i>
-                                </div>
-                            </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold">Unassigned</h6>
-                                <small class="text-muted">No Property</small>
-                            </div>
-                        </div>
-                        ${isUnassignedSelected
-        ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 1.2rem;"></i>'
-        : ""
-      }
+            <div class="card property-card-compact ${isUnassignedSelected ? "border-warning selected-card" : "border-secondary"} overflow-hidden"
+                 style="cursor: pointer; transition: all 0.2s ease;"
+                 onclick="tenantManager.selectUnassignedTenants()">
+                <div class="d-flex flex-column align-items-center justify-content-center p-2 bg-light" style="min-height: 80px; gap: 4px;">
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
+                         style="width: 32px; height: 32px; font-size: 13px; flex-shrink: 0;">
+                        <i class="bi bi-question-circle"></i>
                     </div>
-                    <div class="card-body py-2 bg-light">
-                        <p class="mb-1 small text-muted">Tenants not assigned to any property</p>
+                    <div class="text-center" style="line-height: 1.2;">
+                        <div class="fw-bold" style="font-size: 11px;">Unassigned</div>
+                        <div class="text-muted" style="font-size: 10px;">No Property</div>
                     </div>
+                    ${isUnassignedSelected ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 0.85rem;"></i>' : ""}
                 </div>
             </div>
         `;
@@ -197,56 +183,25 @@ class TenantManagementComponent {
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-                <div style="max-width: 280px; width: 100%; justify-self: center;">
-                    <div class="card property-card h-100 ${isSelected ? "border-primary" : ""
-        } overflow-hidden"
-                         style="cursor: pointer; transition: all 0.2s ease;"
-                         onclick="tenantManager.selectProperty('${property.propertyId
-        }')">
-                        ${property.propertyImage
-          ? `
-                        <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage
-          }'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-                            ${isSelected
-            ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>'
-            : ""
-          }
-                        </div>
-                        `
+                <div class="card property-card-compact ${isSelected ? "border-primary selected-card" : ""} overflow-hidden"
+                     style="cursor: pointer; transition: all 0.2s ease;"
+                     onclick="tenantManager.selectProperty('${property.propertyId}')">
+                    ${property.propertyImage
+          ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; flex-shrink: 0; position: relative;">
+                            ${isSelected ? '<div class="position-absolute top-0 end-0 p-1"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 0.9rem;"></i></div>' : ""}
+                          </div>`
           : ""
         }
-                        <div class="card-header d-flex justify-content-between align-items-center bg-white">
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
-                                         style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                                        ${this.escapeHtml(
-          property.propertyId
-            .substring(0, 2)
-            .toUpperCase(),
-        )}
-                                    </div>
-                                </div>
-                                <div>
-                                    <h6 class="mb-0 fw-bold">${this.escapeHtml(
-          property.propertyId,
-        )}</h6>
-                                    <small class="text-muted">Property</small>
-                                </div>
-                            </div>
-                            ${!property.propertyImage && isSelected
-          ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
-          : ""
-        }
+                    <div class="d-flex flex-column align-items-center p-2 bg-white" style="gap: 3px;">
+                        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                             style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
+                            ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
                         </div>
-                        <div class="card-body py-2 bg-white">
-                            <p class="mb-1 small"><strong>Address:</strong> ${this.escapeHtml(
-          property.address,
-        )}</p>
-                            <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(
-          property.unit,
-        )}</p>
+                        <div class="text-center" style="line-height: 1.2; width: 100%;">
+                            <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address)}">${this.escapeHtml(property.address)}</div>
+                            <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit)}</div>
                         </div>
+                        ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 0.8rem;"></i>' : ""}
                     </div>
                 </div>
             `;
@@ -262,22 +217,19 @@ class TenantManagementComponent {
       const style = document.createElement("style");
       style.id = "tenant-property-nav-card-styles";
       style.textContent = `
-                .property-card {
-                    min-height: 200px;
-                    overflow: hidden;
+                .property-card-compact {
+                    border-radius: 6px;
+                    border: 1px solid #dee2e6;
                 }
-                .property-card .card-header {
-                    padding: 0.75rem 0.5rem;
-                }
-                .property-card .card-body {
-                    padding: 0.75rem 0.5rem;
-                }
-                .property-card:hover {
+                .property-card-compact:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
                 }
-                .property-card.border-primary {
-                    border-width: 3px !important;
+                .property-card-compact.selected-card {
+                    border-width: 2px !important;
+                }
+                .property-card-compact.border-primary {
+                    border-color: #0d6efd !important;
                 }
             `;
       document.head.appendChild(style);
@@ -315,57 +267,8 @@ class TenantManagementComponent {
   }
 
   updatePropertyCardSelection(propertyId) {
-    // Remove selection from all cards and add to selected one
-    const allCards = document.querySelectorAll(".property-card");
-    allCards.forEach((card) => {
-      card.classList.remove("border-primary", "border-warning");
-      // Remove checkmark icons
-      const checkmarks = card.querySelectorAll(".bi-check-circle-fill");
-      checkmarks.forEach((check) => check.remove());
-    });
-
-    // Handle unassigned tenants card
-    if (propertyId === "UNASSIGNED") {
-      const unassignedCard = document.querySelector(
-        `.property-card[onclick*="selectUnassignedTenants"]`,
-      );
-      if (unassignedCard) {
-        unassignedCard.classList.add("border-warning");
-        const cardHeader = unassignedCard.querySelector(".card-header");
-        if (cardHeader) {
-          const checkmark = document.createElement("i");
-          checkmark.className = "bi bi-check-circle-fill text-warning";
-          checkmark.style.fontSize = "1.2rem";
-          cardHeader.appendChild(checkmark);
-        }
-      }
-      return;
-    }
-
-    // Add selection to the clicked card
-    const selectedCardContainer = document.querySelector(
-      `.property-card[onclick*="'${propertyId}'"]`,
-    );
-    if (selectedCardContainer) {
-      selectedCardContainer.classList.add("border-primary");
-
-      // Add checkmark
-      const cardImgTop = selectedCardContainer.querySelector(".card-img-top");
-      const cardHeader = selectedCardContainer.querySelector(".card-header");
-
-      if (cardImgTop) {
-        const checkmark = document.createElement("div");
-        checkmark.className = "position-absolute top-0 end-0 p-2";
-        checkmark.innerHTML =
-          '<i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i>';
-        cardImgTop.appendChild(checkmark);
-      } else if (cardHeader) {
-        const checkmark = document.createElement("i");
-        checkmark.className = "bi bi-check-circle-fill text-success";
-        checkmark.style.fontSize = "1.2rem";
-        cardHeader.appendChild(checkmark);
-      }
-    }
+    // Re-render cards to reflect the new selection state
+    this.renderPropertyCards(this.properties);
   }
 
   async loadTenantsForProperty(propertyId) {
