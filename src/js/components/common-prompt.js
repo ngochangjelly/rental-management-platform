@@ -6,6 +6,8 @@ class CommonPromptComponent {
   constructor() {
     this.properties = [];
     this.selectedPropertyId = null;
+    this.exchangeRate = 21000;
+    this.mode = 'single'; // 'single' | 'all'
     this.prompts = this.initializePrompts();
     this.eventsBound = false;
     this.init();
@@ -37,16 +39,21 @@ class CommonPromptComponent {
 
   getCurrentMonth() {
     const now = new Date();
-    return now.toLocaleDateString('vi-VN', { month: 'numeric' });
+    const target = now.getDate() > 20
+      ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      : now;
+    return target.toLocaleDateString('vi-VN', { month: 'numeric' });
   }
 
   getRentCollectionTemplate(property) {
     const currentMonth = this.getCurrentMonth();
+    const rate = this.exchangeRate;
 
     // Get settlement account info from property
     const sgdBank = property?.settlementSgd?.bankName || 'UOB';
     const sgdAccountNo = property?.settlementSgd?.accountNumber || '438-371-817-6';
     const sgdAccountHolder = property?.settlementSgd?.accountHolderName || 'Pham Vu Thao Ly';
+    const sgdPayNow = property?.settlementSgd?.payNow || '89261752';
 
     const vndBank = property?.settlementVnd?.bankName || 'BIDV';
     const vndAccountNo = property?.settlementVnd?.accountNumber || '8841748829';
@@ -56,7 +63,7 @@ class CommonPromptComponent {
 
 Rent tháng ${currentMonth}, mọi người chuyển khoản giúp mình vào các tài khoản bên dưới nhé.
 
-💱 Ai đóng bằng VND thì áp dụng theo tỷ giá: 21 nhé
+💱 Ai đóng bằng VND thì áp dụng theo tỷ giá: ${rate} nhé
 
 Sau khi chuyển khoản, mọi người vui lòng gửi hóa đơn qua tin nhắn riêng giúp mình để đảm bảo quyền riêng tư nhé.
 
@@ -65,7 +72,7 @@ Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật
 🇸🇬 Tài khoản Singapore (${sgdBank})
 • Bank: ${sgdBank}
 • Account No: ${sgdAccountNo}
-• PayNow: 89261752
+• PayNow: ${sgdPayNow}
 • Name: ${sgdAccountHolder}
 
 🇻🇳 Tài khoản Việt Nam (${vndBank})
@@ -92,9 +99,178 @@ Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật
       copyBtn.addEventListener('click', () => this.copyPromptToClipboard());
     }
 
-    // Mark events as bound if both elements exist
-    if (propertySelect && copyBtn) {
+    // Exchange rate input
+    const rateInput = document.getElementById('exchangeRateInput');
+    if (rateInput && !rateInput.hasAttribute('data-bound')) {
+      rateInput.setAttribute('data-bound', 'true');
+      rateInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (!isNaN(val) && val > 0) {
+          this.exchangeRate = val;
+          this.updateActivePromptPreview();
+          if (this.mode === 'all') {
+            this.renderBulkMessages();
+          }
+        }
+      });
+    }
+
+    // Mark events as bound if all key elements exist
+    if (propertySelect && copyBtn && rateInput) {
       this.eventsBound = true;
+    }
+  }
+
+  setSingleMode() {
+    this.mode = 'single';
+
+    document.getElementById('singlePropertyModeBtn')?.classList.replace('btn-outline-info', 'btn-info');
+    document.getElementById('singlePropertyModeBtn')?.classList.remove('btn-outline-primary');
+    document.getElementById('singlePropertyModeBtn')?.classList.add('btn-info');
+    document.getElementById('allPropertiesModeBtn')?.classList.remove('btn-primary');
+    document.getElementById('allPropertiesModeBtn')?.classList.add('btn-outline-primary');
+
+    document.getElementById('singlePropertySelectWrapper').style.display = 'block';
+    document.getElementById('singlePromptPreview').style.display = 'block';
+    document.getElementById('bulkMessagesSection').style.display = 'none';
+  }
+
+  setAllMode() {
+    this.mode = 'all';
+
+    document.getElementById('singlePropertyModeBtn')?.classList.remove('btn-info');
+    document.getElementById('singlePropertyModeBtn')?.classList.add('btn-outline-info');
+    document.getElementById('allPropertiesModeBtn')?.classList.remove('btn-outline-primary');
+    document.getElementById('allPropertiesModeBtn')?.classList.add('btn-primary');
+
+    document.getElementById('singlePropertySelectWrapper').style.display = 'none';
+    document.getElementById('singlePromptPreview').style.display = 'none';
+    document.getElementById('bulkMessagesSection').style.display = 'block';
+
+    this.renderBulkMessages();
+  }
+
+  renderBulkMessages() {
+    const container = document.getElementById('bulkMessagesContainer');
+    const countBadge = document.getElementById('bulkPropertyCount');
+    if (!container) return;
+
+    const prompt = this.prompts.find(p => p.id === this.activePromptId);
+    if (!prompt || this.properties.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-hourglass-split me-2"></i>Đang tải danh sách căn hộ...</div>';
+      return;
+    }
+
+    if (countBadge) {
+      countBadge.textContent = `${this.properties.length} căn hộ`;
+    }
+
+    let html = '';
+    this.properties.forEach((property, index) => {
+      const message = prompt.template(property);
+      const escapedMessage = this.escapeHtml(message);
+      const propertyLabel = `${property.propertyId} - ${property.address || ''}`;
+      const imgHtml = property.propertyImage
+        ? `<img src="${this.escapeHtml(property.propertyImage)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
+        : `<div style="width:56px;height:56px;border-radius:8px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted" style="font-size:1.4rem;"></i></div>`;
+      const tenantFbHtml = property.tenantFacebookGroup
+        ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:#1877F2;color:#fff;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap;"
+             title="Tenant Facebook Group">
+             <i class="bi bi-people-fill"></i> Tenant Group
+           </a>`
+        : '';
+      const adminFbHtml = property.adminFacebookGroup
+        ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:#212529;color:#fff;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap;"
+             title="Admin Facebook Group">
+             <i class="bi bi-shield-fill"></i> Admin Group
+           </a>`
+        : '';
+      const fbLinksHtml = (tenantFbHtml || adminFbHtml)
+        ? `<div class="d-flex gap-2 px-3 py-2 align-items-center" style="background:#f0f4ff;border-top:1px solid #dee2e6;">
+             <span style="font-size:11px;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Facebook:</span>
+             ${tenantFbHtml}
+             ${adminFbHtml}
+           </div>`
+        : '';
+      html += `
+        <div class="border rounded mb-3 overflow-hidden">
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light gap-3">
+            <div class="d-flex align-items-center gap-3">
+              ${imgHtml}
+              <strong style="font-size:15px;">${this.escapeHtml(propertyLabel)}</strong>
+            </div>
+            <button
+              class="btn btn-sm btn-outline-success flex-shrink-0"
+              onclick="commonPromptComponent.copyBulkMessage(${index})"
+              data-bulk-index="${index}"
+            >
+              <i class="bi bi-clipboard me-1"></i>Copy
+            </button>
+          </div>
+          ${fbLinksHtml}
+          <textarea
+            class="form-control border-0 rounded-0"
+            rows="14"
+            readonly
+            data-bulk-msg="${index}"
+            style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; line-height: 1.6; background-color: #fafafa; resize: none;"
+          >${escapedMessage}</textarea>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  async copyBulkMessage(index) {
+    const textarea = document.querySelector(`[data-bulk-msg="${index}"]`);
+    if (!textarea) return;
+
+    const btn = document.querySelector(`[data-bulk-index="${index}"]`);
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã copy!';
+        btn.classList.replace('btn-outline-success', 'btn-success');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.replace('btn-success', 'btn-outline-success');
+        }, 2000);
+      }
+    } catch {
+      textarea.select();
+      document.execCommand('copy');
+    }
+  }
+
+  async copyAllMessages() {
+    const prompt = this.prompts.find(p => p.id === this.activePromptId);
+    if (!prompt) return;
+
+    const allText = this.properties
+      .map(p => {
+        const label = `=== ${p.propertyId} - ${p.address || ''} ===`;
+        return `${label}\n${prompt.template(p)}`;
+      })
+      .join('\n\n' + '─'.repeat(50) + '\n\n');
+
+    const btn = document.getElementById('copyAllMessagesBtn');
+    try {
+      await navigator.clipboard.writeText(allText);
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Đã copy tất cả!';
+        btn.classList.replace('btn-light', 'btn-success');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.replace('btn-success', 'btn-light');
+        }, 2000);
+      }
+    } catch {
+      alert('Không thể copy tự động. Vui lòng copy từng tin nhắn.');
     }
   }
 
@@ -224,14 +400,33 @@ Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật
       previewSection.style.display = 'block';
     }
 
+    // Show/hide exchange rate section
+    const exchangeRateSection = document.getElementById('exchangeRateSection');
+    if (exchangeRateSection) {
+      exchangeRateSection.style.display = prompt.requiresProperty ? 'block' : 'none';
+    }
+
     // Show/hide property selector based on requirement
     const propertySelectorSection = document.getElementById('propertySelectSection');
     if (propertySelectorSection) {
       propertySelectorSection.style.display = prompt.requiresProperty ? 'block' : 'none';
     }
 
+    // Read current exchange rate from input
+    const rateInput = document.getElementById('exchangeRateInput');
+    if (rateInput) {
+      const val = parseFloat(rateInput.value);
+      if (!isNaN(val) && val > 0) this.exchangeRate = val;
+    }
+
+    // Reset to single mode on new prompt selection
+    this.setSingleMode();
+
     // Update preview
     this.updateActivePromptPreview();
+
+    // Bind new elements (exchange rate input may not have been bound yet)
+    this.bindEvents();
 
     // Scroll to preview section
     previewSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -258,6 +453,11 @@ Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật
     const promptTitle = document.getElementById('activePromptTitle');
     if (promptTitle) {
       promptTitle.textContent = prompt.name;
+    }
+
+    // If in bulk mode, also re-render bulk messages
+    if (this.mode === 'all') {
+      this.renderBulkMessages();
     }
   }
 
