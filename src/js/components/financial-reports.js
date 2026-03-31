@@ -23,6 +23,20 @@ class FinancialReportsComponent {
     this.init();
   }
 
+  // Fetch the exchange rate effective at the current report's month
+  async fetchExchangeRateForPeriod() {
+    try {
+      const date = this.currentDate || new Date();
+      const dateStr = date.toISOString().split('T')[0];
+      const res = await API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr));
+      const data = await res.json();
+      if (data.success && data.rate) return data.rate.rate;
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  }
+
   // Map room type enums to human-readable names (using shared utility)
   getRoomTypeDisplayName(roomType) {
     return getRoomTypeDisplayName(roomType);
@@ -1695,14 +1709,28 @@ class FinancialReportsComponent {
 
         // Show/hide exchange rate field based on currency selection
         if (currencySelect && exchangeRateContainer) {
-          currencySelect.addEventListener("change", () => {
+          currencySelect.addEventListener("change", async () => {
             if (currencySelect.value === "VND") {
               exchangeRateContainer.style.display = "block";
+              // Pre-fill rate from module if not already set
+              if (exchangeRateInput && !exchangeRateInput.value) {
+                const rate = await this.fetchExchangeRateForPeriod();
+                if (rate) exchangeRateInput.value = Number(rate).toLocaleString("en-US");
+              }
             } else {
               exchangeRateContainer.style.display = "none";
               if (exchangeRateInput) {
                 exchangeRateInput.value = "";
               }
+            }
+          });
+        }
+
+        // Pre-fill exchange rate for new VND entries (not editing existing)
+        if (exchangeRateInput && currencySelect?.value === "VND" && !exchangeRateInput.value) {
+          this.fetchExchangeRateForPeriod().then(rate => {
+            if (rate && exchangeRateInput && !exchangeRateInput.value) {
+              exchangeRateInput.value = Number(rate).toLocaleString("en-US");
             }
           });
         }

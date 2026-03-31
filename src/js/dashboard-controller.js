@@ -240,6 +240,11 @@ class DashboardController {
           );
         }
         break;
+      case "exchange-rate":
+        if (window.exchangeRateComponent) {
+          window.exchangeRateComponent.init();
+        }
+        break;
       case "common-prompt":
         // Common Prompt component is auto-initialized at module load
         // Just refresh data when section is shown

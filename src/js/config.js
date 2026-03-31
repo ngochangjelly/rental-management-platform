@@ -84,6 +84,12 @@ const API_CONFIG = {
     BILL_DELETE_BULK_UPLOADS: (propertyId, year, month) => `/api/bills/property/${propertyId}/${year}/${month}/uploads/bulk`,
     BILL_DELETE: (propertyId, year, month) => `/api/bills/property/${propertyId}/${year}/${month}`,
 
+    // Exchange Rates
+    EXCHANGE_RATES: "/api/exchange-rates",
+    EXCHANGE_RATE_CURRENT: "/api/exchange-rates/current",
+    EXCHANGE_RATE_AT: (date) => `/api/exchange-rates/at?date=${encodeURIComponent(date)}`,
+    EXCHANGE_RATE_BY_ID: (id) => `/api/exchange-rates/${id}`,
+
     // Health Check
     HEALTH: "/health",
   },

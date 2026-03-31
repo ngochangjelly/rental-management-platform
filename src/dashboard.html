@@ -3164,6 +3164,12 @@
               </a>
             </li>
             <li class="nav-item">
+              <a class="nav-link" href="#" data-section="exchange-rate">
+                <i class="bi bi-currency-exchange me-2"></i
+                ><span>Tỷ giá SGD/VND</span>
+              </a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link" href="#" data-section="common-prompt">
                 <i class="bi bi-chat-dots me-2"></i
                 ><span>Thư viện tin nhắn</span>
@@ -3222,6 +3228,16 @@
           </ul>
 
           <div class="mt-auto pt-4 text-center">
+            <!-- Global Exchange Rate Badge -->
+            <div id="globalExchangeRateBadge"
+              onclick="dashboardController.showSection('exchange-rate')"
+              style="cursor:pointer;display:inline-block;background:rgba(255,255,255,0.15);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:12px;border:1px solid rgba(255,255,255,0.3);transition:background 0.2s;"
+              onmouseover="this.style.background='rgba(255,255,255,0.25)'"
+              onmouseout="this.style.background='rgba(255,255,255,0.15)'"
+              title="Tỷ giá SGD/VND hiện tại"
+            >
+              <i class="bi bi-currency-exchange me-1"></i>Đang tải...
+            </div>
             <div
               class="ios-segmented-control mb-3"
               id="languageSwitcherControl"
@@ -3253,6 +3269,13 @@
             >
               <i class="bi bi-house-door-fill me-2"></i>
               <span>Rental Hub</span>
+            </div>
+            <div id="globalExchangeRateBadgeMobile"
+              onclick="dashboardController.showSection('exchange-rate')"
+              style="cursor:pointer;background:rgba(255,255,255,0.2);color:#fff;border-radius:16px;padding:4px 10px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.35);white-space:nowrap;"
+              title="Tỷ giá SGD/VND"
+            >
+              <i class="bi bi-currency-exchange me-1"></i>...
             </div>
           </div>
           <!-- Dashboard Section -->
@@ -6502,6 +6525,96 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Exchange Rate Section -->
+          <div id="exchange-rate-section" class="content-section">
+            <div class="p-4">
+              <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4">
+                <h2><i class="bi bi-currency-exchange me-2"></i>Tỷ giá SGD / VND</h2>
+                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                </button>
+              </div>
+
+              <!-- Current Rate + Add New -->
+              <div class="row g-4 mb-4">
+                <div class="col-md-5">
+                  <div class="card h-100" style="border:2px solid #1877F2;">
+                    <div class="card-header text-white" style="background:#1877F2;">
+                      <h5 class="mb-0"><i class="bi bi-currency-exchange me-2"></i>Tỷ giá hiện tại</h5>
+                    </div>
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center py-4">
+                      <div id="currentRateDisplay" style="font-size:2.5rem;font-weight:700;color:#1877F2;">—</div>
+                      <div class="text-muted mt-1">VND cho 1 SGD</div>
+                      <div id="currentRateDate" class="text-muted small mt-2"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-7">
+                  <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                      <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Cập nhật tỷ giá mới</h5>
+                    </div>
+                    <div class="card-body">
+                      <div id="exchangeRateSuccess" class="alert alert-success py-2" style="display:none;"></div>
+                      <form id="addExchangeRateForm">
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Tỷ giá mới (1 SGD = ? VND)</label>
+                          <div class="input-group input-group-lg">
+                            <span class="input-group-text">🇸🇬 1 SGD =</span>
+                            <input
+                              type="number"
+                              id="newExchangeRateInput"
+                              class="form-control"
+                              placeholder="ví dụ: 21500"
+                              min="1"
+                              step="1"
+                              required
+                            />
+                            <span class="input-group-text">VND</span>
+                          </div>
+                          <small class="text-muted">Tỷ giá này sẽ áp dụng từ thời điểm hiện tại cho đến khi bạn cập nhật lần tiếp theo.</small>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Ghi chú <span class="text-muted">(tuỳ chọn)</span></label>
+                          <input type="text" id="newExchangeRateNote" class="form-control" placeholder="ví dụ: Cập nhật tháng 4/2025">
+                        </div>
+                        <button type="submit" id="addExchangeRateBtn" class="btn btn-success">
+                          <i class="bi bi-plus-lg me-1"></i>Lưu tỷ giá
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chart -->
+              <div class="card mb-4">
+                <div class="card-header bg-light">
+                  <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Lịch sử tỷ giá</h5>
+                </div>
+                <div class="card-body">
+                  <div style="height:260px;position:relative;">
+                    <canvas id="exchangeRateChart"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- History Table -->
+              <div class="card">
+                <div class="card-header bg-light">
+                  <h5 class="mb-0"><i class="bi bi-table me-2"></i>Danh sách các kỳ tỷ giá</h5>
+                </div>
+                <div class="card-body p-0">
+                  <div id="exchangeRateHistoryContainer" class="p-3">
+                    <div class="text-center text-muted py-3"><i class="bi bi-hourglass-split me-2"></i>Đang tải...</div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 

@@ -19,6 +19,7 @@ import "./components/investor-management.js";
 import "./components/investor-profit-report.js"; // Investor Profit Report component
 import "./components/user-management.js"; // User Management component
 import "./components/ac-clean-management.js"; // AC Clean Management component (includes AC Service Company management)
+import "./components/exchange-rate.js"; // Exchange Rate module
 import "./components/common-prompt.js"; // Common Prompt Library component
 import "./dashboard-controller.js";
 
