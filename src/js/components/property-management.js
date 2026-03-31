@@ -527,6 +527,12 @@ class PropertyManagementComponent {
                 ` : ''}
               </div>
               ` : ''}
+              ${(property.tenantFacebookGroup || property.adminFacebookGroup) ? `
+              <div class="mt-2 d-flex flex-wrap gap-1">
+                ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-decoration-none" title="Tenant Facebook Group"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : ''}
+                ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ''}
+              </div>
+              ` : ''}
             </div>
             <div class="card-footer bg-white border-0 pt-0">
               <div class="d-flex gap-2">
@@ -773,6 +779,11 @@ class PropertyManagementComponent {
           property.settlementVnd?.accountNumber || "";
         document.getElementById("settlementVndAccountHolder").value =
           property.settlementVnd?.accountHolderName || "";
+
+        document.getElementById("tenantFacebookGroup").value =
+          property.tenantFacebookGroup || "";
+        document.getElementById("adminFacebookGroup").value =
+          property.adminFacebookGroup || "";
 
         document.getElementById("telegramBotToken").value =
           property.telegramBotToken || "";
@@ -1050,6 +1061,8 @@ class PropertyManagementComponent {
           accountNumber: formData.get("settlementVndAccountNumber")?.trim() || "",
           accountHolderName: formData.get("settlementVndAccountHolder")?.trim() || "",
         },
+        tenantFacebookGroup: formData.get("tenantFacebookGroup")?.trim() || "",
+        adminFacebookGroup: formData.get("adminFacebookGroup")?.trim() || "",
         telegramIntegrationEnabled: formData.get("telegramIntegrationEnabled") === "true",
         telegramBotToken: formData.get("telegramBotToken")?.trim() || "",
         telegramChannelId: formData.get("telegramChannelId")?.trim() || "",

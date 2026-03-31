@@ -3756,21 +3756,30 @@
                   class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3"
                 >
                   <h5 class="mb-0">Properties</h5>
-                  <div
-                    class="input-group"
-                    style="max-width: 300px; width: 100%"
-                  >
-                    <input
-                      type="text"
-                      class="form-control form-control-sm"
-                      placeholder="Search properties..."
-                      id="propertySearchInput"
-                    />
-                    <button
-                      class="btn btn-outline-secondary btn-sm"
-                      type="button"
+                  <div class="d-flex align-items-center gap-2">
+                    <div
+                      class="input-group"
+                      style="max-width: 300px; width: 100%"
                     >
-                      <i class="bi bi-search"></i>
+                      <input
+                        type="text"
+                        class="form-control form-control-sm"
+                        placeholder="Search properties..."
+                        id="propertySearchInput"
+                      />
+                      <button
+                        class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                      >
+                        <i class="bi bi-search"></i>
+                      </button>
+                    </div>
+                    <button
+                      class="btn btn-outline-primary btn-sm"
+                      onclick="propertyManager.loadProperties()"
+                      title="Reload property list"
+                    >
+                      <i class="bi bi-arrow-clockwise me-1"></i>Reload
                     </button>
                   </div>
                 </div>
@@ -8635,6 +8644,37 @@
                   </div>
                   <div id="wifiImagesGallery" class="mt-3">
                     <!-- WiFi images will be displayed here -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Facebook Groups Section -->
+              <div class="mb-4">
+                <h6 class="text-secondary mb-3">
+                  <i class="bi bi-facebook me-1"></i>Facebook Groups
+                </h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="tenantFacebookGroup" class="form-label">Tenant Facebook Group</label>
+                    <input
+                      type="url"
+                      class="form-control"
+                      id="tenantFacebookGroup"
+                      name="tenantFacebookGroup"
+                      placeholder="https://facebook.com/groups/... (optional)"
+                    />
+                    <div class="form-text">Facebook group URL for tenants of this property</div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="adminFacebookGroup" class="form-label">Admin Facebook Group</label>
+                    <input
+                      type="url"
+                      class="form-control"
+                      id="adminFacebookGroup"
+                      name="adminFacebookGroup"
+                      placeholder="https://facebook.com/groups/... (optional)"
+                    />
+                    <div class="form-text">Facebook group URL for admins of this property</div>
                   </div>
                 </div>
               </div>
