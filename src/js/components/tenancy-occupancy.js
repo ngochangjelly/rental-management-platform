@@ -671,6 +671,9 @@ class TenancyOccupancyComponent {
         const occupancyStart = moveinDate;
         const occupancyEnd = moveoutDate || new Date(); // Use today if no moveout date
 
+        // Skip tenants who have already moved out (moveoutDate is in the past)
+        if (moveoutDate && moveoutDate < new Date()) return;
+
         // Skip if occupancy doesn't overlap with current year
         if (occupancyEnd < yearStart || occupancyStart > yearEnd) return;
 

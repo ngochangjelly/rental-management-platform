@@ -3113,9 +3113,18 @@ class ContractManagementComponent {
         return null; // Invalid date range
       }
 
-      // Calculate months, weeks, and days
-      const months = Math.floor(totalDays / 30);
-      const remainingDaysAfterMonths = totalDays % 30;
+      // Calculate calendar months, then remaining weeks and days
+      let months =
+        (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+        (endDate.getMonth() - startDate.getMonth());
+      if (endDate.getDate() < startDate.getDate()) {
+        months--;
+      }
+      const monthsEndDate = new Date(startDate);
+      monthsEndDate.setMonth(monthsEndDate.getMonth() + months);
+      const remainingDaysAfterMonths = Math.floor(
+        (endDate - monthsEndDate) / (1000 * 60 * 60 * 24),
+      );
       const weeks = Math.floor(remainingDaysAfterMonths / 7);
       const days = remainingDaysAfterMonths % 7;
 

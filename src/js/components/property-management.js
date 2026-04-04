@@ -529,7 +529,7 @@ class PropertyManagementComponent {
               ` : ''}
               ${(property.tenantFacebookGroup || property.adminFacebookGroup) ? `
               <div class="mt-2 d-flex flex-wrap gap-1">
-                ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-decoration-none" title="Tenant Facebook Group"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : ''}
+                ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(property.tenantFacebookGroup)}" class="badge bg-primary text-decoration-none" title="Tenant Facebook Group"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : ''}
                 ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ''}
               </div>
               ` : ''}
@@ -1873,3 +1873,22 @@ class PropertyManagementComponent {
 
 // Export for use in other modules
 window.PropertyManagementComponent = PropertyManagementComponent;
+
+async function openTenantFbGroup(el) {
+  const url = el.dataset.fbUrl;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (error) {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.left = "-999999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+window.openTenantFbGroup = openTenantFbGroup;

@@ -1349,12 +1349,22 @@ class FinancialReportsComponent {
             ? new Date(propertyRecord.moveoutDate)
             : null;
 
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const reportDate = new Date(year, month - 1, 1); // First day of report month
         const reportEndDate = new Date(year, month, 0); // Last day of report month
 
         // Tenant should be in property during this month
         if (moveInDate && moveInDate > reportEndDate) {
-          return false; // Moved in after this month
+          return false; // Moved in after this month entirely
+        }
+
+        // If move-in date is in the reporting month but hasn't happened yet (after today),
+        // annotate the tenant so we can display their upcoming move-in date
+        if (moveInDate && moveInDate >= reportDate && moveInDate > today) {
+          tenant._upcomingMoveInDate = moveInDate;
+        } else {
+          tenant._upcomingMoveInDate = null;
         }
 
         if (moveOutDate && moveOutDate < reportDate) {
@@ -1501,6 +1511,13 @@ class FinancialReportsComponent {
           const facebookUrl = tenant.facebookUrl || "";
           const roommateName = tenant.roommateId?.name || "";
           const roommateAvatar = tenant.roommateId?.avatar || "";
+          const upcomingMoveIn = tenant._upcomingMoveInDate
+            ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : null;
 
           // Generate roommate avatar HTML
           let roommateAvatarHtml = "";
@@ -1513,11 +1530,30 @@ class FinancialReportsComponent {
             }
           }
 
+          // Build fee badges
+          const rentBadge = tenant.rent
+            ? `<span class="badge bg-secondary" title="Monthly Rent">Rent: $${tenant.rent.toFixed(2)}</span>`
+            : "";
+          const cleaningBadge = tenant.cleaningFee
+            ? `<span class="badge bg-secondary" title="Cleaning Fee">Cleaning: $${tenant.cleaningFee.toFixed(2)}</span>`
+            : "";
+          const pubBadge = !tenant.isUtilitySubsidized
+            ? `<span class="badge bg-info text-dark" title="Tenant pays PUB utility bill">PUB</span>`
+            : "";
+
+          const moveInBadge = upcomingMoveIn
+            ? `<span class="badge bg-warning text-dark" title="Upcoming move-in date"><i class="bi bi-calendar-event me-1"></i>Moving in: ${escapeHtml(upcomingMoveIn)}</span>`
+            : "";
+
           html += `
             <li class="mb-2">
               <div class="d-flex align-items-center flex-wrap gap-2">
                 <strong>${escapeHtml(displayName)}</strong>
                 <span class="text-muted">(${escapeHtml(roomType)})</span>
+                ${moveInBadge}
+                ${rentBadge}
+                ${cleaningBadge}
+                ${pubBadge}
                 ${phoneNumber ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>` : ""}
                 ${facebookUrl ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile"><i class="bi bi-facebook me-1"></i>Facebook</a>` : ""}
                 ${roommateAvatarHtml}
