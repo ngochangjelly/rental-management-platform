@@ -20,6 +20,7 @@ class FinancialReportsComponent {
     this.pendingDeletes = new Set(); // Track items pending deletion confirmation
     this.pendingClose = false; // Track month close confirmation
     this.propertyReportStatus = {}; // Track {propertyId: {isClosed: boolean}} for current month
+    this.allUnpaidVisible = false; // Track all-unpaid overview visibility
     this.init();
   }
 
@@ -192,6 +193,15 @@ class FinancialReportsComponent {
         if (!reopenBtn.disabled) {
           this.reopenMonth();
         }
+      });
+    }
+
+    // All Unpaid Overview button
+    const viewAllUnpaidBtn = document.getElementById("viewAllUnpaidBtn");
+    if (viewAllUnpaidBtn) {
+      viewAllUnpaidBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.toggleAllUnpaidReminderSection();
       });
     }
 
@@ -1371,6 +1381,15 @@ class FinancialReportsComponent {
           return false; // Moved out before this month
         }
 
+        // Annotate if tenant moves out within this reporting month
+        if (moveOutDate && moveOutDate >= reportDate && moveOutDate <= reportEndDate) {
+          tenant._moveOutDateThisMonth = moveOutDate;
+          tenant._moveInDateForDisplay = moveInDate;
+        } else {
+          tenant._moveOutDateThisMonth = null;
+          tenant._moveInDateForDisplay = null;
+        }
+
         return true; // Tenant was/is in property during this month
       });
 
@@ -1545,12 +1564,21 @@ class FinancialReportsComponent {
             ? `<span class="badge bg-warning text-dark" title="Upcoming move-in date"><i class="bi bi-calendar-event me-1"></i>Moving in: ${escapeHtml(upcomingMoveIn)}</span>`
             : "";
 
+          let periodBadge = "";
+          if (tenant._moveOutDateThisMonth) {
+            const fmt = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+            const from = tenant._moveInDateForDisplay ? fmt(tenant._moveInDateForDisplay) : "—";
+            const to = fmt(tenant._moveOutDateThisMonth);
+            periodBadge = `<span class="badge bg-secondary" title="Rental period this month"><i class="bi bi-calendar-range me-1"></i>${escapeHtml(from)} – ${escapeHtml(to)}</span>`;
+          }
+
           html += `
             <li class="mb-2">
               <div class="d-flex align-items-center flex-wrap gap-2">
                 <strong>${escapeHtml(displayName)}</strong>
                 <span class="text-muted">(${escapeHtml(roomType)})</span>
                 ${moveInBadge}
+                ${periodBadge}
                 ${rentBadge}
                 ${cleaningBadge}
                 ${pubBadge}
@@ -1623,6 +1651,10 @@ class FinancialReportsComponent {
     await this.loadFinancialReport();
     // Reload property report statuses for the new month
     this.loadPropertyReportStatuses();
+    // Refresh all-unpaid overview if it's currently visible
+    if (this.allUnpaidVisible) {
+      this.refreshAllUnpaidReminderSection();
+    }
   }
 
   async showIncomeExpenseModal(type, existingItem = null, itemIndex = null) {
@@ -4811,6 +4843,321 @@ class FinancialReportsComponent {
       </div>
     `;
   }
+
+  // ─── All Properties Unpaid Overview ───────────────────────────────────────
+
+  toggleAllUnpaidReminderSection() {
+    const section = document.getElementById("allUnpaidReminderSection");
+    const btn = document.getElementById("viewAllUnpaidBtn");
+    if (!section) return;
+
+    if (this.allUnpaidVisible) {
+      section.style.display = "none";
+      this.allUnpaidVisible = false;
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-bell-fill me-1"></i>Unpaid Overview';
+        btn.classList.remove("btn-outline-warning");
+        btn.classList.add("btn-warning");
+      }
+    } else {
+      section.style.display = "block";
+      this.allUnpaidVisible = true;
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-bell-slash-fill me-1"></i>Hide Overview';
+        btn.classList.remove("btn-warning");
+        btn.classList.add("btn-outline-warning");
+      }
+      this.refreshAllUnpaidReminderSection();
+    }
+  }
+
+  async refreshAllUnpaidReminderSection() {
+    const content = document.getElementById("allUnpaidReminderContent");
+    if (!content) return;
+
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+    const monthName = this.currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+    content.innerHTML = `
+      <div class="card border-warning">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+          <div>
+            <i class="bi bi-bell-fill me-2"></i>
+            <strong>Unpaid Rent Overview</strong>
+            <span class="badge bg-dark ms-2">${escapeHtml(monthName)}</span>
+          </div>
+          <div class="spinner-border spinner-border-sm text-dark" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-0"><i class="bi bi-hourglass-split me-1"></i>Fetching data for all properties…</p>
+        </div>
+      </div>
+    `;
+
+    const properties = this.properties || [];
+    if (properties.length === 0) {
+      content.innerHTML = `<div class="alert alert-info mb-0"><i class="bi bi-info-circle me-2"></i>No properties loaded yet.</div>`;
+      return;
+    }
+
+    try {
+      // Fetch report + tenants for all properties in parallel
+      const results = await Promise.all(
+        properties.map(async (property) => {
+          const propertyId = property.propertyId;
+          try {
+            const [reportRes, tenantsRes] = await Promise.all([
+              API.get(API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(propertyId, year, month)),
+              API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)),
+            ]);
+            let report = null;
+            if (reportRes.ok) {
+              const d = await reportRes.json();
+              if (d.success) report = d.data;
+            }
+            let tenants = [];
+            if (tenantsRes.ok) {
+              const d = await tenantsRes.json();
+              if (d.success) tenants = d.tenants || [];
+            }
+            return { property, report, tenants };
+          } catch (_) {
+            return { property, report: null, tenants: [] };
+          }
+        })
+      );
+
+      // Compute unpaid per property
+      const propertyResults = results.map(({ property, report, tenants }) => ({
+        property,
+        unpaid: this._computeUnpaidTenants(tenants, report, year, month, property.propertyId),
+        totalActive: tenants.filter((t) => this._isTenantActiveThisMonth(t, property.propertyId, year, month)).length,
+      }));
+
+      this._renderAllUnpaidResults(content, propertyResults, monthName);
+    } catch (error) {
+      console.error("Error loading all unpaid rent reminders:", error);
+      content.innerHTML = `<div class="alert alert-danger mb-0"><i class="bi bi-exclamation-circle me-2"></i>Failed to load unpaid rent overview. Please try again.</div>`;
+    }
+  }
+
+  _isTenantActiveThisMonth(tenant, propertyId, year, month) {
+    if (!tenant.properties || !Array.isArray(tenant.properties)) return false;
+    const propertyRecord = tenant.properties.find((prop) => {
+      const propId = typeof prop === "object" ? prop.propertyId : prop;
+      return propId && propId.toUpperCase() === propertyId.toUpperCase();
+    });
+    if (!propertyRecord) return false;
+    const moveInDate = propertyRecord?.moveinDate ? new Date(propertyRecord.moveinDate) : null;
+    const moveOutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+    const reportDate = new Date(year, month - 1, 1);
+    const reportEndDate = new Date(year, month, 0);
+    if (moveInDate && moveInDate > reportEndDate) return false;
+    if (moveOutDate && moveOutDate < reportDate) return false;
+    return true;
+  }
+
+  _computeUnpaidTenants(allTenants, report, year, month, propertyId) {
+    const reportDate = new Date(year, month - 1, 1);
+    const reportEndDate = new Date(year, month, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const currentMonthTenants = allTenants.filter((tenant) => {
+      if (!tenant.properties || !Array.isArray(tenant.properties)) return false;
+      const propertyRecord = tenant.properties.find((prop) => {
+        const propId = typeof prop === "object" ? prop.propertyId : prop;
+        return propId && propId.toUpperCase() === propertyId.toUpperCase();
+      });
+      if (!propertyRecord) return false;
+      const moveInDate = propertyRecord?.moveinDate ? new Date(propertyRecord.moveinDate) : null;
+      const moveOutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+      if (moveInDate && moveInDate > reportEndDate) return false;
+      tenant._upcomingMoveInDate = (moveInDate && moveInDate >= reportDate && moveInDate > today) ? moveInDate : null;
+      if (moveOutDate && moveOutDate < reportDate) return false;
+      return true;
+    });
+
+    // Map paid amounts from income
+    const paidAmountsByTenantId = new Map();
+    (report?.income || []).forEach((incomeItem) => {
+      if (incomeItem.paidBy && incomeItem.paidBy.startsWith("tenant_")) {
+        const tenantId = incomeItem.paidBy.replace("tenant_", "");
+        const tenant = currentMonthTenants.find(
+          (t) =>
+            (t._id && t._id === tenantId) ||
+            (t.tenantId && t.tenantId === tenantId) ||
+            (t.name && t.name === tenantId) ||
+            (t.fin && t.fin === tenantId) ||
+            (t.passportNumber && t.passportNumber === tenantId)
+        );
+        if (tenant?._id) {
+          paidAmountsByTenantId.set(tenant._id, (paidAmountsByTenantId.get(tenant._id) || 0) + (incomeItem.amount || 0));
+        }
+      }
+    });
+
+    // Build roommate groups
+    const roomGroups = new Map();
+    const tenantToGroup = new Map();
+    currentMonthTenants.forEach((tenant) => {
+      if (tenantToGroup.has(tenant._id)) return;
+      const roommateId = tenant.roommateId?._id || tenant.roommateId || null;
+      if (roommateId && tenantToGroup.has(roommateId)) {
+        const groupKey = tenantToGroup.get(roommateId);
+        roomGroups.get(groupKey).push(tenant);
+        tenantToGroup.set(tenant._id, groupKey);
+      } else {
+        const groupKey = tenant._id;
+        roomGroups.set(groupKey, [tenant]);
+        tenantToGroup.set(tenant._id, groupKey);
+        if (roommateId) {
+          const roommateTenant = currentMonthTenants.find((t) => t._id === roommateId);
+          if (roommateTenant && !tenantToGroup.has(roommateId)) {
+            roomGroups.get(groupKey).push(roommateTenant);
+            tenantToGroup.set(roommateId, groupKey);
+          }
+        }
+      }
+    });
+
+    return currentMonthTenants.filter((tenant) => {
+      if (!tenant.roomType) return false;
+      const groupKey = tenantToGroup.get(tenant._id);
+      const roommates = roomGroups.get(groupKey) || [tenant];
+      const totalRoomRent = roommates.reduce((sum, t) => sum + (t.rent || 0), 0);
+      const totalPaid = roommates.reduce((sum, t) => sum + (paidAmountsByTenantId.get(t._id) || 0), 0);
+      if (totalPaid >= totalRoomRent && totalRoomRent > 0) return false;
+      return !paidAmountsByTenantId.has(tenant._id);
+    });
+  }
+
+  _renderAllUnpaidResults(container, propertyResults, monthName) {
+    const totalUnpaid = propertyResults.reduce((sum, r) => sum + r.unpaid.length, 0);
+    const propertiesWithUnpaid = propertyResults.filter((r) => r.unpaid.length > 0);
+    const propertiesAllPaid = propertyResults.filter((r) => r.unpaid.length === 0 && r.totalActive > 0);
+
+    const refreshBtn = `<button class="btn btn-sm btn-dark py-0" onclick="window.financialReports && window.financialReports.refreshAllUnpaidReminderSection()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>`;
+
+    let html = `
+      <div class="card border-warning shadow-sm">
+        <div class="card-header bg-warning text-dark py-2 d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-bell-fill me-2"></i><strong>Unpaid Rent</strong> <span class="fw-normal opacity-75">— ${escapeHtml(monthName)}</span></span>
+          <div class="d-flex align-items-center gap-2">
+            ${totalUnpaid > 0
+              ? `<span class="badge bg-danger">${totalUnpaid} unpaid</span>`
+              : `<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>All paid</span>`
+            }
+            ${refreshBtn}
+          </div>
+        </div>
+    `;
+
+    if (totalUnpaid === 0) {
+      html += `
+        <div class="card-body py-2">
+          <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>All tenants across all properties have paid for ${escapeHtml(monthName)}.</span>
+        </div>
+      `;
+    } else {
+      html += `<div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light"><tr>
+          <th class="small border-0 ps-3">Property</th>
+          <th class="small border-0">Tenant</th>
+          <th class="small border-0">Room</th>
+          <th class="small border-0">Fees</th>
+          <th class="small border-0 text-end pe-3">Contact</th>
+        </tr></thead>
+        <tbody>`;
+
+      propertiesWithUnpaid.forEach(({ property, unpaid, totalActive }) => {
+        const propertyName = escapeHtml(property.name || property.propertyId);
+
+        unpaid.forEach((tenant, idx) => {
+          const displayName = escapeHtml(tenant.name || tenant.username || tenant.tenantId || "Unknown");
+          const roomType = escapeHtml(this.getRoomTypeDisplayName(tenant.roomType));
+          const phoneNumber = tenant.phoneNumber || "";
+          const facebookUrl = tenant.facebookUrl || "";
+          const roommateName = tenant.roommateId?.name || "";
+          const roommateAvatar = tenant.roommateId?.avatar || "";
+          const upcomingMoveIn = tenant._upcomingMoveInDate
+            ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+            : null;
+
+          let roommateHtml = "";
+          if (roommateName) {
+            if (roommateAvatar) {
+              roommateHtml = `<img src="${escapeHtml(roommateAvatar)}" class="rounded-circle ms-1" style="width:16px;height:16px;object-fit:cover;border:1.5px solid #0dcaf0;" title="w/ ${escapeHtml(roommateName)}" data-bs-toggle="tooltip">`;
+            } else {
+              roommateHtml = `<span class="rounded-circle bg-info text-white d-inline-flex align-items-center justify-content-center ms-1" style="width:16px;height:16px;font-size:9px;border:1.5px solid #0dcaf0;" title="w/ ${escapeHtml(roommateName)}" data-bs-toggle="tooltip">${escapeHtml(roommateName.charAt(0).toUpperCase())}</span>`;
+            }
+          }
+
+          const feeParts = [];
+          if (tenant.rent) feeParts.push(`<span class="badge bg-secondary" style="font-size:0.7em;">$${tenant.rent.toFixed(0)}</span>`);
+          if (tenant.cleaningFee) feeParts.push(`<span class="badge bg-light text-dark border" style="font-size:0.7em;">+$${tenant.cleaningFee.toFixed(0)}</span>`);
+          if (!tenant.isUtilitySubsidized) feeParts.push(`<span class="badge bg-info text-dark" style="font-size:0.7em;">PUB</span>`);
+          if (upcomingMoveIn) feeParts.push(`<span class="badge bg-warning text-dark" style="font-size:0.7em;"><i class="bi bi-calendar-event me-1"></i>${escapeHtml(upcomingMoveIn)}</span>`);
+
+          const waLink = phoneNumber
+            ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="btn btn-success btn-sm py-0 px-1" style="font-size:0.75em;" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>`
+            : "";
+          const fbLink = facebookUrl
+            ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm py-0 px-1" style="font-size:0.75em;" title="Facebook"><i class="bi bi-facebook"></i></a>`
+            : "";
+
+          // Show property cell only on first tenant row (rowspan)
+          const propCell = idx === 0
+            ? `<td class="ps-3 border-0 fw-semibold small text-nowrap" rowspan="${unpaid.length}" style="border-left:3px solid #dc3545 !important;vertical-align:top;padding-top:0.5rem;">
+                <i class="bi bi-building me-1 text-danger"></i>${propertyName}
+                <div class="text-muted fw-normal" style="font-size:0.75em;">${unpaid.length}/${totalActive} unpaid</div>
+               </td>`
+            : "";
+
+          html += `<tr>
+            ${propCell}
+            <td class="border-0 small">${displayName}${roommateHtml}</td>
+            <td class="border-0 small text-muted text-nowrap">${roomType}</td>
+            <td class="border-0"><div class="d-flex gap-1 flex-wrap">${feeParts.join("")}</div></td>
+            <td class="border-0 text-end pe-3"><div class="d-flex gap-1 justify-content-end">${waLink}${fbLink}</div></td>
+          </tr>`;
+        });
+      });
+
+      html += `</tbody></table></div>`;
+
+      // Fully-paid properties as compact footer
+      if (propertiesAllPaid.length > 0) {
+        const allPaidId = `allPaidProperties_${Date.now()}`;
+        html += `
+          <div class="card-footer py-1 px-3 bg-light border-top">
+            <span class="text-muted small" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#${allPaidId}">
+              <i class="bi bi-check-circle-fill text-success me-1"></i>${propertiesAllPaid.length} propert${propertiesAllPaid.length > 1 ? "ies" : "y"} fully paid
+              <i class="bi bi-chevron-down small ms-1"></i>
+            </span>
+            <div class="collapse" id="${allPaidId}">
+              <div class="d-flex flex-wrap gap-1 mt-1">
+                ${propertiesAllPaid.map((r) => `<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check me-1"></i>${escapeHtml(r.property.name || r.property.propertyId)}</span>`).join("")}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+      const existing = bootstrap.Tooltip.getInstance(el);
+      if (existing) existing.dispose();
+      new bootstrap.Tooltip(el);
+    });
+  }
+
 }
 
 // Make component globally accessible

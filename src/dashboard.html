@@ -5352,12 +5352,26 @@
                 class="d-flex justify-content-between align-items-center mb-4"
               >
                 <h2>Financial Reports</h2>
-                <button
-                  class="btn btn-outline-secondary"
-                  onclick="dashboardController.goToDashboard()"
-                >
-                  <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
-                </button>
+                <div class="d-flex gap-2 align-items-center">
+                  <button
+                    id="viewAllUnpaidBtn"
+                    class="btn btn-warning"
+                    title="View unpaid tenants across all properties"
+                  >
+                    <i class="bi bi-bell-fill me-1"></i>Unpaid Overview
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary"
+                    onclick="dashboardController.goToDashboard()"
+                  >
+                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                  </button>
+                </div>
+              </div>
+
+              <!-- All Properties Unpaid Reminder Section -->
+              <div id="allUnpaidReminderSection" style="display: none;" class="mb-4">
+                <div id="allUnpaidReminderContent"></div>
               </div>
 
               <!-- Property Selection -->
