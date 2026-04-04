@@ -252,6 +252,11 @@ class DashboardController {
           window.commonPromptComponent.refresh();
         }
         break;
+      case "house-view-specialist":
+        if (window.houseViewSpecialist) {
+          window.houseViewSpecialist.goToList();
+        }
+        break;
     }
   }
 

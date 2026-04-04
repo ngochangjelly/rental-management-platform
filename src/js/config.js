@@ -92,6 +92,12 @@ const API_CONFIG = {
 
     // Health Check
     HEALTH: "/health",
+
+    // House View Specialist
+    HOUSE_VIEW_SPECIALIST: "/api/house-view-specialist",
+    HOUSE_VIEW_SPECIALIST_BY_ID: (id) => `/api/house-view-specialist/${id}`,
+    HOUSE_VIEW_SPECIALIST_CRAWL: "/api/house-view-specialist/crawl",
+    HOUSE_VIEW_SPECIALIST_NEARBY: "/api/house-view-specialist/nearby",
   },
 };
 
