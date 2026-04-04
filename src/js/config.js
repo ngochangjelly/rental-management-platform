@@ -98,6 +98,7 @@ const API_CONFIG = {
     HOUSE_VIEW_SPECIALIST_BY_ID: (id) => `/api/house-view-specialist/${id}`,
     HOUSE_VIEW_SPECIALIST_CRAWL: "/api/house-view-specialist/crawl",
     HOUSE_VIEW_SPECIALIST_NEARBY: "/api/house-view-specialist/nearby",
+    HOUSE_VIEW_SPECIALIST_GEOCODE: "/api/house-view-specialist/geocode",
   },
 };
 

@@ -11,6 +11,7 @@ class HouseViewSpecialistComponent {
     this.records = [];
     this.viewingData = this._blankData();
     this.searchAbortController = null;
+    this.locationError = null; // null | { code, message }
     this.init();
   }
 
@@ -273,7 +274,6 @@ class HouseViewSpecialistComponent {
   }
 
   _renderStep2() {
-    const hasLocation = this.viewingData.location !== null;
     const hasResults = this.viewingData.nearbyMrts.length > 0 ||
       this.viewingData.nearbyHawkerCenters.length > 0 ||
       this.viewingData.nearbySupermarkets.length > 0;
@@ -313,6 +313,31 @@ class HouseViewSpecialistComponent {
       `;
     }).join('');
 
+    // Error state — show manual address fallback
+    const errorBlock = this.locationError ? `
+      <div class="hvs-location-error">
+        <div class="hvs-error-icon">📍</div>
+        <div class="hvs-error-msg">${escapeHtml(this.locationError.message)}</div>
+        <button class="hvs-btn-retry" onclick="houseViewSpecialist.retryLocate()">
+          <i class="bi bi-arrow-clockwise me-1"></i>Thử lại
+        </button>
+        <div class="hvs-manual-divider">— hoặc nhập địa chỉ thủ công —</div>
+        <div class="hvs-manual-input-row">
+          <input
+            type="text"
+            id="hvs-manual-address"
+            class="hvs-input"
+            placeholder="Nhập địa chỉ Singapore..."
+            value="${escapeHtml(this.viewingData.address || '')}"
+          />
+          <button class="hvs-btn-icon" onclick="houseViewSpecialist.geocodeAndSearch()" title="Tìm tiện ích">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+        <div id="hvs-geocode-status" class="hvs-status-text"></div>
+      </div>
+    ` : '';
+
     return `
       <div class="hvs-step-content">
         <div class="hvs-step-title">
@@ -320,7 +345,7 @@ class HouseViewSpecialistComponent {
           Vị trí & Tiện ích xung quanh
         </div>
 
-        ${!hasResults ? `
+        ${!hasResults && !this.locationError ? `
           <div class="hvs-locate-section">
             <button class="hvs-btn-locate" id="hvs-locate-btn" onclick="houseViewSpecialist.locateAndSearch()">
               <i class="bi bi-crosshair2 me-2"></i>Định vị & tìm tiện ích
@@ -338,13 +363,17 @@ class HouseViewSpecialistComponent {
             </div>
             <p id="hvs-search-status" class="hvs-search-status-text">Đang định vị...</p>
           </div>
-        ` : `
+        ` : ''}
+
+        ${errorBlock}
+
+        ${hasResults ? `
           <div class="hvs-results-found">
             <div class="hvs-results-header">
               <i class="bi bi-check-circle-fill text-success me-2"></i>
               <span>Đã tìm thấy tiện ích gần đây</span>
-              <button class="hvs-btn-sm ms-auto" onclick="houseViewSpecialist.locateAndSearch()">
-                <i class="bi bi-arrow-clockwise"></i> Làm mới
+              <button class="hvs-btn-sm ms-auto" onclick="houseViewSpecialist.resetAndLocate()">
+                <i class="bi bi-arrow-clockwise"></i> Định vị lại
               </button>
             </div>
 
@@ -371,7 +400,7 @@ class HouseViewSpecialistComponent {
 
             <div id="hvs-shazam-container" style="display:none"></div>
           </div>
-        `}
+        ` : ''}
 
         <div class="hvs-step-footer">
           <button class="hvs-btn-secondary" onclick="houseViewSpecialist.prevStep()">
@@ -714,60 +743,127 @@ class HouseViewSpecialistComponent {
 
   // ─── Location & nearby search ──────────────────────────────────────────────
 
-  async locateAndSearch() {
+  // Start the Shazam animation in the UI
+  _startSearchAnimation() {
     const shazamContainer = document.getElementById('hvs-shazam-container');
     const locateBtn = document.getElementById('hvs-locate-btn');
-    const statusEl = document.getElementById('hvs-search-status');
-
     if (shazamContainer) shazamContainer.style.display = 'flex';
     if (locateBtn) locateBtn.style.display = 'none';
+  }
 
-    const setStatus = (text) => { if (statusEl) statusEl.textContent = text; };
+  _stopSearchAnimation() {
+    const shazamContainer = document.getElementById('hvs-shazam-container');
+    const locateBtn = document.getElementById('hvs-locate-btn');
+    if (shazamContainer) shazamContainer.style.display = 'none';
+    if (locateBtn) locateBtn.style.display = '';
+  }
+
+  _setSearchStatus(text) {
+    const statusEl = document.getElementById('hvs-search-status');
+    if (statusEl) statusEl.textContent = text;
+  }
+
+  async _fetchNearby(lat, lng) {
+    this._setSearchStatus('Đang tìm MRT, hawker center và siêu thị...');
+    const res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_NEARBY, {
+      lat, lng, radiusMeters: 2000,
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Lỗi khi tìm kiếm');
+    this.viewingData.nearbyMrts = data.data.mrts || [];
+    this.viewingData.nearbyHawkerCenters = data.data.hawkers || [];
+    this.viewingData.nearbySupermarkets = data.data.supermarkets || [];
+  }
+
+  async locateAndSearch() {
+    this.locationError = null;
+    this._startSearchAnimation();
+    this._setSearchStatus('Đang định vị...');
 
     try {
-      setStatus('Đang định vị...');
-
       const position = await new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-          reject(new Error('Trình duyệt không hỗ trợ định vị'));
+          reject(Object.assign(new Error('Trình duyệt không hỗ trợ định vị'), { code: 0 }));
           return;
         }
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 12000,
         });
       });
 
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
+      const { latitude: lat, longitude: lng } = position.coords;
       this.viewingData.location = { lat, lng };
-
-      setStatus('Đang tìm MRT, hawker center và siêu thị...');
-
-      const res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_NEARBY, {
-        lat,
-        lng,
-        radiusMeters: 2000,
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        this.viewingData.nearbyMrts = data.data.mrts || [];
-        this.viewingData.nearbyHawkerCenters = data.data.hawkers || [];
-        this.viewingData.nearbySupermarkets = data.data.supermarkets || [];
-        setStatus('Tìm xong! ✅');
-        setTimeout(() => this.renderWizard(), 600);
-      } else {
-        throw new Error(data.message || 'Lỗi khi tìm kiếm');
-      }
+      await this._fetchNearby(lat, lng);
+      this._setSearchStatus('Tìm xong! ✅');
+      setTimeout(() => this.renderWizard(), 500);
     } catch (err) {
       console.error('Location error:', err);
-      if (shazamContainer) shazamContainer.style.display = 'none';
-      if (locateBtn) locateBtn.style.display = '';
-      const hint = err.code === 1
-        ? 'Vui lòng cho phép truy cập vị trí và thử lại.'
-        : (err.message || 'Không thể định vị. Vui lòng thử lại.');
-      showToast('Lỗi định vị: ' + hint, 'error');
+      this._stopSearchAnimation();
+
+      // Map GeolocationPositionError codes to friendly Vietnamese messages
+      const messages = {
+        0: 'Trình duyệt không hỗ trợ định vị.',
+        1: 'Bị từ chối quyền truy cập vị trí. Kiểm tra cài đặt trình duyệt.',
+        2: 'Không thể xác định vị trí (thiết bị hoặc GPS không phản hồi).',
+        3: 'Quá thời gian định vị. Vui lòng thử lại.',
+      };
+      const msg = messages[err.code] || (err.message || 'Lỗi không xác định.');
+      this.locationError = { code: err.code || 0, message: msg };
+      this.renderWizard(); // re-render step 2 showing fallback
+    }
+  }
+
+  retryLocate() {
+    this.locationError = null;
+    this.renderWizard();
+    // Small delay so the animation container renders before we trigger
+    setTimeout(() => this.locateAndSearch(), 80);
+  }
+
+  resetAndLocate() {
+    this.viewingData.nearbyMrts = [];
+    this.viewingData.nearbyHawkerCenters = [];
+    this.viewingData.nearbySupermarkets = [];
+    this.viewingData.location = null;
+    this.locationError = null;
+    this.renderWizard();
+    setTimeout(() => this.locateAndSearch(), 80);
+  }
+
+  async geocodeAndSearch() {
+    const addressInput = document.getElementById('hvs-manual-address');
+    const statusEl = document.getElementById('hvs-geocode-status');
+    const address = addressInput?.value.trim();
+    if (!address) { showToast('Nhập địa chỉ trước', 'error'); return; }
+
+    if (statusEl) statusEl.textContent = 'Đang tìm toạ độ...';
+
+    try {
+      const res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_GEOCODE, { address });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Không tìm thấy địa chỉ');
+
+      const { lat, lng } = data.data;
+      this.viewingData.location = { lat, lng };
+      this.locationError = null;
+
+      // Show shazam animation while fetching nearby
+      this.renderWizard(); // clears error block, shows default (no results yet)
+      setTimeout(async () => {
+        this._startSearchAnimation();
+        this._setSearchStatus('Đang tìm tiện ích gần đây...');
+        try {
+          await this._fetchNearby(lat, lng);
+          this._setSearchStatus('Tìm xong! ✅');
+          setTimeout(() => this.renderWizard(), 500);
+        } catch (e) {
+          this._stopSearchAnimation();
+          showToast('Lỗi khi tìm tiện ích: ' + e.message, 'error');
+        }
+      }, 80);
+    } catch (err) {
+      if (statusEl) statusEl.textContent = '⚠️ ' + (err.message || 'Lỗi geocoding');
     }
   }
 
