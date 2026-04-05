@@ -1,10 +1,16 @@
 // API Configuration
 const API_CONFIG = {
   // Backend API base URL - Update these URLs to point to your backend
-  BASE_URL:
-    window.location.hostname === "localhost"
-      ? "" // Local development - use webpack dev server proxy
-      : "https://rental-management-backend-mocha.vercel.app", // Production backend URL - Vercel deployment
+  BASE_URL: (() => {
+    const h = window.location.hostname;
+    // Local dev — use webpack proxy
+    if (h === "localhost" || h === "127.0.0.1") return "";
+    // VS Code devtunnels: frontend is *-3000.*.devtunnels.ms → backend is *-3001.*.devtunnels.ms
+    const tunnel = h.match(/^(.+?)-3000(\..+devtunnels\.ms)$/);
+    if (tunnel) return `https://${tunnel[1]}-3001${tunnel[2]}`;
+    // Production Vercel backend
+    return "https://rental-management-backend-mocha.vercel.app";
+  })(),
 
   // API endpoints
   ENDPOINTS: {

@@ -7102,6 +7102,18 @@
               }
               .hvs-report-actions { display: flex; gap: 10px; margin-bottom: 16px; flex-direction: column; }
 
+              /* Step 1 inline row + counters card */
+              .hvs-inline-row { display: flex; gap: 10px; }
+              .hvs-flex1 { flex: 1; min-width: 0; }
+              .hvs-counters-card { background: #fff; border-radius: 14px; padding: 6px 16px; margin-bottom: 16px; }
+              .hvs-mini-counter-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+              .hvs-mini-counter-row:last-child { border-bottom: none; }
+              .hvs-mini-label { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+              .hvs-mini-counter { display: flex; align-items: center; gap: 0; background: #f0f2f5; border-radius: 10px; overflow: hidden; }
+              .hvs-area-input { width: 90px; text-align: center; border: none; background: #f0f2f5; border-radius: 10px; padding: 8px 10px; font-size: 15px; font-weight: 600; }
+              .hvs-btn-clear { color: #aaa; }
+              .hvs-btn-clear:hover { color: #ef4444; border-color: #fca5a5; background: #fff0f0; }
+
               /* Location error / manual fallback */
               .hvs-location-error {
                 background: #fff8f0;
@@ -7249,6 +7261,17 @@
       </div>
     </div>
 
+    <!-- Eruda mobile debug console — auto-loads on localhost / devtunnels only -->
+    <script>
+      (function () {
+        if (/localhost|127\.0\.0\.1|devtunnels\.ms/.test(window.location.hostname)) {
+          var s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+          s.onload = function () { eruda.init(); };
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Chart.js for charts and visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -10083,5 +10106,5 @@
         </div>
       </div>
     </div>
-  <script defer src="/js/dashboard.b98fe9e2169a8e0695ee.js"></script></body>
+  <script defer src="/js/dashboard.9c73fd8d4bd86a090656.js"></script></body>
 </html>
