@@ -99,6 +99,13 @@ const API_CONFIG = {
     // Health Check
     HEALTH: "/health",
 
+    // Utility Bill Tracker (SP Group bills)
+    UTILITY_BILLS_BY_PROPERTY: (propertyId) => `/api/utility-bills/property/${propertyId}`,
+    UTILITY_BILL_CREATE: (propertyId) => `/api/utility-bills/property/${propertyId}`,
+    UTILITY_BILL_UPDATE: (billId) => `/api/utility-bills/${billId}`,
+    UTILITY_BILL_DELETE: (billId) => `/api/utility-bills/${billId}`,
+    UTILITY_BILL_PARSE_OCR: "/api/utility-bills/parse-ocr",
+
     // House View Specialist
     HOUSE_VIEW_SPECIALIST: "/api/house-view-specialist",
     HOUSE_VIEW_SPECIALIST_BY_ID: (id) => `/api/house-view-specialist/${id}`,

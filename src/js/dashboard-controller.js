@@ -93,7 +93,7 @@ class DashboardController {
     const targetSection = document.getElementById(targetSectionId);
 
     if (targetSection) {
-      targetSection.style.display = "block";
+      targetSection.style.display = targetSection.dataset.display || "block";
       this.currentSection = sectionName;
 
       // Initialize component for this section if not already done
@@ -255,6 +255,12 @@ class DashboardController {
       case "house-view-specialist":
         if (window.houseViewSpecialist) {
           window.houseViewSpecialist.goToList();
+        }
+        break;
+      case "utility-bills":
+        if (!this.components.utilityBillTracker) {
+          this.components.utilityBillTracker = new UtilityBillTrackerComponent();
+          window.utilityBillTracker = this.components.utilityBillTracker;
         }
         break;
     }

@@ -1,4 +1,13 @@
 import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+import i18next from 'i18next';
+
+const t = (key, opts) => i18next.t(`billManagement.${key}`, opts);
+const monthName = (idx, short = false) => {
+  if (i18next.language === 'vi') return short ? `T${idx + 1}` : `Tháng ${idx + 1}`;
+  const full = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const sh   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return short ? sh[idx] : full[idx];
+};
 
 /**
  * Bill Management Component
@@ -10,6 +19,7 @@ class BillManagementComponent {
     this.currentDate = new Date();
     this.properties = [];
     this.currentBill = null;
+    this.currentUtilityBill = null; // from Utility Bill Tracker
     this.selectedTenants = new Set();
     this.init();
   }
@@ -97,7 +107,7 @@ class BillManagementComponent {
       container.innerHTML = `
         <div class="col-12 text-center text-muted py-4">
           <i class="bi bi-building-slash me-2"></i>
-          No properties available
+          ${t('noPropertiesAvailable')}
         </div>
       `;
       return;
@@ -125,14 +135,14 @@ class BillManagementComponent {
                 </div>
                 <div>
                   <h6 class="mb-0 fw-bold">${escapeHtml(property.propertyId)}</h6>
-                  <small class="text-muted">Property ID</small>
+                  <small class="text-muted">${t('propertyId')}</small>
                 </div>
               </div>
               ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>' : ''}
             </div>
             <div class="card-body py-2 bg-white">
-              <p class="mb-1 small"><strong>Address:</strong> ${escapeHtml(property.address)}</p>
-              <p class="mb-1 small"><strong>Unit:</strong> ${escapeHtml(property.unit)}</p>
+              <p class="mb-1 small"><strong>${t('address')}:</strong> ${escapeHtml(property.address)}</p>
+              <p class="mb-1 small"><strong>${t('unit')}:</strong> ${escapeHtml(property.unit)}</p>
             </div>
           </div>
         </div>
@@ -217,9 +227,24 @@ class BillManagementComponent {
   updateMonthDisplay() {
     const monthYearElement = document.getElementById('currentMonthYear');
     if (monthYearElement) {
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-      monthYearElement.textContent = `${monthNames[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
+      monthYearElement.textContent = `${monthName(this.currentDate.getMonth())} ${this.currentDate.getFullYear()}`;
+    }
+  }
+
+  async loadUtilityBillForMonth() {
+    if (!this.selectedProperty) { this.currentUtilityBill = null; return; }
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+      const res = await API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty));
+      const data = await res.json();
+      if (data.success) {
+        this.currentUtilityBill = (data.bills || []).find(b => b.year === year && b.month === month) || null;
+      } else {
+        this.currentUtilityBill = null;
+      }
+    } catch {
+      this.currentUtilityBill = null;
     }
   }
 
@@ -228,6 +253,9 @@ class BillManagementComponent {
       this.showEmptyState('Please select a property');
       return;
     }
+
+    // Load utility bill tracker data in parallel
+    this.loadUtilityBillForMonth();
 
     try {
       const year = this.currentDate.getFullYear();
@@ -251,7 +279,7 @@ class BillManagementComponent {
         this.renderBillTable();
       } else {
         console.error('Failed to load bill:', result.error);
-        this.showEmptyState('Failed to load bill');
+        this.showEmptyState(t('failedToLoadBill'));
       }
     } catch (error) {
       console.error('Error loading bill:', error);
@@ -264,18 +292,16 @@ class BillManagementComponent {
     const container = document.getElementById('billTableContainer');
     if (!container) return;
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'];
-    const monthName = monthNames[this.currentDate.getMonth()];
+    const mn   = monthName(this.currentDate.getMonth());
     const year = this.currentDate.getFullYear();
 
     container.innerHTML = `
       <div class="text-center text-muted py-5">
         <i class="bi bi-file-earmark-plus fs-1 d-block mb-3"></i>
-        <h5>No Bill Generated for ${monthName} ${year}</h5>
-        <p>Click "Generate Bill" to create bills for all tenants in this property</p>
+        <h5>${t('noBillGenerated', { month: mn, year })}</h5>
+        <p>${t('clickToGenerate')}</p>
         <button class="btn btn-primary mt-3" onclick="billManager.showGenerateBillModal()">
-          <i class="bi bi-plus-circle me-2"></i>Generate Bill
+          <i class="bi bi-plus-circle me-2"></i>${t('generateBill')}
         </button>
       </div>
     `;
@@ -314,15 +340,15 @@ class BillManagementComponent {
               <th>
                 <input type="checkbox" id="selectAllTenants" class="form-check-input">
               </th>
-              <th>Tenant</th>
-              <th>Room</th>
-              <th>Base Rental</th>
-              <th>Utility Fee</th>
-              <th>Cleaning Fee</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th>Upload Link</th>
-              <th>Actions</th>
+              <th>${t('tenant')}</th>
+              <th>${t('room')}</th>
+              <th>${t('baseRental')}</th>
+              <th>${t('utilityFee')}</th>
+              <th>${t('cleaningFee')}</th>
+              <th>${t('total')}</th>
+              <th>${t('status')}</th>
+              <th>${t('uploadLink')}</th>
+              <th>${t('actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -331,7 +357,7 @@ class BillManagementComponent {
     tenantBills.forEach(tenantBill => {
       const statusBadge = this.getStatusBadge(tenantBill.paymentStatus);
       const uploadInfo = tenantBill.latestUpload
-        ? `<small class="text-muted">Uploaded: ${new Date(tenantBill.latestUpload.uploadDate).toLocaleString()}</small>`
+        ? `<small class="text-muted">${t('uploadedOn', { date: new Date(tenantBill.latestUpload.uploadDate).toLocaleString() })}</small>`
         : '';
 
       html += `
@@ -356,7 +382,7 @@ class BillManagementComponent {
           </td>
           <td>
             <button class="btn btn-sm btn-outline-secondary" onclick="billManager.copyUploadLink('${tenantBill.uploadLink}')">
-              <i class="bi bi-clipboard"></i> Copy Link
+              <i class="bi bi-clipboard"></i> ${t('copyLink')}
             </button>
           </td>
           <td>
@@ -368,8 +394,8 @@ class BillManagementComponent {
                 <button class="btn btn-outline-info" onclick="billManager.viewUpload('${tenantBill.latestUpload.screenshotUrl}')" title="View uploaded screenshot">
                   <i class="bi bi-image"></i>
                 </button>
-                <button class="btn btn-outline-warning" onclick="billManager.resetTenantPayment('${tenantBill.tenantId}')" title="Reset to Pending">
-                  <i class="bi bi-arrow-counterclockwise"></i> Reset
+                <button class="btn btn-outline-warning" onclick="billManager.resetTenantPayment('${tenantBill.tenantId}')" title="${t('reset')}">
+                  <i class="bi bi-arrow-counterclockwise"></i> ${t('reset')}
                 </button>
               ` : ''}
             </div>
@@ -387,54 +413,52 @@ class BillManagementComponent {
         <div class="card-body">
           <div class="row">
             <div class="col-md-4">
-              <h6>Bill Summary</h6>
-              <p><strong>Total Tenants:</strong> ${tenantBills.length}</p>
-              <p><strong>Paid:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'uploaded' || tb.paymentStatus === 'verified').length}</p>
-              <p><strong>Pending:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'pending').length}</p>
+              <h6>${t('billSummary')}</h6>
+              <p><strong>${t('totalTenants')}:</strong> ${tenantBills.length}</p>
+              <p><strong>${t('paid')}:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'uploaded' || tb.paymentStatus === 'verified').length}</p>
+              <p><strong>${t('pendingCount')}:</strong> ${tenantBills.filter(tb => tb.paymentStatus === 'pending').length}</p>
             </div>
             <div class="col-md-4">
-              <h6>Fee Summary</h6>
-              <p id="billingPeriodDisplay"><strong>Billing Period:</strong> ${this.currentBill.billingPeriod ? escapeHtml(this.currentBill.billingPeriod) : '<span class="text-muted">-</span>'}</p>
-              <p id="utilityFeeDisplay"><strong>Total Utility Fee (Shared):</strong> $${this.currentBill.utilityFee.toFixed(2)}</p>
-              <p><strong>Tenants Paying Utility:</strong> ${tenantBills.filter(tb => tb.utilityFee > 0).length}</p>
-              <p><strong>Utility Subsidized:</strong> ${tenantBills.filter(tb => tb.utilityFee === 0).length}</p>
+              <h6>${t('feeSummary')}</h6>
+              <p id="billingPeriodDisplay"><strong>${t('billingPeriod')}:</strong> ${this.currentBill.billingPeriod ? escapeHtml(this.currentBill.billingPeriod) : '<span class="text-muted">-</span>'}</p>
+              <p id="utilityFeeDisplay"><strong>${t('totalUtilityFeeShared')}:</strong> $${this.currentBill.utilityFee.toFixed(2)}</p>
+              <p><strong>${t('tenantsPayingUtility')}:</strong> ${tenantBills.filter(tb => tb.utilityFee > 0).length}</p>
+              <p><strong>${t('utilitySubsidized')}:</strong> ${tenantBills.filter(tb => tb.utilityFee === 0).length}</p>
+              <button class="btn btn-sm btn-outline-primary mt-1" onclick="billManager.showUtilityBreakdownModal()">
+                <i class="bi bi-calculator me-1"></i>${t('viewUtilityBreakdown')}
+              </button>
               <div id="ocrReadStatus"></div>
             </div>
             <div class="col-md-4">
-              <h6>Utility Bill</h6>
-              ${this.currentBill.utilityBillImage ? `
-                <div class="position-relative" style="width: 100px;">
-                  <button class="btn btn-sm btn-danger position-absolute"
-                          style="top: -8px; right: -8px; z-index: 10; padding: 2px 6px; border-radius: 50%;"
-                          onclick="event.stopPropagation(); billManager.removeBillImage()"
-                          title="Remove bill image">
-                    <i class="bi bi-x"></i>
-                  </button>
-                  <div class="border rounded overflow-hidden" style="width: 100px; height: 250px; cursor: pointer;"
-                       onclick="billManager.viewUpload('${this.currentBill.utilityBillImage}')">
-                    <img id="storedBillImage" src="${this.currentBill.utilityBillImage}" alt="Utility Bill"
-                         style="width: 100%; height: 100%; object-fit: cover;"
-                         crossorigin="anonymous">
+              <h6>${t('spGroupUtilityBill')}</h6>
+              ${this.currentUtilityBill ? (() => {
+                const ub = this.currentUtilityBill;
+                const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : null;
+                const period = (ub.billingPeriodStart || ub.billingPeriodEnd)
+                  ? `${fmtDate(ub.billingPeriodStart) || '?'} – ${fmtDate(ub.billingPeriodEnd) || '?'}`
+                  : null;
+                const gasOther = (ub.gasAmount||0) + (ub.refuseAmount||0) + (ub.otherAmount||0);
+                return `
+                  <div class="border rounded p-2 bg-light" style="font-size:0.82rem;">
+                    <div class="fw-semibold mb-1 text-primary">${monthName((ub.month||1)-1, true)} ${ub.year}</div>
+                    ${period ? `<div class="text-muted mb-1" style="font-size:0.75rem;">${period}</div>` : ''}
+                    <div class="d-flex justify-content-between"><span><i class="bi bi-lightning-charge-fill text-warning me-1"></i>${t('electricity')}</span><span>$${(ub.electricityAmount||0).toFixed(2)}</span></div>
+                    <div class="d-flex justify-content-between"><span><i class="bi bi-droplet-fill text-info me-1"></i>${t('water')}</span><span>$${(ub.waterAmount||0).toFixed(2)}</span></div>
+                    ${gasOther > 0 ? `<div class="d-flex justify-content-between"><span><i class="bi bi-fire text-secondary me-1"></i>${t('gasAndOthers')}</span><span>$${gasOther.toFixed(2)}</span></div>` : ''}
+                    <div class="d-flex justify-content-between fw-bold border-top mt-1 pt-1"><span>${t('total')}</span><span class="text-primary">$${(ub.totalAmount||0).toFixed(2)}</span></div>
+                    ${ub.billImageUrl ? `<a href="${ub.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 w-100 py-0" style="font-size:0.75rem;"><i class="bi bi-image me-1"></i>${t('viewBill')}</a>` : ''}
+                  </div>`;
+              })() : `
+                <div class="border rounded bg-light d-flex align-items-center justify-content-center text-muted p-3 text-center" style="min-height:80px;">
+                  <div>
+                    <i class="bi bi-lightning-charge d-block mb-1 fs-4"></i>
+                    <small>${t('noSpBillRecorded')}</small><br>
+                    <a href="#" class="btn btn-sm btn-link p-0 mt-1" style="font-size:0.75rem;"
+                       onclick="event.preventDefault();dashboardController.showSection('utility-bills')">
+                      ${t('addInTracker')}
+                    </a>
                   </div>
-                </div>
-                <small class="text-muted d-block mt-1">Click to view full size</small>
-                ${(!this.currentBill.billingPeriod || this.currentBill.utilityFee === 0) ? `
-                  <button class="btn btn-sm btn-outline-primary mt-2" onclick="billManager.readBillFromImage()">
-                    <i class="bi bi-magic me-1"></i>Read from bill
-                  </button>
-                ` : ''}
-              ` : `
-                <div class="border rounded bg-light d-flex align-items-center justify-content-center text-muted position-relative"
-                     style="width: 100px; height: 250px; cursor: pointer;"
-                     onclick="document.getElementById('replaceBillImageInput').click()">
-                  <div class="text-center">
-                    <i class="bi bi-cloud-upload"></i>
-                    <p class="mb-0 small">Upload bill</p>
-                  </div>
-                </div>
-                <input type="file" id="replaceBillImageInput" accept="image/*" style="display: none;"
-                       onchange="billManager.uploadReplacementBillImage(this)">
-              `}
+                </div>`}
             </div>
           </div>
         </div>
@@ -490,9 +514,9 @@ class BillManagementComponent {
 
   getStatusBadge(status) {
     const badges = {
-      'pending': '<span class="badge bg-warning text-dark">Pending</span>',
-      'uploaded': '<span class="badge bg-success">Uploaded</span>',
-      'verified': '<span class="badge bg-primary">Verified</span>'
+      'pending':  `<span class="badge bg-warning text-dark">${t('statusPending')}</span>`,
+      'uploaded': `<span class="badge bg-success">${t('statusUploaded')}</span>`,
+      'verified': `<span class="badge bg-primary">${t('statusVerified')}</span>`,
     };
     return badges[status] || badges['pending'];
   }
@@ -501,79 +525,79 @@ class BillManagementComponent {
     // Validation: Check if property is selected
     if (!this.selectedProperty) {
       if (typeof showToast !== 'undefined') {
-        showToast('Please select a property first', 'error');
+        showToast(t('pleaseSelectProperty'), 'error');
       } else {
-        alert('Please select a property first');
+        alert(t('pleaseSelectProperty'));
       }
       return;
     }
 
-    // Reset uploaded bill data
-    this.uploadedUtilityBill = null;
+    const ub = this.currentUtilityBill;
+    const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : null;
+
+    // Pre-fill billing period from tracker data if available
+    const prefillPeriod = ub && (ub.billingPeriodStart || ub.billingPeriodEnd)
+      ? `${fmtDate(ub.billingPeriodStart) || '?'} - ${fmtDate(ub.billingPeriodEnd) || '?'}`
+      : '';
+    const prefillFee = ub ? (ub.totalAmount || 0).toFixed(2) : '0';
+
+    const trackerBanner = ub ? `
+      <div class="alert alert-success py-2 mb-3">
+        <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
+        <strong>${t('spBillFound')}</strong> — ${monthName((ub.month||1)-1, true)} ${ub.year}
+        <div class="mt-1 small">
+          ${t('elec')}: <strong>$${(ub.electricityAmount||0).toFixed(2)}</strong> &nbsp;
+          ${t('water')}: <strong>$${(ub.waterAmount||0).toFixed(2)}</strong> &nbsp;
+          ${t('gasAndOthers')}: <strong>$${((ub.gasAmount||0)+(ub.refuseAmount||0)+(ub.otherAmount||0)).toFixed(2)}</strong> &nbsp;
+          ${t('total')}: <strong class="text-primary">$${(ub.totalAmount||0).toFixed(2)}</strong>
+        </div>
+      </div>` : `
+      <div class="alert alert-warning py-2 mb-3">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        ${t('noSpBillFoundMsg')}
+        <a href="#" class="alert-link ms-1" onclick="event.preventDefault();bootstrap.Modal.getInstance(document.getElementById('generateBillModal'))?.hide();dashboardController.showSection('utility-bills')">${t('addBill')}</a>
+      </div>`;
 
     const modalHtml = `
       <div class="modal fade" id="generateBillModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Generate Bill</h5>
+              <h5 class="modal-title">${t('generateBillTitle')}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
               <form id="generateBillForm">
-                <div class="row">
-                  <div class="col-md-7">
-                    <div class="mb-3">
-                      <label class="form-label">Property</label>
-                      <input type="text" class="form-control" value="${this.selectedProperty || 'No property selected'}" readonly>
-                    </div>
-                    <div class="mb-3">
-                      <label class="form-label">Month/Year</label>
-                      <input type="text" class="form-control" value="${this.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}" readonly>
-                    </div>
-                    <div class="mb-3">
-                      <label for="utilityBillImage" class="form-label">Upload Utility Bill Screenshot</label>
-                      <input type="file" class="form-control" id="utilityBillImage" accept="image/*" onchange="billManager.handleUtilityBillUpload(event)">
-                      <div class="form-text"><i class="bi bi-magic me-1"></i>OCR will auto-fill billing period and charges</div>
-                    </div>
-                    <div class="mb-3">
-                      <label for="billingPeriod" class="form-label">Billing Period</label>
-                      <input type="text" class="form-control" id="billingPeriod" placeholder="e.g., 03 Jan 2026 - 02 Feb 2026">
-                    </div>
-                    <div class="mb-3">
-                      <label for="totalUtilityFee" class="form-label">Total Utility Fee to Share (Current Charges incl. GST)</label>
-                      <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01" value="0">
-                      </div>
-                      <div class="form-text">This amount will be divided equally among all tenants with room type assigned.</div>
-                    </div>
-                  </div>
-                  <div class="col-md-5">
-                    <label class="form-label">Bill Preview</label>
-                    <div id="utilityBillPreview" class="border rounded d-flex align-items-center justify-content-center bg-light"
-                         style="width: 100%; height: 250px; overflow: hidden; cursor: pointer;"
-                         onclick="billManager.viewUtilityBillFullSize()">
-                      <div class="text-center text-muted">
-                        <i class="bi bi-image fs-1"></i>
-                        <p class="mb-0 small">No bill uploaded</p>
-                      </div>
-                    </div>
-                  </div>
+                <div class="mb-3">
+                  <label class="form-label">${t('property')}</label>
+                  <input type="text" class="form-control" value="${this.selectedProperty || t('noPropertySelected')}" readonly>
                 </div>
-                <div class="alert alert-info mb-0 mt-3">
+                <div class="mb-3">
+                  <label class="form-label">${t('monthYear')}</label>
+                  <input type="text" class="form-control" value="${monthName(this.currentDate.getMonth())} ${this.currentDate.getFullYear()}" readonly>
+                </div>
+                ${trackerBanner}
+                <div class="mb-3">
+                  <label for="billingPeriod" class="form-label">${t('billingPeriodLabel')}</label>
+                  <input type="text" class="form-control" id="billingPeriod" placeholder="${t('billingPeriodPlaceholder')}" value="${escapeHtml(prefillPeriod)}">
+                </div>
+                <div class="mb-3">
+                  <label for="totalUtilityFee" class="form-label">${t('totalUtilityFeeToShare')}</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01" value="${prefillFee}">
+                  </div>
+                  <div class="form-text">${t('utilityFeeDesc')}</div>
+                </div>
+                <div class="alert alert-info mb-0">
                   <i class="bi bi-info-circle me-2"></i>
-                  <small>
-                    <strong>Note:</strong> Only tenants with room type will be included.<br>
-                    Cleaning fee uses each tenant's default from their contract.<br>
-                    Subsidized tenants (utility fee = $0 in profile) will show $0.
-                  </small>
+                  <small>${t('generateNoteText')}</small>
                 </div>
               </form>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" onclick="billManager.generateBill()">Generate</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t('cancel')}</button>
+              <button type="button" class="btn btn-primary" onclick="billManager.generateBill()">${t('generate')}</button>
             </div>
           </div>
         </div>
@@ -586,514 +610,18 @@ class BillManagementComponent {
 
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-    const modal = new bootstrap.Modal(document.getElementById('generateBillModal'));
+    const modalEl = document.getElementById('generateBillModal');
+    modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+    const modal = new bootstrap.Modal(modalEl);
     modal.show();
   }
 
-  async handleUtilityBillUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Store the file for later upload
-    this.uploadedUtilityBill = file;
-
-    const previewContainer = document.getElementById('utilityBillPreview');
-
-    // Show loading state
-    if (previewContainer) {
-      previewContainer.innerHTML = `
-        <div class="text-center">
-          <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-          <p class="mb-0 small text-muted">Loading preview...</p>
-        </div>
-      `;
-    }
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const imageDataUrl = e.target.result;
-
-      if (previewContainer) {
-        previewContainer.innerHTML = `
-          <img src="${imageDataUrl}" alt="Utility Bill"
-               style="max-width: 100%; max-height: 100%; object-fit: contain;">
-          <div id="ocrStatus" class="position-absolute bottom-0 start-0 end-0 bg-primary text-white text-center py-1" style="font-size: 11px;">
-            <span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>
-            Reading bill...
-          </div>
-        `;
-        previewContainer.style.position = 'relative';
-        previewContainer.setAttribute('data-full-image', imageDataUrl);
-      }
-
-      // Perform OCR
-      await this.performOCR(imageDataUrl);
-    };
-    reader.readAsDataURL(file);
-  }
-
-  async performOCR(imageDataUrl) {
-    try {
-      // Check if Tesseract is available
-      if (typeof Tesseract === 'undefined') {
-        console.warn('Tesseract.js not loaded, skipping OCR');
-        this.hideOcrStatus();
-        return;
-      }
-
-      console.log('Starting OCR...');
-      const result = await Tesseract.recognize(imageDataUrl, 'eng', {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            const progress = Math.round(m.progress * 100);
-            const ocrStatus = document.getElementById('ocrStatus');
-            if (ocrStatus) {
-              ocrStatus.innerHTML = `
-                <span class="spinner-border spinner-border-sm me-1" style="width: 12px; height: 12px;"></span>
-                Reading bill... ${progress}%
-              `;
-            }
-          }
-        }
-      });
-
-      const text = result.data.text;
-      console.log('OCR Text:', text);
-
-      // Extract billing information
-      const extractedData = this.extractBillData(text);
-
-      // Auto-populate fields
-      if (extractedData.billingPeriod) {
-        const billingPeriodInput = document.getElementById('billingPeriod');
-        if (billingPeriodInput) {
-          billingPeriodInput.value = extractedData.billingPeriod;
-        }
-      }
-
-      if (extractedData.currentCharges) {
-        const totalUtilityFeeInput = document.getElementById('totalUtilityFee');
-        if (totalUtilityFeeInput) {
-          totalUtilityFeeInput.value = extractedData.currentCharges;
-        }
-      }
-
-      // Show success status
-      const ocrStatus = document.getElementById('ocrStatus');
-      const foundItems = [];
-      if (extractedData.billingPeriod) foundItems.push('period');
-      if (extractedData.currentCharges) foundItems.push('charges');
-
-      if (ocrStatus) {
-        if (foundItems.length > 0) {
-          ocrStatus.className = 'position-absolute bottom-0 start-0 end-0 bg-success text-white text-center py-1';
-          ocrStatus.style.fontSize = '11px';
-          ocrStatus.innerHTML = `<i class="bi bi-check-circle me-1"></i>Found: ${foundItems.join(', ')}`;
-        } else {
-          ocrStatus.className = 'position-absolute bottom-0 start-0 end-0 bg-warning text-dark text-center py-1';
-          ocrStatus.style.fontSize = '11px';
-          ocrStatus.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Could not extract data';
-        }
-        setTimeout(() => this.hideOcrStatus(), 4000);
-      }
-
-      if (foundItems.length > 0) {
-        showToast(`Extracted: ${foundItems.join(' and ')}`, 'success');
-      } else {
-        showToast('Could not extract data - check console for OCR text', 'warning');
-      }
-
-    } catch (error) {
-      console.error('OCR Error:', error);
-      this.hideOcrStatus();
-    }
-  }
-
-  hideOcrStatus() {
-    const ocrStatus = document.getElementById('ocrStatus');
-    if (ocrStatus) {
-      ocrStatus.remove();
-    }
-  }
-
-  extractBillData(text) {
-    const result = {
-      billingPeriod: null,
-      currentCharges: null
-    };
-
-    // Keep original text for some patterns, normalize for others
-    const normalizedText = text.replace(/\s+/g, ' ').trim();
-
-    // Log raw text for debugging
-    console.log('Raw OCR text (first 500 chars):', text.substring(0, 500));
-
-    // Extract Billing Period
-    // Pattern: date range like "03 Jan 2026 - 02 Feb 2026"
-    // Support various dash types: -, –, —, ~
-    const months = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
-
-    const billingPeriodPatterns = [
-      // "Billing Period" followed by dates
-      new RegExp(`Billing\\s*Period[:\\s]*?(\\d{1,2}\\s*${months}\\s*\\d{4})\\s*[-–—~]\\s*(\\d{1,2}\\s*${months}\\s*\\d{4})`, 'i'),
-      // Just date range pattern (more flexible)
-      new RegExp(`(\\d{1,2}\\s*${months}\\s*\\d{4})\\s*[-–—~]\\s*(\\d{1,2}\\s*${months}\\s*\\d{4})`, 'i'),
-      // Date format: DD/MM/YYYY - DD/MM/YYYY or DD.MM.YYYY
-      /(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{4})\s*[-–—~]\s*(\d{1,2}[\/\.]\d{1,2}[\/\.]\d{4})/i,
-      // Handle OCR misreads - "O3" instead of "03", etc.
-      new RegExp(`([O0]?\\d{1,2}\\s*${months}\\s*\\d{4})\\s*[-–—~]\\s*([O0]?\\d{1,2}\\s*${months}\\s*\\d{4})`, 'i'),
-    ];
-
-    for (const pattern of billingPeriodPatterns) {
-      const match = normalizedText.match(pattern);
-      if (match) {
-        // Combine the two date parts
-        const startDate = match[1].replace(/\s+/g, ' ').trim().replace(/^O/, '0');
-        const endDate = match[2].replace(/\s+/g, ' ').trim().replace(/^O/, '0');
-        result.billingPeriod = `${startDate} - ${endDate}`;
-        console.log('Found billing period:', result.billingPeriod);
-        break;
-      }
-    }
-
-    // If still not found, try to find any date-like pattern near "Billing" or "Period"
-    if (!result.billingPeriod) {
-      const looseMatch = normalizedText.match(/(\d{1,2}\s*\w{3,9}\s*\d{4})\s*[-–—~to]+\s*(\d{1,2}\s*\w{3,9}\s*\d{4})/i);
-      if (looseMatch) {
-        result.billingPeriod = `${looseMatch[1].trim()} - ${looseMatch[2].trim()}`;
-        console.log('Found billing period (loose match):', result.billingPeriod);
-      }
-    }
-
-    // Extract Current Charges (inclusive of GST)
-    // Look for patterns like "Current Charges:" followed by "$645.85" or just a dollar amount
-    const chargesPatterns = [
-      /Current\s*Charges[:\s]*\$?([\d,]+\.?\d*)/i,
-      /Current\s*Charges\s*\(inclusive\s*of\s*GST\)[:\s]*\$?([\d,]+\.?\d*)/i,
-      /Total\s*Amount\s*Payable[:\s]*\$?([\d,]+\.?\d*)/i,
-      /\$\s*([\d,]+\.\d{2})\s*$/m  // Dollar amount at end of line
-    ];
-
-    for (const pattern of chargesPatterns) {
-      const match = normalizedText.match(pattern);
-      if (match) {
-        // Remove commas and parse as float
-        const amount = parseFloat(match[1].replace(/,/g, ''));
-        if (!isNaN(amount) && amount > 0) {
-          result.currentCharges = amount;
-          break;
-        }
-      }
-    }
-
-    // If no current charges found, try to find the largest reasonable amount (likely the total)
-    if (!result.currentCharges) {
-      const allAmounts = normalizedText.match(/\$\s*([\d,]+\.\d{2})/g);
-      if (allAmounts) {
-        const amounts = allAmounts
-          .map(a => parseFloat(a.replace(/[$,\s]/g, '')))
-          .filter(a => !isNaN(a) && a > 50 && a < 10000) // Filter reasonable utility bill amounts
-          .sort((a, b) => b - a); // Sort descending
-
-        if (amounts.length > 0) {
-          // Look for amount that appears multiple times (likely the total)
-          const amountCounts = {};
-          amounts.forEach(a => {
-            amountCounts[a] = (amountCounts[a] || 0) + 1;
-          });
-
-          // Find the largest amount that appears at least twice, or just the largest
-          for (const amount of amounts) {
-            if (amountCounts[amount] >= 2 || amount === amounts[0]) {
-              result.currentCharges = amount;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    console.log('Extracted bill data:', result);
-    return result;
-  }
-
-  async readBillFromImage() {
-    if (!this.currentBill?.utilityBillImage) {
-      showToast('No bill image available', 'error');
-      return;
-    }
-
-    const statusContainer = document.getElementById('ocrReadStatus');
-    if (statusContainer) {
-      statusContainer.innerHTML = `
-        <div class="alert alert-info py-2 mb-0">
-          <span class="spinner-border spinner-border-sm me-2"></span>
-          <small>Reading bill image...</small>
-        </div>
-      `;
-    }
-
-    try {
-      // Check if Tesseract is available
-      if (typeof Tesseract === 'undefined') {
-        throw new Error('OCR library not loaded');
-      }
-
-      // Get the image URL - need to convert proxy URL to full URL for OCR
-      let imageUrl = this.currentBill.utilityBillImage;
-      if (imageUrl.startsWith('/api/')) {
-        imageUrl = window.location.origin + imageUrl;
-      }
-
-      console.log('Reading bill from image:', imageUrl);
-
-      // Perform OCR
-      const result = await Tesseract.recognize(imageUrl, 'eng', {
-        logger: m => {
-          if (m.status === 'recognizing text' && statusContainer) {
-            const progress = Math.round(m.progress * 100);
-            statusContainer.innerHTML = `
-              <div class="alert alert-info py-2 mb-0">
-                <span class="spinner-border spinner-border-sm me-2"></span>
-                <small>Reading bill... ${progress}%</small>
-              </div>
-            `;
-          }
-        }
-      });
-
-      const text = result.data.text;
-      console.log('OCR Text from stored image:', text);
-      console.log('Full OCR text length:', text.length);
-
-      // Extract billing information
-      const extractedData = this.extractBillData(text);
-
-      // Track what was found
-      const foundItems = [];
-
-      if (extractedData.billingPeriod) {
-        const billingPeriodDisplay = document.getElementById('billingPeriodDisplay');
-        if (billingPeriodDisplay) {
-          billingPeriodDisplay.innerHTML = `<strong>Billing Period:</strong> ${escapeHtml(extractedData.billingPeriod)}`;
-        }
-        foundItems.push('billing period');
-      }
-
-      if (extractedData.currentCharges && extractedData.currentCharges > 0) {
-        const utilityFeeDisplay = document.getElementById('utilityFeeDisplay');
-        if (utilityFeeDisplay) {
-          utilityFeeDisplay.innerHTML = `<strong>Total Utility Fee (Shared):</strong> $${extractedData.currentCharges.toFixed(2)}`;
-        }
-        foundItems.push('charges');
-      }
-
-      if (foundItems.length > 0) {
-        // Save extracted data to the server
-        await this.updateBillWithExtractedData(extractedData);
-
-        if (statusContainer) {
-          statusContainer.innerHTML = `
-            <div class="alert alert-success py-2 mb-0">
-              <i class="bi bi-check-circle me-1"></i>
-              <small>Found: ${foundItems.join(', ')}</small>
-            </div>
-          `;
-          setTimeout(() => {
-            if (statusContainer) statusContainer.innerHTML = '';
-          }, 4000);
-        }
-        showToast(`Extracted: ${foundItems.join(' and ')}`, 'success');
-      } else {
-        if (statusContainer) {
-          statusContainer.innerHTML = `
-            <div class="alert alert-warning py-2 mb-0">
-              <i class="bi bi-exclamation-triangle me-1"></i>
-              <small>Could not extract - check console</small>
-            </div>
-          `;
-          setTimeout(() => {
-            if (statusContainer) statusContainer.innerHTML = '';
-          }, 5000);
-        }
-        showToast('Could not extract data - check browser console for OCR text', 'warning');
-      }
-
-    } catch (error) {
-      console.error('Error reading bill from image:', error);
-      if (statusContainer) {
-        statusContainer.innerHTML = `
-          <div class="alert alert-danger py-2 mb-0">
-            <i class="bi bi-x-circle me-1"></i>
-            <small>Failed to read bill</small>
-          </div>
-        `;
-        setTimeout(() => {
-          if (statusContainer) statusContainer.innerHTML = '';
-        }, 3000);
-      }
-      showToast('Failed to read bill image', 'error');
-    }
-  }
-
-  async updateBillWithExtractedData(extractedData) {
-    try {
-      const updates = {};
-      if (extractedData.billingPeriod) {
-        updates.billingPeriod = extractedData.billingPeriod;
-      }
-      if (extractedData.currentCharges && extractedData.currentCharges > 0) {
-        updates.utilityFee = extractedData.currentCharges;
-      }
-
-      if (Object.keys(updates).length === 0) return;
-
-      const response = await API.put(
-        API_CONFIG.ENDPOINTS.BILL_UPDATE_FEES(
-          this.selectedProperty,
-          this.currentDate.getFullYear(),
-          this.currentDate.getMonth() + 1
-        ),
-        updates
-      );
-
-      const result = await response.json();
-      if (result.success) {
-        // Update local bill data
-        if (updates.billingPeriod) {
-          this.currentBill.billingPeriod = updates.billingPeriod;
-        }
-        if (updates.utilityFee) {
-          this.currentBill.utilityFee = updates.utilityFee;
-        }
-        console.log('Bill updated with extracted data');
-      }
-    } catch (error) {
-      console.error('Error updating bill with extracted data:', error);
-    }
-  }
-
-  viewUtilityBillFullSize() {
-    const previewContainer = document.getElementById('utilityBillPreview');
-    const fullImage = previewContainer?.getAttribute('data-full-image');
-    if (fullImage) {
-      window.open(fullImage, '_blank');
-    }
-  }
-
-  async removeBillImage() {
-    if (!this.currentBill) {
-      showToast('No bill selected', 'error');
-      return;
-    }
-
-    if (!confirm('Remove the utility bill image? You can upload a new one after.')) {
-      return;
-    }
-
-    try {
-      // Update bill to remove the image URL
-      const response = await API.put(
-        API_CONFIG.ENDPOINTS.BILL_UPDATE_FEES(
-          this.selectedProperty,
-          this.currentDate.getFullYear(),
-          this.currentDate.getMonth() + 1
-        ),
-        {
-          utilityBillImage: ''
-        }
-      );
-
-      const result = await response.json();
-      if (result.success) {
-        this.currentBill.utilityBillImage = '';
-        this.renderBillTable();
-        showToast('Bill image removed', 'success');
-      } else {
-        throw new Error(result.error || 'Failed to remove bill image');
-      }
-    } catch (error) {
-      console.error('Error removing bill image:', error);
-      showToast('Failed to remove bill image', 'error');
-    }
-  }
-
-  async uploadReplacementBillImage(input) {
-    const file = input.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      showToast('Please select an image file', 'error');
-      return;
-    }
-
-    try {
-      showToast('Uploading bill image...', 'info');
-
-      // Upload to Cloudinary via backend
-      const formData = new FormData();
-      formData.append('files', file);
-
-      const authToken = localStorage.getItem('authToken');
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/upload/bill-evidence`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: formData
-      });
-
-      const uploadResult = await response.json();
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || 'Upload failed');
-      }
-
-      const imageUrl = uploadResult.files[0].url;
-      console.log('Uploaded bill image URL:', imageUrl);
-
-      // Update bill with new image URL
-      const updateResponse = await API.put(
-        API_CONFIG.ENDPOINTS.BILL_UPDATE_FEES(
-          this.selectedProperty,
-          this.currentDate.getFullYear(),
-          this.currentDate.getMonth() + 1
-        ),
-        {
-          utilityBillImage: imageUrl
-        }
-      );
-
-      const updateResult = await updateResponse.json();
-      if (updateResult.success) {
-        this.currentBill.utilityBillImage = imageUrl;
-        this.renderBillTable();
-        showToast('Bill image uploaded successfully', 'success');
-
-        // Optionally perform OCR to extract data
-        setTimeout(() => {
-          if (!this.currentBill.billingPeriod || this.currentBill.utilityFee === 0) {
-            this.readBillFromImage();
-          }
-        }, 500);
-      } else {
-        throw new Error(updateResult.error || 'Failed to update bill');
-      }
-    } catch (error) {
-      console.error('Error uploading bill image:', error);
-      showToast('Failed to upload bill image', 'error');
-    }
-
-    // Reset input
-    input.value = '';
-  }
 
   async generateBill() {
     try {
       const totalUtilityFee = parseFloat(document.getElementById('totalUtilityFee').value) || 0;
       const billingPeriod = document.getElementById('billingPeriod').value || '';
 
-      // Use FormData to support file upload
       const formData = new FormData();
       formData.append('propertyId', this.selectedProperty);
       formData.append('year', this.currentDate.getFullYear());
@@ -1101,33 +629,20 @@ class BillManagementComponent {
       formData.append('totalUtilityFee', totalUtilityFee);
       formData.append('billingPeriod', billingPeriod);
 
-      // Add utility bill image if uploaded
-      if (this.uploadedUtilityBill) {
-        formData.append('utilityBillImage', this.uploadedUtilityBill);
-      }
-
       const response = await API.postFormData(API_CONFIG.ENDPOINTS.BILL_GENERATE, formData);
-
       const result = await response.json();
 
       if (result.success) {
-        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('generateBillModal'));
         if (modal) modal.hide();
-
-        // Clear uploaded file reference
-        this.uploadedUtilityBill = null;
-
-        // Reload bill
         await this.loadBillForCurrentMonth();
-
-        showToast(result.message || 'Bill generated successfully', 'success');
+        showToast(result.message || t('billGeneratedSuccess'), 'success');
       } else {
-        showToast('Failed to generate bill: ' + result.error, 'error');
+        showToast(t('billGenerateFailed') + ': ' + result.error, 'error');
       }
     } catch (error) {
       console.error('Error generating bill:', error);
-      showToast('Error generating bill', 'error');
+      showToast(t('billGenerateFailed'), 'error');
     }
   }
 
@@ -1139,28 +654,28 @@ class BillManagementComponent {
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Update Fees for All Tenants</h5>
+              <h5 class="modal-title">${t('updateFeesTitle')}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
               <form id="updateFeesForm">
                 <div class="mb-3">
-                  <label for="updateUtilityFee" class="form-label">Utility Fee</label>
+                  <label for="updateUtilityFee" class="form-label">${t('utilityFee')}</label>
                   <input type="number" class="form-control" id="updateUtilityFee" name="utilityFee" min="0" step="0.01" value="${this.currentBill.utilityFee}">
                 </div>
                 <div class="mb-3">
-                  <label for="updateCleaningFee" class="form-label">Cleaning Fee</label>
+                  <label for="updateCleaningFee" class="form-label">${t('cleaningFee')}</label>
                   <input type="number" class="form-control" id="updateCleaningFee" name="cleaningFee" min="0" step="0.01" value="${this.currentBill.cleaningFee}">
                 </div>
                 <div class="alert alert-warning">
                   <i class="bi bi-exclamation-triangle me-2"></i>
-                  This will update fees for all tenants in this month's bill.
+                  ${t('updateFeesWarning')}
                 </div>
               </form>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" onclick="billManager.updateFees()">Update</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t('cancel')}</button>
+              <button type="button" class="btn btn-primary" onclick="billManager.updateFees()">${t('update')}</button>
             </div>
           </div>
         </div>
@@ -1172,7 +687,9 @@ class BillManagementComponent {
 
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-    const modal = new bootstrap.Modal(document.getElementById('updateFeesModal'));
+    const modalEl = document.getElementById('updateFeesModal');
+    modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+    const modal = new bootstrap.Modal(modalEl);
     modal.show();
   }
 
@@ -1198,13 +715,13 @@ class BillManagementComponent {
 
         await this.loadBillForCurrentMonth();
 
-        showToast('Fees updated successfully', 'success');
+        showToast(t('feesUpdatedSuccess'), 'success');
       } else {
-        showToast('Failed to update fees: ' + result.error, 'error');
+        showToast(t('feesUpdateFailed') + ': ' + result.error, 'error');
       }
     } catch (error) {
       console.error('Error updating fees:', error);
-      showToast('Error updating fees', 'error');
+      showToast(t('feesUpdateFailed'), 'error');
     }
   }
 
@@ -1219,28 +736,28 @@ class BillManagementComponent {
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Edit Bill for ${escapeHtml(tenantBill.tenantName)}</h5>
+              <h5 class="modal-title">${t('editBillFor', { name: escapeHtml(tenantBill.tenantName) })}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
               <form id="editTenantBillForm">
                 <div class="mb-3">
-                  <label for="editBaseRental" class="form-label">Base Rental</label>
+                  <label for="editBaseRental" class="form-label">${t('baseRental')}</label>
                   <input type="number" class="form-control" id="editBaseRental" name="baseRental" min="0" step="0.01" value="${tenantBill.baseRental}">
                 </div>
                 <div class="mb-3">
-                  <label for="editUtilityFee" class="form-label">Utility Fee</label>
+                  <label for="editUtilityFee" class="form-label">${t('utilityFee')}</label>
                   <input type="number" class="form-control" id="editUtilityFee" name="utilityFee" min="0" step="0.01" value="${tenantBill.utilityFee}">
                 </div>
                 <div class="mb-3">
-                  <label for="editCleaningFee" class="form-label">Cleaning Fee</label>
+                  <label for="editCleaningFee" class="form-label">${t('cleaningFee')}</label>
                   <input type="number" class="form-control" id="editCleaningFee" name="cleaningFee" min="0" step="0.01" value="${tenantBill.cleaningFee}">
                 </div>
               </form>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" onclick="billManager.saveTenantBill('${tenantId}')">Save</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t('cancel')}</button>
+              <button type="button" class="btn btn-primary" onclick="billManager.saveTenantBill('${tenantId}')">${t('save')}</button>
             </div>
           </div>
         </div>
@@ -1252,7 +769,9 @@ class BillManagementComponent {
 
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-    const modal = new bootstrap.Modal(document.getElementById('editTenantBillModal'));
+    const modalEl = document.getElementById('editTenantBillModal');
+    modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+    const modal = new bootstrap.Modal(modalEl);
     modal.show();
   }
 
@@ -1280,22 +799,22 @@ class BillManagementComponent {
 
         await this.loadBillForCurrentMonth();
 
-        showToast('Tenant bill updated successfully', 'success');
+        showToast(t('tenantBillUpdatedSuccess'), 'success');
       } else {
-        showToast('Failed to update tenant bill: ' + result.error, 'error');
+        showToast(t('tenantBillUpdateFailed') + ': ' + result.error, 'error');
       }
     } catch (error) {
       console.error('Error updating tenant bill:', error);
-      showToast('Error updating tenant bill', 'error');
+      showToast(t('tenantBillUpdateFailed'), 'error');
     }
   }
 
   copyUploadLink(link) {
     navigator.clipboard.writeText(link).then(() => {
-      showToast('Upload link copied to clipboard', 'success');
+      showToast(t('linkCopied'), 'success');
     }).catch(err => {
       console.error('Failed to copy link:', err);
-      showToast('Failed to copy link', 'error');
+      showToast(t('linkCopyFailed'), 'error');
     });
   }
 
@@ -1304,7 +823,7 @@ class BillManagementComponent {
   }
 
   async resetTenantPayment(tenantId) {
-    if (!confirm('⚠️ Reset this tenant\'s payment?\n\nThis will:\n• Delete all uploaded screenshots\n• Reset status to "Pending"\n• Allow tenant to upload again\n\nContinue?')) return;
+    if (!confirm(t('resetConfirm'))) return;
 
     try {
       const response = await API.delete(
@@ -1320,13 +839,13 @@ class BillManagementComponent {
 
       if (result.success) {
         await this.loadBillForCurrentMonth();
-        showToast('✅ Payment reset to Pending. Tenant can upload again.', 'success');
+        showToast(t('paymentResetSuccess'), 'success');
       } else {
-        showToast('Failed to reset payment: ' + result.error, 'error');
+        showToast(t('paymentResetFailed') + ': ' + result.error, 'error');
       }
     } catch (error) {
       console.error('Error resetting payment:', error);
-      showToast('Error resetting payment', 'error');
+      showToast(t('paymentResetFailed'), 'error');
     }
   }
 
@@ -1339,7 +858,7 @@ class BillManagementComponent {
     const count = this.selectedTenants.size;
     if (count === 0) return;
 
-    if (!confirm(`⚠️ Reset payment for ${count} selected tenant(s)?\n\nThis will:\n• Delete all their uploaded screenshots\n• Reset their status to "Pending"\n• Allow them to upload again\n\nContinue?`)) return;
+    if (!confirm(t('bulkResetConfirm', { count }))) return;
 
     try {
       const tenantIds = Array.from(this.selectedTenants);
@@ -1360,13 +879,406 @@ class BillManagementComponent {
       if (result.success) {
         this.selectedTenants.clear();
         await this.loadBillForCurrentMonth();
-        showToast(`✅ ${result.clearedCount} tenant(s) reset to Pending`, 'success');
+        showToast(t('bulkResetSuccess', { count: result.clearedCount }), 'success');
       } else {
-        showToast('Failed to reset payments: ' + result.error, 'error');
+        showToast(t('bulkResetFailed') + ': ' + result.error, 'error');
       }
     } catch (error) {
       console.error('Error bulk deleting uploads:', error);
-      showToast('Error deleting uploads', 'error');
+      showToast(t('errorDeletingUploads'), 'error');
+    }
+  }
+
+  // ── Utility Breakdown ────────────────────────────────────────────────────
+
+  async showUtilityBreakdownModal() {
+    if (!this.currentBill) return;
+
+    // Show modal immediately with loading state
+    this._renderBreakdownModal(`
+      <div class="text-center py-5">
+        <span class="spinner-border text-primary mb-3"></span>
+        <p class="text-muted">${t('loadingTenantData')}</p>
+      </div>`);
+
+    try {
+      // Resolve billing period dates
+      const { periodStart, periodEnd, periodDays } = this._resolveBillingPeriod();
+
+      // Fetch tenant data and property info in parallel
+      const [tenantRes, propRes] = await Promise.all([
+        API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)),
+        API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty)),
+      ]);
+      const data     = await tenantRes.json();
+      const propData = await propRes.json();
+      if (!data.success) throw new Error(data.error || 'Failed to load tenants');
+
+      const landlordSubsidy = propData.property?.subsidizedPub || 0;
+      const grossUtility    = this.currentUtilityBill?.totalAmount ?? this.currentBill.utilityFee;
+
+      const breakdown = this._calcUtilityBreakdown(
+        data.tenants || [],
+        this.currentBill.tenantBills || [],
+        grossUtility,
+        landlordSubsidy,
+        periodStart, periodEnd, periodDays
+      );
+
+      this._renderBreakdownModal(
+        this._buildBreakdownHtml(breakdown, periodStart, periodEnd, periodDays)
+      );
+    } catch (err) {
+      this._renderBreakdownModal(`
+        <div class="alert alert-danger m-3">
+          <i class="bi bi-x-circle me-2"></i>${escapeHtml(err.message)}
+        </div>`);
+    }
+  }
+
+  _resolveBillingPeriod() {
+    // Priority 1: utility bill tracker dates
+    const ub = this.currentUtilityBill;
+    if (ub?.billingPeriodStart && ub?.billingPeriodEnd) {
+      const s = new Date(ub.billingPeriodStart); s.setHours(0,0,0,0);
+      const e = new Date(ub.billingPeriodEnd);   e.setHours(0,0,0,0);
+      const d = Math.round((e - s) / 864e5) + 1;
+      return { periodStart: s, periodEnd: e, periodDays: d };
+    }
+    // Priority 2: parse billingPeriod string e.g. "03 Mar 2026 - 02 Apr 2026"
+    const bp = this.currentBill?.billingPeriod;
+    if (bp) {
+      const parts = bp.split(/\s*[-–—]\s*/);
+      if (parts.length === 2) {
+        const s = new Date(parts[0]); s.setHours(0,0,0,0);
+        const e = new Date(parts[1]); e.setHours(0,0,0,0);
+        if (!isNaN(s) && !isNaN(e)) {
+          const d = Math.round((e - s) / 864e5) + 1;
+          return { periodStart: s, periodEnd: e, periodDays: d };
+        }
+      }
+    }
+    return { periodStart: null, periodEnd: null, periodDays: null };
+  }
+
+  _calcUtilityBreakdown(fullTenants, tenantBills, grossUtility, landlordSubsidy, periodStart, periodEnd, periodDays) {
+    const netUtility  = Math.max(0, grossUtility - landlordSubsidy);
+    const totalUtility = netUtility; // distribute only the net amount
+    // Build lookup: _id → full tenant object
+    const tenantMap = {};
+    fullTenants.forEach(t => { tenantMap[t._id?.toString()] = t; });
+
+    const msDay = 864e5;
+
+    const daysOverlap = (s1, e1, s2, e2) => {
+      const os = Math.max(+s1, +s2);
+      const oe = Math.min(+e1, +e2);
+      if (oe < os) return 0;
+      return Math.round((oe - os) / msDay) + 1;
+    };
+
+    const rows = tenantBills.map(tb => {
+      const full = tenantMap[tb.tenantId];
+
+      // Determine subsidized: prefer full tenant flag, fall back to $0 fee
+      const isSubsidized = full?.isUtilitySubsidized ?? (tb.utilityFee === 0);
+
+      let tenantPeriodDays = periodDays;   // days within billing period
+      let awayDays = 0;
+      let clampStart = periodStart;
+      let clampEnd   = periodEnd;
+      let note = '';
+
+      if (full && periodStart && periodEnd) {
+        const propAssoc = full.properties?.find(
+          p => p.propertyId === this.selectedProperty?.toUpperCase()
+        );
+
+        if (propAssoc) {
+          // Clamp tenant's stay (movein–moveout) to billing period
+          const movein   = propAssoc.moveinDate  ? new Date(propAssoc.moveinDate)  : periodStart;
+          const moveout  = propAssoc.moveoutDate ? new Date(propAssoc.moveoutDate) : periodEnd;
+          movein.setHours(0,0,0,0);
+          moveout.setHours(0,0,0,0);
+
+          clampStart = new Date(Math.max(+movein,   +periodStart));
+          clampEnd   = new Date(Math.min(+moveout,  +periodEnd));
+
+          if (+clampEnd < +clampStart) {
+            tenantPeriodDays = 0;
+            note = t('notInPropertyPeriod');
+          } else {
+            tenantPeriodDays = Math.round((+clampEnd - +clampStart) / msDay) + 1;
+
+            // Mid-period move-in note
+            if (+movein > +periodStart) {
+              const d = Math.round((+movein - +periodStart) / msDay);
+              note = t('movedInLate', { days: d });
+            }
+            // Mid-period move-out note
+            if (+moveout < +periodEnd) {
+              const d = Math.round((+periodEnd - +moveout) / msDay);
+              note += (note ? '; ' : '') + t('movedOutEarly', { days: d });
+            }
+          }
+
+          // Sum away-day leave plans overlapping [clampStart, clampEnd]
+          if (tenantPeriodDays > 0) {
+            for (const lp of (propAssoc.leavePlans || [])) {
+              const lpS = new Date(lp.startDate); lpS.setHours(0,0,0,0);
+              const lpE = new Date(lp.endDate);   lpE.setHours(0,0,0,0);
+              const ov = daysOverlap(clampStart, clampEnd, lpS, lpE);
+              if (ov > 0) {
+                awayDays += ov;
+              }
+            }
+          }
+        }
+      } else if (!periodStart) {
+        // No billing period → equal division, use full period
+        tenantPeriodDays = 1; // relative weight: all same
+        note = t('equalDivision');
+      }
+
+      const presentDays = Math.max(0, tenantPeriodDays - awayDays);
+
+      return {
+        tenantId: tb.tenantId,
+        tenantName: tb.tenantName,
+        room: tb.room,
+        isSubsidized,
+        tenantPeriodDays,
+        awayDays,
+        presentDays,
+        note,
+        utilityShare: 0,
+        chargedAmount: 0,
+      };
+    });
+
+    const totalPersonDays = rows.reduce((s, r) => s + r.presentDays, 0);
+    const ratePerDay = totalPersonDays > 0 ? totalUtility / totalPersonDays : 0;
+
+    rows.forEach(row => {
+      row.utilityShare   = totalPersonDays > 0 ? totalUtility * (row.presentDays / totalPersonDays) : 0;
+      row.chargedAmount  = row.isSubsidized ? 0 : row.utilityShare;
+    });
+
+    const totalCharged      = rows.reduce((s, r) => s + r.chargedAmount, 0);
+    const businessAbsorbs   = rows.filter(r => r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
+    const awayAbsorbs       = rows.filter(r => !r.isSubsidized && r.awayDays > 0)
+                                   .reduce((s, r) => s + (r.utilityShare - (r.chargedAmount)), 0);
+    // Note: away portions for non-subsidized tenants are already redistributed through the
+    // person-days denominator — not separately absorbed.
+
+    return { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, grossUtility, landlordSubsidy, netUtility };
+  }
+
+  _buildBreakdownHtml(bd, periodStart, periodEnd, periodDays) {
+    const { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs,
+            grossUtility, landlordSubsidy, netUtility } = bd;
+    const fmtDate = v => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+    const fmtAmt  = v => `$${v.toFixed(2)}`;
+    const getRoomLabel = room => {
+      if (!room) return '—';
+      if (typeof getRoomTypeDisplayName === 'function') return getRoomTypeDisplayName(room);
+      return room;
+    };
+
+    const year  = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth();
+    const periodLabel = periodStart && periodEnd
+      ? `${fmtDate(periodStart)} – ${fmtDate(periodEnd)} (${periodDays} ${t('days')})`
+      : t('billingPeriodNotSet');
+
+    const noPeriod = !periodStart;
+
+    const tableRows = rows.map((r, i) => {
+      const shareCell  = noPeriod
+        ? fmtAmt(r.utilityShare)
+        : `${fmtAmt(r.utilityShare)}<br><span style="font-size:0.72rem;color:#6c757d;">${r.presentDays}d × ${fmtAmt(ratePerDay)}/d</span>`;
+      const daysCells  = noPeriod ? '' : `
+        <td style="text-align:center;">${r.tenantPeriodDays}</td>
+        <td style="text-align:center;">${r.awayDays > 0 ? `<span style="color:#dc3545;">−${r.awayDays}</span>` : '0'}</td>
+        <td style="text-align:center;font-weight:600;">${r.presentDays}</td>`;
+      const subsidyBadge = r.isSubsidized
+        ? `<span style="background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t('subsidisedBadge')}</span>`
+        : '';
+      const chargedStyle = r.isSubsidized
+        ? 'color:#6c757d;text-decoration:line-through;'
+        : 'font-weight:700;color:#0d6efd;';
+      const noteCell = r.note
+        ? `<br><span style="font-size:0.7rem;color:#6c757d;">${escapeHtml(r.note)}</span>`
+        : '';
+
+      return `<tr style="border-bottom:1px solid #dee2e6;">
+        <td style="padding:8px 10px;font-weight:600;">${i+1}. ${escapeHtml(r.tenantName)}${noteCell}</td>
+        <td style="padding:8px 10px;">${escapeHtml(getRoomLabel(r.room))}</td>
+        ${daysCells}
+        <td style="padding:8px 10px;text-align:right;">${shareCell}</td>
+        <td style="padding:8px 10px;text-align:right;">
+          <span style="${chargedStyle}">${fmtAmt(r.chargedAmount)}</span>
+          ${r.isSubsidized ? '<br>' + subsidyBadge : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    const dayHeaders = noPeriod ? '' : `
+      <th style="${thStyle}text-align:center;">Period<br>Days</th>
+      <th style="${thStyle}text-align:center;">Away<br>Days</th>
+      <th style="${thStyle}text-align:center;">Present<br>Days</th>`;
+
+    const thStyle = 'padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;';
+
+    const subsidizedCount = rows.filter(r => r.isSubsidized).length;
+    const awayCount = rows.filter(r => r.awayDays > 0).length;
+
+    const methodNote = noPeriod
+      ? `<p style="margin:4px 0;color:#856404;">${t('noBillingPeriodNote')}</p>`
+      : `<p style="margin:4px 0;">${t('formula')} <strong>${fmtAmt(netUtility)} ÷ ${totalPersonDays} ${t('personDays')} = ${fmtAmt(ratePerDay)}${t('perPersonDay')}</strong></p>
+         ${landlordSubsidy > 0 ? `<p style="margin:4px 0;">${t('landlordSubsidyNote', { amount: fmtAmt(landlordSubsidy) })}</p>` : ''}
+         ${subsidizedCount > 0 ? `<p style="margin:4px 0;">${t('subsidisedTenantsNote', { count: subsidizedCount, amount: fmtAmt(businessAbsorbs) })}</p>` : ''}
+         ${awayCount > 0 ? `<p style="margin:4px 0;">${t('awayNote')}</p>` : ''}`;
+
+    // Re-declare thStyle for the actual table header
+    const th = s => `<th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;${s||''}">${s===undefined?'':''}</th>`;
+
+    return `
+      <div id="utilityBreakdownPrintArea" style="font-family:system-ui,sans-serif;padding:20px;background:#fff;max-width:860px;">
+
+        <!-- Header -->
+        <div style="border-bottom:3px solid #0d6efd;padding-bottom:12px;margin-bottom:16px;">
+          <h5 style="margin:0;color:#0d6efd;font-size:1.1rem;">
+            ⚡ ${t('breakdownHeading', { month: monthName(month), year })}
+          </h5>
+          <div style="color:#495057;font-size:0.88rem;margin-top:4px;">
+            ${t('property')}: <strong>${escapeHtml(this.selectedProperty)}</strong> &nbsp;|&nbsp;
+            ${t('billingPeriod')}: <strong>${periodLabel}</strong>
+          </div>
+          <div style="color:#495057;font-size:0.88rem;margin-top:2px;">
+            ${t('spGroupBill')}: <strong>${fmtAmt(grossUtility)}</strong>
+            ${landlordSubsidy > 0 ? `&nbsp;−&nbsp;${t('landlordSubsidy')}: <strong>${fmtAmt(landlordSubsidy)}</strong>&nbsp;=&nbsp;<strong style="color:#198754;">${fmtAmt(netUtility)} ${t('toDistribute')}</strong>` : ''}
+          </div>
+        </div>
+
+        <!-- Method note -->
+        <div style="background:#f8f9fa;border-left:4px solid #0d6efd;padding:10px 14px;margin-bottom:16px;font-size:0.85rem;border-radius:0 4px 4px 0;">
+          <strong>${t('howItsCalculated')}</strong><br>
+          ${methodNote}
+        </div>
+
+        <!-- Table -->
+        <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+          <thead>
+            <tr>
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;">${t('tenant')}</th>
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;">${t('room')}</th>
+              ${noPeriod ? '' : `
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:center;">${t('periodDaysHeader').replace('\n','<br>')}</th>
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:center;">${t('awayDaysHeader').replace('\n','<br>')}</th>
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:center;">${t('presentDaysHeader').replace('\n','<br>')}</th>`}
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:right;">${t('calcShare')}</th>
+              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:right;">${t('charged')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+            <!-- Totals row -->
+            <tr style="background:#f8f9fa;border-top:2px solid #dee2e6;">
+              <td style="padding:8px 10px;font-weight:700;" colspan="2">${t('totalRow')}</td>
+              ${noPeriod ? '' : `
+              <td style="padding:8px 10px;text-align:center;font-weight:700;">—</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:700;">—</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:700;">${totalPersonDays}d</td>`}
+              <td style="padding:8px 10px;text-align:right;font-weight:700;">${fmtAmt(netUtility)}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:700;color:#0d6efd;">${fmtAmt(totalCharged)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Footer summary -->
+        <div style="margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:0.85rem;">
+          <div style="background:#d1ecf1;border-radius:6px;padding:8px 14px;">
+            <strong>${t('totalBilledToTenants')}</strong> ${fmtAmt(totalCharged)}
+          </div>
+          ${(landlordSubsidy > 0 || businessAbsorbs > 0.005) ? `
+          <div style="background:#fff3cd;border-radius:6px;padding:8px 14px;">
+            <strong>${t('landlordAbsorbs')}</strong> ${fmtAmt(landlordSubsidy + businessAbsorbs)}
+            ${landlordSubsidy > 0 && businessAbsorbs > 0.005
+              ? `<br><span style="font-size:0.78rem;color:#856404;">${t('fixedSubsidy')} ${fmtAmt(landlordSubsidy)} + ${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
+              : landlordSubsidy > 0
+                ? `<br><span style="font-size:0.78rem;color:#856404;">${t('fixedSubsidy')} ${fmtAmt(landlordSubsidy)}</span>`
+                : `<br><span style="font-size:0.78rem;color:#856404;">${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
+            }
+          </div>` : ''}
+          ${Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs) > 0.02 ? `
+          <div style="background:#f8d7da;border-radius:6px;padding:8px 14px;">
+            <strong>${t('roundingDiff')}</strong> ${fmtAmt(Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs))}
+          </div>` : ''}
+        </div>
+
+      </div>`;
+  }
+
+  _renderBreakdownModal(bodyHtml) {
+    // If modal already exists, just update the body content in-place
+    // (avoids removing a live modal element which orphans the Bootstrap backdrop)
+    const existingBody = document.getElementById('utilityBreakdownModalBody');
+    if (existingBody) {
+      existingBody.innerHTML = bodyHtml;
+      return;
+    }
+
+    const html = `
+      <div class="modal fade" id="utilityBreakdownModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header py-2">
+              <h6 class="modal-title mb-0">
+                <i class="bi bi-calculator me-2 text-primary"></i>${t('utilityBreakdownTitle')}
+              </h6>
+              <div class="d-flex align-items-center gap-2 ms-auto me-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="billManager._copyBreakdownAsImage()" title="${t('saveImage')}">
+                  <i class="bi bi-camera me-1"></i>${t('saveImage')}
+                </button>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="utilityBreakdownModalBody">
+              ${bodyHtml}
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    const modalEl = document.getElementById('utilityBreakdownModal');
+    // Remove from DOM only after Bootstrap fully hides it (cleans up backdrop)
+    modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+
+  async _copyBreakdownAsImage() {
+    const area = document.getElementById('utilityBreakdownPrintArea');
+    if (!area) return;
+    try {
+      if (typeof html2canvas === 'undefined') {
+        showToast(t('html2canvasNotLoaded'), 'warning');
+        return;
+      }
+      showToast(t('generatingImage'), 'info');
+      const canvas = await html2canvas(area, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const link = document.createElement('a');
+      const year  = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+      link.download = `utility-breakdown-${this.selectedProperty}-${year}-${String(month).padStart(2,'0')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast(t('imageSaved'), 'success');
+    } catch (err) {
+      console.error('Screenshot error:', err);
+      showToast(t('imageFailed'), 'error');
     }
   }
 }

@@ -369,6 +369,15 @@ class ExchangeRateComponent {
     });
   }
 
+  quickConvert(sgdValue) {
+    const vndEl = document.getElementById('quickConvertVND');
+    if (!vndEl) return;
+    const sgd = parseFloat(sgdValue);
+    if (!sgd || !this.currentRate) { vndEl.value = ''; return; }
+    const vnd = Math.round(sgd * this.currentRate.rate);
+    vndEl.value = Number(vnd).toLocaleString('vi-VN');
+  }
+
   showSuccess(msg) {
     const el = document.getElementById('exchangeRateSuccess');
     if (!el) return;

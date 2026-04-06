@@ -22,6 +22,7 @@ import "./components/ac-clean-management.js"; // AC Clean Management component (
 import "./components/exchange-rate.js"; // Exchange Rate module
 import "./components/common-prompt.js"; // Common Prompt Library component
 import "./components/house-view-specialist.js"; // House View Specialist module
+import "./components/utility-bill-tracker.js"; // Utility Bill Tracker module
 import "./dashboard-controller.js";
 
 // Suppress MetaMask-related errors that don't affect our application

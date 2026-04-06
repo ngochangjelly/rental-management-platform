@@ -4,7 +4,7 @@
  */
 class HouseViewSpecialistComponent {
   constructor() {
-    this.view = 'list'; // 'list' | 'wizard' | 'report'
+    this.view = "list"; // 'list' | 'wizard' | 'report'
     this.step = 1;
     this.totalSteps = 7;
     this.editingId = null;
@@ -12,17 +12,18 @@ class HouseViewSpecialistComponent {
     this.viewingData = this._blankData();
     this.searchAbortController = null;
     this.locationError = null; // null | { code, message }
+    this._pendingDraft = null;
     this.init();
   }
 
   _blankData() {
     return {
-      propertyGuruUrl: '',
-      propertyName: '',
-      propertyType: '',   // 'hdb' | 'condo' | ''
-      address: '',
-      postalCode: '',
-      unitNumber: '',
+      propertyGuruUrl: "",
+      propertyName: "",
+      propertyType: "", // 'hdb' | 'condo' | ''
+      address: "",
+      postalCode: "",
+      unitNumber: "",
       bedrooms: 0,
       bathrooms: 0,
       floorAreaSqft: 0,
@@ -35,19 +36,115 @@ class HouseViewSpecialistComponent {
         storeRoomCount: 1,
         livingRoomCompartments: 1,
         neighborOpenDoor: null,
-        airconBrand: '',
-        condition: '',
-        notes: '',
-        agentName: '',
-        agentPhone: '',
+        airconBrand: "",
+        condition: "",
+        notes: "",
+        agentName: "",
+        agentPhone: "",
       },
-      finalReport: '',
-      status: 'draft',
+      finalReport: "",
+      status: "draft",
     };
   }
 
   init() {
     this.loadRecords();
+  }
+
+  // ─── Draft persistence ─────────────────────────────────────────────────────
+
+  _saveDraft() {
+    if (this.view !== "wizard") return;
+    try {
+      localStorage.setItem(
+        "hvs_draft",
+        JSON.stringify({
+          viewingData: this.viewingData,
+          step: this.step,
+          editingId: this.editingId,
+          savedAt: Date.now(),
+        }),
+      );
+    } catch (e) {
+      /* quota exceeded — ignore */
+    }
+  }
+
+  _loadDraft() {
+    try {
+      const raw = localStorage.getItem("hvs_draft");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  _clearDraft() {
+    localStorage.removeItem("hvs_draft");
+  }
+
+  _checkForDraft() {
+    const draft = this._loadDraft();
+    if (!draft) return;
+    this._pendingDraft = draft;
+    setTimeout(() => this._showResumePrompt(), 200);
+  }
+
+  _showResumePrompt() {
+    const container = document.getElementById("hvs-container");
+    if (!container || !this._pendingDraft) return;
+    const d = this._pendingDraft.viewingData;
+    const name = d?.propertyName || d?.address || "";
+    const savedAt = this._pendingDraft.savedAt;
+    const timeAgo = savedAt ? this._timeAgo(savedAt) : "";
+    const existing = document.getElementById("hvs-resume-banner");
+    if (existing) existing.remove();
+    const banner = document.createElement("div");
+    banner.id = "hvs-resume-banner";
+    banner.className = "hvs-resume-banner";
+    banner.innerHTML = `
+      <div class="hvs-resume-inner">
+        <span class="hvs-resume-dot"></span>
+        <div class="hvs-resume-text">
+          <div class="hvs-resume-title">Tiếp tục bản nháp?</div>
+          <div class="hvs-resume-sub">${name ? escapeHtml(name) + (timeAgo ? " · " + timeAgo : "") : timeAgo || "Xem nhà chưa hoàn thành"}</div>
+        </div>
+        <button class="hvs-resume-yes" onclick="houseViewSpecialist.resumeDraft()">Tiếp tục</button>
+        <button class="hvs-resume-no" onclick="houseViewSpecialist.discardDraft()"><i class="bi bi-x"></i></button>
+      </div>
+    `;
+    const listHeader = container.querySelector(".hvs-list-header");
+    if (listHeader) {
+      listHeader.after(banner);
+    } else {
+      container.prepend(banner);
+    }
+  }
+
+  _timeAgo(ts) {
+    const diff = Math.floor((Date.now() - ts) / 1000);
+    if (diff < 60) return "vừa xong";
+    if (diff < 3600) return Math.floor(diff / 60) + " phút trước";
+    if (diff < 86400) return Math.floor(diff / 3600) + " giờ trước";
+    return Math.floor(diff / 86400) + " ngày trước";
+  }
+
+  resumeDraft() {
+    if (!this._pendingDraft) return;
+    const { viewingData, step, editingId } = this._pendingDraft;
+    this.viewingData = viewingData;
+    this.step = step || 1;
+    this.editingId = editingId || null;
+    this._pendingDraft = null;
+    this.view = "wizard";
+    this.renderWizard();
+  }
+
+  discardDraft() {
+    this._clearDraft();
+    this._pendingDraft = null;
+    const banner = document.getElementById("hvs-resume-banner");
+    if (banner) banner.remove();
   }
 
   // ─── Data loading ──────────────────────────────────────────────────────────
@@ -58,10 +155,13 @@ class HouseViewSpecialistComponent {
       const data = await res.json();
       if (data.success) {
         this.records = data.data || [];
-        if (this.view === 'list') this.renderList();
+        if (this.view === "list") {
+          this.renderList();
+          this._checkForDraft();
+        }
       }
     } catch (e) {
-      console.error('HouseViewSpecialist loadRecords error', e);
+      console.error("HouseViewSpecialist loadRecords error", e);
     }
   }
 
@@ -69,75 +169,97 @@ class HouseViewSpecialistComponent {
 
   render() {
     switch (this.view) {
-      case 'wizard': return this.renderWizard();
-      case 'report': return this.renderReportView();
-      default: return this.renderList();
+      case "wizard":
+        return this.renderWizard();
+      case "report":
+        return this.renderReportView();
+      default:
+        return this.renderList();
     }
   }
 
   // ─── List view ─────────────────────────────────────────────────────────────
 
   renderList() {
-    const container = document.getElementById('hvs-container');
+    const container = document.getElementById("hvs-container");
     if (!container) return;
 
-    const cards = this.records.map((r) => {
-      const date = new Date(r.viewedAt).toLocaleDateString('vi-VN', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-      });
-      const name = r.propertyName || r.address || 'Chưa có tên';
-      const unit = r.unitNumber ? `Unit ${r.unitNumber}` : '';
-      const mrtCount = (r.nearbyMrts || []).length;
-      const closestMrt = mrtCount > 0 ? r.nearbyMrts[0] : null;
-      const statusBadge = r.status === 'completed'
-        ? '<span class="badge bg-success">Hoàn tất</span>'
-        : '<span class="badge bg-warning text-dark">Nháp</span>';
+    const cards = this.records
+      .map((r) => {
+        const date = new Date(r.viewedAt).toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+        const name = r.propertyName || r.address || "Chưa có tên";
+        const unit = r.unitNumber ? `Unit ${r.unitNumber}` : "";
+        const mrtCount = (r.nearbyMrts || []).length;
+        const closestMrt = mrtCount > 0 ? r.nearbyMrts[0] : null;
+        const statusBadge =
+          r.status === "completed"
+            ? '<span class="badge bg-success">Hoàn tất</span>'
+            : '<span class="badge bg-warning text-dark">Nháp</span>';
 
-      return `
+        return `
         <div class="hvs-card" onclick="houseViewSpecialist.openRecord('${r._id}')">
           <div class="hvs-card-header">
             <div>
               <div class="hvs-card-name">${escapeHtml(name)}</div>
-              ${unit ? `<div class="hvs-card-unit">${escapeHtml(unit)}</div>` : ''}
+              ${unit ? `<div class="hvs-card-unit">${escapeHtml(unit)}</div>` : ""}
             </div>
             ${statusBadge}
           </div>
           <div class="hvs-card-meta">
             <span><i class="bi bi-calendar3"></i> ${date}</span>
-            ${closestMrt ? `<span><i class="bi bi-train-front"></i> ${escapeHtml(closestMrt.name)} ${(closestMrt.distance / 1000).toFixed(1)}km</span>` : ''}
+            ${closestMrt ? `<span><i class="bi bi-train-front"></i> ${escapeHtml(closestMrt.name)} ${(closestMrt.distance / 1000).toFixed(1)}km</span>` : ""}
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join("");
 
     container.innerHTML = `
       <div class="hvs-list-view">
         <div class="hvs-list-header">
-          <h1 class="hvs-title"><i class="bi bi-house-door me-2"></i>Chuyên gia xem nhà</h1>
-          <button class="hvs-btn-primary" onclick="houseViewSpecialist.startNewViewing()">
-            <i class="bi bi-plus-lg me-1"></i>Xem nhà mới
+          <div class="hvs-list-title-row">
+            <h1 class="hvs-title"><i class="bi bi-house-door me-2"></i>Xem nhà</h1>
+            <span class="hvs-record-count">${this.records.length} căn</span>
+          </div>
+          <button class="hvs-btn-fab" onclick="houseViewSpecialist.startNewViewing()">
+            <i class="bi bi-plus-lg"></i>
           </button>
         </div>
 
-        ${this.records.length === 0 ? `
-          <div class="hvs-empty">
-            <i class="bi bi-house-slash hvs-empty-icon"></i>
-            <p>Chưa có lần xem nhà nào</p>
-            <button class="hvs-btn-primary mt-3" onclick="houseViewSpecialist.startNewViewing()">
-              <i class="bi bi-plus-lg me-1"></i>Bắt đầu xem nhà
-            </button>
-          </div>
-        ` : `
-          <div class="hvs-cards-grid">
-            ${cards}
-          </div>
-        `}
+        <div class="hvs-list-body">
+          ${
+            this.records.length === 0
+              ? `
+            <div class="hvs-empty">
+              <i class="bi bi-house-slash hvs-empty-icon"></i>
+              <p>Chưa có lần xem nhà nào</p>
+            </div>
+          `
+              : `
+            <div class="hvs-cards-grid">
+              ${cards}
+            </div>
+          `
+          }
+        </div>
+
+        <div class="hvs-list-footer">
+          <button class="hvs-btn-add-full" onclick="houseViewSpecialist.startNewViewing()">
+            <i class="bi bi-plus-lg me-2"></i>Xem nhà mới
+          </button>
+        </div>
       </div>
     `;
   }
 
   startNewViewing() {
-    this.view = 'wizard';
+    this._clearDraft();
+    this._pendingDraft = null;
+    this.view = "wizard";
     this.step = 1;
     this.editingId = null;
     this.viewingData = this._blankData();
@@ -149,11 +271,11 @@ class HouseViewSpecialistComponent {
     if (!record) return;
     this.viewingData = JSON.parse(JSON.stringify(record));
     this.editingId = id;
-    if (record.status === 'completed' && record.finalReport) {
-      this.view = 'report';
+    if (record.status === "completed" && record.finalReport) {
+      this.view = "report";
       this.renderReportView();
     } else {
-      this.view = 'wizard';
+      this.view = "wizard";
       this.step = 4;
       this.renderWizard();
     }
@@ -162,21 +284,43 @@ class HouseViewSpecialistComponent {
   // ─── Wizard ────────────────────────────────────────────────────────────────
 
   renderWizard() {
-    const container = document.getElementById('hvs-container');
+    const container = document.getElementById("hvs-container");
     if (!container) return;
 
-    const stepLabels = ['Loại nhà', 'Thông tin', 'Chi tiết', 'Vị trí', 'Khảo sát', 'Ghi chú', 'Báo cáo'];
+    const stepLabels = [
+      "Loại nhà",
+      "Thông tin",
+      "Chi tiết",
+      "Vị trí",
+      "Khảo sát",
+      "Ghi chú",
+      "Báo cáo",
+    ];
     const progress = Math.round((this.step / this.totalSteps) * 100);
 
-    let stepContent = '';
+    let stepContent = "";
     switch (this.step) {
-      case 1: stepContent = this._renderStep1(); break;
-      case 2: stepContent = this._renderStep2(); break;
-      case 3: stepContent = this._renderStep3(); break;
-      case 4: stepContent = this._renderStep4(); break;
-      case 5: stepContent = this._renderStep5(); break;
-      case 6: stepContent = this._renderStep6(); break;
-      case 7: stepContent = this._renderStep7(); break;
+      case 1:
+        stepContent = this._renderStep1();
+        break;
+      case 2:
+        stepContent = this._renderStep2();
+        break;
+      case 3:
+        stepContent = this._renderStep3();
+        break;
+      case 4:
+        stepContent = this._renderStep4();
+        break;
+      case 5:
+        stepContent = this._renderStep5();
+        break;
+      case 6:
+        stepContent = this._renderStep6();
+        break;
+      case 7:
+        stepContent = this._renderStep7();
+        break;
     }
 
     container.innerHTML = `
@@ -199,9 +343,13 @@ class HouseViewSpecialistComponent {
 
         <!-- Step dots -->
         <div class="hvs-step-dots">
-          ${[1,2,3,4,5,6,7].map(i => `
-            <div class="hvs-dot ${i === this.step ? 'active' : i < this.step ? 'done' : ''}"></div>
-          `).join('')}
+          ${[1, 2, 3, 4, 5, 6, 7]
+            .map(
+              (i) => `
+            <div class="hvs-dot ${i === this.step ? "active" : i < this.step ? "done" : ""}"></div>
+          `,
+            )
+            .join("")}
         </div>
 
         <!-- Content -->
@@ -225,13 +373,13 @@ class HouseViewSpecialistComponent {
         </div>
 
         <div class="hvs-type-cards">
-          <button class="hvs-type-card ${t === 'hdb' ? 'active' : ''}" data-type="hdb"
+          <button class="hvs-type-card ${t === "hdb" ? "active" : ""}" data-type="hdb"
             onclick="houseViewSpecialist.setPropertyType('hdb')">
             <span class="hvs-type-icon">🏢</span>
             <span class="hvs-type-name">HDB</span>
             <span class="hvs-type-desc">Nhà ở xã hội chính phủ</span>
           </button>
-          <button class="hvs-type-card ${t === 'condo' ? 'active' : ''}" data-type="condo"
+          <button class="hvs-type-card ${t === "condo" ? "active" : ""}" data-type="condo"
             onclick="houseViewSpecialist.setPropertyType('condo')">
             <span class="hvs-type-icon">🏙️</span>
             <span class="hvs-type-name">Condo</span>
@@ -342,13 +490,13 @@ class HouseViewSpecialistComponent {
 
         <div class="hvs-survey-scroll">
           <div class="hvs-counters-card">
-            ${counterField('bedrooms',  'Phòng ngủ',      'bi bi-moon-stars', this.viewingData.bedrooms)}
-            ${counterField('bathrooms', 'Phòng tắm',      'bi bi-droplet',    this.viewingData.bathrooms)}
+            ${counterField("bedrooms", "Phòng ngủ", "bi bi-moon-stars", this.viewingData.bedrooms)}
+            ${counterField("bathrooms", "Phòng tắm", "bi bi-droplet", this.viewingData.bathrooms)}
             <div class="hvs-mini-counter-row">
               <span class="hvs-mini-label"><i class="bi bi-rulers me-1"></i>Diện tích (sqft)</span>
               <input type="number" id="hvs-field-floorAreaSqft" class="hvs-input hvs-area-input"
                 placeholder="0" inputmode="numeric"
-                value="${this.viewingData.floorAreaSqft || ''}" />
+                value="${this.viewingData.floorAreaSqft || ""}" />
             </div>
           </div>
 
@@ -380,45 +528,63 @@ class HouseViewSpecialistComponent {
   }
 
   _renderStep4() {
-    const hasResults = this.viewingData.nearbyMrts.length > 0 ||
+    const hasResults =
+      this.viewingData.nearbyMrts.length > 0 ||
       this.viewingData.nearbyHawkerCenters.length > 0 ||
       this.viewingData.nearbySupermarkets.length > 0;
 
-    const mrtList = this.viewingData.nearbyMrts.slice(0, 5).map((m) => `
+    const mrtList = this.viewingData.nearbyMrts
+      .slice(0, 5)
+      .map(
+        (m) => `
       <div class="hvs-nearby-item">
         <span class="hvs-nearby-icon mrt">🚇</span>
         <span class="hvs-nearby-name">${escapeHtml(m.name)}</span>
-        <span class="hvs-nearby-dist">${m.distance >= 1000 ? (m.distance / 1000).toFixed(1) + 'km' : m.distance + 'm'}</span>
+        <span class="hvs-nearby-dist">${m.distance >= 1000 ? (m.distance / 1000).toFixed(1) + "km" : m.distance + "m"}</span>
       </div>
-    `).join('');
+    `,
+      )
+      .join("");
 
-    const hawkerList = this.viewingData.nearbyHawkerCenters.slice(0, 3).map((h) => `
+    const hawkerList = this.viewingData.nearbyHawkerCenters
+      .slice(0, 3)
+      .map(
+        (h) => `
       <div class="hvs-nearby-item">
         <span class="hvs-nearby-icon hawker">🍜</span>
         <span class="hvs-nearby-name">${escapeHtml(h.name)}</span>
-        <span class="hvs-nearby-dist">${h.distance >= 1000 ? (h.distance / 1000).toFixed(1) + 'km' : h.distance + 'm'}</span>
+        <span class="hvs-nearby-dist">${h.distance >= 1000 ? (h.distance / 1000).toFixed(1) + "km" : h.distance + "m"}</span>
       </div>
-    `).join('');
+    `,
+      )
+      .join("");
 
     const supermarketGroups = {};
     this.viewingData.nearbySupermarkets.forEach((s) => {
       if (!supermarketGroups[s.name]) supermarketGroups[s.name] = [];
       supermarketGroups[s.name].push(s);
     });
-    const superList = Object.entries(supermarketGroups).map(([chain, stores]) => {
-      const dists = stores.map((s) =>
-        s.distance >= 1000 ? (s.distance / 1000).toFixed(1) + 'km' : s.distance + 'm'
-      ).join(' · ');
-      return `
+    const superList = Object.entries(supermarketGroups)
+      .map(([chain, stores]) => {
+        const dists = stores
+          .map((s) =>
+            s.distance >= 1000
+              ? (s.distance / 1000).toFixed(1) + "km"
+              : s.distance + "m",
+          )
+          .join(" · ");
+        return `
         <div class="hvs-nearby-item">
           <span class="hvs-nearby-icon super">🛒</span>
           <span class="hvs-nearby-name">${escapeHtml(chain)} <span class="hvs-nearby-count">${stores.length} cái</span></span>
           <span class="hvs-nearby-dist">${dists}</span>
         </div>
       `;
-    }).join('');
+      })
+      .join("");
 
-    const errorBlock = this.locationError ? `
+    const errorBlock = this.locationError
+      ? `
       <div class="hvs-location-error">
         <div class="hvs-error-icon">📍</div>
         <div class="hvs-error-msg">${escapeHtml(this.locationError.message)}</div>
@@ -429,14 +595,15 @@ class HouseViewSpecialistComponent {
         <div class="hvs-manual-input-row">
           <input type="text" id="hvs-manual-address" class="hvs-input"
             placeholder="Nhập địa chỉ Singapore..."
-            value="${escapeHtml(this.viewingData.address || '')}" />
+            value="${escapeHtml(this.viewingData.address || "")}" />
           <button class="hvs-btn-icon" onclick="houseViewSpecialist.geocodeAndSearch()" title="Tìm tiện ích">
             <i class="bi bi-search"></i>
           </button>
         </div>
         <div id="hvs-geocode-status" class="hvs-status-text"></div>
       </div>
-    ` : '';
+    `
+      : "";
 
     return `
       <div class="hvs-step-content">
@@ -446,7 +613,9 @@ class HouseViewSpecialistComponent {
         </div>
 
         <div class="hvs-location-body">
-          ${!hasResults && !this.locationError ? `
+          ${
+            !hasResults && !this.locationError
+              ? `
             <div class="hvs-locate-section">
               <button class="hvs-btn-locate" id="hvs-locate-btn" onclick="houseViewSpecialist.locateAndSearch()">
                 <i class="bi bi-crosshair2 me-2"></i>Định vị & tìm tiện ích
@@ -461,11 +630,15 @@ class HouseViewSpecialistComponent {
               </div>
               <p id="hvs-search-status" class="hvs-search-status-text">Đang định vị...</p>
             </div>
-          ` : ''}
+          `
+              : ""
+          }
 
           ${errorBlock}
 
-          ${hasResults ? `
+          ${
+            hasResults
+              ? `
             <div class="hvs-results-found">
               <div class="hvs-results-header">
                 <i class="bi bi-check-circle-fill text-success me-2"></i>
@@ -474,27 +647,41 @@ class HouseViewSpecialistComponent {
                   <i class="bi bi-arrow-clockwise"></i> Lại
                 </button>
               </div>
-              ${this.viewingData.nearbyMrts.length > 0 ? `
+              ${
+                this.viewingData.nearbyMrts.length > 0
+                  ? `
                 <div class="hvs-nearby-section">
                   <div class="hvs-nearby-title"><i class="bi bi-train-front me-1"></i>MRT (trong 2km)</div>
                   ${mrtList}
                 </div>
-              ` : `<div class="hvs-nearby-section hvs-nearby-empty"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Không có MRT trong 2km</div>`}
-              ${this.viewingData.nearbyHawkerCenters.length > 0 ? `
+              `
+                  : `<div class="hvs-nearby-section hvs-nearby-empty"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Không có MRT trong 2km</div>`
+              }
+              ${
+                this.viewingData.nearbyHawkerCenters.length > 0
+                  ? `
                 <div class="hvs-nearby-section">
                   <div class="hvs-nearby-title"><i class="bi bi-shop me-1"></i>Hawker Center</div>
                   ${hawkerList}
                 </div>
-              ` : `<div class="hvs-nearby-section hvs-nearby-empty"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Không có Hawker Center gần đây</div>`}
-              ${this.viewingData.nearbySupermarkets.length > 0 ? `
+              `
+                  : `<div class="hvs-nearby-section hvs-nearby-empty"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Không có Hawker Center gần đây</div>`
+              }
+              ${
+                this.viewingData.nearbySupermarkets.length > 0
+                  ? `
                 <div class="hvs-nearby-section">
                   <div class="hvs-nearby-title"><i class="bi bi-cart3 me-1"></i>Siêu thị</div>
                   ${superList}
                 </div>
-              ` : `<div class="hvs-nearby-section hvs-nearby-empty"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Không có siêu thị gần đây</div>`}
+              `
+                  : `<div class="hvs-nearby-section hvs-nearby-empty"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Không có siêu thị gần đây</div>`
+              }
               <div id="hvs-shazam-container" style="display:none"></div>
             </div>
-          ` : ''}
+          `
+              : ""
+          }
         </div>
 
         <div class="hvs-step-footer">
@@ -515,11 +702,11 @@ class HouseViewSpecialistComponent {
       <div class="hvs-survey-item">
         <div class="hvs-survey-question"><i class="${icon} me-2"></i>${label}</div>
         <div class="hvs-yn-group">
-          <button class="hvs-yn-btn ${s[field] === true ? 'yes active' : 'yes'}"
+          <button class="hvs-yn-btn ${s[field] === true ? "yes active" : "yes"}"
             onclick="houseViewSpecialist.setSurveyBool('${field}', true)">
             <i class="bi bi-check-lg me-1"></i>Có
           </button>
-          <button class="hvs-yn-btn ${s[field] === false ? 'no active' : 'no'}"
+          <button class="hvs-yn-btn ${s[field] === false ? "no active" : "no"}"
             onclick="houseViewSpecialist.setSurveyBool('${field}', false)">
             <i class="bi bi-x-lg me-1"></i>Không
           </button>
@@ -545,10 +732,10 @@ class HouseViewSpecialistComponent {
         </div>
 
         <div class="hvs-survey-scroll">
-          ${yesNo('agentPreventsSublet', 'Agent có cấm sublet không?', 'bi bi-person-badge')}
-          ${counter('storeRoomCount', 'Số phòng kho', 'bi bi-archive')}
-          ${counter('livingRoomCompartments', 'Phòng khách ngăn được mấy phòng?', 'bi bi-layout-split')}
-          ${yesNo('neighborOpenDoor', 'Hàng xóm đối diện có mở cửa?', 'bi bi-door-open')}
+          ${yesNo("agentPreventsSublet", "Agent có cấm sublet không?", "bi bi-person-badge")}
+          ${counter("storeRoomCount", "Số phòng kho", "bi bi-archive")}
+          ${counter("livingRoomCompartments", "Phòng khách ngăn được mấy phòng?", "bi bi-layout-split")}
+          ${yesNo("neighborOpenDoor", "Hàng xóm đối diện có mở cửa?", "bi bi-door-open")}
         </div>
 
         <div class="hvs-step-footer">
@@ -644,7 +831,7 @@ class HouseViewSpecialistComponent {
   // ─── Report view (read-only) ───────────────────────────────────────────────
 
   renderReportView() {
-    const container = document.getElementById('hvs-container');
+    const container = document.getElementById("hvs-container");
     if (!container) return;
     const report = this.viewingData.finalReport || this._generateReport();
 
@@ -655,8 +842,8 @@ class HouseViewSpecialistComponent {
             <i class="bi bi-arrow-left"></i>
           </button>
           <div class="hvs-step-info">
-            <div class="hvs-step-label">${escapeHtml(this.viewingData.propertyName || this.viewingData.address || 'Báo cáo xem nhà')}</div>
-            <div class="hvs-step-count">${this.viewingData.unitNumber ? 'Unit ' + escapeHtml(this.viewingData.unitNumber) : ''}</div>
+            <div class="hvs-step-label">${escapeHtml(this.viewingData.propertyName || this.viewingData.address || "Báo cáo xem nhà")}</div>
+            <div class="hvs-step-count">${this.viewingData.unitNumber ? "Unit " + escapeHtml(this.viewingData.unitNumber) : ""}</div>
           </div>
           <button class="hvs-btn-icon" onclick="houseViewSpecialist.editRecord()" title="Chỉnh sửa">
             <i class="bi bi-pencil"></i>
@@ -683,7 +870,7 @@ class HouseViewSpecialistComponent {
   }
 
   editRecord() {
-    this.view = 'wizard';
+    this.view = "wizard";
     this.step = 1;
     this.renderWizard();
   }
@@ -694,53 +881,64 @@ class HouseViewSpecialistComponent {
     const d = this.viewingData;
     const s = d.survey;
     const lines = [];
-    const fmt = (m) => m >= 1000 ? (m / 1000).toFixed(1) + 'km' : m + 'm';
+    const fmt = (m) => (m >= 1000 ? (m / 1000).toFixed(1) + "km" : m + "m");
 
     // ── Property header ──────────────────────────────────────────
-    const name = d.propertyName || d.address || 'Căn hộ';
+    const name = d.propertyName || d.address || "Căn hộ";
     lines.push(`🏠 ${name}`);
     if (d.unitNumber) lines.push(`Unit ${d.unitNumber}`);
-    if (d.address) {
-      const addrLine = d.postalCode && !d.address.includes(d.postalCode)
-        ? `${d.address} (S${d.postalCode})`
-        : d.address;
+    // Only show 📍 address when property name exists (otherwise name IS the address — avoid duplicate)
+    if (d.address && d.propertyName) {
+      const addrLine =
+        d.postalCode && !d.address.includes(d.postalCode)
+          ? `${d.address} (S${d.postalCode})`
+          : d.address;
       lines.push(`📍 ${addrLine}`);
+    } else if (
+      d.address &&
+      !d.propertyName &&
+      d.postalCode &&
+      !d.address.includes(d.postalCode)
+    ) {
+      // Address is used as name — append postal code inline to avoid duplicate line
+      lines[0] = `🏠 ${d.address} (S${d.postalCode})`;
     }
     // Property specs
-    if (d.propertyType) lines.push(`🏷️ ${d.propertyType === 'hdb' ? 'HDB' : 'Condo'}`);
+    if (d.propertyType)
+      lines.push(`🏷️ ${d.propertyType === "hdb" ? "HDB" : "Condo"}`);
     const specs = [];
-    if (d.bedrooms)     specs.push(`${d.bedrooms} phòng ngủ`);
-    if (d.bathrooms)    specs.push(`${d.bathrooms} phòng tắm`);
+    if (d.bedrooms) specs.push(`${d.bedrooms} phòng ngủ`);
+    if (d.bathrooms) specs.push(`${d.bathrooms} phòng tắm`);
     if (d.floorAreaSqft) specs.push(`${d.floorAreaSqft} sqft`);
-    if (specs.length)   lines.push(`📐 ${specs.join(' · ')}`);
+    if (specs.length) lines.push(`📐 ${specs.join(" · ")}`);
     if (d.propertyGuruUrl) lines.push(`🔗 ${d.propertyGuruUrl}`);
-    lines.push('');
+    lines.push("");
 
     // ── MRT ──────────────────────────────────────────────────────
-    lines.push('── MRT ──');
+    lines.push("── MRT ──");
     if (d.nearbyMrts.length > 0) {
       d.nearbyMrts.slice(0, 4).forEach((m) => {
         lines.push(`- ${m.name} ${fmt(m.distance)}`);
       });
-      if (d.nearbyMrts[0].distance > 1500) lines.push('- khá xa các mrt');
+      if (d.nearbyMrts[0].distance > 1500) lines.push("- khá xa các mrt");
     } else {
-      lines.push('- không có mrt trong 2km');
+      lines.push("- không có mrt trong 2km");
     }
-    lines.push('');
+    lines.push("");
 
     // ── Chỗ ăn uống ──────────────────────────────────────────────
-    lines.push('── Chỗ ăn uống ──');
+    lines.push("── Chỗ ăn uống ──");
     if (d.nearbyHawkerCenters.length > 0) {
       d.nearbyHawkerCenters.slice(0, 3).forEach((h) => {
         lines.push(`- ${h.name} ${fmt(h.distance)}`);
       });
     } else {
-      lines.push('- không có hawker center gần đây');
+      lines.push("- không có hawker center gần đây");
     }
-    lines.push('');
+    lines.push("");
 
     // ── Siêu thị ──────────────────────────────────────────────────
-    lines.push('── Siêu thị ──');
+    lines.push("── Siêu thị ──");
     const groups = {};
     d.nearbySupermarkets.forEach((sup) => {
       if (!groups[sup.name]) groups[sup.name] = [];
@@ -748,39 +946,44 @@ class HouseViewSpecialistComponent {
     });
     if (Object.keys(groups).length > 0) {
       Object.entries(groups).forEach(([chain, stores]) => {
-        const dists = stores.map((sup) => fmt(sup.distance)).join(' · ');
-        lines.push(`- ${chain}${stores.length > 1 ? ' ' + stores.length + ' cái' : ''} - ${dists}`);
+        const dists = stores.map((sup) => fmt(sup.distance)).join(" · ");
+        lines.push(
+          `- ${chain}${stores.length > 1 ? " " + stores.length + " cái" : ""} - ${dists}`,
+        );
       });
     } else {
-      lines.push('- không có siêu thị gần đây');
+      lines.push("- không có siêu thị gần đây");
     }
-    lines.push('');
+    lines.push("");
 
     // ── Thông tin nhà ─────────────────────────────────────────────
-    lines.push('── Thông tin nhà ──');
-    if (s.airconBrand)  lines.push(`- máy lạnh ${s.airconBrand}`);
-    if (s.condition)    lines.push(`- ${s.condition}`);
+    lines.push("── Thông tin nhà ──");
+    if (s.airconBrand) lines.push(`- máy lạnh ${s.airconBrand}`);
+    if (s.condition) lines.push(`- ${s.condition}`);
     lines.push(`- phòng khách ngăn được ${s.livingRoomCompartments} phòng`);
     lines.push(`- ${s.storeRoomCount} phòng kho`);
-    if (s.agentPreventsSublet === true)  lines.push('- agent có đề phòng sublet');
-    if (s.agentPreventsSublet === false) lines.push('- agent ko có đề phòng sublet');
-    if (s.neighborOpenDoor === true)     lines.push('- hàng xóm đối diện mở cửa');
-    if (s.neighborOpenDoor === false)    lines.push('- hàng xóm đối diện đóng cửa');
+    if (s.agentPreventsSublet === true)
+      lines.push("- agent có đề phòng sublet");
+    if (s.agentPreventsSublet === false)
+      lines.push("- agent ko có đề phòng sublet");
+    if (s.neighborOpenDoor === true) lines.push("- hàng xóm đối diện mở cửa");
+    if (s.neighborOpenDoor === false)
+      lines.push("- hàng xóm đối diện đóng cửa");
     if (s.notes) {
-      s.notes.split('\n').forEach((line) => {
+      s.notes.split("\n").forEach((line) => {
         if (line.trim()) lines.push(`- ${line.trim()}`);
       });
     }
 
     // ── Agent ─────────────────────────────────────────────────────
     if (s.agentName || s.agentPhone) {
-      lines.push('');
-      lines.push('── Agent ──');
-      if (s.agentName)  lines.push(`- Tên: ${s.agentName}`);
+      lines.push("");
+      lines.push("── Agent ──");
+      if (s.agentName) lines.push(`- Tên: ${s.agentName}`);
       if (s.agentPhone) lines.push(`- SĐT: ${s.agentPhone}`);
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   // ─── Navigation ────────────────────────────────────────────────────────────
@@ -794,7 +997,7 @@ class HouseViewSpecialistComponent {
   }
 
   goToList() {
-    this.view = 'list';
+    this.view = "list";
     this.editingId = null;
     this.renderList();
     this.loadRecords();
@@ -803,12 +1006,14 @@ class HouseViewSpecialistComponent {
   prevStep() {
     this._collectCurrentStep();
     this.step = Math.max(1, this.step - 1);
+    this._saveDraft();
     this.renderWizard();
   }
 
   nextStep() {
     this._collectCurrentStep();
     this.step = Math.min(this.totalSteps, this.step + 1);
+    this._saveDraft();
     this.renderWizard();
   }
 
@@ -818,21 +1023,34 @@ class HouseViewSpecialistComponent {
         // propertyType set directly by setPropertyType()
         break;
       case 2:
-        this.viewingData.propertyGuruUrl  = document.getElementById('hvs-pg-url')?.value.trim() || '';
-        this.viewingData.propertyName     = document.getElementById('hvs-property-name')?.value.trim() || '';
-        this.viewingData.address          = document.getElementById('hvs-address')?.value.trim() || '';
-        this.viewingData.postalCode       = document.getElementById('hvs-postal')?.value.trim() || '';
-        this.viewingData.unitNumber       = document.getElementById('hvs-unit')?.value.trim() || '';
+        this.viewingData.propertyGuruUrl =
+          document.getElementById("hvs-pg-url")?.value.trim() || "";
+        this.viewingData.propertyName =
+          document.getElementById("hvs-property-name")?.value.trim() || "";
+        this.viewingData.address =
+          document.getElementById("hvs-address")?.value.trim() || "";
+        this.viewingData.postalCode =
+          document.getElementById("hvs-postal")?.value.trim() || "";
+        this.viewingData.unitNumber =
+          document.getElementById("hvs-unit")?.value.trim() || "";
         break;
       case 3:
-        this.viewingData.floorAreaSqft        = parseFloat(document.getElementById('hvs-field-floorAreaSqft')?.value) || 0;
-        this.viewingData.survey.agentName     = document.getElementById('hvs-agent-name')?.value.trim() || '';
-        this.viewingData.survey.agentPhone    = document.getElementById('hvs-agent-phone')?.value.trim() || '';
+        this.viewingData.floorAreaSqft =
+          parseFloat(
+            document.getElementById("hvs-field-floorAreaSqft")?.value,
+          ) || 0;
+        this.viewingData.survey.agentName =
+          document.getElementById("hvs-agent-name")?.value.trim() || "";
+        this.viewingData.survey.agentPhone =
+          document.getElementById("hvs-agent-phone")?.value.trim() || "";
         break;
       case 6:
-        this.viewingData.survey.airconBrand = document.getElementById('hvs-aircon')?.value.trim() || '';
-        this.viewingData.survey.condition   = document.getElementById('hvs-condition')?.value.trim() || '';
-        this.viewingData.survey.notes       = document.getElementById('hvs-notes')?.value.trim() || '';
+        this.viewingData.survey.airconBrand =
+          document.getElementById("hvs-aircon")?.value.trim() || "";
+        this.viewingData.survey.condition =
+          document.getElementById("hvs-condition")?.value.trim() || "";
+        this.viewingData.survey.notes =
+          document.getElementById("hvs-notes")?.value.trim() || "";
         break;
     }
   }
@@ -841,17 +1059,18 @@ class HouseViewSpecialistComponent {
 
   setSurveyBool(field, value) {
     this.viewingData.survey[field] = value;
+    this._saveDraft();
     // Re-render just the buttons for that field
     document.querySelectorAll(`.hvs-yn-btn`).forEach((btn) => {
-      const parent = btn.closest('.hvs-survey-item');
+      const parent = btn.closest(".hvs-survey-item");
       if (parent) {
-        const onclick = btn.getAttribute('onclick') || '';
+        const onclick = btn.getAttribute("onclick") || "";
         if (onclick.includes(`'${field}'`)) {
-          btn.classList.remove('active');
-          const isYes = onclick.includes('true');
-          const isNo = onclick.includes('false');
+          btn.classList.remove("active");
+          const isYes = onclick.includes("true");
+          const isNo = onclick.includes("false");
           if ((isYes && value === true) || (isNo && value === false)) {
-            btn.classList.add('active');
+            btn.classList.add("active");
           }
         }
       }
@@ -868,10 +1087,10 @@ class HouseViewSpecialistComponent {
 
   setPropertyType(type) {
     this.viewingData.propertyType = type;
-    this.viewingData.bedrooms  = 3;
-    this.viewingData.bathrooms = type === 'hdb' ? 3 : 2;
-    document.querySelectorAll('.hvs-type-card').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.type === type);
+    this.viewingData.bedrooms = 3;
+    this.viewingData.bathrooms = type === "hdb" ? 3 : 2;
+    document.querySelectorAll(".hvs-type-card").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.type === type);
     });
   }
 
@@ -888,31 +1107,36 @@ class HouseViewSpecialistComponent {
 
   // Start the Shazam animation in the UI
   _startSearchAnimation() {
-    const shazamContainer = document.getElementById('hvs-shazam-container');
-    const locateBtn = document.getElementById('hvs-locate-btn');
-    if (shazamContainer) shazamContainer.style.display = 'flex';
-    if (locateBtn) locateBtn.style.display = 'none';
+    const shazamContainer = document.getElementById("hvs-shazam-container");
+    const locateBtn = document.getElementById("hvs-locate-btn");
+    if (shazamContainer) shazamContainer.style.display = "flex";
+    if (locateBtn) locateBtn.style.display = "none";
   }
 
   _stopSearchAnimation() {
-    const shazamContainer = document.getElementById('hvs-shazam-container');
-    const locateBtn = document.getElementById('hvs-locate-btn');
-    if (shazamContainer) shazamContainer.style.display = 'none';
-    if (locateBtn) locateBtn.style.display = '';
+    const shazamContainer = document.getElementById("hvs-shazam-container");
+    const locateBtn = document.getElementById("hvs-locate-btn");
+    if (shazamContainer) shazamContainer.style.display = "none";
+    if (locateBtn) locateBtn.style.display = "";
   }
 
   _setSearchStatus(text) {
-    const statusEl = document.getElementById('hvs-search-status');
+    const statusEl = document.getElementById("hvs-search-status");
     if (statusEl) statusEl.textContent = text;
   }
 
   async _fetchNearby(lat, lng) {
-    this._setSearchStatus('Đang tìm MRT, hawker center và siêu thị...');
-    const res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_NEARBY, {
-      lat, lng, radiusMeters: 2000,
-    });
+    this._setSearchStatus("Đang tìm MRT, hawker center và siêu thị...");
+    const res = await API.post(
+      API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_NEARBY,
+      {
+        lat,
+        lng,
+        radiusMeters: 2000,
+      },
+    );
     const data = await res.json();
-    if (!data.success) throw new Error(data.message || 'Lỗi khi tìm kiếm');
+    if (!data.success) throw new Error(data.message || "Lỗi khi tìm kiếm");
     this.viewingData.nearbyMrts = data.data.mrts || [];
     this.viewingData.nearbyHawkerCenters = data.data.hawkers || [];
     this.viewingData.nearbySupermarkets = data.data.supermarkets || [];
@@ -921,12 +1145,16 @@ class HouseViewSpecialistComponent {
   async locateAndSearch() {
     this.locationError = null;
     this._startSearchAnimation();
-    this._setSearchStatus('Đang định vị...');
+    this._setSearchStatus("Đang định vị...");
 
     try {
       const position = await new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
-          reject(Object.assign(new Error('Trình duyệt không hỗ trợ định vị'), { code: 0 }));
+          reject(
+            Object.assign(new Error("Trình duyệt không hỗ trợ định vị"), {
+              code: 0,
+            }),
+          );
           return;
         }
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -938,20 +1166,20 @@ class HouseViewSpecialistComponent {
       const { latitude: lat, longitude: lng } = position.coords;
       this.viewingData.location = { lat, lng };
       await this._fetchNearby(lat, lng);
-      this._setSearchStatus('Tìm xong! ✅');
+      this._setSearchStatus("Tìm xong! ✅");
       setTimeout(() => this.renderWizard(), 500);
     } catch (err) {
-      console.error('Location error:', err);
+      console.error("Location error:", err);
       this._stopSearchAnimation();
 
       // Map GeolocationPositionError codes to friendly Vietnamese messages
       const messages = {
-        0: 'Trình duyệt không hỗ trợ định vị.',
-        1: 'Bị từ chối quyền truy cập vị trí. Kiểm tra cài đặt trình duyệt.',
-        2: 'Không thể xác định vị trí (thiết bị hoặc GPS không phản hồi).',
-        3: 'Quá thời gian định vị. Vui lòng thử lại.',
+        0: "Trình duyệt không hỗ trợ định vị.",
+        1: "Bị từ chối quyền truy cập vị trí. Kiểm tra cài đặt trình duyệt.",
+        2: "Không thể xác định vị trí (thiết bị hoặc GPS không phản hồi).",
+        3: "Quá thời gian định vị. Vui lòng thử lại.",
       };
-      const msg = messages[err.code] || (err.message || 'Lỗi không xác định.');
+      const msg = messages[err.code] || err.message || "Lỗi không xác định.";
       this.locationError = { code: err.code || 0, message: msg };
       this.renderWizard(); // re-render step 2 showing fallback
     }
@@ -975,17 +1203,24 @@ class HouseViewSpecialistComponent {
   }
 
   async geocodeAndSearch() {
-    const addressInput = document.getElementById('hvs-manual-address');
-    const statusEl = document.getElementById('hvs-geocode-status');
+    const addressInput = document.getElementById("hvs-manual-address");
+    const statusEl = document.getElementById("hvs-geocode-status");
     const address = addressInput?.value.trim();
-    if (!address) { showToast('Nhập địa chỉ trước', 'error'); return; }
+    if (!address) {
+      showToast("Nhập địa chỉ trước", "error");
+      return;
+    }
 
-    if (statusEl) statusEl.textContent = 'Đang tìm toạ độ...';
+    if (statusEl) statusEl.textContent = "Đang tìm toạ độ...";
 
     try {
-      const res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_GEOCODE, { address });
+      const res = await API.post(
+        API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_GEOCODE,
+        { address },
+      );
       const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Không tìm thấy địa chỉ');
+      if (!data.success)
+        throw new Error(data.message || "Không tìm thấy địa chỉ");
 
       const { lat, lng } = data.data;
       this.viewingData.location = { lat, lng };
@@ -995,44 +1230,55 @@ class HouseViewSpecialistComponent {
       this.renderWizard(); // clears error block, shows default (no results yet)
       setTimeout(async () => {
         this._startSearchAnimation();
-        this._setSearchStatus('Đang tìm tiện ích gần đây...');
+        this._setSearchStatus("Đang tìm tiện ích gần đây...");
         try {
           await this._fetchNearby(lat, lng);
-          this._setSearchStatus('Tìm xong! ✅');
+          this._setSearchStatus("Tìm xong! ✅");
           setTimeout(() => this.renderWizard(), 500);
         } catch (e) {
           this._stopSearchAnimation();
-          showToast('Lỗi khi tìm tiện ích: ' + e.message, 'error');
+          showToast("Lỗi khi tìm tiện ích: " + e.message, "error");
         }
       }, 80);
     } catch (err) {
-      if (statusEl) statusEl.textContent = '⚠️ ' + (err.message || 'Lỗi geocoding');
+      if (statusEl)
+        statusEl.textContent = "⚠️ " + (err.message || "Lỗi geocoding");
     }
   }
 
   // ─── PropertyGuru crawler ──────────────────────────────────────────────────
 
   clearUrl() {
-    this.viewingData.propertyGuruUrl = '';
-    const urlInput = document.getElementById('hvs-pg-url');
-    const statusEl = document.getElementById('hvs-crawl-status');
-    if (urlInput) { urlInput.value = ''; urlInput.focus(); }
-    if (statusEl) statusEl.textContent = '';
+    this.viewingData.propertyGuruUrl = "";
+    const urlInput = document.getElementById("hvs-pg-url");
+    const statusEl = document.getElementById("hvs-crawl-status");
+    if (urlInput) {
+      urlInput.value = "";
+      urlInput.focus();
+    }
+    if (statusEl) statusEl.textContent = "";
   }
 
   async crawlUrl() {
-    const urlInput = document.getElementById('hvs-pg-url');
-    const statusEl = document.getElementById('hvs-crawl-status');
-    const btn = document.getElementById('hvs-crawl-btn');
+    const urlInput = document.getElementById("hvs-pg-url");
+    const statusEl = document.getElementById("hvs-crawl-status");
+    const btn = document.getElementById("hvs-crawl-btn");
 
     const url = urlInput?.value.trim();
-    if (!url) { showToast('Nhập URL trước', 'error'); return; }
+    if (!url) {
+      showToast("Nhập URL trước", "error");
+      return;
+    }
 
-    if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    if (statusEl) statusEl.textContent = 'Đang lấy thông tin...';
+    if (btn)
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    if (statusEl) statusEl.textContent = "Đang lấy thông tin...";
 
     try {
-      const res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_CRAWL, { url });
+      const res = await API.post(
+        API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_CRAWL,
+        { url },
+      );
       const data = await res.json();
 
       if (data.success) {
@@ -1050,31 +1296,44 @@ class HouseViewSpecialistComponent {
           if (el) el.textContent = val;
         };
 
-        fill('hvs-property-name', 'propertyName', d.propertyName);
-        fill('hvs-address',       'address',       d.address);
-        fill('hvs-postal',        'postalCode',     d.postalCode);
-        fillCounter('bedrooms',     d.bedrooms);
-        fillCounter('bathrooms',    d.bathrooms);
+        fill("hvs-property-name", "propertyName", d.propertyName);
+        fill("hvs-address", "address", d.address);
+        fill("hvs-postal", "postalCode", d.postalCode);
+        fillCounter("bedrooms", d.bedrooms);
+        fillCounter("bathrooms", d.bathrooms);
         if (d.floorAreaSqft) {
           this.viewingData.floorAreaSqft = d.floorAreaSqft;
-          const el = document.getElementById('hvs-field-floorAreaSqft');
+          const el = document.getElementById("hvs-field-floorAreaSqft");
           if (el) el.value = d.floorAreaSqft;
         }
 
         if (data.blockedByCloudflare) {
-          const slugName = d.propertyName ? `Lấy được tên từ URL: ${d.propertyName}` : '';
-          if (statusEl) statusEl.textContent = `⚠️ PropertyGuru chặn bot — vui lòng điền thủ công. ${slugName}`;
+          const slugName = d.propertyName
+            ? `Lấy được tên từ URL: ${d.propertyName}`
+            : "";
+          if (statusEl)
+            statusEl.textContent = `⚠️ PropertyGuru chặn bot — vui lòng điền thủ công. ${slugName}`;
         } else if (data.crawled) {
-          const filled = [d.propertyName, d.address, d.bedrooms].filter(Boolean).length;
-          if (statusEl) statusEl.textContent = filled > 0 ? `✅ Đã lấy ${filled} thông tin tự động` : '⚠️ Không lấy được thông tin, nhập thủ công';
+          const filled = [d.propertyName, d.address, d.bedrooms].filter(
+            Boolean,
+          ).length;
+          if (statusEl)
+            statusEl.textContent =
+              filled > 0
+                ? `✅ Đã lấy ${filled} thông tin tự động`
+                : "⚠️ Không lấy được thông tin, nhập thủ công";
         } else {
-          if (statusEl) statusEl.textContent = d.propertyName ? `✅ Tên từ URL: ${d.propertyName}` : '⚠️ Nhập thủ công';
+          if (statusEl)
+            statusEl.textContent = d.propertyName
+              ? `✅ Tên từ URL: ${d.propertyName}`
+              : "⚠️ Nhập thủ công";
         }
       } else {
-        if (statusEl) statusEl.textContent = '⚠️ Không thể lấy thông tin, nhập thủ công';
+        if (statusEl)
+          statusEl.textContent = "⚠️ Không thể lấy thông tin, nhập thủ công";
       }
     } catch (e) {
-      if (statusEl) statusEl.textContent = '⚠️ Lỗi kết nối';
+      if (statusEl) statusEl.textContent = "⚠️ Lỗi kết nối";
     } finally {
       if (btn) btn.innerHTML = '<i class="bi bi-search"></i>';
     }
@@ -1085,123 +1344,139 @@ class HouseViewSpecialistComponent {
   async saveRecord() {
     this._collectCurrentStep();
     this.viewingData.finalReport = this._generateReport();
-    this.viewingData.status = 'completed';
+    this.viewingData.status = "completed";
 
     try {
       let res;
       if (this.editingId) {
-        res = await API.put(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_BY_ID(this.editingId), this.viewingData);
+        res = await API.put(
+          API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_BY_ID(this.editingId),
+          this.viewingData,
+        );
       } else {
-        res = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST, this.viewingData);
+        res = await API.post(
+          API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST,
+          this.viewingData,
+        );
       }
       const data = await res.json();
       if (data.success) {
-        showToast('Đã lưu thông tin xem nhà ✅', 'success');
+        this._clearDraft();
+        showToast("Đã lưu thông tin xem nhà ✅", "success");
         this.editingId = data.data._id;
-        this.view = 'report';
+        this.view = "report";
         this.viewingData = data.data;
         this.renderReportView();
         this.loadRecords();
       } else {
-        showToast('Lỗi khi lưu: ' + (data.message || ''), 'error');
+        showToast("Lỗi khi lưu: " + (data.message || ""), "error");
       }
     } catch (e) {
-      showToast('Lỗi kết nối khi lưu', 'error');
+      showToast("Lỗi kết nối khi lưu", "error");
     }
   }
 
   copyReport() {
     const report = this.viewingData.finalReport || this._generateReport();
-    navigator.clipboard.writeText(report).then(() => {
-      showToast('Đã sao chép báo cáo! 📋', 'success');
-    }).catch(() => {
-      // Fallback for older browsers
-      const el = document.createElement('textarea');
-      el.value = report;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      showToast('Đã sao chép! 📋', 'success');
-    });
+    navigator.clipboard
+      .writeText(report)
+      .then(() => {
+        showToast("Đã sao chép báo cáo! 📋", "success");
+      })
+      .catch(() => {
+        // Fallback for older browsers
+        const el = document.createElement("textarea");
+        el.value = report;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        showToast("Đã sao chép! 📋", "success");
+      });
   }
 
   confirmDelete() {
     if (!this.editingId) return;
-    if (!confirm('Xác nhận xóa lần xem nhà này?')) return;
+    if (!confirm("Xác nhận xóa lần xem nhà này?")) return;
     this.deleteRecord(this.editingId);
   }
 
   async deleteRecord(id) {
     try {
-      const res = await API.delete(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_BY_ID(id));
+      const res = await API.delete(
+        API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_BY_ID(id),
+      );
       const data = await res.json();
       if (data.success) {
-        showToast('Đã xóa', 'success');
+        showToast("Đã xóa", "success");
         this.goToList();
       } else {
-        showToast('Lỗi khi xóa', 'error');
+        showToast("Lỗi khi xóa", "error");
       }
     } catch (e) {
-      showToast('Lỗi kết nối', 'error');
+      showToast("Lỗi kết nối", "error");
     }
   }
 
   // ─── Event binding ─────────────────────────────────────────────────────────
 
   _bindWizardEvents() {
-    const urlInput = document.getElementById('hvs-pg-url');
+    const urlInput = document.getElementById("hvs-pg-url");
     if (urlInput) {
-      urlInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this.crawlUrl();
+      urlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.crawlUrl();
       });
     }
 
-    const postalInput = document.getElementById('hvs-postal');
+    const postalInput = document.getElementById("hvs-postal");
     if (postalInput) {
       // Auto-lookup when 6 digits are typed
-      postalInput.addEventListener('input', () => {
-        const val = postalInput.value.replace(/\D/g, '');
+      postalInput.addEventListener("input", () => {
+        const val = postalInput.value.replace(/\D/g, "");
         if (val.length === 6) this.lookupPostal();
       });
-      postalInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this.lookupPostal();
+      postalInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.lookupPostal();
       });
     }
   }
 
   async lookupPostal() {
-    const postalInput = document.getElementById('hvs-postal');
-    const statusEl   = document.getElementById('hvs-postal-status');
-    const btn        = document.getElementById('hvs-postal-btn');
-    const postal     = (postalInput?.value || '').replace(/\D/g, '').trim();
+    const postalInput = document.getElementById("hvs-postal");
+    const statusEl = document.getElementById("hvs-postal-status");
+    const btn = document.getElementById("hvs-postal-btn");
+    const postal = (postalInput?.value || "").replace(/\D/g, "").trim();
 
     if (postal.length !== 6) {
-      if (statusEl) statusEl.textContent = '⚠️ Nhập đúng 6 chữ số';
+      if (statusEl) statusEl.textContent = "⚠️ Nhập đúng 6 chữ số";
       return;
     }
 
-    if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    if (statusEl) statusEl.textContent = 'Đang tra cứu...';
+    if (btn)
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    if (statusEl) statusEl.textContent = "Đang tra cứu...";
 
     try {
-      const res  = await API.post(API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_GEOCODE, { address: postal });
+      const res = await API.post(
+        API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_GEOCODE,
+        { address: postal },
+      );
       const data = await res.json();
 
       if (data.success) {
         const { address, postalCode } = data.data;
-        this.viewingData.address    = address;
+        this.viewingData.address = address;
         this.viewingData.postalCode = postalCode || postal;
 
-        const addrEl = document.getElementById('hvs-address');
+        const addrEl = document.getElementById("hvs-address");
         if (addrEl) addrEl.value = address;
 
         if (statusEl) statusEl.textContent = `✅ ${address}`;
       } else {
-        if (statusEl) statusEl.textContent = '⚠️ Không tìm thấy địa chỉ';
+        if (statusEl) statusEl.textContent = "⚠️ Không tìm thấy địa chỉ";
       }
     } catch (e) {
-      if (statusEl) statusEl.textContent = '⚠️ Lỗi tra cứu';
+      if (statusEl) statusEl.textContent = "⚠️ Lỗi tra cứu";
     } finally {
       if (btn) btn.innerHTML = '<i class="bi bi-search"></i>';
     }
