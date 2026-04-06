@@ -7773,7 +7773,8 @@
           );
 
           // Initialize dashboard controller if authenticated
-          dashboardController = new DashboardController();
+          window.dashboardController = new DashboardController();
+          const dashboardController = window.dashboardController;
 
           // Initialize mobile navigation
           initializeMobileNavigation();

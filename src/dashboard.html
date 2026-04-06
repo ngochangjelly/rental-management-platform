@@ -3228,9 +3228,10 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#" data-section="utility-bills">
-                <i class="bi bi-lightning-charge-fill me-2"></i
-                ><span>Utility Bill Tracker</span>
+              <a class="nav-link d-flex align-items-center" href="#" data-section="utility-bills">
+                <i class="bi bi-lightning-charge-fill me-2"></i>
+                <span>Utility Bill Tracker</span>
+                <span id="utilityNavBadge" class="ms-auto ps-2"></span>
               </a>
             </li>
             <li class="nav-item">
@@ -5905,10 +5906,14 @@
 
               <!-- Property Selection -->
               <div class="card mb-4 shadow-sm">
-                <div class="card-header py-2">
+                <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <h6 class="mb-0"><i class="bi bi-building me-2"></i>Select Property</h6>
+                  <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm" id="utilityMonthSelect" style="width:auto;" onchange="utilityBillTracker.changeSummaryMonth()"></select>
+                  </div>
                 </div>
                 <div class="card-body pb-1">
+                  <div id="utilityMonthSummary" class="mb-3"></div>
                   <div id="utilityBillPropertyCards" class="row">
                     <div class="col-12 text-center text-muted py-3">
                       <span class="spinner-border spinner-border-sm me-2"></span>Loading properties…
@@ -7773,7 +7778,8 @@
           );
 
           // Initialize dashboard controller if authenticated
-          dashboardController = new DashboardController();
+          window.dashboardController = new DashboardController();
+          const dashboardController = window.dashboardController;
 
           // Initialize mobile navigation
           initializeMobileNavigation();

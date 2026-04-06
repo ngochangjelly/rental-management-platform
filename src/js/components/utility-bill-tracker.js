@@ -10,12 +10,33 @@ class UtilityBillTrackerComponent {
     this.bills = [];
     this.editingBillId = null;
     this.chart = null;
+    this.monthlyBillStatus = {}; // { propertyId: boolean }
+    const now = new Date();
+    this.summaryYear = now.getFullYear();
+    this.summaryMonth = now.getMonth() + 1;
     this._init();
   }
 
   _init() {
     this._bindEvents();
+    this._initMonthSelector();
     this._loadProperties();
+  }
+
+  _initMonthSelector() {
+    const sel = document.getElementById('utilityMonthSelect');
+    if (!sel) return;
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const now = new Date();
+    const options = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yr = d.getFullYear();
+      const mo = d.getMonth() + 1;
+      const selected = (i === 0) ? 'selected' : '';
+      options.push(`<option value="${yr}-${mo}" ${selected}>${monthNames[mo - 1]} ${yr}</option>`);
+    }
+    sel.innerHTML = options.join('');
   }
 
   _bindEvents() {
@@ -26,6 +47,7 @@ class UtilityBillTrackerComponent {
 
     const imageInput = document.getElementById('utilityBillImageInput');
     if (imageInput) {
+      imageInput.accept = 'image/jpeg,image/png,image/heic,image/heif,application/pdf,.pdf';
       imageInput.addEventListener('change', (e) => this._handleImageSelected(e));
     }
 
@@ -38,7 +60,7 @@ class UtilityBillTrackerComponent {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
         const file = e.dataTransfer?.files?.[0];
-        if (file) this._processImageFile(file);
+        if (file) this._processBillFile(file);
       });
     }
   }
@@ -61,9 +83,101 @@ class UtilityBillTrackerComponent {
       }
       this.properties = allProperties;
       this._renderPropertyCards();
+      this._loadMonthlyBillStatus(this.summaryYear, this.summaryMonth);
     } catch (err) {
       console.error('[UtilityBillTracker] load properties error:', err);
       this._renderPropertyCards();
+    }
+  }
+
+  async _loadMonthlyBillStatus(year, month) {
+    this.summaryYear = year;
+    this.summaryMonth = month;
+    this.monthlyBillStatus = {};
+    this._renderMonthlySummary(true);
+
+    const results = await Promise.allSettled(
+      this.properties.map(p =>
+        API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId))
+          .then(r => r.json())
+          .then(data => ({
+            propertyId: p.propertyId,
+            hasBill: (data.bills || []).some(b => b.year === year && b.month === month),
+          }))
+      )
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        this.monthlyBillStatus[result.value.propertyId] = result.value.hasBill;
+      }
+    }
+
+    this._renderPropertyCards();
+    this._renderMonthlySummary(false);
+  }
+
+  changeSummaryMonth() {
+    const sel = document.getElementById('utilityMonthSelect');
+    if (!sel || !sel.value) return;
+    const [yr, mo] = sel.value.split('-').map(Number);
+    this._loadMonthlyBillStatus(yr, mo);
+  }
+
+  _renderMonthlySummary(loading = false) {
+    const container = document.getElementById('utilityMonthSummary');
+    if (!container) return;
+
+    if (!this.properties.length) { container.innerHTML = ''; return; }
+
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const label = `${monthNames[this.summaryMonth - 1]} ${this.summaryYear}`;
+
+    if (loading) {
+      container.innerHTML = `
+        <div class="d-flex align-items-center gap-2 text-muted small py-1">
+          <span class="spinner-border spinner-border-sm"></span>
+          Checking ${label} bills for all properties…
+        </div>`;
+      const badge = document.getElementById('utilityNavBadge');
+      if (badge) badge.innerHTML = '';
+      return;
+    }
+
+    const total = this.properties.length;
+    const filled = this.properties.filter(p => this.monthlyBillStatus[p.propertyId]).length;
+    const missing = total - filled;
+    const pct = total ? Math.round((filled / total) * 100) : 0;
+    const allDone = missing === 0;
+    const barColor = allDone ? 'bg-success' : (filled === 0 ? 'bg-danger' : 'bg-warning');
+
+    container.innerHTML = `
+      <div class="border rounded-3 px-3 py-2" style="background:rgba(0,0,0,0.02);">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span class="fw-semibold small">
+            ${allDone
+              ? `<i class="bi bi-check-circle-fill text-success me-1"></i>All ${total} properties have <strong>${label}</strong> bills`
+              : `<i class="bi bi-exclamation-circle-fill text-warning me-1"></i><strong>${filled} / ${total}</strong> properties have <strong>${label}</strong> bills`}
+          </span>
+          <span class="small text-muted">${pct}%</span>
+        </div>
+        <div class="progress" style="height:6px;">
+          <div class="progress-bar ${barColor}" role="progressbar" style="width:${pct}%"></div>
+        </div>
+        ${missing > 0 ? `<div class="small text-muted mt-1"><i class="bi bi-arrow-down-circle me-1"></i>${missing} propert${missing > 1 ? 'ies' : 'y'} missing — click below to fill in</div>` : ''}
+      </div>`;
+
+    this._renderNavBadge(filled, total, allDone);
+  }
+
+  _renderNavBadge(filled, total, allDone) {
+    const badge = document.getElementById('utilityNavBadge');
+    if (!badge) return;
+    if (allDone) {
+      badge.innerHTML = `<span class="badge rounded-pill" style="background:rgba(255,255,255,0.25);font-size:0.65rem;font-weight:500;letter-spacing:0.02em;padding:3px 7px;"><i class="bi bi-check-lg me-1" style="font-size:0.6rem;"></i>${filled}/${total}</span>`;
+    } else {
+      const missing = total - filled;
+      badge.innerHTML = `<span class="badge rounded-pill" style="background:rgba(255,193,7,0.85);color:#1a1a1a;font-size:0.65rem;font-weight:600;padding:3px 7px;">${missing}/${total} missing</span>`;
     }
   }
 
@@ -81,9 +195,17 @@ class UtilityBillTrackerComponent {
 
     container.innerHTML = this.properties.map(p => {
       const sel = this.selectedProperty === p.propertyId;
+      const hasBill = this.monthlyBillStatus[p.propertyId];
+      const statusKnown = p.propertyId in this.monthlyBillStatus;
+      let statusBadge = '';
+      if (statusKnown) {
+        statusBadge = hasBill
+          ? `<span class="badge bg-success" style="font-size:0.6rem;"><i class="bi bi-check-lg me-1"></i>Filled</span>`
+          : `<span class="badge bg-warning text-dark" style="font-size:0.6rem;"><i class="bi bi-exclamation me-1"></i>Missing</span>`;
+      }
       return `
         <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
-          <div class="card utility-prop-card h-100 ${sel ? 'border-primary selected' : ''}"
+          <div class="card utility-prop-card h-100 ${sel ? 'border-primary selected' : (statusKnown && !hasBill ? 'border-warning' : '')}"
                style="cursor:pointer;transition:all .2s ease;"
                onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
             ${p.propertyImage ? `
@@ -99,6 +221,7 @@ class UtilityBillTrackerComponent {
                 <div class="overflow-hidden">
                   <div class="fw-bold small text-truncate">${escapeHtml(p.propertyId)}</div>
                   <div class="text-muted" style="font-size:0.7rem;" title="${escapeHtml(p.address)}">${escapeHtml(p.address || '')}</div>
+                  ${statusBadge ? `<div class="mt-1">${statusBadge}</div>` : ''}
                 </div>
               </div>
             </div>
@@ -108,9 +231,14 @@ class UtilityBillTrackerComponent {
   }
 
   async selectProperty(propertyId) {
-    if (this.selectedProperty === propertyId) return;
+    const alreadySelected = this.selectedProperty === propertyId;
     this.selectedProperty = propertyId;
     this._renderPropertyCards();
+    if (alreadySelected) {
+      // Already selected — just ensure content is visible without re-fetching
+      document.getElementById('utilityBillContent')?.removeAttribute('hidden');
+      return;
+    }
     await this._loadBills();
   }
 
@@ -286,7 +414,9 @@ class UtilityBillTrackerComponent {
                   <td class="text-end fw-bold text-primary">$${(b.totalAmount || 0).toFixed(2)}</td>
                   <td class="text-center">
                     ${b.billImageUrl
-                      ? `<a href="${b.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-1" title="View bill image"><i class="bi bi-image"></i></a>`
+                      ? b.billImageUrl.toLowerCase().includes('.pdf') || b.billImageUrl.includes('raw-proxy')
+                        ? `<a href="${b.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-danger py-0 px-1" title="View PDF bill"><i class="bi bi-file-earmark-pdf"></i></a>`
+                        : `<a href="${b.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-1" title="View bill image"><i class="bi bi-image"></i></a>`
                       : '<span class="text-muted small">—</span>'}
                   </td>
                   <td class="text-center text-nowrap">
@@ -374,33 +504,59 @@ class UtilityBillTrackerComponent {
 
   _handleImageSelected(e) {
     const file = e.target.files?.[0];
-    if (file) this._processImageFile(file);
+    if (file) this._processBillFile(file);
   }
 
-  _processImageFile(file) {
-    // Show preview
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const preview = document.getElementById('utilityBillImagePreview');
-      if (preview) {
-        preview.src = ev.target.result;
-        preview.hidden = false;
-      }
-      document.getElementById('utilityBillDropZone')?.classList.add('has-image');
-    };
-    reader.readAsDataURL(file);
+  _processBillFile(file) {
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const dropZone = document.getElementById('utilityBillDropZone');
+    const preview = document.getElementById('utilityBillImagePreview');
 
-    // Auto-run OCR
+    if (isPdf) {
+      // Show PDF placeholder instead of image preview
+      if (preview) preview.hidden = true;
+      if (dropZone) {
+        dropZone.classList.add('has-image');
+        const placeholder = dropZone.querySelector('.pdf-placeholder') || (() => {
+          const el = document.createElement('div');
+          el.className = 'pdf-placeholder text-center py-2';
+          el.innerHTML = `<i class="bi bi-file-earmark-pdf text-danger" style="font-size:2rem;"></i><div class="small mt-1 text-muted">${escapeHtml(file.name)}</div>`;
+          dropZone.appendChild(el);
+          return el;
+        })();
+        placeholder.querySelector('div').textContent = file.name;
+        placeholder.hidden = false;
+      }
+    } else {
+      // Show image preview
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (preview) {
+          preview.src = ev.target.result;
+          preview.hidden = false;
+        }
+        dropZone?.classList.add('has-image');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Auto-run OCR / PDF parse
     this._runOcr(file);
+  }
+
+  /** @deprecated Use _processBillFile instead */
+  _processImageFile(file) {
+    this._processBillFile(file);
   }
 
   async _runOcr(file) {
     const ocrStatus = document.getElementById('utilityOcrStatus');
     const ocrResultBox = document.getElementById('utilityOcrResult');
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
     if (ocrStatus) {
       ocrStatus.hidden = false;
-      ocrStatus.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Parsing bill with OCR…`;
+      ocrStatus.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${isPdf ? 'Reading PDF bill…' : 'Parsing bill with OCR…'}`;
     }
     if (ocrResultBox) ocrResultBox.hidden = true;
 
@@ -469,7 +625,12 @@ class UtilityBillTrackerComponent {
   _clearImagePreview() {
     const preview = document.getElementById('utilityBillImagePreview');
     if (preview) { preview.src = ''; preview.hidden = true; }
-    document.getElementById('utilityBillDropZone')?.classList.remove('has-image');
+    const dropZone = document.getElementById('utilityBillDropZone');
+    if (dropZone) {
+      dropZone.classList.remove('has-image');
+      const placeholder = dropZone.querySelector('.pdf-placeholder');
+      if (placeholder) placeholder.remove();
+    }
     const input = document.getElementById('utilityBillImageInput');
     if (input) input.value = '';
   }
@@ -577,6 +738,14 @@ class UtilityBillTrackerComponent {
       this._showAddForm(false);
       await this._loadBills();
       this._showToast('Bill saved successfully!', 'success');
+      // Refresh the monthly completion status for the saved property
+      if (this.selectedProperty) {
+        this.monthlyBillStatus[this.selectedProperty] = this.bills.some(
+          b => b.year === this.summaryYear && b.month === this.summaryMonth
+        );
+        this._renderPropertyCards();
+        this._renderMonthlySummary(false);
+      }
     } catch (err) {
       console.error('[UtilityBillTracker] save error:', err);
       alert('Failed to save bill: ' + err.message);
@@ -593,6 +762,13 @@ class UtilityBillTrackerComponent {
       if (!data.success) throw new Error(data.error || 'Delete failed');
       await this._loadBills();
       this._showToast('Bill deleted.', 'info');
+      if (this.selectedProperty) {
+        this.monthlyBillStatus[this.selectedProperty] = this.bills.some(
+          b => b.year === this.summaryYear && b.month === this.summaryMonth
+        );
+        this._renderPropertyCards();
+        this._renderMonthlySummary(false);
+      }
     } catch (err) {
       alert('Failed to delete: ' + err.message);
     }

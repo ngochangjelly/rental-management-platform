@@ -625,10 +625,7 @@ class DashboardController {
   }
 }
 
-// Initialize dashboard when DOM is ready
-document.addEventListener("DOMContentLoaded", () => {
-  window.dashboardController = new DashboardController();
-});
+// DashboardController is initialized by dashboard.html after auth check
 
 // Export for use in other modules
 window.DashboardController = DashboardController;
