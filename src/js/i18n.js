@@ -258,7 +258,8 @@ i18next.init({
           unit: "Unit",
           // No-bill prompt
           noBillGenerated: "No Bill Generated for {{month}} {{year}}",
-          clickToGenerate: 'Click "Generate Bill" to create bills for all tenants in this property',
+          clickToGenerate:
+            'Click "Generate Bill" to create bills for all tenants in this property',
           generateBill: "Generate Bill",
           // Table headers
           tenant: "Tenant",
@@ -304,24 +305,29 @@ i18next.init({
           // Generate Bill Modal
           generateBillTitle: "Generate Bill",
           regenerateBill: "Regenerate Bill",
-          regenerateBillConfirm: "⚠️ This will DELETE the existing bill and regenerate it with the latest tenant data.\n\nAll payment statuses and uploads will be lost.\n\nContinue?",
+          regenerateBillConfirm:
+            "⚠️ This will DELETE the existing bill and regenerate it with the latest tenant data.\n\nAll payment statuses and uploads will be lost.\n\nContinue?",
           billDeleteFailed: "Failed to delete existing bill",
           property: "Property",
           monthYear: "Month/Year",
           billingPeriodLabel: "Billing Period",
           billingPeriodPlaceholder: "e.g., 03 Jan 2026 - 02 Feb 2026",
           totalUtilityFeeToShare: "Total Utility Fee to Share",
-          utilityFeeDesc: "This amount will be divided equally among all tenants with room type assigned.",
-          generateNoteText: "Only tenants with room type will be included. Cleaning fee uses each tenant's default from their contract. Subsidized tenants (utility fee = $0 in profile) will show $0.",
+          utilityFeeDesc:
+            "This amount will be divided equally among all tenants with room type assigned.",
+          generateNoteText:
+            "Only tenants with room type will be included. Cleaning fee uses each tenant's default from their contract. Subsidized tenants (utility fee = $0 in profile) will show $0.",
           spBillFound: "SP Group Bill Found",
           elec: "Elec",
-          noSpBillFoundMsg: "No SP Group bill found for this month in Utility Bill Tracker.",
+          noSpBillFoundMsg:
+            "No SP Group bill found for this month in Utility Bill Tracker.",
           addBill: "Add bill →",
           pleaseSelectProperty: "Please select a property first",
           noPropertySelected: "No property selected",
           // Update Fees Modal
           updateFeesTitle: "Update Fees for All Tenants",
-          updateFeesWarning: "This will update fees for all tenants in this month's bill.",
+          updateFeesWarning:
+            "This will update fees for all tenants in this month's bill.",
           // Edit Tenant Modal
           editBillFor: "Edit Bill for {{name}}",
           // Toast messages
@@ -333,14 +339,17 @@ i18next.init({
           tenantBillUpdateFailed: "Failed to update tenant bill",
           linkCopied: "Upload link copied to clipboard",
           linkCopyFailed: "Failed to copy link",
-          paymentResetSuccess: "Payment reset to Pending. Tenant can upload again.",
+          paymentResetSuccess:
+            "Payment reset to Pending. Tenant can upload again.",
           paymentResetFailed: "Failed to reset payment",
           bulkResetSuccess: "{{count}} tenant(s) reset to Pending",
           bulkResetFailed: "Failed to reset payments",
           errorDeletingUploads: "Error deleting uploads",
           // Reset confirm dialogs
-          resetConfirm: "⚠️ Reset this tenant's payment?\n\nThis will:\n• Delete all uploaded screenshots\n• Reset status to \"Pending\"\n• Allow tenant to upload again\n\nContinue?",
-          bulkResetConfirm: "⚠️ Reset payment for {{count}} selected tenant(s)?\n\nThis will:\n• Delete all their uploaded screenshots\n• Reset their status to \"Pending\"\n• Allow them to upload again\n\nContinue?",
+          resetConfirm:
+            '⚠️ Reset this tenant\'s payment?\n\nThis will:\n• Delete all uploaded screenshots\n• Reset status to "Pending"\n• Allow tenant to upload again\n\nContinue?',
+          bulkResetConfirm:
+            '⚠️ Reset payment for {{count}} selected tenant(s)?\n\nThis will:\n• Delete all their uploaded screenshots\n• Reset their status to "Pending"\n• Allow them to upload again\n\nContinue?',
           // Breakdown modal
           utilityBreakdownTitle: "Utility Cost Breakdown",
           refresh: "Refresh",
@@ -359,10 +368,14 @@ i18next.init({
           personDays: "person-days",
           people: "people",
           perPersonDay: "/person-day",
-          landlordSubsidyNote: "Landlord fixed subsidy: {{amount}} deducted from gross bill before distribution.",
-          subsidisedTenantsNote: "Subsidised tenants ({{count}}) are counted in person-days (real consumption) but charged $0 — landlord absorbs their share of {{amount}}.",
-          awayNote: "Away/late-arrival days are excluded from each tenant's present-day count and redistributed across all present tenants.",
-          noBillingPeriodNote: "⚠️ No billing period set — equal division used. Add billing dates in Utility Bill Tracker for precise calculation.",
+          landlordSubsidyNote:
+            "Landlord fixed subsidy: {{amount}} deducted from gross bill before distribution.",
+          subsidisedTenantsNote:
+            "Subsidised tenants ({{count}}) are counted in person-days (real consumption) but charged $0 — landlord absorbs their share of {{amount}}.",
+          awayNote:
+            "Away/late-arrival days are excluded from each tenant's present-day count and redistributed across all present tenants.",
+          noBillingPeriodNote:
+            "⚠️ No billing period set — equal division used. Add billing dates in Utility Bill Tracker for precise calculation.",
           days: "days",
           periodDaysHeader: "Period\nDays",
           awayDaysHeader: "Away\nDays",
@@ -384,7 +397,8 @@ i18next.init({
           generatingImage: "Generating image…",
           imageSaved: "Image saved!",
           imageFailed: "Failed to generate image – please screenshot manually",
-          html2canvasNotLoaded: "html2canvas not loaded – please screenshot manually",
+          html2canvasNotLoaded:
+            "html2canvas not loaded – please screenshot manually",
           failedToLoadBill: "Failed to load bill",
         },
       },
@@ -642,7 +656,8 @@ i18next.init({
           unit: "Căn hộ",
           // No-bill prompt
           noBillGenerated: "Chưa có hóa đơn tháng {{month}} {{year}}",
-          clickToGenerate: "Nhấn \"Tạo hóa đơn\" để tạo hóa đơn cho tất cả người thuê trong nhà này",
+          clickToGenerate:
+            'Nhấn "Tạo hóa đơn" để tạo hóa đơn cho tất cả người thuê trong nhà này',
           generateBill: "Tạo hóa đơn",
           // Table headers
           tenant: "Người thuê",
@@ -688,24 +703,29 @@ i18next.init({
           // Generate Bill Modal
           generateBillTitle: "Tạo hóa đơn",
           regenerateBill: "Tạo lại hóa đơn",
-          regenerateBillConfirm: "⚠️ Thao tác này sẽ XÓA hóa đơn hiện tại và tạo lại với dữ liệu người thuê mới nhất.\n\nTất cả trạng thái thanh toán và ảnh đã nộp sẽ mất.\n\nTiếp tục?",
+          regenerateBillConfirm:
+            "⚠️ Thao tác này sẽ XÓA hóa đơn hiện tại và tạo lại với dữ liệu người thuê mới nhất.\n\nTất cả trạng thái thanh toán và ảnh đã nộp sẽ mất.\n\nTiếp tục?",
           billDeleteFailed: "Lỗi xóa hóa đơn cũ",
           property: "Nhà",
           monthYear: "Tháng/Năm",
           billingPeriodLabel: "Kỳ hóa đơn",
           billingPeriodPlaceholder: "VD: 03 Jan 2026 - 02 Feb 2026",
           totalUtilityFeeToShare: "Tổng tiền điện nước chia chung",
-          utilityFeeDesc: "Số tiền này sẽ được chia đều cho tất cả người thuê có loại phòng.",
-          generateNoteText: "Chỉ người thuê có loại phòng mới được tính. Tiền vệ sinh dùng mặc định từ hợp đồng. Người được hỗ trợ (tiền điện nước = $0) sẽ hiển thị $0.",
+          utilityFeeDesc:
+            "Số tiền này sẽ được chia đều cho tất cả người thuê có loại phòng.",
+          generateNoteText:
+            "Chỉ người thuê có loại phòng mới được tính. Tiền vệ sinh dùng mặc định từ hợp đồng. Người được hỗ trợ (tiền điện nước = $0) sẽ hiển thị $0.",
           spBillFound: "Đã tìm thấy hóa đơn SP Group",
           elec: "Điện",
-          noSpBillFoundMsg: "Không tìm thấy hóa đơn SP Group tháng này trong Theo dõi điện nước.",
+          noSpBillFoundMsg:
+            "Không tìm thấy hóa đơn SP Group tháng này trong Theo dõi điện nước.",
           addBill: "Thêm hóa đơn →",
           pleaseSelectProperty: "Vui lòng chọn nhà trước",
           noPropertySelected: "Chưa chọn nhà",
           // Update Fees Modal
           updateFeesTitle: "Cập nhật phí cho tất cả người thuê",
-          updateFeesWarning: "Thao tác này sẽ cập nhật phí cho tất cả người thuê trong hóa đơn tháng này.",
+          updateFeesWarning:
+            "Thao tác này sẽ cập nhật phí cho tất cả người thuê trong hóa đơn tháng này.",
           // Edit Tenant Modal
           editBillFor: "Sửa hóa đơn cho {{name}}",
           // Toast messages
@@ -717,14 +737,17 @@ i18next.init({
           tenantBillUpdateFailed: "Lỗi cập nhật hóa đơn người thuê",
           linkCopied: "Đã sao chép link nộp tiền",
           linkCopyFailed: "Lỗi sao chép link",
-          paymentResetSuccess: "Đã đặt lại về Chờ thanh toán. Người thuê có thể nộp lại.",
+          paymentResetSuccess:
+            "Đã đặt lại về Chờ thanh toán. Người thuê có thể nộp lại.",
           paymentResetFailed: "Lỗi đặt lại thanh toán",
           bulkResetSuccess: "{{count}} người thuê đã đặt lại về Chờ thanh toán",
           bulkResetFailed: "Lỗi đặt lại thanh toán",
           errorDeletingUploads: "Lỗi xóa hình ảnh",
           // Reset confirm dialogs
-          resetConfirm: "⚠️ Đặt lại thanh toán của người thuê này?\n\nThao tác này sẽ:\n• Xóa tất cả ảnh đã nộp\n• Đặt lại trạng thái về \"Chờ thanh toán\"\n• Cho phép người thuê nộp lại\n\nTiếp tục?",
-          bulkResetConfirm: "⚠️ Đặt lại thanh toán cho {{count}} người thuê đã chọn?\n\nThao tác này sẽ:\n• Xóa tất cả ảnh đã nộp\n• Đặt lại trạng thái về \"Chờ thanh toán\"\n• Cho phép người thuê nộp lại\n\nTiếp tục?",
+          resetConfirm:
+            '⚠️ Đặt lại thanh toán của người thuê này?\n\nThao tác này sẽ:\n• Xóa tất cả ảnh đã nộp\n• Đặt lại trạng thái về "Chờ thanh toán"\n• Cho phép người thuê nộp lại\n\nTiếp tục?',
+          bulkResetConfirm:
+            '⚠️ Đặt lại thanh toán cho {{count}} người thuê đã chọn?\n\nThao tác này sẽ:\n• Xóa tất cả ảnh đã nộp\n• Đặt lại trạng thái về "Chờ thanh toán"\n• Cho phép người thuê nộp lại\n\nTiếp tục?',
           // Breakdown modal
           utilityBreakdownTitle: "Chi tiết điện nước",
           refresh: "Làm mới",
@@ -737,16 +760,20 @@ i18next.init({
           breakdownHeading: "Chi tiết điện nước — {{month}} {{year}}",
           spGroupBill: "Hóa đơn SP Group",
           landlordSubsidy: "Nhóm nhà hỗ trợ",
-          toDistribute: "để phân chia",
+          toDistribute: "mọi người trong nhà chia ra thanh toán",
           howItsCalculated: "Cách tính:",
           formula: "Công thức:",
           personDays: "ngày-người",
           people: "người",
           perPersonDay: "/ngày-người",
-          landlordSubsidyNote: "Hỗ trợ cố định chủ nhà: {{amount}} được trừ khỏi tổng hóa đơn trước khi phân chia.",
-          subsidisedTenantsNote: "Người được hỗ trợ ({{count}} người) được tính vào tổng ngày-người nhưng không tính tiền — chủ nhà chịu phần {{amount}}.",
-          awayNote: "Ngày vắng/vào muộn được trừ khỏi số ngày có mặt của từng người và phân chia lại cho các người thuê còn lại.",
-          noBillingPeriodNote: "⚠️ Chưa có kỳ hóa đơn — chia đều. Thêm ngày kỳ trong Theo dõi điện nước để tính chính xác hơn.",
+          landlordSubsidyNote:
+            "Hỗ trợ cố định chủ nhà: {{amount}} được trừ khỏi tổng hóa đơn trước khi phân chia.",
+          subsidisedTenantsNote:
+            "Người được hỗ trợ ({{count}} người) được tính vào tổng ngày-người nhưng không tính tiền — chủ nhà chịu phần {{amount}}.",
+          awayNote:
+            "Ngày vắng/vào muộn được trừ khỏi số ngày có mặt của từng người và phân chia lại cho các người thuê còn lại.",
+          noBillingPeriodNote:
+            "⚠️ Chưa có kỳ hóa đơn — chia đều. Thêm ngày kỳ trong Theo dõi điện nước để tính chính xác hơn.",
           days: "ngày",
           periodDaysHeader: "Ngày\ntrong kỳ",
           awayDaysHeader: "Ngày\nvắng",
@@ -768,7 +795,8 @@ i18next.init({
           generatingImage: "Đang tạo ảnh…",
           imageSaved: "Đã lưu ảnh!",
           imageFailed: "Lỗi tạo ảnh – vui lòng chụp màn hình thủ công",
-          html2canvasNotLoaded: "html2canvas chưa tải – vui lòng chụp màn hình thủ công",
+          html2canvasNotLoaded:
+            "html2canvas chưa tải – vui lòng chụp màn hình thủ công",
           failedToLoadBill: "Lỗi tải hóa đơn",
         },
       },

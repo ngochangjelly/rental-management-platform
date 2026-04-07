@@ -395,6 +395,7 @@ class UtilityBillTrackerComponent {
               <th class="text-end"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Electricity</th>
               <th class="text-end"><i class="bi bi-droplet-fill text-info me-1"></i>Water</th>
               <th class="text-end"><i class="bi bi-fire text-secondary me-1"></i>Gas & Others</th>
+              <th class="text-end text-success"><i class="bi bi-percent me-1"></i>GST</th>
               <th class="text-end fw-bold">Total</th>
               <th class="text-center">Bill</th>
               <th class="text-center">Actions</th>
@@ -412,6 +413,7 @@ class UtilityBillTrackerComponent {
                   <td class="text-end">$${(b.electricityAmount || 0).toFixed(2)}</td>
                   <td class="text-end">$${(b.waterAmount || 0).toFixed(2)}</td>
                   <td class="text-end">$${gasOther.toFixed(2)}</td>
+                  <td class="text-end text-success small">$${(b.gstAmount || 0).toFixed(2)}</td>
                   <td class="text-end fw-bold text-primary">$${(b.totalAmount || 0).toFixed(2)}</td>
                   <td class="text-center">
                     ${b.billImageUrl
@@ -490,6 +492,7 @@ class UtilityBillTrackerComponent {
     set('utilityGas', bill.gasAmount || '');
     set('utilityRefuse', bill.refuseAmount || '');
     set('utilityOther', bill.otherAmount || '');
+    set('utilityGst', bill.gstAmount || '');
     set('utilityTotal', bill.totalAmount || '');
     set('utilityBillNotes', bill.notes || '');
     const toInputDate = (dateVal) => {
@@ -613,7 +616,8 @@ class UtilityBillTrackerComponent {
         ${row('Water', parsed.waterAmount != null ? `$${parsed.waterAmount.toFixed(2)}` : null)}
         ${row('Gas', parsed.gasAmount != null ? `$${parsed.gasAmount.toFixed(2)}` : null)}
         ${row('Refuse Removal', parsed.refuseAmount != null ? `$${parsed.refuseAmount.toFixed(2)}` : null)}
-        ${row('Total Payable', parsed.totalAmount != null ? `$${parsed.totalAmount.toFixed(2)}` : null)}
+        ${row('GST', parsed.gstAmount != null ? `$${parsed.gstAmount.toFixed(2)}` : null)}
+        ${row('Total (incl. GST)', parsed.totalAmount != null ? `$${parsed.totalAmount.toFixed(2)}` : null)}
       </div>`;
   }
 
@@ -670,6 +674,7 @@ class UtilityBillTrackerComponent {
     if (parsed.waterAmount != null) setAlways('utilityWater', parsed.waterAmount.toFixed(2));
     if (parsed.gasAmount != null) setAlways('utilityGas', parsed.gasAmount.toFixed(2));
     if (parsed.refuseAmount != null) setAlways('utilityRefuse', parsed.refuseAmount.toFixed(2));
+    if (parsed.gstAmount != null) setAlways('utilityGst', parsed.gstAmount.toFixed(2));
     if (parsed.totalAmount != null) setAlways('utilityTotal', parsed.totalAmount.toFixed(2));
   }
 
@@ -703,6 +708,7 @@ class UtilityBillTrackerComponent {
         ['utilityGas', 'gasAmount'],
         ['utilityRefuse', 'refuseAmount'],
         ['utilityOther', 'otherAmount'],
+        ['utilityGst', 'gstAmount'],
         ['utilityTotal', 'totalAmount'],
         ['utilityBillNotes', 'notes'],
       ];
