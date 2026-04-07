@@ -5,20 +5,21 @@
 
 // Room type enum to display name mapping
 export const ROOM_TYPE_MAP = {
-  'COMMON1': 'Common 1',
-  'COMMON2': 'Common 2',
-  'MASTER': 'Master',
-  'COMPARTMENT1': 'Compartment 1',
-  'COMPARTMENT2': 'Compartment 2',
-  'STORE': 'Store',
-  'COMMON_1_PAX': 'Common 1 Pax',
-  'COMMON_2_PAX': 'Common 2 Pax',
-  'SMALL_SINGLE_1_PAX': 'Small Single 1 Pax',
-  'SMALL_SINGLE_2_PAX': 'Small Single 2 Pax',
-  'BIG_SINGLE_1_PAX': 'Big Single 1 Pax',
-  'BIG_SINGLE_2_PAX': 'Big Single 2 Pax',
-  'SINGLE_1_PAX_NO_AIRCON': 'Single 1 Pax No Aircon',
-  'SINGLE_2_PAX_NO_AIRCON': 'Single 2 Pax No Aircon'
+  COMMON1: "Common 1",
+  COMMON2: "Common 2",
+  MASTER: "Master",
+  COMPARTMENT1: "Compartment 1",
+  COMPARTMENT2: "Compartment 2",
+  STORE: "Store",
+  COMMON_1_PAX: "Common 1 Pax",
+  COMMON_2_PAX: "Common 2 Pax",
+  COMMON_3_PAX: "Common 3 Pax",
+  SMALL_SINGLE_1_PAX: "Small Single 1 Pax",
+  SMALL_SINGLE_2_PAX: "Small Single 2 Pax",
+  BIG_SINGLE_1_PAX: "Big Single 1 Pax",
+  BIG_SINGLE_2_PAX: "Big Single 2 Pax",
+  SINGLE_1_PAX_NO_AIRCON: "Single 1 Pax No Aircon",
+  SINGLE_2_PAX_NO_AIRCON: "Single 2 Pax No Aircon",
 };
 
 /**
@@ -35,11 +36,11 @@ export function getRoomTypeDisplayName(roomType) {
  * @param {string} selectedValue - Currently selected room type value
  * @returns {string} HTML string for select options
  */
-export function getRoomTypeOptions(selectedValue = '') {
+export function getRoomTypeOptions(selectedValue = "") {
   let options = '<option value="">Select room</option>';
 
   Object.entries(ROOM_TYPE_MAP).forEach(([value, label]) => {
-    const selected = value === selectedValue ? ' selected' : '';
+    const selected = value === selectedValue ? " selected" : "";
     options += `<option value="${value}"${selected}>${label}</option>`;
   });
 

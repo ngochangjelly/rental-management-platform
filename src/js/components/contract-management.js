@@ -3039,6 +3039,7 @@ class ContractManagementComponent {
       STORE: "Store",
       COMMON_1_PAX: "Common 1 Pax",
       COMMON_2_PAX: "Common 2 Pax",
+      COMMON_3_PAX: "Common 3 Pax",
       SMALL_SINGLE_1_PAX: "Small Single 1 Pax",
       SMALL_SINGLE_2_PAX: "Small Single 2 Pax",
       BIG_SINGLE_1_PAX: "Big Single 1 Pax",

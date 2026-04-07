@@ -447,13 +447,15 @@
 
       .stat-card {
         border-left: 3px solid #667eea;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
         margin-bottom: 0.75rem;
       }
 
       .stat-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.10) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
       }
 
       .stat-card .card-body {
@@ -1479,7 +1481,9 @@
       /* Utility Bill Tracker Styles */
       #utilityBillDropZone {
         border-style: dashed !important;
-        transition: border-color .2s, background .2s;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
       }
       #utilityBillDropZone:hover,
       #utilityBillDropZone.drag-over {
@@ -1491,7 +1495,7 @@
       }
       .utility-prop-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 14px rgba(0,0,0,0.12) !important;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12) !important;
       }
       .utility-prop-card.selected {
         border-width: 2px !important;
@@ -3150,11 +3154,23 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link d-flex align-items-center hvs-nav-highlight" href="#" data-section="house-view-specialist"
-                style="background:rgba(255,255,255,.15); border-radius:.5rem; font-weight:700;">
+              <a
+                class="nav-link d-flex align-items-center hvs-nav-highlight"
+                href="#"
+                data-section="house-view-specialist"
+                style="
+                  background: rgba(255, 255, 255, 0.15);
+                  border-radius: 0.5rem;
+                  font-weight: 700;
+                "
+              >
                 <i class="bi bi-house-door me-2"></i
                 ><span>Chuyên gia xem nhà</span>
-                <span class="badge bg-warning text-dark ms-auto" style="font-size:.65rem;">HOT</span>
+                <span
+                  class="badge bg-warning text-dark ms-auto"
+                  style="font-size: 0.65rem"
+                  >HOT</span
+                >
               </a>
             </li>
             <li class="nav-item">
@@ -3228,7 +3244,11 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link d-flex align-items-center" href="#" data-section="utility-bills">
+              <a
+                class="nav-link d-flex align-items-center"
+                href="#"
+                data-section="utility-bills"
+              >
                 <i class="bi bi-lightning-charge-fill me-2"></i>
                 <span>Utility Bill Tracker</span>
                 <span id="utilityNavBadge" class="ms-auto ps-2"></span>
@@ -3316,11 +3336,24 @@
 
           <div class="mt-auto pt-4 text-center">
             <!-- Global Exchange Rate Badge -->
-            <div id="globalExchangeRateBadge"
+            <div
+              id="globalExchangeRateBadge"
               onclick="dashboardController.showSection('exchange-rate')"
-              style="cursor:pointer;display:inline-block;background:rgba(255,255,255,0.15);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;margin-bottom:12px;border:1px solid rgba(255,255,255,0.3);transition:background 0.2s;"
-              onmouseover="this.style.background='rgba(255,255,255,0.25)'"
-              onmouseout="this.style.background='rgba(255,255,255,0.15)'"
+              style="
+                cursor: pointer;
+                display: inline-block;
+                background: rgba(255, 255, 255, 0.15);
+                color: #fff;
+                border-radius: 20px;
+                padding: 6px 14px;
+                font-size: 12px;
+                font-weight: 600;
+                margin-bottom: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                transition: background 0.2s;
+              "
+              onmouseover="this.style.background = 'rgba(255,255,255,0.25)'"
+              onmouseout="this.style.background = 'rgba(255,255,255,0.15)'"
               title="Tỷ giá SGD/VND hiện tại"
             >
               <i class="bi bi-currency-exchange me-1"></i>Đang tải...
@@ -3357,9 +3390,20 @@
               <i class="bi bi-house-door-fill me-2"></i>
               <span>Rental Hub</span>
             </div>
-            <div id="globalExchangeRateBadgeMobile"
+            <div
+              id="globalExchangeRateBadgeMobile"
               onclick="dashboardController.showSection('exchange-rate')"
-              style="cursor:pointer;background:rgba(255,255,255,0.2);color:#fff;border-radius:16px;padding:4px 10px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.35);white-space:nowrap;"
+              style="
+                cursor: pointer;
+                background: rgba(255, 255, 255, 0.2);
+                color: #fff;
+                border-radius: 16px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                white-space: nowrap;
+              "
               title="Tỷ giá SGD/VND"
             >
               <i class="bi bi-currency-exchange me-1"></i>...
@@ -3381,82 +3425,182 @@
               </div>
 
               <div class="dashboard-cards-wrapper">
-              <!-- House View Specialist Hero Card (moves to top on mobile via CSS order) -->
-              <div class="row mb-3 house-view-hero-row">
-                <div class="col-12">
-                  <div class="card feature-card" data-section="house-view-specialist"
-                    style="background:linear-gradient(135deg,#6c63ff 0%,#a855f7 100%);color:#fff;border:none;cursor:pointer;">
-                    <div class="card-body d-flex align-items-center gap-3 py-3 px-4">
-                      <span style="font-size:2.2rem;line-height:1;">🏠</span>
-                      <div class="flex-grow-1">
-                        <div style="font-size:16px;font-weight:800;letter-spacing:-.2px;">Chuyên gia xem nhà</div>
-                        <div style="font-size:12px;opacity:.85;margin-top:2px;">Ghi chép, khảo sát &amp; báo cáo khi xem nhà</div>
+                <!-- House View Specialist Hero Card (moves to top on mobile via CSS order) -->
+                <div class="row mb-3 house-view-hero-row">
+                  <div class="col-12">
+                    <div
+                      class="card feature-card"
+                      data-section="house-view-specialist"
+                      style="
+                        background: linear-gradient(
+                          135deg,
+                          #6c63ff 0%,
+                          #a855f7 100%
+                        );
+                        color: #fff;
+                        border: none;
+                        cursor: pointer;
+                      "
+                    >
+                      <div
+                        class="card-body d-flex align-items-center gap-3 py-3 px-4"
+                      >
+                        <span style="font-size: 2.2rem; line-height: 1"
+                          >🏠</span
+                        >
+                        <div class="flex-grow-1">
+                          <div
+                            style="
+                              font-size: 16px;
+                              font-weight: 800;
+                              letter-spacing: -0.2px;
+                            "
+                          >
+                            Chuyên gia xem nhà
+                          </div>
+                          <div
+                            style="
+                              font-size: 12px;
+                              opacity: 0.85;
+                              margin-top: 2px;
+                            "
+                          >
+                            Ghi chép, khảo sát &amp; báo cáo khi xem nhà
+                          </div>
+                        </div>
+                        <span
+                          class="badge"
+                          style="
+                            background: rgba(255, 255, 255, 0.25);
+                            font-size: 0.75rem;
+                            padding: 5px 10px;
+                            white-space: nowrap;
+                          "
+                          >Mở ngay →</span
+                        >
                       </div>
-                      <span class="badge" style="background:rgba(255,255,255,.25);font-size:.75rem;padding:5px 10px;white-space:nowrap;">Mở ngay →</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="row mb-3" id="stats-row" style="row-gap: 0">
+                  <div class="col-6 col-xl-3">
+                    <div
+                      class="card stat-card shadow-sm"
+                      style="border-left-color: #667eea"
+                    >
+                      <div class="card-body d-flex align-items-center gap-2">
+                        <div
+                          class="stat-icon-badge"
+                          style="
+                            background: rgba(102, 126, 234, 0.12);
+                            color: #667eea;
+                          "
+                        >
+                          <i class="bi bi-building"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                          <div
+                            class="stat-label text-primary"
+                            data-i18n="dashboard.stats.totalProperties"
+                          >
+                            Tổng số nhà
+                          </div>
+                          <div class="stat-value" id="propertiesCount">0</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-6 col-xl-3">
+                    <div
+                      class="card stat-card shadow-sm"
+                      style="border-left-color: #1cc88a"
+                    >
+                      <div class="card-body d-flex align-items-center gap-2">
+                        <div
+                          class="stat-icon-badge"
+                          style="
+                            background: rgba(28, 200, 138, 0.12);
+                            color: #1cc88a;
+                          "
+                        >
+                          <i class="bi bi-people-fill"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                          <div
+                            class="stat-label text-success"
+                            data-i18n="dashboard.stats.totalTenants"
+                          >
+                            Tổng người thuê
+                          </div>
+                          <div class="stat-value" id="tenantsCount">0</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-6 col-xl-3">
+                    <div
+                      class="card stat-card shadow-sm"
+                      style="border-left-color: #36b9cc"
+                    >
+                      <div class="card-body d-flex align-items-center gap-2">
+                        <div
+                          class="stat-icon-badge"
+                          style="
+                            background: rgba(54, 185, 204, 0.12);
+                            color: #36b9cc;
+                          "
+                        >
+                          <i class="bi bi-file-earmark-check-fill"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                          <div
+                            class="stat-label text-info"
+                            data-i18n="dashboard.stats.registeredTenants"
+                          >
+                            Đã đăng ký
+                          </div>
+                          <div class="stat-value" id="registeredTenants">0</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-6 col-xl-3">
+                    <div
+                      class="card stat-card shadow-sm"
+                      style="border-left-color: #f6c23e"
+                    >
+                      <div class="card-body d-flex align-items-center gap-2">
+                        <div
+                          class="stat-icon-badge"
+                          style="
+                            background: rgba(246, 194, 62, 0.15);
+                            color: #d4a017;
+                          "
+                        >
+                          <i class="bi bi-house-door-fill"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                          <div
+                            class="stat-label text-warning"
+                            data-i18n="dashboard.stats.occupiedProperties"
+                          >
+                            Đang có khách
+                          </div>
+                          <div class="stat-value" id="occupiedProperties">
+                            0
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              <!-- Stats Cards -->
-              <div class="row mb-3" id="stats-row" style="row-gap:0;">
-                <div class="col-6 col-xl-3">
-                  <div class="card stat-card shadow-sm" style="border-left-color:#667eea;">
-                    <div class="card-body d-flex align-items-center gap-2">
-                      <div class="stat-icon-badge" style="background:rgba(102,126,234,0.12);color:#667eea;">
-                        <i class="bi bi-building"></i>
-                      </div>
-                      <div class="flex-grow-1 min-w-0">
-                        <div class="stat-label text-primary" data-i18n="dashboard.stats.totalProperties">Tổng số nhà</div>
-                        <div class="stat-value" id="propertiesCount">0</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-6 col-xl-3">
-                  <div class="card stat-card shadow-sm" style="border-left-color:#1cc88a;">
-                    <div class="card-body d-flex align-items-center gap-2">
-                      <div class="stat-icon-badge" style="background:rgba(28,200,138,0.12);color:#1cc88a;">
-                        <i class="bi bi-people-fill"></i>
-                      </div>
-                      <div class="flex-grow-1 min-w-0">
-                        <div class="stat-label text-success" data-i18n="dashboard.stats.totalTenants">Tổng người thuê</div>
-                        <div class="stat-value" id="tenantsCount">0</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-6 col-xl-3">
-                  <div class="card stat-card shadow-sm" style="border-left-color:#36b9cc;">
-                    <div class="card-body d-flex align-items-center gap-2">
-                      <div class="stat-icon-badge" style="background:rgba(54,185,204,0.12);color:#36b9cc;">
-                        <i class="bi bi-file-earmark-check-fill"></i>
-                      </div>
-                      <div class="flex-grow-1 min-w-0">
-                        <div class="stat-label text-info" data-i18n="dashboard.stats.registeredTenants">Đã đăng ký</div>
-                        <div class="stat-value" id="registeredTenants">0</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-6 col-xl-3">
-                  <div class="card stat-card shadow-sm" style="border-left-color:#f6c23e;">
-                    <div class="card-body d-flex align-items-center gap-2">
-                      <div class="stat-icon-badge" style="background:rgba(246,194,62,0.15);color:#d4a017;">
-                        <i class="bi bi-house-door-fill"></i>
-                      </div>
-                      <div class="flex-grow-1 min-w-0">
-                        <div class="stat-label text-warning" data-i18n="dashboard.stats.occupiedProperties">Đang có khách</div>
-                        <div class="stat-value" id="occupiedProperties">0</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              </div><!-- /.dashboard-cards-wrapper -->
+              <!-- /.dashboard-cards-wrapper -->
 
               <!-- Feature Cards -->
               <div class="row">
@@ -4220,6 +4364,7 @@
                         <option value="STORE">Store</option>
                         <option value="COMMON_1_PAX">Common 1 Pax</option>
                         <option value="COMMON_2_PAX">Common 2 Pax</option>
+                        <option value="COMMON_3_PAX">Common 3 Pax</option>
                         <option value="SMALL_SINGLE_1_PAX">
                           Small Single 1 Pax
                         </option>
@@ -4668,6 +4813,12 @@
                             data-i18n="createContract.roomTypes.common2Pax"
                           >
                             Common 2 Pax
+                          </option>
+                          <option
+                            value="COMMON_3_PAX"
+                            data-i18n="createContract.roomTypes.common3Pax"
+                          >
+                            Common 3 Pax
                           </option>
                           <option
                             value="SMALL_SINGLE_1_PAX"
@@ -5413,7 +5564,11 @@
               </div>
 
               <!-- All Properties Unpaid Reminder Section -->
-              <div id="allUnpaidReminderSection" style="display: none;" class="mb-4">
+              <div
+                id="allUnpaidReminderSection"
+                style="display: none"
+                class="mb-4"
+              >
                 <div id="allUnpaidReminderContent"></div>
               </div>
 
@@ -5896,16 +6051,30 @@
           <!-- Utility Bill Tracker Section -->
           <div id="utility-bills-section" class="content-section">
             <div class="p-3 p-md-4">
-              <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2"
+              >
                 <div>
-                  <h2 class="mb-0"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>Utility Bill Tracker</h2>
-                  <p class="text-muted mb-0 small">Track SP Group monthly bills — electricity, water &amp; gas per property</p>
+                  <h2 class="mb-0">
+                    <i class="bi bi-lightning-charge-fill text-warning me-2"></i
+                    >Utility Bill Tracker
+                  </h2>
+                  <p class="text-muted mb-0 small">
+                    Track SP Group monthly bills — electricity, water &amp; gas
+                    per property
+                  </p>
                 </div>
                 <div class="d-flex gap-2">
-                  <button class="btn btn-primary" onclick="utilityBillTracker.showNewBillForm()">
+                  <button
+                    class="btn btn-primary"
+                    onclick="utilityBillTracker.showNewBillForm()"
+                  >
                     <i class="bi bi-plus-circle me-1"></i>Add Bill
                   </button>
-                  <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+                  <button
+                    class="btn btn-outline-secondary"
+                    onclick="dashboardController.goToDashboard()"
+                  >
                     <i class="bi bi-arrow-left me-1"></i>Back
                   </button>
                 </div>
@@ -5913,17 +6082,27 @@
 
               <!-- Property Selection -->
               <div class="card mb-4 shadow-sm">
-                <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <h6 class="mb-0"><i class="bi bi-building me-2"></i>Select Property</h6>
+                <div
+                  class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2"
+                >
+                  <h6 class="mb-0">
+                    <i class="bi bi-building me-2"></i>Select Property
+                  </h6>
                   <div class="d-flex align-items-center gap-2">
-                    <select class="form-select form-select-sm" id="utilityMonthSelect" style="width:auto;" onchange="utilityBillTracker.changeSummaryMonth()"></select>
+                    <select
+                      class="form-select form-select-sm"
+                      id="utilityMonthSelect"
+                      style="width: auto"
+                      onchange="utilityBillTracker.changeSummaryMonth()"
+                    ></select>
                   </div>
                 </div>
                 <div class="card-body pb-1">
                   <div id="utilityMonthSummary" class="mb-3"></div>
                   <div id="utilityBillPropertyCards" class="row">
                     <div class="col-12 text-center text-muted py-3">
-                      <span class="spinner-border spinner-border-sm me-2"></span>Loading properties…
+                      <span class="spinner-border spinner-border-sm me-2"></span
+                      >Loading properties…
                     </div>
                   </div>
                 </div>
@@ -5931,51 +6110,114 @@
 
               <!-- Content (shown after property selected) -->
               <div id="utilityBillContent" hidden>
-
                 <!-- Upload / OCR Form Panel -->
-                <div id="utilityBillFormPanel" class="card mb-4 shadow-sm" hidden>
-                  <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0" id="utilityBillFormTitle"><i class="bi bi-upload me-2"></i>Add New Bill</h6>
-                    <button type="button" class="btn-close" onclick="utilityBillTracker._showAddForm(false)"></button>
+                <div
+                  id="utilityBillFormPanel"
+                  class="card mb-4 shadow-sm"
+                  hidden
+                >
+                  <div
+                    class="card-header py-2 d-flex justify-content-between align-items-center"
+                  >
+                    <h6 class="mb-0" id="utilityBillFormTitle">
+                      <i class="bi bi-upload me-2"></i>Add New Bill
+                    </h6>
+                    <button
+                      type="button"
+                      class="btn-close"
+                      onclick="utilityBillTracker._showAddForm(false)"
+                    ></button>
                   </div>
                   <div class="card-body">
                     <form id="utilityBillForm" novalidate>
-
                       <!-- OCR Upload Section -->
                       <div id="utilityOcrSection" class="mb-4">
                         <label class="form-label fw-semibold">
-                          <i class="bi bi-camera me-1 text-primary"></i>Upload Bill Image
-                          <span class="badge bg-primary ms-1" style="font-size:0.65rem;">Auto-Parse OCR</span>
+                          <i class="bi bi-camera me-1 text-primary"></i>Upload
+                          Bill Image
+                          <span
+                            class="badge bg-primary ms-1"
+                            style="font-size: 0.65rem"
+                            >Auto-Parse OCR</span
+                          >
                         </label>
                         <!-- Drop zone -->
-                        <div id="utilityBillDropZone"
-                             class="border border-2 border-dashed rounded-3 p-4 text-center position-relative"
-                             style="cursor:pointer;min-height:120px;border-color:#dee2e6!important;transition:border-color .2s,background .2s;">
-                          <input type="file" id="utilityBillImageInput" accept="image/*" class="d-none">
-                          <img id="utilityBillImagePreview" src="" alt="Bill preview"
-                               class="img-fluid rounded mb-2" style="max-height:200px;object-fit:contain;" hidden>
+                        <div
+                          id="utilityBillDropZone"
+                          class="border border-2 border-dashed rounded-3 p-4 text-center position-relative"
+                          style="
+                            cursor: pointer;
+                            min-height: 120px;
+                            border-color: #dee2e6 !important;
+                            transition:
+                              border-color 0.2s,
+                              background 0.2s;
+                          "
+                        >
+                          <input
+                            type="file"
+                            id="utilityBillImageInput"
+                            accept="image/*"
+                            class="d-none"
+                          />
+                          <img
+                            id="utilityBillImagePreview"
+                            src=""
+                            alt="Bill preview"
+                            class="img-fluid rounded mb-2"
+                            style="max-height: 200px; object-fit: contain"
+                            hidden
+                          />
                           <div id="utilityDropZoneHint">
-                            <i class="bi bi-cloud-arrow-up fs-2 text-muted d-block mb-1"></i>
-                            <span class="text-muted">Click or drag &amp; drop your SP Group bill image</span><br>
-                            <small class="text-muted">Supports JPEG, PNG, HEIC — bill data will be parsed automatically</small>
+                            <i
+                              class="bi bi-cloud-arrow-up fs-2 text-muted d-block mb-1"
+                            ></i>
+                            <span class="text-muted"
+                              >Click or drag &amp; drop your SP Group bill
+                              image</span
+                            ><br />
+                            <small class="text-muted"
+                              >Supports JPEG, PNG, HEIC — bill data will be
+                              parsed automatically</small
+                            >
                           </div>
                         </div>
                         <!-- OCR status / result -->
-                        <div id="utilityOcrStatus" class="mt-2 text-muted small" hidden></div>
+                        <div
+                          id="utilityOcrStatus"
+                          class="mt-2 text-muted small"
+                          hidden
+                        ></div>
                         <div id="utilityOcrResult" class="mt-2" hidden></div>
                       </div>
 
-                      <hr class="my-3">
+                      <hr class="my-3" />
 
                       <!-- Bill Period -->
                       <div class="row g-3 mb-3">
                         <div class="col-6 col-md-3">
-                          <label class="form-label">Year <span class="text-danger">*</span></label>
-                          <input type="number" class="form-control" id="utilityBillYear" min="2020" max="2099" placeholder="2026" required>
+                          <label class="form-label"
+                            >Year <span class="text-danger">*</span></label
+                          >
+                          <input
+                            type="number"
+                            class="form-control"
+                            id="utilityBillYear"
+                            min="2020"
+                            max="2099"
+                            placeholder="2026"
+                            required
+                          />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label">Month <span class="text-danger">*</span></label>
-                          <select class="form-select" id="utilityBillMonth" required>
+                          <label class="form-label"
+                            >Month <span class="text-danger">*</span></label
+                          >
+                          <select
+                            class="form-select"
+                            id="utilityBillMonth"
+                            required
+                          >
                             <option value="">Select…</option>
                             <option value="1">January</option>
                             <option value="2">February</option>
@@ -5993,41 +6235,79 @@
                         </div>
                         <div class="col-6 col-md-3">
                           <label class="form-label">Bill Date</label>
-                          <input type="date" class="form-control" id="utilityBillDate">
+                          <input
+                            type="date"
+                            class="form-control"
+                            id="utilityBillDate"
+                          />
                         </div>
                         <div class="col-6 col-md-3">
                           <label class="form-label">Account No.</label>
-                          <input type="text" class="form-control" id="utilityBillAccountNo" placeholder="SP Group account">
+                          <input
+                            type="text"
+                            class="form-control"
+                            id="utilityBillAccountNo"
+                            placeholder="SP Group account"
+                          />
                         </div>
                         <div class="col-6 col-md-3">
                           <label class="form-label">Billing Period Start</label>
-                          <input type="date" class="form-control" id="utilityBillingPeriodStart">
+                          <input
+                            type="date"
+                            class="form-control"
+                            id="utilityBillingPeriodStart"
+                          />
                         </div>
                         <div class="col-6 col-md-3">
                           <label class="form-label">Billing Period End</label>
-                          <input type="date" class="form-control" id="utilityBillingPeriodEnd">
+                          <input
+                            type="date"
+                            class="form-control"
+                            id="utilityBillingPeriodEnd"
+                          />
                         </div>
                       </div>
 
                       <!-- Amounts -->
-                      <p class="fw-semibold mb-2"><i class="bi bi-currency-dollar me-1 text-success"></i>Bill Amounts (SGD)</p>
+                      <p class="fw-semibold mb-2">
+                        <i class="bi bi-currency-dollar me-1 text-success"></i
+                        >Bill Amounts (SGD)
+                      </p>
                       <div class="row g-3 mb-3">
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Electricity
+                            <i
+                              class="bi bi-lightning-charge-fill text-warning me-1"
+                            ></i
+                            >Electricity
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="utilityElectricity" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="utilityElectricity"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-droplet-fill text-info me-1"></i>Water
+                            <i class="bi bi-droplet-fill text-info me-1"></i
+                            >Water
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="utilityWater" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="utilityWater"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
@@ -6036,25 +6316,48 @@
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="utilityGas" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="utilityGas"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-trash3 text-secondary me-1"></i>Refuse
+                            <i class="bi bi-trash3 text-secondary me-1"></i
+                            >Refuse
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="utilityRefuse" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="utilityRefuse"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-three-dots text-muted me-1"></i>Others
+                            <i class="bi bi-three-dots text-muted me-1"></i
+                            >Others
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="utilityOther" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="utilityOther"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
@@ -6063,30 +6366,58 @@
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="utilityGst" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="utilityGst"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label fw-bold">
-                            <i class="bi bi-receipt text-primary me-1"></i>Total (incl. GST)
+                            <i class="bi bi-receipt text-primary me-1"></i>Total
+                            (incl. GST)
                           </label>
                           <div class="input-group">
                             <span class="input-group-text fw-bold">$</span>
-                            <input type="number" class="form-control fw-bold" id="utilityTotal" step="0.01" min="0" placeholder="0.00">
+                            <input
+                              type="number"
+                              class="form-control fw-bold"
+                              id="utilityTotal"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                       </div>
 
                       <div class="mb-3">
                         <label class="form-label">Notes</label>
-                        <textarea class="form-control" id="utilityBillNotes" rows="2" placeholder="Optional notes…"></textarea>
+                        <textarea
+                          class="form-control"
+                          id="utilityBillNotes"
+                          rows="2"
+                          placeholder="Optional notes…"
+                        ></textarea>
                       </div>
 
                       <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary" id="utilityBillSubmitBtn">
+                        <button
+                          type="submit"
+                          class="btn btn-primary"
+                          id="utilityBillSubmitBtn"
+                        >
                           <i class="bi bi-floppy me-1"></i>Save Bill
                         </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="utilityBillTracker._showAddForm(false)">
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary"
+                          onclick="utilityBillTracker._showAddForm(false)"
+                        >
                           Cancel
                         </button>
                       </div>
@@ -6097,10 +6428,13 @@
                 <!-- Chart -->
                 <div class="card mb-4 shadow-sm">
                   <div class="card-header py-2">
-                    <h6 class="mb-0"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Monthly Expense Trend (Last 12 Months)</h6>
+                    <h6 class="mb-0">
+                      <i class="bi bi-bar-chart-line me-2 text-primary"></i
+                      >Monthly Expense Trend (Last 12 Months)
+                    </h6>
                   </div>
                   <div class="card-body">
-                    <div style="position:relative;height:280px;">
+                    <div style="position: relative; height: 280px">
                       <canvas id="utilityBillChart"></canvas>
                     </div>
                   </div>
@@ -6108,34 +6442,51 @@
 
                 <!-- Bills History Table -->
                 <div class="card shadow-sm">
-                  <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Bill History</h6>
-                    <button class="btn btn-sm btn-outline-primary" onclick="utilityBillTracker.showNewBillForm()">
+                  <div
+                    class="card-header py-2 d-flex justify-content-between align-items-center"
+                  >
+                    <h6 class="mb-0">
+                      <i class="bi bi-clock-history me-2"></i>Bill History
+                    </h6>
+                    <button
+                      class="btn btn-sm btn-outline-primary"
+                      onclick="utilityBillTracker.showNewBillForm()"
+                    >
                       <i class="bi bi-plus-circle me-1"></i>Add Bill
                     </button>
                   </div>
-                  <div class="card-body p-0 pt-2" id="utilityBillsTableContainer">
+                  <div
+                    class="card-body p-0 pt-2"
+                    id="utilityBillsTableContainer"
+                  >
                     <div class="text-center text-muted py-4">
                       <i class="bi bi-receipt fs-1 d-block mb-2"></i>
                       <p>No bills recorded yet.</p>
                     </div>
                   </div>
                 </div>
-
-              </div><!-- /utilityBillContent -->
+              </div>
+              <!-- /utilityBillContent -->
 
               <!-- Toast (fallback if global showToast not available) -->
-              <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;">
+              <div
+                class="toast-container position-fixed bottom-0 end-0 p-3"
+                style="z-index: 9999"
+              >
                 <div id="utilityBillToast" class="toast" role="alert">
                   <div class="d-flex">
                     <div class="toast-body"></div>
-                    <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+                    <button
+                      type="button"
+                      class="btn-close me-2 m-auto"
+                      data-bs-dismiss="toast"
+                    ></button>
                   </div>
                 </div>
               </div>
-
             </div>
-          </div><!-- /utility-bills-section -->
+          </div>
+          <!-- /utility-bills-section -->
 
           <!-- Bulk Property Reports Section -->
           <div id="bulk-reports-section" class="content-section">
@@ -6839,9 +7190,16 @@
           <!-- Exchange Rate Section -->
           <div id="exchange-rate-section" class="content-section">
             <div class="p-4">
-              <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4">
-                <h2><i class="bi bi-currency-exchange me-2"></i>Tỷ giá SGD / VND</h2>
-                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+              <div
+                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4"
+              >
+                <h2>
+                  <i class="bi bi-currency-exchange me-2"></i>Tỷ giá SGD / VND
+                </h2>
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="dashboardController.goToDashboard()"
+                >
                   <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
                 </button>
               </div>
@@ -6849,23 +7207,60 @@
               <!-- Current Rate + Add New -->
               <div class="row g-3 mb-4">
                 <div class="col-md-5">
-                  <div class="card h-100" style="border:2px solid #1877F2;">
-                    <div class="card-header text-white py-2" style="background:#1877F2;">
-                      <h6 class="mb-0"><i class="bi bi-currency-exchange me-2"></i>Tỷ giá hiện tại</h6>
+                  <div class="card h-100" style="border: 2px solid #1877f2">
+                    <div
+                      class="card-header text-white py-2"
+                      style="background: #1877f2"
+                    >
+                      <h6 class="mb-0">
+                        <i class="bi bi-currency-exchange me-2"></i>Tỷ giá hiện
+                        tại
+                      </h6>
                     </div>
                     <div class="card-body py-3">
                       <div class="d-flex align-items-baseline gap-2 mb-1">
-                        <div id="currentRateDisplay" style="font-size:1.9rem;font-weight:700;color:#1877F2;line-height:1;">—</div>
+                        <div
+                          id="currentRateDisplay"
+                          style="
+                            font-size: 1.9rem;
+                            font-weight: 700;
+                            color: #1877f2;
+                            line-height: 1;
+                          "
+                        >
+                          —
+                        </div>
                         <span class="text-muted small">VND / SGD</span>
                       </div>
-                      <div id="currentRateDate" class="text-muted small mb-3"></div>
-                      <hr class="my-2">
-                      <div class="small fw-semibold text-muted mb-1"><i class="bi bi-calculator me-1"></i>Quy đổi nhanh</div>
+                      <div
+                        id="currentRateDate"
+                        class="text-muted small mb-3"
+                      ></div>
+                      <hr class="my-2" />
+                      <div class="small fw-semibold text-muted mb-1">
+                        <i class="bi bi-calculator me-1"></i>Quy đổi nhanh
+                      </div>
                       <div class="input-group input-group-sm">
                         <span class="input-group-text">🇸🇬 SGD</span>
-                        <input type="number" id="quickConvertSGD" class="form-control" placeholder="0" min="0" oninput="exchangeRateComponent.quickConvert(this.value)" />
+                        <input
+                          type="number"
+                          id="quickConvertSGD"
+                          class="form-control"
+                          placeholder="0"
+                          min="0"
+                          oninput="
+                            exchangeRateComponent.quickConvert(this.value)
+                          "
+                        />
                         <span class="input-group-text">= 🇻🇳</span>
-                        <input type="text" id="quickConvertVND" class="form-control text-end" placeholder="—" readonly style="background:#f8f9fa;font-weight:600;" />
+                        <input
+                          type="text"
+                          id="quickConvertVND"
+                          class="form-control text-end"
+                          placeholder="—"
+                          readonly
+                          style="background: #f8f9fa; font-weight: 600"
+                        />
                         <span class="input-group-text">VND</span>
                       </div>
                     </div>
@@ -6875,13 +7270,22 @@
                 <div class="col-md-7">
                   <div class="card h-100">
                     <div class="card-header bg-success text-white py-2">
-                      <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Cập nhật tỷ giá mới</h6>
+                      <h6 class="mb-0">
+                        <i class="bi bi-plus-circle me-2"></i>Cập nhật tỷ giá
+                        mới
+                      </h6>
                     </div>
                     <div class="card-body py-3">
-                      <div id="exchangeRateSuccess" class="alert alert-success py-2 mb-2" style="display:none;"></div>
+                      <div
+                        id="exchangeRateSuccess"
+                        class="alert alert-success py-2 mb-2"
+                        style="display: none"
+                      ></div>
                       <form id="addExchangeRateForm">
                         <div class="mb-2">
-                          <label class="form-label fw-semibold small mb-1">Tỷ giá mới (1 SGD = ? VND)</label>
+                          <label class="form-label fw-semibold small mb-1"
+                            >Tỷ giá mới (1 SGD = ? VND)</label
+                          >
                           <div class="input-group">
                             <span class="input-group-text">🇸🇬 1 SGD =</span>
                             <input
@@ -6895,13 +7299,28 @@
                             />
                             <span class="input-group-text">VND</span>
                           </div>
-                          <div class="text-muted small mt-1">Áp dụng từ thời điểm hiện tại cho đến lần cập nhật tiếp theo.</div>
+                          <div class="text-muted small mt-1">
+                            Áp dụng từ thời điểm hiện tại cho đến lần cập nhật
+                            tiếp theo.
+                          </div>
                         </div>
                         <div class="mb-2">
-                          <label class="form-label small mb-1">Ghi chú <span class="text-muted">(tuỳ chọn)</span></label>
-                          <input type="text" id="newExchangeRateNote" class="form-control" placeholder="ví dụ: Cập nhật tháng 4/2025">
+                          <label class="form-label small mb-1"
+                            >Ghi chú
+                            <span class="text-muted">(tuỳ chọn)</span></label
+                          >
+                          <input
+                            type="text"
+                            id="newExchangeRateNote"
+                            class="form-control"
+                            placeholder="ví dụ: Cập nhật tháng 4/2025"
+                          />
                         </div>
-                        <button type="submit" id="addExchangeRateBtn" class="btn btn-success btn-sm">
+                        <button
+                          type="submit"
+                          id="addExchangeRateBtn"
+                          class="btn btn-success btn-sm"
+                        >
                           <i class="bi bi-plus-lg me-1"></i>Lưu tỷ giá
                         </button>
                       </form>
@@ -6913,10 +7332,12 @@
               <!-- Chart -->
               <div class="card mb-4">
                 <div class="card-header bg-light">
-                  <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Lịch sử tỷ giá</h5>
+                  <h5 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>Lịch sử tỷ giá
+                  </h5>
                 </div>
                 <div class="card-body">
-                  <div style="height:260px;position:relative;">
+                  <div style="height: 260px; position: relative">
                     <canvas id="exchangeRateChart"></canvas>
                   </div>
                 </div>
@@ -6925,15 +7346,18 @@
               <!-- History Table -->
               <div class="card">
                 <div class="card-header bg-light">
-                  <h5 class="mb-0"><i class="bi bi-table me-2"></i>Danh sách các kỳ tỷ giá</h5>
+                  <h5 class="mb-0">
+                    <i class="bi bi-table me-2"></i>Danh sách các kỳ tỷ giá
+                  </h5>
                 </div>
                 <div class="card-body p-0">
                   <div id="exchangeRateHistoryContainer" class="p-3">
-                    <div class="text-center text-muted py-3"><i class="bi bi-hourglass-split me-2"></i>Đang tải...</div>
+                    <div class="text-center text-muted py-3">
+                      <i class="bi bi-hourglass-split me-2"></i>Đang tải...
+                    </div>
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -6972,18 +7396,20 @@
 
               <!-- Preview Section (Hidden until prompt selected) -->
               <div id="promptPreviewSection" style="display: none">
-
                 <!-- Exchange Rate Section -->
                 <div id="exchangeRateSection" class="card mb-4">
                   <div class="card-header bg-warning text-dark">
                     <h5 class="mb-0">
-                      <i class="bi bi-currency-exchange me-2"></i>Tỷ giá SGD / VND
+                      <i class="bi bi-currency-exchange me-2"></i>Tỷ giá SGD /
+                      VND
                     </h5>
                   </div>
                   <div class="card-body">
                     <div class="row align-items-end g-3">
                       <div class="col-md-5">
-                        <label class="form-label fw-semibold">Tỷ giá 1 SGD = ? VND</label>
+                        <label class="form-label fw-semibold"
+                          >Tỷ giá 1 SGD = ? VND</label
+                        >
                         <div class="input-group">
                           <span class="input-group-text">🇸🇬 1 SGD =</span>
                           <input
@@ -7050,7 +7476,11 @@
                 </div>
 
                 <!-- Prompt Dynamic Controls -->
-                <div id="promptControlsContainer" class="card mb-4" style="display: none;">
+                <div
+                  id="promptControlsContainer"
+                  class="card mb-4"
+                  style="display: none"
+                >
                   <div class="card-header bg-dark text-white">
                     <h5 class="mb-0">
                       <i class="bi bi-sliders me-2"></i>Tùy chỉnh thông tin
@@ -7073,8 +7503,14 @@
                       </h5>
                     </div>
                     <div class="d-flex gap-2">
-                      <button id="sendWhatsAppBtn" class="btn btn-light btn-sm" style="display: none;" onclick="commonPromptComponent.sendWhatsApp()">
-                        <i class="bi bi-whatsapp me-1 text-success"></i>Gửi WhatsApp
+                      <button
+                        id="sendWhatsAppBtn"
+                        class="btn btn-light btn-sm"
+                        style="display: none"
+                        onclick="commonPromptComponent.sendWhatsApp()"
+                      >
+                        <i class="bi bi-whatsapp me-1 text-success"></i>Gửi
+                        WhatsApp
                       </button>
                       <button id="copyPromptBtn" class="btn btn-light btn-sm">
                         <i class="bi bi-clipboard me-1"></i>Copy tin nhắn
@@ -7102,13 +7538,23 @@
                 <!-- Bulk Messages Section (all properties) -->
                 <div id="bulkMessagesSection" style="display: none">
                   <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <div
+                      class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+                    >
                       <h5 class="mb-0">
                         <i class="bi bi-buildings me-2"></i>
                         Tin nhắn cho tất cả căn hộ
-                        <span id="bulkPropertyCount" class="badge bg-white text-primary ms-2">0 căn hộ</span>
+                        <span
+                          id="bulkPropertyCount"
+                          class="badge bg-white text-primary ms-2"
+                          >0 căn hộ</span
+                        >
                       </h5>
-                      <button id="copyAllMessagesBtn" class="btn btn-light btn-sm" onclick="commonPromptComponent.copyAllMessages()">
+                      <button
+                        id="copyAllMessagesBtn"
+                        class="btn btn-light btn-sm"
+                        onclick="commonPromptComponent.copyAllMessages()"
+                      >
                         <i class="bi bi-clipboard-fill me-1"></i>Copy tất cả
                       </button>
                     </div>
@@ -7117,13 +7563,16 @@
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
 
           <!-- House View Specialist Section -->
-          <div id="house-view-specialist-section" class="content-section" data-display="flex">
+          <div
+            id="house-view-specialist-section"
+            class="content-section"
+            data-display="flex"
+          >
             <style>
               /* ── House View Specialist styles ─────────────────────────── */
               #house-view-specialist-section {
@@ -7169,20 +7618,38 @@
                 align-items: center;
                 padding: 16px 16px 12px;
                 background: #fff;
-                box-shadow: 0 1px 4px rgba(0,0,0,.07);
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
               }
-              .hvs-list-title-row { display: flex; align-items: baseline; gap: 8px; }
-              .hvs-title { font-size: 20px; font-weight: 700; color: #1a1a2e; margin: 0; }
-              .hvs-record-count { font-size: 13px; color: #aaa; font-weight: 500; }
+              .hvs-list-title-row {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+              }
+              .hvs-title {
+                font-size: 20px;
+                font-weight: 700;
+                color: #1a1a2e;
+                margin: 0;
+              }
+              .hvs-record-count {
+                font-size: 13px;
+                color: #aaa;
+                font-weight: 500;
+              }
               .hvs-btn-fab {
-                width: 40px; height: 40px;
+                width: 40px;
+                height: 40px;
                 border-radius: 50%;
-                background: linear-gradient(135deg,#6c63ff,#a855f7);
-                border: none; color: #fff;
+                background: linear-gradient(135deg, #6c63ff, #a855f7);
+                border: none;
+                color: #fff;
                 font-size: 18px;
-                display: flex; align-items: center; justify-content: center;
-                cursor: pointer; flex-shrink: 0;
-                box-shadow: 0 3px 10px rgba(108,99,255,.35);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                flex-shrink: 0;
+                box-shadow: 0 3px 10px rgba(108, 99, 255, 0.35);
               }
               .hvs-list-body {
                 flex: 1;
@@ -7194,11 +7661,11 @@
                 flex-shrink: 0;
                 padding: 10px 16px env(safe-area-inset-bottom, 12px);
                 background: #fff;
-                box-shadow: 0 -1px 4px rgba(0,0,0,.07);
+                box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.07);
               }
               .hvs-btn-add-full {
                 width: 100%;
-                background: linear-gradient(135deg,#6c63ff,#a855f7);
+                background: linear-gradient(135deg, #6c63ff, #a855f7);
                 color: #fff;
                 border: none;
                 border-radius: 14px;
@@ -7210,11 +7677,15 @@
                 align-items: center;
                 justify-content: center;
               }
-              .hvs-cards-grid { display: flex; flex-direction: column; gap: 12px; }
+              .hvs-cards-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+              }
 
               /* Resume draft banner */
               .hvs-resume-banner {
-                background: linear-gradient(135deg,#ede9ff,#f5f0ff);
+                background: linear-gradient(135deg, #ede9ff, #f5f0ff);
                 border: 1.5px solid #c4b5fd;
                 border-radius: 14px;
                 padding: 12px 14px;
@@ -7226,29 +7697,58 @@
                 gap: 10px;
               }
               .hvs-resume-dot {
-                width: 10px; height: 10px;
+                width: 10px;
+                height: 10px;
                 border-radius: 50%;
                 background: #6c63ff;
                 flex-shrink: 0;
                 animation: hvs-pulse 1.5s ease-in-out infinite;
               }
               @keyframes hvs-pulse {
-                0%,100% { opacity: 1; transform: scale(1); }
-                50% { opacity: .6; transform: scale(.85); }
+                0%,
+                100% {
+                  opacity: 1;
+                  transform: scale(1);
+                }
+                50% {
+                  opacity: 0.6;
+                  transform: scale(0.85);
+                }
               }
-              .hvs-resume-text { flex: 1; min-width: 0; }
-              .hvs-resume-title { font-size: 13px; font-weight: 700; color: #4c1d95; }
-              .hvs-resume-sub { font-size: 11px; color: #7c3aed; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .hvs-resume-text {
+                flex: 1;
+                min-width: 0;
+              }
+              .hvs-resume-title {
+                font-size: 13px;
+                font-weight: 700;
+                color: #4c1d95;
+              }
+              .hvs-resume-sub {
+                font-size: 11px;
+                color: #7c3aed;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
               .hvs-resume-yes {
-                background: #6c63ff; color: #fff;
-                border: none; border-radius: 8px;
-                padding: 7px 13px; font-size: 13px; font-weight: 700;
-                cursor: pointer; white-space: nowrap;
+                background: #6c63ff;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                padding: 7px 13px;
+                font-size: 13px;
+                font-weight: 700;
+                cursor: pointer;
+                white-space: nowrap;
               }
               .hvs-resume-no {
-                background: none; border: none;
-                color: #aaa; font-size: 18px;
-                cursor: pointer; padding: 4px;
+                background: none;
+                border: none;
+                color: #aaa;
+                font-size: 18px;
+                cursor: pointer;
+                padding: 4px;
                 line-height: 1;
               }
               .hvs-card {
@@ -7256,340 +7756,763 @@
                 border-radius: 16px;
                 padding: 16px;
                 cursor: pointer;
-                box-shadow: 0 2px 8px rgba(0,0,0,.08);
-                transition: transform .15s, box-shadow .15s;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                transition:
+                  transform 0.15s,
+                  box-shadow 0.15s;
                 border: 1.5px solid transparent;
               }
-              .hvs-card:active { transform: scale(.98); }
-              .hvs-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12); border-color: #6c63ff30; }
-              .hvs-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
-              .hvs-card-name { font-size: 16px; font-weight: 600; color: #1a1a2e; }
-              .hvs-card-unit { font-size: 13px; color: #666; margin-top: 2px; }
-              .hvs-card-meta { display: flex; gap: 12px; font-size: 12px; color: #888; flex-wrap: wrap; }
-              .hvs-card-meta span { display: flex; align-items: center; gap: 4px; }
-              .hvs-empty { text-align: center; padding: 60px 20px; color: #888; }
-              .hvs-empty-icon { font-size: 56px; display: block; margin-bottom: 12px; opacity: .4; }
+              .hvs-card:active {
+                transform: scale(0.98);
+              }
+              .hvs-card:hover {
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+                border-color: #6c63ff30;
+              }
+              .hvs-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 8px;
+                margin-bottom: 8px;
+              }
+              .hvs-card-name {
+                font-size: 16px;
+                font-weight: 600;
+                color: #1a1a2e;
+              }
+              .hvs-card-unit {
+                font-size: 13px;
+                color: #666;
+                margin-top: 2px;
+              }
+              .hvs-card-meta {
+                display: flex;
+                gap: 12px;
+                font-size: 12px;
+                color: #888;
+                flex-wrap: wrap;
+              }
+              .hvs-card-meta span {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              }
+              .hvs-empty {
+                text-align: center;
+                padding: 60px 20px;
+                color: #888;
+              }
+              .hvs-empty-icon {
+                font-size: 56px;
+                display: block;
+                margin-bottom: 12px;
+                opacity: 0.4;
+              }
 
               /* Wizard — fixed full-screen overlay, no scroll */
               .hvs-wizard {
-                position: fixed; inset: 0; z-index: 200;
-                display: flex; flex-direction: column;
-                background: #f0f2f5; overflow: hidden;
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                display: flex;
+                flex-direction: column;
+                background: #f0f2f5;
+                overflow: hidden;
               }
               .hvs-wizard-header {
-                display: flex; align-items: center; gap: 12px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
                 padding: 12px 16px;
                 background: #fff;
-                box-shadow: 0 1px 4px rgba(0,0,0,.08);
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
                 flex-shrink: 0;
               }
               .hvs-back-btn {
-                width: 40px; height: 40px;
+                width: 40px;
+                height: 40px;
                 border-radius: 50%;
                 border: none;
                 background: #f0f2f5;
                 color: #333;
                 font-size: 18px;
-                display: flex; align-items: center; justify-content: center;
-                cursor: pointer; flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                flex-shrink: 0;
               }
-              .hvs-step-info { flex: 1; }
-              .hvs-step-label { font-size: 16px; font-weight: 600; color: #1a1a2e; }
-              .hvs-step-count { font-size: 12px; color: #888; }
-              .hvs-progress-bar { height: 4px; background: #e0e0e0; }
-              .hvs-progress-fill { height: 100%; background: linear-gradient(90deg,#6c63ff,#a855f7); transition: width .4s; }
-              .hvs-step-dots { display: flex; justify-content: center; gap: 8px; padding: 12px; }
+              .hvs-step-info {
+                flex: 1;
+              }
+              .hvs-step-label {
+                font-size: 16px;
+                font-weight: 600;
+                color: #1a1a2e;
+              }
+              .hvs-step-count {
+                font-size: 12px;
+                color: #888;
+              }
+              .hvs-progress-bar {
+                height: 4px;
+                background: #e0e0e0;
+              }
+              .hvs-progress-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #6c63ff, #a855f7);
+                transition: width 0.4s;
+              }
+              .hvs-step-dots {
+                display: flex;
+                justify-content: center;
+                gap: 8px;
+                padding: 12px;
+              }
               .hvs-dot {
-                width: 8px; height: 8px; border-radius: 50%;
-                background: #ddd; transition: all .3s;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #ddd;
+                transition: all 0.3s;
               }
-              .hvs-dot.active { background: #6c63ff; width: 24px; border-radius: 4px; }
-              .hvs-dot.done { background: #a855f7; }
-              .hvs-progress-bar { flex-shrink: 0; }
-              .hvs-step-dots { flex-shrink: 0; }
+              .hvs-dot.active {
+                background: #6c63ff;
+                width: 24px;
+                border-radius: 4px;
+              }
+              .hvs-dot.done {
+                background: #a855f7;
+              }
+              .hvs-progress-bar {
+                flex-shrink: 0;
+              }
+              .hvs-step-dots {
+                flex-shrink: 0;
+              }
               .hvs-wizard-body {
-                flex: 1; overflow: hidden;
+                flex: 1;
+                overflow: hidden;
                 padding: 0 16px;
-                display: flex; flex-direction: column;
+                display: flex;
+                flex-direction: column;
               }
 
               /* Step content */
               .hvs-step-content {
-                flex: 1; display: flex; flex-direction: column;
-                overflow: hidden; padding-top: 8px;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                padding-top: 8px;
               }
-              .hvs-step-content.hvs-step-center { justify-content: space-between; }
+              .hvs-step-content.hvs-step-center {
+                justify-content: space-between;
+              }
               .hvs-step-footer {
                 flex-shrink: 0;
-                display: flex; gap: 10px;
+                display: flex;
+                gap: 10px;
                 padding: 12px 0 env(safe-area-inset-bottom, 12px);
                 justify-content: space-between;
               }
               .hvs-step-footer .hvs-btn-primary,
-              .hvs-step-footer .hvs-btn-success { flex: 1; justify-content: center; }
-              .hvs-step-footer .hvs-btn-secondary { flex: 0 0 auto; }
+              .hvs-step-footer .hvs-btn-success {
+                flex: 1;
+                justify-content: center;
+              }
+              .hvs-step-footer .hvs-btn-secondary {
+                flex: 0 0 auto;
+              }
 
               /* Location step scrollable body */
-              .hvs-location-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+              .hvs-location-body {
+                flex: 1;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+              }
               /* Survey step scrollable body */
-              .hvs-survey-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+              .hvs-survey-scroll {
+                flex: 1;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+              }
 
               /* Report step scrollable body */
-              .hvs-report-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+              .hvs-report-scroll {
+                flex: 1;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+              }
 
               /* Step 1 — type picker */
-              .hvs-type-hero { text-align: center; padding-top: 16px; }
-              .hvs-type-hero-title { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-              .hvs-type-hero-sub { font-size: 14px; color: #888; margin-top: 4px; }
-              .hvs-type-cards { display: flex; flex-direction: column; gap: 14px; padding: 8px 0; }
-              .hvs-type-card {
-                padding: 24px 20px; border-radius: 20px;
-                border: 2.5px solid #e0e0e0; background: #fff;
-                cursor: pointer; display: flex; flex-direction: column;
-                align-items: center; gap: 8px;
-                transition: all .2s; width: 100%;
+              .hvs-type-hero {
+                text-align: center;
+                padding-top: 16px;
               }
-              .hvs-type-card:active { transform: scale(.98); }
-              .hvs-type-icon { font-size: 42px; line-height: 1; }
-              .hvs-type-name { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-              .hvs-type-desc { font-size: 13px; color: #888; }
-              .hvs-type-card.active { border-color: #6c63ff; background: #f5f3ff; box-shadow: 0 4px 20px rgba(108,99,255,.15); }
-              .hvs-type-card.active .hvs-type-name { color: #6c63ff; }
+              .hvs-type-hero-title {
+                font-size: 22px;
+                font-weight: 700;
+                color: #1a1a2e;
+              }
+              .hvs-type-hero-sub {
+                font-size: 14px;
+                color: #888;
+                margin-top: 4px;
+              }
+              .hvs-type-cards {
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+                padding: 8px 0;
+              }
+              .hvs-type-card {
+                padding: 24px 20px;
+                border-radius: 20px;
+                border: 2.5px solid #e0e0e0;
+                background: #fff;
+                cursor: pointer;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.2s;
+                width: 100%;
+              }
+              .hvs-type-card:active {
+                transform: scale(0.98);
+              }
+              .hvs-type-icon {
+                font-size: 42px;
+                line-height: 1;
+              }
+              .hvs-type-name {
+                font-size: 22px;
+                font-weight: 700;
+                color: #1a1a2e;
+              }
+              .hvs-type-desc {
+                font-size: 13px;
+                color: #888;
+              }
+              .hvs-type-card.active {
+                border-color: #6c63ff;
+                background: #f5f3ff;
+                box-shadow: 0 4px 20px rgba(108, 99, 255, 0.15);
+              }
+              .hvs-type-card.active .hvs-type-name {
+                color: #6c63ff;
+              }
 
               .hvs-step-title {
-                font-size: 18px; font-weight: 700; color: #1a1a2e;
-                display: flex; align-items: center; gap: 8px;
-                margin-bottom: 20px; padding: 4px 0;
+                font-size: 18px;
+                font-weight: 700;
+                color: #1a1a2e;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 20px;
+                padding: 4px 0;
               }
-              .hvs-step-icon { font-size: 22px; color: #6c63ff; }
+              .hvs-step-icon {
+                font-size: 22px;
+                color: #6c63ff;
+              }
 
               /* Forms */
-              .hvs-form-group { margin-bottom: 16px; }
-              .hvs-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; display: block; }
+              .hvs-form-group {
+                margin-bottom: 16px;
+              }
+              .hvs-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #555;
+                margin-bottom: 6px;
+                display: block;
+              }
               .hvs-input {
-                width: 100%; padding: 12px 14px;
+                width: 100%;
+                padding: 12px 14px;
                 border: 1.5px solid #e0e0e0;
                 border-radius: 12px;
                 font-size: 15px;
                 background: #fff;
                 color: #1a1a2e;
                 outline: none;
-                transition: border-color .2s;
+                transition: border-color 0.2s;
                 box-sizing: border-box;
               }
-              .hvs-input:focus { border-color: #6c63ff; box-shadow: 0 0 0 3px rgba(108,99,255,.1); }
-              .hvs-input-lg { font-size: 22px; font-weight: 600; text-align: center; letter-spacing: 2px; }
-              .hvs-textarea { resize: vertical; min-height: 100px; }
-              .hvs-input-row { display: flex; gap: 8px; }
-              .hvs-input-row .hvs-input { flex: 1; }
-              .hvs-status-text { font-size: 12px; color: #6c63ff; margin-top: 4px; min-height: 16px; }
+              .hvs-input:focus {
+                border-color: #6c63ff;
+                box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+              }
+              .hvs-input-lg {
+                font-size: 22px;
+                font-weight: 600;
+                text-align: center;
+                letter-spacing: 2px;
+              }
+              .hvs-textarea {
+                resize: vertical;
+                min-height: 100px;
+              }
+              .hvs-input-row {
+                display: flex;
+                gap: 8px;
+              }
+              .hvs-input-row .hvs-input {
+                flex: 1;
+              }
+              .hvs-status-text {
+                font-size: 12px;
+                color: #6c63ff;
+                margin-top: 4px;
+                min-height: 16px;
+              }
 
               /* Buttons */
               .hvs-btn-primary {
-                background: linear-gradient(135deg,#6c63ff,#a855f7);
-                color: #fff; border: none;
-                padding: 14px 24px; border-radius: 12px;
-                font-size: 15px; font-weight: 600;
-                cursor: pointer; display: inline-flex;
-                align-items: center; gap: 4px;
-                transition: opacity .2s, transform .1s;
+                background: linear-gradient(135deg, #6c63ff, #a855f7);
+                color: #fff;
+                border: none;
+                padding: 14px 24px;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition:
+                  opacity 0.2s,
+                  transform 0.1s;
               }
-              .hvs-btn-primary:active { transform: scale(.97); opacity: .9; }
+              .hvs-btn-primary:active {
+                transform: scale(0.97);
+                opacity: 0.9;
+              }
               .hvs-btn-secondary {
-                background: #f0f2f5; color: #555;
+                background: #f0f2f5;
+                color: #555;
                 border: 1.5px solid #e0e0e0;
-                padding: 14px 20px; border-radius: 12px;
-                font-size: 15px; font-weight: 600;
-                cursor: pointer; display: inline-flex;
-                align-items: center; gap: 4px;
+                padding: 14px 20px;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
               }
               .hvs-btn-success {
-                background: linear-gradient(135deg,#22c55e,#16a34a);
-                color: #fff; border: none;
-                padding: 14px 24px; border-radius: 12px;
-                font-size: 15px; font-weight: 600;
-                cursor: pointer; display: inline-flex;
-                align-items: center; gap: 4px;
+                background: linear-gradient(135deg, #22c55e, #16a34a);
+                color: #fff;
+                border: none;
+                padding: 14px 24px;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
               }
-              .hvs-btn-full { width: 100%; justify-content: center; }
+              .hvs-btn-full {
+                width: 100%;
+                justify-content: center;
+              }
               .hvs-btn-icon {
-                width: 46px; height: 46px;
+                width: 46px;
+                height: 46px;
                 border-radius: 12px;
                 border: 1.5px solid #e0e0e0;
                 background: #fff;
-                font-size: 18px; color: #6c63ff;
+                font-size: 18px;
+                color: #6c63ff;
                 cursor: pointer;
-                display: flex; align-items: center; justify-content: center;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 flex-shrink: 0;
               }
               .hvs-btn-sm {
-                background: #f0f2f5; color: #555;
+                background: #f0f2f5;
+                color: #555;
                 border: 1px solid #e0e0e0;
-                padding: 6px 12px; border-radius: 8px;
-                font-size: 12px; cursor: pointer;
-                display: inline-flex; align-items: center; gap: 4px;
+                padding: 6px 12px;
+                border-radius: 8px;
+                font-size: 12px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
               }
               .hvs-btn-danger-sm {
-                background: #fff0f0; color: #dc2626;
+                background: #fff0f0;
+                color: #dc2626;
                 border: 1px solid #fca5a5;
-                padding: 10px 16px; border-radius: 10px;
-                font-size: 13px; cursor: pointer;
-                display: inline-flex; align-items: center;
+                padding: 10px 16px;
+                border-radius: 10px;
+                font-size: 13px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
               }
               .hvs-btn-copy {
                 width: 100%;
-                background: #1a1a2e; color: #fff;
+                background: #1a1a2e;
+                color: #fff;
                 border: none;
-                padding: 16px; border-radius: 12px;
-                font-size: 15px; font-weight: 600;
-                cursor: pointer; display: flex;
-                align-items: center; justify-content: center;
+                padding: 16px;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 gap: 6px;
-                transition: opacity .2s;
+                transition: opacity 0.2s;
               }
-              .hvs-btn-copy:active { opacity: .8; }
+              .hvs-btn-copy:active {
+                opacity: 0.8;
+              }
               .hvs-btn-locate {
                 width: 100%;
-                background: linear-gradient(135deg,#6c63ff,#a855f7);
-                color: #fff; border: none;
-                padding: 18px 24px; border-radius: 16px;
-                font-size: 16px; font-weight: 700;
+                background: linear-gradient(135deg, #6c63ff, #a855f7);
+                color: #fff;
+                border: none;
+                padding: 18px 24px;
+                border-radius: 16px;
+                font-size: 16px;
+                font-weight: 700;
                 cursor: pointer;
-                display: flex; align-items: center; justify-content: center;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 gap: 8px;
-                box-shadow: 0 4px 20px rgba(108,99,255,.35);
-                transition: transform .15s, box-shadow .15s;
+                box-shadow: 0 4px 20px rgba(108, 99, 255, 0.35);
+                transition:
+                  transform 0.15s,
+                  box-shadow 0.15s;
               }
-              .hvs-btn-locate:active { transform: scale(.97); }
+              .hvs-btn-locate:active {
+                transform: scale(0.97);
+              }
 
               /* Locate section */
-              .hvs-locate-section { text-align: center; padding: 32px 0 16px; }
-              .hvs-locate-hint { font-size: 13px; color: #888; margin-top: 10px; }
+              .hvs-locate-section {
+                text-align: center;
+                padding: 32px 0 16px;
+              }
+              .hvs-locate-hint {
+                font-size: 13px;
+                color: #888;
+                margin-top: 10px;
+              }
 
               /* Shazam animation */
               .hvs-shazam-container {
-                display: flex; flex-direction: column;
-                align-items: center; justify-content: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
                 padding: 40px 0;
               }
-              .hvs-shazam-rings { position: relative; width: 120px; height: 120px; }
+              .hvs-shazam-rings {
+                position: relative;
+                width: 120px;
+                height: 120px;
+              }
               .hvs-ring {
-                position: absolute; border-radius: 50%;
-                border: 2px solid rgba(108,99,255,.4);
+                position: absolute;
+                border-radius: 50%;
+                border: 2px solid rgba(108, 99, 255, 0.4);
                 animation: hvsRingPulse 2s ease-out infinite;
               }
-              .hvs-ring.r1 { width: 120px; height: 120px; top: 0; left: 0; animation-delay: 0s; }
-              .hvs-ring.r2 { width: 90px; height: 90px; top: 15px; left: 15px; animation-delay: .4s; }
-              .hvs-ring.r3 { width: 60px; height: 60px; top: 30px; left: 30px; animation-delay: .8s; }
-              .hvs-ring.r4 { width: 30px; height: 30px; top: 45px; left: 45px; animation-delay: 1.2s; }
+              .hvs-ring.r1 {
+                width: 120px;
+                height: 120px;
+                top: 0;
+                left: 0;
+                animation-delay: 0s;
+              }
+              .hvs-ring.r2 {
+                width: 90px;
+                height: 90px;
+                top: 15px;
+                left: 15px;
+                animation-delay: 0.4s;
+              }
+              .hvs-ring.r3 {
+                width: 60px;
+                height: 60px;
+                top: 30px;
+                left: 30px;
+                animation-delay: 0.8s;
+              }
+              .hvs-ring.r4 {
+                width: 30px;
+                height: 30px;
+                top: 45px;
+                left: 45px;
+                animation-delay: 1.2s;
+              }
               @keyframes hvsRingPulse {
-                0% { opacity: 1; transform: scale(1); }
-                100% { opacity: 0; transform: scale(1.3); }
+                0% {
+                  opacity: 1;
+                  transform: scale(1);
+                }
+                100% {
+                  opacity: 0;
+                  transform: scale(1.3);
+                }
               }
               .hvs-shazam-center {
                 position: absolute;
-                top: 50%; left: 50%;
+                top: 50%;
+                left: 50%;
                 transform: translate(-50%, -50%);
-                width: 36px; height: 36px;
-                background: linear-gradient(135deg,#6c63ff,#a855f7);
+                width: 36px;
+                height: 36px;
+                background: linear-gradient(135deg, #6c63ff, #a855f7);
                 border-radius: 50%;
-                display: flex; align-items: center; justify-content: center;
-                color: #fff; font-size: 18px;
-                box-shadow: 0 2px 12px rgba(108,99,255,.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                font-size: 18px;
+                box-shadow: 0 2px 12px rgba(108, 99, 255, 0.5);
               }
               .hvs-search-status-text {
-                margin-top: 20px; color: #6c63ff;
-                font-size: 14px; font-weight: 600;
+                margin-top: 20px;
+                color: #6c63ff;
+                font-size: 14px;
+                font-weight: 600;
                 text-align: center;
               }
 
               /* Results */
-              .hvs-results-found { background: #fff; border-radius: 16px; padding: 16px; }
+              .hvs-results-found {
+                background: #fff;
+                border-radius: 16px;
+                padding: 16px;
+              }
               .hvs-results-header {
-                display: flex; align-items: center; gap: 4px;
-                font-size: 14px; font-weight: 600; color: #1a1a2e;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 14px;
+                font-weight: 600;
+                color: #1a1a2e;
                 margin-bottom: 16px;
               }
-              .hvs-nearby-section { margin-bottom: 16px; }
+              .hvs-nearby-section {
+                margin-bottom: 16px;
+              }
               .hvs-nearby-title {
-                font-size: 13px; font-weight: 700;
-                color: #6c63ff; margin-bottom: 8px;
-                text-transform: uppercase; letter-spacing: .5px;
+                font-size: 13px;
+                font-weight: 700;
+                color: #6c63ff;
+                margin-bottom: 8px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
               }
               .hvs-nearby-item {
-                display: flex; align-items: center; gap: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
                 padding: 8px 0;
                 border-bottom: 1px solid #f5f5f5;
               }
-              .hvs-nearby-item:last-child { border-bottom: none; }
-              .hvs-nearby-icon { font-size: 18px; flex-shrink: 0; }
-              .hvs-nearby-name { flex: 1; font-size: 14px; color: #1a1a2e; }
-              .hvs-nearby-count { font-size: 11px; color: #888; background: #f0f2f5; padding: 1px 6px; border-radius: 6px; }
-              .hvs-nearby-dist { font-size: 13px; font-weight: 600; color: #6c63ff; white-space: nowrap; }
-              .hvs-nearby-empty { font-size: 13px; color: #f59e0b; }
+              .hvs-nearby-item:last-child {
+                border-bottom: none;
+              }
+              .hvs-nearby-icon {
+                font-size: 18px;
+                flex-shrink: 0;
+              }
+              .hvs-nearby-name {
+                flex: 1;
+                font-size: 14px;
+                color: #1a1a2e;
+              }
+              .hvs-nearby-count {
+                font-size: 11px;
+                color: #888;
+                background: #f0f2f5;
+                padding: 1px 6px;
+                border-radius: 6px;
+              }
+              .hvs-nearby-dist {
+                font-size: 13px;
+                font-weight: 600;
+                color: #6c63ff;
+                white-space: nowrap;
+              }
+              .hvs-nearby-empty {
+                font-size: 13px;
+                color: #f59e0b;
+              }
 
               /* Survey */
               .hvs-survey-item {
-                background: #fff; border-radius: 14px;
-                padding: 14px 16px; margin-bottom: 10px;
+                background: #fff;
+                border-radius: 14px;
+                padding: 14px 16px;
+                margin-bottom: 10px;
               }
-              .hvs-survey-question { font-size: 15px; font-weight: 600; color: #1a1a2e; margin-bottom: 12px; }
-              .hvs-yn-group { display: flex; gap: 10px; }
+              .hvs-survey-question {
+                font-size: 15px;
+                font-weight: 600;
+                color: #1a1a2e;
+                margin-bottom: 12px;
+              }
+              .hvs-yn-group {
+                display: flex;
+                gap: 10px;
+              }
               .hvs-yn-btn {
-                flex: 1; padding: 14px;
-                border-radius: 12px; border: 2px solid #e0e0e0;
-                font-size: 15px; font-weight: 600;
-                cursor: pointer; background: #fff;
-                display: flex; align-items: center; justify-content: center;
-                gap: 4px; transition: all .15s;
+                flex: 1;
+                padding: 14px;
+                border-radius: 12px;
+                border: 2px solid #e0e0e0;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                background: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                transition: all 0.15s;
               }
-              .hvs-yn-btn.yes.active { background: #dcfce7; border-color: #22c55e; color: #16a34a; }
-              .hvs-yn-btn.no.active { background: #fee2e2; border-color: #ef4444; color: #dc2626; }
-              .hvs-yn-btn.yes:not(.active):hover { border-color: #22c55e; }
-              .hvs-yn-btn.no:not(.active):hover { border-color: #ef4444; }
+              .hvs-yn-btn.yes.active {
+                background: #dcfce7;
+                border-color: #22c55e;
+                color: #16a34a;
+              }
+              .hvs-yn-btn.no.active {
+                background: #fee2e2;
+                border-color: #ef4444;
+                color: #dc2626;
+              }
+              .hvs-yn-btn.yes:not(.active):hover {
+                border-color: #22c55e;
+              }
+              .hvs-yn-btn.no:not(.active):hover {
+                border-color: #ef4444;
+              }
               .hvs-counter {
-                display: flex; align-items: center;
-                gap: 0; background: #f0f2f5;
-                border-radius: 12px; overflow: hidden;
+                display: flex;
+                align-items: center;
+                gap: 0;
+                background: #f0f2f5;
+                border-radius: 12px;
+                overflow: hidden;
                 width: fit-content;
               }
               .hvs-counter-btn {
-                width: 48px; height: 48px;
-                border: none; background: transparent;
-                font-size: 22px; color: #6c63ff;
-                cursor: pointer; display: flex;
-                align-items: center; justify-content: center;
+                width: 48px;
+                height: 48px;
+                border: none;
+                background: transparent;
+                font-size: 22px;
+                color: #6c63ff;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
               }
               .hvs-counter-val {
-                font-size: 22px; font-weight: 700;
-                color: #1a1a2e; min-width: 50px;
+                font-size: 22px;
+                font-weight: 700;
+                color: #1a1a2e;
+                min-width: 50px;
                 text-align: center;
               }
 
               /* Report */
               .hvs-report-box {
-                background: #1a1a2e; border-radius: 16px;
-                padding: 20px; margin-bottom: 12px;
+                background: #1a1a2e;
+                border-radius: 16px;
+                padding: 20px;
+                margin-bottom: 12px;
               }
               .hvs-report-pre {
-                color: #e2e8f0; font-family: 'SF Mono', 'Menlo', monospace;
-                font-size: 13px; line-height: 1.7;
-                white-space: pre-wrap; word-break: break-word;
+                color: #e2e8f0;
+                font-family: "SF Mono", "Menlo", monospace;
+                font-size: 13px;
+                line-height: 1.7;
+                white-space: pre-wrap;
+                word-break: break-word;
                 margin: 0;
               }
-              .hvs-report-actions { display: flex; gap: 10px; margin-bottom: 16px; flex-direction: column; }
+              .hvs-report-actions {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 16px;
+                flex-direction: column;
+              }
 
               /* Step 1 inline row + counters card */
-              .hvs-inline-row { display: flex; gap: 10px; }
-              .hvs-flex1 { flex: 1; min-width: 0; }
-              .hvs-counters-card { background: #fff; border-radius: 14px; padding: 6px 16px; margin-bottom: 16px; }
-              .hvs-mini-counter-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
-              .hvs-mini-counter-row:last-child { border-bottom: none; }
-              .hvs-mini-label { font-size: 14px; font-weight: 600; color: #1a1a2e; }
-              .hvs-mini-counter { display: flex; align-items: center; gap: 0; background: #f0f2f5; border-radius: 10px; overflow: hidden; }
-              .hvs-area-input { width: 90px; text-align: center; border: none; background: #f0f2f5; border-radius: 10px; padding: 8px 10px; font-size: 15px; font-weight: 600; }
-              .hvs-btn-clear { color: #aaa; }
-              .hvs-btn-clear:hover { color: #ef4444; border-color: #fca5a5; background: #fff0f0; }
+              .hvs-inline-row {
+                display: flex;
+                gap: 10px;
+              }
+              .hvs-flex1 {
+                flex: 1;
+                min-width: 0;
+              }
+              .hvs-counters-card {
+                background: #fff;
+                border-radius: 14px;
+                padding: 6px 16px;
+                margin-bottom: 16px;
+              }
+              .hvs-mini-counter-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 0;
+                border-bottom: 1px solid #f5f5f5;
+              }
+              .hvs-mini-counter-row:last-child {
+                border-bottom: none;
+              }
+              .hvs-mini-label {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1a1a2e;
+              }
+              .hvs-mini-counter {
+                display: flex;
+                align-items: center;
+                gap: 0;
+                background: #f0f2f5;
+                border-radius: 10px;
+                overflow: hidden;
+              }
+              .hvs-area-input {
+                width: 90px;
+                text-align: center;
+                border: none;
+                background: #f0f2f5;
+                border-radius: 10px;
+                padding: 8px 10px;
+                font-size: 15px;
+                font-weight: 600;
+              }
+              .hvs-btn-clear {
+                color: #aaa;
+              }
+              .hvs-btn-clear:hover {
+                color: #ef4444;
+                border-color: #fca5a5;
+                background: #fff0f0;
+              }
 
               /* Location error / manual fallback */
               .hvs-location-error {
@@ -7600,18 +8523,43 @@
                 text-align: center;
                 margin-bottom: 16px;
               }
-              .hvs-error-icon { font-size: 36px; margin-bottom: 8px; }
-              .hvs-error-msg { font-size: 14px; color: #92400e; margin-bottom: 14px; line-height: 1.5; }
-              .hvs-btn-retry {
-                background: #fff; border: 1.5px solid #f59e0b; color: #b45309;
-                padding: 10px 20px; border-radius: 10px;
-                font-size: 14px; font-weight: 600;
-                cursor: pointer; display: inline-flex;
-                align-items: center; gap: 4px; margin-bottom: 16px;
+              .hvs-error-icon {
+                font-size: 36px;
+                margin-bottom: 8px;
               }
-              .hvs-manual-divider { font-size: 12px; color: #aaa; margin-bottom: 12px; }
-              .hvs-manual-input-row { display: flex; gap: 8px; text-align: left; }
-              .hvs-manual-input-row .hvs-input { flex: 1; }
+              .hvs-error-msg {
+                font-size: 14px;
+                color: #92400e;
+                margin-bottom: 14px;
+                line-height: 1.5;
+              }
+              .hvs-btn-retry {
+                background: #fff;
+                border: 1.5px solid #f59e0b;
+                color: #b45309;
+                padding: 10px 20px;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                margin-bottom: 16px;
+              }
+              .hvs-manual-divider {
+                font-size: 12px;
+                color: #aaa;
+                margin-bottom: 12px;
+              }
+              .hvs-manual-input-row {
+                display: flex;
+                gap: 8px;
+                text-align: left;
+              }
+              .hvs-manual-input-row .hvs-input {
+                flex: 1;
+              }
             </style>
 
             <div id="hvs-container">
@@ -7621,7 +8569,6 @@
               </div>
             </div>
           </div>
-
         </main>
       </div>
     </div>
@@ -7741,11 +8688,21 @@
     <!-- Eruda mobile debug console — auto-loads on localhost / devtunnels only -->
     <script>
       (function () {
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (/localhost|127\.0\.0\.1|devtunnels\.ms/.test(window.location.hostname) && isMobile) {
-          var s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/eruda';
-          s.onload = function () { eruda.init(); };
+        const isMobile =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent,
+          );
+        if (
+          /localhost|127\.0\.0\.1|devtunnels\.ms/.test(
+            window.location.hostname,
+          ) &&
+          isMobile
+        ) {
+          var s = document.createElement("script");
+          s.src = "https://cdn.jsdelivr.net/npm/eruda";
+          s.onload = function () {
+            eruda.init();
+          };
           document.head.appendChild(s);
         }
       })();
@@ -9049,7 +10006,13 @@
                                 class="dropdown-item d-flex align-items-center"
                                 href="#"
                                 data-value="PayNow (FIN/NRIC)"
-                                onclick="selectBank('Sgd', 'PayNow (FIN/NRIC)', 'PayNow (FIN/NRIC)')"
+                                onclick="
+                                  selectBank(
+                                    'Sgd',
+                                    'PayNow (FIN/NRIC)',
+                                    'PayNow (FIN/NRIC)',
+                                  )
+                                "
                                 ><span
                                   class="bank-badge me-2"
                                   style="
@@ -9716,7 +10679,9 @@
                 </h6>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="tenantFacebookGroup" class="form-label">Tenant Facebook Group</label>
+                    <label for="tenantFacebookGroup" class="form-label"
+                      >Tenant Facebook Group</label
+                    >
                     <input
                       type="url"
                       class="form-control"
@@ -9724,10 +10689,14 @@
                       name="tenantFacebookGroup"
                       placeholder="https://facebook.com/groups/... (optional)"
                     />
-                    <div class="form-text">Facebook group URL for tenants of this property</div>
+                    <div class="form-text">
+                      Facebook group URL for tenants of this property
+                    </div>
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="adminFacebookGroup" class="form-label">Admin Facebook Group</label>
+                    <label for="adminFacebookGroup" class="form-label"
+                      >Admin Facebook Group</label
+                    >
                     <input
                       type="url"
                       class="form-control"
@@ -9735,7 +10704,9 @@
                       name="adminFacebookGroup"
                       placeholder="https://facebook.com/groups/... (optional)"
                     />
-                    <div class="form-text">Facebook group URL for admins of this property</div>
+                    <div class="form-text">
+                      Facebook group URL for admins of this property
+                    </div>
                   </div>
                 </div>
               </div>

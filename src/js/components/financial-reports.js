@@ -1,5 +1,4 @@
 // Note: showToast and escapeHtml are expected to be available globally
-import html2canvas from "html2canvas";
 import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
 
 /**
@@ -4428,78 +4427,471 @@ class FinancialReportsComponent {
     const btn = document.getElementById("captureScreenshotBtn");
     if (!btn) return;
 
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    btn.disabled = true;
+
     try {
-      // Show loading state
-      const originalHTML = btn.innerHTML;
-      btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
-      btn.disabled = true;
+      const svgStr = await this._generateReportSVG();
+      const blob = await this._svgToPngBlob(svgStr);
 
-      // Find the financial reports section - target the main content area
-      const reportSection =
-        document.querySelector("#financialReportContent") ||
-        document.querySelector("#financial-section");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 
-      if (!reportSection) {
-        throw new Error("Could not find report section to capture");
-      }
+      btn.innerHTML = '<i class="bi bi-check-circle"></i>';
+      btn.classList.remove("btn-light");
+      btn.classList.add("btn-success");
 
-      // Make sure the section is visible
-      if (reportSection.style.display === "none") {
-        throw new Error("Please load a financial report first");
-      }
-
-      // Capture the screenshot
-      const canvas = await html2canvas(reportSection, {
-        backgroundColor: "#ffffff",
-        scale: 2, // Higher quality
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        windowWidth: reportSection.scrollWidth,
-        windowHeight: reportSection.scrollHeight,
-      });
-
-      // Convert canvas to blob and copy to clipboard
-      canvas.toBlob(async (blob) => {
-        try {
-          // Copy to clipboard
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              "image/png": blob,
-            }),
-          ]);
-
-          // Show success feedback
-          btn.innerHTML = '<i class="bi bi-check-circle"></i>';
-          btn.classList.remove("btn-light");
-          btn.classList.add("btn-success");
-
-          // Restore button after 2 seconds
-          setTimeout(() => {
-            btn.innerHTML = originalHTML;
-            btn.classList.remove("btn-success");
-            btn.classList.add("btn-light");
-            btn.disabled = false;
-          }, 2000);
-        } catch (clipboardError) {
-          console.error("Clipboard error:", clipboardError);
-          alert(
-            "Screenshot captured but failed to copy to clipboard. Your browser may not support this feature.",
-          );
-
-          // Restore button
-          btn.innerHTML = originalHTML;
-          btn.disabled = false;
-        }
-      }, "image/png");
+      setTimeout(() => {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove("btn-success");
+        btn.classList.add("btn-light");
+        btn.disabled = false;
+      }, 2000);
     } catch (error) {
-      console.error("Screenshot capture error:", error);
-      alert(`Failed to capture screenshot: ${error.message}`);
-
-      // Restore button
-      btn.innerHTML = '<i class="bi bi-camera"></i>';
+      console.error("Report capture error:", error);
+      alert(`Failed to capture report: ${error.message}`);
+      btn.innerHTML = originalHTML;
       btn.disabled = false;
     }
+  }
+
+  /** Convert an SVG string to a high-resolution PNG Blob (2× scale) */
+  _svgToPngBlob(svgStr) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const scale = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth * scale;
+        canvas.height = img.naturalHeight * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
+          "image/png",
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to render SVG"));
+      };
+      img.src = url;
+    });
+  }
+
+  /** Deterministic avatar background color derived from person name */
+  _getAvatarColor(name) {
+    const palette = [
+      "#ef4444", "#f97316", "#eab308", "#22c55e",
+      "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899",
+    ];
+    let h = 0;
+    const s = name || "?";
+    for (let i = 0; i < s.length; i++) h = ((h * 31) + s.charCodeAt(i)) >>> 0;
+    return palette[h % palette.length];
+  }
+
+  /** Truncate text to maxChars, appending ellipsis if needed */
+  _svgTrunc(text, maxChars) {
+    if (!text) return "";
+    return text.length > maxChars ? text.substring(0, maxChars - 1) + "\u2026" : text;
+  }
+
+  /** XML-escape a value for safe embedding in SVG attributes / text */
+  _svgEsc(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  /** Collect investor rows for SVG, respecting closed-report snapshot */
+  _getInvestorDataForSVG() {
+    const isClosed = this.currentReport?.isClosed;
+    const snapshot = this.currentReport?.investorSnapshot;
+    if (isClosed && snapshot?.length > 0) {
+      return snapshot.map((s) => ({
+        name: s.name,
+        avatar: s.avatar || null,
+        percentage: s.percentage,
+        profitShare: s.profitShare,
+        paidAmount: s.paidAmount,
+        receivedAmount: s.receivedAmount,
+        finalAmount: s.finalAmount,
+      }));
+    }
+
+    if (!this.investors || this.investors.length === 0) return [];
+
+    const netProfit = this.currentReport
+      ? (this.currentReport.totalIncome || 0) - (this.currentReport.totalExpenses || 0)
+      : 0;
+
+    return this.investors.map((investor) => {
+      const tx = this.currentReport?.investorTransactions?.find(
+        (t) => t.investorId === investor.investorId,
+      );
+      const propData = investor.properties?.find(
+        (p) => p.propertyId === this.selectedProperty,
+      );
+      const percentage = tx?.percentage ?? (propData ? propData.percentage : 0);
+      const profitShare = (netProfit * percentage) / 100;
+      const paidAmount = (this.currentReport?.expenses || [])
+        .filter((e) => e.personInCharge === investor.investorId)
+        .reduce((sum, e) => sum + (e.amount || 0), 0);
+      const receivedAmount = (this.currentReport?.income || [])
+        .filter((i) => i.personInCharge === investor.investorId)
+        .reduce((sum, i) => sum + (i.amount || 0), 0);
+      return {
+        name: investor.name,
+        avatar: investor.avatar || null,
+        percentage,
+        profitShare,
+        paidAmount,
+        receivedAmount,
+        finalAmount: profitShare + paidAmount - receivedAmount,
+      };
+    });
+  }
+
+  /** Fetch avatar images and return a map of original URL → base64 data URI */
+  async _fetchAvatarsAsBase64() {
+    const urls = new Set();
+    this.investors.forEach((inv) => inv.avatar && urls.add(inv.avatar));
+    (this.currentReport?.investorSnapshot || []).forEach(
+      (s) => s.avatar && urls.add(s.avatar),
+    );
+
+    const cache = {};
+    await Promise.all(
+      [...urls].map(async (url) => {
+        try {
+          const optimized = this.getOptimizedAvatarUrl(url, "small");
+          const resp = await fetch(optimized);
+          if (!resp.ok) return;
+          const blob = await resp.blob();
+          cache[url] = await new Promise((res) => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result);
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          // fall back to initials circle
+        }
+      }),
+    );
+    return cache;
+  }
+
+  /**
+   * Build a professional SVG financial report string.
+   * Entirely separate from the web UI — pure vector, stays crisp at any zoom.
+   */
+  async _generateReportSVG() {
+    const report = this.currentReport;
+    const income = report.income || [];
+    const expenses = report.expenses || [];
+    const investorData = this._getInvestorDataForSVG();
+
+    // Pre-fetch avatar images → base64 data URIs (for circular photo avatars)
+    const avatarCache = await this._fetchAvatarsAsBase64();
+
+    // Property info
+    const property = this.properties?.find((p) => p.propertyId === this.selectedProperty);
+    const propName = property
+      ? (property.name || property.address || property.propertyId)
+      : this.selectedProperty;
+    const propAddress = property
+      ? [property.address, property.unit].filter(Boolean).join("  ·  ")
+      : "";
+
+    // Date labels
+    const MONTH_NAMES = [
+      "JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE",
+      "JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER",
+    ];
+    const monthYear = `${MONTH_NAMES[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
+    const genDate = new Date().toLocaleDateString("en-SG", {
+      day: "2-digit", month: "short", year: "numeric",
+    });
+
+    // Totals
+    const totalIncome = report.totalIncome || 0;
+    const totalExpenses = report.totalExpenses || 0;
+    const netProfit = totalIncome - totalExpenses;
+
+    // Layout constants
+    const W = 800;
+    const M = 24;
+    const CW = W - M * 2;              // 752
+    const COL_GAP = 8;
+    const COL_W = (CW - COL_GAP) / 2;  // 372
+
+    const HEADER_H = 74;
+    const SUMMARY_H = 46;
+    const SEC_H = 26;
+    const THDR_H = 18;
+    const INV_ROW_H = 32; // fixed height for investor rows
+    const SEC_PAD = 8;
+
+    const nodes = [];
+    const defs = [];  // SVG <defs> for avatar clip paths
+    let y = 0;
+    let clipIdx = 0;
+    const p = (s) => nodes.push(s);
+
+    // Helper: render a circular avatar (photo if available, else fallback colored initial)
+    // fallbackColor matches UI: investors → Bootstrap bg-secondary (#6c757d), tenants → bg-info (#0dcaf0-ish → #17a2b8)
+    const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 9, fallbackColor = "#6c757d") => {
+      const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
+      if (dataUri) {
+        const clipId = `ac${clipIdx++}`;
+        defs.push(`<clipPath id="${clipId}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>`);
+        p(`<image href="${dataUri}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`);
+      } else {
+        p(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fallbackColor}"/>`);
+        p(`<text x="${cx}" y="${cy + Math.round(r * 0.44)}" font-size="${Math.round(r * 0.95)}" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc((name || "?").charAt(0).toUpperCase())}</text>`);
+      }
+    };
+
+    // ── Header ────────────────────────────────────────────────────
+    p(`<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="#0f172a"/>`);
+    p(`<text x="${M}" y="20" font-size="9" fill="#475569" font-weight="600" letter-spacing="2">FINANCIAL REPORT</text>`);
+    p(`<text x="${M}" y="44" font-size="18" fill="#ffffff" font-weight="700">${this._svgEsc(propName)}</text>`);
+    if (propAddress) {
+      p(`<text x="${M}" y="62" font-size="11" fill="#94a3b8">${this._svgEsc(propAddress)}</text>`);
+    }
+    p(`<text x="${W - M}" y="44" font-size="16" fill="#f1f5f9" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`);
+    p(`<text x="${W - M}" y="62" font-size="10" fill="#64748b" text-anchor="end">Generated ${this._svgEsc(genDate)}</text>`);
+    if (report.isClosed) {
+      p(`<rect x="${W - M - 58}" y="6" width="54" height="14" rx="7" fill="#dc2626"/>`);
+      p(`<text x="${W - M - 31}" y="16" font-size="8" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`);
+    }
+    y = HEADER_H;
+
+    // ── Per-item metadata: wrapped description lines + subtitle text + row height ──
+    const wrapText = (text, maxChars) => {
+      if (!text) return [""];
+      const words = text.split(/\s+/);
+      const lines = [];
+      let line = "";
+      for (const w of words) {
+        const test = line ? `${line} ${w}` : w;
+        if (test.length <= maxChars) {
+          line = test;
+        } else {
+          if (line) lines.push(line);
+          line = w; // single word exceeds limit: just place it alone
+        }
+      }
+      if (line) lines.push(line);
+      return lines.length ? lines : [""];
+    };
+
+    // Build row metadata for income (includes paidBy tenant info)
+    const makeIncomeMeta = (item) => {
+      const descLines = wrapText(item.item || "", 26);
+      const dateStr = item.date
+        ? new Date(item.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
+        : "";
+      let subtitle = dateStr;
+      if (item.paidBy) {
+        const pName = this.getPersonName(item.paidBy);
+        const rType = this.getPersonRoomType(item.paidBy);
+        const pLabel = rType ? `${pName} · ${rType}` : pName;
+        if (pLabel) subtitle = dateStr ? `${dateStr}  ·  ${pLabel}` : pLabel;
+      }
+      // 4px top + 14px/line desc + 12px subtitle + 4px bottom, min 32
+      const rowH = Math.max(32, 4 + descLines.length * 14 + (subtitle ? 13 : 0) + 4);
+      return { descLines, subtitle, rowH };
+    };
+
+    // Build row metadata for expenses (date only)
+    const makeExpenseMeta = (item) => {
+      const descLines = wrapText(item.item || "", 26);
+      const subtitle = item.date
+        ? new Date(item.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
+        : "";
+      const rowH = Math.max(32, 4 + descLines.length * 14 + (subtitle ? 13 : 0) + 4);
+      return { descLines, subtitle, rowH };
+    };
+
+    // ── 2-column section helper (dynamic row heights) ─────────────
+    const renderTwoColSection = (items, metas, title, totalAmt, accentColor, rowRenderer) => {
+      p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="#1e293b"/>`);
+      p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${accentColor}"/>`);
+      p(`<text x="${M + 8}" y="${y + 17}" font-size="11" fill="#f1f5f9" font-weight="700" letter-spacing="1">${this._svgEsc(title)}</text>`);
+      p(`<text x="${W - M - 72}" y="${y + 17}" font-size="9" fill="#94a3b8" text-anchor="end">${items.length} item${items.length !== 1 ? "s" : ""}</text>`);
+      p(`<text x="${W - M}" y="${y + 17}" font-size="12" fill="#ffffff" text-anchor="end" font-weight="700">$${totalAmt.toFixed(2)}</text>`);
+      y += SEC_H;
+
+      if (items.length === 0) {
+        p(`<text x="${W / 2}" y="${y + 16}" font-size="11" fill="#94a3b8" text-anchor="middle">No items recorded</text>`);
+        y += 24;
+      } else {
+        // Column headers
+        p(`<rect x="${M}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="#e2e8f0"/>`);
+        p(`<rect x="${M + COL_W + COL_GAP}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="#e2e8f0"/>`);
+        p(`<text x="${M + 26}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`);
+        p(`<text x="${M + COL_W - 4}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" text-anchor="end">AMOUNT</text>`);
+        p(`<text x="${M + COL_W + COL_GAP + 26}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`);
+        p(`<text x="${M + CW - 4}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" text-anchor="end">AMOUNT</text>`);
+        y += THDR_H;
+
+        for (let i = 0; i < items.length; i += 2) {
+          const rowY = y;
+          const lMeta = metas[i];
+          const rMeta = i + 1 < items.length ? metas[i + 1] : null;
+          const pairH = Math.max(lMeta.rowH, rMeta ? rMeta.rowH : 0);
+
+          if (Math.floor(i / 2) % 2 === 1) {
+            p(`<rect x="${M}" y="${rowY}" width="${COL_W}" height="${pairH}" fill="#f8fafc"/>`);
+            p(`<rect x="${M + COL_W + COL_GAP}" y="${rowY}" width="${COL_W}" height="${pairH}" fill="#f8fafc"/>`);
+          }
+          rowRenderer(items[i], lMeta, pairH, M, rowY, COL_W);
+          if (rMeta) {
+            rowRenderer(items[i + 1], rMeta, pairH, M + COL_W + COL_GAP, rowY, COL_W);
+          }
+          p(`<line x1="${M}" y1="${rowY + pairH}" x2="${M + CW}" y2="${rowY + pairH}" stroke="#f1f5f9" stroke-width="1"/>`);
+          y += pairH;
+        }
+      }
+      y += SEC_PAD;
+      p(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`);
+    };
+
+    // ── Income rows (with paidBy tenant + room type) ──────────────
+    const renderIncomeRow = (item, meta, pairH, colX, rowY, colW) => {
+      const investor = this.investors.find((inv) => inv.investorId === item.personInCharge);
+      const name = investor ? investor.name : (item.personInCharge || "?");
+      const cx = colX + 12;
+      const cy = rowY + Math.floor(pairH / 2);
+      renderCircleAvatar(investor?.avatar || null, name, cx, cy);
+      meta.descLines.forEach((line, li) => {
+        p(`<text x="${colX + 26}" y="${rowY + 14 + li * 14}" font-size="11" fill="#0f172a">${this._svgEsc(line)}</text>`);
+      });
+      if (meta.subtitle) {
+        const subY = rowY + 14 + meta.descLines.length * 14 + 2;
+        p(`<text x="${colX + 26}" y="${subY}" font-size="8" fill="#94a3b8">${this._svgEsc(meta.subtitle)}</text>`);
+      }
+      p(`<text x="${colX + colW - 4}" y="${rowY + 14}" font-size="11" fill="#16a34a" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`);
+      const curr = item.currency || "SGD";
+      p(`<text x="${colX + colW - 4}" y="${rowY + 26}" font-size="8" fill="#64748b" text-anchor="end">${curr}</text>`);
+    };
+
+    const incomeMetas = income.map(makeIncomeMeta);
+    renderTwoColSection(income, incomeMetas, "INCOME", totalIncome, "#22c55e", renderIncomeRow);
+
+    // ── Expense rows ──────────────────────────────────────────────
+    const renderExpenseRow = (item, meta, pairH, colX, rowY, colW) => {
+      const investor = this.investors.find((inv) => inv.investorId === item.personInCharge);
+      const name = investor ? investor.name : (item.personInCharge || "?");
+      const cx = colX + 12;
+      const cy = rowY + Math.floor(pairH / 2);
+      renderCircleAvatar(investor?.avatar || null, name, cx, cy);
+      meta.descLines.forEach((line, li) => {
+        p(`<text x="${colX + 26}" y="${rowY + 14 + li * 14}" font-size="11" fill="#0f172a">${this._svgEsc(line)}</text>`);
+      });
+      if (meta.subtitle) {
+        const subY = rowY + 14 + meta.descLines.length * 14 + 2;
+        p(`<text x="${colX + 26}" y="${subY}" font-size="8" fill="#94a3b8">${this._svgEsc(meta.subtitle)}</text>`);
+      }
+      p(`<text x="${colX + colW - 4}" y="${rowY + 14}" font-size="11" fill="#dc2626" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`);
+    };
+
+    const expenseMetas = expenses.map(makeExpenseMeta);
+    renderTwoColSection(expenses, expenseMetas, "EXPENSES", totalExpenses, "#ef4444", renderExpenseRow);
+
+    // ── Summary bar (after expenses, before investor distribution) ─
+    const netColor = netProfit >= 0 ? "#16a34a" : "#dc2626";
+    const cell = Math.floor(W / 3);
+    p(`<rect x="0" y="${y}" width="${W}" height="${SUMMARY_H}" fill="#f8fafc"/>`);
+    p(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`);
+    p(`<text x="${cell * 0 + cell / 2}" y="${y + 13}" font-size="8" fill="#64748b" text-anchor="middle" font-weight="600" letter-spacing="1.5">TOTAL INCOME</text>`);
+    p(`<text x="${cell * 0 + cell / 2}" y="${y + 36}" font-size="17" fill="#16a34a" text-anchor="middle" font-weight="700">$${totalIncome.toFixed(2)}</text>`);
+    p(`<line x1="${cell}" y1="${y + 8}" x2="${cell}" y2="${y + SUMMARY_H - 8}" stroke="#e2e8f0" stroke-width="1"/>`);
+    p(`<text x="${cell * 1 + cell / 2}" y="${y + 13}" font-size="8" fill="#64748b" text-anchor="middle" font-weight="600" letter-spacing="1.5">TOTAL EXPENSES</text>`);
+    p(`<text x="${cell * 1 + cell / 2}" y="${y + 36}" font-size="17" fill="#dc2626" text-anchor="middle" font-weight="700">$${totalExpenses.toFixed(2)}</text>`);
+    p(`<line x1="${cell * 2}" y1="${y + 8}" x2="${cell * 2}" y2="${y + SUMMARY_H - 8}" stroke="#e2e8f0" stroke-width="1"/>`);
+    p(`<text x="${cell * 2 + cell / 2}" y="${y + 13}" font-size="8" fill="#64748b" text-anchor="middle" font-weight="600" letter-spacing="1.5">NET PROFIT</text>`);
+    p(`<text x="${cell * 2 + cell / 2}" y="${y + 36}" font-size="17" fill="${netColor}" text-anchor="middle" font-weight="700">$${netProfit.toFixed(2)}</text>`);
+    p(`<line x1="0" y1="${y + SUMMARY_H}" x2="${W}" y2="${y + SUMMARY_H}" stroke="#e2e8f0" stroke-width="1"/>`);
+    y += SUMMARY_H;
+
+    // ── Investor distribution ─────────────────────────────────────
+    p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="#1e293b"/>`);
+    p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="#8b5cf6"/>`);
+    p(`<text x="${M + 8}" y="${y + 17}" font-size="11" fill="#f1f5f9" font-weight="700" letter-spacing="1">INVESTOR DISTRIBUTION</text>`);
+    y += SEC_H;
+
+    if (investorData.length === 0) {
+      p(`<text x="${W / 2}" y="${y + 16}" font-size="11" fill="#94a3b8" text-anchor="middle">No investor data configured</text>`);
+      y += 24;
+    } else {
+      const IC = {
+        name:   { x: M + 26,  anchor: "start"  },
+        share:  { x: M + 205, anchor: "middle" },
+        profit: { x: M + 360, anchor: "end"    },
+        paid:   { x: M + 490, anchor: "end"    },
+        recv:   { x: M + 624, anchor: "end"    },
+        final:  { x: M + CW,  anchor: "end"    },
+      };
+      p(`<rect x="${M}" y="${y}" width="${CW}" height="${THDR_H}" fill="#e2e8f0"/>`);
+      [
+        ["INVESTOR",     IC.name.x,   IC.name.anchor],
+        ["SHARE",        IC.share.x,  IC.share.anchor],
+        ["PROFIT SHARE", IC.profit.x, IC.profit.anchor],
+        ["PAID",         IC.paid.x,   IC.paid.anchor],
+        ["RECEIVED",     IC.recv.x,   IC.recv.anchor],
+        ["FINAL",        IC.final.x,  IC.final.anchor],
+      ].forEach(([label, x, anchor]) => {
+        p(`<text x="${x}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" letter-spacing="0.5" text-anchor="${anchor}">${label}</text>`);
+      });
+      y += THDR_H;
+
+      investorData.forEach((inv, ri) => {
+        const rowY = y;
+        if (ri % 2 === 1) {
+          p(`<rect x="${M}" y="${rowY}" width="${CW}" height="${INV_ROW_H}" fill="#f8fafc"/>`);
+        }
+        const cx = M + 12;
+        const cy = rowY + Math.floor(INV_ROW_H / 2);
+        renderCircleAvatar(inv.avatar || null, inv.name, cx, cy);
+        p(`<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" font-weight="600">${this._svgEsc(this._svgTrunc(inv.name, 22))}</text>`);
+        p(`<text x="${IC.share.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="middle">${inv.percentage}%</text>`);
+        p(`<text x="${IC.profit.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="end">$${inv.profitShare.toFixed(2)}</text>`);
+        p(`<text x="${IC.paid.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="end">$${inv.paidAmount.toFixed(2)}</text>`);
+        p(`<text x="${IC.recv.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="end">$${inv.receivedAmount.toFixed(2)}</text>`);
+        const finC = inv.finalAmount >= 0 ? "#16a34a" : "#dc2626";
+        p(`<text x="${IC.final.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="12" fill="${finC}" font-weight="700" text-anchor="end">$${inv.finalAmount.toFixed(2)}</text>`);
+        p(`<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="#f1f5f9" stroke-width="1"/>`);
+        y += INV_ROW_H;
+      });
+    }
+
+    y += SEC_PAD;
+
+    // ── Footer ────────────────────────────────────────────────────
+    p(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`);
+    y += 1;
+    p(`<rect x="0" y="${y}" width="${W}" height="20" fill="#f8fafc"/>`);
+    p(`<text x="${W / 2}" y="${y + 14}" font-size="9" fill="#94a3b8" text-anchor="middle">All amounts in SGD unless noted otherwise  ·  Auto-generated report</text>`);
+    y += 20;
+
+    const totalH = y + 4;
+    const defsBlock = defs.length > 0 ? `<defs>${defs.join("")}</defs>` : "";
+    return (
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Arial,Helvetica,sans-serif" font-size="11">` +
+      defsBlock +
+      `<rect width="${W}" height="${totalH}" fill="#ffffff"/>` +
+      nodes.join("") +
+      `</svg>`
+    );
   }
 
   /**
@@ -5265,7 +5657,9 @@ class FinancialReportsComponent {
       const moveOutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
       if (moveInDate && moveInDate > reportEndDate) return false;
       tenant._upcomingMoveInDate = (moveInDate && moveInDate >= reportDate && moveInDate > today) ? moveInDate : null;
+      tenant._moveInInMonth = (moveInDate && moveInDate >= reportDate && moveInDate <= reportEndDate) ? moveInDate : null;
       if (moveOutDate && moveOutDate < reportDate) return false;
+      tenant._moveOutInMonth = (moveOutDate && moveOutDate >= reportDate && moveOutDate <= reportEndDate) ? moveOutDate : null;
       return true;
     });
 
@@ -5363,6 +5757,8 @@ class FinancialReportsComponent {
 
       propertiesWithUnpaid.forEach(({ property, unpaid, totalActive }) => {
         const propertyName = escapeHtml(property.name || property.propertyId);
+        const propertyUnit = property.unit ? escapeHtml(property.unit) : null;
+        const propertyAddress = property.address ? escapeHtml(property.address) : null;
 
         unpaid.forEach((tenant, idx) => {
           const displayName = escapeHtml(tenant.name || tenant.username || tenant.tenantId || "Unknown");
@@ -5373,6 +5769,12 @@ class FinancialReportsComponent {
           const roommateAvatar = tenant.roommateId?.avatar || "";
           const upcomingMoveIn = tenant._upcomingMoveInDate
             ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+            : null;
+          const moveInInMonth = tenant._moveInInMonth
+            ? tenant._moveInInMonth.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+            : null;
+          const moveOutInMonth = tenant._moveOutInMonth
+            ? tenant._moveOutInMonth.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
             : null;
 
           let roommateHtml = "";
@@ -5389,6 +5791,8 @@ class FinancialReportsComponent {
           if (tenant.cleaningFee) feeParts.push(`<span class="badge bg-light text-dark border" style="font-size:0.7em;">+$${tenant.cleaningFee.toFixed(0)}</span>`);
           if (!tenant.isUtilitySubsidized) feeParts.push(`<span class="badge bg-info text-dark" style="font-size:0.7em;">PUB</span>`);
           if (upcomingMoveIn) feeParts.push(`<span class="badge bg-warning text-dark" style="font-size:0.7em;"><i class="bi bi-calendar-event me-1"></i>${escapeHtml(upcomingMoveIn)}</span>`);
+          if (moveInInMonth) feeParts.push(`<span class="badge bg-success text-white" style="font-size:0.7em;"><i class="bi bi-box-arrow-in-right me-1"></i>In ${escapeHtml(moveInInMonth)}</span>`);
+          if (moveOutInMonth) feeParts.push(`<span class="badge bg-orange text-white" style="font-size:0.7em;background-color:#fd7e14 !important;"><i class="bi bi-box-arrow-right me-1"></i>Out ${escapeHtml(moveOutInMonth)}</span>`);
 
           const waLink = phoneNumber
             ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="btn btn-success btn-sm py-0 px-1" style="font-size:0.75em;" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>`
@@ -5401,6 +5805,8 @@ class FinancialReportsComponent {
           const propCell = idx === 0
             ? `<td class="ps-3 border-0 fw-semibold small text-nowrap" rowspan="${unpaid.length}" style="border-left:3px solid #dc3545 !important;vertical-align:top;padding-top:0.5rem;">
                 <i class="bi bi-building me-1 text-danger"></i>${propertyName}
+                ${propertyUnit ? `<div class="fw-normal" style="font-size:0.78em;">${propertyUnit}</div>` : ""}
+                ${propertyAddress ? `<div class="text-muted fw-normal" style="font-size:0.73em;max-width:120px;white-space:normal;">${propertyAddress}</div>` : ""}
                 <div class="text-muted fw-normal" style="font-size:0.75em;">${unpaid.length}/${totalActive} unpaid</div>
                </td>`
             : "";
