@@ -8,6 +8,7 @@ class UtilityBillTrackerComponent {
     this.properties = [];
     this.selectedProperty = null;
     this.bills = [];
+    this.tenants = []; // Tenants for selected property (including leavePlans)
     this.editingBillId = null;
     this.chart = null;
     this.monthlyBillStatus = {}; // { propertyId: boolean }
@@ -244,18 +245,17 @@ class UtilityBillTrackerComponent {
 
   async _loadBills() {
     if (!this.selectedProperty) return;
-    try {
-      const res = await API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty));
-      const data = await res.json();
-      if (data.success) {
-        this.bills = data.bills || [];
-      } else {
-        this.bills = [];
-      }
-    } catch (err) {
-      console.error('[UtilityBillTracker] load bills error:', err);
-      this.bills = [];
-    }
+    // Load bills and tenants in parallel
+    const [billsResult, tenantsResult] = await Promise.allSettled([
+      API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty)).then(r => r.json()),
+      API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)).then(r => r.json()),
+    ]);
+    this.bills = billsResult.status === 'fulfilled' && billsResult.value.success
+      ? billsResult.value.bills || []
+      : [];
+    this.tenants = tenantsResult.status === 'fulfilled' && tenantsResult.value.success
+      ? tenantsResult.value.tenants || []
+      : [];
     this._renderChart();
     this._renderBillsTable();
     this._showAddForm(false);
@@ -403,6 +403,7 @@ class UtilityBillTrackerComponent {
           <tbody>
             ${this.bills.map(b => {
               const gasOther = (b.gasAmount || 0) + (b.refuseAmount || 0) + (b.otherAmount || 0);
+              const hasBreakdown = b.billingPeriodStart && b.billingPeriodEnd;
               return `
                 <tr>
                   <td class="fw-semibold text-nowrap">${monthNames[(b.month || 1) - 1]} ${b.year}</td>
@@ -420,6 +421,7 @@ class UtilityBillTrackerComponent {
                       : '<span class="text-muted small">—</span>'}
                   </td>
                   <td class="text-center text-nowrap">
+                    ${hasBreakdown ? `<button class="btn btn-sm btn-outline-info py-0 px-1 me-1" onclick="utilityBillTracker.showBillBreakdown('${b._id}')" title="Per-tenant breakdown"><i class="bi bi-people-fill"></i></button>` : ''}
                     <button class="btn btn-sm btn-outline-primary py-0 px-1 me-1" onclick="utilityBillTracker.editBill('${b._id}')" title="Edit"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="utilityBillTracker.deleteBill('${b._id}')" title="Delete"><i class="bi bi-trash"></i></button>
                   </td>
@@ -772,6 +774,175 @@ class UtilityBillTrackerComponent {
     } catch (err) {
       alert('Failed to delete: ' + err.message);
     }
+  }
+
+  // ── Per-tenant bill breakdown ──────────────────────────────────────────────
+
+  /**
+   * Calculate how many days of [lpStart, lpEnd] overlap with [periodStart, periodEnd].
+   * Both ranges are inclusive. Returns integer days.
+   */
+  _overlapDays(lpStart, lpEnd, periodStart, periodEnd) {
+    const start = Math.max(lpStart.getTime(), periodStart.getTime());
+    const end   = Math.min(lpEnd.getTime(),   periodEnd.getTime());
+    if (end < start) return 0;
+    return Math.round((end - start) / 86400000) + 1; // +1 for inclusive end
+  }
+
+  /**
+   * Given a bill and the current property's tenants, compute per-tenant share.
+   * Away days that fall within the billing period are excluded from that tenant's
+   * occupied days, reducing their share proportionally.
+   *
+   * Returns array of { name, room, totalDays, awayDays, presentDays, share (0-1), amount }
+   * or null if the bill has no billing period dates.
+   */
+  _computeBillBreakdown(bill) {
+    if (!bill.billingPeriodStart || !bill.billingPeriodEnd) return null;
+
+    const periodStart = new Date(bill.billingPeriodStart);
+    const periodEnd   = new Date(bill.billingPeriodEnd);
+    // Normalise to midnight UTC to avoid DST skew
+    periodStart.setUTCHours(0, 0, 0, 0);
+    periodEnd.setUTCHours(0, 0, 0, 0);
+    const totalBillingDays = Math.round((periodEnd - periodStart) / 86400000) + 1;
+
+    const propertyId = this.selectedProperty;
+    const rows = [];
+
+    for (const tenant of this.tenants) {
+      // Find this tenant's assignment to the current property
+      const assignment = (tenant.properties || []).find(p => p.propertyId === propertyId);
+      if (!assignment) continue;
+
+      const movein  = assignment.moveinDate  ? new Date(assignment.moveinDate)  : null;
+      const moveout = assignment.moveoutDate ? new Date(assignment.moveoutDate) : null;
+
+      // Skip tenants who weren't at the property during the billing period
+      if (movein  && movein  > periodEnd)  continue;
+      if (moveout && moveout < periodStart) continue;
+
+      // Calculate away days within the billing period
+      let awayDays = 0;
+      const leavePlans = assignment.leavePlans || [];
+      for (const lp of leavePlans) {
+        if (!lp.startDate || !lp.endDate) continue;
+        const lpStart = new Date(lp.startDate);
+        const lpEnd   = new Date(lp.endDate);
+        lpStart.setUTCHours(0, 0, 0, 0);
+        lpEnd.setUTCHours(0, 0, 0, 0);
+        awayDays += this._overlapDays(lpStart, lpEnd, periodStart, periodEnd);
+      }
+
+      const presentDays = Math.max(0, totalBillingDays - awayDays);
+      rows.push({
+        name: tenant.nickname || tenant.name || '—',
+        room: assignment.room || '—',
+        totalDays: totalBillingDays,
+        awayDays,
+        presentDays,
+      });
+    }
+
+    if (rows.length === 0) return { totalBillingDays, rows: [], noTenants: true };
+
+    const sumPresent = rows.reduce((s, r) => s + r.presentDays, 0);
+    const totalAmount = bill.totalAmount || 0;
+
+    for (const row of rows) {
+      row.share  = sumPresent > 0 ? row.presentDays / sumPresent : 1 / rows.length;
+      row.amount = row.share * totalAmount;
+    }
+
+    return { totalBillingDays, rows };
+  }
+
+  showBillBreakdown(billId) {
+    const bill = this.bills.find(b => b._id === billId);
+    if (!bill) return;
+
+    const result = this._computeBillBreakdown(bill);
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const billLabel = `${monthNames[(bill.month || 1) - 1]} ${bill.year}`;
+    const fmtDate = (val) => val ? new Date(val).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const fmtPeriod = `${fmtDate(bill.billingPeriodStart)} – ${fmtDate(bill.billingPeriodEnd)}`;
+
+    let bodyHtml;
+    if (!result || result.noTenants) {
+      bodyHtml = `<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle me-2"></i>No tenants found for this property during the billing period.</div>`;
+    } else {
+      const hasAwayDays = result.rows.some(r => r.awayDays > 0);
+
+      bodyHtml = `
+        <div class="mb-3 small text-muted">
+          <i class="bi bi-calendar-range me-1"></i>Billing period: <strong>${fmtPeriod}</strong>
+          &nbsp;(${result.totalBillingDays} days)
+          &nbsp;·&nbsp;Total: <strong>$${(bill.totalAmount || 0).toFixed(2)}</strong>
+        </div>
+        ${hasAwayDays ? `<div class="alert alert-info py-2 small mb-3"><i class="bi bi-luggage-fill me-1"></i>Away days from the Tenancy Occupancy module are deducted from each tenant's occupied days before calculating their share.</div>` : ''}
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-2" style="font-size:0.88rem;">
+            <thead class="table-light">
+              <tr>
+                <th>Tenant</th>
+                <th>Room</th>
+                <th class="text-center">Billing Days</th>
+                ${hasAwayDays ? '<th class="text-center text-warning">Away Days</th>' : ''}
+                <th class="text-center">Present Days</th>
+                <th class="text-center">Share</th>
+                <th class="text-end fw-bold">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${result.rows.map(r => `
+                <tr>
+                  <td class="fw-semibold">${escapeHtml(r.name)}</td>
+                  <td class="text-muted small">${escapeHtml(r.room)}</td>
+                  <td class="text-center">${r.totalDays}</td>
+                  ${hasAwayDays ? `<td class="text-center ${r.awayDays > 0 ? 'text-warning fw-semibold' : 'text-muted'}">${r.awayDays > 0 ? `−${r.awayDays}` : '—'}</td>` : ''}
+                  <td class="text-center">${r.presentDays}</td>
+                  <td class="text-center">${(r.share * 100).toFixed(1)}%</td>
+                  <td class="text-end fw-bold text-primary">$${r.amount.toFixed(2)}</td>
+                </tr>`).join('')}
+            </tbody>
+            <tfoot class="table-light fw-bold">
+              <tr>
+                <td colspan="${hasAwayDays ? 5 : 4}">Total</td>
+                <td class="text-center">100%</td>
+                <td class="text-end text-primary">$${(bill.totalAmount || 0).toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Amounts above cover the full utility bill (electricity + water + gas & others).</div>`;
+    }
+
+    // Build and show modal
+    const existingModal = document.getElementById('utilityBreakdownModal');
+    if (existingModal) existingModal.remove();
+
+    const modalHtml = `
+      <div class="modal fade" id="utilityBreakdownModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header py-2">
+              <h6 class="modal-title mb-0"><i class="bi bi-people-fill me-2 text-info"></i>Tenant Bill Breakdown — ${escapeHtml(billLabel)}</h6>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">${bodyHtml}</div>
+            <div class="modal-footer py-2">
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('utilityBreakdownModal'));
+    document.getElementById('utilityBreakdownModal').addEventListener('hidden.bs.modal', () => {
+      document.getElementById('utilityBreakdownModal')?.remove();
+    });
+    modal.show();
   }
 
   // ── Toast helper ───────────────────────────────────────────────────────────

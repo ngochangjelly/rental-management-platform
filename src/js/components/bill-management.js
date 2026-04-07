@@ -597,6 +597,7 @@ class BillManagementComponent {
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t('cancel')}</button>
+              ${this.currentBill ? `<button type="button" class="btn btn-warning" onclick="billManager.generateBill(true)">${t('regenerateBill')}</button>` : ''}
               <button type="button" class="btn btn-primary" onclick="billManager.generateBill()">${t('generate')}</button>
             </div>
           </div>
@@ -617,15 +618,27 @@ class BillManagementComponent {
   }
 
 
-  async generateBill() {
+  async generateBill(regenerate = false) {
     try {
       const totalUtilityFee = parseFloat(document.getElementById('totalUtilityFee').value) || 0;
       const billingPeriod = document.getElementById('billingPeriod').value || '';
+      const year  = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      if (regenerate) {
+        if (!confirm(t('regenerateBillConfirm'))) return;
+        const delRes = await API.delete(API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(this.selectedProperty, year, month));
+        const delResult = await delRes.json();
+        if (!delResult.success) {
+          showToast(t('billDeleteFailed') + ': ' + delResult.error, 'error');
+          return;
+        }
+      }
 
       const formData = new FormData();
       formData.append('propertyId', this.selectedProperty);
-      formData.append('year', this.currentDate.getFullYear());
-      formData.append('month', this.currentDate.getMonth() + 1);
+      formData.append('year', year);
+      formData.append('month', month);
       formData.append('totalUtilityFee', totalUtilityFee);
       formData.append('billingPeriod', billingPeriod);
 
@@ -905,13 +918,17 @@ class BillManagementComponent {
       // Resolve billing period dates
       const { periodStart, periodEnd, periodDays } = this._resolveBillingPeriod();
 
-      // Fetch tenant data and property info in parallel
-      const [tenantRes, propRes] = await Promise.all([
+      // Fetch tenant data, property info, and exchange rate in parallel
+      const dateStr = this.currentDate.toISOString().split('T')[0];
+      const [tenantRes, propRes, rateRes] = await Promise.all([
         API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)),
         API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty)),
+        API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr)),
       ]);
       const data     = await tenantRes.json();
       const propData = await propRes.json();
+      const rateData = await rateRes.json().catch(() => null);
+      const exchangeRate = rateData?.success && rateData?.rate?.rate ? rateData.rate.rate : null;
       if (!data.success) throw new Error(data.error || 'Failed to load tenants');
 
       const landlordSubsidy = propData.property?.subsidizedPub || 0;
@@ -926,7 +943,7 @@ class BillManagementComponent {
       );
 
       this._renderBreakdownModal(
-        this._buildBreakdownHtml(breakdown, periodStart, periodEnd, periodDays)
+        this._buildBreakdownHtml(breakdown, periodStart, periodEnd, periodDays, propData.property, exchangeRate)
       );
     } catch (err) {
       this._renderBreakdownModal(`
@@ -964,9 +981,11 @@ class BillManagementComponent {
   _calcUtilityBreakdown(fullTenants, tenantBills, grossUtility, landlordSubsidy, periodStart, periodEnd, periodDays) {
     const netUtility  = Math.max(0, grossUtility - landlordSubsidy);
     const totalUtility = netUtility; // distribute only the net amount
-    // Build lookup: _id → full tenant object
+    // Build lookup: _id (uppercased) → full tenant object
+    // tenantBills[].tenantId is stored uppercase (Bill schema uppercase:true),
+    // but t._id.toString() returns lowercase hex — so we must normalise to the same case.
     const tenantMap = {};
-    fullTenants.forEach(t => { tenantMap[t._id?.toString()] = t; });
+    fullTenants.forEach(t => { tenantMap[t._id?.toString().toUpperCase()] = t; });
 
     const msDay = 864e5;
 
@@ -994,7 +1013,11 @@ class BillManagementComponent {
           p => p.propertyId === this.selectedProperty?.toUpperCase()
         );
 
-        if (propAssoc) {
+        if (!propAssoc) {
+          // Tenant has no association with this property — exclude from bill
+          tenantPeriodDays = 0;
+          note = t('notInPropertyPeriod');
+        } else {
           // Clamp tenant's stay (movein–moveout) to billing period
           const movein   = propAssoc.moveinDate  ? new Date(propAssoc.moveinDate)  : periodStart;
           const moveout  = propAssoc.moveoutDate ? new Date(propAssoc.moveoutDate) : periodEnd;
@@ -1013,7 +1036,8 @@ class BillManagementComponent {
             // Mid-period move-in note
             if (+movein > +periodStart) {
               const d = Math.round((+movein - +periodStart) / msDay);
-              note = t('movedInLate', { days: d });
+              const moveinLabel = movein.toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' });
+              note = t('movedInLate', { days: d, date: moveinLabel });
             }
             // Mid-period move-out note
             if (+moveout < +periodEnd) {
@@ -1057,24 +1081,23 @@ class BillManagementComponent {
     });
 
     const totalPersonDays = rows.reduce((s, r) => s + r.presentDays, 0);
+
+    // Absent/away/late-movein days are redistributed among present tenants.
+    // Landlord only covers: fixed landlordSubsidy + isUtilitySubsidized tenant shares.
     const ratePerDay = totalPersonDays > 0 ? totalUtility / totalPersonDays : 0;
 
     rows.forEach(row => {
-      row.utilityShare   = totalPersonDays > 0 ? totalUtility * (row.presentDays / totalPersonDays) : 0;
-      row.chargedAmount  = row.isSubsidized ? 0 : row.utilityShare;
+      row.utilityShare  = totalPersonDays > 0 ? totalUtility * (row.presentDays / totalPersonDays) : 0;
+      row.chargedAmount = row.isSubsidized ? 0 : row.utilityShare;
     });
 
-    const totalCharged      = rows.reduce((s, r) => s + r.chargedAmount, 0);
-    const businessAbsorbs   = rows.filter(r => r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
-    const awayAbsorbs       = rows.filter(r => !r.isSubsidized && r.awayDays > 0)
-                                   .reduce((s, r) => s + (r.utilityShare - (r.chargedAmount)), 0);
-    // Note: away portions for non-subsidized tenants are already redistributed through the
-    // person-days denominator — not separately absorbed.
+    const totalCharged    = rows.reduce((s, r) => s + r.chargedAmount, 0);
+    const businessAbsorbs = rows.filter(r => r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
 
     return { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, grossUtility, landlordSubsidy, netUtility };
   }
 
-  _buildBreakdownHtml(bd, periodStart, periodEnd, periodDays) {
+  _buildBreakdownHtml(bd, periodStart, periodEnd, periodDays, propInfo, exchangeRate) {
     const { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs,
             grossUtility, landlordSubsidy, netUtility } = bd;
     const fmtDate = v => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : '—';
@@ -1093,14 +1116,17 @@ class BillManagementComponent {
 
     const noPeriod = !periodStart;
 
-    const tableRows = rows.map((r, i) => {
+    // Sort rows so tenants sharing the same room appear together
+    const sortedRows = [...rows].sort((a, b) => (a.room || '').localeCompare(b.room || ''));
+
+    const tableRows = sortedRows.map((r, i) => {
       const shareCell  = noPeriod
         ? fmtAmt(r.utilityShare)
         : `${fmtAmt(r.utilityShare)}<br><span style="font-size:0.72rem;color:#6c757d;">${r.presentDays}d × ${fmtAmt(ratePerDay)}/d</span>`;
       const daysCells  = noPeriod ? '' : `
-        <td style="text-align:center;">${r.tenantPeriodDays}</td>
-        <td style="text-align:center;">${r.awayDays > 0 ? `<span style="color:#dc3545;">−${r.awayDays}</span>` : '0'}</td>
-        <td style="text-align:center;font-weight:600;">${r.presentDays}</td>`;
+        <td style="padding:7px 10px;text-align:center;">${r.tenantPeriodDays}</td>
+        <td style="padding:7px 10px;text-align:center;">${r.awayDays > 0 ? `<span style="color:#dc3545;">−${r.awayDays}</span>` : '0'}</td>
+        <td style="padding:7px 10px;text-align:center;font-weight:600;">${r.presentDays}</td>`;
       const subsidyBadge = r.isSubsidized
         ? `<span style="background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t('subsidisedBadge')}</span>`
         : '';
@@ -1112,11 +1138,11 @@ class BillManagementComponent {
         : '';
 
       return `<tr style="border-bottom:1px solid #dee2e6;">
-        <td style="padding:8px 10px;font-weight:600;">${i+1}. ${escapeHtml(r.tenantName)}${noteCell}</td>
-        <td style="padding:8px 10px;">${escapeHtml(getRoomLabel(r.room))}</td>
+        <td style="padding:7px 10px;font-weight:600;">${i+1}. ${escapeHtml(r.tenantName)}${noteCell}</td>
+        <td style="padding:7px 10px;">${escapeHtml(getRoomLabel(r.room))}</td>
         ${daysCells}
-        <td style="padding:8px 10px;text-align:right;">${shareCell}</td>
-        <td style="padding:8px 10px;text-align:right;">
+        <td style="padding:7px 10px;text-align:right;">${shareCell}</td>
+        <td style="padding:7px 10px;text-align:right;">
           <span style="${chargedStyle}">${fmtAmt(r.chargedAmount)}</span>
           ${r.isSubsidized ? '<br>' + subsidyBadge : ''}
         </td>
@@ -1143,79 +1169,113 @@ class BillManagementComponent {
     // Re-declare thStyle for the actual table header
     const th = s => `<th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;${s||''}">${s===undefined?'':''}</th>`;
 
+    // Settlement info section (included in print area / export)
+    const sgd = propInfo?.settlementSgd;
+    const vnd = propInfo?.settlementVnd;
+    const settlementHtml = (sgd?.bankName || vnd?.bankName) ? `
+      <div style="padding:14px 20px;border-top:1px solid #dee2e6;background:#f8f9fa;">
+        <div style="font-size:0.95rem;font-weight:700;margin-bottom:10px;color:#495057;">
+          <i class="bi bi-bank me-1"></i>${t('settlementInfo')}
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          ${sgd?.bankName ? `
+          <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:10px 16px;min-width:220px;flex:1;">
+            <div style="font-size:0.82rem;color:#6c757d;margin-bottom:4px;">SGD</div>
+            <div style="font-size:0.95rem;font-weight:600;">${escapeHtml(sgd.bankName)}</div>
+            ${sgd.accountNumber ? `<div style="font-size:0.95rem;">${escapeHtml(sgd.accountNumber)}</div>` : ''}
+            ${sgd.accountHolderName ? `<div style="font-size:0.88rem;color:#495057;">${escapeHtml(sgd.accountHolderName)}</div>` : ''}
+          </div>` : ''}
+          ${vnd?.bankName ? `
+          <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:10px 16px;min-width:220px;flex:1;">
+            <div style="font-size:0.82rem;color:#6c757d;margin-bottom:4px;">VND
+              ${exchangeRate ? `<span style="margin-left:8px;background:#e8f5e9;color:#2e7d32;border-radius:4px;padding:1px 7px;font-size:0.8rem;font-weight:600;">1 SGD = ${Number(exchangeRate).toLocaleString('vi-VN')} VND</span>` : ''}
+            </div>
+            <div style="font-size:0.95rem;font-weight:600;">${escapeHtml(vnd.bankName)}</div>
+            ${vnd.accountNumber ? `<div style="font-size:0.95rem;">${escapeHtml(vnd.accountNumber)}</div>` : ''}
+            ${vnd.accountHolderName ? `<div style="font-size:0.88rem;color:#495057;">${escapeHtml(vnd.accountHolderName)}</div>` : ''}
+          </div>` : ''}
+        </div>
+      </div>` : '';
+
     return `
-      <div id="utilityBreakdownPrintArea" style="font-family:system-ui,sans-serif;padding:20px;background:#fff;max-width:860px;">
+      <div id="utilityBreakdownPrintArea" style="font-family:system-ui,sans-serif;padding:20px;background:#fff;">
 
         <!-- Header -->
-        <div style="border-bottom:3px solid #0d6efd;padding-bottom:12px;margin-bottom:16px;">
-          <h5 style="margin:0;color:#0d6efd;font-size:1.1rem;">
+        <div style="border-bottom:3px solid #0d6efd;padding-bottom:10px;margin-bottom:12px;">
+          <h5 style="margin:0;color:#0d6efd;font-size:1.15rem;">
             ⚡ ${t('breakdownHeading', { month: monthName(month), year })}
           </h5>
-          <div style="color:#495057;font-size:0.88rem;margin-top:4px;">
-            ${t('property')}: <strong>${escapeHtml(this.selectedProperty)}</strong> &nbsp;|&nbsp;
+          <div style="color:#495057;font-size:0.95rem;margin-top:4px;">
+            ${t('property')}: <strong>${escapeHtml(
+              propInfo
+                ? [propInfo.unit, propInfo.address, propInfo.postcode ? `S(${propInfo.postcode})` : ''].filter(Boolean).join(', ')
+                : this.selectedProperty
+            )}</strong> &nbsp;|&nbsp;
             ${t('billingPeriod')}: <strong>${periodLabel}</strong>
           </div>
-          <div style="color:#495057;font-size:0.88rem;margin-top:2px;">
+          <div style="color:#495057;font-size:0.95rem;margin-top:2px;">
             ${t('spGroupBill')}: <strong>${fmtAmt(grossUtility)}</strong>
             ${landlordSubsidy > 0 ? `&nbsp;−&nbsp;${t('landlordSubsidy')}: <strong>${fmtAmt(landlordSubsidy)}</strong>&nbsp;=&nbsp;<strong style="color:#198754;">${fmtAmt(netUtility)} ${t('toDistribute')}</strong>` : ''}
           </div>
         </div>
 
         <!-- Method note -->
-        <div style="background:#f8f9fa;border-left:4px solid #0d6efd;padding:10px 14px;margin-bottom:16px;font-size:0.85rem;border-radius:0 4px 4px 0;">
+        <div style="background:#f8f9fa;border-left:4px solid #0d6efd;padding:8px 14px;margin-bottom:12px;font-size:0.92rem;border-radius:0 4px 4px 0;">
           <strong>${t('howItsCalculated')}</strong><br>
           ${methodNote}
         </div>
 
         <!-- Table -->
-        <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
           <thead>
             <tr>
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;">${t('tenant')}</th>
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;">${t('room')}</th>
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;">${t('tenant')}</th>
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;">${t('room')}</th>
               ${noPeriod ? '' : `
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:center;">${t('periodDaysHeader').replace('\n','<br>')}</th>
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:center;">${t('awayDaysHeader').replace('\n','<br>')}</th>
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:center;">${t('presentDaysHeader').replace('\n','<br>')}</th>`}
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:right;">${t('calcShare')}</th>
-              <th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;text-align:right;">${t('charged')}</th>
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:center;">${t('periodDaysHeader').replace('\n','<br>')}</th>
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:center;">${t('awayDaysHeader').replace('\n','<br>')}</th>
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:center;">${t('presentDaysHeader').replace('\n','<br>')}</th>`}
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:right;">${t('calcShare')}</th>
+              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:right;">${t('charged')}</th>
             </tr>
           </thead>
           <tbody>
             ${tableRows}
             <!-- Totals row -->
             <tr style="background:#f8f9fa;border-top:2px solid #dee2e6;">
-              <td style="padding:8px 10px;font-weight:700;" colspan="2">${t('totalRow')}</td>
+              <td style="padding:7px 10px;font-weight:700;" colspan="2">${t('totalRow')}</td>
               ${noPeriod ? '' : `
-              <td style="padding:8px 10px;text-align:center;font-weight:700;">—</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:700;">—</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:700;">${totalPersonDays}d</td>`}
-              <td style="padding:8px 10px;text-align:right;font-weight:700;">${fmtAmt(netUtility)}</td>
-              <td style="padding:8px 10px;text-align:right;font-weight:700;color:#0d6efd;">${fmtAmt(totalCharged)}</td>
+              <td style="padding:7px 10px;text-align:center;font-weight:700;">—</td>
+              <td style="padding:7px 10px;text-align:center;font-weight:700;">—</td>
+              <td style="padding:7px 10px;text-align:center;font-weight:700;">${totalPersonDays}d</td>`}
+              <td style="padding:7px 10px;text-align:right;font-weight:700;">${fmtAmt(netUtility)}</td>
+              <td style="padding:7px 10px;text-align:right;font-weight:700;color:#0d6efd;">${fmtAmt(totalCharged)}</td>
             </tr>
           </tbody>
         </table>
 
         <!-- Footer summary -->
-        <div style="margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:0.85rem;">
-          <div style="background:#d1ecf1;border-radius:6px;padding:8px 14px;">
+        <div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:0.92rem;">
+          <div style="background:#d1ecf1;border-radius:6px;padding:7px 14px;">
             <strong>${t('totalBilledToTenants')}</strong> ${fmtAmt(totalCharged)}
           </div>
           ${(landlordSubsidy > 0 || businessAbsorbs > 0.005) ? `
-          <div style="background:#fff3cd;border-radius:6px;padding:8px 14px;">
+          <div style="background:#fff3cd;border-radius:6px;padding:7px 14px;">
             <strong>${t('landlordAbsorbs')}</strong> ${fmtAmt(landlordSubsidy + businessAbsorbs)}
             ${landlordSubsidy > 0 && businessAbsorbs > 0.005
-              ? `<br><span style="font-size:0.78rem;color:#856404;">${t('fixedSubsidy')} ${fmtAmt(landlordSubsidy)} + ${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
+              ? `<br><span style="font-size:0.82rem;color:#856404;">${t('fixedSubsidy')} ${fmtAmt(landlordSubsidy)} + ${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
               : landlordSubsidy > 0
-                ? `<br><span style="font-size:0.78rem;color:#856404;">${t('fixedSubsidy')} ${fmtAmt(landlordSubsidy)}</span>`
-                : `<br><span style="font-size:0.78rem;color:#856404;">${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
+                ? `<br><span style="font-size:0.82rem;color:#856404;">${t('fixedSubsidy')} ${fmtAmt(landlordSubsidy)}</span>`
+                : `<br><span style="font-size:0.82rem;color:#856404;">${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
             }
           </div>` : ''}
           ${Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs) > 0.02 ? `
-          <div style="background:#f8d7da;border-radius:6px;padding:8px 14px;">
+          <div style="background:#f8d7da;border-radius:6px;padding:7px 14px;">
             <strong>${t('roundingDiff')}</strong> ${fmtAmt(Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs))}
           </div>` : ''}
         </div>
+
+        ${settlementHtml}
 
       </div>`;
   }
@@ -1231,15 +1291,21 @@ class BillManagementComponent {
 
     const html = `
       <div class="modal fade" id="utilityBreakdownModal" tabindex="-1">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-scrollable" style="max-width:min(1100px,96vw);">
           <div class="modal-content">
             <div class="modal-header py-2">
               <h6 class="modal-title mb-0">
                 <i class="bi bi-calculator me-2 text-primary"></i>${t('utilityBreakdownTitle')}
               </h6>
               <div class="d-flex align-items-center gap-2 ms-auto me-2">
-                <button class="btn btn-sm btn-outline-secondary" onclick="billManager._copyBreakdownAsImage()" title="${t('saveImage')}">
-                  <i class="bi bi-camera me-1"></i>${t('saveImage')}
+                <button class="btn btn-sm btn-outline-primary" onclick="billManager.showUtilityBreakdownModal()" title="${t('refresh')}">
+                  <i class="bi bi-arrow-clockwise me-1"></i>${t('refresh')}
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="billManager._copyBreakdownToClipboard()" title="${t('copyToClipboard')}">
+                  <i class="bi bi-clipboard me-1"></i>${t('copyToClipboard')}
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="billManager._downloadBreakdownImage()" title="${t('saveImage')}">
+                  <i class="bi bi-download me-1"></i>${t('saveImage')}
                 </button>
               </div>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -1259,16 +1325,35 @@ class BillManagementComponent {
     modal.show();
   }
 
-  async _copyBreakdownAsImage() {
+  async _renderBreakdownCanvas() {
     const area = document.getElementById('utilityBreakdownPrintArea');
-    if (!area) return;
+    if (!area) return null;
+    if (typeof html2canvas === 'undefined') {
+      showToast(t('html2canvasNotLoaded'), 'warning');
+      return null;
+    }
+    return html2canvas(area, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  }
+
+  async _copyBreakdownToClipboard() {
     try {
-      if (typeof html2canvas === 'undefined') {
-        showToast(t('html2canvasNotLoaded'), 'warning');
-        return;
-      }
       showToast(t('generatingImage'), 'info');
-      const canvas = await html2canvas(area, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const canvas = await this._renderBreakdownCanvas();
+      if (!canvas) return;
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      showToast(t('imageCopied'), 'success');
+    } catch (err) {
+      console.error('Clipboard error:', err);
+      showToast(t('imageCopyFailed'), 'error');
+    }
+  }
+
+  async _downloadBreakdownImage() {
+    try {
+      showToast(t('generatingImage'), 'info');
+      const canvas = await this._renderBreakdownCanvas();
+      if (!canvas) return;
       const link = document.createElement('a');
       const year  = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
@@ -1277,7 +1362,7 @@ class BillManagementComponent {
       link.click();
       showToast(t('imageSaved'), 'success');
     } catch (err) {
-      console.error('Screenshot error:', err);
+      console.error('Download error:', err);
       showToast(t('imageFailed'), 'error');
     }
   }

@@ -19,6 +19,9 @@ class FinancialReportsComponent {
     this.editingItemIndex = null;
     this.pendingDeletes = new Set(); // Track items pending deletion confirmation
     this.pendingClose = false; // Track month close confirmation
+    this.selectedItems = new Set(); // Track bulk-selected items (e.g. "income-0", "expense-2")
+    this._dragSelecting = false; // Whether a drag selection is in progress
+    this._dragSelectMode = true; // true = selecting, false = deselecting during drag
     this.propertyReportStatus = {}; // Track {propertyId: {isClosed: boolean}} for current month
     this.allUnpaidVisible = false; // Track all-unpaid overview visibility
     this.init();
@@ -106,6 +109,17 @@ class FinancialReportsComponent {
         }
 
         this.showIncomeExpenseModal("expense").catch(console.error);
+      });
+    }
+
+    const fillUtilityBillBtn = document.getElementById("fillUtilityBillBtn");
+    if (fillUtilityBillBtn) {
+      fillUtilityBillBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!this.isIncomeExpenseModalOpen) {
+          this.fillUtilityBillExpense().catch(console.error);
+        }
       });
     }
 
@@ -524,6 +538,7 @@ class FinancialReportsComponent {
     this.editingItem = null;
     this.editingItemIndex = null;
     this.pendingDeletes.clear(); // Clear any pending deletion confirmations
+    this.selectedItems.clear(); // Clear any bulk selections
 
     if (!propertyId) {
       this.selectedProperty = null;
@@ -693,12 +708,31 @@ class FinancialReportsComponent {
     let totalSGD = 0;
     let totalVND = 0;
 
+    // Bulk action bar for income
+    const incomeSelectedCount = [...this.selectedItems].filter(k => k.startsWith('income-')).length;
+    const incomeBulkBar = incomeSelectedCount > 0 ? `
+      <div class="d-flex align-items-center gap-2 mb-2 px-1 py-2 rounded bulk-action-bar" style="background:#fff3cd;border:1px solid #ffc107;">
+        <span class="small fw-semibold text-warning-emphasis">${incomeSelectedCount} item${incomeSelectedCount > 1 ? 's' : ''} selected</span>
+        <button class="btn btn-danger btn-sm ms-auto" onclick="window.financialReports.bulkDeleteSelected('income')">
+          <i class="bi bi-trash me-1"></i>Delete Selected (${incomeSelectedCount})
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="window.financialReports.clearSelection('income')">
+          <i class="bi bi-x"></i> Clear
+        </button>
+      </div>` : '';
+
     // Create compact table format
     let html = `
+      ${incomeBulkBar}
       <div class="table-responsive">
-        <table class="table table-sm table-striped mb-0">
+        <table class="table table-sm table-striped mb-0" id="incomeTable">
           <thead>
             <tr class="table-success">
+              <th class="border-0 small" style="width:32px;">
+                <input type="checkbox" class="form-check-input" id="selectAllIncome"
+                  onchange="window.financialReports.toggleSelectAll('income', this.checked)"
+                  ${incomeSelectedCount === this.currentReport.income.length ? 'checked' : ''}>
+              </th>
               <th class="border-0 small">Item</th>
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
@@ -708,7 +742,7 @@ class FinancialReportsComponent {
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="incomeTbody">
     `;
 
     this.currentReport.income.forEach((item, index) => {
@@ -732,6 +766,7 @@ class FinancialReportsComponent {
       // Check if this item is pending deletion confirmation
       const itemKey = `income-${index}`;
       const isPendingDelete = this.pendingDeletes.has(itemKey);
+      const isSelected = this.selectedItems.has(itemKey);
 
       // Format date for display
       const transactionDate = item.date
@@ -747,7 +782,13 @@ class FinancialReportsComponent {
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
       html += `
-        <tr>
+        <tr data-item-key="${itemKey}" class="${isSelected ? 'table-warning bulk-selected' : ''}" style="cursor:pointer;">
+          <td class="border-0 align-middle text-center" style="width:32px;">
+            <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
+              ${isSelected ? 'checked' : ''}
+              onchange="window.financialReports.toggleItemSelection('income', ${index})"
+              onclick="event.stopPropagation()">
+          </td>
           <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
               <span>${escapeHtml(item.item)}</span>
@@ -873,6 +914,8 @@ class FinancialReportsComponent {
 
     // Initialize tooltips
     this.initializeTooltips();
+    // Bind drag-to-select on income table
+    this._initDragSelection('incomeTbody', 'income');
   }
 
   updateExpenseDisplay() {
@@ -896,12 +939,31 @@ class FinancialReportsComponent {
 
     let total = 0;
 
+    // Bulk action bar for expenses
+    const expenseSelectedCount = [...this.selectedItems].filter(k => k.startsWith('expense-')).length;
+    const expenseBulkBar = expenseSelectedCount > 0 ? `
+      <div class="d-flex align-items-center gap-2 mb-2 px-1 py-2 rounded bulk-action-bar" style="background:#fff3cd;border:1px solid #ffc107;">
+        <span class="small fw-semibold text-warning-emphasis">${expenseSelectedCount} item${expenseSelectedCount > 1 ? 's' : ''} selected</span>
+        <button class="btn btn-danger btn-sm ms-auto" onclick="window.financialReports.bulkDeleteSelected('expense')">
+          <i class="bi bi-trash me-1"></i>Delete Selected (${expenseSelectedCount})
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="window.financialReports.clearSelection('expense')">
+          <i class="bi bi-x"></i> Clear
+        </button>
+      </div>` : '';
+
     // Create compact table format
     let html = `
+      ${expenseBulkBar}
       <div class="table-responsive">
-        <table class="table table-sm table-striped mb-0">
+        <table class="table table-sm table-striped mb-0" id="expenseTable">
           <thead>
             <tr class="table-danger">
+              <th class="border-0 small" style="width:32px;">
+                <input type="checkbox" class="form-check-input" id="selectAllExpenses"
+                  onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
+                  ${expenseSelectedCount === this.currentReport.expenses.length ? 'checked' : ''}>
+              </th>
               <th class="border-0 small">Item</th>
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
@@ -909,7 +971,7 @@ class FinancialReportsComponent {
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="expenseTbody">
     `;
 
     this.currentReport.expenses.forEach((item, index) => {
@@ -925,6 +987,7 @@ class FinancialReportsComponent {
       // Check if this item is pending deletion confirmation
       const itemKey = `expense-${index}`;
       const isPendingDelete = this.pendingDeletes.has(itemKey);
+      const isSelected = this.selectedItems.has(itemKey);
 
       // Format date for display
       const transactionDate = item.date
@@ -940,7 +1003,13 @@ class FinancialReportsComponent {
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
       html += `
-        <tr>
+        <tr data-item-key="${itemKey}" class="${isSelected ? 'table-warning bulk-selected' : ''}" style="cursor:pointer;">
+          <td class="border-0 align-middle text-center" style="width:32px;">
+            <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
+              ${isSelected ? 'checked' : ''}
+              onchange="window.financialReports.toggleItemSelection('expense', ${index})"
+              onclick="event.stopPropagation()">
+          </td>
           <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
               <span>${escapeHtml(item.item)}</span>
@@ -1033,6 +1102,8 @@ class FinancialReportsComponent {
 
     // Initialize tooltips
     this.initializeTooltips();
+    // Bind drag-to-select on expense table
+    this._initDragSelection('expenseTbody', 'expense');
   }
 
   updateSummaryDisplay() {
@@ -1657,14 +1728,52 @@ class FinancialReportsComponent {
     }
   }
 
+  async fillUtilityBillExpense() {
+    if (!this.selectedProperty) {
+      showToast("Please select a property first", "error");
+      return;
+    }
+    if (this.currentReport?.isClosed) {
+      showToast("Cannot add items — this month is closed", "error");
+      return;
+    }
+    try {
+      const year  = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+      const res  = await API.get(API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(this.selectedProperty, year, month));
+      const data = await res.json();
+      if (!data.success || !data.bill) {
+        showToast("No bill found for this property and month. Generate a bill first.", "warning");
+        return;
+      }
+      const bill = data.bill;
+      const amount = bill.utilityFee ?? 0;
+      const monthName = this.currentDate.toLocaleString("en-SG", { month: "long" });
+      const prefilled = {
+        item: `Utility Bill — ${monthName} ${year}`,
+        amount,
+        date: new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1)
+          .toISOString().split("T")[0],
+        details: bill.billingPeriod || "",
+        recipientAccountDetail: "",
+        personInCharge: "",
+        currency: "SGD",
+      };
+      await this.showIncomeExpenseModal("expense", prefilled, null);
+    } catch (err) {
+      console.error("fillUtilityBillExpense error:", err);
+      showToast("Failed to fetch utility bill: " + err.message, "error");
+    }
+  }
+
   async showIncomeExpenseModal(type, existingItem = null, itemIndex = null) {
     // Prevent multiple modal creations
     if (this.isIncomeExpenseModalOpen) {
       return;
     }
 
-    // Check if month is closed (only for new items)
-    if (!existingItem && this.currentReport && this.currentReport.isClosed) {
+    // Check if month is closed (only for new items, not edits)
+    if (itemIndex === null && this.currentReport && this.currentReport.isClosed) {
       this.showError("Cannot add items - this month has been closed");
       return;
     }
@@ -2108,7 +2217,7 @@ class FinancialReportsComponent {
 
   createIncomeExpenseModalHtml(type, existingItem = null) {
     const isIncome = type === "income";
-    const isEditing = existingItem !== null;
+    const isEditing = existingItem !== null && this.editingItemIndex !== null;
     const title = isEditing
       ? isIncome
         ? "Edit Income Item"
@@ -2306,7 +2415,7 @@ class FinancialReportsComponent {
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
-      const isEditing = this.editingItem !== null;
+      const isEditing = this.editingItem !== null && this.editingItemIndex !== null;
 
       let endpoint;
       let httpMethod;
@@ -2987,6 +3096,174 @@ class FinancialReportsComponent {
     this.showIncomeExpenseModal(type, item, index);
   }
 
+  // ─── Bulk selection helpers ───────────────────────────────────────────────
+
+  toggleItemSelection(type, index) {
+    const key = `${type}-${index}`;
+    if (this.selectedItems.has(key)) {
+      this.selectedItems.delete(key);
+    } else {
+      this.selectedItems.add(key);
+    }
+    if (type === 'income') {
+      this.updateIncomeDisplay();
+    } else {
+      this.updateExpenseDisplay();
+    }
+  }
+
+  toggleSelectAll(type, checked) {
+    const items = type === 'income'
+      ? (this.currentReport?.income || [])
+      : (this.currentReport?.expenses || []);
+    items.forEach((_, i) => {
+      const key = `${type}-${i}`;
+      if (checked) {
+        this.selectedItems.add(key);
+      } else {
+        this.selectedItems.delete(key);
+      }
+    });
+    if (type === 'income') {
+      this.updateIncomeDisplay();
+    } else {
+      this.updateExpenseDisplay();
+    }
+  }
+
+  clearSelection(type) {
+    [...this.selectedItems].filter(k => k.startsWith(`${type}-`)).forEach(k => this.selectedItems.delete(k));
+    if (type === 'income') {
+      this.updateIncomeDisplay();
+    } else {
+      this.updateExpenseDisplay();
+    }
+  }
+
+  async bulkDeleteSelected(type) {
+    if (this.currentReport && this.currentReport.isClosed) {
+      this.showError("Cannot delete items - this month has been closed");
+      return;
+    }
+
+    const keys = [...this.selectedItems].filter(k => k.startsWith(`${type}-`));
+    if (keys.length === 0) return;
+
+    // Sort indices descending so deleting by index doesn't shift remaining indices
+    const indices = keys.map(k => parseInt(k.split('-')[1], 10)).sort((a, b) => b - a);
+
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+
+    let successCount = 0;
+    let firstError = null;
+
+    for (const idx of indices) {
+      try {
+        const endpoint = type === 'income'
+          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(this.selectedProperty, year, month) + `/${idx}`
+          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(this.selectedProperty, year, month) + `/${idx}`;
+
+        const response = await API.delete(endpoint);
+        const result = await response.json();
+
+        if (result.success) {
+          successCount++;
+        } else {
+          firstError = result.message || `Failed to delete ${type} item`;
+        }
+      } catch (err) {
+        firstError = err.message || `Failed to delete ${type} item`;
+      }
+    }
+
+    // Clear selections for this type
+    keys.forEach(k => this.selectedItems.delete(k));
+
+    await this.loadFinancialReport();
+    await this.updateDisplays();
+
+    if (successCount > 0) {
+      this.showSuccess(`${successCount} ${type} item${successCount > 1 ? 's' : ''} deleted`);
+    }
+    if (firstError) {
+      this.showError(firstError);
+    }
+  }
+
+  _initDragSelection(tbodyId, type) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    const onMouseDown = (e) => {
+      const row = e.target.closest('tr[data-item-key]');
+      if (!row) return;
+      // Don't start drag on checkbox/button clicks
+      if (e.target.closest('button, input, a')) return;
+
+      this._dragSelecting = true;
+      const key = row.dataset.itemKey;
+      // Determine mode: if item already selected, this drag deselects; otherwise selects
+      this._dragSelectMode = !this.selectedItems.has(key);
+      // Toggle the starting row
+      if (this._dragSelectMode) {
+        this.selectedItems.add(key);
+      } else {
+        this.selectedItems.delete(key);
+      }
+      this._refreshRowSelection(row, key, type);
+      e.preventDefault(); // prevent text selection during drag
+    };
+
+    const onMouseOver = (e) => {
+      if (!this._dragSelecting) return;
+      const row = e.target.closest('tr[data-item-key]');
+      if (!row) return;
+      const key = row.dataset.itemKey;
+      if (!key.startsWith(`${type}-`)) return;
+      if (this._dragSelectMode) {
+        this.selectedItems.add(key);
+      } else {
+        this.selectedItems.delete(key);
+      }
+      this._refreshRowSelection(row, key, type);
+    };
+
+    const onMouseUp = () => {
+      if (!this._dragSelecting) return;
+      this._dragSelecting = false;
+      // Re-render to update the bulk action bar count
+      if (type === 'income') {
+        this.updateIncomeDisplay();
+      } else {
+        this.updateExpenseDisplay();
+      }
+    };
+
+    tbody.addEventListener('mousedown', onMouseDown);
+    tbody.addEventListener('mouseover', onMouseOver);
+    // Listen on document so mouseup outside tbody still ends drag
+    document.addEventListener('mouseup', onMouseUp, { once: false });
+    // Store reference to remove old listener on re-render
+    if (this[`_${type}MouseUpHandler`]) {
+      document.removeEventListener('mouseup', this[`_${type}MouseUpHandler`]);
+    }
+    this[`_${type}MouseUpHandler`] = onMouseUp;
+  }
+
+  _refreshRowSelection(row, key, type) {
+    const checkbox = row.querySelector('.bulk-checkbox');
+    const isSelected = this.selectedItems.has(key);
+    if (checkbox) checkbox.checked = isSelected;
+    if (isSelected) {
+      row.classList.add('table-warning', 'bulk-selected');
+    } else {
+      row.classList.remove('table-warning', 'bulk-selected');
+    }
+  }
+
+  // ─── End bulk selection ────────────────────────────────────────────────────
+
   toggleDeleteConfirm(type, index) {
     // Check if month is closed
     if (this.currentReport && this.currentReport.isClosed) {
@@ -3385,6 +3662,17 @@ class FinancialReportsComponent {
       btn.disabled = !enabled;
       btn.style.opacity = enabled ? "1" : "0.5";
       btn.title = enabled ? "Delete" : "Cannot delete - month is closed";
+    });
+
+    // Disable bulk delete buttons when closed
+    document.querySelectorAll('.bulk-action-bar button.btn-danger').forEach((btn) => {
+      btn.disabled = !enabled;
+      btn.style.opacity = enabled ? "1" : "0.5";
+    });
+
+    // Disable checkboxes when closed
+    document.querySelectorAll('.bulk-checkbox, #selectAllIncome, #selectAllExpenses').forEach((cb) => {
+      cb.disabled = !enabled;
     });
   }
 
