@@ -359,7 +359,7 @@ class FinancialReportsComponent {
 
     // Generate property cards
     properties.forEach((property) => {
-      const isSelected = this.selectedProperty === property.propertyId;
+      const isSelected = String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
       const cardHtml = `
@@ -368,6 +368,7 @@ class FinancialReportsComponent {
             isSelected ? "border-primary" : ""
           } ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
                style="cursor: pointer; transition: all 0.2s ease;"
+               data-property-id="${property.propertyId}"
                onclick="window.financialReports.selectProperty('${
                  property.propertyId
                }')">
@@ -432,6 +433,9 @@ class FinancialReportsComponent {
 
     // Add hover effects with CSS
     this.addPropertyCardStyles();
+
+    // Re-apply selection state after re-render
+    this.updatePropertyCardSelection();
   }
 
   addPropertyCardStyles() {
@@ -527,9 +531,7 @@ class FinancialReportsComponent {
     // Find and highlight the selected card
     if (this.selectedProperty) {
       const selectedCard = Array.from(allCards).find(
-        (card) =>
-          card.onclick &&
-          card.onclick.toString().includes(this.selectedProperty),
+        (card) => String(card.dataset.propertyId) === String(this.selectedProperty),
       );
 
       if (selectedCard) {
