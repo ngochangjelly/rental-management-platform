@@ -775,7 +775,7 @@ class BulkPropertyReportsComponent {
                                 )}
                               </small>
                               <small class="badge ${
-                                isNegative ? "bg-danger" : isPositive ? "bg-success" : "bg-secondary"
+                                isNegative ? "bg-success" : isPositive ? "bg-danger" : "bg-secondary"
                               } d-flex align-items-center gap-1">
                                 ${isNegative ? '<i class="bi bi-dash-circle-fill"></i> -' : isPositive ? '<i class="bi bi-plus-circle-fill"></i> +' : ''}$${displayAmount.toFixed(2)}
                               </small>
