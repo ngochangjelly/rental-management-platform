@@ -401,6 +401,12 @@ i18next.init({
             "html2canvas not loaded – please screenshot manually",
           failedToLoadBill: "Failed to load bill",
         },
+        financialReport: {
+          exportCopied: "Report copied to clipboard!",
+          exportPasteHint: "Press {{key}} to paste the image anywhere",
+          exportPdfSuccess: "PDF report exported successfully",
+          copyReportSuccess: "Report summary copied to clipboard",
+        },
       },
     },
     vi: {
@@ -798,6 +804,12 @@ i18next.init({
           html2canvasNotLoaded:
             "html2canvas chưa tải – vui lòng chụp màn hình thủ công",
           failedToLoadBill: "Lỗi tải hóa đơn",
+        },
+        financialReport: {
+          exportCopied: "Đã sao chép báo cáo vào clipboard!",
+          exportPasteHint: "Nhấn {{key}} để dán ảnh ra bất cứ đâu",
+          exportPdfSuccess: "Xuất báo cáo PDF thành công",
+          copyReportSuccess: "Đã sao chép tóm tắt báo cáo vào clipboard",
         },
       },
     },

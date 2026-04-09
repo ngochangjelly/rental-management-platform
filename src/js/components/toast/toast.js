@@ -1,4 +1,4 @@
-function showToast(message, type = "success") {
+function showToast(message, type = "success", duration = 3000) {
   // Create toast container if it doesn't exist
   let toastContainer = document.getElementById("toast-container");
   if (!toastContainer) {
@@ -42,7 +42,7 @@ function showToast(message, type = "success") {
   // Initialize and show toast
   const toastElement = document.getElementById(toastId);
   const toast = new bootstrap.Toast(toastElement, {
-    delay: 3000,
+    delay: duration,
   });
 
   // Clean up toast after it's hidden

@@ -1,5 +1,6 @@
 // Note: showToast and escapeHtml are expected to be available globally
 import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
+import i18next from "../i18n.js";
 
 /**
  * Financial Reports Component
@@ -11,6 +12,7 @@ class FinancialReportsComponent {
     this.currentDate = new Date();
     this.currentReport = null;
     this.investors = [];
+    this.allInvestors = []; // All investors in the app (for Paid To dropdown)
     this.tenants = []; // Store tenants for selected property
     this.isModalOpen = false;
     this.isIncomeExpenseModalOpen = false;
@@ -48,9 +50,23 @@ class FinancialReportsComponent {
   init() {
     this.bindEvents();
     this.loadProperties();
+    this.loadAllInvestors();
 
     // Initial cleanup to ensure no leftover modals from previous sessions
     this.forceCleanupModalBackdrops();
+  }
+
+  async loadAllInvestors() {
+    try {
+      const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS);
+      const result = await response.json();
+      if (result.success) {
+        this.allInvestors = result.data || [];
+      }
+    } catch (error) {
+      console.error("Error loading all investors:", error);
+      this.allInvestors = [];
+    }
   }
 
   bindEvents() {
@@ -966,6 +982,7 @@ class FinancialReportsComponent {
               <th class="border-0 small">Item</th>
               <th class="border-0 small">Date</th>
               <th class="border-0 small">Person</th>
+              <th class="border-0 small text-center">Paid To</th>
               <th class="border-0 small text-end">Amount</th>
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
@@ -1053,6 +1070,14 @@ class FinancialReportsComponent {
                     )}</div>`
               }
             </div>
+          </td>
+          <td class="small border-0 align-middle text-center">
+            ${item.paidTo === "unknown"
+              ? `<div class="d-flex align-items-center justify-content-center"><div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div></div>`
+              : item.paidTo
+                ? this.renderPaidByAvatar(item.paidTo)
+                : `<span class="text-muted small">-</span>`
+            }
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size: 16px;">$${item.amount.toFixed(
             2,
@@ -2089,6 +2114,44 @@ class FinancialReportsComponent {
     return options;
   }
 
+  // Like generatePaidByOptions but uses ALL investors in the app (not just property investors)
+  generatePaidToOptions(selectedValue = "") {
+    let options = "";
+
+    // All investors in the app
+    if (this.allInvestors && this.allInvestors.length > 0) {
+      options += '<optgroup label="Investors">';
+      options += this.allInvestors
+        .map((investor) => {
+          const isSelected = investor.investorId === selectedValue ? " selected" : "";
+          return `<option value="${investor.investorId}"${isSelected}>${escapeHtml(investor.name)} (ID: ${investor.investorId})</option>`;
+        })
+        .join("");
+      options += "</optgroup>";
+    }
+
+    // Tenants for the selected property
+    if (this.tenants && this.tenants.length > 0) {
+      options += '<optgroup label="Tenants">';
+      options += this.tenants
+        .map((tenant) => {
+          const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
+          const isSelected = tenantValue === selectedValue ? " selected" : "";
+          const baseName = tenant.name || "Unknown Tenant";
+          const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+          const additionalInfo = [];
+          if (tenant.roomType) additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+          if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
+          const infoString = additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
+          return `<option value="${tenantValue}"${isSelected}>${escapeHtml(displayName)}${infoString}</option>`;
+        })
+        .join("");
+      options += "</optgroup>";
+    }
+
+    return options;
+  }
+
   renderPaidByAvatar(paidBy) {
     if (!paidBy) {
       return `<div class="d-flex align-items-center justify-content-center">
@@ -2128,8 +2191,9 @@ class FinancialReportsComponent {
         }
       }
     } else {
-      // It's an investor
-      person = this.investors.find((i) => i.investorId === paidBy);
+      // It's an investor — check property investors first, then all investors
+      person = this.investors.find((i) => i.investorId === paidBy)
+        || (this.allInvestors && this.allInvestors.find((i) => i.investorId === paidBy));
       if (person) {
         displayName = person.name || "Unknown Investor";
         avatar = person.avatar;
@@ -2253,6 +2317,7 @@ class FinancialReportsComponent {
       ? escapeHtml(existingItem.recipientAccountDetail || "")
       : "";
     const paidByValue = existingItem ? existingItem.paidBy : "";
+    const paidToValue = existingItem ? existingItem.paidTo || "" : "";
     const detailsValue = existingItem
       ? escapeHtml(existingItem.details || "")
       : "";
@@ -2343,7 +2408,17 @@ class FinancialReportsComponent {
                                     <div class="form-text">Optional: Select who actually paid/initiated this transaction</div>
                                 </div>
                                 `
-                                    : ""
+                                    : `
+                                <div class="mb-3">
+                                    <label class="form-label">Paid To</label>
+                                    <select class="form-select" name="paidTo">
+                                        <option value="">Select recipient (optional)...</option>
+                                        <option value="unknown" ${paidToValue === "unknown" ? "selected" : ""}>&#128100; Unknown</option>
+                                        ${this.generatePaidToOptions(paidToValue)}
+                                    </select>
+                                    <div class="form-text">Optional: Select who this expense was paid to</div>
+                                </div>
+                                `
                                 }
                                 <div class="mb-3">
                                     <label class="form-label">Account Details</label>
@@ -2396,7 +2471,7 @@ class FinancialReportsComponent {
       details: formData.get("details") || "",
     };
 
-    // Add paidBy field only for income transactions
+    // Add paidBy, currency, exchange rate only for income transactions
     if (type === "income") {
       const paidBy = formData.get("paidBy");
       if (paidBy) {
@@ -2416,6 +2491,14 @@ class FinancialReportsComponent {
         if (!isNaN(cleanedRate) && cleanedRate !== "") {
           itemData.exchangeRate = parseFloat(cleanedRate);
         }
+      }
+    }
+
+    // Add paidTo field only for expense transactions
+    if (type === "expense") {
+      const paidTo = formData.get("paidTo");
+      if (paidTo) {
+        itemData.paidTo = paidTo;
       }
     }
 
@@ -3776,8 +3859,9 @@ class FinancialReportsComponent {
             }
           }
         } else {
-          // It's an investor
-          person = this.investors.find((i) => i.investorId === paidBy);
+          // It's an investor — check property investors first, then all investors
+          person = this.investors.find((i) => i.investorId === paidBy)
+            || (this.allInvestors && this.allInvestors.find((i) => i.investorId === paidBy));
           if (person) {
             displayName = person.name || "Unknown Investor";
           }
@@ -4088,7 +4172,7 @@ class FinancialReportsComponent {
         this.currentReport.expenses &&
         this.currentReport.expenses.length > 0
       ) {
-        // Draw table header (same columns as income)
+        // Draw table header (same columns as income, with Paid To)
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
@@ -4096,6 +4180,7 @@ class FinancialReportsComponent {
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
         pdf.text("Person", colPerson, yPos);
+        pdf.text("Paid To", colPaidBy, yPos);
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
@@ -4107,6 +4192,8 @@ class FinancialReportsComponent {
           const investor = this.investors.find(
             (inv) => inv.investorId === item.personInCharge,
           );
+          const paidToData = getPaidByForPDF(item.paidTo === "unknown" ? null : item.paidTo);
+          const paidToDisplayName = item.paidTo === "unknown" ? "Unknown" : paidToData.name;
           const dateStr = item.date
             ? new Date(item.date).toLocaleDateString("en-US", {
                 month: "short",
@@ -4167,6 +4254,27 @@ class FinancialReportsComponent {
           if (investor) {
             const lastName = removeDiacritics(getLastWord(investor.name));
             pdf.text(lastName, colPerson, rowStartY);
+          }
+
+          // Paid To column
+          const paidToName = removeDiacritics(paidToDisplayName);
+          if (paidToName && paidToName !== "-") {
+            pdf.text(paidToName, colPaidBy, rowStartY);
+            if (paidToData.roomType) {
+              const nameWidth = pdf.getTextWidth(paidToName);
+              const badgeX = colPaidBy + nameWidth + 1.5;
+              pdf.setFontSize(6);
+              pdf.setFillColor(108, 117, 125);
+              pdf.setDrawColor(108, 117, 125);
+              const badgeText = removeDiacritics(paidToData.roomType);
+              const badgeWidth = pdf.getTextWidth(badgeText) + 2;
+              const badgeHeight = 2.5;
+              pdf.roundedRect(badgeX, rowStartY - 2.2, badgeWidth, badgeHeight, 0.5, 0.5, "FD");
+              pdf.setTextColor(255, 255, 255);
+              pdf.text(badgeText, badgeX + 1, rowStartY - 0.2);
+              pdf.setTextColor(0, 0, 0);
+              pdf.setFontSize(8);
+            }
           }
 
           // Draw amount
@@ -4366,7 +4474,7 @@ class FinancialReportsComponent {
       const fileName = `Financial_Report_${fileNameBase}_${removeDiacritics(monthName).replace(/\s+/g, "_")}.pdf`;
       pdf.save(fileName);
 
-      this.showSuccess("Financial report exported as PDF successfully!");
+      this.showSuccess(i18next.t("financialReport.exportPdfSuccess"));
     } catch (error) {
       console.error("Export error:", error);
       this.showError(`Failed to export financial report: ${error.message}`);
@@ -4444,7 +4552,8 @@ class FinancialReportsComponent {
     if (!btn) return;
 
     const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    btn.title = "Exporting…";
     btn.disabled = true;
 
     try {
@@ -4457,8 +4566,16 @@ class FinancialReportsComponent {
       btn.classList.remove("btn-light");
       btn.classList.add("btn-success");
 
+      // Detect platform for paste shortcut hint
+      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      const pasteKey = isMac ? "⌘ Cmd+V" : "Ctrl+V";
+      const title = i18next.t("financialReport.exportCopied");
+      const hint = i18next.t("financialReport.exportPasteHint", { key: pasteKey });
+      showToast(`${title} ${hint}`, "success", 5000);
+
       setTimeout(() => {
         btn.innerHTML = originalHTML;
+        btn.title = "Capture Screenshot";
         btn.classList.remove("btn-success");
         btn.classList.add("btn-light");
         btn.disabled = false;
@@ -4467,6 +4584,7 @@ class FinancialReportsComponent {
       console.error("Report capture error:", error);
       alert(`Failed to capture report: ${error.message}`);
       btn.innerHTML = originalHTML;
+      btn.title = "Capture Screenshot";
       btn.disabled = false;
     }
   }
@@ -4943,8 +5061,9 @@ class FinancialReportsComponent {
       return tenant ? tenant.name : personId;
     }
 
-    // It's an investor
-    const investor = this.investors.find((i) => i.investorId === personId);
+    // It's an investor — check property investors first, then all investors
+    const investor = this.investors.find((i) => i.investorId === personId)
+      || (this.allInvestors && this.allInvestors.find((i) => i.investorId === personId));
     return investor ? investor.name : personId;
   }
 
@@ -5017,7 +5136,16 @@ class FinancialReportsComponent {
           const amount = item.amount.toFixed(2);
           const fullName = this.getPersonName(item.personInCharge);
           const shortName = fullName.split(" ").pop(); // Get last word only
-          summary += `- ${item.item} - $${amount} - ${shortName}\n`;
+          let paidToInfo = "";
+          if (item.paidTo === "unknown") {
+            paidToInfo = "Unknown";
+          } else if (item.paidTo) {
+            const paidToName = this.getPersonName(item.paidTo);
+            const roomType = this.getPersonRoomType(item.paidTo);
+            paidToInfo = roomType ? `${paidToName} (${roomType})` : paidToName;
+          }
+          const itemWithPaidTo = paidToInfo ? `${item.item} (→${paidToInfo})` : item.item;
+          summary += `- ${itemWithPaidTo} - $${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";
@@ -5034,7 +5162,7 @@ class FinancialReportsComponent {
       btn.style.backgroundColor = "#28a745";
       btn.style.borderColor = "#28a745";
 
-      showToast("Report summary copied to clipboard", "success");
+      showToast(i18next.t("financialReport.copyReportSuccess"), "success");
 
       // Restore button after 2 seconds
       setTimeout(() => {
