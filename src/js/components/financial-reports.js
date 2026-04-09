@@ -1739,21 +1739,37 @@ class FinancialReportsComponent {
     try {
       const year  = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
-      const res  = await API.get(API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(this.selectedProperty, year, month));
-      const data = await res.json();
-      if (!data.success || !data.bill) {
-        showToast("No bill found for this property and month. Generate a bill first.", "warning");
-        return;
-      }
-      const bill = data.bill;
-      const amount = bill.utilityFee ?? 0;
       const monthName = this.currentDate.toLocaleString("en-SG", { month: "long" });
+
+      // First: check utility bill tracker for a matching entry
+      let amount = null;
+      let details = "";
+      const ubRes  = await API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty));
+      const ubData = await ubRes.json();
+      const ubEntry = (ubData.bills || []).find(b => b.year === year && b.month === month);
+      if (ubEntry) {
+        amount = ubEntry.totalAmount ?? 0;
+        const fmt = (d) => d ? new Date(d).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" }) : null;
+        const start = fmt(ubEntry.billingPeriodStart);
+        const end   = fmt(ubEntry.billingPeriodEnd);
+        details = start && end ? `${start} – ${end}` : (start || "");
+      } else {
+        // Fall back to tenant bill
+        const res  = await API.get(API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(this.selectedProperty, year, month));
+        const data = await res.json();
+        if (!data.success || !data.bill) {
+          showToast("No utility bill found for this property and month. Add one in Utility Bill Tracker first.", "warning");
+          return;
+        }
+        amount  = data.bill.utilityFee ?? 0;
+        details = data.bill.billingPeriod || "";
+      }
+
       const prefilled = {
         item: `Utility Bill — ${monthName} ${year}`,
         amount,
-        date: new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1)
-          .toISOString().split("T")[0],
-        details: bill.billingPeriod || "",
+        date: new Date(year, month - 1, 1).toISOString().split("T")[0],
+        details,
         recipientAccountDetail: "",
         personInCharge: "",
         currency: "SGD",
@@ -4696,6 +4712,7 @@ class FinancialReportsComponent {
     // Build row metadata for income (includes paidBy tenant info)
     const makeIncomeMeta = (item) => {
       const descLines = wrapText(item.item || "", 26);
+      const noteLines = item.details ? wrapText(item.details, 30) : [];
       const dateStr = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
         : "";
@@ -4706,19 +4723,20 @@ class FinancialReportsComponent {
         const pLabel = rType ? `${pName} · ${rType}` : pName;
         if (pLabel) subtitle = dateStr ? `${dateStr}  ·  ${pLabel}` : pLabel;
       }
-      // 4px top + 14px/line desc + 12px subtitle + 4px bottom, min 32
-      const rowH = Math.max(32, 4 + descLines.length * 14 + (subtitle ? 13 : 0) + 4);
-      return { descLines, subtitle, rowH };
+      // 4px top + 14px/line title + 12px/line note + 12px subtitle + 4px bottom, min 32
+      const rowH = Math.max(32, 4 + descLines.length * 14 + noteLines.length * 12 + (subtitle ? 13 : 0) + 4);
+      return { descLines, noteLines, subtitle, rowH };
     };
 
     // Build row metadata for expenses (date only)
     const makeExpenseMeta = (item) => {
       const descLines = wrapText(item.item || "", 26);
+      const noteLines = item.details ? wrapText(item.details, 30) : [];
       const subtitle = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
         : "";
-      const rowH = Math.max(32, 4 + descLines.length * 14 + (subtitle ? 13 : 0) + 4);
-      return { descLines, subtitle, rowH };
+      const rowH = Math.max(32, 4 + descLines.length * 14 + noteLines.length * 12 + (subtitle ? 13 : 0) + 4);
+      return { descLines, noteLines, subtitle, rowH };
     };
 
     // ── 2-column section helper (dynamic row heights) ─────────────
@@ -4775,8 +4793,14 @@ class FinancialReportsComponent {
       meta.descLines.forEach((line, li) => {
         p(`<text x="${colX + 26}" y="${rowY + 14 + li * 14}" font-size="11" fill="#0f172a">${this._svgEsc(line)}</text>`);
       });
+      if (meta.noteLines.length > 0) {
+        const noteStartY = rowY + 14 + meta.descLines.length * 14 + 2;
+        meta.noteLines.forEach((line, li) => {
+          p(`<text x="${colX + 26}" y="${noteStartY + li * 12}" font-size="9" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`);
+        });
+      }
       if (meta.subtitle) {
-        const subY = rowY + 14 + meta.descLines.length * 14 + 2;
+        const subY = rowY + 14 + meta.descLines.length * 14 + meta.noteLines.length * 12 + 2;
         p(`<text x="${colX + 26}" y="${subY}" font-size="8" fill="#94a3b8">${this._svgEsc(meta.subtitle)}</text>`);
       }
       p(`<text x="${colX + colW - 4}" y="${rowY + 14}" font-size="11" fill="#16a34a" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`);
@@ -4797,8 +4821,14 @@ class FinancialReportsComponent {
       meta.descLines.forEach((line, li) => {
         p(`<text x="${colX + 26}" y="${rowY + 14 + li * 14}" font-size="11" fill="#0f172a">${this._svgEsc(line)}</text>`);
       });
+      if (meta.noteLines.length > 0) {
+        const noteStartY = rowY + 14 + meta.descLines.length * 14 + 2;
+        meta.noteLines.forEach((line, li) => {
+          p(`<text x="${colX + 26}" y="${noteStartY + li * 12}" font-size="9" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`);
+        });
+      }
       if (meta.subtitle) {
-        const subY = rowY + 14 + meta.descLines.length * 14 + 2;
+        const subY = rowY + 14 + meta.descLines.length * 14 + meta.noteLines.length * 12 + 2;
         p(`<text x="${colX + 26}" y="${subY}" font-size="8" fill="#94a3b8">${this._svgEsc(meta.subtitle)}</text>`);
       }
       p(`<text x="${colX + colW - 4}" y="${rowY + 14}" font-size="11" fill="#dc2626" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`);

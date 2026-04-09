@@ -1770,8 +1770,11 @@ class TenantManagementComponent {
   }
 
   removePropertyFromTenant(propertyId) {
-    // Property removal is no longer supported - tenant is assigned to single property
-    console.warn("removePropertyFromTenant is deprecated - tenant is assigned to single property");
+    if (!confirm('Remove this property assignment from the tenant?')) return;
+    this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
+    this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(p => p.propertyId !== propertyId);
+    this.updatePropertiesList();
+    this.checkForChanges();
   }
 
   updateSelectedPropertiesList() {
@@ -1889,6 +1892,11 @@ class TenantManagementComponent {
                                 <h6 class="card-title mb-0">
                                     <i class="bi bi-building me-2"></i>${propertyTitle}
                                 </h6>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="tenantManager.removePropertyFromTenant('${propertyId}')"
+                                        title="Remove property assignment">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
                             </div>
 
                             <!-- Main Tenant Checkbox -->
