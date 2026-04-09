@@ -2429,6 +2429,7 @@
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
           Cantarell, sans-serif;
+        --name-col-width: 280px;
       }
 
       .calendar-header {
@@ -2944,8 +2945,6 @@
         bottom: 0;
         z-index: 15;
         pointer-events: none;
-        margin-left: 280px;
-        /* Account for tenant name column */
       }
 
       .today-marker-line {
@@ -2977,6 +2976,7 @@
       @media (max-width: 768px) {
         .tenant-timeline-calendar {
           min-width: 900px;
+          --name-col-width: 220px;
         }
 
         .tenant-name-column {

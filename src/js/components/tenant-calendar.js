@@ -167,7 +167,7 @@ class TenantCalendar {
         const today = new Date();
         const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
         const todayMarkerHtml = todayPosition !== null ? `
-            <div class="today-marker" style="left: ${todayPosition}%;" title="Today - ${todayFormatted}">
+            <div class="today-marker" style="left: calc(var(--name-col-width) + (100% - var(--name-col-width)) * ${todayPosition / 100});" title="Today - ${todayFormatted}">
                 <div class="today-marker-line"></div>
                 <div class="today-marker-label">${todayFormatted}</div>
             </div>
