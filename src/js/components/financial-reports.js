@@ -560,6 +560,7 @@ class FinancialReportsComponent {
     if (!propertyId) {
       this.selectedProperty = null;
       document.getElementById("financialReportContent").style.display = "none";
+      this.updatePropertyGroupLinks(null);
       return;
     }
 
@@ -3665,9 +3666,10 @@ class FinancialReportsComponent {
 
       // Get property information
       let propertyInfo = "";
+      let property = null;
       if (this.selectedProperty) {
         try {
-          const property = await this.getPropertyDetails(this.selectedProperty);
+          property = await this.getPropertyDetails(this.selectedProperty);
           if (property) {
             propertyInfo = `${property.unit}, ${property.address}`;
           } else {
@@ -3685,6 +3687,9 @@ class FinancialReportsComponent {
           ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}</div>` : ""}
         </div>
       `;
+
+      // Update property group links
+      this.updatePropertyGroupLinks(property);
     }
 
     if (currentMonthBadge) {
@@ -3711,6 +3716,37 @@ class FinancialReportsComponent {
       currentMonthBadge.textContent = badgeText;
       currentMonthBadge.className = badgeClass;
     }
+  }
+
+  updatePropertyGroupLinks(property) {
+    const groupLinksContainer = document.getElementById("propertyGroupLinks");
+    const tenantContainer = document.getElementById("tenantGroupLinkContainer");
+    const adminContainer = document.getElementById("adminGroupLinkContainer");
+    if (!groupLinksContainer || !tenantContainer || !adminContainer) return;
+
+    const tenantGroup = property && property.tenantFacebookGroup;
+    const adminGroup = property && property.adminFacebookGroup;
+
+    if (!tenantGroup && !adminGroup) {
+      groupLinksContainer.style.display = "none";
+      return;
+    }
+
+    tenantContainer.innerHTML = tenantGroup
+      ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer"
+            class="btn btn-sm btn-outline-primary">
+           <i class="bi bi-facebook me-1"></i>Tenant Group
+         </a>`
+      : "";
+
+    adminContainer.innerHTML = adminGroup
+      ? `<a href="${escapeHtml(adminGroup)}" target="_blank" rel="noopener noreferrer"
+            class="btn btn-sm btn-outline-success">
+           <i class="bi bi-facebook me-1"></i>Admin Group
+         </a>`
+      : "";
+
+    groupLinksContainer.style.display = "";
   }
 
   // Toggle action buttons (add/edit/delete) based on closed status
