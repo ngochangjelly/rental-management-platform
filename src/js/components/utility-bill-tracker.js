@@ -3,6 +3,8 @@
  * Tracks SP Group (electricity, water, gas) bills per property per month.
  * Uses Chart.js for monthly trend charts and backend OCR to parse bill images.
  */
+import i18next from "../i18n.js";
+
 class UtilityBillTrackerComponent {
   constructor() {
     this.properties = [];
@@ -12,6 +14,9 @@ class UtilityBillTrackerComponent {
     this.editingBillId = null;
     this.chart = null;
     this.monthlyBillStatus = {}; // { propertyId: boolean }
+    this._slugResolvedProperty = null; // set transiently by router for deep-link resolution
+    this.allSelected = false;
+    this._allCharts = [];
     const now = new Date();
     this.summaryYear = now.getFullYear();
     this.summaryMonth = now.getMonth() + 1;
@@ -125,6 +130,190 @@ class UtilityBillTrackerComponent {
     this._loadMonthlyBillStatus(yr, mo);
   }
 
+  shiftMonth(delta) {
+    const sel = document.getElementById('utilityMonthSelect');
+    if (!sel) return;
+
+    const [yr, mo] = sel.value.split('-').map(Number);
+    let newDate = new Date(yr, mo - 1 + delta, 1);
+    const newYr = newDate.getFullYear();
+    const newMo = newDate.getMonth() + 1;
+    const newVal = `${newYr}-${newMo}`;
+
+    // If the target month exists in the select, just move to it
+    const existing = Array.from(sel.options).find(o => o.value === newVal);
+    if (existing) {
+      sel.value = newVal;
+    } else {
+      // Add a new option for a future month not yet in the list
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const opt = document.createElement('option');
+      opt.value = newVal;
+      opt.textContent = `${monthNames[newMo - 1]} ${newYr}`;
+      // Insert at index 0 (most recent = top) since we only go forward
+      sel.insertBefore(opt, sel.options[0]);
+      sel.value = newVal;
+    }
+
+    const [loadYr, loadMo] = sel.value.split('-').map(Number);
+    this._loadMonthlyBillStatus(loadYr, loadMo);
+  }
+
+  _syncSelectAllToggle(checked) {
+    const toggle = document.getElementById('utilitySelectAllToggle');
+    if (toggle) toggle.checked = checked;
+  }
+
+  toggleAllProperties(checked) {
+    this.allSelected = checked;
+    this._renderPropertyCards();
+    if (!checked) {
+      this.selectedProperty = null;
+      this._destroyAllCharts();
+      document.getElementById('utilityAllChartsContainer')?.setAttribute('hidden', '');
+      document.getElementById('utilityChartCard')?.removeAttribute('hidden');
+      document.getElementById('utilityBillContent')?.setAttribute('hidden', '');
+      window.appRouter?.replace('/utility-bills');
+      return;
+    }
+    document.getElementById('utilityBillContent')?.removeAttribute('hidden');
+    document.getElementById('utilityBillFormPanel')?.setAttribute('hidden', '');
+    document.getElementById('utilityBillHistoryCard')?.setAttribute('hidden', '');
+    document.getElementById('utilityChartCard')?.setAttribute('hidden', '');
+    window.appRouter?.replace('/utility-bills');
+    this._loadAllPropertyCharts();
+  }
+
+  _destroyAllCharts() {
+    for (const c of (this._allCharts || [])) {
+      try { c.destroy(); } catch (_) {}
+    }
+    this._allCharts = [];
+  }
+
+  async _loadAllPropertyCharts() {
+    const container = document.getElementById('utilityAllChartsContainer');
+    if (!container) return;
+
+    // Show loading skeleton
+    container.innerHTML = `
+      <div class="d-flex align-items-center gap-2 text-muted small py-3">
+        <span class="spinner-border spinner-border-sm"></span>
+        Loading charts for ${this.properties.length} properties…
+      </div>`;
+    container.removeAttribute('hidden');
+
+    // Fetch all properties' bills in parallel
+    const results = await Promise.allSettled(
+      this.properties.map(p =>
+        API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId))
+          .then(r => r.json())
+          .then(d => ({ property: p, bills: d.bills || [] }))
+      )
+    );
+
+    if (!this.allSelected) return; // deselected while loading
+
+    this._destroyAllCharts();
+
+    const now = new Date();
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const labels = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
+    }
+
+    // Build HTML grid — one card per property
+    container.innerHTML = `<div class="row g-3">` +
+      results.map((r, idx) => {
+        const canvasId = `utilityPropChart_${idx}`;
+        const prop = r.status === 'fulfilled' ? r.value.property : this.properties[idx];
+        const label = prop.address || prop.propertyId;
+        const hasBill = this.monthlyBillStatus[prop.propertyId];
+        const statusKnown = prop.propertyId in this.monthlyBillStatus;
+        const badge = statusKnown
+          ? (hasBill
+            ? `<span class="badge bg-success ms-2" style="font-size:0.6rem;">${i18next.t('utilityBillTracker.filled')}</span>`
+            : `<span class="badge bg-warning text-dark ms-2" style="font-size:0.6rem;">${i18next.t('utilityBillTracker.missing')}</span>`)
+          : '';
+        return `
+          <div class="col-12 col-md-6 col-xl-4">
+            <div class="card shadow-sm h-100">
+              <div class="card-header py-2 d-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                     style="width:22px;height:22px;font-size:9px;font-weight:bold;">
+                  ${escapeHtml(prop.propertyId.substring(0, 2).toUpperCase())}
+                </div>
+                <span class="fw-semibold text-truncate flex-grow-1" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+                ${badge}
+              </div>
+              <div class="card-body p-2">
+                <div style="position:relative;height:160px;">
+                  <canvas id="${canvasId}"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('') +
+    `</div>`;
+
+    // Render each chart
+    this._allCharts = [];
+    results.forEach((r, idx) => {
+      const canvas = document.getElementById(`utilityPropChart_${idx}`);
+      if (!canvas) return;
+      const bills = r.status === 'fulfilled' ? r.value.bills : [];
+
+      const elecData = [], waterData = [], gasData = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const yr = d.getFullYear(), mo = d.getMonth() + 1;
+        const bill = bills.find(b => b.year === yr && b.month === mo);
+        elecData.push(bill ? bill.electricityAmount : null);
+        waterData.push(bill ? bill.waterAmount : null);
+        gasData.push(bill ? (bill.gasAmount || 0) + (bill.refuseAmount || 0) + (bill.otherAmount || 0) : null);
+      }
+
+      const chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: i18next.t('utilityBillTracker.electricityLabel'), data: elecData, backgroundColor: 'rgba(255,193,7,0.85)', borderColor: 'rgba(255,193,7,1)', borderWidth: 1, borderRadius: 3 },
+            { label: i18next.t('utilityBillTracker.waterLabel'),       data: waterData, backgroundColor: 'rgba(13,202,240,0.85)',  borderColor: 'rgba(13,202,240,1)',  borderWidth: 1, borderRadius: 3 },
+            { label: i18next.t('utilityBillTracker.gasOthersLabel'),   data: gasData,   backgroundColor: 'rgba(108,117,125,0.75)', borderColor: 'rgba(108,117,125,1)', borderWidth: 1, borderRadius: 3 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const v = ctx.parsed.y;
+                  return v != null ? `${ctx.dataset.label}: $${v.toFixed(2)}` : null;
+                },
+                footer: (items) => {
+                  const sum = items.reduce((s, i) => s + (i.parsed.y || 0), 0);
+                  return sum > 0 ? i18next.t('utilityBillTracker.chartTotal', { amount: sum.toFixed(2) }) : null;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { font: { size: 9 } }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { callback: (v) => `$${v}`, font: { size: 9 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          },
+        },
+      });
+      this._allCharts.push(chart);
+    });
+  }
+
   _renderMonthlySummary(loading = false) {
     const container = document.getElementById('utilityMonthSummary');
     if (!container) return;
@@ -138,7 +327,7 @@ class UtilityBillTrackerComponent {
       container.innerHTML = `
         <div class="d-flex align-items-center gap-2 text-muted small py-1">
           <span class="spinner-border spinner-border-sm"></span>
-          Checking ${label} bills for all properties…
+          ${i18next.t('utilityBillTracker.checkingBills', { label })}
         </div>`;
       const badge = document.getElementById('utilityNavBadge');
       if (badge) badge.innerHTML = '';
@@ -157,15 +346,15 @@ class UtilityBillTrackerComponent {
         <div class="d-flex align-items-center justify-content-between mb-1">
           <span class="fw-semibold small">
             ${allDone
-              ? `<i class="bi bi-check-circle-fill text-success me-1"></i>All ${total} properties have <strong>${label}</strong> bills`
-              : `<i class="bi bi-exclamation-circle-fill text-warning me-1"></i><strong>${filled} / ${total}</strong> properties have <strong>${label}</strong> bills`}
+              ? `<i class="bi bi-check-circle-fill text-success me-1"></i>${i18next.t('utilityBillTracker.allFilled', { total, label })}`
+              : `<i class="bi bi-exclamation-circle-fill text-warning me-1"></i>${i18next.t('utilityBillTracker.someFilled', { filled, total, label })}`}
           </span>
           <span class="small text-muted">${pct}%</span>
         </div>
         <div class="progress" style="height:6px;">
           <div class="progress-bar ${barColor}" role="progressbar" style="width:${pct}%"></div>
         </div>
-        ${missing > 0 ? `<div class="small text-muted mt-1"><i class="bi bi-arrow-down-circle me-1"></i>${missing} propert${missing > 1 ? 'ies' : 'y'} missing — click below to fill in</div>` : ''}
+        ${missing > 0 ? `<div class="small text-muted mt-1"><i class="bi bi-arrow-down-circle me-1"></i>${i18next.t('utilityBillTracker.missingCount_other', { count: missing })}</div>` : ''}
       </div>`;
 
     this._renderNavBadge(filled, total, allDone);
@@ -189,24 +378,25 @@ class UtilityBillTrackerComponent {
     if (!this.properties.length) {
       container.innerHTML = `
         <div class="col-12 text-center text-muted py-4">
-          <i class="bi bi-building-slash me-2"></i>No properties available
+          <i class="bi bi-building-slash me-2"></i>${i18next.t('utilityBillTracker.noProperties')}
         </div>`;
       return;
     }
 
     container.innerHTML = this.properties.map(p => {
-      const sel = this.selectedProperty === p.propertyId;
+      const sel = this.allSelected || this.selectedProperty === p.propertyId;
       const hasBill = this.monthlyBillStatus[p.propertyId];
       const statusKnown = p.propertyId in this.monthlyBillStatus;
       let statusBadge = '';
       if (statusKnown) {
         statusBadge = hasBill
-          ? `<span class="badge bg-success" style="font-size:0.6rem;"><i class="bi bi-check-lg me-1"></i>Filled</span>`
-          : `<span class="badge bg-warning text-dark" style="font-size:0.6rem;"><i class="bi bi-exclamation me-1"></i>Missing</span>`;
+          ? `<span class="badge bg-success" style="font-size:0.6rem;"><i class="bi bi-check-lg me-1"></i>${i18next.t('utilityBillTracker.filled')}</span>`
+          : `<span class="badge bg-warning text-dark" style="font-size:0.6rem;"><i class="bi bi-exclamation me-1"></i>${i18next.t('utilityBillTracker.missing')}</span>`;
       }
+      const borderClass = sel ? 'border-primary selected' : (statusKnown && !hasBill ? 'border-warning' : '');
       return `
         <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
-          <div class="card utility-prop-card h-100 ${sel ? 'border-primary selected' : (statusKnown && !hasBill ? 'border-warning' : '')}"
+          <div class="card utility-prop-card h-100 ${borderClass}"
                style="cursor:pointer;transition:all .2s ease;"
                onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
             ${p.propertyImage ? `
@@ -232,8 +422,26 @@ class UtilityBillTrackerComponent {
   }
 
   async selectProperty(propertyId) {
+    if (!propertyId) {
+      this.selectedProperty = null;
+      this.allSelected = false;
+      this._syncSelectAllToggle(false);
+      document.getElementById('utilityBillContent')?.setAttribute('hidden', '');
+      window.appRouter?.replace('/utility-bills');
+      return;
+    }
+
+    // Clicking a specific card always deactivates "select all"
+    this.allSelected = false;
+    this._syncSelectAllToggle(false);
+
     const alreadySelected = this.selectedProperty === propertyId;
     this.selectedProperty = propertyId;
+    // Restore per-property panels (may have been hidden by select-all)
+    this._destroyAllCharts();
+    document.getElementById('utilityAllChartsContainer')?.setAttribute('hidden', '');
+    document.getElementById('utilityChartCard')?.removeAttribute('hidden');
+    document.getElementById('utilityBillHistoryCard')?.removeAttribute('hidden');
     this._renderPropertyCards();
     if (alreadySelected) {
       // Already selected — just ensure content is visible without re-fetching
@@ -241,6 +449,15 @@ class UtilityBillTrackerComponent {
       return;
     }
     await this._loadBills();
+
+    // Sync URL so this state is bookmarkable.
+    const _propData =
+      this.properties.find((p) => p.propertyId === this.selectedProperty) ||
+      this._slugResolvedProperty;
+    const _slug = _propData
+      ? window.SlugUtils.propertySlug(_propData)
+      : this.selectedProperty;
+    window.appRouter?.replace(`/utility-bills/${_slug}`);
   }
 
   async _loadBills() {
@@ -298,7 +515,7 @@ class UtilityBillTrackerComponent {
         labels,
         datasets: [
           {
-            label: 'Electricity ($)',
+            label: i18next.t('utilityBillTracker.electricityLabel'),
             data: elecData,
             backgroundColor: 'rgba(255, 193, 7, 0.85)',
             borderColor: 'rgba(255, 193, 7, 1)',
@@ -306,7 +523,7 @@ class UtilityBillTrackerComponent {
             borderRadius: 4,
           },
           {
-            label: 'Water ($)',
+            label: i18next.t('utilityBillTracker.waterLabel'),
             data: waterData,
             backgroundColor: 'rgba(13, 202, 240, 0.85)',
             borderColor: 'rgba(13, 202, 240, 1)',
@@ -314,7 +531,7 @@ class UtilityBillTrackerComponent {
             borderRadius: 4,
           },
           {
-            label: 'Gas & Others ($)',
+            label: i18next.t('utilityBillTracker.gasOthersLabel'),
             data: gasData,
             backgroundColor: 'rgba(108, 117, 125, 0.75)',
             borderColor: 'rgba(108, 117, 125, 1)',
@@ -337,7 +554,7 @@ class UtilityBillTrackerComponent {
               },
               footer: (items) => {
                 const sum = items.reduce((s, i) => s + (i.parsed.y || 0), 0);
-                return `Total: $${sum.toFixed(2)}`;
+                return i18next.t('utilityBillTracker.chartTotal', { amount: sum.toFixed(2) });
               },
             },
           },
@@ -365,7 +582,7 @@ class UtilityBillTrackerComponent {
       container.innerHTML = `
         <div class="text-center text-muted py-4">
           <i class="bi bi-receipt fs-1 d-block mb-2"></i>
-          <p>No bills recorded yet. Upload your first SP Group bill above.</p>
+          <p>${i18next.t('utilityBillTracker.noBillsRecorded')}</p>
         </div>`;
       return;
     }
@@ -389,16 +606,16 @@ class UtilityBillTrackerComponent {
         <table class="table table-hover align-middle" style="font-size:0.88rem;">
           <thead class="table-light">
             <tr>
-              <th>Month</th>
-              <th>Billing Period</th>
-              <th>Bill Date</th>
-              <th class="text-end"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Electricity</th>
-              <th class="text-end"><i class="bi bi-droplet-fill text-info me-1"></i>Water</th>
-              <th class="text-end"><i class="bi bi-fire text-secondary me-1"></i>Gas & Others</th>
-              <th class="text-end text-success"><i class="bi bi-percent me-1"></i>GST</th>
-              <th class="text-end fw-bold">Total</th>
-              <th class="text-center">Bill</th>
-              <th class="text-center">Actions</th>
+              <th>${i18next.t('utilityBillTracker.colMonth')}</th>
+              <th>${i18next.t('utilityBillTracker.colBillingPeriod')}</th>
+              <th>${i18next.t('utilityBillTracker.colBillDate')}</th>
+              <th class="text-end"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>${i18next.t('utilityBillTracker.electricity')}</th>
+              <th class="text-end"><i class="bi bi-droplet-fill text-info me-1"></i>${i18next.t('utilityBillTracker.water')}</th>
+              <th class="text-end"><i class="bi bi-fire text-secondary me-1"></i>${i18next.t('utilityBillTracker.colGasOthers')}</th>
+              <th class="text-end text-success"><i class="bi bi-percent me-1"></i>${i18next.t('utilityBillTracker.gst')}</th>
+              <th class="text-end fw-bold">${i18next.t('utilityBillTracker.colTotal')}</th>
+              <th class="text-center">${i18next.t('utilityBillTracker.colBill')}</th>
+              <th class="text-center">${i18next.t('utilityBillTracker.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -447,7 +664,7 @@ class UtilityBillTrackerComponent {
 
   showNewBillForm() {
     if (!this.selectedProperty) {
-      alert('Please select a property first.');
+      alert(i18next.t('utilityBillTracker.selectPropertyFirst'));
       return;
     }
     this.editingBillId = null;
@@ -468,7 +685,7 @@ class UtilityBillTrackerComponent {
   _resetForm() {
     const form = document.getElementById('utilityBillForm');
     if (form) form.reset();
-    document.getElementById('utilityBillFormTitle').textContent = 'Add New Bill';
+    document.getElementById('utilityBillFormTitle').textContent = i18next.t('utilityBillTracker.addNewBill');
     document.getElementById('utilityOcrSection')?.removeAttribute('hidden');
     this._clearImagePreview();
     this._hideOcrResult();
@@ -481,7 +698,7 @@ class UtilityBillTrackerComponent {
   }
 
   _populateForm(bill) {
-    document.getElementById('utilityBillFormTitle').textContent = 'Edit Bill';
+    document.getElementById('utilityBillFormTitle').textContent = i18next.t('utilityBillTracker.editBill');
     document.getElementById('utilityOcrSection')?.setAttribute('hidden', '');
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
     set('utilityBillYear', bill.year);
@@ -561,7 +778,7 @@ class UtilityBillTrackerComponent {
 
     if (ocrStatus) {
       ocrStatus.hidden = false;
-      ocrStatus.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${isPdf ? 'Reading PDF bill…' : 'Parsing bill with OCR…'}`;
+      ocrStatus.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${isPdf ? i18next.t('utilityBillTracker.readingPdf') : i18next.t('utilityBillTracker.parsingOcr')}`;
     }
     if (ocrResultBox) ocrResultBox.hidden = true;
 
@@ -585,7 +802,7 @@ class UtilityBillTrackerComponent {
     } catch (err) {
       console.error('[UtilityBillTracker] OCR error:', err);
       if (ocrStatus) {
-        ocrStatus.innerHTML = `<i class="bi bi-exclamation-triangle text-warning me-1"></i>OCR could not parse the bill automatically. Please fill in the fields manually.`;
+        ocrStatus.innerHTML = `<i class="bi bi-exclamation-triangle text-warning me-1"></i>${i18next.t('utilityBillTracker.ocrFailed')}`;
       }
     }
   }
@@ -605,19 +822,19 @@ class UtilityBillTrackerComponent {
 
     box.innerHTML = `
       <div class="alert alert-success py-2 mb-2">
-        <i class="bi bi-check-circle me-1"></i><strong>OCR Complete</strong> — values filled below. Please verify before saving.
+        <i class="bi bi-check-circle me-1"></i>${i18next.t('utilityBillTracker.ocrComplete')}
         ${parsed.validationNote ? `<br><small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>${escapeHtml(parsed.validationNote)}</small>` : ''}
       </div>
       <div class="border rounded p-2 bg-light mb-2" style="font-size:0.85rem;">
-        ${row('Account No.', parsed.accountNumber)}
-        ${row('Billing Period', parsed.billingPeriodStart ? `${parsed.billingPeriodStart}${parsed.billingPeriodEnd ? ' – ' + parsed.billingPeriodEnd : ''}` : null)}
-        ${row('Bill Date', parsed.billDate)}
-        ${row('Electricity', parsed.electricityAmount != null ? `$${parsed.electricityAmount.toFixed(2)}` : null)}
-        ${row('Water', parsed.waterAmount != null ? `$${parsed.waterAmount.toFixed(2)}` : null)}
-        ${row('Gas', parsed.gasAmount != null ? `$${parsed.gasAmount.toFixed(2)}` : null)}
-        ${row('Refuse Removal', parsed.refuseAmount != null ? `$${parsed.refuseAmount.toFixed(2)}` : null)}
-        ${row('GST', parsed.gstAmount != null ? `$${parsed.gstAmount.toFixed(2)}` : null)}
-        ${row('Total (incl. GST)', parsed.totalAmount != null ? `$${parsed.totalAmount.toFixed(2)}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrAccountNo'), parsed.accountNumber)}
+        ${row(i18next.t('utilityBillTracker.ocrBillingPeriod'), parsed.billingPeriodStart ? `${parsed.billingPeriodStart}${parsed.billingPeriodEnd ? ' – ' + parsed.billingPeriodEnd : ''}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrBillDate'), parsed.billDate)}
+        ${row(i18next.t('utilityBillTracker.ocrElectricity'), parsed.electricityAmount != null ? `$${parsed.electricityAmount.toFixed(2)}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrWater'), parsed.waterAmount != null ? `$${parsed.waterAmount.toFixed(2)}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrGas'), parsed.gasAmount != null ? `$${parsed.gasAmount.toFixed(2)}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrRefuse'), parsed.refuseAmount != null ? `$${parsed.refuseAmount.toFixed(2)}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrGst'), parsed.gstAmount != null ? `$${parsed.gstAmount.toFixed(2)}` : null)}
+        ${row(i18next.t('utilityBillTracker.ocrTotal'), parsed.totalAmount != null ? `$${parsed.totalAmount.toFixed(2)}` : null)}
       </div>`;
   }
 
@@ -681,17 +898,17 @@ class UtilityBillTrackerComponent {
   // ── Save ───────────────────────────────────────────────────────────────────
 
   async _saveBill() {
-    if (!this.selectedProperty) { alert('No property selected.'); return; }
+    if (!this.selectedProperty) { alert(i18next.t('utilityBillTracker.noPropertySelected')); return; }
 
     const year = parseInt(document.getElementById('utilityBillYear')?.value || '0');
     const month = parseInt(document.getElementById('utilityBillMonth')?.value || '0');
     if (!year || !month || month < 1 || month > 12) {
-      alert('Please enter a valid year and month.');
+      alert(i18next.t('utilityBillTracker.invalidYearMonth'));
       return;
     }
 
     const submitBtn = document.getElementById('utilityBillSubmitBtn');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…'; }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${i18next.t('utilityBillTracker.saving')}`; }
 
     try {
       const formData = new FormData();
@@ -745,7 +962,7 @@ class UtilityBillTrackerComponent {
 
       this._showAddForm(false);
       await this._loadBills();
-      this._showToast('Bill saved successfully!', 'success');
+      this._showToast(i18next.t('utilityBillTracker.billSaved'), 'success');
       // Refresh the monthly completion status for the saved property
       if (this.selectedProperty) {
         this.monthlyBillStatus[this.selectedProperty] = this.bills.some(
@@ -756,20 +973,20 @@ class UtilityBillTrackerComponent {
       }
     } catch (err) {
       console.error('[UtilityBillTracker] save error:', err);
-      alert('Failed to save bill: ' + err.message);
+      alert(i18next.t('utilityBillTracker.saveFailed', { error: err.message }));
     } finally {
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="bi bi-floppy me-1"></i>Save Bill'; }
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = `<i class="bi bi-floppy me-1"></i>${i18next.t('utilityBillTracker.saveBill')}`; }
     }
   }
 
   async deleteBill(billId) {
-    if (!confirm('Delete this utility bill record? This cannot be undone.')) return;
+    if (!confirm(i18next.t('utilityBillTracker.deleteConfirm'))) return;
     try {
       const res = await API.delete(API_CONFIG.ENDPOINTS.UTILITY_BILL_DELETE(billId));
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Delete failed');
       await this._loadBills();
-      this._showToast('Bill deleted.', 'info');
+      this._showToast(i18next.t('utilityBillTracker.billDeleted'), 'info');
       if (this.selectedProperty) {
         this.monthlyBillStatus[this.selectedProperty] = this.bills.some(
           b => b.year === this.summaryYear && b.month === this.summaryMonth
@@ -778,7 +995,7 @@ class UtilityBillTrackerComponent {
         this._renderMonthlySummary(false);
       }
     } catch (err) {
-      alert('Failed to delete: ' + err.message);
+      alert(i18next.t('utilityBillTracker.deleteFailed', { error: err.message }));
     }
   }
 
@@ -875,28 +1092,28 @@ class UtilityBillTrackerComponent {
 
     let bodyHtml;
     if (!result || result.noTenants) {
-      bodyHtml = `<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle me-2"></i>No tenants found for this property during the billing period.</div>`;
+      bodyHtml = `<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle me-2"></i>${i18next.t('utilityBillTracker.breakdownNoTenants')}</div>`;
     } else {
       const hasAwayDays = result.rows.some(r => r.awayDays > 0);
 
       bodyHtml = `
         <div class="mb-3 small text-muted">
-          <i class="bi bi-calendar-range me-1"></i>Billing period: <strong>${fmtPeriod}</strong>
-          &nbsp;(${result.totalBillingDays} days)
-          &nbsp;·&nbsp;Total: <strong>$${(bill.totalAmount || 0).toFixed(2)}</strong>
+          <i class="bi bi-calendar-range me-1"></i>${i18next.t('utilityBillTracker.breakdownPeriod')} <strong>${fmtPeriod}</strong>
+          &nbsp;(${i18next.t('utilityBillTracker.breakdownDays', { count: result.totalBillingDays })})
+          &nbsp;·&nbsp;${i18next.t('utilityBillTracker.breakdownTotal')} <strong>$${(bill.totalAmount || 0).toFixed(2)}</strong>
         </div>
-        ${hasAwayDays ? `<div class="alert alert-info py-2 small mb-3"><i class="bi bi-luggage-fill me-1"></i>Away days from the Tenancy Occupancy module are deducted from each tenant's occupied days before calculating their share.</div>` : ''}
+        ${hasAwayDays ? `<div class="alert alert-info py-2 small mb-3"><i class="bi bi-luggage-fill me-1"></i>${i18next.t('utilityBillTracker.breakdownAwayNote')}</div>` : ''}
         <div class="table-responsive">
           <table class="table table-sm table-bordered align-middle mb-2" style="font-size:0.88rem;">
             <thead class="table-light">
               <tr>
-                <th>Tenant</th>
-                <th>Room</th>
-                <th class="text-center">Billing Days</th>
-                ${hasAwayDays ? '<th class="text-center text-warning">Away Days</th>' : ''}
-                <th class="text-center">Present Days</th>
-                <th class="text-center">Share</th>
-                <th class="text-end fw-bold">Amount</th>
+                <th>${i18next.t('utilityBillTracker.colTenant')}</th>
+                <th>${i18next.t('utilityBillTracker.colRoom')}</th>
+                <th class="text-center">${i18next.t('utilityBillTracker.colBillingDays')}</th>
+                ${hasAwayDays ? `<th class="text-center text-warning">${i18next.t('utilityBillTracker.colAwayDays')}</th>` : ''}
+                <th class="text-center">${i18next.t('utilityBillTracker.colPresentDays')}</th>
+                <th class="text-center">${i18next.t('utilityBillTracker.colShare')}</th>
+                <th class="text-end fw-bold">${i18next.t('utilityBillTracker.colTotal')}</th>
               </tr>
             </thead>
             <tbody>
@@ -913,14 +1130,14 @@ class UtilityBillTrackerComponent {
             </tbody>
             <tfoot class="table-light fw-bold">
               <tr>
-                <td colspan="${hasAwayDays ? 5 : 4}">Total</td>
+                <td colspan="${hasAwayDays ? 5 : 4}">${i18next.t('utilityBillTracker.breakdownFooterTotal')}</td>
                 <td class="text-center">100%</td>
                 <td class="text-end text-primary">$${(bill.totalAmount || 0).toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
-        <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Amounts above cover the full utility bill (electricity + water + gas & others).</div>`;
+        <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>${i18next.t('utilityBillTracker.breakdownAmountsNote')}</div>`;
     }
 
     // Build and show modal
@@ -932,12 +1149,12 @@ class UtilityBillTrackerComponent {
         <div class="modal-dialog modal-lg">
           <div class="modal-content">
             <div class="modal-header py-2">
-              <h6 class="modal-title mb-0"><i class="bi bi-people-fill me-2 text-info"></i>Tenant Bill Breakdown — ${escapeHtml(billLabel)}</h6>
+              <h6 class="modal-title mb-0"><i class="bi bi-people-fill me-2 text-info"></i>${i18next.t('utilityBillTracker.breakdownTitle', { label: escapeHtml(billLabel) })}</h6>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">${bodyHtml}</div>
             <div class="modal-footer py-2">
-              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">${i18next.t('utilityBillTracker.breakdownClose')}</button>
             </div>
           </div>
         </div>

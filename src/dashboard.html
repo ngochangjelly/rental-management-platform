@@ -1500,6 +1500,26 @@
       .utility-prop-card.selected {
         border-width: 2px !important;
       }
+      /* iOS-style toggle for utility select-all */
+      #utilitySelectAllToggle {
+        width: 2.75em !important;
+        height: 1.5em !important;
+        cursor: pointer;
+        border-radius: 1em;
+        background-color: #e5e5ea;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+        border: none;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+        transition: background-color .2s ease, box-shadow .2s ease;
+      }
+      #utilitySelectAllToggle:checked {
+        background-color: #34c759;
+        border-color: #34c759;
+        box-shadow: none;
+      }
+      #utilitySelectAllToggle:focus {
+        box-shadow: 0 0 0 3px rgba(52,199,89,.25);
+      }
 
       /* AC Clean Management Styles */
 
@@ -3250,7 +3270,7 @@
                 data-section="utility-bills"
               >
                 <i class="bi bi-lightning-charge-fill me-2"></i>
-                <span>Utility Bill Tracker</span>
+                <span data-i18n="sidebar.utilityBillTracker">Utility Bill Tracker</span>
                 <span id="utilityNavBadge" class="ms-auto ps-2"></span>
               </a>
             </li>
@@ -6095,9 +6115,9 @@
                 <div>
                   <h2 class="mb-0">
                     <i class="bi bi-lightning-charge-fill text-warning me-2"></i
-                    >Utility Bill Tracker
+                    ><span data-i18n="utilityBillTracker.title">Utility Bill Tracker</span>
                   </h2>
-                  <p class="text-muted mb-0 small">
+                  <p class="text-muted mb-0 small" data-i18n="utilityBillTracker.subtitle">
                     Track SP Group monthly bills — electricity, water &amp; gas
                     per property
                   </p>
@@ -6107,13 +6127,13 @@
                     class="btn btn-primary"
                     onclick="utilityBillTracker.showNewBillForm()"
                   >
-                    <i class="bi bi-plus-circle me-1"></i>Add Bill
+                    <i class="bi bi-plus-circle me-1"></i><span data-i18n="utilityBillTracker.addBill">Add Bill</span>
                   </button>
                   <button
                     class="btn btn-outline-secondary"
                     onclick="dashboardController.goToDashboard()"
                   >
-                    <i class="bi bi-arrow-left me-1"></i>Back
+                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="utilityBillTracker.back">Back</span>
                   </button>
                 </div>
               </div>
@@ -6123,16 +6143,33 @@
                 <div
                   class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2"
                 >
-                  <h6 class="mb-0">
-                    <i class="bi bi-building me-2"></i>Select Property
-                  </h6>
-                  <div class="d-flex align-items-center gap-2">
+                  <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0">
+                      <i class="bi bi-building me-2"></i><span data-i18n="utilityBillTracker.selectProperty">Select Property</span>
+                    </h6>
+                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="min-width:0">
+                      <input class="form-check-input mt-0" type="checkbox" role="switch"
+                             id="utilitySelectAllToggle"
+                             style="width:2.5em;height:1.3em;cursor:pointer;"
+                             onchange="utilityBillTracker.toggleAllProperties(this.checked)">
+                      <label class="form-check-label small text-muted mb-0 user-select-none"
+                             for="utilitySelectAllToggle"
+                             data-i18n="utilityBillTracker.selectAll">Select All</label>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-secondary px-2" onclick="utilityBillTracker.shiftMonth(-1)" title="Previous month">
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
                     <select
                       class="form-select form-select-sm"
                       id="utilityMonthSelect"
                       style="width: auto"
                       onchange="utilityBillTracker.changeSummaryMonth()"
                     ></select>
+                    <button class="btn btn-sm btn-outline-secondary px-2" onclick="utilityBillTracker.shiftMonth(1)" title="Next month">
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
                   </div>
                 </div>
                 <div class="card-body pb-1">
@@ -6140,7 +6177,7 @@
                   <div id="utilityBillPropertyCards" class="row">
                     <div class="col-12 text-center text-muted py-3">
                       <span class="spinner-border spinner-border-sm me-2"></span
-                      >Loading properties…
+                      ><span data-i18n="utilityBillTracker.loadingProperties">Loading properties…</span>
                     </div>
                   </div>
                 </div>
@@ -6158,7 +6195,7 @@
                     class="card-header py-2 d-flex justify-content-between align-items-center"
                   >
                     <h6 class="mb-0" id="utilityBillFormTitle">
-                      <i class="bi bi-upload me-2"></i>Add New Bill
+                      <i class="bi bi-upload me-2"></i><span data-i18n="utilityBillTracker.addNewBill">Add New Bill</span>
                     </h6>
                     <button
                       type="button"
@@ -6171,12 +6208,12 @@
                       <!-- OCR Upload Section -->
                       <div id="utilityOcrSection" class="mb-4">
                         <label class="form-label fw-semibold">
-                          <i class="bi bi-camera me-1 text-primary"></i>Upload
-                          Bill Image
+                          <i class="bi bi-camera me-1 text-primary"></i><span data-i18n="utilityBillTracker.uploadBillImage">Upload
+                          Bill Image</span>
                           <span
                             class="badge bg-primary ms-1"
                             style="font-size: 0.65rem"
-                            >Auto-Parse OCR</span
+                            data-i18n="utilityBillTracker.autoParse">Auto-Parse OCR</span
                           >
                         </label>
                         <!-- Drop zone -->
@@ -6210,11 +6247,11 @@
                             <i
                               class="bi bi-cloud-arrow-up fs-2 text-muted d-block mb-1"
                             ></i>
-                            <span class="text-muted"
+                            <span class="text-muted" data-i18n="utilityBillTracker.dropZoneHint"
                               >Click or drag &amp; drop your SP Group bill
                               image</span
                             ><br />
-                            <small class="text-muted"
+                            <small class="text-muted" data-i18n="utilityBillTracker.dropZoneSubHint"
                               >Supports JPEG, PNG, HEIC — bill data will be
                               parsed automatically</small
                             >
@@ -6235,7 +6272,7 @@
                       <div class="row g-3 mb-3">
                         <div class="col-6 col-md-3">
                           <label class="form-label"
-                            >Year <span class="text-danger">*</span></label
+                            ><span data-i18n="utilityBillTracker.year">Year</span> <span class="text-danger">*</span></label
                           >
                           <input
                             type="number"
@@ -6249,7 +6286,7 @@
                         </div>
                         <div class="col-6 col-md-3">
                           <label class="form-label"
-                            >Month <span class="text-danger">*</span></label
+                            ><span data-i18n="utilityBillTracker.month">Month</span> <span class="text-danger">*</span></label
                           >
                           <select
                             class="form-select"
@@ -6272,7 +6309,7 @@
                           </select>
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label">Bill Date</label>
+                          <label class="form-label" data-i18n="utilityBillTracker.billDate">Bill Date</label>
                           <input
                             type="date"
                             class="form-control"
@@ -6280,7 +6317,7 @@
                           />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label">Account No.</label>
+                          <label class="form-label" data-i18n="utilityBillTracker.accountNo">Account No.</label>
                           <input
                             type="text"
                             class="form-control"
@@ -6289,7 +6326,7 @@
                           />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label">Billing Period Start</label>
+                          <label class="form-label" data-i18n="utilityBillTracker.billingPeriodStart">Billing Period Start</label>
                           <input
                             type="date"
                             class="form-control"
@@ -6297,7 +6334,7 @@
                           />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label">Billing Period End</label>
+                          <label class="form-label" data-i18n="utilityBillTracker.billingPeriodEnd">Billing Period End</label>
                           <input
                             type="date"
                             class="form-control"
@@ -6309,7 +6346,7 @@
                       <!-- Amounts -->
                       <p class="fw-semibold mb-2">
                         <i class="bi bi-currency-dollar me-1 text-success"></i
-                        >Bill Amounts (SGD)
+                        ><span data-i18n="utilityBillTracker.billAmounts">Bill Amounts (SGD)</span>
                       </p>
                       <div class="row g-3 mb-3">
                         <div class="col-6 col-md-4 col-lg-2">
@@ -6317,7 +6354,7 @@
                             <i
                               class="bi bi-lightning-charge-fill text-warning me-1"
                             ></i
-                            >Electricity
+                            ><span data-i18n="utilityBillTracker.electricity">Electricity</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6334,7 +6371,7 @@
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
                             <i class="bi bi-droplet-fill text-info me-1"></i
-                            >Water
+                            ><span data-i18n="utilityBillTracker.water">Water</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6350,7 +6387,7 @@
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-fire text-secondary me-1"></i>Gas
+                            <i class="bi bi-fire text-secondary me-1"></i><span data-i18n="utilityBillTracker.gas">Gas</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6367,7 +6404,7 @@
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
                             <i class="bi bi-trash3 text-secondary me-1"></i
-                            >Refuse
+                            ><span data-i18n="utilityBillTracker.refuse">Refuse</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6384,7 +6421,7 @@
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
                             <i class="bi bi-three-dots text-muted me-1"></i
-                            >Others
+                            ><span data-i18n="utilityBillTracker.others">Others</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6400,7 +6437,7 @@
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-percent text-success me-1"></i>GST
+                            <i class="bi bi-percent text-success me-1"></i><span data-i18n="utilityBillTracker.gst">GST</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6416,8 +6453,7 @@
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label fw-bold">
-                            <i class="bi bi-receipt text-primary me-1"></i>Total
-                            (incl. GST)
+                            <i class="bi bi-receipt text-primary me-1"></i><span data-i18n="utilityBillTracker.totalInclGst">Total (incl. GST)</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text fw-bold">$</span>
@@ -6434,7 +6470,7 @@
                       </div>
 
                       <div class="mb-3">
-                        <label class="form-label">Notes</label>
+                        <label class="form-label" data-i18n="utilityBillTracker.notes">Notes</label>
                         <textarea
                           class="form-control"
                           id="utilityBillNotes"
@@ -6449,26 +6485,26 @@
                           class="btn btn-primary"
                           id="utilityBillSubmitBtn"
                         >
-                          <i class="bi bi-floppy me-1"></i>Save Bill
+                          <i class="bi bi-floppy me-1"></i><span data-i18n="utilityBillTracker.saveBill">Save Bill</span>
                         </button>
                         <button
                           type="button"
                           class="btn btn-outline-secondary"
                           onclick="utilityBillTracker._showAddForm(false)"
                         >
-                          Cancel
+                          <span data-i18n="utilityBillTracker.cancel">Cancel</span>
                         </button>
                       </div>
                     </form>
                   </div>
                 </div>
 
-                <!-- Chart -->
-                <div class="card mb-4 shadow-sm">
+                <!-- Single-property chart -->
+                <div class="card mb-4 shadow-sm" id="utilityChartCard">
                   <div class="card-header py-2">
                     <h6 class="mb-0">
                       <i class="bi bi-bar-chart-line me-2 text-primary"></i
-                      >Monthly Expense Trend (Last 12 Months)
+                      ><span data-i18n="utilityBillTracker.trendTitle">Monthly Expense Trend (Last 12 Months)</span>
                     </h6>
                   </div>
                   <div class="card-body">
@@ -6478,19 +6514,22 @@
                   </div>
                 </div>
 
+                <!-- All-properties chart grid (shown when Select All is on) -->
+                <div id="utilityAllChartsContainer" hidden></div>
+
                 <!-- Bills History Table -->
-                <div class="card shadow-sm">
+                <div class="card shadow-sm" id="utilityBillHistoryCard">
                   <div
                     class="card-header py-2 d-flex justify-content-between align-items-center"
                   >
                     <h6 class="mb-0">
-                      <i class="bi bi-clock-history me-2"></i>Bill History
+                      <i class="bi bi-clock-history me-2"></i><span data-i18n="utilityBillTracker.billHistory">Bill History</span>
                     </h6>
                     <button
                       class="btn btn-sm btn-outline-primary"
                       onclick="utilityBillTracker.showNewBillForm()"
                     >
-                      <i class="bi bi-plus-circle me-1"></i>Add Bill
+                      <i class="bi bi-plus-circle me-1"></i><span data-i18n="utilityBillTracker.addBill">Add Bill</span>
                     </button>
                   </div>
                   <div
@@ -6499,7 +6538,7 @@
                   >
                     <div class="text-center text-muted py-4">
                       <i class="bi bi-receipt fs-1 d-block mb-2"></i>
-                      <p>No bills recorded yet.</p>
+                      <p data-i18n="utilityBillTracker.noBillsYet">No bills recorded yet.</p>
                     </div>
                   </div>
                 </div>

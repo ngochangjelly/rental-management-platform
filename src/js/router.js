@@ -84,6 +84,16 @@ class AppRouter {
         pattern: /^\/financial$/,
         handle: () => this._goSection("financial"),
       },
+      // Utility bills — property slug
+      {
+        pattern: /^\/utility-bills\/(.+)$/,
+        handle: ([, slug]) => this._goUtility(slug),
+      },
+      // Utility bills section root (no property selected)
+      {
+        pattern: /^\/utility-bills$/,
+        handle: () => this._goSection("utility-bills"),
+      },
       // Generic section: /dashboard, /properties, /tenants, /contracts, etc.
       {
         pattern: /^\/([a-z][a-z0-9-]*)$/,
@@ -201,6 +211,42 @@ class AppRouter {
       return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
     } catch (e) {
       console.error("[Router] Failed to resolve property slug:", e);
+      return null;
+    }
+  }
+
+  async _goUtility(slug) {
+    this._goSection("utility-bills");
+
+    const ut = window.utilityBillTracker;
+    if (!ut) return;
+
+    const property = await this._resolveUtilitySlug(slug);
+    if (!property) {
+      console.warn(`[Router] No property found for utility slug: "${slug}"`);
+      return;
+    }
+
+    ut._slugResolvedProperty = property;
+    await ut.selectProperty(property.propertyId);
+    ut._slugResolvedProperty = null;
+  }
+
+  async _resolveUtilitySlug(slug) {
+    const cached = window.utilityBillTracker?.properties;
+    if (cached?.length > 0) {
+      return cached.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    }
+
+    try {
+      const res = await API.get(
+        `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200`,
+      );
+      const data = await res.json();
+      const props = data.properties || [];
+      return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    } catch (e) {
+      console.error("[Router] Failed to resolve utility property slug:", e);
       return null;
     }
   }
