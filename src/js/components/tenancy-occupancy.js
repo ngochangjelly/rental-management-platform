@@ -807,7 +807,7 @@ class TenancyOccupancyComponent {
     const todayMarkerHtml =
       todayPosition !== null
         ? `
-            <div class="today-marker" style="left: ${todayPosition}%;" title="${i18next.t("tenancyOccupancy.today", "Today")} - ${todayFormatted}">
+            <div class="today-marker" style="left: calc(var(--name-col-width, 280px) + (100% - var(--name-col-width, 280px)) * ${(todayPosition / 100).toFixed(6)});" title="${i18next.t("tenancyOccupancy.today", "Today")} - ${todayFormatted}">
                 <div class="today-marker-line"></div>
                 <div class="today-marker-label">${todayFormatted}</div>
             </div>
