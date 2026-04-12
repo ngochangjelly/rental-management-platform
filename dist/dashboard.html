@@ -5013,6 +5013,9 @@
                           </div>
                         </div>
 
+                        <!-- Social links shown after Tenant B is selected -->
+                        <div id="tenantBSocialPanel"></div>
+
                         <!-- Custom Text Input (initially hidden) -->
                         <div
                           id="customTenantBField"
@@ -5562,6 +5565,14 @@
                     <i class="bi bi-bell-fill me-1"></i>Unpaid Overview
                   </button>
                   <button
+                    id="lockAllReportsBtn"
+                    class="btn btn-outline-success"
+                    title="Lock all unlocked reports for this month"
+                    onclick="window.financialReports && window.financialReports.lockAllReports()"
+                  >
+                    <i class="bi bi-lock-fill me-1"></i>Lock All
+                  </button>
+                  <button
                     class="btn btn-outline-secondary"
                     onclick="dashboardController.goToDashboard()"
                   >
@@ -5587,7 +5598,7 @@
                   </h5>
                 </div>
                 <div class="card-body">
-                  <div id="propertyCards" class="row">
+                  <div id="propertyCards">
                     <!-- Property cards will be dynamically generated here -->
                     <div class="col-12 text-center text-muted">
                       <i class="bi bi-building me-2"></i>
@@ -5704,10 +5715,11 @@
                             >Income
                           </h5>
                           <button
-                            class="btn btn-sm btn-light text-success"
                             id="addIncomeBtn"
+                            title="Add income item"
+                            style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #22c55e; color: white; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; flex-shrink: 0;"
                           >
-                            <i class="bi bi-plus"></i> Add Item
+                            <i class="bi bi-plus-lg"></i>
                           </button>
                         </div>
                         <div class="card-body">
@@ -5753,17 +5765,19 @@
                             >Expenses
                           </h5>
                           <button
-                            class="btn btn-sm btn-light text-warning me-1"
+                            class="btn btn-sm fw-semibold me-1"
                             id="fillUtilityBillBtn"
                             title="Pre-fill utility bill from current month's bill"
+                            style="background: #ffc107; color: #212529; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.25);"
                           >
-                            <i class="bi bi-lightning-charge"></i> Utility Bill
+                            <i class="bi bi-lightning-charge-fill"></i> Utility Bill
                           </button>
                           <button
-                            class="btn btn-sm btn-light text-danger"
                             id="addExpenseBtn"
+                            title="Add expense item"
+                            style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #ef4444; color: white; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; flex-shrink: 0;"
                           >
-                            <i class="bi bi-plus"></i> Add Item
+                            <i class="bi bi-plus-lg"></i>
                           </button>
                         </div>
                         <div class="card-body">
@@ -11655,5 +11669,5 @@
         </div>
       </div>
     </div>
-  <script defer src="/js/dashboard.c11cb0730572fefb4d81.js"></script></body>
+  <script defer src="/js/dashboard.58063bf28cb45d36d7b5.js"></script></body>
 </html>

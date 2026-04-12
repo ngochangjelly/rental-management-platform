@@ -3,6 +3,7 @@ import {
   getRoomTypeDisplayName,
   getRoomTypeOptions,
 } from "../utils/room-type-mapper.js";
+import { renderTenantSocialBadges } from "../utils/social-links.js";
 
 /**
  * Tenant Management Component (v2 - fixed update endpoint)
@@ -786,25 +787,7 @@ class TenantManagementComponent {
         ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
         : ""
       }
-                                ${tenant.facebookUrl
-        ? `<a href="${this.escapeHtml(
-          tenant.facebookUrl,
-        )}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile">
-                                        <i class="bi bi-facebook me-1"></i>Facebook
-                                      </a>`
-        : ""
-      }
-                                ${tenant.phoneNumber
-        ? `<a href="https://wa.me/${this.escapeHtml(
-          tenant.phoneNumber.replace(
-            /[^0-9]/g,
-            "",
-          ),
-        )}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp">
-                                        <i class="bi bi-whatsapp me-1"></i>WhatsApp
-                                      </a>`
-        : ""
-      }
+                                ${renderTenantSocialBadges(tenant)}
                             </div>
                             <div class="btn-group w-100" role="group">
                                 <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant._id

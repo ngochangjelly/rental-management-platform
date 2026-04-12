@@ -3,6 +3,7 @@
  * Handles contract creation with editor-like interface
  */
 import i18next from "i18next";
+import { renderTenantSocialBadges } from "../utils/social-links.js";
 
 class ContractManagementComponent {
   constructor() {
@@ -807,6 +808,37 @@ class ContractManagementComponent {
         .replace("{{count}}", checkboxes.length);
       displayText.className = "text-dark";
     }
+
+    this.renderTenantBSocialPanel();
+  }
+
+  // Render social link badges for all selected Tenant B tenants
+  renderTenantBSocialPanel() {
+    const panel = document.getElementById("tenantBSocialPanel");
+    if (!panel) return;
+
+    const tenants = Array.isArray(this.selectedTenantB)
+      ? this.selectedTenantB.filter(Boolean)
+      : [];
+
+    if (tenants.length === 0) {
+      panel.innerHTML = "";
+      return;
+    }
+
+    const rows = tenants.map((tenant) => {
+      const badges = renderTenantSocialBadges(tenant, { size: "sm" });
+      if (!badges) return "";
+      return `
+        <div class="d-flex align-items-center gap-2 flex-wrap py-1">
+          <small class="text-muted fw-semibold" style="min-width:80px;">${tenant.name || "Tenant"}</small>
+          <div class="d-flex gap-1 flex-wrap">${badges}</div>
+        </div>`;
+    }).filter(Boolean).join("");
+
+    panel.innerHTML = rows
+      ? `<div class="border rounded p-2 bg-light mt-2">${rows}</div>`
+      : "";
   }
 
   // Setup search for Tenant B checkbox dropdown
@@ -1583,6 +1615,8 @@ class ContractManagementComponent {
     });
 
     console.log("✅ Final selectedTenantB array:", this.selectedTenantB);
+
+    this.renderTenantBSocialPanel();
 
     // Auto-fill move-in and move-out dates from the first selected tenant with property info
     // BUT only if we're not currently loading a template (to preserve template dates)
