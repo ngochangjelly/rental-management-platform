@@ -369,13 +369,18 @@ class FinancialReportsComponent {
       }
     }
 
+    // Use CSS Grid for compact layout
+    container.style.display = "grid";
+    container.style.gridTemplateColumns =
+      "repeat(auto-fill, minmax(120px, 1fr))";
+    container.style.gap = "0.5rem";
+
     // Clear existing cards
     container.innerHTML = "";
 
     if (!properties || properties.length === 0) {
-      // Show message when no properties are available
       container.innerHTML = `
-        <div class="col-12 text-center text-muted py-4">
+        <div style="grid-column: 1 / -1; text-align: center;" class="text-muted py-4">
           <i class="bi bi-building-slash me-2"></i>
           No properties available - please log in or add properties
         </div>
@@ -383,81 +388,36 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Generate property cards
+    // Generate compact property cards
     properties.forEach((property) => {
       const isSelected =
         String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
       const cardHtml = `
-        <div class="col-6 col-md-3 col-lg-2 mb-3">
-          <div class="card property-card h-100 ${
-            isSelected ? "border-primary" : ""
-          } ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
-               style="cursor: pointer; transition: all 0.2s ease;"
-               data-property-id="${property.propertyId}"
-               onclick="window.financialReports.selectProperty('${
-                 property.propertyId
-               }')">
-            ${
-              property.propertyImage
-                ? `
-            <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-              ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-2"><span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Done</span></div>' : ""}
-              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ""}
+        <div class="card property-card-compact ${isSelected ? "border-primary selected-card" : ""} ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
+             style="cursor: pointer; transition: all 0.2s ease;"
+             data-property-id="${property.propertyId}"
+             onclick="window.financialReports.selectProperty('${property.propertyId}')">
+          ${
+            property.propertyImage
+              ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; flex-shrink: 0; position: relative;">
+                 ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
+                 ${isSelected ? '<div class="position-absolute top-0 end-0 p-1"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 0.9rem;"></i></div>' : ""}
+               </div>`
+              : ""
+          }
+          <div class="d-flex flex-column align-items-center p-2 bg-white" style="gap: 3px;">
+            <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
+              ${isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
             </div>
-            `
-                : ""
-            }
-            <div class="card-header d-flex justify-content-between align-items-center bg-white">
-              <div class="d-flex align-items-center">
-                <div class="me-3">
-                  <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white"
-                       style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                    ${
-                      isReportClosed
-                        ? '<i class="bi bi-lock-fill"></i>'
-                        : escapeHtml(
-                            property.propertyId.substring(0, 2).toUpperCase(),
-                          )
-                    }
-                  </div>
-                </div>
-                <div>
-                  <h6 class="mb-0 fw-bold">${escapeHtml(
-                    property.propertyId,
-                  )}</h6>
-                  <small class="text-muted">Property ID</small>
-                </div>
-              </div>
-              ${
-                !property.propertyImage && isSelected
-                  ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
-                  : !property.propertyImage && isReportClosed
-                    ? '<span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Done</span>'
-                    : ""
-              }
+            <div class="text-center" style="line-height: 1.2; width: 100%;">
+              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
+              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
             </div>
-            <div class="card-body py-2 bg-white">
-              <p class="mb-1 small"><strong>Address:</strong> ${escapeHtml(
-                property.address,
-              )}</p>
-              <p class="mb-1 small"><strong>Unit:</strong> ${escapeHtml(
-                property.unit,
-              )}</p>
-              ${
-                property.rent
-                  ? `<p class="mb-1 small"><strong>Rent:</strong> $${property.rent}</p>`
-                  : ""
-              }
-              ${
-                property.description
-                  ? `<p class="mb-1 small text-muted">${escapeHtml(
-                      property.description,
-                    )}</p>`
-                  : ""
-              }
-            </div>
+            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 0.8rem;"></i>' : ""}
+            ${!property.propertyImage && isReportClosed && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
           </div>
         </div>
       `;
@@ -472,31 +432,29 @@ class FinancialReportsComponent {
   }
 
   addPropertyCardStyles() {
-    // Add hover styles if not already added
     if (!document.getElementById("property-card-styles")) {
       const style = document.createElement("style");
       style.id = "property-card-styles";
       style.textContent = `
-        .property-card {
-          min-height: 200px;
-          overflow: hidden;
+        .property-card-compact {
+          border-radius: 6px;
+          border: 1px solid #dee2e6;
         }
-        .property-card:hover {
+        .property-card-compact:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
         }
-        .property-card.border-primary {
-          border-width: 3px !important;
+        .property-card-compact.selected-card {
+          border-width: 2px !important;
         }
-        .property-card.property-card-closed {
+        .property-card-compact.border-primary {
+          border-color: #0d6efd !important;
+        }
+        .property-card-compact.property-card-closed {
           border: 2px solid #198754 !important;
-          background: linear-gradient(135deg, rgba(25, 135, 84, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
         }
-        .property-card.property-card-closed .card-header {
-          background: linear-gradient(135deg, rgba(25, 135, 84, 0.08) 0%, rgba(255, 255, 255, 1) 100%) !important;
-        }
-        .property-card.property-card-closed.border-primary {
-          border: 3px solid #0d6efd !important;
+        .property-card-compact.property-card-closed.border-primary {
+          border: 2px solid #0d6efd !important;
         }
       `;
       document.head.appendChild(style);
@@ -551,34 +509,14 @@ class FinancialReportsComponent {
   }
 
   updatePropertyCardSelection() {
-    // Update visual selection state of property cards
-    const allCards = document.querySelectorAll(".property-card");
+    // Update selection state on compact cards
+    const allCards = document.querySelectorAll(".property-card-compact");
     allCards.forEach((card) => {
-      card.classList.remove("border-primary", "bg-light");
-      const checkIcon = card.querySelector(".bi-check-circle-fill");
-      if (checkIcon) {
-        checkIcon.remove();
-      }
+      const isSelected =
+        String(card.dataset.propertyId) === String(this.selectedProperty);
+      card.classList.toggle("border-primary", isSelected);
+      card.classList.toggle("selected-card", isSelected);
     });
-
-    // Find and highlight the selected card
-    if (this.selectedProperty) {
-      const selectedCard = Array.from(allCards).find(
-        (card) =>
-          String(card.dataset.propertyId) === String(this.selectedProperty),
-      );
-
-      if (selectedCard) {
-        selectedCard.classList.add("border-primary", "bg-light");
-        const header = selectedCard.querySelector(".card-header");
-        if (header && !header.querySelector(".bi-check-circle-fill")) {
-          const checkIcon = document.createElement("i");
-          checkIcon.className = "bi bi-check-circle-fill text-success";
-          checkIcon.style.fontSize = "1.2rem";
-          header.appendChild(checkIcon);
-        }
-      }
-    }
   }
 
   async selectProperty(propertyId) {
@@ -3749,7 +3687,8 @@ class FinancialReportsComponent {
     const btn = document.getElementById("lockAllReportsBtn");
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Locking...';
+      btn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1"></span>Locking...';
     }
 
     let locked = 0;
@@ -3765,6 +3704,12 @@ class FinancialReportsComponent {
               month,
             ),
           );
+          if (response.status === 404) {
+            // No report exists for this property — treat as locked (nothing to lock)
+            this.propertyReportStatus[property.propertyId] = { isClosed: true };
+            locked++;
+            return;
+          }
           const result = await response.json();
           if (result.success) {
             this.propertyReportStatus[property.propertyId] = { isClosed: true };
@@ -3797,9 +3742,13 @@ class FinancialReportsComponent {
     }
 
     if (failed === 0) {
-      this.showSuccess(`Locked ${locked} report${locked !== 1 ? "s" : ""} for ${month}/${year}`);
+      this.showSuccess(
+        `Locked ${locked} report${locked !== 1 ? "s" : ""} for ${month}/${year}`,
+      );
     } else {
-      this.showSuccess(`Locked ${locked}, failed ${failed} for ${month}/${year}`);
+      this.showSuccess(
+        `Locked ${locked}, failed ${failed} for ${month}/${year}`,
+      );
     }
   }
 
@@ -5042,7 +4991,9 @@ class FinancialReportsComponent {
           reader.readAsDataURL(logoBlob);
         });
       }
-    } catch { /* logo optional */ }
+    } catch {
+      /* logo optional */
+    }
 
     // Property info
     const property = this.properties?.find(
@@ -5054,9 +5005,11 @@ class FinancialReportsComponent {
           const addr = property.address || "";
           const pc = property.postcode || "";
           const pcPart = pc && !addr.includes(pc) ? pc : "";
-          return [property.unit, addr, pcPart]
-            .filter(Boolean)
-            .join("  ·  ") || property.name || property.propertyId;
+          return (
+            [property.unit, addr, pcPart].filter(Boolean).join("  ·  ") ||
+            property.name ||
+            property.propertyId
+          );
         })()
       : this.selectedProperty;
 
@@ -5114,7 +5067,7 @@ class FinancialReportsComponent {
       name,
       cx,
       cy,
-      r = 9,
+      r = 14,
       fallbackColor = "#6c757d",
     ) => {
       const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
@@ -5135,27 +5088,31 @@ class FinancialReportsComponent {
     };
 
     // ── Colour palette ────────────────────────────────────────────
-    const BRAND       = "#2aabb5"; // teal (header bg, logo)
-    const DEEP_BLUE   = "#1548a1"; // section headers, column labels
-    const COL_HDR_BG  = "#dbeafe"; // column header row bg
+    const BRAND = "#2aabb5"; // teal (header bg, logo)
+    const DEEP_BLUE = "#1548a1"; // section headers, column labels
+    const COL_HDR_BG = "#dbeafe"; // column header row bg
     const COL_HDR_TXT = "#1548a1"; // column header text
-    const ROW_ALT_BG  = "#f0f7ff"; // alternating row tint
-    const ROW_DIV     = "#bfdbfe"; // row / section separator lines
-    const SUMMARY_BG  = "#f0f7ff"; // summary bar bg
-    const FOOTER_BG   = "#f0f7ff"; // footer bg
-    const ITEM_CNT    = "#93c5fd"; // item-count text in section header
-    const META_TXT    = "#64748b"; // subtitle / date / currency
-    const INCOME_CLR  = "#16a34a";
+    const ROW_ALT_BG = "#f0f7ff"; // alternating row tint
+    const ROW_DIV = "#bfdbfe"; // row / section separator lines
+    const SUMMARY_BG = "#f0f7ff"; // summary bar bg
+    const FOOTER_BG = "#f0f7ff"; // footer bg
+    const ITEM_CNT = "#93c5fd"; // item-count text in section header
+    const META_TXT = "#64748b"; // subtitle / date / currency
+    const INCOME_CLR = "#16a34a";
     const EXPENSE_CLR = "#dc2626";
 
     // ── Header ────────────────────────────────────────────────────
     const LOGO_SIZE = 52;
     const LOGO_X = M;
     const LOGO_Y = Math.round((HEADER_H - LOGO_SIZE) / 2);
-    p(`<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="${DEEP_BLUE}"/>`);
+    p(
+      `<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="${DEEP_BLUE}"/>`,
+    );
     // Brand logo
     if (logoDataUri) {
-      p(`<image href="${logoDataUri}" x="${LOGO_X}" y="${LOGO_Y}" width="${LOGO_SIZE}" height="${LOGO_SIZE}"/>`);
+      p(
+        `<image href="${logoDataUri}" x="${LOGO_X}" y="${LOGO_Y}" width="${LOGO_SIZE}" height="${LOGO_SIZE}"/>`,
+      );
     }
     // Header text (offset right of logo)
     const TX = LOGO_X + (logoDataUri ? LOGO_SIZE + 10 : 0);
@@ -5259,7 +5216,9 @@ class FinancialReportsComponent {
       accentColor,
       rowRenderer,
     ) => {
-      p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`);
+      p(
+        `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`,
+      );
       p(
         `<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${accentColor}"/>`,
       );
@@ -5302,34 +5261,46 @@ class FinancialReportsComponent {
         y += THDR_H;
 
         // Newspaper flow: first half fills left col top-to-bottom, second half fills right col
-        const split      = Math.ceil(items.length / 2);
-        const leftItems  = items.slice(0, split);
-        const leftMetas  = metas.slice(0, split);
+        const split = Math.ceil(items.length / 2);
+        const leftItems = items.slice(0, split);
+        const leftMetas = metas.slice(0, split);
         const rightItems = items.slice(split);
         const rightMetas = metas.slice(split);
         const contentStartY = y;
 
         let leftY = contentStartY;
         leftItems.forEach((item, li) => {
-          const meta  = leftMetas[li];
+          const meta = leftMetas[li];
           const itemH = meta.rowH;
-          if (li % 2 === 1) p(`<rect x="${M}" y="${leftY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`);
+          if (li % 2 === 1)
+            p(
+              `<rect x="${M}" y="${leftY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
+            );
           rowRenderer(item, meta, itemH, M, leftY, COL_W);
-          p(`<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`);
+          p(
+            `<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+          );
           leftY += itemH;
         });
 
         let rightY = contentStartY;
         rightItems.forEach((item, ri) => {
-          const meta  = rightMetas[ri];
+          const meta = rightMetas[ri];
           const itemH = meta.rowH;
-          if (ri % 2 === 1) p(`<rect x="${M + COL_W + COL_GAP}" y="${rightY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`);
+          if (ri % 2 === 1)
+            p(
+              `<rect x="${M + COL_W + COL_GAP}" y="${rightY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
+            );
           rowRenderer(item, meta, itemH, M + COL_W + COL_GAP, rightY, COL_W);
-          p(`<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`);
+          p(
+            `<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+          );
           rightY += itemH;
         });
 
-        y = contentStartY + Math.max(leftY - contentStartY, rightY - contentStartY);
+        y =
+          contentStartY +
+          Math.max(leftY - contentStartY, rightY - contentStartY);
       }
       y += SEC_PAD;
       p(
@@ -5343,19 +5314,19 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge,
       );
       const name = investor ? investor.name : item.personInCharge || "?";
-      const cx = colX + 12;
+      const cx = colX + 16;
       const cy = rowY + Math.floor(pairH / 2);
       renderCircleAvatar(investor?.avatar || null, name, cx, cy);
       meta.descLines.forEach((line, li) => {
         p(
-          `<text x="${colX + 26}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
+          `<text x="${colX + 34}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
         );
       });
       if (meta.noteLines.length > 0) {
         const noteStartY = rowY + 16 + meta.descLines.length * 16 + 2;
         meta.noteLines.forEach((line, li) => {
           p(
-            `<text x="${colX + 26}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
+            `<text x="${colX + 34}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
           );
         });
       }
@@ -5367,7 +5338,7 @@ class FinancialReportsComponent {
           meta.noteLines.length * 14 +
           2;
         p(
-          `<text x="${colX + 26}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+          `<text x="${colX + 34}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
       }
       p(
@@ -5395,19 +5366,19 @@ class FinancialReportsComponent {
         (inv) => inv.investorId === item.personInCharge,
       );
       const name = investor ? investor.name : item.personInCharge || "?";
-      const cx = colX + 12;
+      const cx = colX + 16;
       const cy = rowY + Math.floor(pairH / 2);
       renderCircleAvatar(investor?.avatar || null, name, cx, cy);
       meta.descLines.forEach((line, li) => {
         p(
-          `<text x="${colX + 26}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
+          `<text x="${colX + 34}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
         );
       });
       if (meta.noteLines.length > 0) {
         const noteStartY = rowY + 16 + meta.descLines.length * 16 + 2;
         meta.noteLines.forEach((line, li) => {
           p(
-            `<text x="${colX + 26}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
+            `<text x="${colX + 34}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
           );
         });
       }
@@ -5419,7 +5390,7 @@ class FinancialReportsComponent {
           meta.noteLines.length * 14 +
           2;
         p(
-          `<text x="${colX + 26}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+          `<text x="${colX + 34}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
       }
       p(
@@ -5476,7 +5447,9 @@ class FinancialReportsComponent {
     y += SUMMARY_H;
 
     // ── Investor distribution ─────────────────────────────────────
-    p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`);
+    p(
+      `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`,
+    );
     p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${BRAND}"/>`);
     p(
       `<text x="${M + 8}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" letter-spacing="1">INVESTOR DISTRIBUTION</text>`,
@@ -5490,7 +5463,7 @@ class FinancialReportsComponent {
       y += 28;
     } else {
       const IC = {
-        name: { x: M + 26, anchor: "start" },
+        name: { x: M + 34, anchor: "start" },
         share: { x: M + 205, anchor: "middle" },
         profit: { x: M + 360, anchor: "end" },
         paid: { x: M + 490, anchor: "end" },
@@ -5521,7 +5494,7 @@ class FinancialReportsComponent {
             `<rect x="${M}" y="${rowY}" width="${CW}" height="${INV_ROW_H}" fill="${ROW_ALT_BG}"/>`,
           );
         }
-        const cx = M + 12;
+        const cx = M + 16;
         const cy = rowY + Math.floor(INV_ROW_H / 2);
         renderCircleAvatar(inv.avatar || null, inv.name, cx, cy);
         p(

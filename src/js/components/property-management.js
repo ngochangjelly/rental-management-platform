@@ -447,13 +447,13 @@ class PropertyManagementComponent {
           <div class="card property-management-card h-100 overflow-hidden"
                style="transition: all 0.2s ease;">
             ${property.propertyImage ? `
-            <div class="card-img-top position-relative" style="height: 200px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+            <div class="card-img-top position-relative" style="height: 130px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
               </div>
             </div>
             ` : `
-            <div class="card-img-top position-relative bg-gradient" style="height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-white text-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
               </div>
