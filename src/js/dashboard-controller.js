@@ -34,6 +34,11 @@ class DashboardController {
 
     // Preload tenants data on dashboard entry for better UX
     this.preloadTenantData();
+
+    // Start router after controller is fully initialised.
+    // setTimeout ensures all component constructors have run before the
+    // router tries to navigate to a deep-linked URL.
+    setTimeout(() => window.appRouter?.start(), 0);
   }
 
   updateCurrentDate() {
@@ -82,7 +87,7 @@ class DashboardController {
     });
   }
 
-  showSection(sectionName) {
+  showSection(sectionName, { fromRouter = false } = {}) {
     // Hide all sections
     document.querySelectorAll(".content-section").forEach((section) => {
       section.style.display = "none";
@@ -112,6 +117,12 @@ class DashboardController {
     );
     if (navLink) {
       navLink.classList.add("active");
+    }
+
+    // Keep the URL in sync when navigation is triggered by a click (not by the
+    // router itself — that would create an infinite loop).
+    if (!fromRouter) {
+      window.appRouter?.replace("/" + sectionName);
     }
   }
 

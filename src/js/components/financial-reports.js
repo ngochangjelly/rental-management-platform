@@ -32,7 +32,7 @@ class FinancialReportsComponent {
   async fetchExchangeRateForPeriod() {
     try {
       const date = this.currentDate || new Date();
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toISOString().split("T")[0];
       const res = await API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr));
       const data = await res.json();
       if (data.success && data.rate) return data.rate.rate;
@@ -269,12 +269,15 @@ class FinancialReportsComponent {
       let hasMorePages = true;
 
       while (hasMorePages) {
-        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const response = await API.get(
+          `${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`,
+        );
         const result = await response.json();
 
         if (result.success) {
           allProperties = allProperties.concat(result.properties || []);
-          hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+          hasMorePages =
+            result.pagination && currentPage < result.pagination.totalPages;
           currentPage++;
         } else {
           // Handle API errors (like authentication required)
@@ -314,7 +317,11 @@ class FinancialReportsComponent {
     const statusPromises = this.properties.map(async (property) => {
       try {
         const response = await API.get(
-          API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(property.propertyId, year, month)
+          API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
+            property.propertyId,
+            year,
+            month,
+          ),
         );
         if (response.ok) {
           const result = await response.json();
@@ -326,7 +333,10 @@ class FinancialReportsComponent {
         }
       } catch (error) {
         // Ignore errors for individual property status checks
-        console.debug(`Could not fetch report status for ${property.propertyId}:`, error);
+        console.debug(
+          `Could not fetch report status for ${property.propertyId}:`,
+          error,
+        );
       }
     });
 
@@ -342,6 +352,22 @@ class FinancialReportsComponent {
 
     // Store properties for later use
     this.properties = properties || [];
+
+    // Re-sync URL now that we have full property data (unit + address for slug).
+    // This corrects the URL if selectProperty() ran before properties were loaded
+    // and fell back to the raw propertyId.
+    if (this.selectedProperty && window.appRouter) {
+      const _selected = this.properties.find(
+        (p) => p.propertyId === this.selectedProperty,
+      );
+      if (_selected) {
+        const _y = this.currentDate.getFullYear();
+        const _m = this.currentDate.getMonth() + 1;
+        window.appRouter.replace(
+          `/financial/${window.SlugUtils.propertySlug(_selected)}/${_y}/${_m}`,
+        );
+      }
+    }
 
     // Clear existing cards
     container.innerHTML = "";
@@ -359,7 +385,8 @@ class FinancialReportsComponent {
 
     // Generate property cards
     properties.forEach((property) => {
-      const isSelected = String(this.selectedProperty) === String(property.propertyId);
+      const isSelected =
+        String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
       const cardHtml = `
@@ -387,9 +414,13 @@ class FinancialReportsComponent {
                 <div class="me-3">
                   <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white"
                        style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                    ${isReportClosed ? '<i class="bi bi-lock-fill"></i>' : escapeHtml(
-                      property.propertyId.substring(0, 2).toUpperCase(),
-                    )}
+                    ${
+                      isReportClosed
+                        ? '<i class="bi bi-lock-fill"></i>'
+                        : escapeHtml(
+                            property.propertyId.substring(0, 2).toUpperCase(),
+                          )
+                    }
                   </div>
                 </div>
                 <div>
@@ -402,7 +433,9 @@ class FinancialReportsComponent {
               ${
                 !property.propertyImage && isSelected
                   ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>'
-                  : (!property.propertyImage && isReportClosed ? '<span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Done</span>' : "")
+                  : !property.propertyImage && isReportClosed
+                    ? '<span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Done</span>'
+                    : ""
               }
             </div>
             <div class="card-body py-2 bg-white">
@@ -531,7 +564,8 @@ class FinancialReportsComponent {
     // Find and highlight the selected card
     if (this.selectedProperty) {
       const selectedCard = Array.from(allCards).find(
-        (card) => String(card.dataset.propertyId) === String(this.selectedProperty),
+        (card) =>
+          String(card.dataset.propertyId) === String(this.selectedProperty),
       );
 
       if (selectedCard) {
@@ -561,6 +595,7 @@ class FinancialReportsComponent {
       this.selectedProperty = null;
       document.getElementById("financialReportContent").style.display = "none";
       this.updatePropertyGroupLinks(null);
+      window.appRouter?.replace("/financial");
       return;
     }
 
@@ -581,6 +616,19 @@ class FinancialReportsComponent {
 
     // Update month display
     this.updateMonthDisplay();
+
+    // Sync URL so this state is bookmarkable.
+    // Use human-readable property slug (unit + address). Fall back to the
+    // router-resolved property object if this.properties isn't loaded yet.
+    const _y = this.currentDate.getFullYear();
+    const _m = this.currentDate.getMonth() + 1;
+    const _propData =
+      this.properties.find((p) => p.propertyId === this.selectedProperty) ||
+      this._slugResolvedProperty;
+    const _slug = _propData
+      ? window.SlugUtils.propertySlug(_propData)
+      : this.selectedProperty;
+    window.appRouter?.replace(`/financial/${_slug}/${_y}/${_m}`);
   }
 
   async loadInvestors(propertyId) {
@@ -727,17 +775,22 @@ class FinancialReportsComponent {
     let totalVND = 0;
 
     // Bulk action bar for income
-    const incomeSelectedCount = [...this.selectedItems].filter(k => k.startsWith('income-')).length;
-    const incomeBulkBar = incomeSelectedCount > 0 ? `
+    const incomeSelectedCount = [...this.selectedItems].filter((k) =>
+      k.startsWith("income-"),
+    ).length;
+    const incomeBulkBar =
+      incomeSelectedCount > 0
+        ? `
       <div class="d-flex align-items-center gap-2 mb-2 px-1 py-2 rounded bulk-action-bar" style="background:#fff3cd;border:1px solid #ffc107;">
-        <span class="small fw-semibold text-warning-emphasis">${incomeSelectedCount} item${incomeSelectedCount > 1 ? 's' : ''} selected</span>
+        <span class="small fw-semibold text-warning-emphasis">${incomeSelectedCount} item${incomeSelectedCount > 1 ? "s" : ""} selected</span>
         <button class="btn btn-danger btn-sm ms-auto" onclick="window.financialReports.bulkDeleteSelected('income')">
           <i class="bi bi-trash me-1"></i>Delete Selected (${incomeSelectedCount})
         </button>
         <button class="btn btn-outline-secondary btn-sm" onclick="window.financialReports.clearSelection('income')">
           <i class="bi bi-x"></i> Clear
         </button>
-      </div>` : '';
+      </div>`
+        : "";
 
     // Create compact table format
     let html = `
@@ -749,7 +802,7 @@ class FinancialReportsComponent {
               <th class="border-0 small" style="width:32px;">
                 <input type="checkbox" class="form-check-input" id="selectAllIncome"
                   onchange="window.financialReports.toggleSelectAll('income', this.checked)"
-                  ${incomeSelectedCount === this.currentReport.income.length ? 'checked' : ''}>
+                  ${incomeSelectedCount === this.currentReport.income.length ? "checked" : ""}>
               </th>
               <th class="border-0 small">Item</th>
               <th class="border-0 small">Date</th>
@@ -800,10 +853,10 @@ class FinancialReportsComponent {
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
       html += `
-        <tr data-item-key="${itemKey}" class="${isSelected ? 'table-warning bulk-selected' : ''}" style="cursor:pointer;">
+        <tr data-item-key="${itemKey}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
-              ${isSelected ? 'checked' : ''}
+              ${isSelected ? "checked" : ""}
               onchange="window.financialReports.toggleItemSelection('income', ${index})"
               onclick="event.stopPropagation()">
           </td>
@@ -933,7 +986,7 @@ class FinancialReportsComponent {
     // Initialize tooltips
     this.initializeTooltips();
     // Bind drag-to-select on income table
-    this._initDragSelection('incomeTbody', 'income');
+    this._initDragSelection("incomeTbody", "income");
   }
 
   updateExpenseDisplay() {
@@ -958,17 +1011,22 @@ class FinancialReportsComponent {
     let total = 0;
 
     // Bulk action bar for expenses
-    const expenseSelectedCount = [...this.selectedItems].filter(k => k.startsWith('expense-')).length;
-    const expenseBulkBar = expenseSelectedCount > 0 ? `
+    const expenseSelectedCount = [...this.selectedItems].filter((k) =>
+      k.startsWith("expense-"),
+    ).length;
+    const expenseBulkBar =
+      expenseSelectedCount > 0
+        ? `
       <div class="d-flex align-items-center gap-2 mb-2 px-1 py-2 rounded bulk-action-bar" style="background:#fff3cd;border:1px solid #ffc107;">
-        <span class="small fw-semibold text-warning-emphasis">${expenseSelectedCount} item${expenseSelectedCount > 1 ? 's' : ''} selected</span>
+        <span class="small fw-semibold text-warning-emphasis">${expenseSelectedCount} item${expenseSelectedCount > 1 ? "s" : ""} selected</span>
         <button class="btn btn-danger btn-sm ms-auto" onclick="window.financialReports.bulkDeleteSelected('expense')">
           <i class="bi bi-trash me-1"></i>Delete Selected (${expenseSelectedCount})
         </button>
         <button class="btn btn-outline-secondary btn-sm" onclick="window.financialReports.clearSelection('expense')">
           <i class="bi bi-x"></i> Clear
         </button>
-      </div>` : '';
+      </div>`
+        : "";
 
     // Create compact table format
     let html = `
@@ -980,7 +1038,7 @@ class FinancialReportsComponent {
               <th class="border-0 small" style="width:32px;">
                 <input type="checkbox" class="form-check-input" id="selectAllExpenses"
                   onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
-                  ${expenseSelectedCount === this.currentReport.expenses.length ? 'checked' : ''}>
+                  ${expenseSelectedCount === this.currentReport.expenses.length ? "checked" : ""}>
               </th>
               <th class="border-0 small">Item</th>
               <th class="border-0 small">Date</th>
@@ -1022,10 +1080,10 @@ class FinancialReportsComponent {
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
       html += `
-        <tr data-item-key="${itemKey}" class="${isSelected ? 'table-warning bulk-selected' : ''}" style="cursor:pointer;">
+        <tr data-item-key="${itemKey}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
-              ${isSelected ? 'checked' : ''}
+              ${isSelected ? "checked" : ""}
               onchange="window.financialReports.toggleItemSelection('expense', ${index})"
               onclick="event.stopPropagation()">
           </td>
@@ -1075,11 +1133,12 @@ class FinancialReportsComponent {
             </div>
           </td>
           <td class="small border-0 align-middle text-center">
-            ${item.paidTo === "unknown"
-              ? `<div class="d-flex align-items-center justify-content-center"><div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div></div>`
-              : item.paidTo
-                ? this.renderPaidByAvatar(item.paidTo)
-                : `<span class="text-muted small">-</span>`
+            ${
+              item.paidTo === "unknown"
+                ? `<div class="d-flex align-items-center justify-content-center"><div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div></div>`
+                : item.paidTo
+                  ? this.renderPaidByAvatar(item.paidTo)
+                  : `<span class="text-muted small">-</span>`
             }
           </td>
           <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size: 16px;">$${item.amount.toFixed(
@@ -1130,7 +1189,7 @@ class FinancialReportsComponent {
     // Initialize tooltips
     this.initializeTooltips();
     // Bind drag-to-select on expense table
-    this._initDragSelection('expenseTbody', 'expense');
+    this._initDragSelection("expenseTbody", "expense");
   }
 
   updateSummaryDisplay() {
@@ -1210,14 +1269,17 @@ class FinancialReportsComponent {
 
     this.investors.forEach((investor) => {
       // Try to get percentage from report's investorTransactions (snapshot) first
-      const investorTransaction = this.currentReport?.investorTransactions?.find(
-        (t) => t.investorId === investor.investorId,
-      );
+      const investorTransaction =
+        this.currentReport?.investorTransactions?.find(
+          (t) => t.investorId === investor.investorId,
+        );
       // Fall back to live investor data if no snapshot exists
       const propertyData = investor.properties.find(
         (p) => p.propertyId === this.selectedProperty,
       );
-      const percentage = investorTransaction?.percentage ?? (propertyData ? propertyData.percentage : 0);
+      const percentage =
+        investorTransaction?.percentage ??
+        (propertyData ? propertyData.percentage : 0);
       const profitShare = (netProfit * percentage) / 100;
 
       // Calculate paid amount (expenses paid by this investor)
@@ -1480,7 +1542,11 @@ class FinancialReportsComponent {
         }
 
         // Annotate if tenant moves out within this reporting month
-        if (moveOutDate && moveOutDate >= reportDate && moveOutDate <= reportEndDate) {
+        if (
+          moveOutDate &&
+          moveOutDate >= reportDate &&
+          moveOutDate <= reportEndDate
+        ) {
           tenant._moveOutDateThisMonth = moveOutDate;
           tenant._moveInDateForDisplay = moveInDate;
         } else {
@@ -1531,8 +1597,7 @@ class FinancialReportsComponent {
       currentMonthTenants.forEach((tenant) => {
         if (tenantToGroup.has(tenant._id)) return; // Already assigned
 
-        const roommateId =
-          tenant.roommateId?._id || tenant.roommateId || null;
+        const roommateId = tenant.roommateId?._id || tenant.roommateId || null;
 
         // Check if roommate is already in a group
         if (roommateId && tenantToGroup.has(roommateId)) {
@@ -1664,8 +1729,15 @@ class FinancialReportsComponent {
 
           let periodBadge = "";
           if (tenant._moveOutDateThisMonth) {
-            const fmt = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-            const from = tenant._moveInDateForDisplay ? fmt(tenant._moveInDateForDisplay) : "—";
+            const fmt = (d) =>
+              d.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              });
+            const from = tenant._moveInDateForDisplay
+              ? fmt(tenant._moveInDateForDisplay)
+              : "—";
             const to = fmt(tenant._moveOutDateThisMonth);
             periodBadge = `<span class="badge bg-secondary" title="Rental period this month"><i class="bi bi-calendar-range me-1"></i>${escapeHtml(from)} – ${escapeHtml(to)}</span>`;
           }
@@ -1704,7 +1776,8 @@ class FinancialReportsComponent {
         );
         tooltipTriggerList.forEach((tooltipTriggerEl) => {
           // Dispose existing tooltip first to prevent conflicts
-          const existingTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+          const existingTooltip =
+            bootstrap.Tooltip.getInstance(tooltipTriggerEl);
           if (existingTooltip) {
             existingTooltip.dispose();
           }
@@ -1753,6 +1826,19 @@ class FinancialReportsComponent {
     if (this.allUnpaidVisible) {
       this.refreshAllUnpaidReminderSection();
     }
+
+    // Sync URL so the new month is bookmarkable
+    if (this.selectedProperty && window.appRouter) {
+      const _y = this.currentDate.getFullYear();
+      const _m = this.currentDate.getMonth() + 1;
+      const _propData = this.properties.find(
+        (p) => p.propertyId === this.selectedProperty,
+      );
+      const _slug = _propData
+        ? window.SlugUtils.propertySlug(_propData)
+        : this.selectedProperty;
+      window.appRouter.replace(`/financial/${_slug}/${_y}/${_m}`);
+    }
   }
 
   async fillUtilityBillExpense() {
@@ -1765,31 +1851,53 @@ class FinancialReportsComponent {
       return;
     }
     try {
-      const year  = this.currentDate.getFullYear();
+      const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
-      const monthName = this.currentDate.toLocaleString("en-SG", { month: "long" });
+      const monthName = this.currentDate.toLocaleString("en-SG", {
+        month: "long",
+      });
 
       // First: check utility bill tracker for a matching entry
       let amount = null;
       let details = "";
-      const ubRes  = await API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty));
+      const ubRes = await API.get(
+        API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty),
+      );
       const ubData = await ubRes.json();
-      const ubEntry = (ubData.bills || []).find(b => b.year === year && b.month === month);
+      const ubEntry = (ubData.bills || []).find(
+        (b) => b.year === year && b.month === month,
+      );
       if (ubEntry) {
         amount = ubEntry.totalAmount ?? 0;
-        const fmt = (d) => d ? new Date(d).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" }) : null;
+        const fmt = (d) =>
+          d
+            ? new Date(d).toLocaleDateString("en-SG", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : null;
         const start = fmt(ubEntry.billingPeriodStart);
-        const end   = fmt(ubEntry.billingPeriodEnd);
-        details = start && end ? `${start} – ${end}` : (start || "");
+        const end = fmt(ubEntry.billingPeriodEnd);
+        details = start && end ? `${start} – ${end}` : start || "";
       } else {
         // Fall back to tenant bill
-        const res  = await API.get(API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(this.selectedProperty, year, month));
+        const res = await API.get(
+          API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(
+            this.selectedProperty,
+            year,
+            month,
+          ),
+        );
         const data = await res.json();
         if (!data.success || !data.bill) {
-          showToast("No utility bill found for this property and month. Add one in Utility Bill Tracker first.", "warning");
+          showToast(
+            "No utility bill found for this property and month. Add one in Utility Bill Tracker first.",
+            "warning",
+          );
           return;
         }
-        amount  = data.bill.utilityFee ?? 0;
+        amount = data.bill.utilityFee ?? 0;
         details = data.bill.billingPeriod || "";
       }
 
@@ -1816,7 +1924,11 @@ class FinancialReportsComponent {
     }
 
     // Check if month is closed (only for new items, not edits)
-    if (itemIndex === null && this.currentReport && this.currentReport.isClosed) {
+    if (
+      itemIndex === null &&
+      this.currentReport &&
+      this.currentReport.isClosed
+    ) {
       this.showError("Cannot add items - this month has been closed");
       return;
     }
@@ -1935,7 +2047,9 @@ class FinancialReportsComponent {
               // Pre-fill rate from module if not already set
               if (exchangeRateInput && !exchangeRateInput.value) {
                 const rate = await this.fetchExchangeRateForPeriod();
-                if (rate) exchangeRateInput.value = Number(rate).toLocaleString("en-US");
+                if (rate)
+                  exchangeRateInput.value =
+                    Number(rate).toLocaleString("en-US");
               }
             } else {
               exchangeRateContainer.style.display = "none";
@@ -1947,8 +2061,12 @@ class FinancialReportsComponent {
         }
 
         // Pre-fill exchange rate for new VND entries (not editing existing)
-        if (exchangeRateInput && currencySelect?.value === "VND" && !exchangeRateInput.value) {
-          this.fetchExchangeRateForPeriod().then(rate => {
+        if (
+          exchangeRateInput &&
+          currencySelect?.value === "VND" &&
+          !exchangeRateInput.value
+        ) {
+          this.fetchExchangeRateForPeriod().then((rate) => {
             if (rate && exchangeRateInput && !exchangeRateInput.value) {
               exchangeRateInput.value = Number(rate).toLocaleString("en-US");
             }
@@ -2126,7 +2244,8 @@ class FinancialReportsComponent {
       options += '<optgroup label="Investors">';
       options += this.allInvestors
         .map((investor) => {
-          const isSelected = investor.investorId === selectedValue ? " selected" : "";
+          const isSelected =
+            investor.investorId === selectedValue ? " selected" : "";
           return `<option value="${investor.investorId}"${isSelected}>${escapeHtml(investor.name)} (ID: ${investor.investorId})</option>`;
         })
         .join("");
@@ -2141,11 +2260,15 @@ class FinancialReportsComponent {
           const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
           const isSelected = tenantValue === selectedValue ? " selected" : "";
           const baseName = tenant.name || "Unknown Tenant";
-          const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+          const displayName = tenant.nickname
+            ? `${baseName} (${tenant.nickname})`
+            : baseName;
           const additionalInfo = [];
-          if (tenant.roomType) additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+          if (tenant.roomType)
+            additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
           if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
-          const infoString = additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
+          const infoString =
+            additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
           return `<option value="${tenantValue}"${isSelected}>${escapeHtml(displayName)}${infoString}</option>`;
         })
         .join("");
@@ -2195,8 +2318,10 @@ class FinancialReportsComponent {
       }
     } else {
       // It's an investor — check property investors first, then all investors
-      person = this.investors.find((i) => i.investorId === paidBy)
-        || (this.allInvestors && this.allInvestors.find((i) => i.investorId === paidBy));
+      person =
+        this.investors.find((i) => i.investorId === paidBy) ||
+        (this.allInvestors &&
+          this.allInvestors.find((i) => i.investorId === paidBy));
       if (person) {
         displayName = person.name || "Unknown Investor";
         avatar = person.avatar;
@@ -2516,7 +2641,8 @@ class FinancialReportsComponent {
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
-      const isEditing = this.editingItem !== null && this.editingItemIndex !== null;
+      const isEditing =
+        this.editingItem !== null && this.editingItemIndex !== null;
 
       let endpoint;
       let httpMethod;
@@ -3206,7 +3332,7 @@ class FinancialReportsComponent {
     } else {
       this.selectedItems.add(key);
     }
-    if (type === 'income') {
+    if (type === "income") {
       this.updateIncomeDisplay();
     } else {
       this.updateExpenseDisplay();
@@ -3214,9 +3340,10 @@ class FinancialReportsComponent {
   }
 
   toggleSelectAll(type, checked) {
-    const items = type === 'income'
-      ? (this.currentReport?.income || [])
-      : (this.currentReport?.expenses || []);
+    const items =
+      type === "income"
+        ? this.currentReport?.income || []
+        : this.currentReport?.expenses || [];
     items.forEach((_, i) => {
       const key = `${type}-${i}`;
       if (checked) {
@@ -3225,7 +3352,7 @@ class FinancialReportsComponent {
         this.selectedItems.delete(key);
       }
     });
-    if (type === 'income') {
+    if (type === "income") {
       this.updateIncomeDisplay();
     } else {
       this.updateExpenseDisplay();
@@ -3233,8 +3360,10 @@ class FinancialReportsComponent {
   }
 
   clearSelection(type) {
-    [...this.selectedItems].filter(k => k.startsWith(`${type}-`)).forEach(k => this.selectedItems.delete(k));
-    if (type === 'income') {
+    [...this.selectedItems]
+      .filter((k) => k.startsWith(`${type}-`))
+      .forEach((k) => this.selectedItems.delete(k));
+    if (type === "income") {
       this.updateIncomeDisplay();
     } else {
       this.updateExpenseDisplay();
@@ -3247,11 +3376,15 @@ class FinancialReportsComponent {
       return;
     }
 
-    const keys = [...this.selectedItems].filter(k => k.startsWith(`${type}-`));
+    const keys = [...this.selectedItems].filter((k) =>
+      k.startsWith(`${type}-`),
+    );
     if (keys.length === 0) return;
 
     // Sort indices descending so deleting by index doesn't shift remaining indices
-    const indices = keys.map(k => parseInt(k.split('-')[1], 10)).sort((a, b) => b - a);
+    const indices = keys
+      .map((k) => parseInt(k.split("-")[1], 10))
+      .sort((a, b) => b - a);
 
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth() + 1;
@@ -3261,9 +3394,18 @@ class FinancialReportsComponent {
 
     for (const idx of indices) {
       try {
-        const endpoint = type === 'income'
-          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(this.selectedProperty, year, month) + `/${idx}`
-          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(this.selectedProperty, year, month) + `/${idx}`;
+        const endpoint =
+          type === "income"
+            ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
+                this.selectedProperty,
+                year,
+                month,
+              ) + `/${idx}`
+            : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
+                this.selectedProperty,
+                year,
+                month,
+              ) + `/${idx}`;
 
         const response = await API.delete(endpoint);
         const result = await response.json();
@@ -3279,13 +3421,15 @@ class FinancialReportsComponent {
     }
 
     // Clear selections for this type
-    keys.forEach(k => this.selectedItems.delete(k));
+    keys.forEach((k) => this.selectedItems.delete(k));
 
     await this.loadFinancialReport();
     await this.updateDisplays();
 
     if (successCount > 0) {
-      this.showSuccess(`${successCount} ${type} item${successCount > 1 ? 's' : ''} deleted`);
+      this.showSuccess(
+        `${successCount} ${type} item${successCount > 1 ? "s" : ""} deleted`,
+      );
     }
     if (firstError) {
       this.showError(firstError);
@@ -3297,10 +3441,10 @@ class FinancialReportsComponent {
     if (!tbody) return;
 
     const onMouseDown = (e) => {
-      const row = e.target.closest('tr[data-item-key]');
+      const row = e.target.closest("tr[data-item-key]");
       if (!row) return;
       // Don't start drag on checkbox/button clicks
-      if (e.target.closest('button, input, a')) return;
+      if (e.target.closest("button, input, a")) return;
 
       this._dragSelecting = true;
       const key = row.dataset.itemKey;
@@ -3318,7 +3462,7 @@ class FinancialReportsComponent {
 
     const onMouseOver = (e) => {
       if (!this._dragSelecting) return;
-      const row = e.target.closest('tr[data-item-key]');
+      const row = e.target.closest("tr[data-item-key]");
       if (!row) return;
       const key = row.dataset.itemKey;
       if (!key.startsWith(`${type}-`)) return;
@@ -3334,32 +3478,32 @@ class FinancialReportsComponent {
       if (!this._dragSelecting) return;
       this._dragSelecting = false;
       // Re-render to update the bulk action bar count
-      if (type === 'income') {
+      if (type === "income") {
         this.updateIncomeDisplay();
       } else {
         this.updateExpenseDisplay();
       }
     };
 
-    tbody.addEventListener('mousedown', onMouseDown);
-    tbody.addEventListener('mouseover', onMouseOver);
+    tbody.addEventListener("mousedown", onMouseDown);
+    tbody.addEventListener("mouseover", onMouseOver);
     // Listen on document so mouseup outside tbody still ends drag
-    document.addEventListener('mouseup', onMouseUp, { once: false });
+    document.addEventListener("mouseup", onMouseUp, { once: false });
     // Store reference to remove old listener on re-render
     if (this[`_${type}MouseUpHandler`]) {
-      document.removeEventListener('mouseup', this[`_${type}MouseUpHandler`]);
+      document.removeEventListener("mouseup", this[`_${type}MouseUpHandler`]);
     }
     this[`_${type}MouseUpHandler`] = onMouseUp;
   }
 
   _refreshRowSelection(row, key, type) {
-    const checkbox = row.querySelector('.bulk-checkbox');
+    const checkbox = row.querySelector(".bulk-checkbox");
     const isSelected = this.selectedItems.has(key);
     if (checkbox) checkbox.checked = isSelected;
     if (isSelected) {
-      row.classList.add('table-warning', 'bulk-selected');
+      row.classList.add("table-warning", "bulk-selected");
     } else {
-      row.classList.remove('table-warning', 'bulk-selected');
+      row.classList.remove("table-warning", "bulk-selected");
     }
   }
 
@@ -3582,6 +3726,83 @@ class FinancialReportsComponent {
     }
   }
 
+  // Lock all unlocked reports for the current month
+  async lockAllReports() {
+    if (!this.properties || this.properties.length === 0) {
+      this.showError("No properties to lock");
+      return;
+    }
+
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+
+    const unlocked = this.properties.filter((p) => {
+      const status = this.propertyReportStatus[p.propertyId];
+      return !status || !status.isClosed;
+    });
+
+    if (unlocked.length === 0) {
+      this.showSuccess("All reports for this month are already locked");
+      return;
+    }
+
+    const btn = document.getElementById("lockAllReportsBtn");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Locking...';
+    }
+
+    let locked = 0;
+    let failed = 0;
+
+    await Promise.all(
+      unlocked.map(async (property) => {
+        try {
+          const response = await API.post(
+            API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_CLOSE(
+              property.propertyId,
+              year,
+              month,
+            ),
+          );
+          const result = await response.json();
+          if (result.success) {
+            this.propertyReportStatus[property.propertyId] = { isClosed: true };
+            locked++;
+          } else {
+            failed++;
+          }
+        } catch (e) {
+          failed++;
+        }
+      }),
+    );
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-lock-fill me-1"></i>Lock All';
+    }
+
+    this.renderPropertyCards(this.properties);
+
+    // Refresh current report UI if selected property was just locked
+    if (
+      this.selectedProperty &&
+      this.propertyReportStatus[this.selectedProperty]?.isClosed &&
+      this.currentReport &&
+      !this.currentReport.isClosed
+    ) {
+      this.currentReport.isClosed = true;
+      await this.updateClosedStatus();
+    }
+
+    if (failed === 0) {
+      this.showSuccess(`Locked ${locked} report${locked !== 1 ? "s" : ""} for ${month}/${year}`);
+    } else {
+      this.showSuccess(`Locked ${locked}, failed ${failed} for ${month}/${year}`);
+    }
+  }
+
   // Update UI based on closed status
   async updateClosedStatus() {
     const isClosed = this.currentReport && this.currentReport.isClosed;
@@ -3801,15 +4022,19 @@ class FinancialReportsComponent {
     });
 
     // Disable bulk delete buttons when closed
-    document.querySelectorAll('.bulk-action-bar button.btn-danger').forEach((btn) => {
-      btn.disabled = !enabled;
-      btn.style.opacity = enabled ? "1" : "0.5";
-    });
+    document
+      .querySelectorAll(".bulk-action-bar button.btn-danger")
+      .forEach((btn) => {
+        btn.disabled = !enabled;
+        btn.style.opacity = enabled ? "1" : "0.5";
+      });
 
     // Disable checkboxes when closed
-    document.querySelectorAll('.bulk-checkbox, #selectAllIncome, #selectAllExpenses').forEach((cb) => {
-      cb.disabled = !enabled;
-    });
+    document
+      .querySelectorAll(".bulk-checkbox, #selectAllIncome, #selectAllExpenses")
+      .forEach((cb) => {
+        cb.disabled = !enabled;
+      });
   }
 
   // Public method to refresh the component
@@ -3898,8 +4123,10 @@ class FinancialReportsComponent {
           }
         } else {
           // It's an investor — check property investors first, then all investors
-          person = this.investors.find((i) => i.investorId === paidBy)
-            || (this.allInvestors && this.allInvestors.find((i) => i.investorId === paidBy));
+          person =
+            this.investors.find((i) => i.investorId === paidBy) ||
+            (this.allInvestors &&
+              this.allInvestors.find((i) => i.investorId === paidBy));
           if (person) {
             displayName = person.name || "Unknown Investor";
           }
@@ -4230,8 +4457,11 @@ class FinancialReportsComponent {
           const investor = this.investors.find(
             (inv) => inv.investorId === item.personInCharge,
           );
-          const paidToData = getPaidByForPDF(item.paidTo === "unknown" ? null : item.paidTo);
-          const paidToDisplayName = item.paidTo === "unknown" ? "Unknown" : paidToData.name;
+          const paidToData = getPaidByForPDF(
+            item.paidTo === "unknown" ? null : item.paidTo,
+          );
+          const paidToDisplayName =
+            item.paidTo === "unknown" ? "Unknown" : paidToData.name;
           const dateStr = item.date
             ? new Date(item.date).toLocaleDateString("en-US", {
                 month: "short",
@@ -4307,7 +4537,15 @@ class FinancialReportsComponent {
               const badgeText = removeDiacritics(paidToData.roomType);
               const badgeWidth = pdf.getTextWidth(badgeText) + 2;
               const badgeHeight = 2.5;
-              pdf.roundedRect(badgeX, rowStartY - 2.2, badgeWidth, badgeHeight, 0.5, 0.5, "FD");
+              pdf.roundedRect(
+                badgeX,
+                rowStartY - 2.2,
+                badgeWidth,
+                badgeHeight,
+                0.5,
+                0.5,
+                "FD",
+              );
               pdf.setTextColor(255, 255, 255);
               pdf.text(badgeText, badgeX + 1, rowStartY - 0.2);
               pdf.setTextColor(0, 0, 0);
@@ -4445,14 +4683,17 @@ class FinancialReportsComponent {
             const investor = investorDataSource[idx];
             investorName = investor.name;
             // Try to get percentage from report's investorTransactions (snapshot) first
-            const investorTransaction = this.currentReport?.investorTransactions?.find(
-              (t) => t.investorId === investor.investorId,
-            );
+            const investorTransaction =
+              this.currentReport?.investorTransactions?.find(
+                (t) => t.investorId === investor.investorId,
+              );
             // Fall back to live investor data if no snapshot exists
             const propertyData = investor.properties.find(
               (p) => p.propertyId === this.selectedProperty,
             );
-            percentage = investorTransaction?.percentage ?? (propertyData ? propertyData.percentage : 0);
+            percentage =
+              investorTransaction?.percentage ??
+              (propertyData ? propertyData.percentage : 0);
             investorShare = (netProfit * percentage) / 100;
 
             expensesPaid = this.currentReport.expenses
@@ -4590,7 +4831,8 @@ class FinancialReportsComponent {
     if (!btn) return;
 
     const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     btn.title = "Exporting…";
     btn.disabled = true;
 
@@ -4598,17 +4840,23 @@ class FinancialReportsComponent {
       const svgStr = await this._generateReportSVG();
       const blob = await this._svgToPngBlob(svgStr);
 
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
 
       btn.innerHTML = '<i class="bi bi-check-circle"></i>';
       btn.classList.remove("btn-light");
       btn.classList.add("btn-success");
 
       // Detect platform for paste shortcut hint
-      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      const isMac = /Mac|iPhone|iPad|iPod/.test(
+        navigator.platform || navigator.userAgent,
+      );
       const pasteKey = isMac ? "⌘ Cmd+V" : "Ctrl+V";
       const title = i18next.t("financialReport.exportCopied");
-      const hint = i18next.t("financialReport.exportPasteHint", { key: pasteKey });
+      const hint = i18next.t("financialReport.exportPasteHint", {
+        key: pasteKey,
+      });
       showToast(`${title} ${hint}`, "success", 5000);
 
       setTimeout(() => {
@@ -4658,19 +4906,27 @@ class FinancialReportsComponent {
   /** Deterministic avatar background color derived from person name */
   _getAvatarColor(name) {
     const palette = [
-      "#ef4444", "#f97316", "#eab308", "#22c55e",
-      "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899",
+      "#ef4444",
+      "#f97316",
+      "#eab308",
+      "#22c55e",
+      "#14b8a6",
+      "#3b82f6",
+      "#8b5cf6",
+      "#ec4899",
     ];
     let h = 0;
     const s = name || "?";
-    for (let i = 0; i < s.length; i++) h = ((h * 31) + s.charCodeAt(i)) >>> 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
     return palette[h % palette.length];
   }
 
   /** Truncate text to maxChars, appending ellipsis if needed */
   _svgTrunc(text, maxChars) {
     if (!text) return "";
-    return text.length > maxChars ? text.substring(0, maxChars - 1) + "\u2026" : text;
+    return text.length > maxChars
+      ? text.substring(0, maxChars - 1) + "\u2026"
+      : text;
   }
 
   /** XML-escape a value for safe embedding in SVG attributes / text */
@@ -4701,7 +4957,8 @@ class FinancialReportsComponent {
     if (!this.investors || this.investors.length === 0) return [];
 
     const netProfit = this.currentReport
-      ? (this.currentReport.totalIncome || 0) - (this.currentReport.totalExpenses || 0)
+      ? (this.currentReport.totalIncome || 0) -
+        (this.currentReport.totalExpenses || 0)
       : 0;
 
     return this.investors.map((investor) => {
@@ -4773,23 +5030,56 @@ class FinancialReportsComponent {
     // Pre-fetch avatar images → base64 data URIs (for circular photo avatars)
     const avatarCache = await this._fetchAvatarsAsBase64();
 
+    // Fetch brand logo as base64 for embedding in SVG
+    let logoDataUri = null;
+    try {
+      const logoResp = await fetch("/logo.png");
+      if (logoResp.ok) {
+        const logoBlob = await logoResp.blob();
+        logoDataUri = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.readAsDataURL(logoBlob);
+        });
+      }
+    } catch { /* logo optional */ }
+
     // Property info
-    const property = this.properties?.find((p) => p.propertyId === this.selectedProperty);
-    const propName = property
-      ? (property.name || property.address || property.propertyId)
+    const property = this.properties?.find(
+      (p) => p.propertyId === this.selectedProperty,
+    );
+    // Single title: unit · address (postcode omitted if already in address string)
+    const propTitle = property
+      ? (() => {
+          const addr = property.address || "";
+          const pc = property.postcode || "";
+          const pcPart = pc && !addr.includes(pc) ? pc : "";
+          return [property.unit, addr, pcPart]
+            .filter(Boolean)
+            .join("  ·  ") || property.name || property.propertyId;
+        })()
       : this.selectedProperty;
-    const propAddress = property
-      ? [property.address, property.unit].filter(Boolean).join("  ·  ")
-      : "";
 
     // Date labels
     const MONTH_NAMES = [
-      "JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE",
-      "JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER",
+      "JANUARY",
+      "FEBRUARY",
+      "MARCH",
+      "APRIL",
+      "MAY",
+      "JUNE",
+      "JULY",
+      "AUGUST",
+      "SEPTEMBER",
+      "OCTOBER",
+      "NOVEMBER",
+      "DECEMBER",
     ];
     const monthYear = `${MONTH_NAMES[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
     const genDate = new Date().toLocaleDateString("en-SG", {
-      day: "2-digit", month: "short", year: "numeric",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
 
     // Totals
@@ -4800,49 +5090,94 @@ class FinancialReportsComponent {
     // Layout constants
     const W = 800;
     const M = 24;
-    const CW = W - M * 2;              // 752
+    const CW = W - M * 2; // 752
     const COL_GAP = 8;
-    const COL_W = (CW - COL_GAP) / 2;  // 372
+    const COL_W = (CW - COL_GAP) / 2; // 372
 
-    const HEADER_H = 74;
-    const SUMMARY_H = 46;
-    const SEC_H = 26;
-    const THDR_H = 18;
-    const INV_ROW_H = 32; // fixed height for investor rows
-    const SEC_PAD = 8;
+    const HEADER_H = 90;
+    const SUMMARY_H = 58;
+    const SEC_H = 32;
+    const THDR_H = 22;
+    const INV_ROW_H = 40; // fixed height for investor rows
+    const SEC_PAD = 10;
 
     const nodes = [];
-    const defs = [];  // SVG <defs> for avatar clip paths
+    const defs = []; // SVG <defs> for avatar clip paths
     let y = 0;
     let clipIdx = 0;
     const p = (s) => nodes.push(s);
 
     // Helper: render a circular avatar (photo if available, else fallback colored initial)
     // fallbackColor matches UI: investors → Bootstrap bg-secondary (#6c757d), tenants → bg-info (#0dcaf0-ish → #17a2b8)
-    const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 9, fallbackColor = "#6c757d") => {
+    const renderCircleAvatar = (
+      avatarUrl,
+      name,
+      cx,
+      cy,
+      r = 9,
+      fallbackColor = "#6c757d",
+    ) => {
       const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
       if (dataUri) {
         const clipId = `ac${clipIdx++}`;
-        defs.push(`<clipPath id="${clipId}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>`);
-        p(`<image href="${dataUri}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`);
+        defs.push(
+          `<clipPath id="${clipId}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>`,
+        );
+        p(
+          `<image href="${dataUri}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`,
+        );
       } else {
         p(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fallbackColor}"/>`);
-        p(`<text x="${cx}" y="${cy + Math.round(r * 0.44)}" font-size="${Math.round(r * 0.95)}" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc((name || "?").charAt(0).toUpperCase())}</text>`);
+        p(
+          `<text x="${cx}" y="${cy + Math.round(r * 0.44)}" font-size="${Math.round(r * 0.95)}" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc((name || "?").charAt(0).toUpperCase())}</text>`,
+        );
       }
     };
 
+    // ── Colour palette ────────────────────────────────────────────
+    const BRAND       = "#2aabb5"; // teal (header bg, logo)
+    const DEEP_BLUE   = "#1548a1"; // section headers, column labels
+    const COL_HDR_BG  = "#dbeafe"; // column header row bg
+    const COL_HDR_TXT = "#1548a1"; // column header text
+    const ROW_ALT_BG  = "#f0f7ff"; // alternating row tint
+    const ROW_DIV     = "#bfdbfe"; // row / section separator lines
+    const SUMMARY_BG  = "#f0f7ff"; // summary bar bg
+    const FOOTER_BG   = "#f0f7ff"; // footer bg
+    const ITEM_CNT    = "#93c5fd"; // item-count text in section header
+    const META_TXT    = "#64748b"; // subtitle / date / currency
+    const INCOME_CLR  = "#16a34a";
+    const EXPENSE_CLR = "#dc2626";
+
     // ── Header ────────────────────────────────────────────────────
-    p(`<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="#0f172a"/>`);
-    p(`<text x="${M}" y="20" font-size="9" fill="#475569" font-weight="600" letter-spacing="2">FINANCIAL REPORT</text>`);
-    p(`<text x="${M}" y="44" font-size="18" fill="#ffffff" font-weight="700">${this._svgEsc(propName)}</text>`);
-    if (propAddress) {
-      p(`<text x="${M}" y="62" font-size="11" fill="#94a3b8">${this._svgEsc(propAddress)}</text>`);
+    const LOGO_SIZE = 52;
+    const LOGO_X = M;
+    const LOGO_Y = Math.round((HEADER_H - LOGO_SIZE) / 2);
+    p(`<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="${DEEP_BLUE}"/>`);
+    // Brand logo
+    if (logoDataUri) {
+      p(`<image href="${logoDataUri}" x="${LOGO_X}" y="${LOGO_Y}" width="${LOGO_SIZE}" height="${LOGO_SIZE}"/>`);
     }
-    p(`<text x="${W - M}" y="44" font-size="16" fill="#f1f5f9" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`);
-    p(`<text x="${W - M}" y="62" font-size="10" fill="#64748b" text-anchor="end">Generated ${this._svgEsc(genDate)}</text>`);
+    // Header text (offset right of logo)
+    const TX = LOGO_X + (logoDataUri ? LOGO_SIZE + 10 : 0);
+    p(
+      `<text x="${TX}" y="24" font-size="11" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">FINANCIAL REPORT</text>`,
+    );
+    p(
+      `<text x="${TX}" y="58" font-size="20" fill="#ffffff" font-weight="700">${this._svgEsc(propTitle)}</text>`,
+    );
+    p(
+      `<text x="${W - M}" y="58" font-size="19" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`,
+    );
+    p(
+      `<text x="${W - M}" y="78" font-size="12" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
+    );
     if (report.isClosed) {
-      p(`<rect x="${W - M - 58}" y="6" width="54" height="14" rx="7" fill="#dc2626"/>`);
-      p(`<text x="${W - M - 31}" y="16" font-size="8" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`);
+      p(
+        `<rect x="${W - M - 66}" y="8" width="62" height="16" rx="8" fill="#dc2626"/>`,
+      );
+      p(
+        `<text x="${W - M - 35}" y="20" font-size="10" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`,
+      );
     }
     y = HEADER_H;
 
@@ -4867,10 +5202,13 @@ class FinancialReportsComponent {
 
     // Build row metadata for income (includes paidBy tenant info)
     const makeIncomeMeta = (item) => {
-      const descLines = wrapText(item.item || "", 26);
-      const noteLines = item.details ? wrapText(item.details, 30) : [];
+      const descLines = wrapText(item.item || "", 36);
+      const noteLines = item.details ? wrapText(item.details, 42) : [];
       const dateStr = item.date
-        ? new Date(item.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
+        ? new Date(item.date).toLocaleDateString("en-SG", {
+            day: "2-digit",
+            month: "short",
+          })
         : "";
       let subtitle = dateStr;
       if (item.paidBy) {
@@ -4879,183 +5217,335 @@ class FinancialReportsComponent {
         const pLabel = rType ? `${pName} · ${rType}` : pName;
         if (pLabel) subtitle = dateStr ? `${dateStr}  ·  ${pLabel}` : pLabel;
       }
-      // 4px top + 14px/line title + 12px/line note + 12px subtitle + 4px bottom, min 32
-      const rowH = Math.max(32, 4 + descLines.length * 14 + noteLines.length * 12 + (subtitle ? 13 : 0) + 4);
+      // 4px top + 16px/line title + 14px/line note + 15px subtitle + 4px bottom, min 40
+      const rowH = Math.max(
+        40,
+        4 +
+          descLines.length * 16 +
+          noteLines.length * 14 +
+          (subtitle ? 15 : 0) +
+          4,
+      );
       return { descLines, noteLines, subtitle, rowH };
     };
 
     // Build row metadata for expenses (date only)
     const makeExpenseMeta = (item) => {
-      const descLines = wrapText(item.item || "", 26);
-      const noteLines = item.details ? wrapText(item.details, 30) : [];
+      const descLines = wrapText(item.item || "", 36);
+      const noteLines = item.details ? wrapText(item.details, 42) : [];
       const subtitle = item.date
-        ? new Date(item.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
+        ? new Date(item.date).toLocaleDateString("en-SG", {
+            day: "2-digit",
+            month: "short",
+          })
         : "";
-      const rowH = Math.max(32, 4 + descLines.length * 14 + noteLines.length * 12 + (subtitle ? 13 : 0) + 4);
+      const rowH = Math.max(
+        40,
+        4 +
+          descLines.length * 16 +
+          noteLines.length * 14 +
+          (subtitle ? 15 : 0) +
+          4,
+      );
       return { descLines, noteLines, subtitle, rowH };
     };
 
     // ── 2-column section helper (dynamic row heights) ─────────────
-    const renderTwoColSection = (items, metas, title, totalAmt, accentColor, rowRenderer) => {
-      p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="#1e293b"/>`);
-      p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${accentColor}"/>`);
-      p(`<text x="${M + 8}" y="${y + 17}" font-size="11" fill="#f1f5f9" font-weight="700" letter-spacing="1">${this._svgEsc(title)}</text>`);
-      p(`<text x="${W - M - 72}" y="${y + 17}" font-size="9" fill="#94a3b8" text-anchor="end">${items.length} item${items.length !== 1 ? "s" : ""}</text>`);
-      p(`<text x="${W - M}" y="${y + 17}" font-size="12" fill="#ffffff" text-anchor="end" font-weight="700">$${totalAmt.toFixed(2)}</text>`);
+    const renderTwoColSection = (
+      items,
+      metas,
+      title,
+      totalAmt,
+      accentColor,
+      rowRenderer,
+    ) => {
+      p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`);
+      p(
+        `<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${accentColor}"/>`,
+      );
+      p(
+        `<text x="${M + 8}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" letter-spacing="1">${this._svgEsc(title)}</text>`,
+      );
+      p(
+        `<text x="${W - M - 80}" y="${y + 21}" font-size="11" fill="${ITEM_CNT}" text-anchor="end">${items.length} item${items.length !== 1 ? "s" : ""}</text>`,
+      );
+      p(
+        `<text x="${W - M}" y="${y + 21}" font-size="14" fill="#ffffff" text-anchor="end" font-weight="700">$${totalAmt.toFixed(2)}</text>`,
+      );
       y += SEC_H;
 
       if (items.length === 0) {
-        p(`<text x="${W / 2}" y="${y + 16}" font-size="11" fill="#94a3b8" text-anchor="middle">No items recorded</text>`);
-        y += 24;
+        p(
+          `<text x="${W / 2}" y="${y + 18}" font-size="13" fill="${ITEM_CNT}" text-anchor="middle">No items recorded</text>`,
+        );
+        y += 28;
       } else {
         // Column headers
-        p(`<rect x="${M}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="#e2e8f0"/>`);
-        p(`<rect x="${M + COL_W + COL_GAP}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="#e2e8f0"/>`);
-        p(`<text x="${M + 26}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`);
-        p(`<text x="${M + COL_W - 4}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" text-anchor="end">AMOUNT</text>`);
-        p(`<text x="${M + COL_W + COL_GAP + 26}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`);
-        p(`<text x="${M + CW - 4}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" text-anchor="end">AMOUNT</text>`);
+        p(
+          `<rect x="${M}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="${COL_HDR_BG}"/>`,
+        );
+        p(
+          `<rect x="${M + COL_W + COL_GAP}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="${COL_HDR_BG}"/>`,
+        );
+        p(
+          `<text x="${M + 26}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`,
+        );
+        p(
+          `<text x="${M + COL_W - 4}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" text-anchor="end">AMOUNT</text>`,
+        );
+        p(
+          `<text x="${M + COL_W + COL_GAP + 26}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`,
+        );
+        p(
+          `<text x="${M + CW - 4}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" text-anchor="end">AMOUNT</text>`,
+        );
         y += THDR_H;
 
-        for (let i = 0; i < items.length; i += 2) {
-          const rowY = y;
-          const lMeta = metas[i];
-          const rMeta = i + 1 < items.length ? metas[i + 1] : null;
-          const pairH = Math.max(lMeta.rowH, rMeta ? rMeta.rowH : 0);
+        // Newspaper flow: first half fills left col top-to-bottom, second half fills right col
+        const split      = Math.ceil(items.length / 2);
+        const leftItems  = items.slice(0, split);
+        const leftMetas  = metas.slice(0, split);
+        const rightItems = items.slice(split);
+        const rightMetas = metas.slice(split);
+        const contentStartY = y;
 
-          if (Math.floor(i / 2) % 2 === 1) {
-            p(`<rect x="${M}" y="${rowY}" width="${COL_W}" height="${pairH}" fill="#f8fafc"/>`);
-            p(`<rect x="${M + COL_W + COL_GAP}" y="${rowY}" width="${COL_W}" height="${pairH}" fill="#f8fafc"/>`);
-          }
-          rowRenderer(items[i], lMeta, pairH, M, rowY, COL_W);
-          if (rMeta) {
-            rowRenderer(items[i + 1], rMeta, pairH, M + COL_W + COL_GAP, rowY, COL_W);
-          }
-          p(`<line x1="${M}" y1="${rowY + pairH}" x2="${M + CW}" y2="${rowY + pairH}" stroke="#f1f5f9" stroke-width="1"/>`);
-          y += pairH;
-        }
+        let leftY = contentStartY;
+        leftItems.forEach((item, li) => {
+          const meta  = leftMetas[li];
+          const itemH = meta.rowH;
+          if (li % 2 === 1) p(`<rect x="${M}" y="${leftY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`);
+          rowRenderer(item, meta, itemH, M, leftY, COL_W);
+          p(`<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`);
+          leftY += itemH;
+        });
+
+        let rightY = contentStartY;
+        rightItems.forEach((item, ri) => {
+          const meta  = rightMetas[ri];
+          const itemH = meta.rowH;
+          if (ri % 2 === 1) p(`<rect x="${M + COL_W + COL_GAP}" y="${rightY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`);
+          rowRenderer(item, meta, itemH, M + COL_W + COL_GAP, rightY, COL_W);
+          p(`<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`);
+          rightY += itemH;
+        });
+
+        y = contentStartY + Math.max(leftY - contentStartY, rightY - contentStartY);
       }
       y += SEC_PAD;
-      p(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`);
+      p(
+        `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+      );
     };
 
     // ── Income rows (with paidBy tenant + room type) ──────────────
     const renderIncomeRow = (item, meta, pairH, colX, rowY, colW) => {
-      const investor = this.investors.find((inv) => inv.investorId === item.personInCharge);
-      const name = investor ? investor.name : (item.personInCharge || "?");
+      const investor = this.investors.find(
+        (inv) => inv.investorId === item.personInCharge,
+      );
+      const name = investor ? investor.name : item.personInCharge || "?";
       const cx = colX + 12;
       const cy = rowY + Math.floor(pairH / 2);
       renderCircleAvatar(investor?.avatar || null, name, cx, cy);
       meta.descLines.forEach((line, li) => {
-        p(`<text x="${colX + 26}" y="${rowY + 14 + li * 14}" font-size="11" fill="#0f172a">${this._svgEsc(line)}</text>`);
+        p(
+          `<text x="${colX + 26}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
+        );
       });
       if (meta.noteLines.length > 0) {
-        const noteStartY = rowY + 14 + meta.descLines.length * 14 + 2;
+        const noteStartY = rowY + 16 + meta.descLines.length * 16 + 2;
         meta.noteLines.forEach((line, li) => {
-          p(`<text x="${colX + 26}" y="${noteStartY + li * 12}" font-size="9" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`);
+          p(
+            `<text x="${colX + 26}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
+          );
         });
       }
       if (meta.subtitle) {
-        const subY = rowY + 14 + meta.descLines.length * 14 + meta.noteLines.length * 12 + 2;
-        p(`<text x="${colX + 26}" y="${subY}" font-size="8" fill="#94a3b8">${this._svgEsc(meta.subtitle)}</text>`);
+        const subY =
+          rowY +
+          16 +
+          meta.descLines.length * 16 +
+          meta.noteLines.length * 14 +
+          2;
+        p(
+          `<text x="${colX + 26}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+        );
       }
-      p(`<text x="${colX + colW - 4}" y="${rowY + 14}" font-size="11" fill="#16a34a" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`);
+      p(
+        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="#16a34a" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
+      );
       const curr = item.currency || "SGD";
-      p(`<text x="${colX + colW - 4}" y="${rowY + 26}" font-size="8" fill="#64748b" text-anchor="end">${curr}</text>`);
+      p(
+        `<text x="${colX + colW - 4}" y="${rowY + 30}" font-size="10" fill="${META_TXT}" text-anchor="end">${curr}</text>`,
+      );
     };
 
     const incomeMetas = income.map(makeIncomeMeta);
-    renderTwoColSection(income, incomeMetas, "INCOME", totalIncome, "#22c55e", renderIncomeRow);
+    renderTwoColSection(
+      income,
+      incomeMetas,
+      "INCOME",
+      totalIncome,
+      "#22c55e",
+      renderIncomeRow,
+    );
 
     // ── Expense rows ──────────────────────────────────────────────
     const renderExpenseRow = (item, meta, pairH, colX, rowY, colW) => {
-      const investor = this.investors.find((inv) => inv.investorId === item.personInCharge);
-      const name = investor ? investor.name : (item.personInCharge || "?");
+      const investor = this.investors.find(
+        (inv) => inv.investorId === item.personInCharge,
+      );
+      const name = investor ? investor.name : item.personInCharge || "?";
       const cx = colX + 12;
       const cy = rowY + Math.floor(pairH / 2);
       renderCircleAvatar(investor?.avatar || null, name, cx, cy);
       meta.descLines.forEach((line, li) => {
-        p(`<text x="${colX + 26}" y="${rowY + 14 + li * 14}" font-size="11" fill="#0f172a">${this._svgEsc(line)}</text>`);
+        p(
+          `<text x="${colX + 26}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
+        );
       });
       if (meta.noteLines.length > 0) {
-        const noteStartY = rowY + 14 + meta.descLines.length * 14 + 2;
+        const noteStartY = rowY + 16 + meta.descLines.length * 16 + 2;
         meta.noteLines.forEach((line, li) => {
-          p(`<text x="${colX + 26}" y="${noteStartY + li * 12}" font-size="9" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`);
+          p(
+            `<text x="${colX + 26}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
+          );
         });
       }
       if (meta.subtitle) {
-        const subY = rowY + 14 + meta.descLines.length * 14 + meta.noteLines.length * 12 + 2;
-        p(`<text x="${colX + 26}" y="${subY}" font-size="8" fill="#94a3b8">${this._svgEsc(meta.subtitle)}</text>`);
+        const subY =
+          rowY +
+          16 +
+          meta.descLines.length * 16 +
+          meta.noteLines.length * 14 +
+          2;
+        p(
+          `<text x="${colX + 26}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+        );
       }
-      p(`<text x="${colX + colW - 4}" y="${rowY + 14}" font-size="11" fill="#dc2626" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`);
+      p(
+        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="#dc2626" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
+      );
     };
 
     const expenseMetas = expenses.map(makeExpenseMeta);
-    renderTwoColSection(expenses, expenseMetas, "EXPENSES", totalExpenses, "#ef4444", renderExpenseRow);
+    renderTwoColSection(
+      expenses,
+      expenseMetas,
+      "EXPENSES",
+      totalExpenses,
+      "#ef4444",
+      renderExpenseRow,
+    );
 
     // ── Summary bar (after expenses, before investor distribution) ─
-    const netColor = netProfit >= 0 ? "#16a34a" : "#dc2626";
+    const netColor = netProfit >= 0 ? INCOME_CLR : EXPENSE_CLR;
     const cell = Math.floor(W / 3);
-    p(`<rect x="0" y="${y}" width="${W}" height="${SUMMARY_H}" fill="#f8fafc"/>`);
-    p(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`);
-    p(`<text x="${cell * 0 + cell / 2}" y="${y + 13}" font-size="8" fill="#64748b" text-anchor="middle" font-weight="600" letter-spacing="1.5">TOTAL INCOME</text>`);
-    p(`<text x="${cell * 0 + cell / 2}" y="${y + 36}" font-size="17" fill="#16a34a" text-anchor="middle" font-weight="700">$${totalIncome.toFixed(2)}</text>`);
-    p(`<line x1="${cell}" y1="${y + 8}" x2="${cell}" y2="${y + SUMMARY_H - 8}" stroke="#e2e8f0" stroke-width="1"/>`);
-    p(`<text x="${cell * 1 + cell / 2}" y="${y + 13}" font-size="8" fill="#64748b" text-anchor="middle" font-weight="600" letter-spacing="1.5">TOTAL EXPENSES</text>`);
-    p(`<text x="${cell * 1 + cell / 2}" y="${y + 36}" font-size="17" fill="#dc2626" text-anchor="middle" font-weight="700">$${totalExpenses.toFixed(2)}</text>`);
-    p(`<line x1="${cell * 2}" y1="${y + 8}" x2="${cell * 2}" y2="${y + SUMMARY_H - 8}" stroke="#e2e8f0" stroke-width="1"/>`);
-    p(`<text x="${cell * 2 + cell / 2}" y="${y + 13}" font-size="8" fill="#64748b" text-anchor="middle" font-weight="600" letter-spacing="1.5">NET PROFIT</text>`);
-    p(`<text x="${cell * 2 + cell / 2}" y="${y + 36}" font-size="17" fill="${netColor}" text-anchor="middle" font-weight="700">$${netProfit.toFixed(2)}</text>`);
-    p(`<line x1="0" y1="${y + SUMMARY_H}" x2="${W}" y2="${y + SUMMARY_H}" stroke="#e2e8f0" stroke-width="1"/>`);
+    p(
+      `<rect x="0" y="${y}" width="${W}" height="${SUMMARY_H}" fill="${SUMMARY_BG}"/>`,
+    );
+    p(
+      `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+    );
+    p(
+      `<text x="${cell * 0 + cell / 2}" y="${y + 16}" font-size="10" fill="${DEEP_BLUE}" text-anchor="middle" font-weight="700" letter-spacing="1.5">TOTAL INCOME</text>`,
+    );
+    p(
+      `<text x="${cell * 0 + cell / 2}" y="${y + 44}" font-size="20" fill="${INCOME_CLR}" text-anchor="middle" font-weight="700">$${totalIncome.toFixed(2)}</text>`,
+    );
+    p(
+      `<line x1="${cell}" y1="${y + 8}" x2="${cell}" y2="${y + SUMMARY_H - 8}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+    );
+    p(
+      `<text x="${cell * 1 + cell / 2}" y="${y + 16}" font-size="10" fill="${DEEP_BLUE}" text-anchor="middle" font-weight="700" letter-spacing="1.5">TOTAL EXPENSES</text>`,
+    );
+    p(
+      `<text x="${cell * 1 + cell / 2}" y="${y + 44}" font-size="20" fill="${EXPENSE_CLR}" text-anchor="middle" font-weight="700">$${totalExpenses.toFixed(2)}</text>`,
+    );
+    p(
+      `<line x1="${cell * 2}" y1="${y + 8}" x2="${cell * 2}" y2="${y + SUMMARY_H - 8}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+    );
+    p(
+      `<text x="${cell * 2 + cell / 2}" y="${y + 16}" font-size="10" fill="${DEEP_BLUE}" text-anchor="middle" font-weight="700" letter-spacing="1.5">NET PROFIT</text>`,
+    );
+    p(
+      `<text x="${cell * 2 + cell / 2}" y="${y + 44}" font-size="20" fill="${netColor}" text-anchor="middle" font-weight="700">$${netProfit.toFixed(2)}</text>`,
+    );
+    p(
+      `<line x1="0" y1="${y + SUMMARY_H}" x2="${W}" y2="${y + SUMMARY_H}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+    );
     y += SUMMARY_H;
 
     // ── Investor distribution ─────────────────────────────────────
-    p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="#1e293b"/>`);
-    p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="#8b5cf6"/>`);
-    p(`<text x="${M + 8}" y="${y + 17}" font-size="11" fill="#f1f5f9" font-weight="700" letter-spacing="1">INVESTOR DISTRIBUTION</text>`);
+    p(`<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`);
+    p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${BRAND}"/>`);
+    p(
+      `<text x="${M + 8}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" letter-spacing="1">INVESTOR DISTRIBUTION</text>`,
+    );
     y += SEC_H;
 
     if (investorData.length === 0) {
-      p(`<text x="${W / 2}" y="${y + 16}" font-size="11" fill="#94a3b8" text-anchor="middle">No investor data configured</text>`);
-      y += 24;
+      p(
+        `<text x="${W / 2}" y="${y + 18}" font-size="13" fill="${ITEM_CNT}" text-anchor="middle">No investor data configured</text>`,
+      );
+      y += 28;
     } else {
       const IC = {
-        name:   { x: M + 26,  anchor: "start"  },
-        share:  { x: M + 205, anchor: "middle" },
-        profit: { x: M + 360, anchor: "end"    },
-        paid:   { x: M + 490, anchor: "end"    },
-        recv:   { x: M + 624, anchor: "end"    },
-        final:  { x: M + CW,  anchor: "end"    },
+        name: { x: M + 26, anchor: "start" },
+        share: { x: M + 205, anchor: "middle" },
+        profit: { x: M + 360, anchor: "end" },
+        paid: { x: M + 490, anchor: "end" },
+        recv: { x: M + 624, anchor: "end" },
+        final: { x: M + CW, anchor: "end" },
       };
-      p(`<rect x="${M}" y="${y}" width="${CW}" height="${THDR_H}" fill="#e2e8f0"/>`);
+      p(
+        `<rect x="${M}" y="${y}" width="${CW}" height="${THDR_H}" fill="${COL_HDR_BG}"/>`,
+      );
       [
-        ["INVESTOR",     IC.name.x,   IC.name.anchor],
-        ["SHARE",        IC.share.x,  IC.share.anchor],
+        ["INVESTOR", IC.name.x, IC.name.anchor],
+        ["SHARE", IC.share.x, IC.share.anchor],
         ["PROFIT SHARE", IC.profit.x, IC.profit.anchor],
-        ["PAID",         IC.paid.x,   IC.paid.anchor],
-        ["RECEIVED",     IC.recv.x,   IC.recv.anchor],
-        ["FINAL",        IC.final.x,  IC.final.anchor],
+        ["PAID", IC.paid.x, IC.paid.anchor],
+        ["RECEIVED", IC.recv.x, IC.recv.anchor],
+        ["FINAL", IC.final.x, IC.final.anchor],
       ].forEach(([label, x, anchor]) => {
-        p(`<text x="${x}" y="${y + 12}" font-size="8" fill="#475569" font-weight="700" letter-spacing="0.5" text-anchor="${anchor}">${label}</text>`);
+        p(
+          `<text x="${x}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5" text-anchor="${anchor}">${label}</text>`,
+        );
       });
       y += THDR_H;
 
       investorData.forEach((inv, ri) => {
         const rowY = y;
         if (ri % 2 === 1) {
-          p(`<rect x="${M}" y="${rowY}" width="${CW}" height="${INV_ROW_H}" fill="#f8fafc"/>`);
+          p(
+            `<rect x="${M}" y="${rowY}" width="${CW}" height="${INV_ROW_H}" fill="${ROW_ALT_BG}"/>`,
+          );
         }
         const cx = M + 12;
         const cy = rowY + Math.floor(INV_ROW_H / 2);
         renderCircleAvatar(inv.avatar || null, inv.name, cx, cy);
-        p(`<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" font-weight="600">${this._svgEsc(this._svgTrunc(inv.name, 22))}</text>`);
-        p(`<text x="${IC.share.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="middle">${inv.percentage}%</text>`);
-        p(`<text x="${IC.profit.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="end">$${inv.profitShare.toFixed(2)}</text>`);
-        p(`<text x="${IC.paid.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="end">$${inv.paidAmount.toFixed(2)}</text>`);
-        p(`<text x="${IC.recv.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="11" fill="#0f172a" text-anchor="end">$${inv.receivedAmount.toFixed(2)}</text>`);
-        const finC = inv.finalAmount >= 0 ? "#16a34a" : "#dc2626";
-        p(`<text x="${IC.final.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 4}" font-size="12" fill="${finC}" font-weight="700" text-anchor="end">$${inv.finalAmount.toFixed(2)}</text>`);
-        p(`<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="#f1f5f9" stroke-width="1"/>`);
+        p(
+          `<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" font-weight="600">${this._svgEsc(this._svgTrunc(inv.name, 22))}</text>`,
+        );
+        p(
+          `<text x="${IC.share.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="middle">${inv.percentage}%</text>`,
+        );
+        p(
+          `<text x="${IC.profit.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="end">$${inv.profitShare.toFixed(2)}</text>`,
+        );
+        p(
+          `<text x="${IC.paid.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="end">$${inv.paidAmount.toFixed(2)}</text>`,
+        );
+        p(
+          `<text x="${IC.recv.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="end">$${inv.receivedAmount.toFixed(2)}</text>`,
+        );
+        const finC = inv.finalAmount >= 0 ? INCOME_CLR : EXPENSE_CLR;
+        p(
+          `<text x="${IC.final.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="14" fill="${finC}" font-weight="700" text-anchor="end">$${inv.finalAmount.toFixed(2)}</text>`,
+        );
+        p(
+          `<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+        );
         y += INV_ROW_H;
       });
     }
@@ -5063,16 +5553,20 @@ class FinancialReportsComponent {
     y += SEC_PAD;
 
     // ── Footer ────────────────────────────────────────────────────
-    p(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`);
+    p(
+      `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+    );
     y += 1;
-    p(`<rect x="0" y="${y}" width="${W}" height="20" fill="#f8fafc"/>`);
-    p(`<text x="${W / 2}" y="${y + 14}" font-size="9" fill="#94a3b8" text-anchor="middle">All amounts in SGD unless noted otherwise  ·  Auto-generated report</text>`);
-    y += 20;
+    p(`<rect x="0" y="${y}" width="${W}" height="24" fill="${FOOTER_BG}"/>`);
+    p(
+      `<text x="${W / 2}" y="${y + 16}" font-size="10" fill="${META_TXT}" text-anchor="middle">All amounts in SGD unless noted otherwise  ·  Auto-generated report</text>`,
+    );
+    y += 24;
 
     const totalH = y + 4;
     const defsBlock = defs.length > 0 ? `<defs>${defs.join("")}</defs>` : "";
     return (
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Arial,Helvetica,sans-serif" font-size="11">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Arial,Helvetica,sans-serif" font-size="13">` +
       defsBlock +
       `<rect width="${W}" height="${totalH}" fill="#ffffff"/>` +
       nodes.join("") +
@@ -5100,8 +5594,10 @@ class FinancialReportsComponent {
     }
 
     // It's an investor — check property investors first, then all investors
-    const investor = this.investors.find((i) => i.investorId === personId)
-      || (this.allInvestors && this.allInvestors.find((i) => i.investorId === personId));
+    const investor =
+      this.investors.find((i) => i.investorId === personId) ||
+      (this.allInvestors &&
+        this.allInvestors.find((i) => i.investorId === personId));
     return investor ? investor.name : personId;
   }
 
@@ -5128,7 +5624,10 @@ class FinancialReportsComponent {
    */
   async copyReportSummary() {
     if (!this.selectedProperty || !this.currentReport) {
-      showToast("Please select a property and load financial data first", "warning");
+      showToast(
+        "Please select a property and load financial data first",
+        "warning",
+      );
       return;
     }
 
@@ -5138,8 +5637,18 @@ class FinancialReportsComponent {
     try {
       // Get current month name and year
       const monthNames = [
-        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-        "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+        "JANUARY",
+        "FEBRUARY",
+        "MARCH",
+        "APRIL",
+        "MAY",
+        "JUNE",
+        "JULY",
+        "AUGUST",
+        "SEPTEMBER",
+        "OCTOBER",
+        "NOVEMBER",
+        "DECEMBER",
       ];
       const currentMonth = monthNames[this.currentDate.getMonth()];
       const currentYear = this.currentDate.getFullYear();
@@ -5160,7 +5669,9 @@ class FinancialReportsComponent {
             const roomType = this.getPersonRoomType(item.paidBy);
             payeeInfo = roomType ? `${payeeName} (${roomType})` : payeeName;
           }
-          const itemWithPayee = payeeInfo ? `${item.item} (${payeeInfo})` : item.item;
+          const itemWithPayee = payeeInfo
+            ? `${item.item} (${payeeInfo})`
+            : item.item;
           summary += `- ${itemWithPayee} - $${amount} - ${shortName}\n`;
         });
       } else {
@@ -5169,7 +5680,10 @@ class FinancialReportsComponent {
 
       // Expense section (CHI)
       summary += "\nCHI\n";
-      if (this.currentReport.expenses && this.currentReport.expenses.length > 0) {
+      if (
+        this.currentReport.expenses &&
+        this.currentReport.expenses.length > 0
+      ) {
         this.currentReport.expenses.forEach((item) => {
           const amount = item.amount.toFixed(2);
           const fullName = this.getPersonName(item.personInCharge);
@@ -5182,7 +5696,9 @@ class FinancialReportsComponent {
             const roomType = this.getPersonRoomType(item.paidTo);
             paidToInfo = roomType ? `${paidToName} (${roomType})` : paidToName;
           }
-          const itemWithPaidTo = paidToInfo ? `${item.item} (→${paidToInfo})` : item.item;
+          const itemWithPaidTo = paidToInfo
+            ? `${item.item} (→${paidToInfo})`
+            : item.item;
           summary += `- ${itemWithPaidTo} - $${amount} - ${shortName}\n`;
         });
       } else {
@@ -5194,7 +5710,8 @@ class FinancialReportsComponent {
 
       // Show success feedback
       const originalHTML = btn.innerHTML;
-      btn.innerHTML = '<i class="bi bi-check-circle" style="color: #ffffff !important"></i>';
+      btn.innerHTML =
+        '<i class="bi bi-check-circle" style="color: #ffffff !important"></i>';
       btn.classList.remove("btn-light");
       btn.classList.add("btn-success");
       btn.style.backgroundColor = "#28a745";
@@ -5739,7 +6256,8 @@ class FinancialReportsComponent {
       section.style.display = "block";
       this.allUnpaidVisible = true;
       if (btn) {
-        btn.innerHTML = '<i class="bi bi-bell-slash-fill me-1"></i>Hide Overview';
+        btn.innerHTML =
+          '<i class="bi bi-bell-slash-fill me-1"></i>Hide Overview';
         btn.classList.remove("btn-warning");
         btn.classList.add("btn-outline-warning");
       }
@@ -5753,7 +6271,10 @@ class FinancialReportsComponent {
 
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth() + 1;
-    const monthName = this.currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    const monthName = this.currentDate.toLocaleDateString("en-GB", {
+      month: "long",
+      year: "numeric",
+    });
 
     content.innerHTML = `
       <div class="card border-warning">
@@ -5786,7 +6307,9 @@ class FinancialReportsComponent {
           const propertyId = property.propertyId;
           try {
             const [reportRes, tenantsRes] = await Promise.all([
-              API.get(API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(propertyId, year, month)),
+              API.get(
+                API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(propertyId, year, month),
+              ),
               API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)),
             ]);
             let report = null;
@@ -5803,14 +6326,22 @@ class FinancialReportsComponent {
           } catch (_) {
             return { property, report: null, tenants: [] };
           }
-        })
+        }),
       );
 
       // Compute unpaid per property
       const propertyResults = results.map(({ property, report, tenants }) => ({
         property,
-        unpaid: this._computeUnpaidTenants(tenants, report, year, month, property.propertyId),
-        totalActive: tenants.filter((t) => this._isTenantActiveThisMonth(t, property.propertyId, year, month)).length,
+        unpaid: this._computeUnpaidTenants(
+          tenants,
+          report,
+          year,
+          month,
+          property.propertyId,
+        ),
+        totalActive: tenants.filter((t) =>
+          this._isTenantActiveThisMonth(t, property.propertyId, year, month),
+        ).length,
       }));
 
       this._renderAllUnpaidResults(content, propertyResults, monthName);
@@ -5827,8 +6358,12 @@ class FinancialReportsComponent {
       return propId && propId.toUpperCase() === propertyId.toUpperCase();
     });
     if (!propertyRecord) return false;
-    const moveInDate = propertyRecord?.moveinDate ? new Date(propertyRecord.moveinDate) : null;
-    const moveOutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+    const moveInDate = propertyRecord?.moveinDate
+      ? new Date(propertyRecord.moveinDate)
+      : null;
+    const moveOutDate = propertyRecord?.moveoutDate
+      ? new Date(propertyRecord.moveoutDate)
+      : null;
     const reportDate = new Date(year, month - 1, 1);
     const reportEndDate = new Date(year, month, 0);
     if (moveInDate && moveInDate > reportEndDate) return false;
@@ -5849,13 +6384,26 @@ class FinancialReportsComponent {
         return propId && propId.toUpperCase() === propertyId.toUpperCase();
       });
       if (!propertyRecord) return false;
-      const moveInDate = propertyRecord?.moveinDate ? new Date(propertyRecord.moveinDate) : null;
-      const moveOutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+      const moveInDate = propertyRecord?.moveinDate
+        ? new Date(propertyRecord.moveinDate)
+        : null;
+      const moveOutDate = propertyRecord?.moveoutDate
+        ? new Date(propertyRecord.moveoutDate)
+        : null;
       if (moveInDate && moveInDate > reportEndDate) return false;
-      tenant._upcomingMoveInDate = (moveInDate && moveInDate >= reportDate && moveInDate > today) ? moveInDate : null;
-      tenant._moveInInMonth = (moveInDate && moveInDate >= reportDate && moveInDate <= reportEndDate) ? moveInDate : null;
+      tenant._upcomingMoveInDate =
+        moveInDate && moveInDate >= reportDate && moveInDate > today
+          ? moveInDate
+          : null;
+      tenant._moveInInMonth =
+        moveInDate && moveInDate >= reportDate && moveInDate <= reportEndDate
+          ? moveInDate
+          : null;
       if (moveOutDate && moveOutDate < reportDate) return false;
-      tenant._moveOutInMonth = (moveOutDate && moveOutDate >= reportDate && moveOutDate <= reportEndDate) ? moveOutDate : null;
+      tenant._moveOutInMonth =
+        moveOutDate && moveOutDate >= reportDate && moveOutDate <= reportEndDate
+          ? moveOutDate
+          : null;
       return true;
     });
 
@@ -5870,10 +6418,14 @@ class FinancialReportsComponent {
             (t.tenantId && t.tenantId === tenantId) ||
             (t.name && t.name === tenantId) ||
             (t.fin && t.fin === tenantId) ||
-            (t.passportNumber && t.passportNumber === tenantId)
+            (t.passportNumber && t.passportNumber === tenantId),
         );
         if (tenant?._id) {
-          paidAmountsByTenantId.set(tenant._id, (paidAmountsByTenantId.get(tenant._id) || 0) + (incomeItem.amount || 0));
+          paidAmountsByTenantId.set(
+            tenant._id,
+            (paidAmountsByTenantId.get(tenant._id) || 0) +
+              (incomeItem.amount || 0),
+          );
         }
       }
     });
@@ -5893,7 +6445,9 @@ class FinancialReportsComponent {
         roomGroups.set(groupKey, [tenant]);
         tenantToGroup.set(tenant._id, groupKey);
         if (roommateId) {
-          const roommateTenant = currentMonthTenants.find((t) => t._id === roommateId);
+          const roommateTenant = currentMonthTenants.find(
+            (t) => t._id === roommateId,
+          );
           if (roommateTenant && !tenantToGroup.has(roommateId)) {
             roomGroups.get(groupKey).push(roommateTenant);
             tenantToGroup.set(roommateId, groupKey);
@@ -5906,17 +6460,30 @@ class FinancialReportsComponent {
       if (!tenant.roomType) return false;
       const groupKey = tenantToGroup.get(tenant._id);
       const roommates = roomGroups.get(groupKey) || [tenant];
-      const totalRoomRent = roommates.reduce((sum, t) => sum + (t.rent || 0), 0);
-      const totalPaid = roommates.reduce((sum, t) => sum + (paidAmountsByTenantId.get(t._id) || 0), 0);
+      const totalRoomRent = roommates.reduce(
+        (sum, t) => sum + (t.rent || 0),
+        0,
+      );
+      const totalPaid = roommates.reduce(
+        (sum, t) => sum + (paidAmountsByTenantId.get(t._id) || 0),
+        0,
+      );
       if (totalPaid >= totalRoomRent && totalRoomRent > 0) return false;
       return !paidAmountsByTenantId.has(tenant._id);
     });
   }
 
   _renderAllUnpaidResults(container, propertyResults, monthName) {
-    const totalUnpaid = propertyResults.reduce((sum, r) => sum + r.unpaid.length, 0);
-    const propertiesWithUnpaid = propertyResults.filter((r) => r.unpaid.length > 0);
-    const propertiesAllPaid = propertyResults.filter((r) => r.unpaid.length === 0 && r.totalActive > 0);
+    const totalUnpaid = propertyResults.reduce(
+      (sum, r) => sum + r.unpaid.length,
+      0,
+    );
+    const propertiesWithUnpaid = propertyResults.filter(
+      (r) => r.unpaid.length > 0,
+    );
+    const propertiesAllPaid = propertyResults.filter(
+      (r) => r.unpaid.length === 0 && r.totalActive > 0,
+    );
 
     const refreshBtn = `<button class="btn btn-sm btn-dark py-0" onclick="window.financialReports && window.financialReports.refreshAllUnpaidReminderSection()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>`;
 
@@ -5925,9 +6492,10 @@ class FinancialReportsComponent {
         <div class="card-header bg-warning text-dark py-2 d-flex justify-content-between align-items-center">
           <span><i class="bi bi-bell-fill me-2"></i><strong>Unpaid Rent</strong> <span class="fw-normal opacity-75">— ${escapeHtml(monthName)}</span></span>
           <div class="d-flex align-items-center gap-2">
-            ${totalUnpaid > 0
-              ? `<span class="badge bg-danger">${totalUnpaid} unpaid</span>`
-              : `<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>All paid</span>`
+            ${
+              totalUnpaid > 0
+                ? `<span class="badge bg-danger">${totalUnpaid} unpaid</span>`
+                : `<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>All paid</span>`
             }
             ${refreshBtn}
           </div>
@@ -5954,23 +6522,38 @@ class FinancialReportsComponent {
       propertiesWithUnpaid.forEach(({ property, unpaid, totalActive }) => {
         const propertyName = escapeHtml(property.name || property.propertyId);
         const propertyUnit = property.unit ? escapeHtml(property.unit) : null;
-        const propertyAddress = property.address ? escapeHtml(property.address) : null;
+        const propertyAddress = property.address
+          ? escapeHtml(property.address)
+          : null;
 
         unpaid.forEach((tenant, idx) => {
-          const displayName = escapeHtml(tenant.name || tenant.username || tenant.tenantId || "Unknown");
-          const roomType = escapeHtml(this.getRoomTypeDisplayName(tenant.roomType));
+          const displayName = escapeHtml(
+            tenant.name || tenant.username || tenant.tenantId || "Unknown",
+          );
+          const roomType = escapeHtml(
+            this.getRoomTypeDisplayName(tenant.roomType),
+          );
           const phoneNumber = tenant.phoneNumber || "";
           const facebookUrl = tenant.facebookUrl || "";
           const roommateName = tenant.roommateId?.name || "";
           const roommateAvatar = tenant.roommateId?.avatar || "";
           const upcomingMoveIn = tenant._upcomingMoveInDate
-            ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+            ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })
             : null;
           const moveInInMonth = tenant._moveInInMonth
-            ? tenant._moveInInMonth.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+            ? tenant._moveInInMonth.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })
             : null;
           const moveOutInMonth = tenant._moveOutInMonth
-            ? tenant._moveOutInMonth.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+            ? tenant._moveOutInMonth.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })
             : null;
 
           let roommateHtml = "";
@@ -5983,12 +6566,30 @@ class FinancialReportsComponent {
           }
 
           const feeParts = [];
-          if (tenant.rent) feeParts.push(`<span class="badge bg-secondary" style="font-size:0.7em;">$${tenant.rent.toFixed(0)}</span>`);
-          if (tenant.cleaningFee) feeParts.push(`<span class="badge bg-light text-dark border" style="font-size:0.7em;">+$${tenant.cleaningFee.toFixed(0)}</span>`);
-          if (!tenant.isUtilitySubsidized) feeParts.push(`<span class="badge bg-info text-dark" style="font-size:0.7em;">PUB</span>`);
-          if (upcomingMoveIn) feeParts.push(`<span class="badge bg-warning text-dark" style="font-size:0.7em;"><i class="bi bi-calendar-event me-1"></i>${escapeHtml(upcomingMoveIn)}</span>`);
-          if (moveInInMonth) feeParts.push(`<span class="badge bg-success text-white" style="font-size:0.7em;"><i class="bi bi-box-arrow-in-right me-1"></i>In ${escapeHtml(moveInInMonth)}</span>`);
-          if (moveOutInMonth) feeParts.push(`<span class="badge bg-orange text-white" style="font-size:0.7em;background-color:#fd7e14 !important;"><i class="bi bi-box-arrow-right me-1"></i>Out ${escapeHtml(moveOutInMonth)}</span>`);
+          if (tenant.rent)
+            feeParts.push(
+              `<span class="badge bg-secondary" style="font-size:0.7em;">$${tenant.rent.toFixed(0)}</span>`,
+            );
+          if (tenant.cleaningFee)
+            feeParts.push(
+              `<span class="badge bg-light text-dark border" style="font-size:0.7em;">+$${tenant.cleaningFee.toFixed(0)}</span>`,
+            );
+          if (!tenant.isUtilitySubsidized)
+            feeParts.push(
+              `<span class="badge bg-info text-dark" style="font-size:0.7em;">PUB</span>`,
+            );
+          if (upcomingMoveIn)
+            feeParts.push(
+              `<span class="badge bg-warning text-dark" style="font-size:0.7em;"><i class="bi bi-calendar-event me-1"></i>${escapeHtml(upcomingMoveIn)}</span>`,
+            );
+          if (moveInInMonth)
+            feeParts.push(
+              `<span class="badge bg-success text-white" style="font-size:0.7em;"><i class="bi bi-box-arrow-in-right me-1"></i>In ${escapeHtml(moveInInMonth)}</span>`,
+            );
+          if (moveOutInMonth)
+            feeParts.push(
+              `<span class="badge bg-orange text-white" style="font-size:0.7em;background-color:#fd7e14 !important;"><i class="bi bi-box-arrow-right me-1"></i>Out ${escapeHtml(moveOutInMonth)}</span>`,
+            );
 
           const waLink = phoneNumber
             ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="btn btn-success btn-sm py-0 px-1" style="font-size:0.75em;" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>`
@@ -5998,14 +6599,15 @@ class FinancialReportsComponent {
             : "";
 
           // Show property cell only on first tenant row (rowspan)
-          const propCell = idx === 0
-            ? `<td class="ps-3 border-0 fw-semibold small text-nowrap" rowspan="${unpaid.length}" style="border-left:3px solid #dc3545 !important;vertical-align:top;padding-top:0.5rem;">
+          const propCell =
+            idx === 0
+              ? `<td class="ps-3 border-0 fw-semibold small text-nowrap" rowspan="${unpaid.length}" style="border-left:3px solid #dc3545 !important;vertical-align:top;padding-top:0.5rem;">
                 <i class="bi bi-building me-1 text-danger"></i>${propertyName}
                 ${propertyUnit ? `<div class="fw-normal" style="font-size:0.78em;">${propertyUnit}</div>` : ""}
                 ${propertyAddress ? `<div class="text-muted fw-normal" style="font-size:0.73em;max-width:120px;white-space:normal;">${propertyAddress}</div>` : ""}
                 <div class="text-muted fw-normal" style="font-size:0.75em;">${unpaid.length}/${totalActive} unpaid</div>
                </td>`
-            : "";
+              : "";
 
           html += `<tr>
             ${propCell}
@@ -6047,7 +6649,6 @@ class FinancialReportsComponent {
       new bootstrap.Tooltip(el);
     });
   }
-
 }
 
 // Make component globally accessible

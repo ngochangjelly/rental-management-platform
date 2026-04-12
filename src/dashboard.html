@@ -5655,6 +5655,14 @@
                         </div>
                         <div class="col-md-6 text-end">
                           <button
+                            id="lockAllReportsBtn"
+                            class="btn btn-outline-success btn-sm me-2"
+                            title="Lock all unlocked reports for this month"
+                            onclick="window.financialReports && window.financialReports.lockAllReports()"
+                          >
+                            <i class="bi bi-lock-fill me-1"></i>Lock All
+                          </button>
+                          <button
                             id="refreshFinancialReport"
                             class="btn btn-outline-secondary btn-sm me-2"
                             title="Refresh financial report"
