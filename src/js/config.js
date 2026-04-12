@@ -112,6 +112,22 @@ const API_CONFIG = {
     HOUSE_VIEW_SPECIALIST_CRAWL: "/api/house-view-specialist/crawl",
     HOUSE_VIEW_SPECIALIST_NEARBY: "/api/house-view-specialist/nearby",
     HOUSE_VIEW_SPECIALIST_GEOCODE: "/api/house-view-specialist/geocode",
+
+    // CCTV
+    CCTV_CAMERAS: "/api/cctv/cameras",
+    CCTV_CAMERA_BY_ID: (id) => `/api/cctv/cameras/${id}`,
+    CCTV_CAMERA_TEST: (id) => `/api/cctv/cameras/${id}/test`,
+    CCTV_CAMERA_SNAPSHOT: (id) => `/api/cctv/cameras/${id}/snapshot`,
+    CCTV_STREAM_START: (id) => `/api/cctv/cameras/${id}/stream/start`,
+    CCTV_STREAM_STOP: (id) => `/api/cctv/cameras/${id}/stream/stop`,
+    CCTV_STREAM_STATUS: (id) => `/api/cctv/cameras/${id}/stream/status`,
+    CCTV_HLS: (id) => `/api/cctv/hls/${id}/stream.m3u8`,
+    CCTV_GO2RTC_STATUS: "/api/cctv/go2rtc/status",
+    CCTV_GO2RTC_CONFIG: "/api/cctv/go2rtc/config",
+    CCTV_GO2RTC_START: "/api/cctv/go2rtc/start",
+    CCTV_GO2RTC_STOP: "/api/cctv/go2rtc/stop",
+    CCTV_GO2RTC_RELOAD: "/api/cctv/go2rtc/reload",
+    CCTV_GO2RTC_APPLY_ALL: "/api/cctv/go2rtc/apply-all",
   },
 };
 

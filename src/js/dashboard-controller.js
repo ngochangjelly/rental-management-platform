@@ -263,6 +263,11 @@ class DashboardController {
           window.utilityBillTracker = this.components.utilityBillTracker;
         }
         break;
+      case "cctv":
+        if (window.cctvManager) {
+          window.cctvManager.loadCameras();
+        }
+        break;
     }
   }
 
