@@ -310,15 +310,30 @@ class TenancyOccupancyComponent {
   }
 
   /**
+   * Toggle select/deselect all properties (iOS-style toggle)
+   */
+  toggleSelectAll() {
+    const allSelected = this.selectedProperties.size === this.properties.length && this.properties.length > 0;
+    if (allSelected) {
+      this.selectedProperties.clear();
+    } else {
+      this.properties.forEach((property) => {
+        this.selectedProperties.add(property.propertyId);
+      });
+    }
+    this.updatePropertyFilterLabel();
+    this.renderPropertyCards();
+    this.renderTimelines();
+  }
+
+  /**
    * Select all properties
    */
   selectAllProperties() {
-    // Select all properties by adding them to the set
     this.properties.forEach((property) => {
       this.selectedProperties.add(property.propertyId);
     });
     this.updatePropertyFilterLabel();
-    // Re-render to update checkmarks and selected styles
     this.renderPropertyCards();
     this.renderTimelines();
   }
@@ -327,10 +342,8 @@ class TenancyOccupancyComponent {
    * Deselect all properties
    */
   deselectAllProperties() {
-    // Clear all selections
     this.selectedProperties.clear();
     this.updatePropertyFilterLabel();
-    // Re-render to update checkmarks and selected styles
     this.renderPropertyCards();
     this.renderTimelines();
   }
@@ -384,6 +397,20 @@ class TenancyOccupancyComponent {
       countEl.textContent = `${count} ${
         count === 1 ? "property" : "properties"
       } selected`;
+    }
+
+    // Sync iOS toggle visual state
+    const toggle = document.getElementById("tenancySelectAllToggle");
+    if (toggle) {
+      const allSelected = this.properties.length > 0 && this.selectedProperties.size === this.properties.length;
+      const knob = toggle.querySelector("span");
+      if (allSelected) {
+        toggle.style.background = "#34c759";
+        if (knob) knob.style.transform = "translateX(20px)";
+      } else {
+        toggle.style.background = "#e5e5ea";
+        if (knob) knob.style.transform = "translateX(0)";
+      }
     }
   }
 
@@ -597,13 +624,22 @@ class TenancyOccupancyComponent {
 
     let html = "";
 
+    // Show prompt when no properties are selected
+    if (this.selectedProperties.size === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-building fs-1 d-block mb-3"></i>
+          <p class="mb-0">Vui lòng chọn ít nhất một căn nhà để xem thông tin thuê phòng</p>
+          <p class="small">Please select at least one property to view tenancy occupancy</p>
+        </div>
+      `;
+      return;
+    }
+
     // Filter properties based on selection
-    const filteredProperties =
-      this.selectedProperties.size === 0
-        ? this.properties
-        : this.properties.filter((property) =>
-            this.selectedProperties.has(property.propertyId),
-          );
+    const filteredProperties = this.properties.filter((property) =>
+      this.selectedProperties.has(property.propertyId),
+    );
 
     // Render a timeline section for each filtered property
     filteredProperties.forEach((property, index) => {
@@ -705,7 +741,17 @@ class TenancyOccupancyComponent {
 
     const address = property.address || "";
     const tenantCount = tenants.length;
-    const currentTenants = tenants.filter((t) => !t.moveoutDate).length;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentTenants = tenants.filter((t) => {
+      const movein = new Date(t.moveinDate);
+      movein.setHours(0, 0, 0, 0);
+      if (movein > today) return false;
+      if (!t.moveoutDate) return true;
+      const moveout = new Date(t.moveoutDate);
+      moveout.setHours(0, 0, 0, 0);
+      return moveout >= today;
+    }).length;
 
     // Determine badge color based on occupancy
     let badgeClass = "bg-secondary";
@@ -736,10 +782,10 @@ class TenancyOccupancyComponent {
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge ${badgeClass}" title="${i18next.t("tenancyOccupancy.currentTenants", "Current tenants")}: ${currentTenants}">
+                        <span class="badge ${badgeClass} fs-6 px-3 py-2" title="${i18next.t("tenancyOccupancy.currentTenants", "Current tenants")}: ${currentTenants}">
                             <i class="bi bi-people-fill me-1"></i>${currentTenants} ${i18next.t("tenancyOccupancy.active", "active")}
                         </span>
-                        <span class="badge bg-secondary" title="${i18next.t("tenancyOccupancy.totalInYear", "Total in {{year}}").replace("{{year}}", this.currentYear)}">
+                        <span class="badge bg-secondary fs-6 px-3 py-2" title="${i18next.t("tenancyOccupancy.totalInYear", "Total in {{year}}").replace("{{year}}", this.currentYear)}">
                             ${tenantCount} ${i18next.t("tenancyOccupancy.total", "total")}
                         </span>
                     </div>

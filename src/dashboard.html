@@ -4246,26 +4246,36 @@
                           <h6 class="mb-0">
                             <i class="bi bi-building me-2"></i>Property Filter
                           </h6>
-                          <div class="btn-group btn-group-sm">
-                            <button
-                              class="btn btn-outline-primary btn-sm"
-                              onclick="
-                                tenancyOccupancyComponent.selectAllProperties()
-                              "
-                              title="Select All Properties"
-                            >
-                              <i class="bi bi-check-square"></i>
-                            </button>
-                            <button
-                              class="btn btn-outline-secondary btn-sm"
-                              onclick="
-                                tenancyOccupancyComponent.deselectAllProperties()
-                              "
-                              title="Deselect All Properties"
-                            >
-                              <i class="bi bi-square"></i>
-                            </button>
-                          </div>
+                          <button
+                            id="tenancySelectAllToggle"
+                            onclick="tenancyOccupancyComponent.toggleSelectAll()"
+                            title="Toggle Select All"
+                            style="
+                              position: relative;
+                              display: inline-flex;
+                              width: 51px;
+                              height: 31px;
+                              border-radius: 15.5px;
+                              border: none;
+                              padding: 2px;
+                              background: #e5e5ea;
+                              cursor: pointer;
+                              transition: background 0.3s ease;
+                              outline: none;
+                              flex-shrink: 0;
+                            "
+                          >
+                            <span style="
+                              display: block;
+                              width: 27px;
+                              height: 27px;
+                              border-radius: 50%;
+                              background: #fff;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                              transition: transform 0.3s ease;
+                              transform: translateX(0);
+                            "></span>
+                          </button>
                         </div>
                         <div class="card-body p-2">
                           <div class="mb-2">
@@ -4292,7 +4302,6 @@
                           <div
                             id="tenancyOccupancyPropertyList"
                             class="row g-2"
-                            style="max-height: 300px; overflow-y: auto"
                           >
                             <!-- Property cards will be loaded here -->
                             <div class="col-12 text-center text-muted py-3">

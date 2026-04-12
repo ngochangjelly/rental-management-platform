@@ -249,6 +249,17 @@ const API = {
     return handleAuthResponse(response);
   },
 
+  patch: async (endpoint, data = null, options = {}) => {
+    const response = await fetch(buildApiUrl(endpoint), {
+      method: "PATCH",
+      credentials: "include",
+      headers: { ...getAuthHeaders(), ...(options.headers || {}) },
+      body: data ? JSON.stringify(data) : null,
+      ...options,
+    });
+    return handleAuthResponse(response);
+  },
+
   delete: async (endpoint, options = {}) => {
     const response = await fetch(buildApiUrl(endpoint), {
       method: "DELETE",

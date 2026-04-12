@@ -337,7 +337,7 @@ class PropertyManagementComponent {
       let hasMorePages = true;
 
       while (hasMorePages) {
-        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}&includeArchived=true`);
         const result = await response.json();
 
         if (result.success) {
@@ -439,39 +439,67 @@ class PropertyManagementComponent {
     gridContainer.style.justifyContent = "center";
     gridContainer.style.maxWidth = "100%";
 
-    // Render property cards
+    // Sort: active first, archived last
+    const activeProperties = this.properties.filter(p => !p.isArchived);
+    const archivedProperties = this.properties.filter(p => p.isArchived);
+    const sortedProperties = [...activeProperties, ...archivedProperties];
+
     let cardsHtml = "";
-    this.properties.forEach((property) => {
+    let archivedDividerInserted = false;
+
+    sortedProperties.forEach((property) => {
+      const isArchived = !!property.isArchived;
+
+      // Insert section divider before first archived card
+      if (isArchived && !archivedDividerInserted) {
+        archivedDividerInserted = true;
+        cardsHtml += `
+          <div style="grid-column: 1 / -1; margin-top: 1.5rem; margin-bottom: 0.25rem;">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-archive text-secondary"></i>
+              <span class="text-secondary fw-semibold small">Archived Properties (${archivedProperties.length})</span>
+              <hr class="flex-grow-1 my-0" style="border-color: #adb5bd;">
+            </div>
+          </div>`;
+      }
+
+      const cardOpacity = isArchived ? 'opacity: 0.6;' : '';
+      const cardFilter = isArchived ? 'filter: grayscale(60%);' : '';
+      const imgOverlay = isArchived ? `<div class="position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.35);"></div>` : '';
+      const archivedBadge = isArchived ? `<span class="badge bg-secondary ms-1" style="font-size: 0.65rem; vertical-align: middle;"><i class="bi bi-archive me-1"></i>Archived</span>` : '';
+      const cardBorder = isArchived ? 'border: 1.5px dashed #adb5bd !important;' : '';
+
       const cardHtml = `
         <div style="width: 100%;">
           <div class="card property-management-card h-100 overflow-hidden"
-               style="transition: all 0.2s ease;">
+               style="transition: all 0.2s ease; ${cardOpacity} ${cardFilter} ${cardBorder}">
             ${property.propertyImage ? `
             <div class="card-img-top position-relative" style="height: 130px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+              ${imgOverlay}
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
               </div>
             </div>
             ` : `
-            <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${isArchived ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};">
               <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-white text-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
+                <span class="badge bg-white ${isArchived ? 'text-secondary' : 'text-primary'} fs-6">${this.escapeHtml(property.propertyId)}</span>
               </div>
               <div class="position-absolute top-50 start-50 translate-middle">
-                <i class="bi bi-building text-white" style="font-size: 3rem; opacity: 0.7;"></i>
+                <i class="bi ${isArchived ? 'bi-archive' : 'bi-building'} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
               </div>
             </div>
             `}
             <div class="card-header bg-white border-0 pb-0">
               <div class="d-flex align-items-center">
                 <div class="me-3">
-                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
+                  <div class="rounded-circle ${isArchived ? 'bg-secondary' : 'bg-primary'} d-flex align-items-center justify-content-center text-white"
                        style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
                     ${this.escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
                   </div>
                 </div>
                 <div class="flex-grow-1">
-                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}</h6>
+                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}${archivedBadge}</h6>
                   <small class="text-muted">Property ID</small>
                 </div>
               </div>
@@ -536,12 +564,18 @@ class PropertyManagementComponent {
             </div>
             <div class="card-footer bg-white border-0 pt-0">
               <div class="d-flex gap-2">
+                ${!isArchived ? `
                 <button class="btn btn-outline-primary btn-sm flex-fill" onclick="propertyManager.editProperty('${property.propertyId}')">
                   <i class="bi bi-pencil"></i> Edit
                 </button>
-                <button class="btn btn-outline-danger btn-sm flex-fill" onclick="propertyManager.deleteProperty('${property.propertyId}')">
-                  <i class="bi bi-trash"></i> Delete
+                <button class="btn btn-outline-warning btn-sm flex-fill" onclick="propertyManager.archiveProperty('${property.propertyId}')">
+                  <i class="bi bi-archive"></i> Archive
                 </button>
+                ` : `
+                <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="propertyManager.unarchiveProperty('${property.propertyId}')">
+                  <i class="bi bi-arrow-counterclockwise"></i> Unarchive
+                </button>
+                `}
               </div>
             </div>
           </div>
@@ -1223,8 +1257,8 @@ class PropertyManagementComponent {
     }
   }
 
-  async deleteProperty(propertyId) {
-    if (!confirm(`Are you sure you want to delete property ${propertyId}?`)) {
+  async archiveProperty(propertyId) {
+    if (!confirm(`Archive property ${propertyId}?\n\nThe property will be hidden from all other modules but its tenants and data will be preserved. You can unarchive it at any time.`)) {
       return;
     }
 
@@ -1236,13 +1270,36 @@ class PropertyManagementComponent {
       const result = await response.json();
 
       if (result.success) {
-        await this.loadProperties(); // Reload the list
+        await this.loadProperties();
       } else {
-        alert("Failed to delete property: " + result.error);
+        alert("Failed to archive property: " + result.error);
       }
     } catch (error) {
-      console.error("Error deleting property:", error);
-      alert("Error deleting property. Please try again.");
+      console.error("Error archiving property:", error);
+      alert("Error archiving property. Please try again.");
+    }
+  }
+
+  async unarchiveProperty(propertyId) {
+    if (!confirm(`Unarchive property ${propertyId}?\n\nIt will become visible again in all modules.`)) {
+      return;
+    }
+
+    try {
+      const response = await API.patch(
+        `${API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)}/unarchive`
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        await this.loadProperties();
+      } else {
+        alert("Failed to unarchive property: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error unarchiving property:", error);
+      alert("Error unarchiving property. Please try again.");
     }
   }
 
