@@ -1504,6 +1504,149 @@
       #utilityBillDropZone.has-image #utilityDropZoneHint {
         display: none;
       }
+
+      /* ── Quick Drop Zone – iOS-style ─────────────────────────────── */
+      #utilityQuickDropZone {
+        position: relative;
+        border: 2px dashed #d1d5db;
+        border-radius: 20px;
+        background: #fff;
+        cursor: pointer;
+        min-height: 150px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        transition:
+          transform 0.45s cubic-bezier(0.34,1.56,0.64,1),
+          box-shadow 0.3s ease,
+          border-color 0.25s ease,
+          background 0.25s ease;
+      }
+      #utilityQuickDropZone:hover {
+        border-color: #9ca3af;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+        transform: scale(1.007);
+      }
+      #utilityQuickDropZone:active {
+        transform: scale(0.985);
+        transition-duration: 0.12s;
+      }
+      #utilityQuickDropZone.qdz-drag-active {
+        border-color: #0d6efd;
+        background: rgba(13,110,253,0.04);
+        box-shadow: 0 0 0 5px rgba(13,110,253,0.14), 0 10px 36px rgba(13,110,253,0.16);
+        transform: scale(1.025);
+      }
+      .qdz-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 24px 20px;
+        width: 100%;
+      }
+      /* cloud float animation */
+      .qdz-cloud-icon {
+        font-size: 2.6rem;
+        color: #9ca3af;
+        display: block;
+        margin-bottom: 2px;
+        animation: qdzFloat 3s ease-in-out infinite;
+        transition: color 0.3s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+      }
+      #utilityQuickDropZone.qdz-drag-active .qdz-cloud-icon {
+        color: #0d6efd;
+        animation: qdzFloatActive 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      }
+      @keyframes qdzFloat {
+        0%,100% { transform: translateY(0px); }
+        50%      { transform: translateY(-8px); }
+      }
+      @keyframes qdzFloatActive {
+        0%   { transform: translateY(0) scale(1); }
+        100% { transform: translateY(-10px) scale(1.2); }
+      }
+      .qdz-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #374151;
+        text-align: center;
+        line-height: 1.35;
+      }
+      .qdz-sub {
+        font-size: 0.72rem;
+        color: #adb5bd;
+        text-align: center;
+        letter-spacing: 0.01em;
+      }
+      /* progress ring */
+      .qdz-ring-wrap {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 4px;
+      }
+      .qdz-ring {
+        position: absolute;
+        inset: 0;
+        transform: rotate(-90deg);
+      }
+      .qdz-ring-bg  { fill:none; stroke:#f3f4f6; stroke-width:5; }
+      .qdz-ring-fg  {
+        fill: none;
+        stroke: #0d6efd;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-dasharray: 219.9;
+        stroke-dashoffset: 219.9;
+        transition: stroke-dashoffset 0.55s cubic-bezier(0.4,0,0.2,1);
+      }
+      .qdz-pct {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #0d6efd;
+        font-variant-numeric: tabular-nums;
+        z-index: 1;
+      }
+      /* success check */
+      .qdz-check-wrap {
+        width: 72px;
+        height: 72px;
+        margin-bottom: 4px;
+        animation: qdzSpringIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+      }
+      @keyframes qdzSpringIn {
+        0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+        100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+      }
+      .qdz-check-circle { fill: #22c55e; }
+      .qdz-check-mark {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 32;
+        stroke-dashoffset: 32;
+        animation: qdzCheckDraw 0.35s 0.22s cubic-bezier(0.4,0,0.2,1) forwards;
+      }
+      @keyframes qdzCheckDraw { to { stroke-dashoffset: 0; } }
+      .qdz-success-title { color: #16a34a !important; }
+      /* error */
+      .qdz-error-icon {
+        font-size: 2.6rem;
+        color: #ef4444;
+        animation: qdzSpringIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+      }
+      .qdz-error-title { color: #dc2626 !important; }
+      /* ── End Quick Drop Zone ─────────────────────────────────────── */
+
       .utility-prop-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12) !important;
@@ -6178,28 +6321,6 @@
                       >
                     </div>
                   </div>
-                  <div class="d-flex align-items-center gap-1">
-                    <button
-                      class="btn btn-sm btn-outline-secondary px-2"
-                      onclick="utilityBillTracker.shiftMonth(-1)"
-                      title="Previous month"
-                    >
-                      <i class="bi bi-chevron-left"></i>
-                    </button>
-                    <select
-                      class="form-select form-select-sm"
-                      id="utilityMonthSelect"
-                      style="width: auto"
-                      onchange="utilityBillTracker.changeSummaryMonth()"
-                    ></select>
-                    <button
-                      class="btn btn-sm btn-outline-secondary px-2"
-                      onclick="utilityBillTracker.shiftMonth(1)"
-                      title="Next month"
-                    >
-                      <i class="bi bi-chevron-right"></i>
-                    </button>
-                  </div>
                 </div>
                 <div class="card-body pb-1">
                   <div id="utilityMonthSummary" class="mb-3"></div>
@@ -6216,6 +6337,51 @@
 
               <!-- Content (shown after property selected) -->
               <div id="utilityBillContent" hidden>
+                <!-- Quick PDF Drop Zone -->
+                <div id="utilityQuickDropZone" class="mb-3">
+
+                  <!-- IDLE -->
+                  <div class="qdz-state" id="utilityQdzIdle">
+                    <i class="bi bi-cloud-upload qdz-cloud-icon"></i>
+                    <div class="qdz-title" data-i18n="utilityBillTracker.quickDropHint">Drop PDF bill here or click to upload</div>
+                    <div class="qdz-sub">PDF · JPG · PNG &nbsp;—&nbsp; auto OCR</div>
+                  </div>
+
+                  <!-- UPLOADING -->
+                  <div class="qdz-state" id="utilityQdzUploading" hidden>
+                    <div class="qdz-ring-wrap">
+                      <svg class="qdz-ring" width="80" height="80" viewBox="0 0 80 80">
+                        <circle class="qdz-ring-bg" cx="40" cy="40" r="35"/>
+                        <circle class="qdz-ring-fg" id="utilityQdzRingFg" cx="40" cy="40" r="35"/>
+                      </svg>
+                      <span class="qdz-pct" id="utilityQdzPct">0%</span>
+                    </div>
+                    <div class="qdz-title" id="utilityQdzFileName">Analyzing bill…</div>
+                    <div class="qdz-sub" id="utilityQdzSubtext">Reading with OCR…</div>
+                  </div>
+
+                  <!-- SUCCESS -->
+                  <div class="qdz-state" id="utilityQdzSuccess" hidden>
+                    <div class="qdz-check-wrap">
+                      <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="qdz-check-circle" cx="36" cy="36" r="36"/>
+                        <path class="qdz-check-mark" d="M19 36l13 13 21-22"/>
+                      </svg>
+                    </div>
+                    <div class="qdz-title qdz-success-title">Bill parsed!</div>
+                    <div class="qdz-sub">Opening form…</div>
+                  </div>
+
+                  <!-- ERROR -->
+                  <div class="qdz-state" id="utilityQdzError" hidden>
+                    <i class="bi bi-exclamation-circle qdz-error-icon"></i>
+                    <div class="qdz-title qdz-error-title">Parse failed</div>
+                    <div class="qdz-sub">Form opened — fill in manually</div>
+                  </div>
+
+                  <input type="file" id="utilityQuickDropInput" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf,.pdf" class="d-none" />
+                </div>
+
                 <!-- Upload / OCR Form Panel -->
                 <div
                   id="utilityBillFormPanel"

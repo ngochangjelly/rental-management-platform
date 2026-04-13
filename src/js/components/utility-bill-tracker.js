@@ -25,24 +25,7 @@ class UtilityBillTrackerComponent {
 
   _init() {
     this._bindEvents();
-    this._initMonthSelector();
     this._loadProperties();
-  }
-
-  _initMonthSelector() {
-    const sel = document.getElementById('utilityMonthSelect');
-    if (!sel) return;
-    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const now = new Date();
-    const options = [];
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const yr = d.getFullYear();
-      const mo = d.getMonth() + 1;
-      const selected = (i === 0) ? 'selected' : '';
-      options.push(`<option value="${yr}-${mo}" ${selected}>${monthNames[mo - 1]} ${yr}</option>`);
-    }
-    sel.innerHTML = options.join('');
   }
 
   _bindEvents() {
@@ -69,6 +52,132 @@ class UtilityBillTrackerComponent {
         if (file) this._processBillFile(file);
       });
     }
+
+    const quickDrop = document.getElementById('utilityQuickDropZone');
+    if (quickDrop) {
+      quickDrop.addEventListener('click', () => {
+        if (document.getElementById('utilityQdzIdle')?.hidden) return; // only clickable in idle
+        document.getElementById('utilityQuickDropInput')?.click();
+      });
+      quickDrop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        quickDrop.classList.add('qdz-drag-active');
+      });
+      quickDrop.addEventListener('dragleave', (e) => {
+        if (!quickDrop.contains(e.relatedTarget)) quickDrop.classList.remove('qdz-drag-active');
+      });
+      quickDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        quickDrop.classList.remove('qdz-drag-active');
+        const file = e.dataTransfer?.files?.[0];
+        if (file) this._handleQuickDrop(file);
+      });
+    }
+
+    const quickInput = document.getElementById('utilityQuickDropInput');
+    if (quickInput) {
+      quickInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) this._handleQuickDrop(file);
+        quickInput.value = '';
+      });
+    }
+  }
+
+  async _handleQuickDrop(file) {
+    if (!this.selectedProperty) return;
+
+    this.editingBillId = null;
+    this._resetForm();
+
+    // Show uploading state
+    this._qdzSetState('uploading');
+    const name = file.name.length > 30 ? file.name.substring(0, 27) + '…' : file.name;
+    const fileNameEl = document.getElementById('utilityQdzFileName');
+    if (fileNameEl) fileNameEl.textContent = name;
+
+    const stopSim = this._qdzSimulateProgress();
+
+    try {
+      const formData = new FormData();
+      formData.append('billImage', file);
+      const res = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UTILITY_BILL_PARSE_OCR}`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const data = await res.json();
+      stopSim();
+
+      if (!data.success) throw new Error(data.error || 'OCR failed');
+
+      this._qdzSetProgress(100);
+      await new Promise(r => setTimeout(r, 280));
+      this._qdzSetState('success');
+      await new Promise(r => setTimeout(r, 950));
+      this._qdzSetState('idle');
+
+      // Open form with prefilled data
+      this._showAddForm(true);
+      document.getElementById('utilityOcrSection')?.removeAttribute('hidden');
+      this._showOcrResult(data.data, data.rawText);
+      this._fillFormFromOcr(data.data);
+
+      // Mirror file in the form's drop zone
+      const formDZ = document.getElementById('utilityBillDropZone');
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (formDZ) {
+        formDZ.classList.add('has-image');
+        formDZ.querySelector('.pdf-placeholder')?.remove();
+        const ph = document.createElement('div');
+        ph.className = 'pdf-placeholder text-center py-2';
+        ph.innerHTML = isPdf
+          ? `<i class="bi bi-file-earmark-pdf text-danger" style="font-size:2rem;"></i><div class="small mt-1 text-truncate" style="max-width:200px;">${escapeHtml(file.name)}</div>`
+          : `<i class="bi bi-image text-secondary" style="font-size:2rem;"></i><div class="small mt-1 text-truncate" style="max-width:200px;">${escapeHtml(file.name)}</div>`;
+        formDZ.appendChild(ph);
+      }
+
+      document.getElementById('utilityBillFormPanel')?.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (err) {
+      console.error('[UtilityBillTracker] Quick drop OCR error:', err);
+      stopSim();
+      this._qdzSetState('error');
+      await new Promise(r => setTimeout(r, 1800));
+      this._qdzSetState('idle');
+      this._showAddForm(true);
+      document.getElementById('utilityBillFormPanel')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  _qdzSetState(state) {
+    const map = { idle: 'utilityQdzIdle', uploading: 'utilityQdzUploading', success: 'utilityQdzSuccess', error: 'utilityQdzError' };
+    for (const [s, id] of Object.entries(map)) {
+      const el = document.getElementById(id);
+      if (el) el.hidden = s !== state;
+    }
+    if (state === 'uploading') this._qdzSetProgress(0);
+  }
+
+  _qdzSetProgress(pct) {
+    const circumference = 2 * Math.PI * 35; // 219.9
+    const fg = document.getElementById('utilityQdzRingFg');
+    const pctEl = document.getElementById('utilityQdzPct');
+    if (fg) fg.style.strokeDashoffset = circumference * (1 - pct / 100);
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+  }
+
+  _qdzSimulateProgress() {
+    let pct = 0;
+    let stopped = false;
+    const tick = () => {
+      if (stopped) return;
+      pct += (85 - pct) * 0.035; // asymptote toward 85%
+      this._qdzSetProgress(pct);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    return () => { stopped = true; };
   }
 
   async _loadProperties() {
@@ -121,42 +230,6 @@ class UtilityBillTrackerComponent {
 
     this._renderPropertyCards();
     this._renderMonthlySummary(false);
-  }
-
-  changeSummaryMonth() {
-    const sel = document.getElementById('utilityMonthSelect');
-    if (!sel || !sel.value) return;
-    const [yr, mo] = sel.value.split('-').map(Number);
-    this._loadMonthlyBillStatus(yr, mo);
-  }
-
-  shiftMonth(delta) {
-    const sel = document.getElementById('utilityMonthSelect');
-    if (!sel) return;
-
-    const [yr, mo] = sel.value.split('-').map(Number);
-    let newDate = new Date(yr, mo - 1 + delta, 1);
-    const newYr = newDate.getFullYear();
-    const newMo = newDate.getMonth() + 1;
-    const newVal = `${newYr}-${newMo}`;
-
-    // If the target month exists in the select, just move to it
-    const existing = Array.from(sel.options).find(o => o.value === newVal);
-    if (existing) {
-      sel.value = newVal;
-    } else {
-      // Add a new option for a future month not yet in the list
-      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const opt = document.createElement('option');
-      opt.value = newVal;
-      opt.textContent = `${monthNames[newMo - 1]} ${newYr}`;
-      // Insert at index 0 (most recent = top) since we only go forward
-      sel.insertBefore(opt, sel.options[0]);
-      sel.value = newVal;
-    }
-
-    const [loadYr, loadMo] = sel.value.split('-').map(Number);
-    this._loadMonthlyBillStatus(loadYr, loadMo);
   }
 
   _syncSelectAllToggle(checked) {
