@@ -182,9 +182,7 @@
       /* Desktop Sidebar Collapse - iOS-like Animation */
       @media (min-width: 768px) {
         .sidebar {
-          width: 280px;
-          min-width: 280px;
-          max-width: 280px;
+          width: fit-content;
           position: fixed;
           left: 0;
           top: 0;
@@ -362,7 +360,6 @@
       /* Large screens - wider sidebar */
       @media (min-width: 992px) {
         .sidebar:not(.collapsed) {
-          max-width: 280px;
         }
 
         .main-content {
@@ -421,6 +418,7 @@
         font-size: 0.7rem;
         min-width: 1.5rem;
         opacity: 0.9;
+        flex-shrink: 0;
       }
 
       .nav-link:hover .badge {
@@ -431,6 +429,19 @@
         background-color: white !important;
         color: #667eea !important;
         opacity: 1;
+      }
+
+      /* Prevent text spans from overflowing so sidebar badges stay visible */
+      .sidebar .nav-link.d-flex > span:not(.badge):not(.ms-auto) {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Badge container (#utilityNavBadge) should not shrink */
+      .sidebar .nav-link.d-flex > span.ms-auto {
+        flex-shrink: 0;
       }
 
       .feature-card {
@@ -1509,8 +1520,10 @@
         background-color: #e5e5ea;
         background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
         border: none;
-        box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
-        transition: background-color .2s ease, box-shadow .2s ease;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+        transition:
+          background-color 0.2s ease,
+          box-shadow 0.2s ease;
       }
       #utilitySelectAllToggle:checked {
         background-color: #34c759;
@@ -1518,7 +1531,7 @@
         box-shadow: none;
       }
       #utilitySelectAllToggle:focus {
-        box-shadow: 0 0 0 3px rgba(52,199,89,.25);
+        box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.25);
       }
 
       /* AC Clean Management Styles */
@@ -3270,7 +3283,9 @@
                 data-section="utility-bills"
               >
                 <i class="bi bi-lightning-charge-fill me-2"></i>
-                <span data-i18n="sidebar.utilityBillTracker">Utility Bill Tracker</span>
+                <span data-i18n="sidebar.utilityBillTracker"
+                  >Utility Bill Tracker</span
+                >
                 <span id="utilityNavBadge" class="ms-auto ps-2"></span>
               </a>
             </li>
@@ -3303,10 +3318,16 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link d-flex align-items-center" href="#" data-section="cctv">
+              <a
+                class="nav-link d-flex align-items-center"
+                href="#"
+                data-section="cctv"
+              >
                 <i class="bi bi-camera-video-fill me-2"></i>
                 <span>CCTV Monitor</span>
-                <span class="badge bg-danger ms-auto" style="font-size:.6rem">LIVE</span>
+                <span class="badge bg-danger ms-auto" style="font-size: 0.6rem"
+                  >LIVE</span
+                >
               </a>
             </li>
             <li class="nav-item" id="investorsNavItem" style="display: none">
@@ -4268,7 +4289,9 @@
                           </h6>
                           <button
                             id="tenancySelectAllToggle"
-                            onclick="tenancyOccupancyComponent.toggleSelectAll()"
+                            onclick="
+                              tenancyOccupancyComponent.toggleSelectAll()
+                            "
                             title="Toggle Select All"
                             style="
                               position: relative;
@@ -4285,16 +4308,18 @@
                               flex-shrink: 0;
                             "
                           >
-                            <span style="
-                              display: block;
-                              width: 27px;
-                              height: 27px;
-                              border-radius: 50%;
-                              background: #fff;
-                              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                              transition: transform 0.3s ease;
-                              transform: translateX(0);
-                            "></span>
+                            <span
+                              style="
+                                display: block;
+                                width: 27px;
+                                height: 27px;
+                                border-radius: 50%;
+                                background: #fff;
+                                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                                transition: transform 0.3s ease;
+                                transform: translateX(0);
+                              "
+                            ></span>
                           </button>
                         </div>
                         <div class="card-body p-2">
@@ -5597,7 +5622,10 @@
                     id="lockAllReportsBtn"
                     class="btn btn-outline-success"
                     title="Lock all unlocked reports for this month"
-                    onclick="window.financialReports && window.financialReports.lockAllReports()"
+                    onclick="
+                      window.financialReports &&
+                        window.financialReports.lockAllReports()
+                    "
                   >
                     <i class="bi bi-lock-fill me-1"></i>Lock All
                   </button>
@@ -5709,9 +5737,16 @@
                         </div>
                       </div>
                       <!-- Property Group Links -->
-                      <div id="propertyGroupLinks" class="mt-2 pt-2 border-top" style="display: none;">
+                      <div
+                        id="propertyGroupLinks"
+                        class="mt-2 pt-2 border-top"
+                        style="display: none"
+                      >
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                          <small class="text-muted me-1"><i class="bi bi-people-fill me-1"></i>Groups:</small>
+                          <small class="text-muted me-1"
+                            ><i class="bi bi-people-fill me-1"></i
+                            >Groups:</small
+                          >
                           <span id="tenantGroupLinkContainer"></span>
                           <span id="adminGroupLinkContainer"></span>
                         </div>
@@ -5746,7 +5781,22 @@
                           <button
                             id="addIncomeBtn"
                             title="Add income item"
-                            style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #22c55e; color: white; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; flex-shrink: 0;"
+                            style="
+                              width: 36px;
+                              height: 36px;
+                              border-radius: 50%;
+                              border: none;
+                              background: #22c55e;
+                              color: white;
+                              font-size: 20px;
+                              line-height: 1;
+                              display: flex;
+                              align-items: center;
+                              justify-content: center;
+                              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                              cursor: pointer;
+                              flex-shrink: 0;
+                            "
                           >
                             <i class="bi bi-plus-lg"></i>
                           </button>
@@ -5797,14 +5847,35 @@
                             class="btn btn-sm fw-semibold me-1"
                             id="fillUtilityBillBtn"
                             title="Pre-fill utility bill from current month's bill"
-                            style="background: #ffc107; color: #212529; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.25);"
+                            style="
+                              background: #ffc107;
+                              color: #212529;
+                              border: none;
+                              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+                            "
                           >
-                            <i class="bi bi-lightning-charge-fill"></i> Utility Bill
+                            <i class="bi bi-lightning-charge-fill"></i> Utility
+                            Bill
                           </button>
                           <button
                             id="addExpenseBtn"
                             title="Add expense item"
-                            style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #ef4444; color: white; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; flex-shrink: 0;"
+                            style="
+                              width: 36px;
+                              height: 36px;
+                              border-radius: 50%;
+                              border: none;
+                              background: #ef4444;
+                              color: white;
+                              font-size: 20px;
+                              line-height: 1;
+                              display: flex;
+                              align-items: center;
+                              justify-content: center;
+                              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                              cursor: pointer;
+                              flex-shrink: 0;
+                            "
                           >
                             <i class="bi bi-plus-lg"></i>
                           </button>
@@ -6115,9 +6186,14 @@
                 <div>
                   <h2 class="mb-0">
                     <i class="bi bi-lightning-charge-fill text-warning me-2"></i
-                    ><span data-i18n="utilityBillTracker.title">Utility Bill Tracker</span>
+                    ><span data-i18n="utilityBillTracker.title"
+                      >Utility Bill Tracker</span
+                    >
                   </h2>
-                  <p class="text-muted mb-0 small" data-i18n="utilityBillTracker.subtitle">
+                  <p
+                    class="text-muted mb-0 small"
+                    data-i18n="utilityBillTracker.subtitle"
+                  >
                     Track SP Group monthly bills — electricity, water &amp; gas
                     per property
                   </p>
@@ -6127,13 +6203,17 @@
                     class="btn btn-primary"
                     onclick="utilityBillTracker.showNewBillForm()"
                   >
-                    <i class="bi bi-plus-circle me-1"></i><span data-i18n="utilityBillTracker.addBill">Add Bill</span>
+                    <i class="bi bi-plus-circle me-1"></i
+                    ><span data-i18n="utilityBillTracker.addBill"
+                      >Add Bill</span
+                    >
                   </button>
                   <button
                     class="btn btn-outline-secondary"
                     onclick="dashboardController.goToDashboard()"
                   >
-                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="utilityBillTracker.back">Back</span>
+                    <i class="bi bi-arrow-left me-1"></i
+                    ><span data-i18n="utilityBillTracker.back">Back</span>
                   </button>
                 </div>
               </div>
@@ -6145,20 +6225,39 @@
                 >
                   <div class="d-flex align-items-center gap-3">
                     <h6 class="mb-0">
-                      <i class="bi bi-building me-2"></i><span data-i18n="utilityBillTracker.selectProperty">Select Property</span>
+                      <i class="bi bi-building me-2"></i
+                      ><span data-i18n="utilityBillTracker.selectProperty"
+                        >Select Property</span
+                      >
                     </h6>
-                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="min-width:0">
-                      <input class="form-check-input mt-0" type="checkbox" role="switch"
-                             id="utilitySelectAllToggle"
-                             style="width:2.5em;height:1.3em;cursor:pointer;"
-                             onchange="utilityBillTracker.toggleAllProperties(this.checked)">
-                      <label class="form-check-label small text-muted mb-0 user-select-none"
-                             for="utilitySelectAllToggle"
-                             data-i18n="utilityBillTracker.selectAll">Select All</label>
+                    <div
+                      class="form-check form-switch mb-0 d-flex align-items-center gap-2"
+                      style="min-width: 0"
+                    >
+                      <input
+                        class="form-check-input mt-0"
+                        type="checkbox"
+                        role="switch"
+                        id="utilitySelectAllToggle"
+                        style="width: 2.5em; height: 1.3em; cursor: pointer"
+                        onchange="
+                          utilityBillTracker.toggleAllProperties(this.checked)
+                        "
+                      />
+                      <label
+                        class="form-check-label small text-muted mb-0 user-select-none"
+                        for="utilitySelectAllToggle"
+                        data-i18n="utilityBillTracker.selectAll"
+                        >Select All</label
+                      >
                     </div>
                   </div>
                   <div class="d-flex align-items-center gap-1">
-                    <button class="btn btn-sm btn-outline-secondary px-2" onclick="utilityBillTracker.shiftMonth(-1)" title="Previous month">
+                    <button
+                      class="btn btn-sm btn-outline-secondary px-2"
+                      onclick="utilityBillTracker.shiftMonth(-1)"
+                      title="Previous month"
+                    >
                       <i class="bi bi-chevron-left"></i>
                     </button>
                     <select
@@ -6167,7 +6266,11 @@
                       style="width: auto"
                       onchange="utilityBillTracker.changeSummaryMonth()"
                     ></select>
-                    <button class="btn btn-sm btn-outline-secondary px-2" onclick="utilityBillTracker.shiftMonth(1)" title="Next month">
+                    <button
+                      class="btn btn-sm btn-outline-secondary px-2"
+                      onclick="utilityBillTracker.shiftMonth(1)"
+                      title="Next month"
+                    >
                       <i class="bi bi-chevron-right"></i>
                     </button>
                   </div>
@@ -6177,7 +6280,9 @@
                   <div id="utilityBillPropertyCards" class="row">
                     <div class="col-12 text-center text-muted py-3">
                       <span class="spinner-border spinner-border-sm me-2"></span
-                      ><span data-i18n="utilityBillTracker.loadingProperties">Loading properties…</span>
+                      ><span data-i18n="utilityBillTracker.loadingProperties"
+                        >Loading properties…</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -6195,7 +6300,10 @@
                     class="card-header py-2 d-flex justify-content-between align-items-center"
                   >
                     <h6 class="mb-0" id="utilityBillFormTitle">
-                      <i class="bi bi-upload me-2"></i><span data-i18n="utilityBillTracker.addNewBill">Add New Bill</span>
+                      <i class="bi bi-upload me-2"></i
+                      ><span data-i18n="utilityBillTracker.addNewBill"
+                        >Add New Bill</span
+                      >
                     </h6>
                     <button
                       type="button"
@@ -6208,12 +6316,15 @@
                       <!-- OCR Upload Section -->
                       <div id="utilityOcrSection" class="mb-4">
                         <label class="form-label fw-semibold">
-                          <i class="bi bi-camera me-1 text-primary"></i><span data-i18n="utilityBillTracker.uploadBillImage">Upload
-                          Bill Image</span>
+                          <i class="bi bi-camera me-1 text-primary"></i
+                          ><span data-i18n="utilityBillTracker.uploadBillImage"
+                            >Upload Bill Image</span
+                          >
                           <span
                             class="badge bg-primary ms-1"
                             style="font-size: 0.65rem"
-                            data-i18n="utilityBillTracker.autoParse">Auto-Parse OCR</span
+                            data-i18n="utilityBillTracker.autoParse"
+                            >Auto-Parse OCR</span
                           >
                         </label>
                         <!-- Drop zone -->
@@ -6247,11 +6358,15 @@
                             <i
                               class="bi bi-cloud-arrow-up fs-2 text-muted d-block mb-1"
                             ></i>
-                            <span class="text-muted" data-i18n="utilityBillTracker.dropZoneHint"
+                            <span
+                              class="text-muted"
+                              data-i18n="utilityBillTracker.dropZoneHint"
                               >Click or drag &amp; drop your SP Group bill
                               image</span
                             ><br />
-                            <small class="text-muted" data-i18n="utilityBillTracker.dropZoneSubHint"
+                            <small
+                              class="text-muted"
+                              data-i18n="utilityBillTracker.dropZoneSubHint"
                               >Supports JPEG, PNG, HEIC — bill data will be
                               parsed automatically</small
                             >
@@ -6272,7 +6387,10 @@
                       <div class="row g-3 mb-3">
                         <div class="col-6 col-md-3">
                           <label class="form-label"
-                            ><span data-i18n="utilityBillTracker.year">Year</span> <span class="text-danger">*</span></label
+                            ><span data-i18n="utilityBillTracker.year"
+                              >Year</span
+                            >
+                            <span class="text-danger">*</span></label
                           >
                           <input
                             type="number"
@@ -6286,7 +6404,10 @@
                         </div>
                         <div class="col-6 col-md-3">
                           <label class="form-label"
-                            ><span data-i18n="utilityBillTracker.month">Month</span> <span class="text-danger">*</span></label
+                            ><span data-i18n="utilityBillTracker.month"
+                              >Month</span
+                            >
+                            <span class="text-danger">*</span></label
                           >
                           <select
                             class="form-select"
@@ -6309,7 +6430,11 @@
                           </select>
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label" data-i18n="utilityBillTracker.billDate">Bill Date</label>
+                          <label
+                            class="form-label"
+                            data-i18n="utilityBillTracker.billDate"
+                            >Bill Date</label
+                          >
                           <input
                             type="date"
                             class="form-control"
@@ -6317,7 +6442,11 @@
                           />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label" data-i18n="utilityBillTracker.accountNo">Account No.</label>
+                          <label
+                            class="form-label"
+                            data-i18n="utilityBillTracker.accountNo"
+                            >Account No.</label
+                          >
                           <input
                             type="text"
                             class="form-control"
@@ -6326,7 +6455,11 @@
                           />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label" data-i18n="utilityBillTracker.billingPeriodStart">Billing Period Start</label>
+                          <label
+                            class="form-label"
+                            data-i18n="utilityBillTracker.billingPeriodStart"
+                            >Billing Period Start</label
+                          >
                           <input
                             type="date"
                             class="form-control"
@@ -6334,7 +6467,11 @@
                           />
                         </div>
                         <div class="col-6 col-md-3">
-                          <label class="form-label" data-i18n="utilityBillTracker.billingPeriodEnd">Billing Period End</label>
+                          <label
+                            class="form-label"
+                            data-i18n="utilityBillTracker.billingPeriodEnd"
+                            >Billing Period End</label
+                          >
                           <input
                             type="date"
                             class="form-control"
@@ -6346,7 +6483,9 @@
                       <!-- Amounts -->
                       <p class="fw-semibold mb-2">
                         <i class="bi bi-currency-dollar me-1 text-success"></i
-                        ><span data-i18n="utilityBillTracker.billAmounts">Bill Amounts (SGD)</span>
+                        ><span data-i18n="utilityBillTracker.billAmounts"
+                          >Bill Amounts (SGD)</span
+                        >
                       </p>
                       <div class="row g-3 mb-3">
                         <div class="col-6 col-md-4 col-lg-2">
@@ -6354,7 +6493,9 @@
                             <i
                               class="bi bi-lightning-charge-fill text-warning me-1"
                             ></i
-                            ><span data-i18n="utilityBillTracker.electricity">Electricity</span>
+                            ><span data-i18n="utilityBillTracker.electricity"
+                              >Electricity</span
+                            >
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6371,7 +6512,9 @@
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
                             <i class="bi bi-droplet-fill text-info me-1"></i
-                            ><span data-i18n="utilityBillTracker.water">Water</span>
+                            ><span data-i18n="utilityBillTracker.water"
+                              >Water</span
+                            >
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6387,7 +6530,8 @@
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-fire text-secondary me-1"></i><span data-i18n="utilityBillTracker.gas">Gas</span>
+                            <i class="bi bi-fire text-secondary me-1"></i
+                            ><span data-i18n="utilityBillTracker.gas">Gas</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6404,7 +6548,9 @@
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
                             <i class="bi bi-trash3 text-secondary me-1"></i
-                            ><span data-i18n="utilityBillTracker.refuse">Refuse</span>
+                            ><span data-i18n="utilityBillTracker.refuse"
+                              >Refuse</span
+                            >
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6421,7 +6567,9 @@
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
                             <i class="bi bi-three-dots text-muted me-1"></i
-                            ><span data-i18n="utilityBillTracker.others">Others</span>
+                            ><span data-i18n="utilityBillTracker.others"
+                              >Others</span
+                            >
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6437,7 +6585,8 @@
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label">
-                            <i class="bi bi-percent text-success me-1"></i><span data-i18n="utilityBillTracker.gst">GST</span>
+                            <i class="bi bi-percent text-success me-1"></i
+                            ><span data-i18n="utilityBillTracker.gst">GST</span>
                           </label>
                           <div class="input-group">
                             <span class="input-group-text">$</span>
@@ -6453,7 +6602,10 @@
                         </div>
                         <div class="col-6 col-md-4 col-lg-2">
                           <label class="form-label fw-bold">
-                            <i class="bi bi-receipt text-primary me-1"></i><span data-i18n="utilityBillTracker.totalInclGst">Total (incl. GST)</span>
+                            <i class="bi bi-receipt text-primary me-1"></i
+                            ><span data-i18n="utilityBillTracker.totalInclGst"
+                              >Total (incl. GST)</span
+                            >
                           </label>
                           <div class="input-group">
                             <span class="input-group-text fw-bold">$</span>
@@ -6470,7 +6622,11 @@
                       </div>
 
                       <div class="mb-3">
-                        <label class="form-label" data-i18n="utilityBillTracker.notes">Notes</label>
+                        <label
+                          class="form-label"
+                          data-i18n="utilityBillTracker.notes"
+                          >Notes</label
+                        >
                         <textarea
                           class="form-control"
                           id="utilityBillNotes"
@@ -6485,14 +6641,19 @@
                           class="btn btn-primary"
                           id="utilityBillSubmitBtn"
                         >
-                          <i class="bi bi-floppy me-1"></i><span data-i18n="utilityBillTracker.saveBill">Save Bill</span>
+                          <i class="bi bi-floppy me-1"></i
+                          ><span data-i18n="utilityBillTracker.saveBill"
+                            >Save Bill</span
+                          >
                         </button>
                         <button
                           type="button"
                           class="btn btn-outline-secondary"
                           onclick="utilityBillTracker._showAddForm(false)"
                         >
-                          <span data-i18n="utilityBillTracker.cancel">Cancel</span>
+                          <span data-i18n="utilityBillTracker.cancel"
+                            >Cancel</span
+                          >
                         </button>
                       </div>
                     </form>
@@ -6504,7 +6665,9 @@
                   <div class="card-header py-2">
                     <h6 class="mb-0">
                       <i class="bi bi-bar-chart-line me-2 text-primary"></i
-                      ><span data-i18n="utilityBillTracker.trendTitle">Monthly Expense Trend (Last 12 Months)</span>
+                      ><span data-i18n="utilityBillTracker.trendTitle"
+                        >Monthly Expense Trend (Last 12 Months)</span
+                      >
                     </h6>
                   </div>
                   <div class="card-body">
@@ -6523,13 +6686,19 @@
                     class="card-header py-2 d-flex justify-content-between align-items-center"
                   >
                     <h6 class="mb-0">
-                      <i class="bi bi-clock-history me-2"></i><span data-i18n="utilityBillTracker.billHistory">Bill History</span>
+                      <i class="bi bi-clock-history me-2"></i
+                      ><span data-i18n="utilityBillTracker.billHistory"
+                        >Bill History</span
+                      >
                     </h6>
                     <button
                       class="btn btn-sm btn-outline-primary"
                       onclick="utilityBillTracker.showNewBillForm()"
                     >
-                      <i class="bi bi-plus-circle me-1"></i><span data-i18n="utilityBillTracker.addBill">Add Bill</span>
+                      <i class="bi bi-plus-circle me-1"></i
+                      ><span data-i18n="utilityBillTracker.addBill"
+                        >Add Bill</span
+                      >
                     </button>
                   </div>
                   <div
@@ -6538,7 +6707,9 @@
                   >
                     <div class="text-center text-muted py-4">
                       <i class="bi bi-receipt fs-1 d-block mb-2"></i>
-                      <p data-i18n="utilityBillTracker.noBillsYet">No bills recorded yet.</p>
+                      <p data-i18n="utilityBillTracker.noBillsYet">
+                        No bills recorded yet.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -6707,12 +6878,18 @@
 
               <!-- Settlement Extraction Tool -->
               <div class="card mt-4">
-                <div class="card-header text-white" style="background: #1e293b;">
-                  <div class="d-flex justify-content-between align-items-center">
+                <div class="card-header text-white" style="background: #1e293b">
+                  <div
+                    class="d-flex justify-content-between align-items-center"
+                  >
                     <h5 class="mb-0">
-                      <i class="bi bi-funnel-fill me-2"></i>Settlement Extraction
+                      <i class="bi bi-funnel-fill me-2"></i>Settlement
+                      Extraction
                     </h5>
-                    <small class="opacity-75">Find expense transactions between two investors across all properties</small>
+                    <small class="opacity-75"
+                      >Find expense transactions between two investors across
+                      all properties</small
+                    >
                   </div>
                 </div>
                 <div class="card-body">
@@ -6736,11 +6913,18 @@
                     </div>
                     <div class="col-md-1">
                       <label class="form-label fw-semibold">Year</label>
-                      <input type="number" class="form-control" id="extractYear" min="2020" max="2030" />
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="extractYear"
+                        min="2020"
+                        max="2030"
+                      />
                     </div>
                     <div class="col-md-3">
                       <label class="form-label fw-semibold">
-                        <i class="bi bi-person-fill text-danger me-1"></i>Payer (paid by)
+                        <i class="bi bi-person-fill text-danger me-1"></i>Payer
+                        (paid by)
                       </label>
                       <select class="form-select" id="extractPayerSelect">
                         <option value="">Loading investors…</option>
@@ -6748,27 +6932,39 @@
                     </div>
                     <div class="col-md-3">
                       <label class="form-label fw-semibold">
-                        <i class="bi bi-person-fill text-success me-1"></i>Paid To (payee)
+                        <i class="bi bi-person-fill text-success me-1"></i>Paid
+                        To (payee)
                       </label>
                       <select class="form-select" id="extractPayeeSelect">
                         <option value="">Loading investors…</option>
                       </select>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
-                      <button class="btn btn-dark w-100" id="extractSettlementBtn">
+                      <button
+                        class="btn btn-dark w-100"
+                        id="extractSettlementBtn"
+                      >
                         <i class="bi bi-search me-1"></i>Extract Settlement
                       </button>
                     </div>
                   </div>
 
-                  <div id="extractionLoading" class="text-center py-4 mt-3" style="display: none">
+                  <div
+                    id="extractionLoading"
+                    class="text-center py-4 mt-3"
+                    style="display: none"
+                  >
                     <div class="spinner-border text-dark" role="status">
                       <span class="visually-hidden">Loading…</span>
                     </div>
                     <p class="mt-2 text-muted">Scanning all properties…</p>
                   </div>
 
-                  <div id="extractionResultsArea" class="mt-3" style="display: none">
+                  <div
+                    id="extractionResultsArea"
+                    class="mt-3"
+                    style="display: none"
+                  >
                     <!-- Populated by JS -->
                   </div>
                 </div>
@@ -7044,6 +7240,56 @@
                 </div>
               </div>
 
+              <!-- Investor Selection -->
+              <div class="card mb-4">
+                <div class="card-header bg-white">
+                  <div
+                    class="d-flex justify-content-between align-items-center flex-wrap gap-2"
+                  >
+                    <h6 class="mb-0">
+                      <i class="bi bi-person-badge me-2"></i>
+                      <span data-i18n="investorProfitChart.selectInvestor"
+                        >Select Investors</span
+                      >
+                    </h6>
+                    <div class="d-flex align-items-center gap-2">
+                      <span
+                        id="investorProfitSelectedCount"
+                        class="text-muted small"
+                        >0 investors selected</span
+                      >
+                      <div class="btn-group btn-group-sm">
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary"
+                          onclick="investorProfitChart.selectAllInvestors()"
+                        >
+                          <i class="bi bi-check-all me-1"></i
+                          ><span data-i18n="investorProfitChart.selectAll"
+                            >Select All</span
+                          >
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary"
+                          onclick="investorProfitChart.deselectAllInvestors()"
+                        >
+                          <i class="bi bi-x-lg me-1"></i
+                          ><span data-i18n="investorProfitChart.deselectAll"
+                            >Deselect All</span
+                          >
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="investorProfitChartInvestorList" class="row g-2">
+                    <!-- Investor cards will be rendered here -->
+                  </div>
+                </div>
+              </div>
+
               <!-- Date Filter -->
               <div class="card mb-4">
                 <div class="card-body">
@@ -7167,56 +7413,6 @@
                         </button>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Investor Selection -->
-              <div class="card mb-4">
-                <div class="card-header bg-white">
-                  <div
-                    class="d-flex justify-content-between align-items-center flex-wrap gap-2"
-                  >
-                    <h6 class="mb-0">
-                      <i class="bi bi-person-badge me-2"></i>
-                      <span data-i18n="investorProfitChart.selectInvestor"
-                        >Select Investors</span
-                      >
-                    </h6>
-                    <div class="d-flex align-items-center gap-2">
-                      <span
-                        id="investorProfitSelectedCount"
-                        class="text-muted small"
-                        >0 investors selected</span
-                      >
-                      <div class="btn-group btn-group-sm">
-                        <button
-                          type="button"
-                          class="btn btn-outline-primary"
-                          onclick="investorProfitChart.selectAllInvestors()"
-                        >
-                          <i class="bi bi-check-all me-1"></i
-                          ><span data-i18n="investorProfitChart.selectAll"
-                            >Select All</span
-                          >
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary"
-                          onclick="investorProfitChart.deselectAllInvestors()"
-                        >
-                          <i class="bi bi-x-lg me-1"></i
-                          ><span data-i18n="investorProfitChart.deselectAll"
-                            >Deselect All</span
-                          >
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div id="investorProfitChartInvestorList" class="row g-2">
-                    <!-- Investor cards will be rendered here -->
                   </div>
                 </div>
               </div>
@@ -8717,11 +8913,7 @@
           </div>
 
           <!-- CCTV Monitor Section -->
-          <div
-            id="cctv-section"
-            class="content-section"
-            style="display: none"
-          >
+          <div id="cctv-section" class="content-section" style="display: none">
             <div class="container-fluid px-3 py-3">
               <div id="cctv-container">
                 <div class="text-center p-5 text-muted">
