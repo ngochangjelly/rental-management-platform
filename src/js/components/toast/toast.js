@@ -14,16 +14,23 @@ function showToast(message, type = "success", duration = 3000) {
   const iconMap = {
     success: "check-circle-fill",
     error: "exclamation-triangle-fill",
+    warning: "exclamation-triangle-fill",
     info: "info-circle-fill",
   };
   const bgMap = {
     success: "bg-success",
     error: "bg-danger",
+    warning: "bg-warning",
     info: "bg-info",
   };
 
+  const textMap = {
+    warning: "text-dark",
+  };
+  const textColor = textMap[type] || "text-white";
+
   const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-white ${
+            <div id="${toastId}" class="toast align-items-center ${textColor} ${
     bgMap[type]
   } border-0" role="alert" aria-live="assertive" aria-atomic="true">
                 <div class="d-flex">
@@ -31,7 +38,7 @@ function showToast(message, type = "success", duration = 3000) {
                         <i class="bi bi-${iconMap[type]} me-2"></i>
                         ${escapeHtml(message)}
                     </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    <button type="button" class="btn-close ${type === 'warning' ? '' : 'btn-close-white'} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
             </div>
         `;

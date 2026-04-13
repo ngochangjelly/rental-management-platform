@@ -184,16 +184,16 @@ class TenantManagementComponent {
     properties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-                <div class="card property-card-compact ${isSelected ? "border-primary selected-card" : ""} overflow-hidden"
+                <div class="card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
                      style="cursor: pointer; transition: all 0.2s ease;"
                      onclick="tenantManager.selectProperty('${property.propertyId}')">
                     ${property.propertyImage
-          ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; flex-shrink: 0; position: relative;">
-                            ${isSelected ? '<div class="position-absolute top-0 end-0 p-1"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 0.9rem;"></i></div>' : ""}
+          ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                            ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ""}
                           </div>`
           : ""
         }
-                    <div class="d-flex flex-column align-items-center p-2 bg-white" style="gap: 3px;">
+                    <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
                         <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                              style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
                             ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
@@ -202,7 +202,7 @@ class TenantManagementComponent {
                             <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address)}">${this.escapeHtml(property.address)}</div>
                             <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit)}</div>
                         </div>
-                        ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 0.8rem;"></i>' : ""}
+                        ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ""}
                     </div>
                 </div>
             `;
@@ -227,10 +227,8 @@ class TenantManagementComponent {
                     box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
                 }
                 .property-card-compact.selected-card {
-                    border-width: 2px !important;
-                }
-                .property-card-compact.border-primary {
-                    border-color: #0d6efd !important;
+                    border: 3px solid #0d6efd !important;
+                    box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
                 }
             `;
       document.head.appendChild(style);
@@ -247,6 +245,15 @@ class TenantManagementComponent {
 
     // Only update the visual selection state without full re-render
     this.updatePropertyCardSelection(propertyId);
+
+    // Sync URL — use resolved property object if available (from router deep-link)
+    const property =
+      this._slugResolvedProperty ||
+      this.properties.find((p) => p.propertyId === propertyId);
+    if (property) {
+      const slug = window.SlugUtils.propertySlug(property);
+      window.appRouter?.replace(`/tenants/${slug}`);
+    }
 
     // Load tenants for this property
     await this.loadTenantsForProperty(propertyId);
@@ -1497,6 +1504,14 @@ class TenantManagementComponent {
       "hidden.bs.modal",
       () => {
         this.cleanupModal();
+        // Revert URL back to property-level route
+        const property = this.properties.find(
+          (p) => p.propertyId === this.selectedProperty,
+        );
+        if (property && window.SlugUtils) {
+          const slug = window.SlugUtils.propertySlug(property);
+          window.appRouter?.replace(`/tenants/${slug}`);
+        }
       },
       { once: true },
     );
@@ -2410,6 +2425,17 @@ class TenantManagementComponent {
     if (!tenant) {
       alert("Tenant not found");
       return;
+    }
+
+    // Sync URL to reflect the specific tenant being viewed:
+    // /tenants/<property-slug>/<tenant-name-slug>
+    const property = this.properties.find(
+      (p) => p.propertyId === this.selectedProperty,
+    );
+    if (property && window.SlugUtils) {
+      const propSlug = window.SlugUtils.propertySlug(property);
+      const nameSlug = window.SlugUtils.toSlug(tenant.name || "");
+      window.appRouter?.replace(`/tenants/${propSlug}/${nameSlug}`);
     }
 
     // Show the modal with tenant data

@@ -113,37 +113,33 @@ class BillManagementComponent {
       return;
     }
 
+    // CSS Grid — compact cards, ~10 per row on wide screens
+    container.style.display = "grid";
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(120px, 1fr))";
+    container.style.gap = "0.5rem";
+
     properties.forEach(property => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 mb-3">
-          <div class="card property-card h-100 ${isSelected ? 'border-primary' : ''} overflow-hidden"
-               style="cursor: pointer; transition: all 0.2s ease;"
-               onclick="billManager.selectProperty('${property.propertyId}')">
-            ${property.propertyImage ? `
-            <div class="card-img-top position-relative" style="height: 160px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-              ${isSelected ? '<div class="position-absolute top-0 end-0 p-2"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i></div>' : ''}
+        <div class="card property-card ${isSelected ? 'border-primary selected-card' : ''} overflow-hidden"
+             style="cursor: pointer; transition: all 0.2s ease;"
+             onclick="billManager.selectProperty('${property.propertyId}')">
+          ${property.propertyImage
+            ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ''}
+              </div>`
+            : ''
+          }
+          <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? 'rgba(13,110,253,0.07)' : '#fff'};">
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
+              ${escapeHtml(property.propertyId.toString().substring(0, 3))}
             </div>
-            ` : ''}
-            <div class="card-header d-flex justify-content-between align-items-center bg-white">
-              <div class="d-flex align-items-center">
-                <div class="me-3">
-                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
-                       style="width: 40px; height: 40px; font-size: 16px; font-weight: bold;">
-                    ${escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
-                  </div>
-                </div>
-                <div>
-                  <h6 class="mb-0 fw-bold">${escapeHtml(property.propertyId)}</h6>
-                  <small class="text-muted">${t('propertyId')}</small>
-                </div>
-              </div>
-              ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.2rem;"></i>' : ''}
+            <div class="text-center" style="line-height: 1.2; width: 100%;">
+              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || '')}">${escapeHtml(property.propertyId)}</div>
+              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.address || 'No address')}</div>
             </div>
-            <div class="card-body py-2 bg-white">
-              <p class="mb-1 small"><strong>${t('address')}:</strong> ${escapeHtml(property.address)}</p>
-              <p class="mb-1 small"><strong>${t('unit')}:</strong> ${escapeHtml(property.unit)}</p>
-            </div>
+            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ''}
           </div>
         </div>
       `;
@@ -159,15 +155,17 @@ class BillManagementComponent {
       style.id = 'bill-property-card-styles';
       style.textContent = `
         .property-card {
-          min-height: 200px;
+          border-radius: 6px;
+          border: 1px solid #dee2e6;
           overflow: hidden;
         }
         .property-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
         }
-        .property-card.border-primary {
-          border-width: 3px !important;
+        .property-card.selected-card {
+          border: 3px solid #0d6efd !important;
+          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
         }
       `;
       document.head.appendChild(style);
@@ -188,32 +186,7 @@ class BillManagementComponent {
   }
 
   updatePropertyCardSelection(propertyId) {
-    const allCards = document.querySelectorAll('.property-card');
-    allCards.forEach(card => {
-      card.classList.remove('border-primary');
-      const checkmarks = card.querySelectorAll('.bi-check-circle-fill');
-      checkmarks.forEach(check => check.remove());
-    });
-
-    const selectedCard = document.querySelector(`.property-card[onclick*="'${propertyId}'"]`);
-    if (selectedCard) {
-      selectedCard.classList.add('border-primary');
-
-      const cardImgTop = selectedCard.querySelector('.card-img-top');
-      const cardHeader = selectedCard.querySelector('.card-header');
-
-      if (cardImgTop) {
-        const checkmark = document.createElement('div');
-        checkmark.className = 'position-absolute top-0 end-0 p-2';
-        checkmark.innerHTML = '<i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 1.5rem;"></i>';
-        cardImgTop.appendChild(checkmark);
-      } else if (cardHeader) {
-        const checkmark = document.createElement('i');
-        checkmark.className = 'bi bi-check-circle-fill text-success';
-        checkmark.style.fontSize = '1.2rem';
-        cardHeader.appendChild(checkmark);
-      }
-    }
+    this.renderPropertyCards(this.properties);
   }
 
   changeMonth(delta) {

@@ -395,19 +395,19 @@ class FinancialReportsComponent {
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
       const cardHtml = `
-        <div class="card property-card-compact ${isSelected ? "border-primary selected-card" : ""} ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
+        <div class="card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
              data-property-id="${property.propertyId}"
              onclick="window.financialReports.selectProperty('${property.propertyId}')">
           ${
             property.propertyImage
-              ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; flex-shrink: 0; position: relative;">
+              ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
                  ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
-                 ${isSelected ? '<div class="position-absolute top-0 end-0 p-1"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size: 0.9rem;"></i></div>' : ""}
+                 ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ""}
                </div>`
               : ""
           }
-          <div class="d-flex flex-column align-items-center p-2 bg-white" style="gap: 3px;">
+          <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
             <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white fw-bold"
                  style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
               ${isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
@@ -416,7 +416,7 @@ class FinancialReportsComponent {
               <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
             </div>
-            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-success" style="font-size: 0.8rem;"></i>' : ""}
+            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ""}
             ${!property.propertyImage && isReportClosed && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
           </div>
         </div>
@@ -445,16 +445,15 @@ class FinancialReportsComponent {
           box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
         }
         .property-card-compact.selected-card {
-          border-width: 2px !important;
-        }
-        .property-card-compact.border-primary {
-          border-color: #0d6efd !important;
+          border: 3px solid #0d6efd !important;
+          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
         }
         .property-card-compact.property-card-closed {
           border: 2px solid #198754 !important;
         }
-        .property-card-compact.property-card-closed.border-primary {
-          border: 2px solid #0d6efd !important;
+        .property-card-compact.property-card-closed.selected-card {
+          border: 3px solid #0d6efd !important;
+          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
         }
       `;
       document.head.appendChild(style);
@@ -1827,10 +1826,17 @@ class FinancialReportsComponent {
             month,
           ),
         );
+        if (!res.ok) {
+          showToast(
+            `No utility bill found for ${monthName} ${year}. Add one in Utility Bill Tracker first.`,
+            "warning",
+          );
+          return;
+        }
         const data = await res.json();
         if (!data.success || !data.bill) {
           showToast(
-            "No utility bill found for this property and month. Add one in Utility Bill Tracker first.",
+            `No utility bill found for ${monthName} ${year}. Add one in Utility Bill Tracker first.`,
             "warning",
           );
           return;

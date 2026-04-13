@@ -131,69 +131,35 @@ class BulkPropertyReportsComponent {
       return;
     }
 
+    // CSS Grid — compact cards
+    container.style.display = "grid";
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(120px, 1fr))";
+    container.style.gap = "0.5rem";
+
     container.innerHTML = this.properties
       .map((property, index) => {
         const isSelected = this.selectedProperties.has(property.propertyId);
         return `
-      <div class="col-6 col-sm-3 col-md-2 property-card-col mb-3">
-        <div
-          class="card property-select-card ${isSelected ? "selected" : ""}"
-          data-property-id="${property.propertyId}"
-          data-property-index="${index}"
-          style="cursor: pointer; transition: all 0.2s ease;"
-        >
-          ${
-            property.propertyImage
-              ? `
-            <div class="position-relative property-card-image">
-              <img
-                src="${property.propertyImage}"
-                class="card-img-top"
-                alt="${escapeHtml(property.propertyId)}"
-                style="width: 100%; height: 100%; object-fit: cover;"
-              >
-              ${
-                isSelected
-                  ? `
-                <div class="position-absolute top-0 end-0 p-2">
-                  <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
-                       style="width: 28px; height: 28px;">
-                    <i class="bi bi-check-lg"></i>
-                  </div>
-                </div>
-              `
-                  : ""
-              }
-            </div>
-          `
-              : `
-            <div class="bg-light d-flex align-items-center justify-content-center position-relative property-card-image">
-              <i class="bi bi-building fs-1 text-muted"></i>
-              ${
-                isSelected
-                  ? `
-                <div class="position-absolute top-0 end-0 p-2">
-                  <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center"
-                       style="width: 28px; height: 28px;">
-                    <i class="bi bi-check-lg"></i>
-                  </div>
-                </div>
-              `
-                  : ""
-              }
-            </div>
-          `
-          }
-          <div class="card-body">
-            <h6 class="card-title mb-1 fw-bold">${escapeHtml(
-              property.propertyId
-            )}</h6>
-            <p class="card-text text-muted small mb-0">
-              <i class="bi bi-geo-alt me-1"></i>${escapeHtml(
-                property.address || "No address"
-              )}
-            </p>
+      <div class="card property-select-card ${isSelected ? "selected" : ""} overflow-hidden"
+           data-property-id="${property.propertyId}"
+           data-property-index="${index}"
+           style="cursor: pointer; transition: all 0.2s ease;">
+        ${property.propertyImage
+          ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ""}
+            </div>`
+          : ""
+        }
+        <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+          <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+               style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
+            ${escapeHtml(property.propertyId.toString().substring(0, 3))}
           </div>
+          <div class="text-center" style="line-height: 1.2; width: 100%;">
+            <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || "")}">${escapeHtml(property.propertyId)}</div>
+            <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.address || "No address")}</div>
+          </div>
+          ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ""}
         </div>
       </div>
     `;
@@ -246,15 +212,13 @@ class BulkPropertyReportsComponent {
       // Add hover effect
       card.addEventListener("mouseenter", () => {
         if (!card.classList.contains("selected")) {
-          card.style.borderColor = "#0d6efd";
           card.style.transform = "translateY(-2px)";
-          card.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+          card.style.boxShadow = "0 4px 10px rgba(0,0,0,0.15)";
         }
       });
 
       card.addEventListener("mouseleave", () => {
         if (!card.classList.contains("selected")) {
-          card.style.borderColor = "";
           card.style.transform = "";
           card.style.boxShadow = "";
         }
@@ -274,13 +238,11 @@ class BulkPropertyReportsComponent {
       const propertyId = card.dataset.propertyId;
       if (this.selectedProperties.has(propertyId)) {
         card.classList.add("selected");
-        card.style.borderColor = "#198754";
-        card.style.borderWidth = "3px";
-        card.style.boxShadow = "0 4px 12px rgba(25,135,84,0.3)";
+        card.style.border = "3px solid #0d6efd";
+        card.style.boxShadow = "0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25)";
       } else {
         card.classList.remove("selected");
-        card.style.borderColor = "";
-        card.style.borderWidth = "";
+        card.style.border = "";
         card.style.boxShadow = "";
       }
     });

@@ -383,6 +383,11 @@ class UtilityBillTrackerComponent {
       return;
     }
 
+    // CSS Grid — compact cards
+    container.style.display = "grid";
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(120px, 1fr))";
+    container.style.gap = "0.5rem";
+
     container.innerHTML = this.properties.map(p => {
       const sel = this.allSelected || this.selectedProperty === p.propertyId;
       const hasBill = this.monthlyBillStatus[p.propertyId];
@@ -393,29 +398,29 @@ class UtilityBillTrackerComponent {
           ? `<span class="badge bg-success" style="font-size:0.6rem;"><i class="bi bi-check-lg me-1"></i>${i18next.t('utilityBillTracker.filled')}</span>`
           : `<span class="badge bg-warning text-dark" style="font-size:0.6rem;"><i class="bi bi-exclamation me-1"></i>${i18next.t('utilityBillTracker.missing')}</span>`;
       }
-      const borderClass = sel ? 'border-primary selected' : (statusKnown && !hasBill ? 'border-warning' : '');
+      const borderStyle = sel
+        ? 'border: 3px solid #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25);'
+        : (statusKnown && !hasBill ? 'border: 2px solid #ffc107;' : '');
       return `
-        <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
-          <div class="card utility-prop-card h-100 ${borderClass}"
-               style="cursor:pointer;transition:all .2s ease;"
-               onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
-            ${p.propertyImage ? `
-            <div class="card-img-top position-relative" style="height:100px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;">
-              ${sel ? '<div class="position-absolute top-0 end-0 p-1"><i class="bi bi-check-circle-fill text-success bg-white rounded-circle" style="font-size:1.2rem;"></i></div>' : ''}
-            </div>` : ''}
-            <div class="card-body p-2">
-              <div class="d-flex align-items-center gap-2">
-                <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white flex-shrink-0"
-                     style="width:32px;height:32px;font-size:11px;font-weight:bold;">
-                  ${escapeHtml(p.propertyId.substring(0, 2).toUpperCase())}
-                </div>
-                <div class="overflow-hidden">
-                  <div class="fw-bold small text-truncate">${escapeHtml(p.propertyId)}</div>
-                  <div class="text-muted" style="font-size:0.7rem;" title="${escapeHtml(p.address)}">${escapeHtml(p.address || '')}</div>
-                  ${statusBadge ? `<div class="mt-1">${statusBadge}</div>` : ''}
-                </div>
-              </div>
+        <div class="card utility-prop-card overflow-hidden ${sel ? 'selected' : ''}"
+             style="cursor:pointer;transition:all .2s ease;${borderStyle}"
+             onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
+          ${p.propertyImage
+            ? `<div style="height:55px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;position:relative;">
+                ${sel ? '<div style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:flex;align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>' : ''}
+               </div>`
+            : ''}
+          <div class="d-flex flex-column align-items-center p-2" style="gap:3px;background:${sel ? 'rgba(13,110,253,0.07)' : '#fff'};">
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width:28px;height:28px;font-size:11px;flex-shrink:0;">
+              ${escapeHtml(p.propertyId.toString().substring(0, 3))}
             </div>
+            <div class="text-center" style="line-height:1.2;width:100%;">
+              <div class="fw-semibold text-truncate" style="font-size:10px;" title="${escapeHtml(p.address || '')}">${escapeHtml(p.propertyId)}</div>
+              <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.address || '')}</div>
+            </div>
+            ${statusBadge ? `<div>${statusBadge}</div>` : ''}
+            ${!p.propertyImage && sel ? '<i class="bi bi-check-circle-fill text-primary" style="font-size:0.9rem;"></i>' : ''}
           </div>
         </div>`;
     }).join('');

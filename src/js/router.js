@@ -6,6 +6,8 @@
  *   #/<section>                                     → any named section
  *   #/financial/<property-slug>                     → financial report (current month)
  *   #/financial/<property-slug>/<year>/<month>      → financial report detail
+ *   #/tenants/<property-slug>                       → tenants for a property
+ *   #/tenants/<property-slug>/<tenant-name-slug>    → specific tenant (opens modal)
  *
  * Property slug  = slugify(unit) + "-" + slugify(address)
  *   e.g.  "#05-12" + "123 Clementi Road"  →  "05-12-123-clementi-road"
@@ -13,6 +15,10 @@
  * Tenant slug    = mongoId + "-" + slugify(name)
  *   e.g.  "6616f6a1d3b2e5f4a9c8b7d1-john-doe"
  *   Parse back: tenantId = slug.slice(0, 24)   (ObjectId is always 24 hex chars)
+ *
+ * Tenant-in-property URL  = /tenants/<property-slug>/<slugify(tenant.name)>
+ *   e.g.  /tenants/05-12-123-clementi-road/john-doe
+ *   Human-readable: full name + unit + address — no raw IDs in the URL.
  *
  * Adding new deep-link routes:
  *   Insert an entry into this.routes BEFORE the generic section catch-all.
@@ -93,6 +99,16 @@ class AppRouter {
       {
         pattern: /^\/utility-bills$/,
         handle: () => this._goSection("utility-bills"),
+      },
+      // Tenants — property slug + tenant name slug (opens specific tenant modal)
+      {
+        pattern: /^\/tenants\/(.+)\/([^/]+)$/,
+        handle: ([, propSlug, nameSlug]) => this._goTenant(propSlug, nameSlug),
+      },
+      // Tenants — property slug (show property's tenants)
+      {
+        pattern: /^\/tenants\/(.+)$/,
+        handle: ([, propSlug]) => this._goTenant(propSlug),
       },
       // Generic section: /dashboard, /properties, /tenants, /contracts, etc.
       {
@@ -247,6 +263,55 @@ class AppRouter {
       return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
     } catch (e) {
       console.error("[Router] Failed to resolve utility property slug:", e);
+      return null;
+    }
+  }
+
+  async _goTenant(propertySlug, tenantNameSlug) {
+    this._goSection("tenants");
+
+    const tm = window.tenantManager;
+    if (!tm) return;
+
+    // Resolve property slug → property object
+    const property = await this._resolveTenantPropertySlug(propertySlug);
+    if (!property) {
+      console.warn(`[Router] No property found for tenant slug: "${propertySlug}"`);
+      return;
+    }
+
+    tm._slugResolvedProperty = property;
+    await tm.selectProperty(property.propertyId);
+    tm._slugResolvedProperty = null;
+
+    // If a tenant name slug is provided, open that tenant's modal
+    if (tenantNameSlug) {
+      const tenant = tm.tenants.find(
+        (t) => SlugUtils.toSlug(t.name || "") === tenantNameSlug,
+      );
+      if (tenant) {
+        await tm.editTenant(tenant._id);
+      } else {
+        console.warn(`[Router] No tenant matched name slug: "${tenantNameSlug}"`);
+      }
+    }
+  }
+
+  async _resolveTenantPropertySlug(slug) {
+    const cached = window.tenantManager?.properties;
+    if (cached?.length > 0) {
+      return cached.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    }
+
+    try {
+      const res = await API.get(
+        `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200`,
+      );
+      const data = await res.json();
+      const props = data.properties || [];
+      return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    } catch (e) {
+      console.error("[Router] Failed to resolve tenant property slug:", e);
       return null;
     }
   }
