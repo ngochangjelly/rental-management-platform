@@ -1074,6 +1074,117 @@ class ContractManagementComponent {
     this.addressChangeHandler = (e) =>
       this.handleAddressSelection(e.target.value);
     addressSelect.addEventListener("change", this.addressChangeHandler);
+
+    // Render property selection cards
+    this.renderPropertyCards();
+  }
+
+  renderPropertyCards() {
+    const container = document.getElementById("contractPropertyCards");
+    if (!container) return;
+
+    container.style.display = "grid";
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(110px, 1fr))";
+    container.style.gap = "0.5rem";
+    container.innerHTML = "";
+
+    if (!this.properties || this.properties.length === 0) {
+      container.innerHTML = `<div class="text-muted small py-2">No properties available</div>`;
+      return;
+    }
+
+    this.properties.forEach((property) => {
+      const id = property.propertyId || property.id || property._id || "";
+      const isSelected = id && id === this.selectedPropertyId;
+      const baseAddress = property.address || property.location || property.name || "Unknown";
+      const address = property.unit ? `${baseAddress}, ${property.unit}` : baseAddress;
+
+      const cardHtml = `
+        <div class="card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
+             style="cursor: pointer; transition: all 0.2s ease;"
+             data-property-id="${id}"
+             onclick="contractManager.selectPropertyCard('${id}')">
+          ${property.propertyImage
+            ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
+              </div>`
+            : ""
+          }
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
+              ${escapeHtml(id.toString().substring(0, 3))}
+            </div>
+            <div class="text-center" style="line-height: 1.2; width: 100%;">
+              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(baseAddress)}">${escapeHtml(baseAddress)}</div>
+              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
+            </div>
+            ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
+          </div>
+        </div>
+      `;
+      container.innerHTML += cardHtml;
+    });
+
+    this.addPropertyCardStyles();
+  }
+
+  updatePropertyCardSelection() {
+    const allCards = document.querySelectorAll("#contractPropertyCards .property-card-compact");
+    allCards.forEach((card) => {
+      const isSelected = card.dataset.propertyId === String(this.selectedPropertyId || "");
+      card.classList.toggle("selected-card", isSelected);
+
+      const overlay = card.querySelector('[data-role="selected-overlay"]');
+      if (overlay) overlay.style.display = isSelected ? "flex" : "none";
+
+      const body = card.querySelector('[data-role="card-body"]');
+      if (body) body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
+
+      const check = card.querySelector('[data-role="no-image-check"]');
+      if (check) check.style.display = isSelected ? "inline" : "none";
+    });
+  }
+
+  addPropertyCardStyles() {
+    if (!document.getElementById("contract-property-card-styles")) {
+      const style = document.createElement("style");
+      style.id = "contract-property-card-styles";
+      style.textContent = `
+        #contractPropertyCards .property-card-compact {
+          border-radius: 6px;
+          border: 1px solid #dee2e6;
+        }
+        #contractPropertyCards .property-card-compact:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+        }
+        #contractPropertyCards .property-card-compact.selected-card {
+          border: 3px solid #0d6efd !important;
+          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  selectPropertyCard(propertyId) {
+    const property = this.properties.find(
+      (p) => (p.propertyId || p.id || p._id || "") === propertyId,
+    );
+    if (!property) return;
+
+    const baseAddress = property.address || property.location || property.name || "";
+    const address = property.unit ? `${baseAddress}, ${property.unit}` : baseAddress;
+
+    // Sync the hidden dropdown so existing logic reads the right value
+    const addressSelect = document.getElementById("contractAddress");
+    if (addressSelect) {
+      addressSelect.value = address;
+    }
+
+    // Trigger all downstream logic (loads tenants, updates preview, etc.)
+    this.handleAddressSelection(address);
   }
 
   async handleAddressSelection(address) {
@@ -1188,6 +1299,7 @@ class ContractManagementComponent {
     }
 
     this.updateContractPreview();
+    this.updatePropertyCardSelection();
   }
 
   autoSelectMainTenantForProperty(propertyId) {
@@ -3350,7 +3462,7 @@ class ContractManagementComponent {
       );
       if (exportBtn) {
         exportBtn.innerHTML =
-          '<i class="bi bi-hourglass-split me-1"></i>Generating PDF...';
+          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
         exportBtn.disabled = true;
       }
 
@@ -3981,16 +4093,17 @@ class ContractManagementComponent {
 
       pdf.save(filename);
       console.log(`✅ Contract exported successfully as text-based PDF`);
+      showToast("Contract exported successfully!", "success");
     } catch (error) {
       console.error("Error exporting PDF:", error);
-      alert("Error exporting PDF. Please try again: " + error.message);
+      showToast("Error exporting PDF: " + error.message, "error");
     } finally {
       // Restore button state
       const exportBtn = document.querySelector(
         '[onclick="contractManager.exportToPDF()"]',
       );
       if (exportBtn) {
-        exportBtn.innerHTML = '<i class="bi bi-file-pdf me-1"></i>Export PDF';
+        exportBtn.innerHTML = '<i class="bi bi-file-pdf me-1"></i><span data-i18n="createContract.exportPdf">Export PDF</span>';
         exportBtn.disabled = false;
       }
     }
@@ -4916,6 +5029,8 @@ class ContractManagementComponent {
           await this.loadTenants();
           this.populateTenantsDropdown();
         }
+
+        this.updatePropertyCardSelection();
       }
 
       // Load tenant selections if available
@@ -5138,6 +5253,9 @@ class ContractManagementComponent {
         airconFreeOfCharge: false,
       };
 
+      // Reset property selection
+      this.selectedPropertyId = null;
+
       // Reset tenant selections
       this.selectedTenantA = null;
       this.selectedTenantB = []; // Reset to empty array
@@ -5165,6 +5283,9 @@ class ContractManagementComponent {
 
       // Update contract preview
       this.updateContractPreview();
+
+      // Clear property card selection
+      this.updatePropertyCardSelection();
 
       showToast("Form reset successfully", "success");
     } catch (error) {

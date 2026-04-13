@@ -298,6 +298,7 @@ i18next.init({
           viewBill: "View Bill",
           noSpBillRecorded: "No SP Group bill recorded for this month",
           addInTracker: "Add in Utility Bill Tracker →",
+          dropPdfHere: "Drop PDF bill here to upload",
           // Modals – common
           cancel: "Cancel",
           save: "Save",
@@ -795,6 +796,7 @@ i18next.init({
           viewBill: "Xem hóa đơn",
           noSpBillRecorded: "Chưa có hóa đơn SP Group tháng này",
           addInTracker: "Thêm trong Theo dõi điện nước →",
+          dropPdfHere: "Thả file PDF hóa đơn vào đây để tải lên",
           // Modals – common
           cancel: "Hủy",
           save: "Lưu",

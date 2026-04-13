@@ -121,16 +121,17 @@ class BillManagementComponent {
     properties.forEach(property => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-        <div class="card property-card ${isSelected ? 'border-primary selected-card' : ''} overflow-hidden"
+        <div class="card property-card ${isSelected ? 'selected-card' : ''} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
+             data-property-id="${property.propertyId}"
              onclick="billManager.selectProperty('${property.propertyId}')">
           ${property.propertyImage
-            ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-                ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ''}
+            ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? 'flex' : 'none'}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
               </div>`
             : ''
           }
-          <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? 'rgba(13,110,253,0.07)' : '#fff'};">
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? 'rgba(13,110,253,0.07)' : '#fff'};">
             <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                  style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
               ${escapeHtml(property.propertyId.toString().substring(0, 3))}
@@ -139,7 +140,7 @@ class BillManagementComponent {
               <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || '')}">${escapeHtml(property.propertyId)}</div>
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.address || 'No address')}</div>
             </div>
-            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ''}
+            ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? 'inline' : 'none'};"></i>` : ''}
           </div>
         </div>
       `;
@@ -186,7 +187,20 @@ class BillManagementComponent {
   }
 
   updatePropertyCardSelection(propertyId) {
-    this.renderPropertyCards(this.properties);
+    const allCards = document.querySelectorAll('.property-card');
+    allCards.forEach((card) => {
+      const isSelected = card.dataset.propertyId === String(this.selectedProperty);
+      card.classList.toggle('selected-card', isSelected);
+
+      const overlay = card.querySelector('[data-role="selected-overlay"]');
+      if (overlay) overlay.style.display = isSelected ? 'flex' : 'none';
+
+      const body = card.querySelector('[data-role="card-body"]');
+      if (body) body.style.background = isSelected ? 'rgba(13,110,253,0.07)' : '#fff';
+
+      const check = card.querySelector('[data-role="no-image-check"]');
+      if (check) check.style.display = isSelected ? 'inline' : 'none';
+    });
   }
 
   changeMonth(delta) {
@@ -421,17 +435,16 @@ class BillManagementComponent {
                     <div class="d-flex justify-content-between fw-bold border-top mt-1 pt-1"><span>${t('total')}</span><span class="text-primary">$${(ub.totalAmount||0).toFixed(2)}</span></div>
                     ${ub.billImageUrl ? `<a href="${ub.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 w-100 py-0" style="font-size:0.75rem;"><i class="bi bi-image me-1"></i>${t('viewBill')}</a>` : ''}
                   </div>`;
-              })() : `
-                <div class="border rounded bg-light d-flex align-items-center justify-content-center text-muted p-3 text-center" style="min-height:80px;">
-                  <div>
-                    <i class="bi bi-lightning-charge d-block mb-1 fs-4"></i>
-                    <small>${t('noSpBillRecorded')}</small><br>
-                    <a href="#" class="btn btn-sm btn-link p-0 mt-1" style="font-size:0.75rem;"
-                       onclick="event.preventDefault();dashboardController.showSection('utility-bills')">
-                      ${t('addInTracker')}
-                    </a>
-                  </div>
-                </div>`}
+              })() : ''}
+              <div id="utilityBillDropZoneInline"
+                   class="border rounded p-2 text-center mt-2"
+                   style="border-style:dashed!important;cursor:pointer;transition:background 0.15s;"
+                   onclick="document.getElementById('utilityBillFileInputInline').click()">
+                <input type="file" id="utilityBillFileInputInline" accept="application/pdf,.pdf,image/jpeg,image/png,image/heic" style="display:none">
+                <i class="bi bi-file-earmark-arrow-up text-secondary" style="font-size:1.4rem;"></i>
+                <div class="small text-muted mt-1">${t('dropPdfHere')}</div>
+                <div id="utilityDropStatus" class="small mt-1"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -442,6 +455,94 @@ class BillManagementComponent {
 
     // Re-bind checkbox events
     this.bindCheckboxEvents();
+    this.bindUtilityDropZone();
+  }
+
+  bindUtilityDropZone() {
+    const dropZone = document.getElementById('utilityBillDropZoneInline');
+    const fileInput = document.getElementById('utilityBillFileInputInline');
+    if (!dropZone || !fileInput) return;
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) this.uploadUtilityBillFromDrop(file);
+      fileInput.value = '';
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.background = 'rgba(13,110,253,0.07)';
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.style.background = '';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '';
+      const file = e.dataTransfer?.files?.[0];
+      if (file) this.uploadUtilityBillFromDrop(file);
+    });
+  }
+
+  async uploadUtilityBillFromDrop(file) {
+    if (!this.selectedProperty) return;
+
+    const statusEl = document.getElementById('utilityDropStatus');
+    const dropZone = document.getElementById('utilityBillDropZoneInline');
+
+    const setStatus = (html) => { if (statusEl) statusEl.innerHTML = html; };
+
+    setStatus(`<span class="spinner-border spinner-border-sm me-1"></span>Reading bill…`);
+    if (dropZone) dropZone.style.pointerEvents = 'none';
+
+    try {
+      // Step 1: OCR / parse
+      const ocrForm = new FormData();
+      ocrForm.append('billImage', file);
+      const ocrRes = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UTILITY_BILL_PARSE_OCR}`, {
+        method: 'POST', credentials: 'include', body: ocrForm,
+      });
+      const ocrData = await ocrRes.json();
+      if (!ocrData.success) throw new Error(ocrData.error || 'OCR failed');
+
+      const parsed = ocrData.data;
+      const year = parsed.billYear || this.currentDate.getFullYear();
+      const month = parsed.billMonth || (this.currentDate.getMonth() + 1);
+
+      setStatus(`<span class="spinner-border spinner-border-sm me-1"></span>Saving…`);
+
+      // Step 2: Save
+      const saveForm = new FormData();
+      saveForm.append('year', year);
+      saveForm.append('month', month);
+      saveForm.append('billImage', file);
+      if (parsed.accountNumber) saveForm.append('accountNumber', parsed.accountNumber);
+      if (parsed.billDate) saveForm.append('billDate', parsed.billDate);
+      if (parsed.billingPeriodStart) saveForm.append('billingPeriodStart', parsed.billingPeriodStart);
+      if (parsed.billingPeriodEnd) saveForm.append('billingPeriodEnd', parsed.billingPeriodEnd);
+      if (parsed.electricityAmount != null) saveForm.append('electricityAmount', parsed.electricityAmount);
+      if (parsed.waterAmount != null) saveForm.append('waterAmount', parsed.waterAmount);
+      if (parsed.gasAmount != null) saveForm.append('gasAmount', parsed.gasAmount);
+      if (parsed.refuseAmount != null) saveForm.append('refuseAmount', parsed.refuseAmount);
+      if (parsed.gstAmount != null) saveForm.append('gstAmount', parsed.gstAmount);
+      if (parsed.otherAmount != null) saveForm.append('otherAmount', parsed.otherAmount);
+      if (parsed.totalAmount != null) saveForm.append('totalAmount', parsed.totalAmount);
+
+      const saveRes = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UTILITY_BILL_CREATE(this.selectedProperty)}`, {
+        method: 'POST', credentials: 'include', body: saveForm,
+      });
+      const saveData = await saveRes.json();
+      if (!saveData.success) throw new Error(saveData.error || 'Save failed');
+
+      setStatus(`<i class="bi bi-check-circle-fill text-success me-1"></i>Saved`);
+      // Refresh utility bill and re-render
+      await this.loadUtilityBillForMonth();
+      this.renderBillTable();
+    } catch (err) {
+      console.error('[BillManagement] utility drop upload error:', err);
+      setStatus(`<i class="bi bi-exclamation-triangle text-danger me-1"></i>${err.message}`);
+      if (dropZone) dropZone.style.pointerEvents = '';
+    }
   }
 
   bindCheckboxEvents() {

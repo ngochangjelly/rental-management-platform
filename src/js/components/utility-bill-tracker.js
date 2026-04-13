@@ -406,11 +406,11 @@ class UtilityBillTrackerComponent {
              style="cursor:pointer;transition:all .2s ease;${borderStyle}"
              onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
           ${p.propertyImage
-            ? `<div style="height:55px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;position:relative;">
-                ${sel ? '<div style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:flex;align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>' : ''}
+            ? `<div data-role="property-image" style="height:55px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;position:relative;">
+                <div data-role="selected-overlay" style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:${sel ? 'flex' : 'none'};align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>
                </div>`
             : ''}
-          <div class="d-flex flex-column align-items-center p-2" style="gap:3px;background:${sel ? 'rgba(13,110,253,0.07)' : '#fff'};">
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap:3px;background:${sel ? 'rgba(13,110,253,0.07)' : '#fff'};">
             <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                  style="width:28px;height:28px;font-size:11px;flex-shrink:0;">
               ${escapeHtml(p.propertyId.toString().substring(0, 3))}
@@ -420,7 +420,7 @@ class UtilityBillTrackerComponent {
               <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.address || '')}</div>
             </div>
             ${statusBadge ? `<div>${statusBadge}</div>` : ''}
-            ${!p.propertyImage && sel ? '<i class="bi bi-check-circle-fill text-primary" style="font-size:0.9rem;"></i>' : ''}
+            ${!p.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size:0.9rem;display:${sel ? 'inline' : 'none'};"></i>` : ''}
           </div>
         </div>`;
     }).join('');

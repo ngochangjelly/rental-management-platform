@@ -4588,7 +4588,7 @@
 
               <div class="row">
                 <!-- Contract Input Form -->
-                <div class="col-lg-4">
+                <div class="col-lg-6">
                   <div class="card">
                     <div class="card-header">
                       <h5
@@ -4599,157 +4599,12 @@
                       </h5>
                     </div>
                     <div class="card-body">
-                      <!-- Template Section -->
-                      <div class="mb-4">
-                        <div
-                          class="d-flex justify-content-between align-items-center mb-3"
-                        >
-                          <h6 class="mb-0">
-                            <i class="bi bi-bookmark me-1"></i
-                            ><span data-i18n="createContract.contractTemplates"
-                              >Contract Templates</span
-                            >
-                          </h6>
-                          <div class="btn-group">
-                            <button
-                              class="btn btn-outline-secondary btn-sm"
-                              onclick="contractManager.resetForm()"
-                            >
-                              <i class="bi bi-arrow-clockwise me-1"></i
-                              ><span data-i18n="createContract.resetForm"
-                                >Reset Form</span
-                              >
-                            </button>
-                            <button
-                              class="btn btn-outline-primary btn-sm"
-                              id="saveTemplateBtn"
-                              onclick="contractManager.showSaveTemplateModal()"
-                            >
-                              <i class="bi bi-save me-1"></i
-                              ><span data-i18n="createContract.saveTemplate"
-                                >Save Template</span
-                              >
-                            </button>
-                          </div>
-                        </div>
-
-                        <!-- Saved Templates List -->
-                        <div
-                          id="templatesList"
-                          class="mb-3"
-                          style="
-                            min-height: 300px;
-                            max-height: 400px;
-                            overflow-y: auto;
-                            border: 1px solid #e0e0e0;
-                            border-radius: 4px;
-                            padding: 8px;
-                          "
-                        >
-                          <!-- Initial Loading Skeleton -->
-                          <div
-                            class="loading-skeleton"
-                            style="min-height: 300px"
-                          >
-                            <div
-                              class="skeleton-item mb-2 p-3 border rounded bg-light"
-                              style="animation: pulse 1.5s ease-in-out infinite"
-                            >
-                              <div
-                                style="
-                                  height: 20px;
-                                  background: #d1d5db;
-                                  border-radius: 4px;
-                                  margin-bottom: 8px;
-                                  width: 70%;
-                                "
-                              ></div>
-                              <div
-                                style="
-                                  height: 14px;
-                                  background: #e5e7eb;
-                                  border-radius: 4px;
-                                  width: 50%;
-                                "
-                              ></div>
-                            </div>
-                            <div
-                              class="skeleton-item mb-2 p-3 border rounded bg-light"
-                              style="
-                                animation: pulse 1.5s ease-in-out infinite;
-                                animation-delay: 0.2s;
-                              "
-                            >
-                              <div
-                                style="
-                                  height: 20px;
-                                  background: #d1d5db;
-                                  border-radius: 4px;
-                                  margin-bottom: 8px;
-                                  width: 65%;
-                                "
-                              ></div>
-                              <div
-                                style="
-                                  height: 14px;
-                                  background: #e5e7eb;
-                                  border-radius: 4px;
-                                  width: 45%;
-                                "
-                              ></div>
-                            </div>
-                            <div
-                              class="skeleton-item mb-2 p-3 border rounded bg-light"
-                              style="
-                                animation: pulse 1.5s ease-in-out infinite;
-                                animation-delay: 0.4s;
-                              "
-                            >
-                              <div
-                                style="
-                                  height: 20px;
-                                  background: #d1d5db;
-                                  border-radius: 4px;
-                                  margin-bottom: 8px;
-                                  width: 75%;
-                                "
-                              ></div>
-                              <div
-                                style="
-                                  height: 14px;
-                                  background: #e5e7eb;
-                                  border-radius: 4px;
-                                  width: 55%;
-                                "
-                              ></div>
-                            </div>
-                          </div>
-                          <style>
-                            @keyframes pulse {
-                              0%,
-                              100% {
-                                opacity: 1;
-                              }
-
-                              50% {
-                                opacity: 0.5;
-                              }
-                            }
-                          </style>
-                        </div>
-                      </div>
-
-                      <!-- Export PDF Button -->
-                      <div class="mb-4">
-                        <button
-                          class="btn btn-success w-100"
-                          onclick="contractManager.exportToPDF()"
-                        >
-                          <i class="bi bi-file-pdf me-1"></i
-                          ><span data-i18n="createContract.exportPdf"
-                            >Export PDF</span
-                          >
-                        </button>
+                      <!-- Property Selection Cards -->
+                      <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                          <i class="bi bi-building me-1"></i>Select Property
+                        </label>
+                        <div id="contractPropertyCards"></div>
                       </div>
 
                       <!-- Property Details -->
@@ -5552,7 +5407,71 @@
                 </div>
 
                 <!-- Contract Preview -->
-                <div class="col-lg-8">
+                <div class="col-lg-6">
+                  <!-- Template Section -->
+                  <div class="card mb-3">
+                    <div class="card-header">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                          <i class="bi bi-bookmark me-1"></i
+                          ><span data-i18n="createContract.contractTemplates">Contract Templates</span>
+                        </h5>
+                        <div class="btn-group">
+                          <button
+                            class="btn btn-outline-secondary btn-sm"
+                            onclick="contractManager.resetForm()"
+                          >
+                            <i class="bi bi-arrow-clockwise me-1"></i
+                            ><span data-i18n="createContract.resetForm">Reset Form</span>
+                          </button>
+                          <button
+                            class="btn btn-outline-primary btn-sm"
+                            id="saveTemplateBtn"
+                            onclick="contractManager.showSaveTemplateModal()"
+                          >
+                            <i class="bi bi-save me-1"></i
+                            ><span data-i18n="createContract.saveTemplate">Save Template</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-body p-2">
+                      <div
+                        id="templatesList"
+                        style="
+                          min-height: 120px;
+                          max-height: 220px;
+                          overflow-y: auto;
+                        "
+                      >
+                        <!-- Initial Loading Skeleton -->
+                        <div class="loading-skeleton" style="min-height: 120px">
+                          <div
+                            class="skeleton-item mb-2 p-3 border rounded bg-light"
+                            style="animation: pulse 1.5s ease-in-out infinite"
+                          >
+                            <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 70%;"></div>
+                            <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 50%;"></div>
+                          </div>
+                          <div
+                            class="skeleton-item mb-2 p-3 border rounded bg-light"
+                            style="animation: pulse 1.5s ease-in-out infinite; animation-delay: 0.2s;"
+                          >
+                            <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 65%;"></div>
+                            <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 45%;"></div>
+                          </div>
+                        </div>
+                        <style>
+                          @keyframes pulse {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0.5; }
+                          }
+                        </style>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Contract Preview -->
                   <div class="card">
                     <div
                       class="card-header d-flex justify-content-between align-items-center"
@@ -5563,17 +5482,25 @@
                       >
                         Contract Preview
                       </h5>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        onclick="contractManager.downloadContractTemplate()"
-                        title="Download blank contract template for editing in Word"
-                      >
-                        <i class="bi bi-download me-1"></i>
-                        <span data-i18n="createContract.downloadTemplate"
-                          >Download Template</span
+                      <div class="d-flex gap-2">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          onclick="contractManager.downloadContractTemplate()"
+                          title="Download blank contract template for editing in Word"
                         >
-                      </button>
+                          <i class="bi bi-download me-1"></i>
+                          <span data-i18n="createContract.downloadTemplate">Download Template</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-success"
+                          onclick="contractManager.exportToPDF()"
+                        >
+                          <i class="bi bi-file-pdf me-1"></i
+                          ><span data-i18n="createContract.exportPdf">Export PDF</span>
+                        </button>
+                      </div>
                     </div>
                     <div
                       class="card-body"

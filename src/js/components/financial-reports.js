@@ -401,13 +401,13 @@ class FinancialReportsComponent {
              onclick="window.financialReports.selectProperty('${property.propertyId}')">
           ${
             property.propertyImage
-              ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
                  ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
-                 ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ""}
+                 <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                </div>`
               : ""
           }
-          <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
             <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white fw-bold"
                  style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
               ${isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
@@ -416,7 +416,7 @@ class FinancialReportsComponent {
               <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
             </div>
-            ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ""}
+            ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
             ${!property.propertyImage && isReportClosed && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
           </div>
         </div>
@@ -508,13 +508,29 @@ class FinancialReportsComponent {
   }
 
   updatePropertyCardSelection() {
-    // Update selection state on compact cards
     const allCards = document.querySelectorAll(".property-card-compact");
     allCards.forEach((card) => {
       const isSelected =
         String(card.dataset.propertyId) === String(this.selectedProperty);
-      card.classList.toggle("border-primary", isSelected);
       card.classList.toggle("selected-card", isSelected);
+
+      // Update image overlay
+      const overlay = card.querySelector('[data-role="selected-overlay"]');
+      if (overlay) {
+        overlay.style.display = isSelected ? "flex" : "none";
+      }
+
+      // Update body background
+      const body = card.querySelector('[data-role="card-body"]');
+      if (body) {
+        body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
+      }
+
+      // Update check icon for cards without images
+      const noImageCheck = card.querySelector('[data-role="no-image-check"]');
+      if (noImageCheck) {
+        noImageCheck.style.display = isSelected ? "inline" : "none";
+      }
     });
   }
 

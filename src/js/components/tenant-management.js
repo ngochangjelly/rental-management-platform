@@ -164,6 +164,7 @@ class TenantManagementComponent {
     const unassignedCardHtml = `
             <div class="card property-card-compact ${isUnassignedSelected ? "border-warning selected-card" : "border-secondary"} overflow-hidden"
                  style="cursor: pointer; transition: all 0.2s ease;"
+                 data-property-id="UNASSIGNED"
                  onclick="tenantManager.selectUnassignedTenants()">
                 <div class="d-flex flex-column align-items-center justify-content-center p-2 bg-light" style="min-height: 80px; gap: 4px;">
                     <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
@@ -174,7 +175,7 @@ class TenantManagementComponent {
                         <div class="fw-bold" style="font-size: 11px;">Unassigned</div>
                         <div class="text-muted" style="font-size: 10px;">No Property</div>
                     </div>
-                    ${isUnassignedSelected ? '<i class="bi bi-check-circle-fill text-warning" style="font-size: 0.85rem;"></i>' : ""}
+                    <i data-role="unassigned-check" class="bi bi-check-circle-fill text-warning" style="font-size: 0.85rem; display: ${isUnassignedSelected ? "inline" : "none"};"></i>
                 </div>
             </div>
         `;
@@ -186,14 +187,15 @@ class TenantManagementComponent {
       const cardHtml = `
                 <div class="card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
                      style="cursor: pointer; transition: all 0.2s ease;"
+                     data-property-id="${property.propertyId}"
                      onclick="tenantManager.selectProperty('${property.propertyId}')">
                     ${property.propertyImage
-          ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-                            ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ""}
+          ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                            <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                           </div>`
           : ""
         }
-                    <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+                    <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
                         <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                              style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
                             ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
@@ -202,7 +204,7 @@ class TenantManagementComponent {
                             <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address)}">${this.escapeHtml(property.address)}</div>
                             <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit)}</div>
                         </div>
-                        ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ""}
+                        ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
                     </div>
                 </div>
             `;
@@ -275,8 +277,31 @@ class TenantManagementComponent {
   }
 
   updatePropertyCardSelection(propertyId) {
-    // Re-render cards to reflect the new selection state
-    this.renderPropertyCards(this.properties);
+    const allCards = document.querySelectorAll(".property-card-compact");
+    allCards.forEach((card) => {
+      const cardPropId = card.dataset.propertyId || "";
+      const isSelected = cardPropId === String(this.selectedProperty);
+
+      if (cardPropId === "UNASSIGNED") {
+        card.classList.toggle("border-warning", isSelected);
+        card.classList.toggle("selected-card", isSelected);
+        card.classList.toggle("border-secondary", !isSelected);
+        const check = card.querySelector('[data-role="unassigned-check"]');
+        if (check) check.style.display = isSelected ? "inline" : "none";
+        return;
+      }
+
+      card.classList.toggle("selected-card", isSelected);
+
+      const overlay = card.querySelector('[data-role="selected-overlay"]');
+      if (overlay) overlay.style.display = isSelected ? "flex" : "none";
+
+      const body = card.querySelector('[data-role="card-body"]');
+      if (body) body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
+
+      const check = card.querySelector('[data-role="no-image-check"]');
+      if (check) check.style.display = isSelected ? "inline" : "none";
+    });
   }
 
   async loadTenantsForProperty(propertyId) {

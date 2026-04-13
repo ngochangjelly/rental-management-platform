@@ -145,12 +145,12 @@ class BulkPropertyReportsComponent {
            data-property-index="${index}"
            style="cursor: pointer; transition: all 0.2s ease;">
         ${property.propertyImage
-          ? `<div style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-              ${isSelected ? '<div style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: flex; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>' : ""}
+          ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
             </div>`
           : ""
         }
-        <div class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+        <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
           <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
             ${escapeHtml(property.propertyId.toString().substring(0, 3))}
@@ -159,7 +159,7 @@ class BulkPropertyReportsComponent {
             <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || "")}">${escapeHtml(property.propertyId)}</div>
             <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.address || "No address")}</div>
           </div>
-          ${!property.propertyImage && isSelected ? '<i class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem;"></i>' : ""}
+          ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
         </div>
       </div>
     `;
@@ -191,21 +191,18 @@ class BulkPropertyReportsComponent {
           }
 
           this.updateSelectedCount();
-          this.renderPropertyList();
+          this.updateCardStyles();
         } else {
           // Single selection/deselection
           if (this.selectedProperties.has(propertyId)) {
             this.selectedProperties.delete(propertyId);
-            card.classList.remove("selected");
           } else {
             this.selectedProperties.add(propertyId);
-            card.classList.add("selected");
           }
 
           this.lastClickedIndex = currentIndex;
           this.updateSelectedCount();
-          // Re-render to update checkmark
-          this.renderPropertyList();
+          this.updateCardStyles();
         }
       });
 
@@ -236,15 +233,20 @@ class BulkPropertyReportsComponent {
     const cards = document.querySelectorAll(".property-select-card");
     cards.forEach((card) => {
       const propertyId = card.dataset.propertyId;
-      if (this.selectedProperties.has(propertyId)) {
-        card.classList.add("selected");
-        card.style.border = "3px solid #0d6efd";
-        card.style.boxShadow = "0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25)";
-      } else {
-        card.classList.remove("selected");
-        card.style.border = "";
-        card.style.boxShadow = "";
-      }
+      const isSelected = this.selectedProperties.has(propertyId);
+
+      card.classList.toggle("selected", isSelected);
+      card.style.border = isSelected ? "3px solid #0d6efd" : "";
+      card.style.boxShadow = isSelected ? "0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25)" : "";
+
+      const overlay = card.querySelector('[data-role="selected-overlay"]');
+      if (overlay) overlay.style.display = isSelected ? "flex" : "none";
+
+      const body = card.querySelector('[data-role="card-body"]');
+      if (body) body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
+
+      const check = card.querySelector('[data-role="no-image-check"]');
+      if (check) check.style.display = isSelected ? "inline" : "none";
     });
   }
 
