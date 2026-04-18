@@ -975,6 +975,15 @@ class AcCleanManagementComponent {
     }
 
     const html = `
+      <div class="d-flex justify-content-end mb-2">
+        <button
+          class="btn btn-outline-secondary btn-sm"
+          onclick="window.acCleanManagementComponent.copyAllCompaniesInfo(this)"
+          title="Copy all contractors with their assigned properties"
+        >
+          <i class="bi bi-clipboard me-1"></i>Copy All
+        </button>
+      </div>
       <div class="table-responsive">
         <table class="table table-hover">
           <thead>
@@ -1025,6 +1034,15 @@ class AcCleanManagementComponent {
                 </td>
                 <td>
                   <button
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    onclick="window.acCleanManagementComponent.copyCompanyInfo('${this.escapeHtml(
+                      company.companyId
+                    )}', this)"
+                    title="Copy company info with assigned properties"
+                  >
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+                  <button
                     class="btn btn-sm btn-primary me-1"
                     onclick="window.acCleanManagementComponent.showEditCompanyModal('${this.escapeHtml(
                       company.companyId
@@ -1051,6 +1069,73 @@ class AcCleanManagementComponent {
     `;
 
     container.innerHTML = html;
+  }
+
+  _buildCompanyClipboardText(company) {
+    const props = this.properties.filter(
+      (p) => p.acServiceName && p.acServiceName === company.name
+    );
+    let text = `Company: ${company.name}\n`;
+    text += `Phone: ${company.phone}\n`;
+    if (company.website) text += `Website: ${company.website}\n`;
+    if (company.notes) text += `Notes: ${company.notes}\n`;
+    text += `Status: ${company.isActive ? "Active" : "Inactive"}\n`;
+    if (props.length > 0) {
+      text += `Properties (${props.length}):\n`;
+      props.forEach((p) => {
+        text += `  - ${p.propertyId}: ${p.address}${p.unit ? ", " + p.unit : ""}\n`;
+      });
+    } else {
+      text += `Properties: None assigned\n`;
+    }
+    return text;
+  }
+
+  async copyCompanyInfo(companyId, btn) {
+    const company = this.companies.find((c) => c.companyId === companyId);
+    if (!company) return;
+
+    const text = this._buildCompanyClipboardText(company);
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+        btn.classList.replace("btn-outline-secondary", "btn-success");
+        setTimeout(() => {
+          btn.innerHTML = original;
+          btn.classList.replace("btn-success", "btn-outline-secondary");
+        }, 1500);
+      }
+      showToast("Copied to clipboard", "success");
+    } catch (e) {
+      showToast("Failed to copy", "error");
+    }
+  }
+
+  async copyAllCompaniesInfo(btn) {
+    if (this.companies.length === 0) {
+      showToast("No companies to copy", "warning");
+      return;
+    }
+
+    const lines = this.companies.map((c) => this._buildCompanyClipboardText(c));
+    const text = lines.join("\n---\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>Copied!';
+        btn.classList.replace("btn-outline-secondary", "btn-success");
+        setTimeout(() => {
+          btn.innerHTML = original;
+          btn.classList.replace("btn-success", "btn-outline-secondary");
+        }, 1500);
+      }
+      showToast(`Copied ${this.companies.length} companies to clipboard`, "success");
+    } catch (e) {
+      showToast("Failed to copy", "error");
+    }
   }
 
   showAddCompanyModal() {

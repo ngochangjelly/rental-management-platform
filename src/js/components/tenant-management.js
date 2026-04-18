@@ -1796,7 +1796,7 @@ class TenantManagementComponent {
     if (!confirm('Remove this property assignment from the tenant?')) return;
     this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
     this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(p => p.propertyId !== propertyId);
-    this.updatePropertiesList();
+    this.updateSelectedPropertiesList();
     this.checkForChanges();
   }
 

@@ -1524,12 +1524,17 @@ class ContractManagementComponent {
           "🏠 Auto-filling move-in/move-out dates from tenant property info",
         );
 
-        // Find the most recent property with move-in/move-out dates
+        // Find the latest property assignment (by moveinDate) with date info
         let propertyWithDates = null;
         for (const property of tenant.properties) {
           if (property.moveinDate || property.moveoutDate) {
-            propertyWithDates = property;
-            break; // Use the first property that has date information
+            if (
+              !propertyWithDates ||
+              new Date(property.moveinDate || 0) >
+                new Date(propertyWithDates.moveinDate || 0)
+            ) {
+              propertyWithDates = property;
+            }
           }
         }
 
@@ -1741,12 +1746,16 @@ class ContractManagementComponent {
         if (tenant && tenant.properties && tenant.properties.length > 0) {
           for (const property of tenant.properties) {
             if (property.moveinDate || property.moveoutDate) {
-              tenantWithDates = tenant;
-              propertyWithDates = property;
-              break;
+              if (
+                !propertyWithDates ||
+                new Date(property.moveinDate || 0) >
+                  new Date(propertyWithDates.moveinDate || 0)
+              ) {
+                tenantWithDates = tenant;
+                propertyWithDates = property;
+              }
             }
           }
-          if (propertyWithDates) break;
         }
       }
 
