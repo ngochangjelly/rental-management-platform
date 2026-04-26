@@ -709,6 +709,10 @@ class TenantManagementComponent {
         return propId === this.selectedProperty;
       });
       if (propertyInfo && typeof propertyInfo === "object") {
+        // Sync legacy flat fields from roomAssignments if needed
+        if (propertyInfo.roomAssignments?.length > 0) {
+          this.syncLegacyFieldsFromRoomAssignments(propertyInfo);
+        }
         roomInfo = propertyInfo.room
           ? getRoomTypeDisplayName(propertyInfo.room)
           : "No room";

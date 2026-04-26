@@ -64,6 +64,24 @@ class ContractManagementComponent {
     // Event listeners will be added when modal is shown
   }
 
+  async reloadTenants() {
+    if (!this.selectedPropertyId) {
+      alert("Please select a property first before reloading tenants.");
+      return;
+    }
+    const btn = document.getElementById("reloadTenantsBtn");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spin-animation"></i>Reloading...';
+    }
+    await this.loadTenants();
+    await this.loadInvestors();
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Reload Tenants';
+    }
+  }
+
   async loadTenants() {
     try {
       // Only load tenants for the selected property
@@ -1810,51 +1828,39 @@ class ContractManagementComponent {
           }
         }
 
-        // Auto-fill rent and deposit from tenant data
-        if (tenantWithDates) {
-          // Auto-fill monthly rental
-          if (tenantWithDates.rent) {
-            const monthlyRentalInput = document.getElementById(
-              "contractMonthlyRental",
-            );
-            if (monthlyRentalInput) {
-              monthlyRentalInput.value = tenantWithDates.rent;
-              this.contractData.monthlyRental = tenantWithDates.rent;
-              console.log(
-                "✅ Auto-filled monthly rental from Tenant B:",
-                tenantWithDates.rent,
-              );
-            }
-          }
+        // Auto-fill rent and deposit by summing all selected Tenant B (roommates)
+        const totalRent = this.selectedTenantB.reduce(
+          (sum, t) => sum + (parseFloat(t.rent) || 0), 0
+        );
+        const totalDeposit = this.selectedTenantB.reduce(
+          (sum, t) => sum + (parseFloat(t.deposit) || 0), 0
+        );
 
-          // Auto-fill security deposit
-          if (tenantWithDates.deposit) {
-            const securityDepositInput = document.getElementById(
-              "contractSecurityDeposit",
-            );
-            if (securityDepositInput) {
-              securityDepositInput.value = tenantWithDates.deposit;
-              this.contractData.securityDeposit = tenantWithDates.deposit;
-              console.log(
-                "✅ Auto-filled security deposit from Tenant B:",
-                tenantWithDates.deposit,
-              );
-            }
+        if (totalRent > 0) {
+          const monthlyRentalInput = document.getElementById("contractMonthlyRental");
+          if (monthlyRentalInput) {
+            monthlyRentalInput.value = totalRent;
+            this.contractData.monthlyRental = totalRent;
+            console.log("✅ Auto-filled total monthly rental from Tenant B roommates:", totalRent);
           }
+        }
 
-          // Auto-fill cleaning fee
-          if (tenantWithDates.cleaningFee) {
-            const cleaningFeeInput = document.getElementById(
-              "contractCleaningFee",
-            );
-            if (cleaningFeeInput) {
-              cleaningFeeInput.value = tenantWithDates.cleaningFee;
-              this.contractData.cleaningFee = tenantWithDates.cleaningFee;
-              console.log(
-                "✅ Auto-filled cleaning fee from Tenant B:",
-                tenantWithDates.cleaningFee,
-              );
-            }
+        if (totalDeposit > 0) {
+          const securityDepositInput = document.getElementById("contractSecurityDeposit");
+          if (securityDepositInput) {
+            securityDepositInput.value = totalDeposit;
+            this.contractData.securityDeposit = totalDeposit;
+            console.log("✅ Auto-filled total security deposit from Tenant B roommates:", totalDeposit);
+          }
+        }
+
+        // Auto-fill cleaning fee from the tenant with dates
+        if (tenantWithDates && tenantWithDates.cleaningFee) {
+          const cleaningFeeInput = document.getElementById("contractCleaningFee");
+          if (cleaningFeeInput) {
+            cleaningFeeInput.value = tenantWithDates.cleaningFee;
+            this.contractData.cleaningFee = tenantWithDates.cleaningFee;
+            console.log("✅ Auto-filled cleaning fee from Tenant B:", tenantWithDates.cleaningFee);
           }
         }
 

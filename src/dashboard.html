@@ -4733,13 +4733,21 @@
                 <!-- Contract Input Form -->
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                       <h5
                         class="mb-0"
                         data-i18n="createContract.contractDetails"
                       >
                         Contract Details
                       </h5>
+                      <button
+                        class="btn btn-sm btn-outline-secondary"
+                        onclick="contractManager.reloadTenants()"
+                        title="Reload tenants"
+                        id="reloadTenantsBtn"
+                      >
+                        <i class="bi bi-arrow-clockwise me-1"></i>Reload Tenants
+                      </button>
                     </div>
                     <div class="card-body">
                       <!-- Property Selection Cards -->
@@ -11753,7 +11761,7 @@
                   <i class="bi bi-person-check me-1"></i>Status Information
                 </h6>
                 <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-12 mb-3">
                     <label class="form-label">
                       <i class="bi bi-check-circle me-1"></i>Registration Status
                     </label>
@@ -11777,22 +11785,6 @@
                     <div class="form-text">
                       Click to cycle between: Unregistered → Pending →
                       Registered
-                    </div>
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <div class="form-check form-switch">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="tenantIsMainTenant"
-                        name="isMainTenant"
-                      />
-                      <label class="form-check-label" for="tenantIsMainTenant">
-                        <i class="bi bi-star me-1"></i>Main Tenant
-                      </label>
-                      <div class="form-text">
-                        Check if this is the primary tenant
-                      </div>
                     </div>
                   </div>
                 </div>
