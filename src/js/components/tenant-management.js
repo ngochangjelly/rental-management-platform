@@ -435,9 +435,22 @@ class TenantManagementComponent {
     // Search functionality
     const searchInput = document.getElementById("tenantSearchInput");
     if (searchInput && !searchInput._tenantListenerAttached) {
+      let _searchTimer = null;
       searchInput.addEventListener("input", (e) => {
-        window.tenantManager?.filterTenants(e.target.value);
+        clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(() => {
+          window.tenantManager?.filterTenants(e.target.value);
+        }, 300);
       });
+      // Clear button
+      const clearBtn = document.getElementById("tenantSearchClearBtn");
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+          searchInput.value = "";
+          window.tenantManager?.filterTenants("");
+          searchInput.focus();
+        });
+      }
       searchInput._tenantListenerAttached = true;
     }
 
@@ -558,7 +571,7 @@ class TenantManagementComponent {
       return;
     }
 
-    if (!this.selectedProperty) {
+    if (!this.selectedProperty && !this._globalSearchActive) {
       tbody.innerHTML = `
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-building fs-1 d-block mb-3"></i>
@@ -1212,12 +1225,14 @@ class TenantManagementComponent {
   }
 
   async filterTenants(searchTerm) {
-    if (!this.selectedProperty) {
-      return;
-    }
+    const clearBtn = document.getElementById("tenantSearchClearBtn");
+    if (clearBtn) clearBtn.style.display = searchTerm ? "inline-flex" : "none";
 
     if (!searchTerm.trim()) {
-      // Reload based on what's selected
+      this._globalSearchActive = false;
+      this._hideSearchBanner();
+      // Revert to property view
+      if (!this.selectedProperty) return;
       if (this.selectedProperty === "UNASSIGNED") {
         await this.loadUnassignedTenants();
       } else {
@@ -1226,45 +1241,66 @@ class TenantManagementComponent {
       return;
     }
 
-    const filteredTenants = this.tenants.filter((tenant) => {
-      const basicMatch =
-        tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tenant.fin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tenant.passportNumber
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (tenant.phoneNumber &&
-          tenant.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      // Search in property rooms if using new format
-      const roomMatch =
-        tenant.properties && Array.isArray(tenant.properties)
-          ? tenant.properties.some((prop) => {
-            if (typeof prop === "object" && prop.room) {
-              return prop.room
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase());
-            }
-            return false;
-          })
-          : false;
-
-      return basicMatch || roomMatch;
-    });
-
+    // Global backend search across all tenants
+    this._globalSearchActive = true;
     const tbody = document.getElementById("tenantsTableBody");
-    if (!tbody) return;
-
-    if (filteredTenants.length === 0) {
-      this.showEmptyState(`No tenants match "${searchTerm}"`);
-      return;
+    if (tbody) {
+      tbody.innerHTML = `
+        <div class="d-flex align-items-center justify-content-center py-5 gap-2 text-muted">
+          <span class="spinner-border spinner-border-sm"></span>
+          <span>Searching all tenants…</span>
+        </div>`;
     }
 
-    // Temporarily replace tenants array for rendering
-    const originalTenants = this.tenants;
-    this.tenants = filteredTenants;
-    await this.renderTenantsTable();
-    this.tenants = originalTenants;
+    try {
+      const params = new URLSearchParams({ search: searchTerm.trim(), limit: "200" });
+      const response = await API.get(`${API_CONFIG.ENDPOINTS.TENANTS}?${params}`);
+      const result = await response.json();
+      const found = result.tenants || result.data || [];
+
+      this._showSearchBanner(searchTerm.trim(), found.length);
+
+      if (found.length === 0) {
+        this.showEmptyState(`No tenants match "${searchTerm}"`);
+        return;
+      }
+
+      // Render results — each card shows property badges
+      const savedTenants = this.tenants;
+      const savedProperty = this.selectedProperty;
+      this.tenants = found;
+      this._globalSearchActive = true; // keep flag for renderTenantsTable
+      await this.renderTenantsTable();
+      this.tenants = savedTenants;
+      // Don't restore selectedProperty — banner already shows context
+    } catch (err) {
+      console.error("Global tenant search error:", err);
+      if (tbody) tbody.innerHTML = `<div class="text-center text-danger py-4">Search failed. Please try again.</div>`;
+    }
+  }
+
+  _showSearchBanner(term, count) {
+    let banner = document.getElementById("tenantSearchBanner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "tenantSearchBanner";
+      banner.style.cssText = "padding:6px 16px 0;";
+      const tbody = document.getElementById("tenantsTableBody");
+      tbody?.parentElement?.insertBefore(banner, tbody);
+    }
+    banner.innerHTML = `
+      <div class="alert alert-info py-2 px-3 mb-2 d-flex align-items-center gap-2" style="font-size:13px;">
+        <i class="bi bi-search"></i>
+        <span>Showing <strong>${count}</strong> result${count !== 1 ? "s" : ""} across all properties for <strong>"${escapeHtml(term)}"</strong></span>
+        <button class="btn btn-sm btn-outline-secondary ms-auto py-0 px-2" style="font-size:11px;"
+          onclick="document.getElementById('tenantSearchInput').value='';window.tenantManager?.filterTenants('')">
+          Clear search
+        </button>
+      </div>`;
+  }
+
+  _hideSearchBanner() {
+    document.getElementById("tenantSearchBanner")?.remove();
   }
 
   showAddTenantModal() {
