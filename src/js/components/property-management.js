@@ -439,15 +439,17 @@ class PropertyManagementComponent {
     gridContainer.style.justifyContent = "center";
     gridContainer.style.maxWidth = "100%";
 
-    // Sort: active first, archived last
-    const activeProperties = this.properties.filter(p => !p.isArchived);
-    const archivedProperties = this.properties.filter(p => p.isArchived);
+    const byNewest = (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    const activeProperties = this.properties.filter(p => !p.isArchived).sort(byNewest);
+    const archivedProperties = this.properties.filter(p => p.isArchived).sort(byNewest);
     const sortedProperties = [...activeProperties, ...archivedProperties];
 
     let cardsHtml = "";
     let archivedDividerInserted = false;
 
+    let ordinal = 0;
     sortedProperties.forEach((property) => {
+      ordinal++;
       const isArchived = !!property.isArchived;
 
       // Insert section divider before first archived card
@@ -477,13 +479,13 @@ class PropertyManagementComponent {
             <div class="card-img-top position-relative" style="height: 130px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
               ${imgOverlay}
               <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-primary fs-6">${this.escapeHtml(property.propertyId)}</span>
+                <span class="badge bg-primary fs-6">${ordinal}</span>
               </div>
             </div>
             ` : `
             <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${isArchived ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};">
               <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-white ${isArchived ? 'text-secondary' : 'text-primary'} fs-6">${this.escapeHtml(property.propertyId)}</span>
+                <span class="badge bg-white ${isArchived ? 'text-secondary' : 'text-primary'} fs-6">${ordinal}</span>
               </div>
               <div class="position-absolute top-50 start-50 translate-middle">
                 <i class="bi ${isArchived ? 'bi-archive' : 'bi-building'} text-white" style="font-size: 3rem; opacity: 0.7;"></i>

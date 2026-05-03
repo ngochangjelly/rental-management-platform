@@ -101,7 +101,7 @@ class CommonPromptComponent {
       property?.settlementSgd?.accountNumber || "438-371-817-6";
     const sgdAccountHolder =
       property?.settlementSgd?.accountHolderName || "Pham Vu Thao Ly";
-    const sgdPayNow = property?.settlementSgd?.payNow || "89261752";
+    const sgdPayNow = property?.settlementSgd?.payNow || "";
 
     const vndBank = property?.settlementVnd?.bankName || "BIDV";
     const vndAccountNo = property?.settlementVnd?.accountNumber || "8841748829";
@@ -120,8 +120,7 @@ Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật
 
 🇸🇬 Tài khoản Singapore (${sgdBank})
 • Bank: ${sgdBank}
-• Account No: ${sgdAccountNo}
-• PayNow: ${sgdPayNow}
+• Account No: ${sgdAccountNo}${sgdPayNow ? `\n• PayNow: ${sgdPayNow}` : ""}
 • Name: ${sgdAccountHolder}
 
 🇻🇳 Tài khoản Việt Nam (${vndBank})
@@ -288,7 +287,7 @@ ${contactPhone}`;
       countBadge.textContent = `${this.properties.length} căn hộ`;
     }
 
-    let html = "";
+    let html = '<div class="row g-3">';
     this.properties.forEach((property, index) => {
       const message = prompt.template(property);
       const escapedMessage = this.escapeHtml(message);
@@ -319,31 +318,34 @@ ${contactPhone}`;
            </div>`
           : "";
       html += `
-        <div class="border rounded mb-3 overflow-hidden">
-          <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light gap-3">
-            <div class="d-flex align-items-center gap-3">
-              ${imgHtml}
-              <strong style="font-size:15px;">${this.escapeHtml(propertyLabel)}</strong>
+        <div class="col-12 col-md-6">
+          <div class="border rounded overflow-hidden h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light gap-3">
+              <div class="d-flex align-items-center gap-3">
+                ${imgHtml}
+                <strong style="font-size:15px;">${this.escapeHtml(propertyLabel)}</strong>
+              </div>
+              <button
+                class="btn btn-sm btn-outline-success flex-shrink-0"
+                onclick="commonPromptComponent.copyBulkMessage(${index})"
+                data-bulk-index="${index}"
+              >
+                <i class="bi bi-clipboard me-1"></i>Copy
+              </button>
             </div>
-            <button
-              class="btn btn-sm btn-outline-success flex-shrink-0"
-              onclick="commonPromptComponent.copyBulkMessage(${index})"
-              data-bulk-index="${index}"
-            >
-              <i class="bi bi-clipboard me-1"></i>Copy
-            </button>
+            ${fbLinksHtml}
+            <textarea
+              class="form-control border-0 rounded-0 flex-grow-1"
+              rows="14"
+              readonly
+              data-bulk-msg="${index}"
+              style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; line-height: 1.6; background-color: #fafafa; resize: none;"
+            >${escapedMessage}</textarea>
           </div>
-          ${fbLinksHtml}
-          <textarea
-            class="form-control border-0 rounded-0"
-            rows="14"
-            readonly
-            data-bulk-msg="${index}"
-            style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; line-height: 1.6; background-color: #fafafa; resize: none;"
-          >${escapedMessage}</textarea>
         </div>
       `;
     });
+    html += "</div>";
 
     container.innerHTML = html;
   }

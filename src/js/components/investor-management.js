@@ -82,7 +82,7 @@ class InvestorManagementComponent {
       let hasMorePages = true;
 
       while (hasMorePages) {
-        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}&includeArchived=true`);
 
         if (!response.ok) {
           console.warn(`Properties API returned ${response.status}: ${response.statusText}`);
@@ -140,12 +140,24 @@ class InvestorManagementComponent {
       return;
     }
 
-    let html = '<div class="row">';
+    let html = `
+      <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-outline-secondary btn-sm" id="exportInvestorReportBtn" onclick="window.investorManager.exportInvestorReport()">
+          <i class="bi bi-download me-1"></i>Export Portfolio Report
+        </button>
+      </div>
+      <div class="row">
+    `;
     
     this.investors.forEach((investor) => {
-      const totalProperties = investor.properties ? investor.properties.length : 0;
-      const totalPercentage = investor.properties ? 
-        investor.properties.reduce((sum, prop) => sum + prop.percentage, 0) : 0;
+      const activeInvestorProperties = (investor.properties || []).filter(prop => {
+        const full = this.properties.find(p =>
+          p.propertyId === prop.propertyId || String(p.propertyId) === String(prop.propertyId)
+        );
+        return !full || !full.isArchived;
+      });
+      const totalProperties = activeInvestorProperties.length;
+      const totalPercentage = activeInvestorProperties.reduce((sum, prop) => sum + prop.percentage, 0);
 
       html += `
         <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
@@ -171,6 +183,9 @@ class InvestorManagementComponent {
                 </div>
               </div>
               <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.investorManager.exportInvestorReport('${investor.investorId}')" title="Export Report">
+                  <i class="bi bi-download"></i>
+                </button>
                 <button class="btn btn-sm btn-outline-primary" onclick="window.investorManager.editInvestor('${investor.investorId}')" title="Edit Investor">
                   <i class="bi bi-pencil"></i>
                 </button>
@@ -194,7 +209,7 @@ class InvestorManagementComponent {
               
               ${totalProperties > 0 ? `
                 <div class="properties-list">
-                  ${investor.properties.map(property => {
+                  ${activeInvestorProperties.map(property => {
                     // Look up full property details
                     const fullProperty = this.properties.find(p =>
                       p.propertyId === property.propertyId ||
@@ -585,10 +600,10 @@ class InvestorManagementComponent {
               <label class="form-label fw-bold text-primary">Select Property</label>
               <select class="form-select" name="properties[${nextIndex}][propertyId]" required onchange="this.closest('.property-row').querySelector('.property-preview').style.display = this.value ? 'block' : 'none'">
                 <option value="">Choose a property...</option>
-                ${this.properties.map(prop => `
-                  <option value="${prop.propertyId}" 
-                          data-address="${prop.address || ''}" 
-                          data-unit="${prop.unit || ''}" 
+                ${this.properties.filter(p => !p.isArchived).map(prop => `
+                  <option value="${prop.propertyId}"
+                          data-address="${prop.address || ''}"
+                          data-unit="${prop.unit || ''}"
                           data-rent="${prop.rent || ''}">
                     ID: ${prop.propertyId} - ${prop.address || 'No address'}${prop.unit ? ', ' + prop.unit : ''} ($${prop.rent || 'N/A'})
                   </option>
@@ -1264,6 +1279,273 @@ class InvestorManagementComponent {
            url.includes('cloudinary.com') || 
            url.includes('imgur.com') ||
            url.includes('drive.google.com');
+  }
+
+  // ─── Investor Portfolio Export ───────────────────────────────────────────
+
+  async exportInvestorReport(investorId = null) {
+    // When called from a single card, the btn is the card's download icon — we can't
+    // easily grab it, so just show a toast spinner via the "all" button if no id given.
+    const allBtn = document.getElementById('exportInvestorReportBtn');
+    const isSingle = !!investorId;
+
+    if (!isSingle && allBtn) {
+      allBtn.disabled = true;
+      allBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating…';
+    }
+
+    try {
+      const targetInvestors = isSingle
+        ? this.investors.filter(i => i.investorId === investorId)
+        : this.investors;
+
+      const allAvatarUrls = targetInvestors.filter(i => i.avatar).map(i => i.avatar);
+      const avatarMap = await this._fetchImagesAsBase64(allAvatarUrls);
+
+      const svg = this._generateInvestorReportSVG(avatarMap, {}, targetInvestors);
+      const blob = await this._invSvgToPngBlob(svg);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toLocaleDateString('en-SG').replace(/\//g, '-');
+      const namePart = isSingle
+        ? (targetInvestors[0]?.name || investorId).replace(/\s+/g, '_')
+        : 'All';
+      a.download = `Investor_Portfolio_${namePart}_${dateStr}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      if (typeof showToast === 'function') showToast('Portfolio report downloaded!', 'success');
+    } catch (err) {
+      console.error('Export investor report error:', err);
+      if (typeof showToast === 'function') showToast('Failed to export report', 'error');
+    } finally {
+      if (!isSingle && allBtn) {
+        allBtn.disabled = false;
+        allBtn.innerHTML = '<i class="bi bi-download me-1"></i>Export Portfolio Report';
+      }
+    }
+  }
+
+  _generateInvestorReportSVG(avatarMap = {}, _propertyImageMap = {}, targetInvestors = null) {
+    const investorList = targetInvestors || this.investors;
+    const W = 820;
+    const PAD = 28;
+    const REPORT_HDR_H = 44;
+    const INV_HDR_H = 58;
+    const TBL_HDR_H = 24;
+    const BASE_ROW_H = 32;
+    const TALL_ROW_H = 46; // address needs 2 lines
+    const TOTAL_ROW_H = 32;
+    const SEC_GAP = 16;
+
+    // Column layout
+    const C_ID_X  = PAD,        C_ID_W  = 44;
+    const C_ADDR_X = C_ID_X + C_ID_W + 10, C_ADDR_W = 380;
+    const C_UNIT_X = C_ADDR_X + C_ADDR_W + 10, C_UNIT_W = 120;
+    const C_PCT_X  = C_UNIT_X + C_UNIT_W + 10, C_PCT_W  = W - PAD - (C_UNIT_X + C_UNIT_W + 10);
+
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    // Address wrapping — split at ~54 chars on a space boundary
+    const splitAddr = (addr) => {
+      if (!addr || addr.length <= 54) return [addr || '', ''];
+      const cut = addr.lastIndexOf(' ', 54);
+      const breakAt = cut > 20 ? cut : 54;
+      return [addr.substring(0, breakAt), addr.substring(breakAt).trim()];
+    };
+
+    // ── Pre-compute layout ──────────────────────────────────────────────────
+    let y = REPORT_HDR_H;
+    const sections = [];
+
+    for (const investor of investorList) {
+      const activeProps = (investor.properties || []).filter(prop => {
+        const full = this.properties.find(p =>
+          p.propertyId === prop.propertyId || String(p.propertyId) === String(prop.propertyId)
+        );
+        return !full || !full.isArchived;
+      });
+
+      const startY = y;
+      y += INV_HDR_H + TBL_HDR_H;
+
+      const propRows = activeProps.map(prop => {
+        const fullProp = this.properties.find(p =>
+          p.propertyId === prop.propertyId || String(p.propertyId) === String(prop.propertyId)
+        );
+        const address = fullProp?.address || String(prop.propertyId);
+        const [a1, a2] = splitAddr(address);
+        const rowH = a2 ? TALL_ROW_H : BASE_ROW_H;
+        const rowY = y;
+        y += rowH;
+        return { prop, fullProp, a1, a2, rowH, rowY };
+      });
+
+      const totalRowY = y;
+      y += TOTAL_ROW_H + SEC_GAP;
+      sections.push({ investor, activeProps, startY, propRows, totalRowY });
+    }
+
+    const totalH = y + 28;
+    const now = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // ── Defs (avatar clip paths only) ───────────────────────────────────────
+    const AV = 38;
+    let defs = '<defs>';
+    sections.forEach((sec, si) => {
+      const cx = PAD + AV / 2;
+      const cy = sec.startY + INV_HDR_H / 2;
+      defs += `<clipPath id="inv-av-${si}"><circle cx="${cx}" cy="${cy}" r="${AV / 2}"/></clipPath>`;
+    });
+    defs += '</defs>';
+
+    // ── Body ────────────────────────────────────────────────────────────────
+    let body = '';
+    body += `<rect width="${W}" height="${totalH}" fill="#ffffff"/>`;
+
+    // Compact header strip
+    body += `<rect width="${W}" height="${REPORT_HDR_H}" fill="#263238"/>`;
+    body += `<text x="${PAD}" y="28" font-size="15" font-weight="bold" fill="white">Investor Portfolio Report</text>`;
+    body += `<text x="${W - PAD}" y="28" font-size="10" fill="#90a4ae" text-anchor="end">Generated ${esc(now)}</text>`;
+
+    const ACCENT = ['#1565c0','#00695c','#4527a0','#558b2f','#e65100','#b71c1c','#37474f'];
+    const accentFor = (name) => ACCENT[(name || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0) % ACCENT.length];
+
+    sections.forEach((sec, si) => {
+      const { investor, activeProps, startY, propRows, totalRowY } = sec;
+      const totalPct = activeProps.reduce((s, p) => s + p.percentage, 0);
+      const icolor = accentFor(investor.name);
+      const avatarB64 = investor.avatar ? (avatarMap[investor.avatar] || null) : null;
+      const initial = (investor.name || '?').charAt(0).toUpperCase();
+      const cx = PAD + AV / 2, cy = startY + INV_HDR_H / 2;
+
+      // Investor header
+      body += `<rect x="0" y="${startY}" width="${W}" height="${INV_HDR_H}" fill="#f5f5f5"/>`;
+      body += `<rect x="0" y="${startY}" width="5" height="${INV_HDR_H + TBL_HDR_H + propRows.reduce((s,r)=>s+r.rowH,0) + TOTAL_ROW_H}" fill="${icolor}"/>`;
+      body += `<line x1="0" y1="${startY}" x2="${W}" y2="${startY}" stroke="#e0e0e0" stroke-width="1"/>`;
+
+      // Avatar
+      if (avatarB64) {
+        body += `<image href="${avatarB64}" x="${PAD}" y="${cy - AV/2}" width="${AV}" height="${AV}" clip-path="url(#inv-av-${si})" preserveAspectRatio="xMidYMid slice"/>`;
+      } else {
+        body += `<circle cx="${cx}" cy="${cy}" r="${AV/2}" fill="${icolor}"/>`;
+        body += `<text x="${cx}" y="${cy + 6}" font-size="16" font-weight="bold" fill="white" text-anchor="middle">${esc(initial)}</text>`;
+      }
+
+      // Name + meta
+      const tx = PAD + AV + 12;
+      body += `<text x="${tx}" y="${startY + 22}" font-size="15" font-weight="bold" fill="#212121">${esc(investor.name)}</text>`;
+      const metaParts = [`ID: ${investor.investorId}`, `${activeProps.length} propert${activeProps.length !== 1 ? 'ies' : 'y'}`];
+      if (investor.email) metaParts.push(investor.email);
+      body += `<text x="${tx}" y="${startY + 40}" font-size="11" fill="#757575">${esc(metaParts.join('  ·  '))}</text>`;
+
+      // Total ownership badge (right, prominent)
+      const badgeW = 96, badgeH = 40, badgeX = W - PAD - badgeW, badgeY = startY + (INV_HDR_H - badgeH) / 2;
+      body += `<rect x="${badgeX}" y="${badgeY}" width="${badgeW}" height="${badgeH}" rx="6" fill="${icolor}"/>`;
+      body += `<text x="${badgeX + badgeW/2}" y="${badgeY + 13}" font-size="9" fill="rgba(255,255,255,0.75)" text-anchor="middle">TOTAL OWNED</text>`;
+      body += `<text x="${badgeX + badgeW/2}" y="${badgeY + 31}" font-size="20" font-weight="bold" fill="white" text-anchor="middle">${totalPct}%</text>`;
+
+      // Table header
+      const tHdrY = startY + INV_HDR_H;
+      body += `<rect x="0" y="${tHdrY}" width="${W}" height="${TBL_HDR_H}" fill="#eceff1"/>`;
+      body += `<text x="${C_ID_X + C_ID_W/2}" y="${tHdrY + 16}" font-size="9" font-weight="bold" fill="#546e7a" text-anchor="middle">ID</text>`;
+      body += `<text x="${C_ADDR_X}" y="${tHdrY + 16}" font-size="9" font-weight="bold" fill="#546e7a">ADDRESS</text>`;
+      body += `<text x="${C_UNIT_X}" y="${tHdrY + 16}" font-size="9" font-weight="bold" fill="#546e7a">UNIT</text>`;
+      body += `<text x="${C_PCT_X + C_PCT_W/2}" y="${tHdrY + 16}" font-size="9" font-weight="bold" fill="#546e7a" text-anchor="middle">SHARE %</text>`;
+
+      if (activeProps.length === 0) {
+        body += `<text x="${C_ADDR_X}" y="${tHdrY + TBL_HDR_H + 22}" font-size="12" fill="#bdbdbd" font-style="italic">No active properties</text>`;
+      }
+
+      // Property rows
+      propRows.forEach(({ prop, fullProp, a1, a2, rowH, rowY }, pi) => {
+        const bg = pi % 2 === 0 ? '#ffffff' : '#fafafa';
+        body += `<rect x="5" y="${rowY}" width="${W - 5}" height="${rowH}" fill="${bg}"/>`;
+        body += `<line x1="${PAD}" y1="${rowY + rowH}" x2="${W - PAD}" y2="${rowY + rowH}" stroke="#eeeeee" stroke-width="1"/>`;
+
+        const midY = rowY + rowH / 2;
+
+        // Property ID
+        body += `<text x="${C_ID_X + C_ID_W/2}" y="${midY + 4}" font-size="11" fill="#9e9e9e" text-anchor="middle">${esc(String(prop.propertyId))}</text>`;
+
+        // Address (1 or 2 lines)
+        if (a2) {
+          body += `<text x="${C_ADDR_X}" y="${rowY + 16}" font-size="11" font-weight="bold" fill="#212121">${esc(a1)}</text>`;
+          body += `<text x="${C_ADDR_X}" y="${rowY + 30}" font-size="11" fill="#424242">${esc(a2)}</text>`;
+        } else {
+          body += `<text x="${C_ADDR_X}" y="${midY + 4}" font-size="11" font-weight="bold" fill="#212121">${esc(a1)}</text>`;
+        }
+
+        // Unit
+        const unit = fullProp?.unit || '—';
+        body += `<text x="${C_UNIT_X}" y="${midY + 4}" font-size="11" fill="#616161">${esc(unit)}</text>`;
+
+        // Percentage pill
+        const pctStr = `${prop.percentage}%`;
+        const pW = Math.max(44, pctStr.length * 9 + 14);
+        const pX = C_PCT_X + (C_PCT_W - pW) / 2;
+        body += `<rect x="${pX}" y="${midY - 12}" width="${pW}" height="24" rx="12" fill="${icolor}"/>`;
+        body += `<text x="${pX + pW/2}" y="${midY + 4}" font-size="13" font-weight="bold" fill="white" text-anchor="middle">${esc(pctStr)}</text>`;
+      });
+
+      // Total row
+      body += `<rect x="5" y="${totalRowY}" width="${W - 5}" height="${TOTAL_ROW_H}" fill="#eceff1"/>`;
+      body += `<text x="${C_ADDR_X}" y="${totalRowY + 20}" font-size="12" font-weight="bold" fill="#263238">Total</text>`;
+      body += `<text x="${C_UNIT_X}" y="${totalRowY + 20}" font-size="11" fill="#78909c">${activeProps.length} propert${activeProps.length !== 1 ? 'ies' : 'y'}</text>`;
+      const tStr = `${totalPct}%`;
+      const tW = Math.max(52, tStr.length * 9 + 14);
+      const tX = C_PCT_X + (C_PCT_W - tW) / 2;
+      body += `<rect x="${tX}" y="${totalRowY + 4}" width="${tW}" height="24" rx="12" fill="${icolor}"/>`;
+      body += `<text x="${tX + tW/2}" y="${totalRowY + 20}" font-size="13" font-weight="bold" fill="white" text-anchor="middle">${esc(tStr)}</text>`;
+    });
+
+    // Footer
+    body += `<line x1="0" y1="${totalH - 20}" x2="${W}" y2="${totalH - 20}" stroke="#eeeeee" stroke-width="1"/>`;
+    body += `<text x="${W/2}" y="${totalH - 8}" font-size="9" fill="#bdbdbd" text-anchor="middle">Rental Management Platform · Auto-generated investor portfolio report</text>`;
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${totalH}" font-family="Arial, Helvetica, sans-serif">${defs}${body}</svg>`;
+  }
+
+  async _fetchImagesAsBase64(urls) {
+    const map = {};
+    await Promise.allSettled(
+      [...new Set(urls)].map(async (url) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const blob = await res.blob();
+          await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => { map[url] = reader.result; resolve(); };
+            reader.readAsDataURL(blob);
+          });
+        } catch { /* skip — use placeholder */ }
+      })
+    );
+    return map;
+  }
+
+  _invSvgToPngBlob(svgString) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgString], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(resolve, 'image/png');
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
   }
 
   showPasteMessage(fieldId, message, type) {
