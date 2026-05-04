@@ -513,7 +513,8 @@ class DocsManagement {
         background: #fff;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
-        overflow: hidden;
+        overflow: visible;
+        z-index: 10;
         box-shadow: 0 1px 4px rgba(0,0,0,0.08);
       }
 
@@ -805,6 +806,9 @@ class DocsManagement {
     const listEl = document.getElementById("docs-list-view");
     if (!listEl) return;
 
+    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
     listEl.innerHTML = `
       <div class="docs-header">
         <h2 class="docs-header-title">
@@ -815,10 +819,12 @@ class DocsManagement {
           <i class="bi bi-search search-icon"></i>
           <input type="text" id="docsSearchInput" placeholder="${this.t("searchPlaceholder")}" value="${this._searchQuery}">
         </div>
+        ${isAdmin ? `
         <button class="docs-new-btn" id="docsNewBtn">
           <i class="bi bi-plus-lg"></i>
           <span>${this.t("newDoc")}</span>
         </button>
+        ` : ""}
       </div>
       <div class="docs-grid-section" id="docsGridSection">
         <div class="docs-loading" id="docsLoading">
@@ -879,8 +885,11 @@ class DocsManagement {
 
     let html = `<div class="docs-grid">`;
 
+    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
     // New doc card (always first)
-    if (!this._searchQuery) {
+    if (!this._searchQuery && isAdmin) {
       html += `
         <div class="docs-new-card" id="docsNewCard" title="${this.t("newDoc")}">
           <i class="bi bi-plus-lg"></i>
@@ -929,11 +938,13 @@ class DocsManagement {
               </div>
               ${tags.length ? `<div class="docs-card-tags">${tags.map((t) => `<span class="docs-tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
             </div>
+            ${isAdmin ? `
             <div class="docs-card-actions">
               <button class="docs-card-action-btn" data-action="delete" data-doc-id="${doc._id}" title="${this.t("deleteDoc")}">
                 <i class="bi bi-trash"></i>
               </button>
             </div>
+            ` : ""}
             ${
               isPendingDelete
                 ? `<div class="docs-delete-confirm">
@@ -1104,6 +1115,9 @@ class DocsManagement {
     const editorView = document.getElementById("docs-editor-view");
     if (!editorView) return;
 
+    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
     editorView.innerHTML = `
       <div class="docs-editor-topbar" id="docsEditorTopbar">
         <button class="docs-back-btn" id="docsBackBtn" title="${this.t("backToList")}">
@@ -1116,6 +1130,7 @@ class DocsManagement {
           value="${escapeHtml(doc.title || doc.name || this.t("untitled"))}"
           placeholder="${this.t("titlePlaceholder")}"
           maxlength="200"
+          ${isAdmin ? "" : "readonly"}
         >
         <span class="docs-save-indicator" id="docsSaveIndicator"></span>
         <div class="docs-toolbar-actions">
@@ -1128,16 +1143,20 @@ class DocsManagement {
             <i class="bi bi-image"></i>
             <span class="d-none d-md-inline">${this.t("exportImage")}</span>
           </button>
+          ${isAdmin ? `
           <button class="docs-action-btn primary" id="docsSaveBtn">
             <i class="bi bi-floppy"></i>
             <span>${this.t("saveDoc")}</span>
           </button>
+          ` : ""}
         </div>
       </div>
       <div class="docs-editor-body" id="docsEditorBody">
+        ${isAdmin ? `
         <div class="docs-quill-toolbar-wrap">
           <div id="docsQuillToolbar"></div>
         </div>
+        ` : ""}
         <div class="docs-page" id="docsPage">
           <div class="docs-page-title" id="docsPageTitle">${escapeHtml(doc.title || doc.name || this.t("untitled"))}</div>
           <div id="docsQuillEditor"></div>
@@ -1170,7 +1189,7 @@ class DocsManagement {
     titleInput?.addEventListener("input", () => {
       const pageTitle = document.getElementById("docsPageTitle");
       if (pageTitle) pageTitle.textContent = titleInput.value || this.t("untitled");
-      this._scheduleSave();
+      if (isAdmin) this._scheduleSave();
     });
 
     // Initialize Quill
@@ -1180,64 +1199,70 @@ class DocsManagement {
   _initQuill(doc) {
     const toolbarEl = document.getElementById("docsQuillToolbar");
     const editorEl = document.getElementById("docsQuillEditor");
-    if (!toolbarEl || !editorEl) return;
+    if (!editorEl) return;
+
+    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+    const isAdmin = currentUser && currentUser.role === 'admin';
 
     // Build toolbar HTML
-    toolbarEl.innerHTML = `
-      <span class="ql-formats">
-        <select class="ql-header">
-          <option value="1">Heading 1</option>
-          <option value="2">Heading 2</option>
-          <option value="3">Heading 3</option>
-          <option selected>Normal</option>
-        </select>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-bold"></button>
-        <button class="ql-italic"></button>
-        <button class="ql-underline"></button>
-        <button class="ql-strike"></button>
-      </span>
-      <span class="ql-formats">
-        <select class="ql-color"></select>
-        <select class="ql-background"></select>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-list" value="ordered"></button>
-        <button class="ql-list" value="bullet"></button>
-        <button class="ql-indent" value="-1"></button>
-        <button class="ql-indent" value="+1"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-align" value=""></button>
-        <button class="ql-align" value="center"></button>
-        <button class="ql-align" value="right"></button>
-        <button class="ql-align" value="justify"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-blockquote"></button>
-        <button class="ql-code-block"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-link"></button>
-        <button class="ql-image" title="Insert image"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-clean"></button>
-      </span>
-    `;
+    if (toolbarEl && isAdmin) {
+      toolbarEl.innerHTML = `
+        <span class="ql-formats">
+          <select class="ql-header">
+            <option value="1">Heading 1</option>
+            <option value="2">Heading 2</option>
+            <option value="3">Heading 3</option>
+            <option selected>Normal</option>
+          </select>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-bold"></button>
+          <button class="ql-italic"></button>
+          <button class="ql-underline"></button>
+          <button class="ql-strike"></button>
+        </span>
+        <span class="ql-formats">
+          <select class="ql-color"></select>
+          <select class="ql-background"></select>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-list" value="ordered"></button>
+          <button class="ql-list" value="bullet"></button>
+          <button class="ql-list" value="check"></button>
+          <button class="ql-indent" value="-1"></button>
+          <button class="ql-indent" value="+1"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-align" value=""></button>
+          <button class="ql-align" value="center"></button>
+          <button class="ql-align" value="right"></button>
+          <button class="ql-align" value="justify"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-blockquote"></button>
+          <button class="ql-code-block"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-link"></button>
+          <button class="ql-image" title="Insert image"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-clean"></button>
+        </span>
+      `;
+    }
 
     this.quill = new Quill(editorEl, {
       theme: "snow",
       placeholder: this.t("editorPlaceholder"),
-      modules: {
+      modules: toolbarEl && isAdmin ? {
         toolbar: {
           container: toolbarEl,
           handlers: {
             image: () => this._imageUploadHandler(),
           },
         },
-      },
+      } : { toolbar: false },
     });
 
     // Load existing content
@@ -1245,13 +1270,17 @@ class DocsManagement {
       this.quill.setContents(doc.content);
     }
 
-    // Auto-save on text change (debounced)
-    this.quill.on("text-change", () => {
-      this._scheduleSave();
-    });
+    if (!isAdmin) {
+      this.quill.disable();
+    } else {
+      // Auto-save on text change (debounced)
+      this.quill.on("text-change", () => {
+        this._scheduleSave();
+      });
 
-    // Drag & drop image support on the page
-    this._initDragDrop();
+      // Drag & drop image support on the page
+      this._initDragDrop();
+    }
   }
 
   _initDragDrop() {

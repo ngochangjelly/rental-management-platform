@@ -49,6 +49,11 @@ class UserManagement {
         attributes: true,
         attributeFilter: ['style']
       });
+
+      // Check initial state in case the section was shown before initialization
+      if (usersSection.style.display !== 'none') {
+        this.loadUsers();
+      }
     }
   }
 
