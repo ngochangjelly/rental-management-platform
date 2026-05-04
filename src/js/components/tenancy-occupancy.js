@@ -744,6 +744,8 @@ class TenancyOccupancyComponent {
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none fs-6 px-3 py-2" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin</a>` : ""}
+                        ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-decoration-none fs-6 px-3 py-2" title="Tenant Facebook Group"><i class="bi bi-facebook me-1"></i>Tenants</a>` : ""}
                         <span class="badge ${badgeClass} fs-6 px-3 py-2" title="${i18next.t("tenancyOccupancy.currentTenants", "Current tenants")}: ${currentTenants}">
                             <i class="bi bi-people-fill me-1"></i>${currentTenants} ${i18next.t("tenancyOccupancy.active", "active")}
                         </span>

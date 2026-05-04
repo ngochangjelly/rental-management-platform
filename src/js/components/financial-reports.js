@@ -225,6 +225,17 @@ class FinancialReportsComponent {
       });
     }
 
+    // Carry Forward button
+    const carryForwardBtn = document.getElementById("carryForwardBtn");
+    if (carryForwardBtn) {
+      carryForwardBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!carryForwardBtn.disabled) {
+          this.carryForwardToNextMonth();
+        }
+      });
+    }
+
     // All Unpaid Overview button
     const viewAllUnpaidBtn = document.getElementById("viewAllUnpaidBtn");
     if (viewAllUnpaidBtn) {
@@ -3686,6 +3697,72 @@ class FinancialReportsComponent {
     }
   }
 
+  // Carry forward all income & expense items to the next month
+  async carryForwardToNextMonth() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+
+    const hasItems =
+      this.currentReport.income.length > 0 ||
+      this.currentReport.expenses.length > 0;
+    if (!hasItems) {
+      this.showError("No income or expense items to carry forward");
+      return;
+    }
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    const currentMonth = monthNames[this.currentDate.getMonth()];
+    const currentYear = this.currentDate.getFullYear();
+    const nextMonthIndex = this.currentDate.getMonth() === 11 ? 0 : this.currentDate.getMonth() + 1;
+    const nextYear = this.currentDate.getMonth() === 11 ? currentYear + 1 : currentYear;
+    const nextMonth = monthNames[nextMonthIndex];
+
+    const totalItems =
+      this.currentReport.income.length + this.currentReport.expenses.length;
+
+    if (
+      !confirm(
+        `Carry forward ${totalItems} item(s) from ${currentMonth} ${currentYear} to ${nextMonth} ${nextYear}?\n\nEach item will be prefixed with "[${currentMonth.substring(0, 3)} ${currentYear}]" to identify its origin.`,
+      )
+    ) {
+      return;
+    }
+
+    const btn = document.getElementById("carryForwardBtn");
+    if (btn) btn.disabled = true;
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_CARRY_FORWARD(
+          this.selectedProperty,
+          year,
+          month,
+        ),
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.showSuccess(result.message);
+      } else {
+        throw new Error(result.message || "Failed to carry forward report");
+      }
+    } catch (error) {
+      console.error("Error carrying forward report:", error);
+      this.showError(error.message || "Failed to carry forward report");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   // Lock all unlocked reports for the current month
   async lockAllReports() {
     if (!this.properties || this.properties.length === 0) {
@@ -3822,6 +3899,15 @@ class FinancialReportsComponent {
 
     if (reopenBtn) {
       reopenBtn.style.display = isClosed ? "inline-block" : "none";
+    }
+
+    const carryForwardBtn = document.getElementById("carryForwardBtn");
+    if (carryForwardBtn) {
+      const hasItems =
+        this.currentReport &&
+        (this.currentReport.income.length > 0 ||
+          this.currentReport.expenses.length > 0);
+      carryForwardBtn.style.display = hasItems ? "inline-block" : "none";
     }
 
     // Update month display with closed indicator

@@ -64,6 +64,7 @@ const API_CONFIG = {
     FINANCIAL_REPORT_EXPENSES: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/expenses`,
     FINANCIAL_REPORT_CLOSE: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/close`,
     FINANCIAL_REPORT_REOPEN: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/reopen`,
+    FINANCIAL_REPORT_CARRY_FORWARD: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/carry-forward`,
     INVESTOR_PROFIT_REPORT: (investorId, startYear, startMonth, endYear, endMonth) =>
       `/api/financial-reports/investor/${investorId}/profit-report?startYear=${startYear}&startMonth=${startMonth}&endYear=${endYear}&endMonth=${endMonth}`,
 
