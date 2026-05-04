@@ -826,6 +826,10 @@ class TenantManagementComponent {
                                 <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(
         moveOutDate,
       )}</div>
+                                ${tenant.notes
+        ? `<div class="mt-2 pt-2 border-top text-muted" style="font-size:0.82em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>`
+        : ""
+      }
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
                                 ${this.getRegistrationStatusBadge(

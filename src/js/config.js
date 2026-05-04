@@ -129,6 +129,12 @@ const API_CONFIG = {
     CCTV_GO2RTC_STOP: "/api/cctv/go2rtc/stop",
     CCTV_GO2RTC_RELOAD: "/api/cctv/go2rtc/reload",
     CCTV_GO2RTC_APPLY_ALL: "/api/cctv/go2rtc/apply-all",
+
+    // Docs
+    DOCS: "/api/docs",
+    DOC_BY_ID: (id) => `/api/docs/${id}`,
+    DOC_SHARE: (id) => `/api/docs/${id}/share`,
+    DOC_PUBLIC: (token) => `/api/docs/public/${token}`,
   },
 };
 

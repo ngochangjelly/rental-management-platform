@@ -279,6 +279,11 @@ class DashboardController {
           window.cctvManager.loadCameras();
         }
         break;
+      case "docs":
+        if (window.docsManagement) {
+          window.docsManagement.refresh();
+        }
+        break;
     }
   }
 

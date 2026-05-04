@@ -29,10 +29,13 @@
 // ─── Slug utilities ──────────────────────────────────────────────────────────
 
 const SlugUtils = {
-  /** Convert any string to a URL-safe slug. */
+  /** Convert any string to a URL-safe slug, with Vietnamese normalization. */
   toSlug(str) {
     return (str || "")
       .toLowerCase()
+      .replace(/đ/g, "d") // Vietnamese đ has no NFD decomposition
+      .normalize("NFD") // decompose accented chars → base + combining marks
+      .replace(/[̀-ͯ]/g, "") // strip combining diacritical marks
       .replace(/[^a-z0-9]+/g, "-") // non-alphanumeric → hyphen
       .replace(/^-+|-+$/g, ""); // trim leading/trailing hyphens
   },
@@ -109,6 +112,16 @@ class AppRouter {
       {
         pattern: /^\/tenants\/(.+)$/,
         handle: ([, propSlug]) => this._goTenant(propSlug),
+      },
+      // Docs — specific doc: {title-slug}-{24-char-id} or just {24-char-id}
+      {
+        pattern: /^\/docs\/([^/]+)$/,
+        handle: ([, docSlug]) => this._goDoc(docSlug),
+      },
+      // Docs section root
+      {
+        pattern: /^\/docs$/,
+        handle: () => this._goSection("docs"),
       },
       // Generic section: /dashboard, /properties, /tenants, /contracts, etc.
       {
@@ -295,6 +308,20 @@ class AppRouter {
         console.warn(`[Router] No tenant matched name slug: "${tenantNameSlug}"`);
       }
     }
+  }
+
+  async _goDoc(docSlug) {
+    this._goSection("docs");
+    const dm = window.docsManagement;
+    if (!dm) return;
+    // Slug format: {title-slug}-{24-char-mongoId}  OR  just {24-char-mongoId}
+    // The MongoDB ObjectId is always the trailing 24 hex chars.
+    const match = docSlug.match(/([a-f0-9]{24})$/);
+    if (!match) {
+      console.warn(`[Router] No valid doc id in slug: "${docSlug}"`);
+      return;
+    }
+    await dm._openDoc(match[1]);
   }
 
   async _resolveTenantPropertySlug(slug) {

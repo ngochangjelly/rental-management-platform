@@ -1706,6 +1706,7 @@ class FinancialReportsComponent {
             periodBadge = `<span class="badge bg-secondary" title="Rental period this month"><i class="bi bi-calendar-range me-1"></i>${escapeHtml(from)} – ${escapeHtml(to)}</span>`;
           }
 
+          const tenantNotes = tenant.notes ? tenant.notes.trim() : "";
           html += `
             <li class="mb-2">
               <div class="d-flex align-items-center flex-wrap gap-2">
@@ -1720,6 +1721,7 @@ class FinancialReportsComponent {
                 ${facebookUrl ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile"><i class="bi bi-facebook me-1"></i>Facebook</a>` : ""}
                 ${roommateAvatarHtml}
               </div>
+              ${tenantNotes ? `<div class="text-muted small mt-1"><i class="bi bi-sticky me-1"></i>${escapeHtml(tenantNotes)}</div>` : ""}
             </li>
           `;
         });
@@ -6690,9 +6692,10 @@ class FinancialReportsComponent {
                </td>`
               : "";
 
+          const tenantNotes = tenant.notes ? tenant.notes.trim() : "";
           html += `<tr>
             ${propCell}
-            <td class="border-0 small">${displayName}${roommateHtml}</td>
+            <td class="border-0 small">${displayName}${roommateHtml}${tenantNotes ? `<div class="text-muted mt-1" style="font-size:0.78em;"><i class="bi bi-sticky me-1"></i>${escapeHtml(tenantNotes)}</div>` : ""}</td>
             <td class="border-0 small text-muted text-nowrap">${roomType}</td>
             <td class="border-0"><div class="d-flex gap-1 flex-wrap">${feeParts.join("")}</div></td>
             <td class="border-0 text-end pe-3"><div class="d-flex gap-1 justify-content-end">${waLink}${fbLink}</div></td>

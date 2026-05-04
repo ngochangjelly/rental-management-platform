@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Document</title>
+
+  <!-- Bootstrap -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <!-- Quill snow theme (read-only, no toolbar) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+
+  <style>
+    :root { --page-max: 816px; }
+
+    body {
+      background: #f8f9fa;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .pub-topbar {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .pub-topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: #202124;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .pub-topbar-logo i {
+      color: #1a73e8;
+      font-size: 1.3rem;
+    }
+
+    .pub-badge {
+      background: #e8f0fe;
+      color: #1a73e8;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+      letter-spacing: 0.04em;
+    }
+
+    .pub-meta {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: #80868b;
+      white-space: nowrap;
+    }
+
+    /* ── Page canvas ─────────────────────────────────────────────────── */
+    .pub-body {
+      padding: 32px 16px 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .pub-page {
+      background: #fff;
+      width: 100%;
+      max-width: var(--page-max);
+      min-height: 600px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.06);
+      border-radius: 2px;
+      padding: 72px 96px;
+      box-sizing: border-box;
+    }
+
+    .pub-page-title {
+      font-size: 26pt;
+      font-weight: 700;
+      color: #202124;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e0e0e0;
+      word-break: break-word;
+    }
+
+    /* Override Quill container styling for read-only */
+    .ql-container.ql-snow {
+      border: none !important;
+      font-size: 11pt;
+    }
+
+    .ql-editor {
+      padding: 0;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #202124;
+    }
+
+    .ql-editor img {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .pub-page { padding: 40px 32px; }
+    }
+
+    @media (max-width: 600px) {
+      .pub-page { padding: 24px 16px; }
+      .pub-topbar { padding: 10px 16px; }
+      .pub-meta { display: none; }
+    }
+
+    /* ── States ──────────────────────────────────────────────────────── */
+    .pub-loading, .pub-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 16px;
+      color: #80868b;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .pub-error i { font-size: 3rem; color: #dadce0; }
+    .pub-error h3 { font-size: 1rem; color: #5f6368; margin: 0; }
+    .pub-error p { font-size: 0.875rem; margin: 0; max-width: 320px; }
+
+    .pub-loading .spinner-border { width: 2rem; height: 2rem; color: #1a73e8; }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="pub-topbar">
+    <span class="pub-topbar-logo">
+      <i class="bi bi-file-richtext-fill"></i>
+      <span>Rental Hub Docs</span>
+    </span>
+    <span class="pub-badge">READ ONLY</span>
+    <span class="pub-meta" id="pubMeta"></span>
+  </div>
+
+  <!-- Content area -->
+  <div class="pub-body">
+
+    <!-- Loading state -->
+    <div class="pub-loading" id="pubLoading">
+      <div class="spinner-border" role="status"></div>
+      <span>Loading document…</span>
+    </div>
+
+    <!-- Error state (hidden initially) -->
+    <div class="pub-error" id="pubError" style="display:none;">
+      <i class="bi bi-file-earmark-x"></i>
+      <h3>Document unavailable</h3>
+      <p id="pubErrorMsg">This link may have been revoked or does not exist.</p>
+    </div>
+
+    <!-- Document page (hidden until loaded) -->
+    <div class="pub-page" id="pubPage" style="display:none;">
+      <div class="pub-page-title" id="pubTitle"></div>
+      <div id="pubEditor"></div>
+    </div>
+
+  </div>
+
+  <!-- Quill JS -->
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+
+  <script>
+    (async function () {
+      // ── Resolve share token from query string ──────────────────────
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("t") || "";
+
+      const loading = document.getElementById("pubLoading");
+      const errorEl = document.getElementById("pubError");
+      const errorMsg = document.getElementById("pubErrorMsg");
+      const page    = document.getElementById("pubPage");
+      const titleEl = document.getElementById("pubTitle");
+      const metaEl  = document.getElementById("pubMeta");
+
+      function showError(msg) {
+        loading.style.display = "none";
+        errorMsg.textContent = msg || "This link may have been revoked or does not exist.";
+        errorEl.style.display = "flex";
+      }
+
+      // Basic client-side format check (64 hex chars)
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        showError("Invalid or missing share token.");
+        return;
+      }
+
+      // ── Resolve backend base URL (same logic as config.js) ─────────
+      function getBackendBase() {
+        const h = window.location.hostname;
+        if (h === "localhost" || h === "127.0.0.1") return "";
+        const tunnel = h.match(/^(.+?)-3000(\..+devtunnels\.ms)$/);
+        if (tunnel) return `https://${tunnel[1]}-3001${tunnel[2]}`;
+        return "https://rental-management-backend-mocha.vercel.app";
+      }
+
+      // ── Fetch the public doc ────────────────────────────────────────
+      let doc;
+      try {
+        const res = await fetch(`${getBackendBase()}/api/docs/public/${token}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          showError(data.error || "Document not found or link has been revoked.");
+          return;
+        }
+
+        doc = data.doc;
+      } catch (e) {
+        showError("Failed to load document. Please check your connection.");
+        return;
+      }
+
+      // ── Render ──────────────────────────────────────────────────────
+      document.title = (doc.title || "Shared Document") + " — Rental Hub Docs";
+      titleEl.textContent = doc.title || "Untitled";
+
+      if (doc.updatedAt) {
+        const d = new Date(doc.updatedAt);
+        metaEl.textContent = "Last updated " + d.toLocaleDateString("en-GB", {
+          day: "numeric", month: "short", year: "numeric"
+        });
+      }
+
+      // Initialise Quill in strict read-only mode — no toolbar, no editing
+      const quill = new Quill("#pubEditor", {
+        theme: "snow",
+        readOnly: true,
+        modules: { toolbar: false },
+      });
+
+      if (doc.content && doc.content.ops && doc.content.ops.length) {
+        quill.setContents(doc.content);
+      }
+
+      loading.style.display = "none";
+      page.style.display = "block";
+    })();
+  </script>
+</body>
+</html>
