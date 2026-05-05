@@ -564,22 +564,23 @@ class FinancialReportsComponent {
     }
 
     this.selectedProperty = propertyId;
+    this.currentReport = null; // clear stale report so month display is immediately correct
     document.getElementById("financialReportContent").style.display = "block";
 
     // Update property card selection state
     this.updatePropertyCardSelection();
 
-    // Load investors for this property
-    await this.loadInvestors(propertyId);
-
-    // Load tenants for this property
-    await this.loadTenants(propertyId);
-
-    // Load financial report for current month
-    await this.loadFinancialReport();
-
-    // Update month display
+    // Show the correct month/year immediately — no network call needed
     this.updateMonthDisplay();
+
+    // Load investors and tenants in parallel (they're independent of each other)
+    await Promise.all([
+      this.loadInvestors(propertyId),
+      this.loadTenants(propertyId),
+    ]);
+
+    // Load financial report (needs investors/tenants for display; also calls updateMonthDisplay internally)
+    await this.loadFinancialReport();
 
     // Sync URL so this state is bookmarkable.
     // Use human-readable property slug (unit + address). Fall back to the
@@ -3944,21 +3945,28 @@ class FinancialReportsComponent {
       const year = this.currentDate.getFullYear();
       const isClosed = this.currentReport && this.currentReport.isClosed;
 
-      // Get property information
+      // Get property information — prefer in-memory cache to avoid async network call
       let propertyInfo = "";
       let property = null;
       if (this.selectedProperty) {
-        try {
-          property = await this.getPropertyDetails(this.selectedProperty);
-          if (property) {
-            propertyInfo = `${property.unit}, ${property.address}`;
-          } else {
-            propertyInfo = `Property ID: ${this.selectedProperty}`;
+        property =
+          this.properties?.find(
+            (p) => p.propertyId === this.selectedProperty,
+          ) ||
+          this._slugResolvedProperty ||
+          null;
+
+        if (!property) {
+          try {
+            property = await this.getPropertyDetails(this.selectedProperty);
+          } catch (error) {
+            console.log("Error fetching property details:", error);
           }
-        } catch (error) {
-          console.log("Error fetching property details:", error);
-          propertyInfo = `Property ID: ${this.selectedProperty}`;
         }
+
+        propertyInfo = property
+          ? `${property.unit}, ${property.address}`
+          : `Property ID: ${this.selectedProperty}`;
       }
 
       currentMonthEl.innerHTML = `
@@ -3967,6 +3975,29 @@ class FinancialReportsComponent {
           ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}</div>` : ""}
         </div>
       `;
+
+      // Update the dedicated last-updated info bar
+      const lastUpdatedDiv = document.getElementById("reportLastUpdated");
+      const lastUpdatedDateEl = document.getElementById("reportLastUpdatedDate");
+      const lastUpdatedByEl = document.getElementById("reportLastUpdatedBy");
+      if (lastUpdatedDiv && lastUpdatedDateEl && lastUpdatedByEl) {
+        const lastUpdatedAt = this.currentReport?.updatedAt;
+        const lastUpdatedBy = this.currentReport?.lastUpdatedBy;
+        if (lastUpdatedAt) {
+          const formattedDate = new Date(lastUpdatedAt).toLocaleString("en-SG", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          lastUpdatedDateEl.textContent = formattedDate;
+          lastUpdatedByEl.textContent = lastUpdatedBy || "—";
+          lastUpdatedDiv.style.display = "flex";
+        } else {
+          lastUpdatedDiv.style.display = "none";
+        }
+      }
 
       // Update property group links
       this.updatePropertyGroupLinks(property);
