@@ -49,8 +49,8 @@ class FinancialReportsComponent {
 
   init() {
     this.bindEvents();
-    this.loadProperties();
-    this.loadAllInvestors();
+    this._propertiesPromise = this.loadProperties();
+    if (window.isAdmin && window.isAdmin()) this.loadAllInvestors();
 
     // Initial cleanup to ensure no leftover modals from previous sessions
     this.forceCleanupModalBackdrops();
@@ -314,46 +314,42 @@ class FinancialReportsComponent {
   }
 
   async loadPropertyReportStatuses() {
-    if (!this.properties || this.properties.length === 0) {
-      return;
-    }
+    if (!this.properties || this.properties.length === 0) return;
 
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth() + 1;
+    const cacheKey = `${year}-${month}`;
 
-    // Reset status for current month
+    // Skip if already loaded for this month or a fetch is already running
+    if (this._statusCacheKey === cacheKey && Object.keys(this.propertyReportStatus).length > 0) return;
+    if (this._loadingStatuses) return;
+
+    this._loadingStatuses = true;
     this.propertyReportStatus = {};
 
-    // Fetch report status for each property in parallel
-    const statusPromises = this.properties.map(async (property) => {
-      try {
-        const response = await API.get(
-          API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
-            property.propertyId,
-            year,
-            month,
-          ),
-        );
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.data) {
-            this.propertyReportStatus[property.propertyId] = {
-              isClosed: result.data.isClosed || false,
-            };
+    try {
+      await Promise.all(this.properties.map(async (property) => {
+        try {
+          const response = await API.get(
+            API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(property.propertyId, year, month),
+          );
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+              this.propertyReportStatus[property.propertyId] = {
+                isClosed: result.data.isClosed || false,
+              };
+            }
           }
+        } catch (error) {
+          console.debug(`Could not fetch report status for ${property.propertyId}:`, error);
         }
-      } catch (error) {
-        // Ignore errors for individual property status checks
-        console.debug(
-          `Could not fetch report status for ${property.propertyId}:`,
-          error,
-        );
-      }
-    });
+      }));
+    } finally {
+      this._loadingStatuses = false;
+      this._statusCacheKey = cacheKey;
+    }
 
-    await Promise.all(statusPromises);
-
-    // Re-render property cards with updated status
     this.renderPropertyCards(this.properties);
   }
 
@@ -1775,6 +1771,9 @@ class FinancialReportsComponent {
 
     // Clear current report to prevent showing old data
     this.currentReport = null;
+
+    // Invalidate status cache so the new month's statuses are fetched
+    this._statusCacheKey = null;
 
     // Reset any pending close state when changing months
     this.pendingClose = false;

@@ -225,13 +225,18 @@ class AppRouter {
    * direct API fetch so deep-links work on first page load.
    */
   async _resolvePropertySlug(slug) {
+    // If loadProperties() is already in flight, wait for it instead of double-fetching
+    if (window.financialReports?._propertiesPromise) {
+      await window.financialReports._propertiesPromise;
+    }
+
     const cached = window.financialReports?.properties;
     if (cached?.length > 0) {
       return cached.find((p) => SlugUtils.propertySlug(p) === slug) || null;
     }
 
     try {
-      // Fetch first page — enough for slug lookup (properties rarely exceed 200)
+      // Fallback for first load before component is created
       const res = await API.get(
         `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200`,
       );
