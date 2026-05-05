@@ -1,9 +1,32 @@
 [build]
   publish = "dist"
   command = "npm run build"
-  
+
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "NODE_ENV,DATABASE_NAME"
+
+# Hashed JS/CSS bundles — safe to cache for 1 year (filename changes when content changes)
+[[headers]]
+  for = "/js/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# HTML files — always revalidate (they reference the hashed bundles)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# JSON/locale files — short cache
+[[headers]]
+  for = "/locales/*.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
 
 [[redirects]]
   from = "/dashboard"

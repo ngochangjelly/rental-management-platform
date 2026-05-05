@@ -40,8 +40,41 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "js/[name].[contenthash].js",
+    chunkFilename: "js/[name].[contenthash].js",
     clean: true,
     publicPath: "/",
+  },
+  optimization: {
+    splitChunks: {
+      chunks: "all",
+      cacheGroups: {
+        // docx.js — only used for contract document generation (~800KB)
+        docx: {
+          test: /[\\/]node_modules[\\/]docx[\\/]/,
+          name: "vendors-docx",
+          priority: 40,
+        },
+        // canvg — only used for canvas/SVG rendering (~500KB)
+        canvg: {
+          test: /[\\/]node_modules[\\/]canvg[\\/]/,
+          name: "vendors-canvg",
+          priority: 40,
+        },
+        // i18next — shared across entry points
+        i18next: {
+          test: /[\\/]node_modules[\\/]i18next/,
+          name: "vendors-i18next",
+          priority: 30,
+        },
+        // All other node_modules
+        vendors: {
+          test: /[\\/]node_modules[\\/]/,
+          name: "vendors",
+          priority: 10,
+          reuseExistingChunk: true,
+        },
+      },
+    },
   },
   module: {
     rules: [
