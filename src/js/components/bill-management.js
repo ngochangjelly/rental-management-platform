@@ -1065,12 +1065,28 @@ class BillManagementComponent {
 
   _calcUtilityBreakdown(fullTenants, tenantBills, grossUtility, landlordSubsidy, periodStart, periodEnd, periodDays) {
     const netUtility  = Math.max(0, grossUtility - landlordSubsidy);
-    const totalUtility = netUtility; // distribute only the net amount
     // Build lookup: _id (uppercased) → full tenant object
     // tenantBills[].tenantId is stored uppercase (Bill schema uppercase:true),
     // but t._id.toString() returns lowercase hex — so we must normalise to the same case.
     const tenantMap = {};
     fullTenants.forEach(t => { tenantMap[t._id?.toString().toUpperCase()] = t; });
+
+    // Split gross utility into per-type amounts if the SP Group bill has breakdowns.
+    // Falls back to treating everything as a single pool when no split is available.
+    const ub = this.currentUtilityBill;
+    const hasTypeBreakdown = ub && (ub.electricityAmount || ub.waterAmount ||
+      ub.gasAmount || ub.refuseAmount || ub.otherAmount);
+    // Net-scale each component proportionally so they still sum to netUtility
+    const grossElec  = hasTypeBreakdown ? (ub.electricityAmount || 0) : 0;
+    const grossWater = hasTypeBreakdown ? (ub.waterAmount       || 0) : 0;
+    const grossGas   = hasTypeBreakdown ? ((ub.gasAmount || 0) + (ub.refuseAmount || 0) + (ub.otherAmount || 0)) : 0;
+    const grossTyped = grossElec + grossWater + grossGas;
+    const scaleFactor = (grossTyped > 0 && hasTypeBreakdown) ? (netUtility / grossTyped) : 1;
+    const netElec  = hasTypeBreakdown ? grossElec  * scaleFactor : 0;
+    const netWater = hasTypeBreakdown ? grossWater * scaleFactor : 0;
+    const netGas   = hasTypeBreakdown ? grossGas   * scaleFactor : 0;
+    // Any residual (rounding) stays in the untyped pool
+    const netUntyped = hasTypeBreakdown ? Math.max(0, netUtility - netElec - netWater - netGas) : netUtility;
 
     const msDay = 864e5;
 
@@ -1156,6 +1172,9 @@ class BillManagementComponent {
         tenantName: tb.tenantName,
         room: tb.room,
         isSubsidized,
+        usesElectricity: full?.usesElectricity ?? true,
+        usesWater:       full?.usesWater       ?? true,
+        usesGas:         full?.usesGas         ?? true,
         tenantPeriodDays,
         awayDays,
         presentDays,
@@ -1204,6 +1223,9 @@ class BillManagementComponent {
           tenantName: ft.name || ft.fullName || ft.email || ftId,
           room,
           isSubsidized: ft.isUtilitySubsidized ?? false,
+          usesElectricity: ft.usesElectricity ?? true,
+          usesWater:       ft.usesWater       ?? true,
+          usesGas:         ft.usesGas         ?? true,
           tenantPeriodDays: tpd,
           awayDays: extraAwayDays,
           presentDays,
@@ -1215,28 +1237,46 @@ class BillManagementComponent {
       }
     }
 
-    const totalPersonDays = rows.reduce((s, r) => s + r.presentDays, 0);
+    // Per-type person-day totals (only among eligible tenants for each type).
+    // When no type breakdown is available, everything goes into the untyped pool.
+    const totalPD      = rows.reduce((s, r) => s + r.presentDays, 0);
+    const totalPD_elec = hasTypeBreakdown ? rows.filter(r => r.usesElectricity).reduce((s, r) => s + r.presentDays, 0) : 0;
+    const totalPD_water= hasTypeBreakdown ? rows.filter(r => r.usesWater      ).reduce((s, r) => s + r.presentDays, 0) : 0;
+    const totalPD_gas  = hasTypeBreakdown ? rows.filter(r => r.usesGas        ).reduce((s, r) => s + r.presentDays, 0) : 0;
 
-    // Absent/away/late-movein days are redistributed among present tenants.
-    // Landlord only covers: fixed landlordSubsidy + isUtilitySubsidized tenant shares.
-    const ratePerDay = totalPersonDays > 0 ? totalUtility / totalPersonDays : 0;
+    // Overall rate used for the "per day" label in the UI (untyped total / total days)
+    const ratePerDay = totalPD > 0 ? netUtility / totalPD : 0;
 
     rows.forEach(row => {
-      row.utilityShare  = totalPersonDays > 0 ? totalUtility * (row.presentDays / totalPersonDays) : 0;
+      const pd = row.presentDays;
+      const shareElec  = (hasTypeBreakdown && row.usesElectricity && totalPD_elec  > 0) ? netElec  * (pd / totalPD_elec)  : 0;
+      const shareWater = (hasTypeBreakdown && row.usesWater        && totalPD_water > 0) ? netWater * (pd / totalPD_water) : 0;
+      const shareGas   = (hasTypeBreakdown && row.usesGas          && totalPD_gas   > 0) ? netGas   * (pd / totalPD_gas)   : 0;
+      // Untyped pool (either no breakdown, or residual rounding): divide equally among all tenants
+      const shareUntyped = (totalPD > 0) ? netUntyped * (pd / totalPD) : 0;
+      row.utilityShare  = shareElec + shareWater + shareGas + shareUntyped;
+      // Store per-type breakdown for display
+      row._shareElec  = shareElec;
+      row._shareWater = shareWater;
+      row._shareGas   = shareGas;
       // notBilled tenants: show their calculated share but don't count as charged (bill not issued)
       row.chargedAmount = (row.isSubsidized || row.notBilled) ? 0 : row.utilityShare;
     });
 
+    const totalPersonDays = totalPD;
     const totalCharged    = rows.reduce((s, r) => s + r.chargedAmount, 0);
     const businessAbsorbs = rows.filter(r => r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
     const notBilledAbsorbs = rows.filter(r => r.notBilled && !r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
 
-    return { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, notBilledAbsorbs, grossUtility, landlordSubsidy, netUtility };
+    return { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, notBilledAbsorbs,
+             grossUtility, landlordSubsidy, netUtility,
+             hasTypeBreakdown, netElec, netWater, netGas, netUntyped };
   }
 
   _buildBreakdownHtml(bd, periodStart, periodEnd, periodDays, propInfo, exchangeRate) {
     const { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, notBilledAbsorbs,
-            grossUtility, landlordSubsidy, netUtility } = bd;
+            grossUtility, landlordSubsidy, netUtility,
+            hasTypeBreakdown, netElec, netWater, netGas } = bd;
     const fmtDate = v => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : '—';
     const fmtAmt  = v => `$${v.toFixed(2)}`;
     const getRoomLabel = room => {
@@ -1257,9 +1297,16 @@ class BillManagementComponent {
     const sortedRows = [...rows].sort((a, b) => (a.room || '').localeCompare(b.room || ''));
 
     const tableRows = sortedRows.map((r, i) => {
+      const shareTypeLines = hasTypeBreakdown ? [
+        r.usesElectricity && r._shareElec  > 0.005 ? `⚡ ${fmtAmt(r._shareElec)}`  : null,
+        r.usesWater       && r._shareWater > 0.005 ? `💧 ${fmtAmt(r._shareWater)}` : null,
+        r.usesGas         && r._shareGas   > 0.005 ? `🔥 ${fmtAmt(r._shareGas)}`   : null,
+      ].filter(Boolean) : [];
       const shareCell  = noPeriod
         ? fmtAmt(r.utilityShare)
-        : `${fmtAmt(r.utilityShare)}<br><span style="font-size:0.72rem;color:#6c757d;">${r.presentDays}d × ${fmtAmt(ratePerDay)}/d</span>`;
+        : `${fmtAmt(r.utilityShare)}<br><span style="font-size:0.72rem;color:#6c757d;">${r.presentDays}d × ${fmtAmt(ratePerDay)}/d</span>${
+            shareTypeLines.length ? `<br><span style="font-size:0.68rem;color:#868e96;">${shareTypeLines.join(' · ')}</span>` : ''
+          }`;
       const daysCells  = noPeriod ? '' : `
         <td style="padding:7px 10px;text-align:center;">${r.tenantPeriodDays}</td>
         <td style="padding:7px 10px;text-align:center;">${r.awayDays > 0 ? `<span style="color:#dc3545;">−${r.awayDays}</span>` : '0'}</td>
@@ -1302,9 +1349,13 @@ class BillManagementComponent {
     const subsidizedCount = rows.filter(r => r.isSubsidized).length;
     const awayCount = rows.filter(r => r.awayDays > 0).length;
 
+    const typeBreakNote = hasTypeBreakdown
+      ? `<p style="margin:4px 0;font-size:0.88rem;">⚡ ${fmtAmt(netElec)} ÷ eligible tenants &nbsp;·&nbsp; 💧 ${fmtAmt(netWater)} ÷ eligible tenants &nbsp;·&nbsp; 🔥 ${fmtAmt(netGas)} ÷ eligible tenants</p>`
+      : '';
     const methodNote = noPeriod
       ? `<p style="margin:4px 0;color:#856404;">${t('noBillingPeriodNote')}</p>`
       : `<p style="margin:4px 0;">${t('formula')} <strong>${fmtAmt(netUtility)} ÷ ${totalPersonDays} ${t('personDays')} = ${fmtAmt(ratePerDay)}${t('perPersonDay')}</strong></p>
+         ${typeBreakNote}
          ${landlordSubsidy > 0 ? `<p style="margin:4px 0;">${t('landlordSubsidyNote', { amount: fmtAmt(landlordSubsidy) })}</p>` : ''}
          ${subsidizedCount > 0 ? `<p style="margin:4px 0;">${t('subsidisedTenantsNote', { count: subsidizedCount, amount: fmtAmt(businessAbsorbs) })}</p>` : ''}
          ${awayCount > 0 ? `<p style="margin:4px 0;">${t('awayNote')}</p>` : ''}`;

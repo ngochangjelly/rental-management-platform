@@ -1366,6 +1366,9 @@ class TenantManagementComponent {
           cleaningFee: tenant.cleaningFee || null,
           isUtilitySubsidized: tenant.isUtilitySubsidized || false,
           isHouseCleaner: tenant.isHouseCleaner || false,
+          usesElectricity: tenant.usesElectricity ?? true,
+          usesWater: tenant.usesWater ?? true,
+          usesGas: tenant.usesGas ?? true,
           // Roommate relationship
           roommateId:
             typeof tenant.roommateId === "object"
@@ -1396,6 +1399,12 @@ class TenantManagementComponent {
           tenant.isUtilitySubsidized || false;
         document.getElementById("tenantIsHouseCleaner").checked =
           tenant.isHouseCleaner || false;
+        document.getElementById("tenantUsesElectricity").checked =
+          tenant.usesElectricity ?? true;
+        document.getElementById("tenantUsesWater").checked =
+          tenant.usesWater ?? true;
+        document.getElementById("tenantUsesGas").checked =
+          tenant.usesGas ?? true;
 
         // Populate notes and todos
         document.getElementById("tenantNotes").value = tenant.notes || "";
@@ -2314,6 +2323,12 @@ class TenantManagementComponent {
           false,
         isHouseCleaner:
           document.getElementById("tenantIsHouseCleaner")?.checked || false,
+        usesElectricity:
+          document.getElementById("tenantUsesElectricity")?.checked ?? true,
+        usesWater:
+          document.getElementById("tenantUsesWater")?.checked ?? true,
+        usesGas:
+          document.getElementById("tenantUsesGas")?.checked ?? true,
         // Roommate relationship
         roommateId: formData.get("roommateId")?.trim() || null,
         // Notes and todos
