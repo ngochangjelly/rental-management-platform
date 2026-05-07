@@ -21,10 +21,12 @@ class BillManagementComponent {
     this.currentBill = null;
     this.currentUtilityBill = null; // from Utility Bill Tracker
     this.selectedTenants = new Set();
+    this._slugResolvedProperty = null; // set transiently by router for deep-link resolution
     this.init();
   }
 
   init() {
+    this.updateMonthDisplay();
     this.bindEvents();
     this.loadProperties();
   }
@@ -174,16 +176,24 @@ class BillManagementComponent {
   }
 
   async selectProperty(propertyId) {
-    console.log('🏢 Selecting property:', propertyId);
-    if (this.selectedProperty === propertyId) {
-      console.log('⏭️  Property already selected, skipping');
-      return;
-    }
-
+    if (this.selectedProperty === propertyId) return;
     this.selectedProperty = propertyId;
-    console.log('✅ Property selected:', this.selectedProperty);
     this.updatePropertyCardSelection(propertyId);
     await this.loadBillForCurrentMonth();
+    this._syncUrl();
+  }
+
+  _syncUrl() {
+    if (!this.selectedProperty || !window.appRouter) return;
+    const _propData =
+      this.properties.find((p) => p.propertyId === this.selectedProperty) ||
+      this._slugResolvedProperty;
+    const _slug = _propData
+      ? window.SlugUtils.propertySlug(_propData)
+      : this.selectedProperty;
+    const _y = this.currentDate.getFullYear();
+    const _m = this.currentDate.getMonth() + 1;
+    window.appRouter.replace(`/bills/${_slug}/${_y}/${_m}`);
   }
 
   updatePropertyCardSelection(propertyId) {
@@ -208,6 +218,7 @@ class BillManagementComponent {
     this.updateMonthDisplay();
     if (this.selectedProperty) {
       this.loadBillForCurrentMonth();
+      this._syncUrl();
     }
   }
 
@@ -1070,7 +1081,7 @@ class BillManagementComponent {
       return Math.round((oe - os) / msDay) + 1;
     };
 
-    const rows = tenantBills.map(tb => {
+    const rows = tenantBills.filter(tb => tb.room).map(tb => {
       const full = tenantMap[tb.tenantId];
 
       // Determine subsidized: prefer full tenant flag, fall back to $0 fee
@@ -1084,13 +1095,13 @@ class BillManagementComponent {
 
       if (full && periodStart && periodEnd) {
         const propAssoc = full.properties?.find(
-          p => p.propertyId === this.selectedProperty?.toUpperCase()
+          p => p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase()
         );
 
         if (!propAssoc) {
-          // Tenant has no association with this property — exclude from bill
-          tenantPeriodDays = 0;
-          note = t('notInPropertyPeriod');
+          // Tenant is in the bill but has no property association record in their profile
+          // (data may be stale or property ID format differs) — include with full period days
+          tenantPeriodDays = periodDays;
         } else {
           // Clamp tenant's stay (movein–moveout) to billing period
           const movein   = propAssoc.moveinDate  ? new Date(propAssoc.moveinDate)  : periodStart;
@@ -1154,6 +1165,56 @@ class BillManagementComponent {
       };
     });
 
+    // Supplement with tenants who were in the property during the billing period
+    // but moved out before the bill was generated (absent from tenantBills entirely).
+    if (periodStart && periodEnd) {
+      const billedIds = new Set(rows.map(r => r.tenantId));
+      for (const ft of fullTenants) {
+        const ftId = ft._id?.toString().toUpperCase();
+        if (!ftId || billedIds.has(ftId)) continue;
+        const propAssoc = ft.properties?.find(
+          p => p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase()
+        );
+        if (!propAssoc) continue;
+        const room = propAssoc.roomType || propAssoc.room || null;
+        if (!room) continue;
+        const movein  = propAssoc.moveinDate  ? new Date(propAssoc.moveinDate)  : periodStart;
+        const moveout = propAssoc.moveoutDate ? new Date(propAssoc.moveoutDate) : periodEnd;
+        movein.setHours(0,0,0,0);
+        moveout.setHours(0,0,0,0);
+        const cs = new Date(Math.max(+movein, +periodStart));
+        const ce = new Date(Math.min(+moveout, +periodEnd));
+        if (+ce < +cs) continue; // no overlap with billing period
+        const tpd = Math.round((+ce - +cs) / msDay) + 1;
+        let extraAwayDays = 0;
+        for (const lp of (propAssoc.leavePlans || [])) {
+          const lpS = new Date(lp.startDate); lpS.setHours(0,0,0,0);
+          const lpE = new Date(lp.endDate);   lpE.setHours(0,0,0,0);
+          extraAwayDays += daysOverlap(cs, ce, lpS, lpE);
+        }
+        const presentDays = Math.max(0, tpd - extraAwayDays);
+        let note = t('movedOutNoBill');
+        if (+movein > +periodStart) {
+          const d = Math.round((+movein - +periodStart) / msDay);
+          const moveinLabel = movein.toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' });
+          note = t('movedInLate', { days: d, date: moveinLabel }) + '; ' + note;
+        }
+        rows.push({
+          tenantId: ftId,
+          tenantName: ft.name || ft.fullName || ft.email || ftId,
+          room,
+          isSubsidized: ft.isUtilitySubsidized ?? false,
+          tenantPeriodDays: tpd,
+          awayDays: extraAwayDays,
+          presentDays,
+          note,
+          utilityShare: 0,
+          chargedAmount: 0,
+          notBilled: true,
+        });
+      }
+    }
+
     const totalPersonDays = rows.reduce((s, r) => s + r.presentDays, 0);
 
     // Absent/away/late-movein days are redistributed among present tenants.
@@ -1162,17 +1223,19 @@ class BillManagementComponent {
 
     rows.forEach(row => {
       row.utilityShare  = totalPersonDays > 0 ? totalUtility * (row.presentDays / totalPersonDays) : 0;
-      row.chargedAmount = row.isSubsidized ? 0 : row.utilityShare;
+      // notBilled tenants: show their calculated share but don't count as charged (bill not issued)
+      row.chargedAmount = (row.isSubsidized || row.notBilled) ? 0 : row.utilityShare;
     });
 
     const totalCharged    = rows.reduce((s, r) => s + r.chargedAmount, 0);
     const businessAbsorbs = rows.filter(r => r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
+    const notBilledAbsorbs = rows.filter(r => r.notBilled && !r.isSubsidized).reduce((s, r) => s + r.utilityShare, 0);
 
-    return { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, grossUtility, landlordSubsidy, netUtility };
+    return { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, notBilledAbsorbs, grossUtility, landlordSubsidy, netUtility };
   }
 
   _buildBreakdownHtml(bd, periodStart, periodEnd, periodDays, propInfo, exchangeRate) {
-    const { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs,
+    const { rows, totalPersonDays, ratePerDay, totalCharged, businessAbsorbs, notBilledAbsorbs,
             grossUtility, landlordSubsidy, netUtility } = bd;
     const fmtDate = v => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : '—';
     const fmtAmt  = v => `$${v.toFixed(2)}`;
@@ -1204,21 +1267,27 @@ class BillManagementComponent {
       const subsidyBadge = r.isSubsidized
         ? `<span style="background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t('subsidisedBadge')}</span>`
         : '';
+      const notBilledBadge = r.notBilled
+        ? `<span style="background:#f8d7da;color:#842029;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t('notBilledBadge')}</span>`
+        : '';
       const chargedStyle = r.isSubsidized
         ? 'color:#6c757d;text-decoration:line-through;'
-        : 'font-weight:700;color:#0d6efd;';
+        : r.notBilled
+          ? 'color:#6c757d;font-style:italic;'
+          : 'font-weight:700;color:#0d6efd;';
       const noteCell = r.note
         ? `<br><span style="font-size:0.7rem;color:#6c757d;">${escapeHtml(r.note)}</span>`
         : '';
 
-      return `<tr style="border-bottom:1px solid #dee2e6;">
+      return `<tr style="border-bottom:1px solid #dee2e6;${r.notBilled ? 'opacity:0.8;' : ''}">
         <td style="padding:7px 10px;font-weight:600;">${i+1}. ${escapeHtml(r.tenantName)}${noteCell}</td>
         <td style="padding:7px 10px;">${escapeHtml(getRoomLabel(r.room))}</td>
         ${daysCells}
         <td style="padding:7px 10px;text-align:right;">${shareCell}</td>
         <td style="padding:7px 10px;text-align:right;">
-          <span style="${chargedStyle}">${fmtAmt(r.chargedAmount)}</span>
+          <span style="${chargedStyle}">${r.notBilled ? fmtAmt(r.utilityShare) : fmtAmt(r.chargedAmount)}</span>
           ${r.isSubsidized ? '<br>' + subsidyBadge : ''}
+          ${r.notBilled ? '<br>' + notBilledBadge : ''}
         </td>
       </tr>`;
     }).join('');
@@ -1343,9 +1412,14 @@ class BillManagementComponent {
                 : `<br><span style="font-size:0.82rem;color:#856404;">${t('subsidisedTenantsShare')} ${fmtAmt(businessAbsorbs)}</span>`
             }
           </div>` : ''}
-          ${Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs) > 0.02 ? `
+          ${notBilledAbsorbs > 0.005 ? `
           <div style="background:#f8d7da;border-radius:6px;padding:7px 14px;">
-            <strong>${t('roundingDiff')}</strong> ${fmtAmt(Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs))}
+            <strong>${t('notBilledBadge')}</strong> ${fmtAmt(notBilledAbsorbs)}
+            <br><span style="font-size:0.82rem;color:#842029;">${t('movedOutNoBill')}</span>
+          </div>` : ''}
+          ${Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs - notBilledAbsorbs) > 0.02 ? `
+          <div style="background:#f8d7da;border-radius:6px;padding:7px 14px;">
+            <strong>${t('roundingDiff')}</strong> ${fmtAmt(Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs - notBilledAbsorbs))}
           </div>` : ''}
         </div>
 

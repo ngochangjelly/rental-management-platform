@@ -8,6 +8,8 @@
  *   #/financial/<property-slug>/<year>/<month>      → financial report detail
  *   #/tenants/<property-slug>                       → tenants for a property
  *   #/tenants/<property-slug>/<tenant-name-slug>    → specific tenant (opens modal)
+ *   #/bills/<property-slug>/<year>/<month>          → bill management for property/month
+ *   #/bills/<property-slug>                         → bill management (current month)
  *
  * Property slug  = slugify(unit) + "-" + slugify(address)
  *   e.g.  "#05-12" + "123 Clementi Road"  →  "05-12-123-clementi-road"
@@ -112,6 +114,21 @@ class AppRouter {
       {
         pattern: /^\/tenants\/(.+)$/,
         handle: ([, propSlug]) => this._goTenant(propSlug),
+      },
+      // Bills — property slug + year + month
+      {
+        pattern: /^\/bills\/(.+)\/(\d{4})\/(\d{1,2})$/,
+        handle: ([, slug, year, month]) => this._goBills(slug, +year, +month),
+      },
+      // Bills — property slug (current month)
+      {
+        pattern: /^\/bills\/(.+)$/,
+        handle: ([, slug]) => this._goBills(slug),
+      },
+      // Bills section root
+      {
+        pattern: /^\/bills$/,
+        handle: () => this._goSection("bills"),
       },
       // Docs — specific doc: {title-slug}-{24-char-id} or just {24-char-id}
       {
@@ -344,6 +361,49 @@ class AppRouter {
       return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
     } catch (e) {
       console.error("[Router] Failed to resolve tenant property slug:", e);
+      return null;
+    }
+  }
+
+  async _goBills(slug, year, month) {
+    this._goSection("bills");
+
+    const bm = window.billManager;
+    if (!bm) return;
+
+    const property = await this._resolveBillsSlug(slug);
+    if (!property) {
+      console.warn(`[Router] No property found for bills slug: "${slug}"`);
+      return;
+    }
+
+    bm._slugResolvedProperty = property;
+
+    if (year && month) {
+      bm.currentDate = new Date(year, month - 1, 1);
+      bm.updateMonthDisplay();
+    }
+
+    await bm.selectProperty(property.propertyId);
+
+    bm._slugResolvedProperty = null;
+  }
+
+  async _resolveBillsSlug(slug) {
+    const cached = window.billManager?.properties;
+    if (cached?.length > 0) {
+      return cached.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    }
+
+    try {
+      const res = await API.get(
+        `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200`,
+      );
+      const data = await res.json();
+      const props = data.properties || [];
+      return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    } catch (e) {
+      console.error("[Router] Failed to resolve bills property slug:", e);
       return null;
     }
   }
