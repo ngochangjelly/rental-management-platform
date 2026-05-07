@@ -96,17 +96,24 @@ class CommonPromptComponent {
     const rate = this.exchangeRate;
 
     // Get settlement account info from property
-    const sgdBank = property?.settlementSgd?.bankName || "UOB";
-    const sgdAccountNo =
-      property?.settlementSgd?.accountNumber || "438-371-817-6";
-    const sgdAccountHolder =
-      property?.settlementSgd?.accountHolderName || "Pham Vu Thao Ly";
+    const sgdBank = property?.settlementSgd?.bankName || "";
+    const sgdAccountNo = property?.settlementSgd?.accountNumber || "";
+    const sgdAccountHolder = property?.settlementSgd?.accountHolderName || "";
     const sgdPayNow = property?.settlementSgd?.payNow || "";
 
-    const vndBank = property?.settlementVnd?.bankName || "BIDV";
-    const vndAccountNo = property?.settlementVnd?.accountNumber || "8841748829";
-    const vndAccountHolder =
-      property?.settlementVnd?.accountHolderName || "Phạm Vũ Thảo Ly";
+    const vndBank = property?.settlementVnd?.bankName || "";
+    const vndAccountNo = property?.settlementVnd?.accountNumber || "";
+    const vndAccountHolder = property?.settlementVnd?.accountHolderName || "";
+
+    const sgdBlock = sgdBank ? `\n🇸🇬 Tài khoản Singapore (${sgdBank})
+• Bank: ${sgdBank}
+• Account No: ${sgdAccountNo}${sgdPayNow ? `\n• PayNow: ${sgdPayNow}` : ""}
+• Name: ${sgdAccountHolder}` : "";
+
+    const vndBlock = vndBank ? `\n🇻🇳 Tài khoản Việt Nam (${vndBank})
+• Bank: ${vndBank}
+• Account No: ${vndAccountNo}
+• Tên: ${vndAccountHolder}` : "";
 
     return `Hi mọi người 🌸
 
@@ -117,16 +124,7 @@ Rent tháng ${currentMonth}, mọi người chuyển khoản giúp mình vào c�
 Sau khi chuyển khoản, mọi người vui lòng gửi hóa đơn qua tin nhắn riêng giúp mình để đảm bảo quyền riêng tư nhé.
 
 Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật nhiều niềm vui ✨
-
-🇸🇬 Tài khoản Singapore (${sgdBank})
-• Bank: ${sgdBank}
-• Account No: ${sgdAccountNo}${sgdPayNow ? `\n• PayNow: ${sgdPayNow}` : ""}
-• Name: ${sgdAccountHolder}
-
-🇻🇳 Tài khoản Việt Nam (${vndBank})
-• Bank: ${vndBank}
-• Account No: ${vndAccountNo}
-• Tên: ${vndAccountHolder}`;
+${sgdBlock}${vndBlock}`;
   }
 
   getAcCleanBookingTemplate(property) {
