@@ -3523,6 +3523,9 @@ class TenantManagementComponent {
         this.checkForChanges(),
       );
     }
+    ["tenantUsesElectricity", "tenantUsesWater", "tenantUsesGas"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => this.checkForChanges());
+    });
 
     // Listen for roommate dropdown changes
     const roommateDropdown = document.getElementById("tenantRoommateId");
@@ -3631,6 +3634,12 @@ class TenantManagementComponent {
         document.getElementById("tenantIsUtilitySubsidized")?.checked || false,
       isHouseCleaner:
         document.getElementById("tenantIsHouseCleaner")?.checked || false,
+      usesElectricity:
+        document.getElementById("tenantUsesElectricity")?.checked ?? true,
+      usesWater:
+        document.getElementById("tenantUsesWater")?.checked ?? true,
+      usesGas:
+        document.getElementById("tenantUsesGas")?.checked ?? true,
       // Roommate relationship
       roommateId: (
         document.getElementById("tenantRoommateId")?.value || ""
@@ -3659,6 +3668,9 @@ class TenantManagementComponent {
       "cleaningFee",
       "isUtilitySubsidized",
       "isHouseCleaner",
+      "usesElectricity",
+      "usesWater",
+      "usesGas",
       "roommateId",
       "notes",
     ];
@@ -3666,7 +3678,7 @@ class TenantManagementComponent {
     // Numeric fields that should be compared as numbers
     const numericFields = ["rent", "deposit", "cleaningFee"];
     // Boolean fields that should be compared as booleans
-    const booleanFields = ["isUtilitySubsidized", "isHouseCleaner"];
+    const booleanFields = ["isUtilitySubsidized", "isHouseCleaner", "usesElectricity", "usesWater", "usesGas"];
 
     for (const field of fieldsToCompare) {
       if (numericFields.includes(field)) {
