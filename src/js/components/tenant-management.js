@@ -2568,8 +2568,9 @@ class TenantManagementComponent {
             // Same property - update in place for better performance
             const tenantIndex = this.tenants.findIndex((t) => t._id === tenantId);
             if (tenantIndex !== -1) {
-              // Preserve any extra fields that might have been added during display
-              this.tenants[tenantIndex] = { ...this.tenants[tenantIndex], ...updatedTenant };
+              // Merge sent data first, then server response (server takes precedence)
+              // This ensures boolean fields like usesGas that the server may omit are still updated
+              this.tenants[tenantIndex] = { ...this.tenants[tenantIndex], ...tenantData, ...updatedTenant };
               console.log("📋 Tenant updated in place, re-rendering table...");
               await this.renderTenantsTable();
             } else {

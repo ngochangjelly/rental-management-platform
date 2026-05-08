@@ -540,23 +540,11 @@ class TenancyOccupancyComponent {
     // Update year display
     this.updateYearDisplay();
 
-    // Initialize selected properties to all if not set (first load only)
-    if (this.selectedProperties.size === 0 && this.properties.length > 0) {
-      this.properties.forEach((property) => {
-        this.selectedProperties.add(property.propertyId);
-      });
-    } else {
-      // Filter out any selected properties that are no longer available
-      const beforeFilter = this.selectedProperties.size;
-      const availableIds = new Set(this.properties.map((p) => p.propertyId));
-      for (const id of this.selectedProperties) {
-        if (!availableIds.has(id)) {
-          this.selectedProperties.delete(id);
-        }
-      }
-      const afterFilter = this.selectedProperties.size;
-      if (beforeFilter !== afterFilter) {
-        // Properties were filtered out
+    // Filter out any selected properties that are no longer available
+    const availableIds = new Set(this.properties.map((p) => p.propertyId));
+    for (const id of this.selectedProperties) {
+      if (!availableIds.has(id)) {
+        this.selectedProperties.delete(id);
       }
     }
 
