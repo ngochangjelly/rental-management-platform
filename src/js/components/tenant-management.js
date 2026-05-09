@@ -195,12 +195,12 @@ class TenantManagementComponent {
                           </div>`
           : ""
         }
-                    <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+                    <div data-role="card-body" class="d-flex flex-column align-items-center py-2 px-0" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
                         <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                              style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
                             ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
                         </div>
-                        <div class="text-center" style="line-height: 1.2; width: 100%;">
+                        <div class="text-center px-2" style="line-height: 1.2; width: 100%;">
                             <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address)}">${this.escapeHtml(property.address)}</div>
                             <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit)}</div>
                         </div>
@@ -229,8 +229,8 @@ class TenantManagementComponent {
                     box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
                 }
                 .property-card-compact.selected-card {
-                    border: 3px solid #0d6efd !important;
-                    box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
+                    border: 1px solid #0d6efd !important;
+                    box-shadow: inset 0 0 0 2px #0d6efd, 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
                 }
             `;
       document.head.appendChild(style);
