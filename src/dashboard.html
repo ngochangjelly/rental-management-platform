@@ -4460,7 +4460,7 @@
                   </h5>
                 </div>
                 <div class="card-body">
-                  <div class="row" id="tenantPropertyCards">
+                  <div id="tenantPropertyCards">
                     <div class="col-12 text-center text-muted py-4">
                       <i class="bi bi-building-slash me-2"></i>
                       Loading properties...
@@ -9062,6 +9062,389 @@
                 gap: 10px;
                 margin-bottom: 16px;
                 flex-direction: column;
+              }
+              /* ── Profit step ── */
+              .hvs-profit-section-title {
+                font-size: 12px;
+                font-weight: 700;
+                color: #495057;
+                margin-bottom: 8px;
+              }
+              /* Landlord rent row */
+              .hvs-profit-landlord-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #fff;
+                border: 1px solid #dee2e6;
+                border-radius: 10px;
+                padding: 10px 12px;
+              }
+              .hvs-profit-row-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #343a40;
+                flex: 1;
+                white-space: nowrap;
+              }
+              /* Room rows */
+              .hvs-profit-rooms {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                margin-bottom: 10px;
+              }
+              .hvs-profit-room {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #fff;
+                border: 1px solid #dee2e6;
+                border-radius: 10px;
+                padding: 9px 12px;
+                transition: opacity 0.2s;
+              }
+              .hvs-profit-room-off { opacity: 0.45; }
+              .hvs-room-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #343a40;
+                flex: 1;
+              }
+              .hvs-room-toggle {
+                background: none;
+                border: none;
+                padding: 0;
+                font-size: 18px;
+                line-height: 1;
+                cursor: pointer;
+                color: #adb5bd;
+                flex-shrink: 0;
+              }
+              .hvs-room-toggle.on { color: #198754; }
+              /* Inline range pair: $[min] ~ $[max] */
+              .hvs-range-pair {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+              }
+              .hvs-range-sep {
+                font-size: 13px;
+                color: #adb5bd;
+              }
+              .hvs-profit-iw {
+                display: flex;
+                align-items: center;
+                border: 1px solid #ced4da;
+                border-radius: 8px;
+                overflow: hidden;
+                background: #fff;
+                width: 80px;
+              }
+              .hvs-currency {
+                padding: 0 5px;
+                font-size: 12px;
+                color: #6c757d;
+                background: #f8f9fa;
+                border-right: 1px solid #ced4da;
+                align-self: stretch;
+                display: flex;
+                align-items: center;
+                flex-shrink: 0;
+              }
+              .hvs-profit-input {
+                border: none !important;
+                border-radius: 0 !important;
+                padding: 6px 4px !important;
+                font-size: 13px !important;
+                width: 0;
+                flex: 1;
+                min-width: 0;
+              }
+              .hvs-hidden { display: none !important; }
+              .hvs-btn-add-store {
+                background: none;
+                border: 1.5px dashed #ced4da;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-size: 13px;
+                color: #6c757d;
+                cursor: pointer;
+                width: 100%;
+                text-align: center;
+                margin-bottom: 14px;
+              }
+              .hvs-profit-fixed-note {
+                font-size: 12px;
+                color: #6c757d;
+                margin-bottom: 14px;
+              }
+              /* Mobile: inputs panel is just a normal block */
+              .hvs-profit-inputs-panel {
+                width: 100%;
+              }
+              .hvs-profit-summary-panel {
+                width: 100%;
+              }
+              .hvs-profit-result {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 12px;
+                padding: 14px 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+              }
+              .hvs-pr-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                font-size: 13px;
+                color: #495057;
+              }
+              .hvs-pr-row.exp { color: #dc3545; font-size: 12px; }
+              .hvs-pr-row.profit { font-size: 18px; font-weight: 700; }
+              .hvs-pr-row.mid { font-size: 12px; color: #6c757d; }
+              .hvs-pr-label { flex: 1; }
+              .hvs-pr-value { font-weight: 600; text-align: right; }
+              .hvs-pr-value.income { color: #0d6efd; }
+              .hvs-pr-mo { font-size: 11px; font-weight: 400; color: #adb5bd; margin-left: 2px; }
+              .hvs-profit-positive { color: #198754; }
+              .hvs-profit-mixed .hvs-pr-value { color: #fd7e14; }
+              .hvs-profit-negative .hvs-pr-value { color: #dc3545; }
+              .hvs-pr-divider {
+                height: 1px;
+                background: #dee2e6;
+                margin: 4px 0;
+              }
+
+              .hvs-edit-steps {
+                margin-top: 8px;
+                padding-top: 16px;
+                border-top: 1px solid #e9ecef;
+              }
+              .hvs-edit-steps-title {
+                font-size: 11px;
+                font-weight: 600;
+                color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                margin-bottom: 10px;
+              }
+              .hvs-edit-steps-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 8px;
+              }
+              .hvs-edit-step-btn {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 8px 6px;
+                font-size: 12px;
+                color: #495057;
+                cursor: pointer;
+                text-align: center;
+                transition: background 0.15s, border-color 0.15s;
+              }
+              .hvs-edit-step-btn:active {
+                background: #e9ecef;
+                border-color: #adb5bd;
+              }
+
+              /* ═══════════════════════════════════════════════════
+                 HVS — iPad (≥ 768px)
+              ════════════════════════════════════════════════════ */
+              @media (min-width: 768px) {
+                #hvs-container {
+                  max-width: 600px;
+                }
+                .hvs-wizard-header {
+                  padding: 16px 28px;
+                }
+                .hvs-wizard-body {
+                  padding: 0 28px;
+                }
+                .hvs-step-label {
+                  font-size: 17px;
+                }
+                /* 2-col card grid */
+                .hvs-cards-grid {
+                  display: grid;
+                  grid-template-columns: repeat(2, 1fr);
+                  gap: 14px;
+                }
+                .hvs-list-body {
+                  padding: 16px 20px;
+                }
+                /* Type cards: side by side */
+                .hvs-type-cards {
+                  flex-direction: row;
+                  gap: 16px;
+                }
+                .hvs-type-card {
+                  flex: 1;
+                }
+                /* Report actions: horizontal */
+                .hvs-report-actions {
+                  flex-direction: row;
+                }
+                /* Edit step grid: 4 cols */
+                .hvs-edit-steps-grid {
+                  grid-template-columns: repeat(4, 1fr);
+                }
+              }
+
+              /* ═══════════════════════════════════════════════════
+                 HVS — Desktop (≥ 992px) — sidebar is 280px
+              ════════════════════════════════════════════════════ */
+              @media (min-width: 992px) {
+                /* Wizard fills content area to the right of sidebar */
+                .hvs-wizard {
+                  left: 280px;
+                }
+                #hvs-container {
+                  max-width: 760px;
+                }
+                .hvs-list-header {
+                  padding: 20px 28px 16px;
+                }
+                .hvs-list-footer {
+                  padding: 14px 28px;
+                }
+                .hvs-btn-add-full {
+                  border-radius: 12px;
+                  padding: 12px;
+                  font-size: 15px;
+                }
+              }
+
+              /* ═══════════════════════════════════════════════════
+                 HVS — Large desktop (≥ 1280px)
+              ════════════════════════════════════════════════════ */
+              @media (min-width: 1280px) {
+                #hvs-container {
+                  max-width: 980px;
+                }
+                .hvs-title {
+                  font-size: 24px;
+                }
+                /* 3-col card grid */
+                .hvs-cards-grid {
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 18px;
+                }
+                .hvs-card {
+                  padding: 20px;
+                  border-radius: 18px;
+                }
+                .hvs-card:hover {
+                  transform: translateY(-3px);
+                  box-shadow: 0 10px 30px rgba(108, 99, 255, 0.12);
+                  border-color: #6c63ff40;
+                }
+                .hvs-card-name {
+                  font-size: 17px;
+                }
+                /* Wizard: centred within content area */
+                .hvs-wizard-header {
+                  padding: 20px 40px;
+                }
+                .hvs-step-label {
+                  font-size: 18px;
+                }
+                .hvs-step-count {
+                  font-size: 13px;
+                }
+                .hvs-wizard-body {
+                  padding: 0 40px;
+                }
+                .hvs-step-dots {
+                  padding: 14px 40px;
+                  justify-content: flex-start;
+                  gap: 10px;
+                }
+                /* Type step: bigger cards */
+                .hvs-type-hero-title {
+                  font-size: 28px;
+                }
+                .hvs-type-hero-sub {
+                  font-size: 16px;
+                }
+                .hvs-type-icon {
+                  font-size: 52px;
+                }
+                .hvs-type-name {
+                  font-size: 24px;
+                }
+                .hvs-type-card {
+                  padding: 32px 24px;
+                }
+                /* Form steps: 2-col layout for certain groups */
+                .hvs-inline-row {
+                  gap: 16px;
+                }
+                /* Survey step: 2-col yes/no grid */
+                .hvs-survey-scroll .hvs-survey-item {
+                  padding: 2px 0;
+                }
+                /* Step footer: bigger */
+                .hvs-step-footer {
+                  padding: 18px 0 24px;
+                }
+                /* Profit step: 2-col layout */
+                .hvs-profit-scroll {
+                  display: flex;
+                  gap: 28px;
+                  align-items: flex-start;
+                  overflow: visible;
+                  padding-right: 4px;
+                }
+                .hvs-profit-inputs-panel {
+                  flex: 1;
+                  min-width: 0;
+                  overflow-y: auto;
+                  max-height: calc(100vh - 230px);
+                  padding-right: 4px;
+                }
+                .hvs-profit-summary-panel {
+                  width: 300px;
+                  flex-shrink: 0;
+                  position: sticky;
+                  top: 0;
+                }
+                /* On desktop, summary shows as a card */
+                .hvs-profit-result {
+                  border-radius: 16px;
+                  padding: 18px 20px;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+                }
+                /* Report: larger, more readable */
+                .hvs-report-box {
+                  border-radius: 20px;
+                  padding: 28px 32px;
+                }
+                .hvs-report-pre {
+                  font-size: 14px;
+                  line-height: 1.8;
+                }
+                /* Edit steps: 4-col */
+                .hvs-edit-steps-grid {
+                  grid-template-columns: repeat(4, 1fr);
+                  gap: 10px;
+                }
+                .hvs-edit-step-btn {
+                  padding: 10px 8px;
+                  font-size: 13px;
+                }
+                /* Location results: 2-col grid */
+                .hvs-nearby-section {
+                  margin-bottom: 16px;
+                }
+                .hvs-nearby-item {
+                  padding: 6px 0;
+                }
               }
 
               /* Step 1 inline row + counters card */

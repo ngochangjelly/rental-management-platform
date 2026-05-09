@@ -6,7 +6,7 @@ class HouseViewSpecialistComponent {
   constructor() {
     this.view = "list"; // 'list' | 'wizard' | 'report'
     this.step = 1;
-    this.totalSteps = 7;
+    this.totalSteps = 8;
     this.editingId = null;
     this.records = [];
     this.viewingData = this._blankData();
@@ -41,6 +41,18 @@ class HouseViewSpecialistComponent {
         notes: "",
         agentName: "",
         agentPhone: "",
+      },
+      profit: {
+        landlordRentMin: 0,
+        landlordRentMax: 0,
+        rooms: [
+          { id: "master",  label: "Master",   min: 0, max: 0, enabled: true },
+          { id: "common1", label: "Common 1", min: 0, max: 0, enabled: true },
+          { id: "common2", label: "Common 2", min: 0, max: 0, enabled: true },
+          { id: "single1", label: "Single 1", min: 0, max: 0, enabled: true },
+          { id: "single2", label: "Single 2", min: 0, max: 0, enabled: true },
+          { id: "store1",  label: "Store 1",  min: 0, max: 0, enabled: true },
+        ],
       },
       finalReport: "",
       status: "draft",
@@ -294,6 +306,7 @@ class HouseViewSpecialistComponent {
       "Vị trí",
       "Khảo sát",
       "Ghi chú",
+      "Lợi nhuận",
       "Báo cáo",
     ];
     const progress = Math.round((this.step / this.totalSteps) * 100);
@@ -321,6 +334,9 @@ class HouseViewSpecialistComponent {
       case 7:
         stepContent = this._renderStep7();
         break;
+      case 8:
+        stepContent = this._renderStep8();
+        break;
     }
 
     container.innerHTML = `
@@ -343,7 +359,7 @@ class HouseViewSpecialistComponent {
 
         <!-- Step dots -->
         <div class="hvs-step-dots">
-          ${[1, 2, 3, 4, 5, 6, 7]
+          ${[1, 2, 3, 4, 5, 6, 7, 8]
             .map(
               (i) => `
             <div class="hvs-dot ${i === this.step ? "active" : i < this.step ? "done" : ""}"></div>
@@ -360,6 +376,16 @@ class HouseViewSpecialistComponent {
     `;
 
     this._bindWizardEvents();
+
+    if (
+      this.step === 4 &&
+      !this.viewingData.location &&
+      this.viewingData.postalCode &&
+      this.viewingData.nearbyMrts.length === 0 &&
+      !this.locationError
+    ) {
+      setTimeout(() => this._autoGeoSearch(), 80);
+    }
   }
 
   _renderStep1() {
@@ -787,7 +813,7 @@ class HouseViewSpecialistComponent {
             <i class="bi bi-arrow-left me-1"></i>Quay lại
           </button>
           <button class="hvs-btn-primary" onclick="houseViewSpecialist.nextStep()">
-            Xem báo cáo <i class="bi bi-file-text ms-1"></i>
+            Tiếp theo <i class="bi bi-arrow-right ms-1"></i>
           </button>
         </div>
       </div>
@@ -795,6 +821,113 @@ class HouseViewSpecialistComponent {
   }
 
   _renderStep7() {
+    const blank = this._blankData().profit;
+    if (!this.viewingData.profit || !this.viewingData.profit.rooms?.length) {
+      this.viewingData.profit = {
+        ...blank,
+        ...(this.viewingData.profit || {}),
+        rooms: this.viewingData.profit?.rooms?.length
+          ? this.viewingData.profit.rooms
+          : blank.rooms,
+      };
+    }
+    const p = this.viewingData.profit;
+    const FIXED_COST = 600;
+
+    const rangePair = (minId, maxId, minVal, maxVal) => `
+      <div class="hvs-range-pair">
+        <div class="hvs-profit-iw">
+          <span class="hvs-currency">$</span>
+          <input type="number" id="${minId}" class="hvs-input hvs-profit-input"
+            placeholder="thấp" inputmode="numeric" value="${minVal || ""}"
+            oninput="houseViewSpecialist.updateProfitCalc()" />
+        </div>
+        <span class="hvs-range-sep">~</span>
+        <div class="hvs-profit-iw">
+          <span class="hvs-currency">$</span>
+          <input type="number" id="${maxId}" class="hvs-input hvs-profit-input"
+            placeholder="cao" inputmode="numeric" value="${maxVal || ""}"
+            oninput="houseViewSpecialist.updateProfitCalc()" />
+        </div>
+      </div>
+    `;
+
+    const roomRow = (room) => `
+      <div class="hvs-profit-room${room.enabled ? "" : " hvs-profit-room-off"}">
+        <button class="hvs-room-toggle${room.enabled ? " on" : ""}"
+          onclick="houseViewSpecialist.toggleRoom('${room.id}')">
+          <i class="bi bi-${room.enabled ? "check-circle-fill" : "circle"}"></i>
+        </button>
+        <span class="hvs-room-label">${room.label}</span>
+        <div class="hvs-range-pair${room.enabled ? "" : " hvs-hidden"}">
+          <div class="hvs-profit-iw">
+            <span class="hvs-currency">$</span>
+            <input type="number" id="hvs-room-min-${room.id}" class="hvs-input hvs-profit-input"
+              placeholder="thấp" inputmode="numeric" value="${room.min || ""}"
+              oninput="houseViewSpecialist.updateProfitCalc()" />
+          </div>
+          <span class="hvs-range-sep">~</span>
+          <div class="hvs-profit-iw">
+            <span class="hvs-currency">$</span>
+            <input type="number" id="hvs-room-max-${room.id}" class="hvs-input hvs-profit-input"
+              placeholder="cao" inputmode="numeric" value="${room.max || ""}"
+              oninput="houseViewSpecialist.updateProfitCalc()" />
+          </div>
+        </div>
+      </div>
+    `;
+
+    const calc = this._calculateProfit();
+
+    return `
+      <div class="hvs-step-content">
+        <div class="hvs-step-title">
+          <i class="bi bi-calculator hvs-step-icon"></i>
+          Tính lợi nhuận
+        </div>
+
+        <div class="hvs-survey-scroll hvs-profit-scroll">
+          <div class="hvs-profit-inputs-panel">
+            <div class="hvs-profit-landlord-row">
+              <span class="hvs-profit-row-label"><i class="bi bi-house-lock me-1"></i>Thuê chủ nhà</span>
+              ${rangePair("hvs-landlord-min", "hvs-landlord-max", p.landlordRentMin, p.landlordRentMax)}
+            </div>
+
+            <div class="hvs-profit-section-title" style="margin-top:14px">
+              <i class="bi bi-door-open me-1"></i>Thu nhập từng phòng / tháng
+            </div>
+            <div class="hvs-profit-rooms">
+              ${p.rooms.map(roomRow).join("")}
+            </div>
+            <button class="hvs-btn-add-store" onclick="houseViewSpecialist.addStoreRoom()">
+              <i class="bi bi-plus-circle me-1"></i>Thêm phòng kho
+            </button>
+
+            <div class="hvs-profit-fixed-note">
+              <i class="bi bi-pin-angle me-1"></i>Chi phí cố định:
+              SP Group $400 · Main tenant $100 · Management $100
+              = <strong>$${FIXED_COST}/tháng</strong> tổng
+            </div>
+          </div>
+
+          <div id="hvs-profit-summary" class="hvs-profit-summary-panel">
+            ${this._renderProfitSummaryHtml(calc)}
+          </div>
+        </div>
+
+        <div class="hvs-step-footer">
+          <button class="hvs-btn-secondary" onclick="houseViewSpecialist.prevStep()">
+            <i class="bi bi-arrow-left me-1"></i>Quay lại
+          </button>
+          <button class="hvs-btn-primary" onclick="houseViewSpecialist.nextStep()">
+            Xem báo cáo <i class="bi bi-file-text ms-1"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderStep8() {
     const report = this._generateReport();
     this.viewingData.finalReport = report;
 
@@ -863,6 +996,19 @@ class HouseViewSpecialistComponent {
                 <i class="bi bi-trash me-1"></i>Xóa
               </button>
             </div>
+
+            <div class="hvs-edit-steps">
+              <div class="hvs-edit-steps-title">Chỉnh sửa</div>
+              <div class="hvs-edit-steps-grid">
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(1)"><i class="bi bi-house me-1"></i>Loại nhà</button>
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(2)"><i class="bi bi-link-45deg me-1"></i>Thông tin</button>
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(3)"><i class="bi bi-layout-three-columns me-1"></i>Chi tiết</button>
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(4)"><i class="bi bi-geo-alt me-1"></i>Vị trí</button>
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(5)"><i class="bi bi-clipboard-check me-1"></i>Khảo sát</button>
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(6)"><i class="bi bi-journal-text me-1"></i>Ghi chú</button>
+                <button class="hvs-edit-step-btn" onclick="houseViewSpecialist.jumpToStep(7)"><i class="bi bi-calculator me-1"></i>Lợi nhuận</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -870,8 +1016,12 @@ class HouseViewSpecialistComponent {
   }
 
   editRecord() {
+    this.jumpToStep(1);
+  }
+
+  jumpToStep(step) {
     this.view = "wizard";
-    this.step = 1;
+    this.step = step;
     this.renderWizard();
   }
 
@@ -971,7 +1121,8 @@ class HouseViewSpecialistComponent {
       lines.push("- hàng xóm đối diện đóng cửa");
     if (s.notes) {
       s.notes.split("\n").forEach((line) => {
-        if (line.trim()) lines.push(`- ${line.trim()}`);
+        const trimmed = line.trim().replace(/^-+\s*/, "");
+        if (trimmed) lines.push(`- ${trimmed}`);
       });
     }
 
@@ -983,6 +1134,42 @@ class HouseViewSpecialistComponent {
       if (s.agentPhone) lines.push(`- SĐT: ${s.agentPhone}`);
     }
 
+    // ── Lợi nhuận ─────────────────────────────────────────────────
+    const calc = this._calculateProfit();
+    if (calc && (calc.iMax > 0 || calc.lMax > 0)) {
+      const fmtN = (n) => Math.round(n).toLocaleString("en-SG");
+      const fmtR = (a, b) =>
+        a === b ? `$${fmtN(a)}` : `$${fmtN(a)} ~ $${fmtN(b)}`;
+      lines.push("");
+      lines.push("── Lợi nhuận ──");
+      lines.push(
+        `- Thuê chủ nhà: ${fmtR(calc.lMin, calc.lMax)}/tháng`,
+      );
+      calc.fixedCosts.forEach((c) =>
+        lines.push(`- ${c.label}: $${fmtN(c.amount)}/tháng`),
+      );
+      lines.push(
+        `- Tổng chi phí: ${fmtR(calc.expMin, calc.expMax)}/tháng`,
+      );
+      if (calc.enabledRooms.length > 0) {
+        lines.push(
+          `- Thu nhập (${calc.enabledRooms.length} phòng): ${fmtR(calc.iMin, calc.iMax)}/tháng`,
+        );
+        calc.enabledRooms.forEach((r) => {
+          if (r.min > 0 || r.max > 0)
+            lines.push(`  · ${r.label}: ${fmtR(r.min, r.max)}/tháng`);
+        });
+      }
+      lines.push(
+        `- Lợi nhuận (xấu~tốt): ${fmtR(calc.profitWorst, calc.profitBest)}/tháng`,
+      );
+      if (calc.profitWorst !== calc.profitBest) {
+        lines.push(
+          `  (Trung bình: $${fmtN(calc.profitMid)}/tháng)`,
+        );
+      }
+    }
+
     return lines.join("\n");
   }
 
@@ -991,6 +1178,9 @@ class HouseViewSpecialistComponent {
   goBack() {
     if (this.step > 1) {
       this.prevStep();
+    } else if (this.editingId && this.viewingData.status === "completed") {
+      this.view = "report";
+      this.renderReportView();
     } else {
       this.goToList();
     }
@@ -1052,6 +1242,9 @@ class HouseViewSpecialistComponent {
         this.viewingData.survey.notes =
           document.getElementById("hvs-notes")?.value.trim() || "";
         break;
+      case 7:
+        this._collectProfitStep();
+        break;
     }
   }
 
@@ -1103,6 +1296,145 @@ class HouseViewSpecialistComponent {
     if (el) el.textContent = newVal;
   }
 
+  // ─── Profit calculation ────────────────────────────────────────────────────
+
+  _collectProfitStep() {
+    const p = this.viewingData.profit;
+    if (!p) return;
+    p.landlordRentMin = parseFloat(document.getElementById("hvs-landlord-min")?.value) || 0;
+    p.landlordRentMax = parseFloat(document.getElementById("hvs-landlord-max")?.value) || 0;
+    p.rooms.forEach((room) => {
+      const minEl = document.getElementById(`hvs-room-min-${room.id}`);
+      const maxEl = document.getElementById(`hvs-room-max-${room.id}`);
+      if (minEl) room.min = parseFloat(minEl.value) || 0;
+      if (maxEl) room.max = parseFloat(maxEl.value) || 0;
+    });
+  }
+
+  _calculateProfit() {
+    const p = this.viewingData.profit;
+    if (!p) return null;
+    const fixedCosts = [
+      { label: "SP Group (điện nước)", amount: 400 },
+      { label: "Main tenant fee",      amount: 100 },
+      { label: "Management fee",       amount: 100 },
+    ];
+    const FIXED_COST = fixedCosts.reduce((s, c) => s + c.amount, 0);
+
+    const enabled = p.rooms.filter((r) => r.enabled);
+    const roomIncomeMin = enabled.reduce((s, r) => s + (Number(r.min) || 0), 0);
+    const roomIncomeMax = enabled.reduce((s, r) => s + (Number(r.max) || 0), 0);
+
+    // Normalise — user might enter high in "low" field
+    const iMin = Math.min(roomIncomeMin, roomIncomeMax);
+    const iMax = Math.max(roomIncomeMin, roomIncomeMax);
+
+    const lRaw1 = Number(p.landlordRentMin) || 0;
+    const lRaw2 = Number(p.landlordRentMax) || 0;
+    const lMin = Math.min(lRaw1, lRaw2);
+    const lMax = Math.max(lRaw1, lRaw2);
+
+    const expMin = lMin + FIXED_COST;
+    const expMax = lMax + FIXED_COST;
+
+    // Conservative: min income vs max expense → worst case
+    // Optimistic:  max income vs min expense → best case
+    const profitWorst = iMin - expMax;
+    const profitBest  = iMax - expMin;
+    const profitMid   = (iMin + iMax) / 2 - (expMin + expMax) / 2;
+
+    return {
+      iMin, iMax,
+      lMin, lMax,
+      expMin, expMax,
+      profitWorst, profitBest, profitMid,
+      fixedCost: FIXED_COST,
+      fixedCosts,
+      enabledRooms: enabled,
+    };
+  }
+
+  _renderProfitSummaryHtml(calc) {
+    if (!calc) return "";
+    const hasData = calc.iMax > 0 || calc.lMax > 0;
+    if (!hasData) return "";
+
+    const fmt = (n) =>
+      Math.round(n).toLocaleString("en-SG");
+    const fmtRange = (a, b) =>
+      a === b ? `$${fmt(a)}` : `$${fmt(a)} ~ $${fmt(b)}`;
+
+    return `
+      <div class="hvs-profit-result">
+        <div class="hvs-pr-row">
+          <span class="hvs-pr-label">Thu nhập (${calc.enabledRooms.length} phòng)</span>
+          <span class="hvs-pr-value income">${fmtRange(calc.iMin, calc.iMax)}<span class="hvs-pr-mo">/tháng</span></span>
+        </div>
+        <div class="hvs-pr-row exp">
+          <span class="hvs-pr-label">Thuê chủ nhà</span>
+          <span class="hvs-pr-value">−${fmtRange(calc.lMin, calc.lMax)}<span class="hvs-pr-mo">/tháng</span></span>
+        </div>
+        ${calc.fixedCosts.map((c) => `
+        <div class="hvs-pr-row exp">
+          <span class="hvs-pr-label">${c.label}</span>
+          <span class="hvs-pr-value">−$${fmt(c.amount)}<span class="hvs-pr-mo">/tháng</span></span>
+        </div>`).join("")}
+        <div class="hvs-pr-divider"></div>
+        <div class="hvs-pr-row profit">
+          <span class="hvs-pr-label"><strong>Lợi nhuận</strong></span>
+          <span class="hvs-pr-value hvs-profit-positive"><strong>${fmtRange(calc.profitWorst, calc.profitBest)}<span class="hvs-pr-mo">/tháng</span></strong></span>
+        </div>
+        ${
+          calc.profitWorst !== calc.profitBest
+            ? `<div class="hvs-pr-row mid">
+                <span class="hvs-pr-label">Ước tính trung bình</span>
+                <span class="hvs-pr-value">$${fmt(calc.profitMid)}<span class="hvs-pr-mo">/tháng</span></span>
+               </div>`
+            : ""
+        }
+      </div>
+    `;
+  }
+
+  updateProfitCalc() {
+    const p = this.viewingData.profit;
+    if (!p) return;
+    p.landlordRentMin = parseFloat(document.getElementById("hvs-landlord-min")?.value) || 0;
+    p.landlordRentMax = parseFloat(document.getElementById("hvs-landlord-max")?.value) || 0;
+    p.rooms.forEach((room) => {
+      if (!room.enabled) return;
+      const minEl = document.getElementById(`hvs-room-min-${room.id}`);
+      const maxEl = document.getElementById(`hvs-room-max-${room.id}`);
+      if (minEl) room.min = parseFloat(minEl.value) || 0;
+      if (maxEl) room.max = parseFloat(maxEl.value) || 0;
+    });
+    const summaryEl = document.getElementById("hvs-profit-summary");
+    if (summaryEl) summaryEl.innerHTML = this._renderProfitSummaryHtml(this._calculateProfit());
+  }
+
+  toggleRoom(id) {
+    this._collectProfitStep();
+    const room = this.viewingData.profit?.rooms.find((r) => r.id === id);
+    if (room) room.enabled = !room.enabled;
+    this.renderWizard();
+  }
+
+  addStoreRoom() {
+    this._collectProfitStep();
+    const stores = this.viewingData.profit.rooms.filter((r) =>
+      r.id.startsWith("store"),
+    );
+    const n = stores.length + 1;
+    this.viewingData.profit.rooms.push({
+      id: `store${n}`,
+      label: `Store ${n}`,
+      min: 0,
+      max: 0,
+      enabled: true,
+    });
+    this.renderWizard();
+  }
+
   // ─── Location & nearby search ──────────────────────────────────────────────
 
   // Start the Shazam animation in the UI
@@ -1140,6 +1472,33 @@ class HouseViewSpecialistComponent {
     this.viewingData.nearbyMrts = data.data.mrts || [];
     this.viewingData.nearbyHawkerCenters = data.data.hawkers || [];
     this.viewingData.nearbySupermarkets = data.data.supermarkets || [];
+  }
+
+  async _autoGeoSearch() {
+    const query = this.viewingData.postalCode;
+    if (!query) return;
+    this._startSearchAnimation();
+    this._setSearchStatus(`Đang tìm với mã bưu chính ${query}...`);
+    try {
+      const res = await API.post(
+        API_CONFIG.ENDPOINTS.HOUSE_VIEW_SPECIALIST_GEOCODE,
+        { address: query },
+      );
+      const data = await res.json();
+      if (!data.success)
+        throw new Error(data.message || "Không tìm thấy địa chỉ");
+      const { lat, lng } = data.data;
+      this.viewingData.location = { lat, lng };
+      this.locationError = null;
+      this._setSearchStatus("Đang tìm tiện ích gần đây...");
+      await this._fetchNearby(lat, lng);
+      this._setSearchStatus("Tìm xong! ✅");
+      setTimeout(() => this.renderWizard(), 500);
+    } catch (err) {
+      this._stopSearchAnimation();
+      this.locationError = { code: 0, message: err.message || "Lỗi không xác định." };
+      this.renderWizard();
+    }
   }
 
   async locateAndSearch() {
