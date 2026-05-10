@@ -134,34 +134,32 @@ class investorProfitChartComponent {
           : null;
 
         return `
-          <div class="col-6 col-sm-4 col-md-3 col-lg-2 investor-card-col mb-3">
+          <div class="col-6 col-sm-4 col-md-3 col-lg-2">
             <div
-              class="card investor-select-card h-100 ${isSelected ? "selected" : ""}"
+              class="ipr-investor-card card h-100 ${isSelected ? "selected" : ""}"
               data-investor-id="${investor.investorId}"
               data-investor-index="${index}"
-              style="cursor: pointer; transition: all 0.2s ease; ${isSelected ? `border-color: ${color.border}; border-width: 3px;` : ""}"
+              style="${isSelected ? `border-color: ${color.border};` : ""}"
             >
               <div class="card-body text-center p-3">
                 <div class="position-relative d-inline-block mb-2">
                   ${
                     avatarUrl
-                      ? `<img src="${avatarUrl}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover; ${isSelected ? `box-shadow: 0 0 0 3px ${color.border};` : ""}" alt="${this.escapeHtml(investor.name)}">`
-                      : `<div class="rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.5rem; background-color: ${isSelected ? color.border : "#667eea"};">${this.getInitials(investor.name)}</div>`
+                      ? `<img src="${avatarUrl}" class="rounded-circle" style="width:64px;height:64px;object-fit:cover;${isSelected ? `box-shadow:0 0 0 3px ${color.border};` : "box-shadow:0 2px 8px rgba(0,0,0,0.12);"}" alt="${this.escapeHtml(investor.name)}">`
+                      : `<div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold" style="width:64px;height:64px;font-size:1.4rem;background:${isSelected ? color.border : "linear-gradient(135deg,#667eea,#764ba2)"};${isSelected ? "" : "box-shadow:0 2px 8px rgba(102,126,234,0.35);"}">${this.getInitials(investor.name)}</div>`
                   }
                   ${
                     isSelected
-                      ? `
-                    <div class="position-absolute bottom-0 end-0">
-                      <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 20px; height: 20px; background-color: ${color.border};">
-                        <i class="bi bi-check-lg" style="font-size: 0.7rem;"></i>
-                      </div>
-                    </div>
-                  `
+                      ? `<div class="position-absolute bottom-0 end-0">
+                          <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width:22px;height:22px;background:${color.border};box-shadow:0 1px 4px rgba(0,0,0,0.2);">
+                            <i class="bi bi-check-lg" style="font-size:0.65rem;"></i>
+                          </div>
+                        </div>`
                       : ""
                   }
                 </div>
-                <h6 class="card-title mb-1 text-truncate">${this.escapeHtml(investor.name)}</h6>
-                <small class="text-muted">
+                <h6 class="card-title mb-1 text-truncate fw-semibold" style="font-size:0.85rem">${this.escapeHtml(investor.name)}</h6>
+                <small class="text-muted" style="font-size:0.75rem">
                   <i class="bi bi-building me-1"></i>${propertyCount} ${i18next.t("investorProfitChart.properties", "properties")}
                 </small>
               </div>
@@ -215,29 +213,12 @@ class investorProfitChartComponent {
    */
   bindInvestorCardEvents() {
     const cards = document.querySelectorAll(
-      "#investorProfitChartInvestorList .investor-select-card",
+      "#investorProfitChartInvestorList .ipr-investor-card",
     );
     cards.forEach((card) => {
-      card.addEventListener("click", (e) => {
+      card.addEventListener("click", () => {
         const investorId = card.dataset.investorId;
         this.toggleInvestorSelection(investorId);
-      });
-
-      // Add hover effect
-      card.addEventListener("mouseenter", () => {
-        if (!card.classList.contains("selected")) {
-          card.style.borderColor = "#0d6efd";
-          card.style.transform = "translateY(-2px)";
-          card.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
-        }
-      });
-
-      card.addEventListener("mouseleave", () => {
-        if (!card.classList.contains("selected")) {
-          card.style.borderColor = "";
-          card.style.transform = "";
-          card.style.boxShadow = "";
-        }
       });
     });
   }
@@ -278,6 +259,7 @@ class investorProfitChartComponent {
     this.renderInvestorList();
     this.renderChartArea();
     this.renderMonthlyDetails();
+    this.renderSummaryStats();
   }
 
   /**
@@ -336,6 +318,7 @@ class investorProfitChartComponent {
       this.renderChartArea();
       this.renderChart();
       this.renderMonthlyDetails();
+      this.renderSummaryStats();
     }
   }
 
@@ -809,11 +792,18 @@ class investorProfitChartComponent {
           ];
 
     container.innerHTML = `
-      <h6 class="mb-3">
-        <i class="bi bi-calendar3 me-2"></i>
-        ${i18next.t("investorProfitChart.monthlyBreakdown", "Monthly Breakdown")}
-      </h6>
-      <div class="accordion" id="monthlyProfitAccordion">
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <div class="d-flex align-items-center gap-2">
+          <div class="ipr-stat-icon" style="background:#eef2ff;width:38px;height:38px;border-radius:10px">
+            <i class="bi bi-calendar3" style="color:#4f46e5"></i>
+          </div>
+          <div>
+            <h6 class="mb-0 fw-semibold">${i18next.t("investorProfitChart.monthlyBreakdown", "Monthly Breakdown")}</h6>
+            <small class="text-muted">Click a month to expand property details</small>
+          </div>
+        </div>
+      </div>
+      <div class="accordion ipr-month-accordion" id="monthlyProfitAccordion">
         ${allMonths
           .map((month, index) => {
             const isExpanded = this.expandedMonth === index;
@@ -929,7 +919,7 @@ class investorProfitChartComponent {
 
             return `
               <div class="col-12 col-md-6">
-                <div class="card h-100 border">
+                <div class="ipr-prop-card card h-100">
                   <div class="row g-0">
                     <div class="col-4">
                       ${
@@ -979,6 +969,125 @@ class investorProfitChartComponent {
             `;
           })
           .join("")}
+      </div>
+    `;
+  }
+
+  /**
+   * Render summary stat cards above the investor list
+   */
+  renderSummaryStats() {
+    const container = document.getElementById("investorProfitSummaryStats");
+    if (!container) return;
+
+    if (this.profitDataMap.size === 0 || this.selectedInvestors.size === 0) {
+      container.innerHTML = "";
+      return;
+    }
+
+    let totalProfit = 0;
+    const trackedProperties = new Set();
+    let bestInvestorName = null;
+    let bestInvestorProfit = -Infinity;
+
+    for (const [investorId, data] of this.profitDataMap) {
+      if (!data || !data.monthlyProfits) continue;
+      const investor = this.investors.find((i) => i.investorId === investorId);
+      let investorTotal = 0;
+      for (const m of data.monthlyProfits) {
+        for (const prop of m.properties || []) {
+          investorTotal += prop.sgdProfit ?? 0;
+          trackedProperties.add(prop.propertyId);
+        }
+      }
+      totalProfit += investorTotal;
+      if (investorTotal > bestInvestorProfit) {
+        bestInvestorProfit = investorTotal;
+        bestInvestorName = investor?.name || investorId;
+      }
+    }
+
+    const profitPositive = totalProfit >= 0;
+    const profitColor = profitPositive ? "#198754" : "#dc3545";
+
+    const trendBadge = (val) => {
+      if (val === null) return "";
+      const up = val >= 0;
+      return `<span class="ipr-trend-badge ${up ? "ipr-trend-up" : "ipr-trend-down"}">
+        <i class="bi bi-arrow-${up ? "up" : "down"}-right"></i> ${up ? "+" : ""}$${Math.abs(val).toFixed(0)}
+      </span>`;
+    };
+
+    container.innerHTML = `
+      <div class="col-6 col-md-3">
+        <div class="ipr-stat-card card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div>
+                <div class="text-muted mb-1" style="font-size:0.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Total Profit</div>
+                <div class="fw-bold" style="font-size:1.6rem;line-height:1;color:${profitPositive ? "#15803d" : "#b91c1c"}">${profitPositive ? "+" : ""}$${totalProfit.toFixed(0)}</div>
+              </div>
+              <div class="ipr-stat-icon" style="background:#eef2ff">
+                <i class="bi bi-currency-dollar" style="color:#4f46e5"></i>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              ${trendBadge(totalProfit)}
+              <small class="text-muted">${this.selectedInvestors.size} investor${this.selectedInvestors.size > 1 ? "s" : ""}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="ipr-stat-card card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div>
+                <div class="text-muted mb-1" style="font-size:0.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Top Performer</div>
+                <div class="fw-bold text-truncate" style="font-size:1.15rem;max-width:120px">${this.escapeHtml(bestInvestorName || "—")}</div>
+              </div>
+              <div class="ipr-stat-icon" style="background:#f0fdf4">
+                <i class="bi bi-trophy" style="color:#15803d"></i>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              ${bestInvestorProfit !== -Infinity ? trendBadge(bestInvestorProfit) : ""}
+              <small class="text-muted">best return</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="ipr-stat-card card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div>
+                <div class="text-muted mb-1" style="font-size:0.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Properties</div>
+                <div class="fw-bold" style="font-size:1.6rem;line-height:1">${trackedProperties.size}</div>
+              </div>
+              <div class="ipr-stat-icon" style="background:#fffbeb">
+                <i class="bi bi-building" style="color:#d97706"></i>
+              </div>
+            </div>
+            <small class="text-muted">tracked this period</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="ipr-stat-card card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div>
+                <div class="text-muted mb-1" style="font-size:0.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Period</div>
+                <div class="fw-bold" style="font-size:1rem;line-height:1.3">${this.startMonth}/${this.startYear}<br><span class="text-muted fw-normal" style="font-size:0.85rem">to</span> ${this.endMonth}/${this.endYear}</div>
+              </div>
+              <div class="ipr-stat-icon" style="background:#f0f9ff">
+                <i class="bi bi-calendar3" style="color:#0284c7"></i>
+              </div>
+            </div>
+            <small class="text-muted">selected range</small>
+          </div>
+        </div>
       </div>
     `;
   }
