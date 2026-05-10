@@ -753,10 +753,9 @@ class FinancialReportsComponent {
       </div>`
         : "";
 
-    // Create compact table format
-    let html = `
-      ${incomeBulkBar}
-      <div class="table-responsive">
+    // Desktop table
+    let tableHtml = `
+      <div class="table-responsive d-none d-md-block">
         <table class="table table-sm table-striped mb-0" id="incomeTable">
           <thead>
             <tr class="table-success">
@@ -774,8 +773,17 @@ class FinancialReportsComponent {
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
-          <tbody id="incomeTbody">
-    `;
+          <tbody id="incomeTbody">`;
+
+    // Mobile cards
+    let cardsHtml = `
+      <div class="d-md-none d-flex flex-column gap-2" id="incomeMobileCards">
+        <div class="d-flex align-items-center gap-2 pb-1">
+          <input type="checkbox" class="form-check-input" id="selectAllIncomeMobile"
+            onchange="window.financialReports.toggleSelectAll('income', this.checked)"
+            ${incomeSelectedCount === this.currentReport.income.length ? "checked" : ""}>
+          <span class="small text-muted">Select all</span>
+        </div>`;
 
     this.currentReport.income.forEach((item, index) => {
       total += item.amount;
@@ -813,7 +821,42 @@ class FinancialReportsComponent {
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
-      html += `
+      // Shared: investor avatar (both desktop and mobile use slightly different sizes)
+      const investorAvatarDesktop = investorAvatar
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+
+      const investorAvatarMobile = investorAvatar
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+
+      // Shared: action buttons (desktop)
+      const evidenceBtn = hasEvidence
+        ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('income', ${index})" title="View Evidence"><i class="bi bi-eye"></i></button>`
+        : "";
+      const editBtn = `<button class="btn btn-outline-primary btn-sm p-1" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})" title="Edit">
+        <span class="edit-icon"><i class="bi bi-pencil"></i></span>
+        <span class="loading-spinner d-none"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span></span>
+      </button>`;
+      const deleteBtn = isPendingDelete
+        ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Confirm delete"><i class="bi bi-check"></i></button>
+           <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel"><i class="bi bi-x"></i></button>`
+        : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete"><i class="bi bi-trash"></i></button>`;
+      // Mobile buttons: explicit icon colors to prevent inheritance issues
+      const evidenceBtnMobile = hasEvidence
+        ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('income', ${index})" title="View Evidence"><i class="bi bi-eye" style="color:#0dcaf0;"></i></button>`
+        : "";
+      const editBtnMobile = `<button class="btn btn-outline-primary btn-sm p-1" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})" title="Edit">
+        <span class="edit-icon"><i class="bi bi-pencil" style="color:#0d6efd;"></i></span>
+        <span class="loading-spinner d-none"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span></span>
+      </button>`;
+      const deleteBtnMobile = isPendingDelete
+        ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Confirm delete"><i class="bi bi-check" style="color:#fff;"></i></button>
+           <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel"><i class="bi bi-x" style="color:#6c757d;"></i></button>`
+        : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete"><i class="bi bi-trash" style="color:#dc3545;"></i></button>`;
+
+      // --- Desktop table row ---
+      tableHtml += `
         <tr data-item-key="${itemKey}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
@@ -824,95 +867,53 @@ class FinancialReportsComponent {
           <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
               <span>${escapeHtml(item.item)}</span>
-              ${
-                hasAdditionalInfo
-                  ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>`
-                  : ""
-              }
+              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
             </div>
-            ${
-              hasDetails
-                ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(
-                    item.details,
-                  )}">${escapeHtml(item.details.substring(0, 50))}${
-                    item.details.length > 50 ? "..." : ""
-                  }</div>`
-                : ""
-            }
-            ${
-              hasEvidence
-                ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>`
-                : ""
-            }
+            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? "..." : ""}</div>` : ""}
+            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ""}
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">
-              ${
-                investorAvatar
-                  ? `<img src="${this.getOptimizedAvatarUrl(
-                      investorAvatar,
-                      "small",
-                    )}" alt="${escapeHtml(
-                      investorName,
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName,
-                    )}">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName,
-                    )}">${escapeHtml(
-                      investorName.charAt(0).toUpperCase(),
-                    )}</div>`
-              }
-            </div>
+            <div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>
           </td>
-          <td class="small border-0 align-middle">
-            ${this.renderPaidByAvatar(item.paidBy)}
-          </td>
-          <td class="small border-0 align-middle text-center">
-            ${this.renderCurrencyFlag(item.currency)}
-          </td>
-          <td class="small border-0 align-middle text-end fw-bold text-success" style="font-size: 16px;">$${item.amount.toFixed(
-            2,
-          )}</td>
+          <td class="small border-0 align-middle">${this.renderPaidByAvatar(item.paidBy)}</td>
+          <td class="small border-0 align-middle text-center">${this.renderCurrencyFlag(item.currency)}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-success" style="font-size:16px;">$${item.amount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center actions-column">
-            <div class="btn-group btn-group-sm">
-              ${
-                hasEvidence
-                  ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('income', ${index})" title="View Evidence">
-                <i class="bi bi-eye"></i>
-              </button>`
-                  : ""
-              }
-              <button class="btn btn-outline-primary btn-sm p-1" id="editIncomeBtn-${index}" onclick="window.financialReports.editItem('income', ${index})" title="Edit">
-                <span class="edit-icon"><i class="bi bi-pencil"></i></span>
-                <span class="loading-spinner d-none">
-                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                </span>
-              </button>
-              ${
-                isPendingDelete
-                  ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('income', ${index})" title="Confirm delete">
-                     <i class="bi bi-check"></i>
-                   </button>
-                   <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel">
-                     <i class="bi bi-x"></i>
-                   </button>`
-                  : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete">
-                     <i class="bi bi-trash"></i>
-                   </button>`
-              }
-            </div>
+            <div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>
           </td>
-        </tr>
-      `;
+        </tr>`;
+
+      // --- Mobile card (single-row flat layout) ---
+      const paidByInline = this._renderPaidByAvatarInline(item.paidBy);
+      cardsHtml += `
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #198754;">
+          <input type="checkbox" class="form-check-input flex-shrink-0 bulk-checkbox" style="margin:0;" data-item-key="${itemKey}"
+            ${isSelected ? "checked" : ""}
+            onchange="window.financialReports.toggleItemSelection('income', ${index})"
+            onclick="event.stopPropagation()">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
+              <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
+              <span style="font-weight:700;color:#198754;white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <span style="font-size:0.75rem;color:#6c757d;">${transactionDate}</span>
+              <span style="font-size:0.8rem;">${this.renderCurrencyFlag(item.currency)}</span>
+              <span style="display:flex;align-items:center;gap:4px;">${investorAvatarMobile}${paidByInline ? `<span style="font-size:0.65rem;color:#adb5bd;margin:0 2px;">→</span>${paidByInline}` : ""}</span>
+              ${hasEvidence ? `<span style="font-size:0.72rem;color:#0dcaf0;"><i class="bi bi-paperclip"></i>${item.billEvidence.length}</span>` : ""}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+            ${evidenceBtnMobile}${editBtnMobile}${deleteBtnMobile}
+          </div>
+        </div>`;
     });
 
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
+    tableHtml += `</tbody></table></div>`;
+    cardsHtml += `</div>`;
+
+    let html = `${incomeBulkBar}${tableHtml}${cardsHtml}`;
 
     incomeList.innerHTML = html;
     if (totalIncomeEl) {
@@ -989,10 +990,9 @@ class FinancialReportsComponent {
       </div>`
         : "";
 
-    // Create compact table format
-    let html = `
-      ${expenseBulkBar}
-      <div class="table-responsive">
+    // Desktop table
+    let tableHtml = `
+      <div class="table-responsive d-none d-md-block">
         <table class="table table-sm table-striped mb-0" id="expenseTable">
           <thead>
             <tr class="table-danger">
@@ -1009,8 +1009,17 @@ class FinancialReportsComponent {
               <th class="border-0 small text-center actions-column">Actions</th>
             </tr>
           </thead>
-          <tbody id="expenseTbody">
-    `;
+          <tbody id="expenseTbody">`;
+
+    // Mobile cards
+    let cardsHtml = `
+      <div class="d-md-none d-flex flex-column gap-2" id="expenseMobileCards">
+        <div class="d-flex align-items-center gap-2 pb-1">
+          <input type="checkbox" class="form-check-input" id="selectAllExpensesMobile"
+            onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
+            ${expenseSelectedCount === this.currentReport.expenses.length ? "checked" : ""}>
+          <span class="small text-muted">Select all</span>
+        </div>`;
 
     this.currentReport.expenses.forEach((item, index) => {
       total += item.amount;
@@ -1040,7 +1049,55 @@ class FinancialReportsComponent {
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
 
-      html += `
+      // Shared: investor avatar
+      const investorAvatarDesktop = investorAvatar
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+
+      const investorAvatarMobile = investorAvatar
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+
+      // paid-to avatar: desktop (flex-column with badge) vs mobile (inline)
+      const unknownCircle = `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:32px;height:32px;font-size:16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`;
+      const paidToAvatarHtml = item.paidTo === "unknown"
+        ? unknownCircle
+        : item.paidTo
+          ? this.renderPaidByAvatar(item.paidTo)
+          : `<span class="text-muted small">—</span>`;
+      const paidToInline = item.paidTo === "unknown"
+        ? `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:26px;height:26px;font-size:14px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`
+        : item.paidTo
+          ? this._renderPaidByAvatarInline(item.paidTo)
+          : "";
+
+      // Shared: action buttons (desktop)
+      const evidenceBtn = hasEvidence
+        ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('expense', ${index})" title="View Evidence"><i class="bi bi-eye"></i></button>`
+        : "";
+      const editBtn = `<button class="btn btn-outline-primary btn-sm p-1" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})" title="Edit">
+        <span class="edit-icon"><i class="bi bi-pencil"></i></span>
+        <span class="loading-spinner d-none"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span></span>
+      </button>`;
+      const deleteBtn = isPendingDelete
+        ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Confirm delete"><i class="bi bi-check"></i></button>
+           <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel"><i class="bi bi-x"></i></button>`
+        : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete"><i class="bi bi-trash"></i></button>`;
+      // Mobile buttons: explicit icon colors to prevent inheritance issues
+      const evidenceBtnMobile = hasEvidence
+        ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('expense', ${index})" title="View Evidence"><i class="bi bi-eye" style="color:#0dcaf0;"></i></button>`
+        : "";
+      const editBtnMobile = `<button class="btn btn-outline-primary btn-sm p-1" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})" title="Edit">
+        <span class="edit-icon"><i class="bi bi-pencil" style="color:#0d6efd;"></i></span>
+        <span class="loading-spinner d-none"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span></span>
+      </button>`;
+      const deleteBtnMobile = isPendingDelete
+        ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Confirm delete"><i class="bi bi-check" style="color:#fff;"></i></button>
+           <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel"><i class="bi bi-x" style="color:#6c757d;"></i></button>`
+        : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete"><i class="bi bi-trash" style="color:#dc3545;"></i></button>`;
+
+      // --- Desktop table row ---
+      tableHtml += `
         <tr data-item-key="${itemKey}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
@@ -1051,99 +1108,50 @@ class FinancialReportsComponent {
           <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
               <span>${escapeHtml(item.item)}</span>
-              ${
-                hasAdditionalInfo
-                  ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size: 12px;"></i>`
-                  : ""
-              }
+              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
             </div>
-            ${
-              hasDetails
-                ? `<div class="small text-muted mt-1" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(
-                    item.details,
-                  )}">${escapeHtml(item.details.substring(0, 50))}${
-                    item.details.length > 50 ? "..." : ""
-                  }</div>`
-                : ""
-            }
-            ${
-              hasEvidence
-                ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>`
-                : ""
-            }
+            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? "..." : ""}</div>` : ""}
+            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ""}
           </td>
           <td class="small border-0 align-middle">${transactionDate}</td>
           <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">
-              ${
-                investorAvatar
-                  ? `<img src="${this.getOptimizedAvatarUrl(
-                      investorAvatar,
-                      "small",
-                    )}" alt="${escapeHtml(
-                      investorName,
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName,
-                    )}">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                      investorName,
-                    )}">${escapeHtml(
-                      investorName.charAt(0).toUpperCase(),
-                    )}</div>`
-              }
-            </div>
+            <div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>
           </td>
-          <td class="small border-0 align-middle text-center">
-            ${
-              item.paidTo === "unknown"
-                ? `<div class="d-flex align-items-center justify-content-center"><div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div></div>`
-                : item.paidTo
-                  ? this.renderPaidByAvatar(item.paidTo)
-                  : `<span class="text-muted small">-</span>`
-            }
-          </td>
-          <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size: 16px;">$${item.amount.toFixed(
-            2,
-          )}</td>
+          <td class="small border-0 align-middle text-center">${paidToAvatarHtml}</td>
+          <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size:16px;">$${item.amount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center actions-column">
-            <div class="btn-group btn-group-sm">
-              ${
-                hasEvidence
-                  ? `<button class="btn btn-outline-info btn-sm p-1" onclick="window.financialReports.showBillEvidence('expense', ${index})" title="View Evidence">
-                <i class="bi bi-eye"></i>
-              </button>`
-                  : ""
-              }
-              <button class="btn btn-outline-primary btn-sm p-1" id="editExpenseBtn-${index}" onclick="window.financialReports.editItem('expense', ${index})" title="Edit">
-                <span class="edit-icon"><i class="bi bi-pencil"></i></span>
-                <span class="loading-spinner d-none">
-                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                </span>
-              </button>
-              ${
-                isPendingDelete
-                  ? `<button class="btn btn-success btn-sm p-1" onclick="window.financialReports.confirmDeleteItem('expense', ${index})" title="Confirm delete">
-                     <i class="bi bi-check"></i>
-                   </button>
-                   <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel">
-                     <i class="bi bi-x"></i>
-                   </button>`
-                  : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete">
-                     <i class="bi bi-trash"></i>
-                   </button>`
-              }
-            </div>
+            <div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>
           </td>
-        </tr>
-      `;
+        </tr>`;
+
+      // --- Mobile card (single-row flat layout) ---
+      cardsHtml += `
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #dc3545;">
+          <input type="checkbox" class="form-check-input flex-shrink-0 bulk-checkbox" style="margin:0;" data-item-key="${itemKey}"
+            ${isSelected ? "checked" : ""}
+            onchange="window.financialReports.toggleItemSelection('expense', ${index})"
+            onclick="event.stopPropagation()">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
+              <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
+              <span style="font-weight:700;color:#dc3545;white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <span style="font-size:0.75rem;color:#6c757d;">${transactionDate}</span>
+              <span style="display:flex;align-items:center;gap:4px;">${investorAvatarMobile}${paidToInline ? `<span style="font-size:0.65rem;color:#adb5bd;margin:0 2px;">→</span>${paidToInline}` : ""}</span>
+              ${hasEvidence ? `<span style="font-size:0.72rem;color:#0dcaf0;"><i class="bi bi-paperclip"></i>${item.billEvidence.length}</span>` : ""}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+            ${evidenceBtnMobile}${editBtnMobile}${deleteBtnMobile}
+          </div>
+        </div>`;
     });
 
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
+    tableHtml += `</tbody></table></div>`;
+    cardsHtml += `</div>`;
 
+    let html = `${expenseBulkBar}${tableHtml}${cardsHtml}`;
     expenseList.innerHTML = html;
     if (totalExpensesEl) totalExpensesEl.textContent = `$${total.toFixed(2)}`;
 
@@ -1525,11 +1533,14 @@ class FinancialReportsComponent {
         Array.isArray(this.currentReport.income)
       ) {
         this.currentReport.income.forEach((incomeItem) => {
-          if (incomeItem.paidBy && incomeItem.paidBy.startsWith("tenant_")) {
-            // Extract tenant ID from "tenant_" prefix
-            const tenantId = incomeItem.paidBy.replace("tenant_", "");
-
-            // Find the tenant to get their _id
+          const paidByList = Array.isArray(incomeItem.paidBy)
+            ? incomeItem.paidBy
+            : incomeItem.paidBy
+            ? [incomeItem.paidBy]
+            : [];
+          paidByList.forEach((paidByValue) => {
+            if (!paidByValue || !paidByValue.startsWith("tenant_")) return;
+            const tenantId = paidByValue.replace("tenant_", "");
             const tenant = this.tenants.find(
               (t) =>
                 (t._id && t._id === tenantId) ||
@@ -1538,7 +1549,6 @@ class FinancialReportsComponent {
                 (t.fin && t.fin === tenantId) ||
                 (t.passportNumber && t.passportNumber === tenantId),
             );
-
             if (tenant && tenant._id) {
               const currentAmount = paidAmountsByTenantId.get(tenant._id) || 0;
               paidAmountsByTenantId.set(
@@ -1546,7 +1556,7 @@ class FinancialReportsComponent {
                 currentAmount + (incomeItem.amount || 0),
               );
             }
-          }
+          });
         });
       }
 
@@ -2063,6 +2073,9 @@ class FinancialReportsComponent {
             }
           });
         }
+
+        // Setup custom paid-by multi-select dropdown
+        this.setupPaidByDropdown();
       }
     });
 
@@ -2145,7 +2158,12 @@ class FinancialReportsComponent {
       .join("");
   }
 
-  generatePaidByOptions(selectedValue = "") {
+  generatePaidByOptions(selectedValues = []) {
+    const vals = Array.isArray(selectedValues)
+      ? selectedValues
+      : selectedValues
+        ? [selectedValues]
+        : [];
     let options = "";
 
     // Add investor options if available
@@ -2153,59 +2171,220 @@ class FinancialReportsComponent {
       options += '<optgroup label="Investors">';
       options += this.investors
         .map((investor) => {
-          const isSelected =
-            investor.investorId === selectedValue ? " selected" : "";
-          return `<option value="${
-            investor.investorId
-          }"${isSelected}>${escapeHtml(investor.name)} (ID: ${
-            investor.investorId
-          })</option>`;
+          const isSelected = vals.includes(investor.investorId) ? " selected" : "";
+          return `<option value="${investor.investorId}"${isSelected}>${escapeHtml(investor.name)} (ID: ${investor.investorId})</option>`;
         })
         .join("");
       options += "</optgroup>";
     }
 
-    // Add tenant options if available
+    // Add tenant options split into active and outdated (moved out > 1 month)
     if (this.tenants && this.tenants.length > 0) {
-      options += '<optgroup label="Tenants">';
-      options += this.tenants
-        .map((tenant) => {
-          // Use a prefix to distinguish tenant IDs from investor IDs
-          const tenantValue = `tenant_${
-            tenant._id || tenant.tenantId || tenant.id || tenant.fin
-          }`;
-          const isSelected = tenantValue === selectedValue ? " selected" : "";
-          const baseName = tenant.name || "Unknown Tenant";
-          const displayName = tenant.nickname
-            ? `${baseName} (${tenant.nickname})`
-            : baseName;
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-          // Build additional info string
-          const additionalInfo = [];
-          if (tenant.roomType) {
-            additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
-          }
-          if (tenant.monthlyRent) {
-            additionalInfo.push(`$${tenant.monthlyRent}`);
-          }
+      const activeOptions = [];
+      const outdatedOptions = [];
 
-          const infoString =
-            additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
+      this.tenants.forEach((tenant) => {
+        const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
+        const isSelected = vals.includes(tenantValue) ? " selected" : "";
+        const baseName = tenant.name || "Unknown Tenant";
+        const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
 
-          return `<option value="${tenantValue}"${isSelected}>${escapeHtml(
-            displayName,
-          )}${infoString}</option>`;
-        })
-        .join("");
-      options += "</optgroup>";
+        const additionalInfo = [];
+        if (tenant.roomType) additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+        if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
+        const infoString = additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
+
+        const propertyRecord = tenant.properties?.find((p) => p.propertyId === this.selectedProperty);
+        const moveoutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+        const isOutdated = moveoutDate && moveoutDate < oneMonthAgo;
+
+        if (isOutdated) {
+          outdatedOptions.push(
+            `<option value="${tenantValue}"${isSelected} style="color:#999;font-style:italic;">${escapeHtml(displayName)}${infoString} ↩ moved out</option>`,
+          );
+        } else {
+          activeOptions.push(
+            `<option value="${tenantValue}"${isSelected}>${escapeHtml(displayName)}${infoString}</option>`,
+          );
+        }
+      });
+
+      if (activeOptions.length > 0) {
+        options += '<optgroup label="Tenants">';
+        options += activeOptions.join("");
+        options += "</optgroup>";
+      }
+
+      if (outdatedOptions.length > 0) {
+        options += '<optgroup label="Tenants — Moved Out (Outdated)">';
+        options += outdatedOptions.join("");
+        options += "</optgroup>";
+      }
     }
 
-    // If no options available
     if (!options) {
       return '<option value="" disabled>No investors or tenants available for this property</option>';
     }
 
     return options;
+  }
+
+  generatePaidByDropdownItems(selectedValues = []) {
+    const vals = Array.isArray(selectedValues)
+      ? selectedValues
+      : selectedValues
+        ? [selectedValues]
+        : [];
+
+    const makeMiniAvatar = (name, avatarUrl, bgClass = "bg-info") => {
+      const initial = escapeHtml((name || "?").charAt(0).toUpperCase());
+      if (avatarUrl) {
+        return `<img src="${this.getOptimizedAvatarUrl(avatarUrl, "small")}" class="rounded-circle flex-shrink-0" style="width:26px;height:26px;object-fit:cover;" alt="${escapeHtml(name)}">`;
+      }
+      return `<div class="rounded-circle ${bgClass} d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width:26px;height:26px;font-size:11px;font-weight:600;">${initial}</div>`;
+    };
+
+    let html = "";
+
+    if (this.investors && this.investors.length > 0) {
+      html += `<div class="px-3 pt-2 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">Investors</div>`;
+      this.investors.forEach((investor) => {
+        const isChecked = vals.includes(investor.investorId) ? " checked" : "";
+        const mini = makeMiniAvatar(investor.name, investor.avatar, "bg-secondary");
+        html += `<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item" style="cursor:pointer;" data-value="${investor.investorId}">
+          <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${investor.investorId}"${isChecked}>
+          ${mini}
+          <span class="small flex-grow-1">${escapeHtml(investor.name)} <span class="text-muted" style="font-size:0.8em;">(ID: ${investor.investorId})</span></span>
+        </label>`;
+      });
+    }
+
+    if (this.tenants && this.tenants.length > 0) {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const activeItems = [];
+      const outdatedItems = [];
+
+      this.tenants.forEach((tenant) => {
+        const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
+        const isChecked = vals.includes(tenantValue) ? " checked" : "";
+        const baseName = tenant.name || "Unknown Tenant";
+        const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+        const mini = makeMiniAvatar(displayName, tenant.avatar, "bg-info");
+
+        const additionalInfo = [];
+        if (tenant.roomType) additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+        if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
+        const infoStr = additionalInfo.length
+          ? `<span class="text-muted ms-1" style="font-size:0.8em;">${additionalInfo.join(" · ")}</span>`
+          : "";
+
+        const propertyRecord = tenant.properties?.find((p) => p.propertyId === this.selectedProperty);
+        const moveoutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+        const isOutdated = moveoutDate && moveoutDate < oneMonthAgo;
+
+        if (isOutdated) {
+          const movedOutStr = moveoutDate.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+          outdatedItems.push(`<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item paid-by-outdated" style="cursor:pointer;opacity:0.6;" data-value="${tenantValue}">
+            <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${tenantValue}"${isChecked}>
+            ${mini}
+            <span class="small flex-grow-1 fst-italic text-muted">${escapeHtml(displayName)}${infoStr} <span class="badge bg-secondary ms-1" style="font-size:0.6rem;">↩ out ${escapeHtml(movedOutStr)}</span></span>
+          </label>`);
+        } else {
+          activeItems.push(`<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item" style="cursor:pointer;" data-value="${tenantValue}">
+            <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${tenantValue}"${isChecked}>
+            ${mini}
+            <span class="small flex-grow-1">${escapeHtml(displayName)}${infoStr}</span>
+          </label>`);
+        }
+      });
+
+      if (activeItems.length > 0) {
+        html += `<div class="border-top mx-2 my-1"></div><div class="px-3 pt-1 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">Tenants</div>`;
+        html += activeItems.join("");
+      }
+      if (outdatedItems.length > 0) {
+        html += `<div class="border-top mx-2 my-1"></div><div class="px-3 pt-1 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">Moved Out</div>`;
+        html += outdatedItems.join("");
+      }
+    }
+
+    return html || `<div class="px-3 py-2 text-muted small">No investors or tenants available</div>`;
+  }
+
+  setupPaidByDropdown() {
+    const toggleBtn = document.getElementById("paidByToggleBtn");
+    const panel = document.getElementById("paidByPanel");
+    const hiddenSelect = document.getElementById("paidByHiddenSelect");
+    const btnLabel = document.getElementById("paidByBtnLabel");
+    const pillsContainer = document.getElementById("paidBySelectedPills");
+    const wrapper = document.getElementById("paidByDropdownWrapper");
+
+    if (!toggleBtn || !panel || !hiddenSelect || !wrapper) return;
+
+    const updateState = () => {
+      const checkedBoxes = panel.querySelectorAll('input[type="checkbox"]:checked');
+      const values = Array.from(checkedBoxes).map((cb) => cb.value);
+
+      Array.from(hiddenSelect.options).forEach((opt) => {
+        opt.selected = values.includes(opt.value);
+      });
+
+      if (values.length === 0) {
+        btnLabel.innerHTML = `<span class="text-muted">Select who paid (optional)...</span>`;
+      } else {
+        const getFirstName = (v) => {
+          const info = this._resolvePaidByPerson(v);
+          return info ? info.displayName.split(" ").slice(0, 2).join(" ") : "Unknown";
+        };
+        const first = escapeHtml(getFirstName(values[0]));
+        btnLabel.innerHTML =
+          values.length === 1
+            ? first
+            : `${first} <span class="badge bg-primary ms-1">+${values.length - 1}</span>`;
+      }
+
+      if (pillsContainer) {
+        pillsContainer.innerHTML = values
+          .map((v) => {
+            const info = this._resolvePaidByPerson(v);
+            const name = info ? info.displayName : "Unknown";
+            const initial = name.charAt(0).toUpperCase();
+            const avatarEl = info?.avatar
+              ? `<img src="${this.getOptimizedAvatarUrl(info.avatar, "small")}" class="rounded-circle" style="width:16px;height:16px;object-fit:cover;" alt="">`
+              : `<span class="rounded-circle bg-info d-inline-flex align-items-center justify-content-center text-white" style="width:16px;height:16px;font-size:8px;">${escapeHtml(initial)}</span>`;
+            return `<span class="badge d-inline-flex align-items-center gap-1" style="background:#e9ecef;color:#495057;font-weight:500;padding:4px 8px;border-radius:20px;font-size:0.78rem;">${avatarEl}${escapeHtml(name.split(" ")[0])}</span>`;
+          })
+          .join("");
+      }
+    };
+
+    panel.addEventListener("mouseover", (e) => {
+      const item = e.target.closest(".paid-by-item");
+      if (item) item.style.backgroundColor = "#f8f9fa";
+    });
+    panel.addEventListener("mouseout", (e) => {
+      const item = e.target.closest(".paid-by-item");
+      if (item) item.style.backgroundColor = "";
+    });
+
+    panel.addEventListener("change", (e) => {
+      if (e.target.type === "checkbox") updateState();
+    });
+
+    wrapper.addEventListener("show.bs.dropdown", () => {
+      const chevron = toggleBtn.querySelector(".bi");
+      if (chevron) { chevron.classList.remove("bi-chevron-down"); chevron.classList.add("bi-chevron-up"); }
+    });
+    wrapper.addEventListener("hide.bs.dropdown", () => {
+      const chevron = toggleBtn.querySelector(".bi");
+      if (chevron) { chevron.classList.remove("bi-chevron-up"); chevron.classList.add("bi-chevron-down"); }
+    });
+
+    updateState();
   }
 
   // Like generatePaidByOptions but uses ALL investors in the app (not just property investors)
@@ -2251,23 +2430,15 @@ class FinancialReportsComponent {
     return options;
   }
 
-  renderPaidByAvatar(paidBy) {
-    if (!paidBy) {
-      return `<div class="d-flex align-items-center justify-content-center">
-        <div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="No payer specified">
-          <i class="bi bi-person"></i>
-        </div>
-      </div>`;
-    }
-
+  _resolvePaidByPerson(paidByValue) {
+    if (!paidByValue) return null;
     let person = null;
     let displayName = "";
     let avatar = null;
     let roomType = null;
 
-    // Check if it's a tenant (prefixed with 'tenant_')
-    if (paidBy.startsWith("tenant_")) {
-      const tenantId = paidBy.replace("tenant_", "");
+    if (paidByValue.startsWith("tenant_")) {
+      const tenantId = paidByValue.replace("tenant_", "");
       person = this.tenants.find(
         (t) =>
           (t._id && t._id === tenantId) ||
@@ -2278,58 +2449,112 @@ class FinancialReportsComponent {
       if (person) {
         displayName = person.name || "Unknown Tenant";
         avatar = person.avatar;
-
-        // Find room type for the current property
         if (person.properties && this.selectedProperty) {
-          const propertyAssociation = person.properties.find(
-            (prop) => prop.propertyId === this.selectedProperty,
-          );
-          if (propertyAssociation && propertyAssociation.room) {
-            roomType = propertyAssociation.room;
-          }
+          const assoc = person.properties.find((p) => p.propertyId === this.selectedProperty);
+          if (assoc?.room) roomType = assoc.room;
         }
       }
     } else {
-      // It's an investor — check property investors first, then all investors
       person =
-        this.investors.find((i) => i.investorId === paidBy) ||
-        (this.allInvestors &&
-          this.allInvestors.find((i) => i.investorId === paidBy));
+        this.investors.find((i) => i.investorId === paidByValue) ||
+        (this.allInvestors && this.allInvestors.find((i) => i.investorId === paidByValue));
       if (person) {
         displayName = person.name || "Unknown Investor";
         avatar = person.avatar;
       }
     }
 
-    if (!person) {
+    if (!person) return null;
+    return { displayName, avatar, roomType };
+  }
+
+  _renderAvatarCircle(info, size = 32) {
+    if (!info) {
+      return `<div class="rounded-circle bg-warning bg-opacity-25 border border-warning d-flex align-items-center justify-content-center text-warning" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.5)}px;" data-bs-toggle="tooltip" data-bs-title="Unknown payer"><i class="bi bi-person-question"></i></div>`;
+    }
+    const { displayName, avatar } = info;
+    if (avatar) {
+      return `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">`;
+    }
+    return `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`;
+  }
+
+  renderPaidByAvatar(paidBy) {
+    const paidByArray = !paidBy
+      ? []
+      : Array.isArray(paidBy)
+        ? paidBy.filter((v) => v)
+        : [paidBy];
+
+    if (paidByArray.length === 0) {
       return `<div class="d-flex align-items-center justify-content-center">
-        <div class="rounded-circle bg-warning bg-opacity-25 border border-warning d-flex align-items-center justify-content-center text-warning" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown payer">
-          <i class="bi bi-person-question"></i>
+        <div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="No payer specified">
+          <i class="bi bi-person"></i>
         </div>
       </div>`;
     }
 
-    return `
-      <div class="d-flex flex-column align-items-center justify-content-center">
-        <div class="d-flex align-items-center justify-content-center mb-1">
-          ${
-            avatar
-              ? `<img src="${this.getOptimizedAvatarUrl(
-                  avatar,
-                  "small",
-                )}" alt="${escapeHtml(
-                  displayName,
-                )}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                  displayName,
-                )}">`
-              : `<div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white fw-bold" style="width: 32px; height: 32px; font-size: 14px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(
-                  displayName,
-                )}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`
-          }
+    const persons = paidByArray.map((pb) => this._resolvePaidByPerson(pb));
+
+    if (persons.length === 1) {
+      const info = persons[0];
+      if (!info) {
+        return `<div class="d-flex align-items-center justify-content-center">
+          <div class="rounded-circle bg-warning bg-opacity-25 border border-warning d-flex align-items-center justify-content-center text-warning" style="width: 32px; height: 32px; font-size: 16px;" data-bs-toggle="tooltip" data-bs-title="Unknown payer">
+            <i class="bi bi-person-question"></i>
+          </div>
+        </div>`;
+      }
+      return `
+        <div class="d-flex flex-column align-items-center justify-content-center">
+          <div class="d-flex align-items-center justify-content-center mb-1">
+            ${this._renderAvatarCircle(info)}
+          </div>
+          ${info.roomType ? `<div class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 6px;">${escapeHtml(this.getRoomTypeDisplayName(info.roomType))}</div>` : ""}
         </div>
-        ${roomType ? `<div class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 6px;">${escapeHtml(this.getRoomTypeDisplayName(roomType))}</div>` : ""}
-      </div>
-    `;
+      `;
+    }
+
+    // Multiple payers: overlapping avatars
+    const tooltipText = persons
+      .map((p) => (p ? p.displayName : "Unknown"))
+      .join(", ");
+    const avatarCircles = persons
+      .map((info, i) => {
+        const ml = i > 0 ? "margin-left: -10px;" : "";
+        const zIndex = `z-index: ${persons.length - i};`;
+        return `<div style="position: relative; ${zIndex} ${ml}">${this._renderAvatarCircle(info)}</div>`;
+      })
+      .join("");
+
+    return `<div class="d-flex align-items-center justify-content-center" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltipText)}">${avatarCircles}</div>`;
+  }
+
+  // Compact inline version for mobile cards — avatars only, room type in tooltip only
+  _renderPaidByAvatarInline(paidBy, size = 26) {
+    const paidByArray = !paidBy
+      ? []
+      : Array.isArray(paidBy)
+        ? paidBy.filter((v) => v)
+        : [paidBy];
+
+    if (paidByArray.length === 0) return "";
+
+    const persons = paidByArray.map((pb) => this._resolvePaidByPerson(pb));
+    const tooltipParts = persons.map((p) => {
+      if (!p) return "Unknown";
+      return p.roomType ? `${p.displayName} (${this.getRoomTypeDisplayName(p.roomType)})` : p.displayName;
+    });
+    const tooltipText = tooltipParts.join(", ");
+
+    const circles = persons
+      .map((info, i) => {
+        const ml = i > 0 ? `margin-left:-${Math.round(size * 0.3)}px;` : "";
+        return `<div style="position:relative;z-index:${persons.length - i};${ml}">${this._renderAvatarCircle(info, size)}</div>`;
+      })
+      .join("");
+
+    return `<div class="d-flex align-items-center" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltipText)}">${circles}</div>`;
   }
 
   renderCurrencyFlag(currency) {
@@ -2344,55 +2569,24 @@ class FinancialReportsComponent {
   }
 
   renderPaidByName(paidBy) {
-    if (!paidBy) {
-      return "-";
-    }
+    const paidByArray = !paidBy
+      ? []
+      : Array.isArray(paidBy)
+        ? paidBy.filter((v) => v)
+        : [paidBy];
 
-    let person = null;
-    let displayName = "";
-    let roomType = null;
+    if (paidByArray.length === 0) return "-";
 
-    // Check if it's a tenant (prefixed with 'tenant_')
-    if (paidBy.startsWith("tenant_")) {
-      const tenantId = paidBy.replace("tenant_", "");
-      person = this.tenants.find(
-        (t) =>
-          (t._id && t._id === tenantId) ||
-          (t.tenantId && t.tenantId === tenantId) ||
-          (t.id && t.id === tenantId) ||
-          (t.fin && t.fin === tenantId),
-      );
-      if (person) {
-        displayName = person.name || "Unknown Tenant";
-
-        // Find room type for the current property
-        if (person.properties && this.selectedProperty) {
-          const propertyAssociation = person.properties.find(
-            (prop) => prop.propertyId === this.selectedProperty,
-          );
-          if (propertyAssociation && propertyAssociation.room) {
-            roomType = propertyAssociation.room;
-          }
-        }
+    const names = paidByArray.map((pb) => {
+      const info = this._resolvePaidByPerson(pb);
+      if (!info) return "Unknown";
+      if (info.roomType) {
+        return `${escapeHtml(info.displayName)}\n(${escapeHtml(this.getRoomTypeDisplayName(info.roomType))})`;
       }
-    } else {
-      // It's an investor
-      person = this.investors.find((i) => i.investorId === paidBy);
-      if (person) {
-        displayName = person.name || "Unknown Investor";
-      }
-    }
+      return escapeHtml(info.displayName);
+    });
 
-    if (!person || !displayName) {
-      return "Unknown";
-    }
-
-    // Return name with room type if available
-    if (roomType) {
-      return `${escapeHtml(displayName)}\n(${escapeHtml(this.getRoomTypeDisplayName(roomType))})`;
-    }
-
-    return escapeHtml(displayName);
+    return names.join(", ");
   }
 
   createIncomeExpenseModalHtml(type, existingItem = null) {
@@ -2417,7 +2611,13 @@ class FinancialReportsComponent {
     const accountDetailValue = existingItem
       ? escapeHtml(existingItem.recipientAccountDetail || "")
       : "";
-    const paidByValue = existingItem ? existingItem.paidBy : "";
+    const paidByValues = existingItem
+      ? Array.isArray(existingItem.paidBy)
+        ? existingItem.paidBy
+        : existingItem.paidBy
+          ? [existingItem.paidBy]
+          : []
+      : [];
     const paidToValue = existingItem ? existingItem.paidTo || "" : "";
     const detailsValue = existingItem
       ? escapeHtml(existingItem.details || "")
@@ -2500,13 +2700,25 @@ class FinancialReportsComponent {
                                     ? `
                                 <div class="mb-3">
                                     <label class="form-label">Paid By</label>
-                                    <select class="form-select" name="paidBy">
-                                        <option value="">Select who paid (optional)...</option>
-                                        ${this.generatePaidByOptions(
-                                          paidByValue,
-                                        )}
+                                    <div class="dropdown" id="paidByDropdownWrapper">
+                                        <button type="button"
+                                                class="btn btn-outline-secondary w-100 text-start d-flex align-items-center justify-content-between"
+                                                data-bs-toggle="dropdown"
+                                                data-bs-auto-close="outside"
+                                                aria-expanded="false"
+                                                id="paidByToggleBtn">
+                                            <span id="paidByBtnLabel" class="text-muted">Select who paid (optional)...</span>
+                                            <i class="bi bi-chevron-down small ms-1"></i>
+                                        </button>
+                                        <div class="dropdown-menu w-100 p-0 shadow-sm" style="max-height:260px;overflow-y:auto;" id="paidByPanel">
+                                            ${this.generatePaidByDropdownItems(paidByValues)}
+                                        </div>
+                                    </div>
+                                    <select name="paidBy" multiple id="paidByHiddenSelect" style="display:none;">
+                                        ${this.generatePaidByOptions(paidByValues)}
                                     </select>
-                                    <div class="form-text">Optional: Select who actually paid/initiated this transaction</div>
+                                    <div id="paidBySelectedPills" class="mt-2 d-flex flex-wrap gap-1"></div>
+                                    <div class="form-text">Select one or multiple payers. Outdated tenants (moved out &gt;1 month) appear dimmed at the bottom.</div>
                                 </div>
                                 `
                                     : `
@@ -2574,9 +2786,9 @@ class FinancialReportsComponent {
 
     // Add paidBy, currency, exchange rate only for income transactions
     if (type === "income") {
-      const paidBy = formData.get("paidBy");
-      if (paidBy) {
-        itemData.paidBy = paidBy;
+      const paidByValues = formData.getAll("paidBy").filter((v) => v);
+      if (paidByValues.length > 0) {
+        itemData.paidBy = paidByValues;
       }
 
       // Add currency and exchange rate
@@ -4179,56 +4391,58 @@ class FinancialReportsComponent {
 
       // Helper to get paid by details for PDF (name + room type)
       const getPaidByForPDF = (paidBy) => {
-        if (!paidBy) return { name: "-", roomType: null };
+        const paidByArray = !paidBy
+          ? []
+          : Array.isArray(paidBy)
+            ? paidBy.filter((v) => v)
+            : [paidBy];
 
-        let person = null;
-        let displayName = "";
-        let roomType = null;
+        if (paidByArray.length === 0) return { name: "-", roomType: null };
 
-        // Check if it's a tenant (prefixed with 'tenant_')
-        if (paidBy.startsWith("tenant_")) {
-          const tenantId = paidBy.replace("tenant_", "");
-          person = this.tenants.find(
-            (t) =>
-              (t._id && t._id === tenantId) ||
-              (t.tenantId && t.tenantId === tenantId) ||
-              (t.id && t.id === tenantId) ||
-              (t.fin && t.fin === tenantId),
-          );
-          if (person) {
-            displayName = person.name || "Unknown Tenant";
+        const resolveSingle = (pb) => {
+          let person = null;
+          let displayName = "";
+          let roomType = null;
 
-            // Find room type for the current property - use roomType from API if available
-            if (person.roomType) {
-              roomType = person.roomType;
-            } else if (person.properties && this.selectedProperty) {
-              const propertyAssociation = person.properties.find(
-                (prop) => prop.propertyId === this.selectedProperty,
-              );
-              if (propertyAssociation && propertyAssociation.room) {
-                roomType = propertyAssociation.room;
+          if (pb.startsWith("tenant_")) {
+            const tenantId = pb.replace("tenant_", "");
+            person = this.tenants.find(
+              (t) =>
+                (t._id && t._id === tenantId) ||
+                (t.tenantId && t.tenantId === tenantId) ||
+                (t.id && t.id === tenantId) ||
+                (t.fin && t.fin === tenantId),
+            );
+            if (person) {
+              displayName = person.name || "Unknown Tenant";
+              if (person.roomType) {
+                roomType = person.roomType;
+              } else if (person.properties && this.selectedProperty) {
+                const assoc = person.properties.find(
+                  (p) => p.propertyId === this.selectedProperty,
+                );
+                if (assoc?.room) roomType = assoc.room;
               }
             }
+          } else {
+            person =
+              this.investors.find((i) => i.investorId === pb) ||
+              (this.allInvestors && this.allInvestors.find((i) => i.investorId === pb));
+            if (person) displayName = person.name || "Unknown Investor";
           }
-        } else {
-          // It's an investor — check property investors first, then all investors
-          person =
-            this.investors.find((i) => i.investorId === paidBy) ||
-            (this.allInvestors &&
-              this.allInvestors.find((i) => i.investorId === paidBy));
-          if (person) {
-            displayName = person.name || "Unknown Investor";
-          }
-        }
 
-        if (!person || !displayName) {
-          return { name: "Unknown", roomType: null };
-        }
-
-        return {
-          name: getShortName(displayName),
-          roomType: roomType ? this.getRoomTypeDisplayName(roomType) : null,
+          if (!person || !displayName) return { name: "Unknown", roomType: null };
+          return {
+            name: getShortName(displayName),
+            roomType: roomType ? this.getRoomTypeDisplayName(roomType) : null,
+          };
         };
+
+        if (paidByArray.length === 1) return resolveSingle(paidByArray[0]);
+
+        const resolved = paidByArray.map(resolveSingle);
+        const names = resolved.map((r) => r.name).join(", ");
+        return { name: names, roomType: null };
       };
 
       // Helper to remove Vietnamese diacritics for better PDF rendering
@@ -5693,6 +5907,10 @@ class FinancialReportsComponent {
   getPersonName(personId) {
     if (!personId) return "";
 
+    if (Array.isArray(personId)) {
+      return personId.map((id) => this.getPersonName(id)).filter(Boolean).join(", ");
+    }
+
     // Check if it's a tenant (prefixed with 'tenant_')
     if (personId.startsWith("tenant_")) {
       const tenantId = personId.replace("tenant_", "");
@@ -5715,7 +5933,17 @@ class FinancialReportsComponent {
   }
 
   getPersonRoomType(personId) {
-    if (!personId || !personId.startsWith("tenant_")) return null;
+    if (!personId) return null;
+
+    if (Array.isArray(personId)) {
+      for (const id of personId) {
+        const rt = this.getPersonRoomType(id);
+        if (rt) return rt;
+      }
+      return null;
+    }
+
+    if (!personId.startsWith("tenant_")) return null;
 
     const tenantId = personId.replace("tenant_", "");
     const tenant = this.tenants.find(
