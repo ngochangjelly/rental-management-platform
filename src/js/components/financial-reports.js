@@ -225,6 +225,22 @@ class FinancialReportsComponent {
       });
     }
 
+    // Settlement buttons
+    const markSettledBtn = document.getElementById("markSettledBtn");
+    const unmarkSettledBtn = document.getElementById("unmarkSettledBtn");
+    if (markSettledBtn) {
+      markSettledBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!markSettledBtn.disabled) this.markSettled();
+      });
+    }
+    if (unmarkSettledBtn) {
+      unmarkSettledBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!unmarkSettledBtn.disabled) this.unmarkSettled();
+      });
+    }
+
     // Carry Forward button
     const carryForwardBtn = document.getElementById("carryForwardBtn");
     if (carryForwardBtn) {
@@ -338,6 +354,7 @@ class FinancialReportsComponent {
             if (result.success && result.data) {
               this.propertyReportStatus[property.propertyId] = {
                 isClosed: result.data.isClosed || false,
+                isSettled: result.data.isSettled || false,
               };
             }
           }
@@ -401,6 +418,8 @@ class FinancialReportsComponent {
         String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
+      const isReportSettled = reportStatus && reportStatus.isSettled;
+      const cardStatusColor = isReportSettled ? "#0d9488" : isReportClosed ? "#198754" : null;
       const cardHtml = `
         <div class="card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
@@ -409,22 +428,23 @@ class FinancialReportsComponent {
           ${
             property.propertyImage
               ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-                 ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
+                 ${isReportSettled ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin"></i></span></div>' : isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                </div>`
               : ""
           }
           <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
-            <div class="rounded-circle ${isReportClosed ? "bg-success" : "bg-primary"} d-flex align-items-center justify-content-center text-white fw-bold"
-                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
-              ${isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
+            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${cardStatusColor || "#0d6efd"};">
+              ${isReportSettled ? '<i class="bi bi-cash-coin" style="font-size: 10px;"></i>' : isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
             </div>
             <div class="text-center" style="line-height: 1.2; width: 100%;">
               <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
             </div>
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
-            ${!property.propertyImage && isReportClosed && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
+            ${!property.propertyImage && isReportSettled && !isSelected ? `<span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin me-1"></i>Settled</span>` : ""}
+            ${!property.propertyImage && isReportClosed && !isReportSettled && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
           </div>
         </div>
       `;
@@ -3856,7 +3876,7 @@ class FinancialReportsComponent {
         this.currentReport = result.data;
         await this.updateClosedStatus();
         // Update property card to show closed status
-        this.propertyReportStatus[this.selectedProperty] = { isClosed: true };
+        this.propertyReportStatus[this.selectedProperty] = { isClosed: true, isSettled: result.data.isSettled || false };
         this.renderPropertyCards(this.properties);
         this.showSuccess("Month closed successfully!");
       } else {
@@ -3899,7 +3919,7 @@ class FinancialReportsComponent {
         this.currentReport = result.data;
         await this.updateClosedStatus();
         // Update property card to show reopened status
-        this.propertyReportStatus[this.selectedProperty] = { isClosed: false };
+        this.propertyReportStatus[this.selectedProperty] = { isClosed: false, isSettled: false };
         this.renderPropertyCards(this.properties);
         this.showSuccess("Month reopened successfully!");
       } else {
@@ -3908,6 +3928,68 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error("Error reopening month:", error);
       this.showError(error.message || "Failed to reopen month");
+    }
+  }
+
+  // Mark investor settlement as paid out
+  async markSettled() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+    if (!this.currentReport.isClosed) {
+      this.showError("Report must be closed before marking as settled");
+      return;
+    }
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_SETTLE(this.selectedProperty, year, month),
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        this.currentReport = result.data;
+        await this.updateClosedStatus();
+        this.showSuccess("Settlement marked — investor payments recorded as paid out!");
+      } else {
+        throw new Error(result.message || "Failed to mark settlement");
+      }
+    } catch (error) {
+      console.error("Error marking settlement:", error);
+      this.showError(error.message || "Failed to mark settlement");
+    }
+  }
+
+  // Unmark settlement status
+  async unmarkSettled() {
+    if (!this.selectedProperty || !this.currentReport) {
+      this.showError("Please select a property and load financial data first");
+      return;
+    }
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+
+      const response = await API.post(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_UNSETTLE(this.selectedProperty, year, month),
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        this.currentReport = result.data;
+        await this.updateClosedStatus();
+        this.showSuccess("Settlement status removed");
+      } else {
+        throw new Error(result.message || "Failed to unmark settlement");
+      }
+    } catch (error) {
+      console.error("Error unmarking settlement:", error);
+      this.showError(error.message || "Failed to unmark settlement");
     }
   }
 
@@ -4115,6 +4197,22 @@ class FinancialReportsComponent {
       reopenBtn.style.display = isClosed ? "inline-block" : "none";
     }
 
+    const isSettled = this.currentReport && this.currentReport.isSettled;
+    const markSettledBtn = document.getElementById("markSettledBtn");
+    const unmarkSettledBtn = document.getElementById("unmarkSettledBtn");
+    if (markSettledBtn) {
+      markSettledBtn.style.display = isClosed && !isSettled ? "inline-block" : "none";
+    }
+    if (unmarkSettledBtn) {
+      unmarkSettledBtn.style.display = isClosed && isSettled ? "inline-block" : "none";
+      if (isSettled && this.currentReport?.settledBy) {
+        const settledDate = this.currentReport.settledAt
+          ? new Date(this.currentReport.settledAt).toLocaleDateString("en-SG")
+          : "";
+        unmarkSettledBtn.title = `Settled by ${this.currentReport.settledBy}${settledDate ? ` on ${settledDate}` : ""} — click to undo`;
+      }
+    }
+
     const carryForwardBtn = document.getElementById("carryForwardBtn");
     if (carryForwardBtn) {
       const hasItems =
@@ -4155,6 +4253,7 @@ class FinancialReportsComponent {
       const month = monthNames[this.currentDate.getMonth()];
       const year = this.currentDate.getFullYear();
       const isClosed = this.currentReport && this.currentReport.isClosed;
+      const isSettled = this.currentReport && this.currentReport.isSettled;
 
       // Get property information — prefer in-memory cache to avoid async network call
       let propertyInfo = "";
@@ -4180,9 +4279,10 @@ class FinancialReportsComponent {
           : `Property ID: ${this.selectedProperty}`;
       }
 
+      const statusIcon = isSettled ? " 🤝" : isClosed ? " 🔒" : "";
       currentMonthEl.innerHTML = `
         <div class="d-flex flex-column align-items-center">
-          <div class="fw-bold">${month} ${year}${isClosed ? " 🔒" : ""}</div>
+          <div class="fw-bold">${month} ${year}${statusIcon}</div>
           ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}</div>` : ""}
         </div>
       `;
@@ -4221,18 +4321,30 @@ class FinancialReportsComponent {
         this.currentDate.getFullYear() === now.getFullYear();
 
       const isClosed = this.currentReport && this.currentReport.isClosed;
+      const isSettledBadge = this.currentReport && this.currentReport.isSettled;
 
       let badgeText, badgeClass;
 
-      if (isClosed) {
+      if (isSettledBadge) {
+        badgeText = "Settled ✓";
+        badgeClass = "badge";
+        currentMonthBadge.style.backgroundColor = "#0d9488";
+        currentMonthBadge.style.color = "#fff";
+      } else if (isClosed) {
         badgeText = "Closed";
         badgeClass = "badge bg-danger";
+        currentMonthBadge.style.backgroundColor = "";
+        currentMonthBadge.style.color = "";
       } else if (isCurrentMonth) {
         badgeText = "Current Month";
         badgeClass = "badge bg-info";
+        currentMonthBadge.style.backgroundColor = "";
+        currentMonthBadge.style.color = "";
       } else {
         badgeText = "Historical";
         badgeClass = "badge bg-secondary";
+        currentMonthBadge.style.backgroundColor = "";
+        currentMonthBadge.style.color = "";
       }
 
       currentMonthBadge.textContent = badgeText;
@@ -5298,6 +5410,7 @@ class FinancialReportsComponent {
     (this.currentReport?.investorSnapshot || []).forEach(
       (s) => s.avatar && urls.add(s.avatar),
     );
+    this.tenants?.forEach((t) => t.avatar && urls.add(t.avatar));
 
     const cache = {};
     await Promise.all(
@@ -5441,6 +5554,56 @@ class FinancialReportsComponent {
       }
     };
 
+    // Render a compact cluster of person avatars + short name + optional room badge
+    // Used for paidBy (income) and paidTo (expense) rows in the exported image
+    const renderPersonCluster = (persons, colX, rowY) => {
+      const R = 9;
+      const STEP = R * 2 - 3; // 3px overlap between avatars
+      const startX = colX + 34;
+
+      // Small arrow indicator
+      p(`<text x="${startX}" y="${rowY + R + 3}" font-size="9" fill="#94a3b8" font-weight="600">→</text>`);
+
+      const avatarStartX = startX + 13;
+      persons.forEach((person, idx) => {
+        const cx = avatarStartX + R + idx * STEP;
+        const cy = rowY + R;
+        if (person.isUnknown) {
+          p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="#f59e0b"/>`);
+          p(`<text x="${cx}" y="${cy + 4}" font-size="9" fill="#fff" font-weight="700" text-anchor="middle">?</text>`);
+        } else {
+          const fallback = person.isTenant ? "#0ea5e9" : "#6c757d";
+          renderCircleAvatar(person.avatar || null, person.displayName, cx, cy, R, fallback);
+        }
+        // White border ring between overlapping circles
+        p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-width="1.5"/>`);
+      });
+
+      const clusterW = R * 2 + (persons.length - 1) * STEP;
+      const textX = avatarStartX + clusterW + 5;
+
+      // Last-word name(s)
+      const nameStr = persons
+        .map((q) => {
+          if (q.isUnknown) return "Unknown";
+          const parts = q.displayName.trim().split(/\s+/);
+          return parts.length > 1 ? parts[parts.length - 1] : parts[0];
+        })
+        .join(", ");
+      p(`<text x="${textX}" y="${rowY + R + 4}" font-size="10" fill="${META_TXT}">${this._svgEsc(nameStr)}</text>`);
+
+      // Room type badge (first person that has one)
+      const withRoom = persons.find((q) => q?.roomType);
+      if (withRoom) {
+        const approxNameW = nameStr.length * 5.8;
+        const badgeX = textX + approxNameW + 4;
+        const badgeText = this._svgEsc(this.getRoomTypeDisplayName(withRoom.roomType));
+        const badgeW = badgeText.length * 5.5 + 8;
+        p(`<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="#dbeafe"/>`);
+        p(`<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="8" fill="${COL_HDR_TXT}" text-anchor="middle" font-weight="600">${badgeText}</text>`);
+      }
+    };
+
     // ── Colour palette ────────────────────────────────────────────
     const BRAND = "#2aabb5"; // teal (header bg, logo)
     const DEEP_BLUE = "#1548a1"; // section headers, column labels
@@ -5511,36 +5674,41 @@ class FinancialReportsComponent {
       return lines.length ? lines : [""];
     };
 
-    // Build row metadata for income (includes paidBy tenant info)
+    // Build row metadata for income (includes paidBy avatar cluster)
     const makeIncomeMeta = (item) => {
       const descLines = wrapText(item.item || "", 36);
       const noteLines = item.details ? wrapText(item.details, 42) : [];
-      const dateStr = item.date
+      const subtitle = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", {
             day: "2-digit",
             month: "short",
           })
         : "";
-      let subtitle = dateStr;
-      if (item.paidBy) {
-        const pName = this.getPersonName(item.paidBy);
-        const rType = this.getPersonRoomType(item.paidBy);
-        const pLabel = rType ? `${pName} · ${rType}` : pName;
-        if (pLabel) subtitle = dateStr ? `${dateStr}  ·  ${pLabel}` : pLabel;
-      }
-      // 4px top + 16px/line title + 14px/line note + 15px subtitle + 4px bottom, min 40
+      const paidByList = Array.isArray(item.paidBy)
+        ? item.paidBy.filter(Boolean)
+        : item.paidBy
+        ? [item.paidBy]
+        : [];
+      const paidByPersons = paidByList
+        .map((pv) => {
+          const resolved = this._resolvePaidByPerson(pv);
+          if (!resolved) return null;
+          return { ...resolved, isTenant: typeof pv === "string" && pv.startsWith("tenant_") };
+        })
+        .filter(Boolean);
       const rowH = Math.max(
         40,
         4 +
           descLines.length * 16 +
           noteLines.length * 14 +
           (subtitle ? 15 : 0) +
+          (paidByPersons.length > 0 ? 22 : 0) +
           4,
       );
-      return { descLines, noteLines, subtitle, rowH };
+      return { descLines, noteLines, subtitle, paidByPersons, rowH };
     };
 
-    // Build row metadata for expenses (date only)
+    // Build row metadata for expenses (date + paidTo avatar cluster)
     const makeExpenseMeta = (item) => {
       const descLines = wrapText(item.item || "", 36);
       const noteLines = item.details ? wrapText(item.details, 42) : [];
@@ -5550,15 +5718,25 @@ class FinancialReportsComponent {
             month: "short",
           })
         : "";
+      let paidToPersons = [];
+      if (item.paidTo === "unknown") {
+        paidToPersons = [{ displayName: "Unknown", avatar: null, roomType: null, isTenant: false, isUnknown: true }];
+      } else if (item.paidTo) {
+        const resolved = this._resolvePaidByPerson(item.paidTo);
+        if (resolved) {
+          paidToPersons = [{ ...resolved, isTenant: typeof item.paidTo === "string" && item.paidTo.startsWith("tenant_") }];
+        }
+      }
       const rowH = Math.max(
         40,
         4 +
           descLines.length * 16 +
           noteLines.length * 14 +
           (subtitle ? 15 : 0) +
+          (paidToPersons.length > 0 ? 22 : 0) +
           4,
       );
-      return { descLines, noteLines, subtitle, rowH };
+      return { descLines, noteLines, subtitle, paidToPersons, rowH };
     };
 
     // ── 2-column section helper (dynamic row heights) ─────────────
@@ -5662,7 +5840,7 @@ class FinancialReportsComponent {
       );
     };
 
-    // ── Income rows (with paidBy tenant + room type) ──────────────
+    // ── Income rows (personInCharge avatar + description + paidBy avatar cluster) ──
     const renderIncomeRow = (item, meta, pairH, colX, rowY, colW) => {
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge,
@@ -5684,16 +5862,14 @@ class FinancialReportsComponent {
           );
         });
       }
+      const metaBaseY = rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
       if (meta.subtitle) {
-        const subY =
-          rowY +
-          16 +
-          meta.descLines.length * 16 +
-          meta.noteLines.length * 14 +
-          2;
         p(
-          `<text x="${colX + 34}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+          `<text x="${colX + 34}" y="${metaBaseY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
+      }
+      if (meta.paidByPersons && meta.paidByPersons.length > 0) {
+        renderPersonCluster(meta.paidByPersons, colX, metaBaseY + (meta.subtitle ? 1 : -14));
       }
       p(
         `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="#16a34a" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
@@ -5714,7 +5890,7 @@ class FinancialReportsComponent {
       renderIncomeRow,
     );
 
-    // ── Expense rows ──────────────────────────────────────────────
+    // ── Expense rows (personInCharge avatar + description + paidTo avatar cluster) ──
     const renderExpenseRow = (item, meta, pairH, colX, rowY, colW) => {
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge,
@@ -5736,16 +5912,14 @@ class FinancialReportsComponent {
           );
         });
       }
+      const metaBaseY = rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
       if (meta.subtitle) {
-        const subY =
-          rowY +
-          16 +
-          meta.descLines.length * 16 +
-          meta.noteLines.length * 14 +
-          2;
         p(
-          `<text x="${colX + 34}" y="${subY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+          `<text x="${colX + 34}" y="${metaBaseY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
+      }
+      if (meta.paidToPersons && meta.paidToPersons.length > 0) {
+        renderPersonCluster(meta.paidToPersons, colX, metaBaseY + (meta.subtitle ? 1 : -14));
       }
       p(
         `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="#dc2626" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
