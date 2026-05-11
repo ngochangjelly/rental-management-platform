@@ -36,6 +36,7 @@ class HouseViewSpecialistComponent {
         storeRoomCount: 1,
         livingRoomCompartments: 1,
         neighborOpenDoor: null,
+        digitalLock: null,
         airconBrand: "",
         condition: "",
         notes: "",
@@ -762,6 +763,7 @@ class HouseViewSpecialistComponent {
           ${counter("storeRoomCount", "Số phòng kho", "bi bi-archive")}
           ${counter("livingRoomCompartments", "Phòng khách ngăn được mấy phòng?", "bi bi-layout-split")}
           ${yesNo("neighborOpenDoor", "Hàng xóm đối diện có mở cửa?", "bi bi-door-open")}
+          ${yesNo("digitalLock", "Có khoá cửa điện tử (digital lock) chưa?", "bi bi-shield-lock")}
         </div>
 
         <div class="hvs-step-footer">
@@ -1119,6 +1121,8 @@ class HouseViewSpecialistComponent {
     if (s.neighborOpenDoor === true) lines.push("- hàng xóm đối diện mở cửa");
     if (s.neighborOpenDoor === false)
       lines.push("- hàng xóm đối diện đóng cửa");
+    if (s.digitalLock === true) lines.push("- có khoá cửa điện tử");
+    if (s.digitalLock === false) lines.push("- chưa có khoá cửa điện tử (cần tự lắp)");
     if (s.notes) {
       s.notes.split("\n").forEach((line) => {
         const trimmed = line.trim().replace(/^-+\s*/, "");
