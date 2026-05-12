@@ -67,6 +67,8 @@ const API_CONFIG = {
     FINANCIAL_REPORT_SETTLE: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/settle`,
     FINANCIAL_REPORT_UNSETTLE: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/unsettle`,
     FINANCIAL_REPORT_CARRY_FORWARD: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/carry-forward`,
+    FINANCIAL_REPORT_INCOME_REORDER: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/income/reorder`,
+    FINANCIAL_REPORT_EXPENSES_REORDER: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/expenses/reorder`,
     INVESTOR_PROFIT_REPORT: (investorId, startYear, startMonth, endYear, endMonth) =>
       `/api/financial-reports/investor/${investorId}/profit-report?startYear=${startYear}&startMonth=${startMonth}&endYear=${endYear}&endMonth=${endMonth}`,
 

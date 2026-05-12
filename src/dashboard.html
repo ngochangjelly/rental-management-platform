@@ -90,6 +90,21 @@
       .spin-animation {
         animation: spin 1s linear infinite;
       }
+
+      .drag-row-over {
+        background: rgba(13, 110, 253, 0.08) !important;
+        outline: 2px dashed #6ea8fe;
+      }
+
+      .drag-handle {
+        opacity: 0.35;
+        transition: opacity 0.15s;
+      }
+
+      tr:hover .drag-handle,
+      [data-item-index]:hover > .drag-handle {
+        opacity: 0.7;
+      }
     </style>
 
     <!-- Webpack will inject scripts here automatically -->
@@ -6121,28 +6136,52 @@
                             ></i
                             >Income
                           </h5>
-                          <button
-                            id="addIncomeBtn"
-                            title="Add income item"
-                            style="
-                              width: 36px;
-                              height: 36px;
-                              border-radius: 50%;
-                              border: none;
-                              background: #22c55e;
-                              color: white;
-                              font-size: 20px;
-                              line-height: 1;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-                              cursor: pointer;
-                              flex-shrink: 0;
-                            "
-                          >
-                            <i class="bi bi-plus-lg"></i>
-                          </button>
+                          <div class="d-flex align-items-center gap-2">
+                            <button
+                              id="toggleEditModeBtn"
+                              title="Enter edit mode to drag and reorder items"
+                              onclick="window.financialReports.toggleEditMode()"
+                              style="
+                                height: 30px;
+                                padding: 0 10px;
+                                border-radius: 15px;
+                                border: none;
+                                background: rgba(255,255,255,0.2);
+                                color: white;
+                                font-size: 12px;
+                                font-weight: 600;
+                                display: flex;
+                                align-items: center;
+                                gap: 4px;
+                                cursor: pointer;
+                                white-space: nowrap;
+                              "
+                            >
+                              <i class="bi bi-arrows-move me-1"></i>Reorder
+                            </button>
+                            <button
+                              id="addIncomeBtn"
+                              title="Add income item"
+                              style="
+                                width: 36px;
+                                height: 36px;
+                                border-radius: 50%;
+                                border: none;
+                                background: #22c55e;
+                                color: white;
+                                font-size: 20px;
+                                line-height: 1;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                                cursor: pointer;
+                                flex-shrink: 0;
+                              "
+                            >
+                              <i class="bi bi-plus-lg"></i>
+                            </button>
+                          </div>
                         </div>
                         <div class="card-body">
                           <div id="incomeList">
@@ -10239,16 +10278,16 @@
       aria-labelledby="propertyModalLabel"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="propertyModalLabel">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header text-white py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <h5 class="modal-title fw-bold" id="propertyModalLabel">
               <i class="bi bi-building me-2"></i
               ><span id="propertyModalTitle">Add New Property</span>
             </h5>
             <button
               type="button"
-              class="btn-close"
+              class="btn-close btn-close-white"
               data-bs-dismiss="modal"
               aria-label="Close"
             ></button>
@@ -10261,12 +10300,15 @@
               name="propertyImage"
               value=""
             />
-            <div class="modal-body">
+            <div class="modal-body p-4">
               <!-- Required Fields Section -->
               <div class="mb-4">
-                <h6 class="text-primary mb-3">
-                  <i class="bi bi-asterisk me-1"></i>Required Information
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-primary">
+                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
+                    <i class="bi bi-asterisk text-white" style="font-size:11px;"></i>
+                  </div>
+                  <h6 class="text-primary fw-bold mb-0">Required Information</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="propertyId" class="form-label"
@@ -10339,9 +10381,12 @@
 
               <!-- Property Details Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-house-door me-1"></i>Property Details
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
+                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
+                    <i class="bi bi-house-door text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="text-secondary fw-bold mb-0">Property Details</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-4 mb-3">
                     <label for="maxPax" class="form-label"
@@ -10531,9 +10576,12 @@
 
               <!-- Management Fee Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-receipt me-1"></i>Management Fee
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#198754!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#198754;">
+                    <i class="bi bi-receipt text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#198754;">Management Fee</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="managementFeeStart" class="form-label">
@@ -10582,9 +10630,12 @@
 
               <!-- AC Service Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-wind me-1"></i>Air Conditioning Service
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0dcaf0!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#0dcaf0;">
+                    <i class="bi bi-wind text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#0dcaf0;">Air Conditioning Service</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="acServiceCompanyId" class="form-label">
@@ -10660,9 +10711,12 @@
 
               <!-- Agent Information Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-person-badge me-1"></i>Agent Information
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
+                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
+                    <i class="bi bi-person-badge text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="text-secondary fw-bold mb-0">Agent Information</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="agentName" class="form-label">Agent Name</label>
@@ -10691,9 +10745,12 @@
 
               <!-- Landlord Banking Details Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-bank me-1"></i>Landlord Banking Details
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#fd7e14!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#fd7e14;">
+                    <i class="bi bi-bank text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#fd7e14;">Landlord Banking Details</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="landlordBankName" class="form-label"
@@ -10746,9 +10803,12 @@
 
               <!-- Settlement Accounts Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-bank me-1"></i>Settlement Accounts
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#fd7e14!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#fd7e14;">
+                    <i class="bi bi-cash-stack text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#fd7e14;">Settlement Accounts</h6>
+                </div>
 
                 <!-- SGD Settlement Account -->
                 <div class="card mb-3">
@@ -11619,9 +11679,12 @@
 
               <!-- Telegram Bot Configuration Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-telegram me-1"></i>Telegram Bot Configuration
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0d6efd!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#0d6efd;">
+                    <i class="bi bi-telegram text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0 text-primary">Telegram Bot Configuration</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="telegramBotToken" class="form-label"
@@ -11658,9 +11721,12 @@
 
               <!-- WiFi Router Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-wifi me-1"></i>WiFi Router
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
+                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
+                    <i class="bi bi-wifi text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="text-secondary fw-bold mb-0">WiFi Router</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="wifiAccountNumber" class="form-label"
@@ -11716,9 +11782,12 @@
 
               <!-- Facebook Groups Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-facebook me-1"></i>Facebook Groups
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0d6efd!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#1877f2;">
+                    <i class="bi bi-facebook text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#1877f2;">Facebook Groups</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="tenantFacebookGroup" class="form-label"
@@ -11755,9 +11824,12 @@
 
               <!-- Integration Settings Section -->
               <div class="mb-4">
-                <h6 class="text-info mb-3">
-                  <i class="bi bi-telegram me-1"></i>Integration Settings
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-info">
+                  <div class="rounded-circle bg-info d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
+                    <i class="bi bi-gear text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="text-info fw-bold mb-0">Integration Settings</h6>
+                </div>
                 <div class="row">
                   <div class="col-12 mb-3">
                     <div class="form-check">
@@ -11784,11 +11856,66 @@
                 </div>
               </div>
 
+              <!-- Digital Lock Section -->
+              <div class="mb-4">
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#6f42c1!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#6f42c1;">
+                    <i class="bi bi-shield-lock text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#6f42c1;">Digital Lock</h6>
+                </div>
+                <div class="p-3 rounded-3 border" style="background:linear-gradient(135deg,#f8f5ff 0%,#fff 100%);border-color:#d8b4fe!important;">
+                  <div class="row align-items-center">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                      <label class="form-label fw-semibold">Digital Lock Installed?</label>
+                      <div class="d-flex gap-3 mt-1">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="digitalLockEnabled" id="digitalLockYes" value="true" onchange="propertyManager.onDigitalLockToggle(true)">
+                          <label class="form-check-label" for="digitalLockYes">
+                            <i class="bi bi-lock-fill text-success me-1"></i><strong>Yes</strong>
+                          </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="digitalLockEnabled" id="digitalLockNo" value="false" checked onchange="propertyManager.onDigitalLockToggle(false)">
+                          <label class="form-check-label" for="digitalLockNo">
+                            <i class="bi bi-unlock text-secondary me-1"></i>No
+                          </label>
+                        </div>
+                      </div>
+                      <div class="form-text">Indicate if this property has a digital lock installed</div>
+                    </div>
+                    <div class="col-md-6" id="digitalLockPinSection" style="display:none;">
+                      <label for="digitalLockPin" class="form-label fw-semibold">
+                        <i class="bi bi-key-fill text-warning me-1"></i>Lock PIN / Access Code
+                      </label>
+                      <div class="input-group">
+                        <span class="input-group-text" style="background:#6f42c1;border-color:#6f42c1;">
+                          <i class="bi bi-lock-fill text-white"></i>
+                        </span>
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="digitalLockPin"
+                          name="digitalLockPin"
+                          placeholder="Enter PIN or access code"
+                          autocomplete="off"
+                          style="border-color:#d8b4fe;letter-spacing:2px;font-size:1.1em;"
+                        />
+                      </div>
+                      <div class="form-text">PIN code for tenant and admin access</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Property Image Section -->
               <div class="mb-4">
-                <h6 class="text-secondary mb-3">
-                  <i class="bi bi-image me-1"></i>Property Image
-                </h6>
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
+                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
+                    <i class="bi bi-image text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="text-secondary fw-bold mb-0">Property Image</h6>
+                </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label class="form-label">
@@ -11841,18 +11968,19 @@
                 </div>
               </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-0 pt-0 pb-3 px-4">
               <button
                 type="button"
-                class="btn btn-secondary"
+                class="btn btn-outline-secondary px-4"
                 data-bs-dismiss="modal"
               >
                 <i class="bi bi-x-circle me-1"></i>Cancel
               </button>
               <button
                 type="submit"
-                class="btn btn-primary"
+                class="btn btn-primary px-4 fw-semibold"
                 id="propertySubmitBtn"
+                style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;"
               >
                 <i class="bi bi-plus-circle me-1"></i
                 ><span id="propertySubmitText">Add Property</span>

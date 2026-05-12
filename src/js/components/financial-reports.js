@@ -21,6 +21,7 @@ class FinancialReportsComponent {
     this.pendingDeletes = new Set(); // Track items pending deletion confirmation
     this.pendingClose = false; // Track month close confirmation
     this.selectedItems = new Set(); // Track bulk-selected items (e.g. "income-0", "expense-2")
+    this.isEditMode = false; // Whether drag-to-reorder is active
     this._dragSelecting = false; // Whether a drag selection is in progress
     this._dragSelectMode = true; // true = selecting, false = deselecting during drag
     this.propertyReportStatus = {}; // Track {propertyId: {isClosed: boolean}} for current month
@@ -663,6 +664,14 @@ class FinancialReportsComponent {
       return;
     }
 
+    // Reset edit mode when loading a new report
+    this.isEditMode = false;
+    const editBtn = document.getElementById("toggleEditModeBtn");
+    if (editBtn) {
+      editBtn.innerHTML = '<i class="bi bi-arrows-move me-1"></i>Reorder';
+      editBtn.style.background = "rgba(255,255,255,0.2)";
+    }
+
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
@@ -773,12 +782,15 @@ class FinancialReportsComponent {
       </div>`
         : "";
 
+    const incomeIsClosed = this.currentReport?.isClosed || !this.isEditMode;
+
     // Desktop table
     let tableHtml = `
       <div class="table-responsive d-none d-md-block">
         <table class="table table-sm table-striped mb-0" id="incomeTable">
           <thead>
             <tr class="table-success">
+              <th class="border-0" style="width:20px;"></th>
               <th class="border-0 small" style="width:32px;">
                 <input type="checkbox" class="form-check-input" id="selectAllIncome"
                   onchange="window.financialReports.toggleSelectAll('income', this.checked)"
@@ -877,7 +889,8 @@ class FinancialReportsComponent {
 
       // --- Desktop table row ---
       tableHtml += `
-        <tr data-item-key="${itemKey}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
+        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
+          ${incomeIsClosed ? '<td class="border-0" style="width:20px;"></td>' : '<td class="border-0 align-middle text-center drag-handle" style="width:20px;cursor:grab;color:#adb5bd;font-size:14px;padding:0 4px;user-select:none;" title="Drag to reorder">⠿</td>'}
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
               ${isSelected ? "checked" : ""}
@@ -907,7 +920,8 @@ class FinancialReportsComponent {
       // --- Mobile card (single-row flat layout) ---
       const paidByInline = this._renderPaidByAvatarInline(item.paidBy);
       cardsHtml += `
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #198754;">
+        <div data-item-index="${index}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #198754;">
+          ${incomeIsClosed ? "" : '<span class="drag-handle" style="color:#ccc;font-size:16px;cursor:grab;flex-shrink:0;padding:0 2px;user-select:none;" title="Drag to reorder">⠿</span>'}
           <input type="checkbox" class="form-check-input flex-shrink-0 bulk-checkbox" style="margin:0;" data-item-key="${itemKey}"
             ${isSelected ? "checked" : ""}
             onchange="window.financialReports.toggleItemSelection('income', ${index})"
@@ -969,6 +983,8 @@ class FinancialReportsComponent {
     this.initializeTooltips();
     // Bind drag-to-select on income table
     this._initDragSelection("incomeTbody", "income");
+    // Bind drag-to-reorder on income table and mobile cards
+    this._initDragReorder("incomeTbody", "incomeMobileCards", "income");
   }
 
   updateExpenseDisplay() {
@@ -1010,12 +1026,15 @@ class FinancialReportsComponent {
       </div>`
         : "";
 
+    const expenseIsClosed = this.currentReport?.isClosed || !this.isEditMode;
+
     // Desktop table
     let tableHtml = `
       <div class="table-responsive d-none d-md-block">
         <table class="table table-sm table-striped mb-0" id="expenseTable">
           <thead>
             <tr class="table-danger">
+              <th class="border-0" style="width:20px;"></th>
               <th class="border-0 small" style="width:32px;">
                 <input type="checkbox" class="form-check-input" id="selectAllExpenses"
                   onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
@@ -1118,7 +1137,8 @@ class FinancialReportsComponent {
 
       // --- Desktop table row ---
       tableHtml += `
-        <tr data-item-key="${itemKey}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
+        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
+          ${expenseIsClosed ? '<td class="border-0" style="width:20px;"></td>' : '<td class="border-0 align-middle text-center drag-handle" style="width:20px;cursor:grab;color:#adb5bd;font-size:14px;padding:0 4px;user-select:none;" title="Drag to reorder">⠿</td>'}
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
               ${isSelected ? "checked" : ""}
@@ -1146,7 +1166,8 @@ class FinancialReportsComponent {
 
       // --- Mobile card (single-row flat layout) ---
       cardsHtml += `
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #dc3545;">
+        <div data-item-index="${index}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #dc3545;">
+          ${expenseIsClosed ? "" : '<span class="drag-handle" style="color:#ccc;font-size:16px;cursor:grab;flex-shrink:0;padding:0 2px;user-select:none;" title="Drag to reorder">⠿</span>'}
           <input type="checkbox" class="form-check-input flex-shrink-0 bulk-checkbox" style="margin:0;" data-item-key="${itemKey}"
             ${isSelected ? "checked" : ""}
             onchange="window.financialReports.toggleItemSelection('expense', ${index})"
@@ -1179,6 +1200,8 @@ class FinancialReportsComponent {
     this.initializeTooltips();
     // Bind drag-to-select on expense table
     this._initDragSelection("expenseTbody", "expense");
+    // Bind drag-to-reorder on expense table and mobile cards
+    this._initDragReorder("expenseTbody", "expenseMobileCards", "expense");
   }
 
   updateSummaryDisplay() {
@@ -3648,8 +3671,8 @@ class FinancialReportsComponent {
     const onMouseDown = (e) => {
       const row = e.target.closest("tr[data-item-key]");
       if (!row) return;
-      // Don't start drag on checkbox/button clicks
-      if (e.target.closest("button, input, a")) return;
+      // Don't start drag on checkbox/button clicks or drag-reorder handle
+      if (e.target.closest("button, input, a, .drag-handle")) return;
 
       this._dragSelecting = true;
       const key = row.dataset.itemKey;
@@ -3712,7 +3735,127 @@ class FinancialReportsComponent {
     }
   }
 
-  // ─── End bulk selection ────────────────────────────────────────────────────
+  // ─── Drag-to-reorder ─────────────────────────────────────────────────────
+
+  _initDragReorder(tbodyId, mobileCardsId, type) {
+    if (this.currentReport?.isClosed || !this.isEditMode) return;
+
+    let dragSrcIndex = null;
+    let dragAllowed = false;
+
+    const bindDragEvents = (container, selector) => {
+      const elements = Array.from(container.querySelectorAll(selector));
+      elements.forEach((el) => {
+        const handle = el.querySelector(".drag-handle");
+        if (handle) {
+          handle.addEventListener("mousedown", () => { dragAllowed = true; });
+        }
+
+        el.setAttribute("draggable", "true");
+
+        el.addEventListener("dragstart", (e) => {
+          if (!dragAllowed) { e.preventDefault(); return; }
+          dragSrcIndex = parseInt(el.dataset.itemIndex);
+          e.dataTransfer.effectAllowed = "move";
+          el.style.opacity = "0.45";
+        });
+
+        el.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          el.classList.add("drag-row-over");
+        });
+
+        el.addEventListener("dragleave", () => {
+          el.classList.remove("drag-row-over");
+        });
+
+        el.addEventListener("drop", (e) => {
+          e.preventDefault();
+          el.classList.remove("drag-row-over");
+          const targetIndex = parseInt(el.dataset.itemIndex);
+          if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+            this._reorderItems(type, dragSrcIndex, targetIndex);
+          }
+          dragSrcIndex = null;
+          dragAllowed = false;
+        });
+
+        el.addEventListener("dragend", () => {
+          el.style.opacity = "";
+          container.querySelectorAll(".drag-row-over").forEach((r) => r.classList.remove("drag-row-over"));
+          dragAllowed = false;
+          dragSrcIndex = null;
+        });
+      });
+    };
+
+    const tbody = document.getElementById(tbodyId);
+    if (tbody) bindDragEvents(tbody, "tr[data-item-index]");
+
+    const mobileContainer = document.getElementById(mobileCardsId);
+    if (mobileContainer) bindDragEvents(mobileContainer, "div[data-item-index]");
+
+    document.addEventListener("mouseup", () => { dragAllowed = false; });
+  }
+
+  _reorderItems(type, fromIndex, toIndex) {
+    const arr = type === "income" ? this.currentReport.income : this.currentReport.expenses;
+    const [item] = arr.splice(fromIndex, 1);
+    arr.splice(toIndex, 0, item);
+
+    if (type === "income") {
+      this.updateIncomeDisplay();
+    } else {
+      this.updateExpenseDisplay();
+    }
+
+    this._saveReorder(type).catch(console.error);
+  }
+
+  async _saveReorder(type) {
+    if (!this.selectedProperty || !this.currentReport) return;
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+      const items = type === "income" ? this.currentReport.income : this.currentReport.expenses;
+      const endpoint =
+        type === "income"
+          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME_REORDER(this.selectedProperty, year, month)
+          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES_REORDER(this.selectedProperty, year, month);
+      const response = await API.put(endpoint, { items });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message);
+      this.currentReport = result.data;
+    } catch (err) {
+      console.error("Failed to save reorder:", err);
+      this.showError("Failed to save new order. Reloading...");
+      this.loadFinancialReport();
+    }
+  }
+
+  toggleEditMode() {
+    if (this.currentReport?.isClosed) return;
+    this.isEditMode = !this.isEditMode;
+    // Re-render both sections to show/hide drag handles
+    this.updateIncomeDisplay();
+    this.updateExpenseDisplay();
+    // Update toggle button appearance
+    const btn = document.getElementById("toggleEditModeBtn");
+    if (btn) {
+      if (this.isEditMode) {
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Done';
+        btn.style.background = "#22c55e";
+        btn.title = "Exit edit mode";
+      } else {
+        btn.innerHTML = '<i class="bi bi-arrows-move me-1"></i>Reorder';
+        btn.style.background = "rgba(255,255,255,0.2)";
+        btn.title = "Enter edit mode to drag and reorder items";
+      }
+    }
+  }
+
+  // ─── End drag-to-reorder ──────────────────────────────────────────────────
 
   toggleDeleteConfirm(type, index) {
     // Check if month is closed
@@ -4448,6 +4591,18 @@ class FinancialReportsComponent {
       .forEach((cb) => {
         cb.disabled = !enabled;
       });
+
+    // Hide/show reorder toggle button based on lock state
+    const toggleEditModeBtn = document.getElementById("toggleEditModeBtn");
+    if (toggleEditModeBtn) {
+      toggleEditModeBtn.style.display = enabled ? "" : "none";
+      if (!enabled && this.isEditMode) {
+        // Force exit edit mode if report gets locked
+        this.isEditMode = false;
+        this.updateIncomeDisplay();
+        this.updateExpenseDisplay();
+      }
+    }
   }
 
   // Public method to refresh the component
