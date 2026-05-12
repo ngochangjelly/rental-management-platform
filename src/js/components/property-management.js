@@ -479,12 +479,14 @@ class PropertyManagementComponent {
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-primary" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
               </div>
+              ${property.digitalLockEnabled ? `<div class="position-absolute top-0 end-0 p-2"><span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span></div>` : ''}
             </div>
             ` : `
             <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${isArchived ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};">
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-white ${isArchived ? 'text-secondary' : 'text-primary'}" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
               </div>
+              ${property.digitalLockEnabled ? `<div class="position-absolute top-0 end-0 p-2"><span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span></div>` : ''}
               <div class="position-absolute top-50 start-50 translate-middle">
                 <i class="bi ${isArchived ? 'bi-archive' : 'bi-building'} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
               </div>
@@ -499,7 +501,7 @@ class PropertyManagementComponent {
                   </div>
                 </div>
                 <div class="flex-grow-1">
-                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}${archivedBadge}</h6>
+                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}${archivedBadge}${property.digitalLockEnabled ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#6f42c1,#9d4edd);font-size:0.6rem;vertical-align:middle;" title="Digital Lock Installed"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>` : ''}</h6>
                   <small class="text-muted">Property ID</small>
                 </div>
               </div>
@@ -914,6 +916,20 @@ class PropertyManagementComponent {
           this.updatePropertyRoomsSelection();
         }
 
+        // Handle digital lock fields
+        const digitalLockYes = document.getElementById("digitalLockYes");
+        const digitalLockNo = document.getElementById("digitalLockNo");
+        if (digitalLockYes && digitalLockNo) {
+          const enabled = property.digitalLockEnabled === true;
+          digitalLockYes.checked = enabled;
+          digitalLockNo.checked = !enabled;
+          this.onDigitalLockToggle(enabled);
+        }
+        const digitalLockPinInput = document.getElementById("digitalLockPin");
+        if (digitalLockPinInput) {
+          digitalLockPinInput.value = property.digitalLockPin || "";
+        }
+
         // Make propertyId readonly in edit mode
         document.getElementById("propertyId").readOnly = true;
         document.getElementById("propertyId").classList.add("bg-light");
@@ -963,6 +979,15 @@ class PropertyManagementComponent {
           vndBankText.classList.add('text-muted');
           vndBankText.textContent = 'Select bank...';
         }
+
+        // Reset digital lock for add mode
+        const digitalLockNoReset = document.getElementById("digitalLockNo");
+        if (digitalLockNoReset) digitalLockNoReset.checked = true;
+        const digitalLockYesReset = document.getElementById("digitalLockYes");
+        if (digitalLockYesReset) digitalLockYesReset.checked = false;
+        this.onDigitalLockToggle(false);
+        const digitalLockPinInputReset = document.getElementById("digitalLockPin");
+        if (digitalLockPinInputReset) digitalLockPinInputReset.value = "";
 
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
@@ -1109,6 +1134,8 @@ class PropertyManagementComponent {
         acServiceDate: acServiceDateValue || null,
         managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
         managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
+        digitalLockEnabled: formData.get("digitalLockEnabled") === "true",
+        digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
       };
 
       // Debug: Log property data being saved
@@ -1926,6 +1953,19 @@ class PropertyManagementComponent {
 
     listContainer.innerHTML = html;
   }
+
+  onDigitalLockToggle(enabled) {
+    const pinSection = document.getElementById("digitalLockPinSection");
+    if (pinSection) {
+      pinSection.style.display = enabled ? "block" : "none";
+    }
+    if (!enabled) {
+      const pinInput = document.getElementById("digitalLockPin");
+      if (pinInput) pinInput.value = "";
+    }
+  }
+
+
 }
 
 // Export for use in other modules

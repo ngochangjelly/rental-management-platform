@@ -468,6 +468,7 @@ class HouseViewSpecialistComponent {
               <div class="hvs-input-row">
                 <input type="text" id="hvs-postal" class="hvs-input"
                   placeholder="xxxxxx" inputmode="numeric" maxlength="6"
+                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                   value="${escapeHtml(this.viewingData.postalCode)}" />
                 <button class="hvs-btn-icon" id="hvs-postal-btn" onclick="houseViewSpecialist.lookupPostal()" title="Tìm địa chỉ">
                   <i class="bi bi-search"></i>
@@ -1224,7 +1225,7 @@ class HouseViewSpecialistComponent {
         this.viewingData.address =
           document.getElementById("hvs-address")?.value.trim() || "";
         this.viewingData.postalCode =
-          document.getElementById("hvs-postal")?.value.trim() || "";
+          (document.getElementById("hvs-postal")?.value || "").replace(/\D/g, "") || "";
         this.viewingData.unitNumber =
           document.getElementById("hvs-unit")?.value.trim() || "";
         break;
@@ -1479,8 +1480,8 @@ class HouseViewSpecialistComponent {
   }
 
   async _autoGeoSearch() {
-    const query = this.viewingData.postalCode;
-    if (!query) return;
+    const query = (this.viewingData.postalCode || "").replace(/\D/g, "");
+    if (!query || query.length !== 6) return;
     this._startSearchAnimation();
     this._setSearchStatus(`Đang tìm với mã bưu chính ${query}...`);
     try {
@@ -1492,10 +1493,12 @@ class HouseViewSpecialistComponent {
       if (!data.success)
         throw new Error(data.message || "Không tìm thấy địa chỉ");
       const { lat, lng } = data.data;
-      this.viewingData.location = { lat, lng };
       this.locationError = null;
       this._setSearchStatus("Đang tìm tiện ích gần đây...");
       await this._fetchNearby(lat, lng);
+      // Only persist location after both geocode AND nearby succeed so a
+      // partial failure (nearby down) doesn't block the auto-search on retry.
+      this.viewingData.location = { lat, lng };
       this._setSearchStatus("Tìm xong! ✅");
       setTimeout(() => this.renderWizard(), 500);
     } catch (err) {
@@ -1551,8 +1554,12 @@ class HouseViewSpecialistComponent {
   retryLocate() {
     this.locationError = null;
     this.renderWizard();
-    // Small delay so the animation container renders before we trigger
-    setTimeout(() => this.locateAndSearch(), 80);
+    // If location is already stored (GPS succeeded but nearby failed), retry GPS.
+    // If location is null and a postal code exists, renderWizard already scheduled
+    // _autoGeoSearch via the step-4 condition — don't double-trigger.
+    if (this.viewingData.location || !this.viewingData.postalCode) {
+      setTimeout(() => this.locateAndSearch(), 80);
+    }
   }
 
   resetAndLocate() {

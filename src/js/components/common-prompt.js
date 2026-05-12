@@ -130,7 +130,7 @@ ${sgdBlock}${vndBlock}`;
   getAcCleanBookingTemplate(property) {
     if (!property) return "Vui lòng chọn căn hộ để xem trước tin nhắn.";
 
-    const date = this.acBookingDate || "[date]";
+    const date = this.formatDate(this.acBookingDate) || "[date]";
     const time = this.acBookingTime || "[time]";
 
     // Find main tenant
@@ -795,7 +795,7 @@ ${contactPhone}`;
   }
 
   getAcCleanBookingTemplateFor(property, tenants, contactTenantId, date, time) {
-    date = date || "[date]";
+    date = this.formatDate(date) || "[date]";
     time = time || "[time]";
 
     const mainTenant = tenants.find((t) => t.isMainTenant) || tenants[0];
@@ -1197,6 +1197,13 @@ ${contactPhone}`;
 
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(promptText)}`;
     window.open(waUrl, "_blank");
+  }
+
+  formatDate(dateStr) {
+    if (!dateStr) return dateStr;
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
 
   escapeHtml(text) {
