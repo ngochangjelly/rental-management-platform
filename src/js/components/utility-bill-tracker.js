@@ -17,6 +17,7 @@ class UtilityBillTrackerComponent {
     this._slugResolvedProperty = null; // set transiently by router for deep-link resolution
     this.allSelected = false;
     this._allCharts = [];
+    this.propertySubsidy = 0;
     const now = new Date();
     this.summaryYear = now.getFullYear();
     this.summaryMonth = now.getMonth() + 1;
@@ -540,10 +541,11 @@ class UtilityBillTrackerComponent {
 
   async _loadBills() {
     if (!this.selectedProperty) return;
-    // Load bills and tenants in parallel
-    const [billsResult, tenantsResult] = await Promise.allSettled([
+    // Load bills, tenants, and property details in parallel
+    const [billsResult, tenantsResult, propResult] = await Promise.allSettled([
       API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty)).then(r => r.json()),
       API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)).then(r => r.json()),
+      API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty)).then(r => r.json()),
     ]);
     this.bills = billsResult.status === 'fulfilled' && billsResult.value.success
       ? billsResult.value.bills || []
@@ -551,6 +553,9 @@ class UtilityBillTrackerComponent {
     this.tenants = tenantsResult.status === 'fulfilled' && tenantsResult.value.success
       ? tenantsResult.value.tenants || []
       : [];
+    this.propertySubsidy = propResult.status === 'fulfilled' && propResult.value.success
+      ? propResult.value.property?.subsidizedPub || 0
+      : 0;
     this._renderChart();
     this._renderBillsTable();
     this._showAddForm(false);
@@ -569,7 +574,9 @@ class UtilityBillTrackerComponent {
     const elecData = [];
     const waterData = [];
     const gasData = [];
+    const totals = [];
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const subsidy = this.propertySubsidy || 0;
 
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -577,47 +584,78 @@ class UtilityBillTrackerComponent {
       const mo = d.getMonth() + 1;
       labels.push(`${monthNames[mo - 1]} ${yr}`);
       const bill = this.bills.find(b => b.year === yr && b.month === mo);
-      elecData.push(bill ? bill.electricityAmount : null);
-      waterData.push(bill ? bill.waterAmount : null);
-      gasData.push(bill ? (bill.gasAmount + bill.refuseAmount + bill.otherAmount) : null);
+      const elec  = bill ? (bill.electricityAmount || 0) : null;
+      const water = bill ? (bill.waterAmount || 0) : null;
+      const gas   = bill ? ((bill.gasAmount || 0) + (bill.refuseAmount || 0) + (bill.otherAmount || 0)) : null;
+      elecData.push(elec);
+      waterData.push(water);
+      gasData.push(gas);
+      totals.push(bill ? (elec + water + gas) : null);
     }
+
+    // Determine which months exceed the subsidy limit (compare stacked bar total to threshold)
+    const exceededSet = new Set(
+      totals.map((t, i) => (subsidy > 0 && t != null && t >= subsidy ? i : -1)).filter(i => i >= 0)
+    );
+
+    // For exceeded months, tint the bars red
+    const elecBg   = totals.map((_, i) => exceededSet.has(i) ? 'rgba(220,53,69,0.80)' : 'rgba(255,193,7,0.85)');
+    const waterBg  = totals.map((_, i) => exceededSet.has(i) ? 'rgba(220,53,69,0.55)' : 'rgba(13,202,240,0.85)');
+    const gasBg    = totals.map((_, i) => exceededSet.has(i) ? 'rgba(220,53,69,0.35)' : 'rgba(108,117,125,0.75)');
+    const elecBdr  = totals.map((_, i) => exceededSet.has(i) ? 'rgba(220,53,69,1)'    : 'rgba(255,193,7,1)');
+    const waterBdr = totals.map((_, i) => exceededSet.has(i) ? 'rgba(220,53,69,1)'    : 'rgba(13,202,240,1)');
+    const gasBdr   = totals.map((_, i) => exceededSet.has(i) ? 'rgba(220,53,69,1)'    : 'rgba(108,117,125,1)');
 
     if (this.chart) {
       this.chart.destroy();
       this.chart = null;
     }
 
+    const datasets = [
+      {
+        label: i18next.t('utilityBillTracker.electricityLabel'),
+        data: elecData,
+        backgroundColor: elecBg,
+        borderColor: elecBdr,
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        label: i18next.t('utilityBillTracker.waterLabel'),
+        data: waterData,
+        backgroundColor: waterBg,
+        borderColor: waterBdr,
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        label: i18next.t('utilityBillTracker.gasOthersLabel'),
+        data: gasData,
+        backgroundColor: gasBg,
+        borderColor: gasBdr,
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+    ];
+
+    if (subsidy > 0) {
+      datasets.push({
+        label: `Max covered ($${subsidy.toFixed(2)})`,
+        data: labels.map(() => subsidy),
+        type: 'line',
+        borderColor: 'rgba(220,53,69,0.9)',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+        order: 0,
+      });
+    }
+
     this.chart = new Chart(canvas, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: i18next.t('utilityBillTracker.electricityLabel'),
-            data: elecData,
-            backgroundColor: 'rgba(255, 193, 7, 0.85)',
-            borderColor: 'rgba(255, 193, 7, 1)',
-            borderWidth: 1,
-            borderRadius: 4,
-          },
-          {
-            label: i18next.t('utilityBillTracker.waterLabel'),
-            data: waterData,
-            backgroundColor: 'rgba(13, 202, 240, 0.85)',
-            borderColor: 'rgba(13, 202, 240, 1)',
-            borderWidth: 1,
-            borderRadius: 4,
-          },
-          {
-            label: i18next.t('utilityBillTracker.gasOthersLabel'),
-            data: gasData,
-            backgroundColor: 'rgba(108, 117, 125, 0.75)',
-            borderColor: 'rgba(108, 117, 125, 1)',
-            borderWidth: 1,
-            borderRadius: 4,
-          },
-        ],
-      },
+      data: { labels, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -627,20 +665,29 @@ class UtilityBillTrackerComponent {
           tooltip: {
             callbacks: {
               label: (ctx) => {
+                if (ctx.datasetIndex === 3 && subsidy > 0) {
+                  return `Max covered: $${subsidy.toFixed(2)}`;
+                }
                 const v = ctx.parsed.y;
                 return v != null ? `${ctx.dataset.label}: $${v.toFixed(2)}` : `${ctx.dataset.label}: —`;
               },
               footer: (items) => {
-                const sum = items.reduce((s, i) => s + (i.parsed.y || 0), 0);
-                return i18next.t('utilityBillTracker.chartTotal', { amount: sum.toFixed(2) });
+                const sum = items
+                  .filter(i => i.datasetIndex < 3)
+                  .reduce((s, i) => s + (i.parsed.y || 0), 0);
+                const base = i18next.t('utilityBillTracker.chartTotal', { amount: sum.toFixed(2) });
+                if (subsidy > 0 && sum > subsidy) {
+                  return `${base}\n⚠ Exceeds max by $${(sum - subsidy).toFixed(2)}`;
+                }
+                return base;
               },
             },
           },
         },
         scales: {
-          x: { stacked: false, grid: { display: false } },
+          x: { stacked: true, grid: { display: false } },
           y: {
-            stacked: false,
+            stacked: true,
             beginAtZero: true,
             ticks: { callback: (v) => `$${v}` },
             grid: { color: 'rgba(0,0,0,0.05)' },

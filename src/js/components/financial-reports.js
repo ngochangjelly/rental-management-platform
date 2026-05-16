@@ -26,6 +26,8 @@ class FinancialReportsComponent {
     this._dragSelectMode = true; // true = selecting, false = deselecting during drag
     this.propertyReportStatus = {}; // Track {propertyId: {isClosed: boolean}} for current month
     this.allUnpaidVisible = false; // Track all-unpaid overview visibility
+    this.propertySubsidy = 0;
+    this._utilityBills = [];
     this.init();
   }
 
@@ -582,6 +584,8 @@ class FinancialReportsComponent {
 
     this.selectedProperty = propertyId;
     this.currentReport = null; // clear stale report so month display is immediately correct
+    this.propertySubsidy = 0;
+    this._utilityBills = [];
     document.getElementById("financialReportContent").style.display = "block";
 
     // Update property card selection state
@@ -590,10 +594,11 @@ class FinancialReportsComponent {
     // Show the correct month/year immediately — no network call needed
     this.updateMonthDisplay();
 
-    // Load investors and tenants in parallel (they're independent of each other)
+    // Load investors, tenants, property details, and utility bills in parallel
     await Promise.all([
       this.loadInvestors(propertyId),
       this.loadTenants(propertyId),
+      this._loadPropertySubsidyAndBills(propertyId),
     ]);
 
     // Load financial report (needs investors/tenants for display; also calls updateMonthDisplay internally)
@@ -737,8 +742,99 @@ class FinancialReportsComponent {
     this.updateExpenseDisplay();
     this.updateSummaryDisplay();
     this.updateInvestorDisplay();
+    this._renderPubOverageBanner();
     await this.updateUnpaidRentReminder();
     await this.updateClosedStatus();
+  }
+
+  async _loadPropertySubsidyAndBills(propertyId) {
+    try {
+      const [propRes, billsRes] = await Promise.allSettled([
+        API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)).then(r => r.json()),
+        API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(propertyId)).then(r => r.json()),
+      ]);
+      this.propertySubsidy =
+        propRes.status === 'fulfilled' && propRes.value.success
+          ? propRes.value.property?.subsidizedPub || 0
+          : 0;
+      this._utilityBills =
+        billsRes.status === 'fulfilled' && billsRes.value.success
+          ? billsRes.value.bills || []
+          : [];
+    } catch {
+      this.propertySubsidy = 0;
+      this._utilityBills = [];
+    }
+  }
+
+  _findOverlappingUtilityBill() {
+    if (!this.propertySubsidy || !this._utilityBills.length) return null;
+
+    const year  = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+    // Reporting month window: 1st–last day
+    const reportStart = new Date(year, month - 1, 1);
+    const reportEnd   = new Date(year, month, 0);   // last day of month
+    reportEnd.setHours(23, 59, 59, 999);
+
+    for (const bill of this._utilityBills) {
+      let overlap = false;
+
+      if (bill.billingPeriodStart && bill.billingPeriodEnd) {
+        const bStart = new Date(bill.billingPeriodStart); bStart.setHours(0, 0, 0, 0);
+        const bEnd   = new Date(bill.billingPeriodEnd);   bEnd.setHours(23, 59, 59, 999);
+        overlap = bStart <= reportEnd && bEnd >= reportStart;
+      } else {
+        // No billing period dates — match by bill year/month
+        overlap = bill.year === year && bill.month === month;
+      }
+
+      if (overlap && (bill.totalAmount || 0) > this.propertySubsidy) {
+        return bill;
+      }
+    }
+    return null;
+  }
+
+  _renderPubOverageBanner() {
+    const banner = document.getElementById('pubOverageBanner');
+    if (!banner) return;
+
+    const bill = this._findOverlappingUtilityBill();
+    if (!bill) {
+      banner.style.display = 'none';
+      banner.innerHTML = '';
+      return;
+    }
+
+    const excess   = (bill.totalAmount || 0) - this.propertySubsidy;
+    const fmtDate  = v => v ? new Date(v).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+    const period   = (bill.billingPeriodStart || bill.billingPeriodEnd)
+      ? `${fmtDate(bill.billingPeriodStart) || '?'} – ${fmtDate(bill.billingPeriodEnd) || '?'}`
+      : `${bill.month}/${bill.year}`;
+
+    banner.style.display = '';
+    banner.innerHTML = `
+      <div class="alert mb-0 d-flex align-items-start gap-3"
+           style="background:#fff1f0;border:1.5px solid #dc3545;border-radius:8px;padding:12px 16px;">
+        <div style="font-size:1.6rem;line-height:1;">⚡</div>
+        <div class="flex-grow-1">
+          <div class="fw-bold text-danger" style="font-size:0.97rem;">
+            SP Group bill exceeds max coverage for this period
+          </div>
+          <div class="text-secondary mt-1" style="font-size:0.85rem;">
+            Billing period: <strong>${escapeHtml(period)}</strong> &nbsp;·&nbsp;
+            Bill total: <strong class="text-danger">$${(bill.totalAmount || 0).toFixed(2)}</strong> &nbsp;·&nbsp;
+            Max covered: <strong>$${this.propertySubsidy.toFixed(2)}</strong> &nbsp;·&nbsp;
+            <strong class="text-danger">Over by $${excess.toFixed(2)}</strong>
+          </div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge bg-danger" style="font-size:0.85rem;padding:6px 10px;">
+            +$${excess.toFixed(2)} overpub
+          </span>
+        </div>
+      </div>`;
   }
 
   updateIncomeDisplay() {
@@ -4824,6 +4920,49 @@ class FinancialReportsComponent {
 
       yPos += 4;
 
+      // PUB OVERAGE INDICATOR (only when utility bill exceeds subsidizedPub for this period)
+      const _overBill = this._findOverlappingUtilityBill();
+      if (_overBill) {
+        const _excess   = ((_overBill.totalAmount || 0) - this.propertySubsidy);
+        const _barH     = 7;
+        const _accentW  = 2;
+        // Left accent strip (solid red)
+        pdf.setFillColor(220, 53, 69);
+        pdf.rect(margin, yPos, _accentW, _barH, 'F');
+        // Background strip (pale red)
+        pdf.setFillColor(255, 243, 243);
+        pdf.rect(margin + _accentW, yPos, contentWidth - _accentW, _barH, 'F');
+        // Label
+        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(185, 28, 28);
+        pdf.text('PUB OVERAGE', margin + _accentW + 2.5, yPos + 4.5);
+        // Detail text
+        const _fmtD = v => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short' }) : null;
+        const _period = (_overBill.billingPeriodStart || _overBill.billingPeriodEnd)
+          ? `${_fmtD(_overBill.billingPeriodStart) || '?'}-${_fmtD(_overBill.billingPeriodEnd) || '?'}`
+          : `${_overBill.month}/${_overBill.year}`;
+        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFontSize(7);
+        pdf.setTextColor(120, 0, 0);
+        pdf.text(
+          `${_period}  |  Bill $${(_overBill.totalAmount||0).toFixed(2)}  max $${this.propertySubsidy.toFixed(2)}`,
+          margin + _accentW + 26, yPos + 4.5
+        );
+        // Badge pill on right edge
+        const _badgeTxt = `+$${_excess.toFixed(2)}`;
+        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFontSize(7);
+        const _bw = pdf.getTextWidth(_badgeTxt) + 4;
+        const _bx = pageWidth - margin - _bw - 1;
+        pdf.setFillColor(220, 53, 69);
+        pdf.roundedRect(_bx, yPos + 1.2, _bw, 4.5, 1.2, 1.2, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(_badgeTxt, _bx + _bw / 2, yPos + 4.4, { align: 'center' });
+        pdf.setTextColor(0, 0, 0);
+        yPos += _barH + 4;
+      }
+
       // INCOME SECTION
       pdf.setFont('BeVietnamPro', 'bold');
       pdf.setFontSize(11);
@@ -5819,6 +5958,36 @@ class FinancialReportsComponent {
       );
     }
     y = HEADER_H;
+
+    // ── PUB overage strip (only when utility bill exceeds subsidizedPub) ──────
+    const _ovBill = this._findOverlappingUtilityBill();
+    if (_ovBill) {
+      const OVPUB_H = 30;
+      const _excess = ((_ovBill.totalAmount || 0) - this.propertySubsidy);
+      const _fmtD = (v) => v
+        ? new Date(v).toLocaleDateString('en-SG', { day: '2-digit', month: 'short' })
+        : null;
+      const _period = (_ovBill.billingPeriodStart || _ovBill.billingPeriodEnd)
+        ? `${_fmtD(_ovBill.billingPeriodStart) || '?'} – ${_fmtD(_ovBill.billingPeriodEnd) || '?'}`
+        : `${_ovBill.month}/${_ovBill.year}`;
+      const _detail = this._svgEsc(
+        `${_period}  ·  Bill $${(_ovBill.totalAmount || 0).toFixed(2)}  ·  Max $${this.propertySubsidy.toFixed(2)}`
+      );
+      const _badgeTxt = this._svgEsc(`+$${_excess.toFixed(2)}`);
+      const _badgeW = _excess.toFixed(2).length * 7 + 28;
+      // Strip background + left accent
+      p(`<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="#fff1f0"/>`);
+      p(`<rect x="0" y="${y}" width="5" height="${OVPUB_H}" fill="#dc2626"/>`);
+      p(`<line x1="0" y1="${y + OVPUB_H}" x2="${W}" y2="${y + OVPUB_H}" stroke="#fca5a5" stroke-width="1"/>`);
+      // Label
+      p(`<text x="14" y="${y + 19}" font-size="11" fill="#991b1b" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`);
+      // Detail
+      p(`<text x="110" y="${y + 19}" font-size="11" fill="#7f1d1d">${_detail}</text>`);
+      // Badge pill
+      p(`<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="18" rx="9" fill="#dc2626"/>`);
+      p(`<text x="${W - M - _badgeW / 2}" y="${y + 19}" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">${_badgeTxt}</text>`);
+      y += OVPUB_H;
+    }
 
     // ── Per-item metadata: wrapped description lines + subtitle text + row height ──
     const wrapText = (text, maxChars) => {

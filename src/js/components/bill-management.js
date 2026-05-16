@@ -22,6 +22,9 @@ class BillManagementComponent {
     this.currentUtilityBill = null; // from Utility Bill Tracker
     this.selectedTenants = new Set();
     this._slugResolvedProperty = null; // set transiently by router for deep-link resolution
+    this.propertySubsidy = 0;
+    this._billChart = null;
+    this._allUtilityBills = [];
     this.init();
   }
 
@@ -178,7 +181,10 @@ class BillManagementComponent {
   async selectProperty(propertyId) {
     if (this.selectedProperty === propertyId) return;
     this.selectedProperty = propertyId;
+    this._allUtilityBills = [];
+    this.propertySubsidy = 0;
     this.updatePropertyCardSelection(propertyId);
+    await this._loadPropertyDetails();
     await this.loadBillForCurrentMonth();
     this._syncUrl();
   }
@@ -252,8 +258,9 @@ class BillManagementComponent {
       return;
     }
 
-    // Load utility bill tracker data in parallel
+    // Load utility bill tracker data and chart data in parallel
     this.loadUtilityBillForMonth();
+    this._loadAllUtilityBillsForChart();
 
     try {
       const year = this.currentDate.getFullYear();
@@ -428,22 +435,41 @@ class BillManagementComponent {
               <div id="ocrReadStatus"></div>
             </div>
             <div class="col-md-4">
-              <h6>${t('spGroupUtilityBill')}</h6>
+              <h6 class="d-flex align-items-center gap-2">
+                ${t('spGroupUtilityBill')}
+                ${this.propertySubsidy > 0 ? `<span class="badge bg-secondary" style="font-size:0.7rem;font-weight:500;">Max: $${this.propertySubsidy.toFixed(2)}</span>` : ''}
+              </h6>
               ${this.currentUtilityBill ? (() => {
                 const ub = this.currentUtilityBill;
+                const exceeded = this.propertySubsidy > 0 && (ub.totalAmount||0) > this.propertySubsidy;
+                const excess = exceeded ? (ub.totalAmount||0) - this.propertySubsidy : 0;
                 const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : null;
                 const period = (ub.billingPeriodStart || ub.billingPeriodEnd)
                   ? `${fmtDate(ub.billingPeriodStart) || '?'} – ${fmtDate(ub.billingPeriodEnd) || '?'}`
                   : null;
                 const gasOther = (ub.gasAmount||0) + (ub.refuseAmount||0) + (ub.otherAmount||0);
+                const cardStyle = exceeded
+                  ? 'border:2px solid #dc3545!important;background:#fff5f5;'
+                  : 'background:#f8f9fa;';
                 return `
-                  <div class="border rounded p-2 bg-light" style="font-size:0.82rem;">
-                    <div class="fw-semibold mb-1 text-primary">${monthName((ub.month||1)-1, true)} ${ub.year}</div>
+                  <div class="border rounded p-2" style="font-size:0.82rem;${cardStyle}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                      <span class="fw-semibold text-primary">${monthName((ub.month||1)-1, true)} ${ub.year}</span>
+                      ${exceeded ? `<span class="badge bg-danger" style="font-size:0.7rem;">⚠ +$${excess.toFixed(2)} over limit</span>` : ''}
+                    </div>
                     ${period ? `<div class="text-muted mb-1" style="font-size:0.75rem;">${period}</div>` : ''}
                     <div class="d-flex justify-content-between"><span><i class="bi bi-lightning-charge-fill text-warning me-1"></i>${t('electricity')}</span><span>$${(ub.electricityAmount||0).toFixed(2)}</span></div>
                     <div class="d-flex justify-content-between"><span><i class="bi bi-droplet-fill text-info me-1"></i>${t('water')}</span><span>$${(ub.waterAmount||0).toFixed(2)}</span></div>
                     ${gasOther > 0 ? `<div class="d-flex justify-content-between"><span><i class="bi bi-fire text-secondary me-1"></i>${t('gasAndOthers')}</span><span>$${gasOther.toFixed(2)}</span></div>` : ''}
-                    <div class="d-flex justify-content-between fw-bold border-top mt-1 pt-1"><span>${t('total')}</span><span class="text-primary">$${(ub.totalAmount||0).toFixed(2)}</span></div>
+                    <div class="d-flex justify-content-between fw-bold border-top mt-1 pt-1">
+                      <span>${t('total')}</span>
+                      <span style="color:${exceeded ? '#dc3545' : '#0d6efd'};">$${(ub.totalAmount||0).toFixed(2)}</span>
+                    </div>
+                    ${this.propertySubsidy > 0 ? `
+                    <div class="d-flex justify-content-between border-top mt-1 pt-1" style="font-size:0.75rem;color:#6c757d;">
+                      <span>Max covered</span>
+                      <span>$${this.propertySubsidy.toFixed(2)}</span>
+                    </div>` : ''}
                     ${ub.billImageUrl ? `<a href="${ub.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 w-100 py-0" style="font-size:0.75rem;"><i class="bi bi-image me-1"></i>${t('viewBill')}</a>` : ''}
                   </div>`;
               })() : ''}
@@ -553,6 +579,175 @@ class BillManagementComponent {
       console.error('[BillManagement] utility drop upload error:', err);
       setStatus(`<i class="bi bi-exclamation-triangle text-danger me-1"></i>${err.message}`);
       if (dropZone) dropZone.style.pointerEvents = '';
+    }
+  }
+
+  async _loadPropertyDetails() {
+    if (!this.selectedProperty) return;
+    try {
+      const res  = await API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty));
+      const data = await res.json();
+      if (data.success && data.property) {
+        this.propertySubsidy = data.property.subsidizedPub || 0;
+      }
+    } catch {
+      this.propertySubsidy = 0;
+    }
+  }
+
+  async _loadAllUtilityBillsForChart() {
+    if (!this.selectedProperty) return;
+    if (this._allUtilityBills.length > 0) {
+      this._renderBillTrendChart();
+      return;
+    }
+    try {
+      const res  = await API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty));
+      const data = await res.json();
+      if (data.success) this._allUtilityBills = data.bills || [];
+    } catch {
+      this._allUtilityBills = [];
+    }
+    this._renderBillTrendChart();
+  }
+
+  _ensureChartContainer() {
+    let card = document.getElementById('billTrendChartContainer');
+    if (!card) {
+      const anchor = document.getElementById('billTableContainer');
+      if (!anchor) return null;
+      card = document.createElement('div');
+      card.id = 'billTrendChartContainer';
+      card.className = 'card mb-3 shadow-sm';
+      card.innerHTML = `
+        <div class="card-header py-2 d-flex align-items-center justify-content-between">
+          <h6 class="mb-0">
+            <i class="bi bi-bar-chart-line me-2 text-primary"></i>SP Group Bill Trend
+          </h6>
+          <span id="billTrendSubsidyBadge" class="badge" style="display:none;font-size:0.75rem;"></span>
+        </div>
+        <div class="card-body py-2" style="position:relative;height:200px;">
+          <canvas id="billTrendChart"></canvas>
+        </div>
+      `;
+      anchor.parentNode.insertBefore(card, anchor);
+    }
+    return card;
+  }
+
+  _renderBillTrendChart() {
+    if (!this.selectedProperty) return;
+
+    const container = this._ensureChartContainer();
+    if (!container) return;
+
+    const sorted = [...this._allUtilityBills].sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : a.month - b.month
+    );
+    const recent = sorted.slice(-12);
+
+    if (recent.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = '';
+
+    const curYear  = this.currentDate.getFullYear();
+    const curMonth = this.currentDate.getMonth() + 1;
+    const subsidy  = this.propertySubsidy;
+
+    const labels  = recent.map(b => `${monthName(b.month - 1, true)} ${b.year}`);
+    const amounts = recent.map(b => b.totalAmount || 0);
+
+    const bgColors = amounts.map((amt, i) => {
+      const b = recent[i];
+      const isCurrent = b.year === curYear && b.month === curMonth;
+      const over = subsidy > 0 && amt > subsidy;
+      if (over) return isCurrent ? 'rgba(220,53,69,0.9)' : 'rgba(220,53,69,0.55)';
+      return isCurrent ? 'rgba(13,110,253,0.9)' : 'rgba(13,110,253,0.45)';
+    });
+
+    const borderColors = amounts.map((amt, i) => {
+      const b = recent[i];
+      const isCurrent = b.year === curYear && b.month === curMonth;
+      const over = subsidy > 0 && amt > subsidy;
+      if (over) return 'rgba(220,53,69,1)';
+      return isCurrent ? 'rgba(13,110,253,1)' : 'rgba(13,110,253,0.65)';
+    });
+
+    const borderWidths = recent.map(b =>
+      b.year === curYear && b.month === curMonth ? 2.5 : 1
+    );
+
+    const datasets = [{
+      label: 'SP Group Bill',
+      data: amounts,
+      backgroundColor: bgColors,
+      borderColor: borderColors,
+      borderWidth: borderWidths,
+      borderRadius: 4,
+    }];
+
+    if (subsidy > 0) {
+      datasets.push({
+        label: `Max covered ($${subsidy.toFixed(2)})`,
+        data: recent.map(() => subsidy),
+        type: 'line',
+        borderColor: 'rgba(220,53,69,0.85)',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+        order: 0,
+      });
+    }
+
+    const canvas = document.getElementById('billTrendChart');
+    if (!canvas) return;
+
+    if (this._billChart) {
+      this._billChart.destroy();
+      this._billChart = null;
+    }
+
+    this._billChart = new Chart(canvas, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: subsidy > 0, labels: { font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              afterLabel: (ctx) => {
+                if (subsidy > 0 && ctx.datasetIndex === 0) {
+                  const amt = ctx.parsed.y;
+                  return amt > subsidy
+                    ? `⚠ Exceeds max by $${(amt - subsidy).toFixed(2)}`
+                    : `✓ Within max ($${(subsidy - amt).toFixed(2)} under)`;
+                }
+              },
+            },
+          },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: v => `$${v}`, font: { size: 11 } } },
+          x: { ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+
+    const badge = document.getElementById('billTrendSubsidyBadge');
+    if (badge) {
+      if (subsidy > 0) {
+        badge.textContent = `Max: $${subsidy.toFixed(2)}`;
+        badge.className = 'badge bg-danger';
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
     }
   }
 
