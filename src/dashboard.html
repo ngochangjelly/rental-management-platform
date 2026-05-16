@@ -17,6 +17,12 @@
     <meta name="apple-mobile-web-app-title" content="Rental Hub" />
     <meta name="msapplication-TileColor" content="#667eea" />
     <meta name="msapplication-config" content="/browserconfig.xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
@@ -26,6 +32,9 @@
       rel="stylesheet"
     />
     <style>
+      body {
+        font-family: 'Be Vietnam Pro', sans-serif;
+      }
       /* Hide content until translations are ready to prevent language flash */
       body:not(.i18n-ready) {
         opacity: 0;
@@ -1017,9 +1026,7 @@
 
       /* Apple-style export enhancements */
       #exportableFinancialReport {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, sans-serif;
+        font-family: 'Be Vietnam Pro', sans-serif;
         line-height: 1.6;
         color: #1d1d1f;
       }
@@ -2627,9 +2634,7 @@
       /* Tenant Timeline Calendar Styles */
       .tenant-timeline-calendar {
         min-width: 1200px;
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-          Cantarell, sans-serif;
+        font-family: 'Be Vietnam Pro', sans-serif;
         --name-col-width: 280px;
       }
 
@@ -5721,6 +5726,27 @@
                         >
                       </div>
 
+                      <!-- Forfeit AC Cleaning Fee -->
+                      <div class="mb-3">
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            value=""
+                            id="forfeitAcCleanFee"
+                          />
+                          <label
+                            class="form-check-label"
+                            for="forfeitAcCleanFee"
+                          >
+                            <strong>Forfeit AC &amp; Cleaning Fee</strong>
+                          </label>
+                        </div>
+                        <small class="text-muted"
+                          >If checked, AC cleaning deduction and cleaning service fee are shown as $0 in the contract</small
+                        >
+                      </div>
+
                       <!-- Additional Clauses -->
                       <div class="mb-3">
                         <div
@@ -8211,9 +8237,7 @@
                       rows="18"
                       readonly
                       style="
-                        font-family:
-                          -apple-system, BlinkMacSystemFont,
-                          &quot;Segoe UI&quot;, Roboto, sans-serif;
+                        font-family: 'Be Vietnam Pro', sans-serif;
                         font-size: 14px;
                         line-height: 1.6;
                         background-color: #f8f9fa;

@@ -473,7 +473,7 @@ class DocsManagement {
         font-size: 26pt;
         font-weight: 700;
         color: #202124;
-        font-family: 'Arial', sans-serif;
+        font-family: 'Be Vietnam Pro', sans-serif;
         margin-bottom: 12px;
         padding-bottom: 12px;
         border-bottom: 1px solid #e0e0e0;
@@ -482,7 +482,7 @@ class DocsManagement {
 
       /* Quill overrides for Google Docs feel */
       .docs-page .ql-editor {
-        font-family: 'Arial', sans-serif;
+        font-family: 'Be Vietnam Pro', sans-serif;
         font-size: 11pt;
         line-height: 1.5;
         color: #202124;
@@ -807,7 +807,7 @@ class DocsManagement {
     if (!listEl) return;
 
     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && currentUser.role === "admin";
 
     listEl.innerHTML = `
       <div class="docs-header">
@@ -819,12 +819,16 @@ class DocsManagement {
           <i class="bi bi-search search-icon"></i>
           <input type="text" id="docsSearchInput" placeholder="${this.t("searchPlaceholder")}" value="${this._searchQuery}">
         </div>
-        ${isAdmin ? `
+        ${
+          isAdmin
+            ? `
         <button class="docs-new-btn" id="docsNewBtn">
           <i class="bi bi-plus-lg"></i>
           <span>${this.t("newDoc")}</span>
         </button>
-        ` : ""}
+        `
+            : ""
+        }
       </div>
       <div class="docs-grid-section" id="docsGridSection">
         <div class="docs-loading" id="docsLoading">
@@ -835,7 +839,9 @@ class DocsManagement {
       </div>
     `;
 
-    document.getElementById("docsNewBtn")?.addEventListener("click", () => this._createNewDoc());
+    document
+      .getElementById("docsNewBtn")
+      ?.addEventListener("click", () => this._createNewDoc());
 
     const searchInput = document.getElementById("docsSearchInput");
     let searchTimer = null;
@@ -879,14 +885,16 @@ class DocsManagement {
           (d) =>
             d.title.toLowerCase().includes(this._searchQuery.toLowerCase()) ||
             d.name.toLowerCase().includes(this._searchQuery.toLowerCase()) ||
-            (d.contentText || "").toLowerCase().includes(this._searchQuery.toLowerCase()),
+            (d.contentText || "")
+              .toLowerCase()
+              .includes(this._searchQuery.toLowerCase()),
         )
       : this.docs;
 
     let html = `<div class="docs-grid">`;
 
     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && currentUser.role === "admin";
 
     // New doc card (always first)
     if (!this._searchQuery && isAdmin) {
@@ -938,13 +946,17 @@ class DocsManagement {
               </div>
               ${tags.length ? `<div class="docs-card-tags">${tags.map((t) => `<span class="docs-tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
             </div>
-            ${isAdmin ? `
+            ${
+              isAdmin
+                ? `
             <div class="docs-card-actions">
               <button class="docs-card-action-btn" data-action="delete" data-doc-id="${doc._id}" title="${this.t("deleteDoc")}">
                 <i class="bi bi-trash"></i>
               </button>
             </div>
-            ` : ""}
+            `
+                : ""
+            }
             ${
               isPendingDelete
                 ? `<div class="docs-delete-confirm">
@@ -965,7 +977,9 @@ class DocsManagement {
     container.innerHTML = html;
 
     // Bind events
-    document.getElementById("docsNewCard")?.addEventListener("click", () => this._createNewDoc());
+    document
+      .getElementById("docsNewCard")
+      ?.addEventListener("click", () => this._createNewDoc());
 
     container.querySelectorAll(".docs-card").forEach((card) => {
       const docId = card.dataset.docId;
@@ -984,25 +998,30 @@ class DocsManagement {
       });
     });
 
-    container.querySelectorAll("[data-action='confirm-delete']").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this._deleteDoc(btn.dataset.docId);
+    container
+      .querySelectorAll("[data-action='confirm-delete']")
+      .forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._deleteDoc(btn.dataset.docId);
+        });
       });
-    });
 
-    container.querySelectorAll("[data-action='cancel-delete']").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this._pendingDeleteId = null;
-        this._renderDocGrid();
+    container
+      .querySelectorAll("[data-action='cancel-delete']")
+      .forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._pendingDeleteId = null;
+          this._renderDocGrid();
+        });
       });
-    });
   }
 
   _buildPreviewSnippet(doc) {
     const text = (doc.contentText || "").substring(0, 200);
-    if (!text) return `<span style="color:#9aa0a6;font-style:italic;">Empty document</span>`;
+    if (!text)
+      return `<span style="color:#9aa0a6;font-style:italic;">Empty document</span>`;
     return escapeHtml(text).replace(/\n/g, "<br>");
   }
 
@@ -1116,7 +1135,7 @@ class DocsManagement {
     if (!editorView) return;
 
     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && currentUser.role === "admin";
 
     editorView.innerHTML = `
       <div class="docs-editor-topbar" id="docsEditorTopbar">
@@ -1143,20 +1162,28 @@ class DocsManagement {
             <i class="bi bi-image"></i>
             <span class="d-none d-md-inline">${this.t("exportImage")}</span>
           </button>
-          ${isAdmin ? `
+          ${
+            isAdmin
+              ? `
           <button class="docs-action-btn primary" id="docsSaveBtn">
             <i class="bi bi-floppy"></i>
             <span>${this.t("saveDoc")}</span>
           </button>
-          ` : ""}
+          `
+              : ""
+          }
         </div>
       </div>
       <div class="docs-editor-body" id="docsEditorBody">
-        ${isAdmin ? `
+        ${
+          isAdmin
+            ? `
         <div class="docs-quill-toolbar-wrap">
           <div id="docsQuillToolbar"></div>
         </div>
-        ` : ""}
+        `
+            : ""
+        }
         <div class="docs-page" id="docsPage">
           <div class="docs-page-title" id="docsPageTitle">${escapeHtml(doc.title || doc.name || this.t("untitled"))}</div>
           <div id="docsQuillEditor"></div>
@@ -1188,7 +1215,8 @@ class DocsManagement {
     const titleInput = document.getElementById("docsTitleInput");
     titleInput?.addEventListener("input", () => {
       const pageTitle = document.getElementById("docsPageTitle");
-      if (pageTitle) pageTitle.textContent = titleInput.value || this.t("untitled");
+      if (pageTitle)
+        pageTitle.textContent = titleInput.value || this.t("untitled");
       if (isAdmin) this._scheduleSave();
     });
 
@@ -1202,7 +1230,7 @@ class DocsManagement {
     if (!editorEl) return;
 
     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && currentUser.role === "admin";
 
     // Build toolbar HTML
     if (toolbarEl && isAdmin) {
@@ -1255,14 +1283,17 @@ class DocsManagement {
     this.quill = new Quill(editorEl, {
       theme: "snow",
       placeholder: this.t("editorPlaceholder"),
-      modules: toolbarEl && isAdmin ? {
-        toolbar: {
-          container: toolbarEl,
-          handlers: {
-            image: () => this._imageUploadHandler(),
-          },
-        },
-      } : { toolbar: false },
+      modules:
+        toolbarEl && isAdmin
+          ? {
+              toolbar: {
+                container: toolbarEl,
+                handlers: {
+                  image: () => this._imageUploadHandler(),
+                },
+              },
+            }
+          : { toolbar: false },
     });
 
     // Load existing content
@@ -1341,7 +1372,8 @@ class DocsManagement {
       const data = await res.json();
       if (data.success && (data.originalUrl || data.url)) {
         // Prefer Cloudinary URL for portability; fall back to proxy URL
-        const imageUrl = data.originalUrl || `${API_CONFIG.BASE_URL}${data.url}`;
+        const imageUrl =
+          data.originalUrl || `${API_CONFIG.BASE_URL}${data.url}`;
         const range = this.quill.getSelection(true);
         this.quill.insertEmbed(range.index, "image", imageUrl, "user");
         this.quill.setSelection(range.index + 1, "silent");
@@ -1532,14 +1564,18 @@ class DocsManagement {
     });
 
     // Toggle sharing on/off
-    document.getElementById("docsShareToggle")?.addEventListener("change", async (e) => {
-      await this._toggleShare(e.target.checked);
-    });
+    document
+      .getElementById("docsShareToggle")
+      ?.addEventListener("change", async (e) => {
+        await this._toggleShare(e.target.checked);
+      });
 
     // Copy link
-    document.getElementById("docsShareCopyBtn")?.addEventListener("click", () => {
-      this._copyShareLink();
-    });
+    document
+      .getElementById("docsShareCopyBtn")
+      ?.addEventListener("click", () => {
+        this._copyShareLink();
+      });
   }
 
   _closeShareModal() {
@@ -1556,7 +1592,9 @@ class DocsManagement {
 
     try {
       if (enable) {
-        const res = await API.post(API_CONFIG.ENDPOINTS.DOC_SHARE(this.currentDoc._id));
+        const res = await API.post(
+          API_CONFIG.ENDPOINTS.DOC_SHARE(this.currentDoc._id),
+        );
         const data = await res.json();
         if (data.success) {
           this.currentDoc.isPublic = true;
@@ -1580,7 +1618,9 @@ class DocsManagement {
           if (toggle) toggle.checked = false;
         }
       } else {
-        const res = await API.delete(API_CONFIG.ENDPOINTS.DOC_SHARE(this.currentDoc._id));
+        const res = await API.delete(
+          API_CONFIG.ENDPOINTS.DOC_SHARE(this.currentDoc._id),
+        );
         const data = await res.json();
         if (data.success) {
           this.currentDoc.isPublic = false;
@@ -1589,7 +1629,10 @@ class DocsManagement {
           if (linkSection) linkSection.style.display = "none";
           // Remove share button dot
           shareBtn?.querySelector(".docs-share-dot")?.remove();
-          showToast("Share link revoked — access disabled immediately", "success");
+          showToast(
+            "Share link revoked — access disabled immediately",
+            "success",
+          );
         } else {
           showToast("Failed to revoke sharing", "error");
           if (toggle) toggle.checked = true;
@@ -1606,20 +1649,23 @@ class DocsManagement {
     const url = input?.value;
     if (!url) return;
 
-    navigator.clipboard.writeText(url).then(() => {
-      if (copyBtn) {
-        copyBtn.classList.add("copied");
-        copyBtn.innerHTML = `<i class="bi bi-check-lg"></i> Copied!`;
-        setTimeout(() => {
-          copyBtn.classList.remove("copied");
-          copyBtn.innerHTML = `<i class="bi bi-clipboard"></i> Copy`;
-        }, 2000);
-      }
-    }).catch(() => {
-      // Fallback for browsers without clipboard API
-      input?.select();
-      document.execCommand("copy");
-    });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        if (copyBtn) {
+          copyBtn.classList.add("copied");
+          copyBtn.innerHTML = `<i class="bi bi-check-lg"></i> Copied!`;
+          setTimeout(() => {
+            copyBtn.classList.remove("copied");
+            copyBtn.innerHTML = `<i class="bi bi-clipboard"></i> Copy`;
+          }, 2000);
+        }
+      })
+      .catch(() => {
+        // Fallback for browsers without clipboard API
+        input?.select();
+        document.execCommand("copy");
+      });
   }
 
   // ─── Called when section becomes active ───────────────────────────────────

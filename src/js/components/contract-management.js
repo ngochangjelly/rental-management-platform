@@ -36,6 +36,7 @@ class ContractManagementComponent {
       fullPaymentReceived: false,
       pestControlClause: false,
       airconFreeOfCharge: false,
+      forfeitAcCleanFee: false,
     };
 
     // Initialize template service
@@ -2305,6 +2306,16 @@ class ContractManagementComponent {
       });
     }
 
+    // Handle the forfeit AC cleaning fee checkbox
+    const forfeitAcCleanFeeCheckbox =
+      document.getElementById("forfeitAcCleanFee");
+    if (forfeitAcCleanFeeCheckbox) {
+      forfeitAcCleanFeeCheckbox.addEventListener("change", () => {
+        this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
     if (partialDepositCheckbox) {
       partialDepositCheckbox.addEventListener("change", () => {
         this.contractData.partialDepositReceived =
@@ -2716,7 +2727,7 @@ class ContractManagementComponent {
         : this.contractData.address || "[Property Address]";
 
     preview.innerHTML = `
-            <div class="contract-content" style="font-family: 'Times New Roman', serif; line-height: 1.6; padding: 20px;">
+            <div class="contract-content" style="font-family: 'Be Vietnam Pro', sans-serif; line-height: 1.6; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h2 style="font-weight: bold; margin-bottom: 10px;">HOUSE SHARING AGREEMENT</h2>
                     <p><strong>Full address:</strong> ${propertyAddress}</p>
@@ -2906,7 +2917,7 @@ class ContractManagementComponent {
                                 this.contractData.fullPaymentReceived
                                   ? "n"
                                   : "p"
-                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>`
+                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"}. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}${this.contractData.forfeitAcCleanFee ? " <em>(AC cleaning fee forfeited: $0 deduction applies for this term.)</em>" : ""}</p>`
                             : ""
                         }
 
@@ -3055,7 +3066,7 @@ class ContractManagementComponent {
                         <p><strong>${
                           this.contractData.fullPaymentReceived ? "e" : "f"
                         })</strong> Cleaning fee: SGD$${
-                          this.contractData.cleaningFee || "20"
+                          this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")
                         } / 1pax (if all tenants agree to hire a cleaning service)</p>
                     </div>
                 </div>
@@ -3571,6 +3582,24 @@ class ContractManagementComponent {
       // Create PDF with text-based approach for better control
       const pdf = new jsPDF("p", "mm", "a4");
 
+      // Embed Be Vietnam Pro for full Vietnamese support
+      const _loadFont = async (url) => {
+        const buf = await (await fetch(url)).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let s = '';
+        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        return btoa(s);
+      };
+      const [_regB64, _boldB64] = await Promise.all([
+        _loadFont('/fonts/BeVietnamPro-Regular.ttf'),
+        _loadFont('/fonts/BeVietnamPro-Bold.ttf'),
+      ]);
+      pdf.addFileToVFS('BeVietnamPro-Regular.ttf', _regB64);
+      pdf.addFont('BeVietnamPro-Regular.ttf', 'BeVietnamPro', 'normal');
+      pdf.addFileToVFS('BeVietnamPro-Bold.ttf', _boldB64);
+      pdf.addFont('BeVietnamPro-Bold.ttf', 'BeVietnamPro', 'bold');
+      pdf.setFont('BeVietnamPro', 'normal');
+
       // A4 dimensions in mm
       const pageWidth = 210;
       const pageHeight = 297;
@@ -3591,7 +3620,7 @@ class ContractManagementComponent {
         for (let i = 1; i <= totalPages; i++) {
           pdf.setPage(i);
           pdf.setFontSize(10);
-          pdf.setFont(undefined, "normal");
+          pdf.setFont('BeVietnamPro', 'normal');
 
           // Add page number at middle bottom
           const pageText = `${i}`;
@@ -3622,9 +3651,9 @@ class ContractManagementComponent {
 
         pdf.setFontSize(fontSize);
         if (isBold) {
-          pdf.setFont(undefined, "bold");
+          pdf.setFont('BeVietnamPro', 'bold');
         } else {
-          pdf.setFont(undefined, "normal");
+          pdf.setFont('BeVietnamPro', 'normal');
         }
 
         // Check if we need a new page (leaving space for page number)
@@ -3922,7 +3951,7 @@ class ContractManagementComponent {
         "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
         "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
         "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
-        `For a 6-month agreement, SGD$100 will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$200 will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}`,
+        `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
         "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
         "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
         "No visitors without permission from Tenant B to Tenant A.",
@@ -4021,7 +4050,7 @@ class ContractManagementComponent {
       section2Clauses.push(
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
         `${cleaningClauseLetter}) Cleaning fee: SGD$${
-          this.contractData.cleaningFee || "20"
+          this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")
         } / 1pax (if all tenants agree to hire a cleaning service)`,
       );
 
@@ -4246,7 +4275,7 @@ class ContractManagementComponent {
     });
 
     return `
-            <div style="padding: 0; margin: 0; font-family: 'Times New Roman', serif; line-height: 1.8; color: #000;">
+            <div style="padding: 0; margin: 0; font-family: 'Be Vietnam Pro', sans-serif; line-height: 1.8; color: #000;">
                 <!-- Header Section -->
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">HOUSE SHARING AGREEMENT</h2>
@@ -4406,7 +4435,7 @@ class ContractManagementComponent {
 
                         <p style="margin-bottom: 15px;"><strong>o)</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
 
-                        ${this.hasAircon() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>` : ""}
+                        ${this.hasAircon() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"}. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}${this.contractData.forfeitAcCleanFee ? " <em>(AC cleaning fee forfeited: $0 deduction applies for this term.)</em>" : ""}</p>` : ""}
 
                         <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "q" : "p"})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
 
@@ -4865,6 +4894,12 @@ class ContractManagementComponent {
       this.contractData.airconFreeOfCharge = airconFreeOfChargeElement.checked;
     }
 
+    const forfeitAcCleanFeeElement =
+      document.getElementById("forfeitAcCleanFee");
+    if (forfeitAcCleanFeeElement) {
+      this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
+    }
+
     console.log("✅ Synced form values to contractData:", {
       moveInDate: this.contractData.moveInDate,
       moveOutDate: this.contractData.moveOutDate,
@@ -4954,6 +4989,13 @@ class ContractManagementComponent {
       contractData.airconFreeOfCharge = airconFreeOfChargeElement.checked;
     }
 
+    // Get forfeit AC cleaning fee status
+    const forfeitAcCleanFeeElement =
+      document.getElementById("forfeitAcCleanFee");
+    if (forfeitAcCleanFeeElement) {
+      contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
+    }
+
     return contractData;
   }
 
@@ -4986,7 +5028,9 @@ class ContractManagementComponent {
             ? document.getElementById("pestControlClause")
             : field === "airconFreeOfCharge"
               ? document.getElementById("airconFreeOfCharge")
-              : document.getElementById(
+              : field === "forfeitAcCleanFee"
+                ? document.getElementById("forfeitAcCleanFee")
+                : document.getElementById(
                   `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
                 );
 

@@ -4644,6 +4644,24 @@ class FinancialReportsComponent {
         format: "a4",
       });
 
+      // Embed Be Vietnam Pro for full Vietnamese support
+      const _loadFont = async (url) => {
+        const buf = await (await fetch(url)).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let s = '';
+        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        return btoa(s);
+      };
+      const [_regB64, _boldB64] = await Promise.all([
+        _loadFont('/fonts/BeVietnamPro-Regular.ttf'),
+        _loadFont('/fonts/BeVietnamPro-Bold.ttf'),
+      ]);
+      pdf.addFileToVFS('BeVietnamPro-Regular.ttf', _regB64);
+      pdf.addFont('BeVietnamPro-Regular.ttf', 'BeVietnamPro', 'normal');
+      pdf.addFileToVFS('BeVietnamPro-Bold.ttf', _boldB64);
+      pdf.addFont('BeVietnamPro-Bold.ttf', 'BeVietnamPro', 'bold');
+      pdf.setFont('BeVietnamPro', 'normal');
+
       const pageWidth = pdf.internal.pageSize.getWidth();
       let yPos = 15;
       const margin = 12;
@@ -4712,7 +4730,7 @@ class FinancialReportsComponent {
         return { name: names, roomType: null };
       };
 
-      // Helper to remove Vietnamese diacritics for better PDF rendering
+      // Strip diacritics for PDF filenames only (cleaner file names on all OS)
       const removeDiacritics = (str) => {
         if (!str) return "";
         return str
@@ -4720,14 +4738,6 @@ class FinancialReportsComponent {
           .replace(/[\u0300-\u036f]/g, "")
           .replace(/đ/g, "d")
           .replace(/Đ/g, "D");
-      };
-
-      // Helper to normalize Vietnamese text for PDF display
-      // This keeps the text readable by normalizing to NFC (composed form)
-      const normalizeVietnamese = (str) => {
-        if (!str) return "";
-        // Normalize to composed form (NFC) which jsPDF handles better
-        return str.normalize("NFC");
       };
 
       // Helper to wrap text into multiple lines
@@ -4796,7 +4806,7 @@ class FinancialReportsComponent {
       });
 
       pdf.setFontSize(16);
-      pdf.setFont(undefined, "bold");
+      pdf.setFont('BeVietnamPro', 'bold');
       pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: "center" });
 
       // Add month/year on the right side of the same line
@@ -4805,7 +4815,7 @@ class FinancialReportsComponent {
 
       yPos += 6;
       pdf.setFontSize(9);
-      pdf.setFont(undefined, "normal");
+      pdf.setFont('BeVietnamPro', 'normal');
       const propertyLines = propertyHeader.split("\n");
       propertyLines.forEach((line) => {
         pdf.text(line, pageWidth / 2, yPos, { align: "center" });
@@ -4815,7 +4825,7 @@ class FinancialReportsComponent {
       yPos += 4;
 
       // INCOME SECTION
-      pdf.setFont(undefined, "bold");
+      pdf.setFont('BeVietnamPro', 'bold');
       pdf.setFontSize(11);
       pdf.text("INCOME", margin, yPos);
       yPos += 5;
@@ -4834,7 +4844,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont(undefined, "bold");
+        pdf.setFont('BeVietnamPro', 'bold');
         pdf.setFontSize(8);
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
@@ -4843,7 +4853,7 @@ class FinancialReportsComponent {
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont(undefined, "normal");
+        pdf.setFont('BeVietnamPro', 'normal');
 
         // Process income items with avatars
         for (let idx = 0; idx < this.currentReport.income.length; idx++) {
@@ -4860,7 +4870,7 @@ class FinancialReportsComponent {
             : "-";
 
           // Wrap item text into multiple lines
-          const itemText = removeDiacritics(item.item);
+          const itemText = item.item;
           const itemLines = wrapText(itemText, 58); // max width for item column
           const mainLineHeight = 4;
           const itemHeight = Math.max(itemLines.length * mainLineHeight, 6);
@@ -4872,7 +4882,7 @@ class FinancialReportsComponent {
 
           if (hasDetails) {
             // Strip diacritics to prevent font breaking in jsPDF (standard fonts don't support Vietnamese)
-            const detailsText = removeDiacritics(item.details);
+            const detailsText = item.details;
             pdf.setFontSize(7);
             // Use wrapMultiLineText to handle newlines properly
             detailsLines = wrapMultiLineText(detailsText, contentWidth - 8);
@@ -4910,12 +4920,12 @@ class FinancialReportsComponent {
 
           // Show last word of investor name
           if (investor) {
-            const lastName = removeDiacritics(getLastWord(investor.name));
+            const lastName = getLastWord(investor.name);
             pdf.text(lastName, colPerson, rowStartY);
           }
 
           // Paid by - show name with badge next to it
-          const paidByName = removeDiacritics(paidByData.name);
+          const paidByName = paidByData.name;
           pdf.text(paidByName, colPaidBy, rowStartY);
 
           // Add room type badge next to name if available
@@ -4926,7 +4936,7 @@ class FinancialReportsComponent {
             pdf.setFontSize(6);
             pdf.setFillColor(108, 117, 125);
             pdf.setDrawColor(108, 117, 125);
-            const badgeText = removeDiacritics(paidByData.roomType);
+            const badgeText = paidByData.roomType;
             const badgeWidth = pdf.getTextWidth(badgeText) + 2;
             const badgeHeight = 2.5;
 
@@ -4957,7 +4967,7 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont(undefined, "normal");
+            pdf.setFont('BeVietnamPro', 'normal');
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
@@ -4966,7 +4976,7 @@ class FinancialReportsComponent {
               }
             });
 
-            pdf.setFont(undefined, "normal");
+            pdf.setFont('BeVietnamPro', 'normal');
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -4975,7 +4985,7 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont(undefined, "bold");
+        pdf.setFont('BeVietnamPro', 'bold');
         pdf.setTextColor(0, 128, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
         pdf.text(
@@ -4990,13 +5000,13 @@ class FinancialReportsComponent {
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont(undefined, "normal");
+        pdf.setFont('BeVietnamPro', 'normal');
         pdf.text("No income items", margin + 1, yPos);
         yPos += 6;
       }
 
       // EXPENSES SECTION
-      pdf.setFont(undefined, "bold");
+      pdf.setFont('BeVietnamPro', 'bold');
       pdf.setFontSize(11);
       pdf.text("EXPENSES", margin, yPos);
       yPos += 5;
@@ -5011,7 +5021,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont(undefined, "bold");
+        pdf.setFont('BeVietnamPro', 'bold');
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
         pdf.text("Person", colPerson, yPos);
@@ -5019,7 +5029,7 @@ class FinancialReportsComponent {
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont(undefined, "normal");
+        pdf.setFont('BeVietnamPro', 'normal');
 
         // Process expense items with avatars
         for (let idx = 0; idx < this.currentReport.expenses.length; idx++) {
@@ -5040,7 +5050,7 @@ class FinancialReportsComponent {
             : "-";
 
           // Wrap item text into multiple lines
-          const itemText = removeDiacritics(item.item);
+          const itemText = item.item;
           const itemLines = wrapText(itemText, 58); // max width for item column
           const mainLineHeight = 4;
           const itemHeight = Math.max(itemLines.length * mainLineHeight, 6);
@@ -5052,7 +5062,7 @@ class FinancialReportsComponent {
 
           if (hasDetails) {
             // Strip diacritics to prevent font breaking in jsPDF (standard fonts don't support Vietnamese)
-            const detailsText = removeDiacritics(item.details);
+            const detailsText = item.details;
             pdf.setFontSize(7);
             // Use wrapMultiLineText to handle newlines properly
             detailsLines = wrapMultiLineText(detailsText, contentWidth - 8);
@@ -5090,12 +5100,12 @@ class FinancialReportsComponent {
 
           // Show last word of investor name
           if (investor) {
-            const lastName = removeDiacritics(getLastWord(investor.name));
+            const lastName = getLastWord(investor.name);
             pdf.text(lastName, colPerson, rowStartY);
           }
 
           // Paid To column
-          const paidToName = removeDiacritics(paidToDisplayName);
+          const paidToName = paidToDisplayName;
           if (paidToName && paidToName !== "-") {
             pdf.text(paidToName, colPaidBy, rowStartY);
             if (paidToData.roomType) {
@@ -5104,7 +5114,7 @@ class FinancialReportsComponent {
               pdf.setFontSize(6);
               pdf.setFillColor(108, 117, 125);
               pdf.setDrawColor(108, 117, 125);
-              const badgeText = removeDiacritics(paidToData.roomType);
+              const badgeText = paidToData.roomType;
               const badgeWidth = pdf.getTextWidth(badgeText) + 2;
               const badgeHeight = 2.5;
               pdf.roundedRect(
@@ -5135,7 +5145,7 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont(undefined, "normal");
+            pdf.setFont('BeVietnamPro', 'normal');
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
@@ -5144,7 +5154,7 @@ class FinancialReportsComponent {
               }
             });
 
-            pdf.setFont(undefined, "normal");
+            pdf.setFont('BeVietnamPro', 'normal');
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -5153,7 +5163,7 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont(undefined, "bold");
+        pdf.setFont('BeVietnamPro', 'bold');
         pdf.setTextColor(128, 0, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
         pdf.text(
@@ -5168,7 +5178,7 @@ class FinancialReportsComponent {
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont(undefined, "normal");
+        pdf.setFont('BeVietnamPro', 'normal');
         pdf.text("No expense items", margin + 1, yPos);
         yPos += 6;
       }
@@ -5183,7 +5193,7 @@ class FinancialReportsComponent {
 
       // NET PROFIT - no box, no background
       pdf.setFontSize(10);
-      pdf.setFont(undefined, "bold");
+      pdf.setFont('BeVietnamPro', 'bold');
       pdf.text("NET PROFIT:", margin, yPos);
       pdf.setTextColor(netProfit >= 0 ? 0 : 150, netProfit >= 0 ? 100 : 0, 0);
       pdf.setFontSize(11);
@@ -5211,7 +5221,7 @@ class FinancialReportsComponent {
 
       if (investorDataSource && investorDataSource.length > 0) {
         pdf.setFontSize(11);
-        pdf.setFont(undefined, "bold");
+        pdf.setFont('BeVietnamPro', 'bold');
         pdf.text("INVESTOR DISTRIBUTION", margin, yPos);
         yPos += 5;
 
@@ -5219,7 +5229,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont(undefined, "bold");
+        pdf.setFont('BeVietnamPro', 'bold');
         pdf.text("Investor", margin + 1, yPos);
         pdf.text("Share", margin + 48, yPos);
         pdf.text("Profit", margin + 63, yPos);
@@ -5228,7 +5238,7 @@ class FinancialReportsComponent {
         pdf.text("Final", pageWidth - margin - 1, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont(undefined, "normal");
+        pdf.setFont('BeVietnamPro', 'normal');
 
         // Process investor distribution
         for (let idx = 0; idx < investorDataSource.length; idx++) {
@@ -5290,7 +5300,7 @@ class FinancialReportsComponent {
           // Show investor name
           pdf.setTextColor(0, 0, 0);
           pdf.setFontSize(8);
-          let truncInvName = removeDiacritics(investorName);
+          let truncInvName = investorName;
           truncInvName =
             truncInvName.length > 30
               ? truncInvName.substring(0, 28) + ".."
@@ -5306,11 +5316,11 @@ class FinancialReportsComponent {
             finalAmount >= 0 ? 100 : 0,
             0,
           );
-          pdf.setFont(undefined, "bold");
+          pdf.setFont('BeVietnamPro', 'bold');
           pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 1, yPos, {
             align: "right",
           });
-          pdf.setFont(undefined, "normal");
+          pdf.setFont('BeVietnamPro', 'normal');
           pdf.setTextColor(0, 0, 0);
           yPos += 4;
         }
@@ -6222,7 +6232,7 @@ class FinancialReportsComponent {
     const totalH = y + 4;
     const defsBlock = defs.length > 0 ? `<defs>${defs.join("")}</defs>` : "";
     return (
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Arial,Helvetica,sans-serif" font-size="13">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Be Vietnam Pro,sans-serif" font-size="13">` +
       defsBlock +
       `<rect width="${W}" height="${totalH}" fill="#ffffff"/>` +
       nodes.join("") +

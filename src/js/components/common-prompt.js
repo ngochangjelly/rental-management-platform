@@ -337,7 +337,7 @@ ${contactPhone}`;
               rows="14"
               readonly
               data-bulk-msg="${index}"
-              style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; line-height: 1.6; background-color: #fafafa; resize: none;"
+              style="font-family: 'Be Vietnam Pro', sans-serif; font-size: 13px; line-height: 1.6; background-color: #fafafa; resize: none;"
             >${escapedMessage}</textarea>
           </div>
         </div>
@@ -1029,7 +1029,7 @@ ${contactPhone}`;
       </div>
       <textarea class="form-control border-0 rounded-0" rows="14" readonly
         id="acCardMsg-${index}"
-        style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.5;background:#fafafa;resize:none;"
+        style="font-family:'Be Vietnam Pro',sans-serif;font-size:12px;line-height:1.5;background:#fafafa;resize:none;"
       >${this.escapeHtml(message)}</textarea>
     `;
   }

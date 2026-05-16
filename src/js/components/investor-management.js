@@ -169,7 +169,7 @@ class InvestorManagementComponent {
                     <img src="${this.getOptimizedAvatarUrl(investor.avatar, 'small')}" alt="Avatar" 
                          class="rounded-circle border" 
                          style="width: 40px; height: 40px; object-fit: cover;" 
-                         onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 40 40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%23667eea\\'/><text x=\\'20\\' y=\\'25\\' text-anchor=\\'middle\\' fill=\\'white\\' font-size=\\'16\\' font-family=\\'Arial\\'>${investor.name.charAt(0).toUpperCase()}</text></svg>';" />
+                         onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 40 40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%23667eea\\'/><text x=\\'20\\' y=\\'25\\' text-anchor=\\'middle\\' fill=\\'white\\' font-size=\\'16\\' font-family=\\'Be Vietnam Pro,sans-serif\\'>${investor.name.charAt(0).toUpperCase()}</text></svg>';" />
                   ` : `
                     <div class="rounded-circle border d-flex align-items-center justify-content-center" 
                          style="width: 40px; height: 40px; background-color: #667eea; color: white; font-weight: bold; font-size: 16px;">
@@ -1505,7 +1505,7 @@ class InvestorManagementComponent {
     body += `<line x1="0" y1="${totalH - 20}" x2="${W}" y2="${totalH - 20}" stroke="#eeeeee" stroke-width="1"/>`;
     body += `<text x="${W/2}" y="${totalH - 8}" font-size="9" fill="#bdbdbd" text-anchor="middle">Rental Management Platform · Auto-generated investor portfolio report</text>`;
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${totalH}" font-family="Arial, Helvetica, sans-serif">${defs}${body}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${totalH}" font-family="Be Vietnam Pro, sans-serif">${defs}${body}</svg>`;
   }
 
   async _fetchImagesAsBase64(urls) {

@@ -108,9 +108,9 @@ class DashboardController {
       this.refreshSectionDataIfNeeded(sectionName);
     }
 
-    // Update active nav link
+    // Update active nav link (only sidebar links which have data-section, not Bootstrap tab nav-links)
     document
-      .querySelectorAll(".nav-link")
+      .querySelectorAll(".nav-link[data-section]")
       .forEach((l) => l.classList.remove("active"));
     const navLink = document.querySelector(
       `.nav-link[data-section="${sectionName}"]`,
