@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap"
       rel="stylesheet"
     />
     <link
@@ -33,7 +33,7 @@
     />
     <style>
       body {
-        font-family: 'Be Vietnam Pro', sans-serif;
+        font-family: 'Noto Serif', serif;
       }
       /* Hide content until translations are ready to prevent language flash */
       body:not(.i18n-ready) {
@@ -1026,7 +1026,7 @@
 
       /* Apple-style export enhancements */
       #exportableFinancialReport {
-        font-family: 'Be Vietnam Pro', sans-serif;
+        font-family: 'Noto Serif', serif;
         line-height: 1.6;
         color: #1d1d1f;
       }
@@ -2634,7 +2634,7 @@
       /* Tenant Timeline Calendar Styles */
       .tenant-timeline-calendar {
         min-width: 1200px;
-        font-family: 'Be Vietnam Pro', sans-serif;
+        font-family: 'Noto Serif', serif;
         --name-col-width: 280px;
       }
 
@@ -5965,6 +5965,15 @@
                           <i class="bi bi-file-pdf me-1"></i
                           ><span data-i18n="createContract.exportPdf">Export PDF</span>
                         </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-primary"
+                          onclick="contractManager.sharePDF()"
+                          title="Share PDF via WhatsApp, Telegram, or other apps"
+                        >
+                          <i class="bi bi-share me-1"></i
+                          ><span data-i18n="createContract.sharePdf">Share</span>
+                        </button>
                       </div>
                     </div>
                     <div
@@ -8258,7 +8267,7 @@
                       rows="18"
                       readonly
                       style="
-                        font-family: 'Be Vietnam Pro', sans-serif;
+                        font-family: 'Noto Serif', serif;
                         font-size: 14px;
                         line-height: 1.6;
                         background-color: #f8f9fa;

@@ -181,7 +181,7 @@ class YearCalendar {
         border-radius: 20px;
         padding: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        font-family: 'Be Vietnam Pro', sans-serif;
+        font-family: 'Noto Serif', serif;
       }
 
       .year-calendar-header {

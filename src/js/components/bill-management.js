@@ -1587,7 +1587,7 @@ class BillManagementComponent {
       </div>` : '';
 
     return `
-      <div id="utilityBreakdownPrintArea" style="font-family:'Be Vietnam Pro',sans-serif;padding:20px;background:#fff;">
+      <div id="utilityBreakdownPrintArea" style="font-family:'Noto Serif',serif;padding:20px;background:#fff;">
 
         <!-- Header -->
         <div style="border-bottom:3px solid #0d6efd;padding-bottom:10px;margin-bottom:12px;">

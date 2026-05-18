@@ -473,7 +473,7 @@ class DocsManagement {
         font-size: 26pt;
         font-weight: 700;
         color: #202124;
-        font-family: 'Be Vietnam Pro', sans-serif;
+        font-family: 'Noto Serif', serif;
         margin-bottom: 12px;
         padding-bottom: 12px;
         border-bottom: 1px solid #e0e0e0;
@@ -482,7 +482,7 @@ class DocsManagement {
 
       /* Quill overrides for Google Docs feel */
       .docs-page .ql-editor {
-        font-family: 'Be Vietnam Pro', sans-serif;
+        font-family: 'Noto Serif', serif;
         font-size: 11pt;
         line-height: 1.5;
         color: #202124;

@@ -2727,7 +2727,7 @@ class ContractManagementComponent {
         : this.contractData.address || "[Property Address]";
 
     preview.innerHTML = `
-            <div class="contract-content" style="font-family: 'Be Vietnam Pro', sans-serif; line-height: 1.6; padding: 20px;">
+            <div class="contract-content" style="font-family: 'Noto Serif', serif; line-height: 1.6; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h2 style="font-weight: bold; margin-bottom: 10px;">HOUSE SHARING AGREEMENT</h2>
                     <p><strong>Full address:</strong> ${propertyAddress}</p>
@@ -3432,7 +3432,15 @@ class ContractManagementComponent {
     return num.toString();
   }
 
-  async exportToPDF() {
+  async sharePDF() {
+    if (!navigator.canShare) {
+      showToast("Sharing is not supported on this browser. Please use the Export PDF button to download and share manually.", "warning");
+      return;
+    }
+    await this.exportToPDF("share");
+  }
+
+  async exportToPDF(mode = "download") {
     try {
       // Sync form values to contractData before export to ensure we have the latest values
       this.syncFormValuesToContractData();
@@ -3484,11 +3492,15 @@ class ContractManagementComponent {
 
       // Show loading state
       const exportBtn = document.querySelector(
-        '[onclick="contractManager.exportToPDF()"]',
+        mode === "share"
+          ? '[onclick="contractManager.sharePDF()"]'
+          : '[onclick="contractManager.exportToPDF()"]',
       );
       if (exportBtn) {
         exportBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
+          mode === "share"
+            ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Preparing...'
+            : '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
         exportBtn.disabled = true;
       }
 
@@ -3582,7 +3594,7 @@ class ContractManagementComponent {
       // Create PDF with text-based approach for better control
       const pdf = new jsPDF("p", "mm", "a4");
 
-      // Embed Be Vietnam Pro for full Vietnamese support
+      // Embed Noto Serif for full Vietnamese support
       const _loadFont = async (url) => {
         const buf = await (await fetch(url)).arrayBuffer();
         const bytes = new Uint8Array(buf);
@@ -3591,14 +3603,14 @@ class ContractManagementComponent {
         return btoa(s);
       };
       const [_regB64, _boldB64] = await Promise.all([
-        _loadFont('/fonts/BeVietnamPro-Regular.ttf'),
-        _loadFont('/fonts/BeVietnamPro-Bold.ttf'),
+        _loadFont('/fonts/NotoSerif-Regular.ttf'),
+        _loadFont('/fonts/NotoSerif-Bold.ttf'),
       ]);
-      pdf.addFileToVFS('BeVietnamPro-Regular.ttf', _regB64);
-      pdf.addFont('BeVietnamPro-Regular.ttf', 'BeVietnamPro', 'normal');
-      pdf.addFileToVFS('BeVietnamPro-Bold.ttf', _boldB64);
-      pdf.addFont('BeVietnamPro-Bold.ttf', 'BeVietnamPro', 'bold');
-      pdf.setFont('BeVietnamPro', 'normal');
+      pdf.addFileToVFS('NotoSerif-Regular.ttf', _regB64);
+      pdf.addFont('NotoSerif-Regular.ttf', 'NotoSerif', 'normal');
+      pdf.addFileToVFS('NotoSerif-Bold.ttf', _boldB64);
+      pdf.addFont('NotoSerif-Bold.ttf', 'NotoSerif', 'bold');
+      pdf.setFont('NotoSerif', 'normal');
 
       // A4 dimensions in mm
       const pageWidth = 210;
@@ -3620,7 +3632,7 @@ class ContractManagementComponent {
         for (let i = 1; i <= totalPages; i++) {
           pdf.setPage(i);
           pdf.setFontSize(10);
-          pdf.setFont('BeVietnamPro', 'normal');
+          pdf.setFont('NotoSerif', 'normal');
 
           // Add page number at middle bottom
           const pageText = `${i}`;
@@ -3651,9 +3663,9 @@ class ContractManagementComponent {
 
         pdf.setFontSize(fontSize);
         if (isBold) {
-          pdf.setFont('BeVietnamPro', 'bold');
+          pdf.setFont('NotoSerif', 'bold');
         } else {
-          pdf.setFont('BeVietnamPro', 'normal');
+          pdf.setFont('NotoSerif', 'normal');
         }
 
         // Check if we need a new page (leaving space for page number)
@@ -4135,20 +4147,40 @@ class ContractManagementComponent {
       // Add page numbers to all pages
       addPageNumbers();
 
-      pdf.save(filename);
-      console.log(`✅ Contract exported successfully as text-based PDF`);
-      showToast("Contract exported successfully!", "success");
+      if (mode === "share") {
+        const pdfBlob = pdf.output("blob");
+        const file = new File([pdfBlob], filename, { type: "application/pdf" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          console.log(`✅ Contract shared successfully`);
+          showToast("Contract shared successfully!", "success");
+        } else {
+          // Fallback: download if file sharing not supported (e.g. desktop)
+          pdf.save(filename);
+          showToast("File sharing not supported on this device — PDF downloaded instead.", "warning");
+        }
+      } else {
+        pdf.save(filename);
+        console.log(`✅ Contract exported successfully as text-based PDF`);
+        showToast("Contract exported successfully!", "success");
+      }
     } catch (error) {
       console.error("Error exporting PDF:", error);
       showToast("Error exporting PDF: " + error.message, "error");
     } finally {
       // Restore button state
-      const exportBtn = document.querySelector(
-        '[onclick="contractManager.exportToPDF()"]',
-      );
-      if (exportBtn) {
-        exportBtn.innerHTML = '<i class="bi bi-file-pdf me-1"></i><span data-i18n="createContract.exportPdf">Export PDF</span>';
-        exportBtn.disabled = false;
+      if (mode === "share") {
+        const shareBtn = document.querySelector('[onclick="contractManager.sharePDF()"]');
+        if (shareBtn) {
+          shareBtn.innerHTML = '<i class="bi bi-share me-1"></i><span data-i18n="createContract.sharePdf">Share</span>';
+          shareBtn.disabled = false;
+        }
+      } else {
+        const exportBtn = document.querySelector('[onclick="contractManager.exportToPDF()"]');
+        if (exportBtn) {
+          exportBtn.innerHTML = '<i class="bi bi-file-pdf me-1"></i><span data-i18n="createContract.exportPdf">Export PDF</span>';
+          exportBtn.disabled = false;
+        }
       }
     }
   }
@@ -4275,7 +4307,7 @@ class ContractManagementComponent {
     });
 
     return `
-            <div style="padding: 0; margin: 0; font-family: 'Be Vietnam Pro', sans-serif; line-height: 1.8; color: #000;">
+            <div style="padding: 0; margin: 0; font-family: 'Noto Serif', serif; line-height: 1.8; color: #000;">
                 <!-- Header Section -->
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h2 style="font-weight: bold; margin-bottom: 15px; font-size: 18px;">HOUSE SHARING AGREEMENT</h2>

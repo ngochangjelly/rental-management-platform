@@ -4740,7 +4740,7 @@ class FinancialReportsComponent {
         format: "a4",
       });
 
-      // Embed Be Vietnam Pro for full Vietnamese support
+      // Embed Noto Serif for full Vietnamese support
       const _loadFont = async (url) => {
         const buf = await (await fetch(url)).arrayBuffer();
         const bytes = new Uint8Array(buf);
@@ -4749,14 +4749,14 @@ class FinancialReportsComponent {
         return btoa(s);
       };
       const [_regB64, _boldB64] = await Promise.all([
-        _loadFont('/fonts/BeVietnamPro-Regular.ttf'),
-        _loadFont('/fonts/BeVietnamPro-Bold.ttf'),
+        _loadFont('/fonts/NotoSerif-Regular.ttf'),
+        _loadFont('/fonts/NotoSerif-Bold.ttf'),
       ]);
-      pdf.addFileToVFS('BeVietnamPro-Regular.ttf', _regB64);
-      pdf.addFont('BeVietnamPro-Regular.ttf', 'BeVietnamPro', 'normal');
-      pdf.addFileToVFS('BeVietnamPro-Bold.ttf', _boldB64);
-      pdf.addFont('BeVietnamPro-Bold.ttf', 'BeVietnamPro', 'bold');
-      pdf.setFont('BeVietnamPro', 'normal');
+      pdf.addFileToVFS('NotoSerif-Regular.ttf', _regB64);
+      pdf.addFont('NotoSerif-Regular.ttf', 'NotoSerif', 'normal');
+      pdf.addFileToVFS('NotoSerif-Bold.ttf', _boldB64);
+      pdf.addFont('NotoSerif-Bold.ttf', 'NotoSerif', 'bold');
+      pdf.setFont('NotoSerif', 'normal');
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       let yPos = 15;
@@ -4902,7 +4902,7 @@ class FinancialReportsComponent {
       });
 
       pdf.setFontSize(16);
-      pdf.setFont('BeVietnamPro', 'bold');
+      pdf.setFont('NotoSerif', 'bold');
       pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: "center" });
 
       // Add month/year on the right side of the same line
@@ -4911,7 +4911,7 @@ class FinancialReportsComponent {
 
       yPos += 6;
       pdf.setFontSize(9);
-      pdf.setFont('BeVietnamPro', 'normal');
+      pdf.setFont('NotoSerif', 'normal');
       const propertyLines = propertyHeader.split("\n");
       propertyLines.forEach((line) => {
         pdf.text(line, pageWidth / 2, yPos, { align: "center" });
@@ -4933,7 +4933,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(255, 243, 243);
         pdf.rect(margin + _accentW, yPos, contentWidth - _accentW, _barH, 'F');
         // Label
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.setFontSize(7.5);
         pdf.setTextColor(185, 28, 28);
         pdf.text('PUB OVERAGE', margin + _accentW + 2.5, yPos + 4.5);
@@ -4942,7 +4942,7 @@ class FinancialReportsComponent {
         const _period = (_overBill.billingPeriodStart || _overBill.billingPeriodEnd)
           ? `${_fmtD(_overBill.billingPeriodStart) || '?'}-${_fmtD(_overBill.billingPeriodEnd) || '?'}`
           : `${_overBill.month}/${_overBill.year}`;
-        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFont('NotoSerif', 'normal');
         pdf.setFontSize(7);
         pdf.setTextColor(120, 0, 0);
         pdf.text(
@@ -4951,7 +4951,7 @@ class FinancialReportsComponent {
         );
         // Badge pill on right edge
         const _badgeTxt = `+$${_excess.toFixed(2)}`;
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.setFontSize(7);
         const _bw = pdf.getTextWidth(_badgeTxt) + 4;
         const _bx = pageWidth - margin - _bw - 1;
@@ -4964,7 +4964,7 @@ class FinancialReportsComponent {
       }
 
       // INCOME SECTION
-      pdf.setFont('BeVietnamPro', 'bold');
+      pdf.setFont('NotoSerif', 'bold');
       pdf.setFontSize(11);
       pdf.text("INCOME", margin, yPos);
       yPos += 5;
@@ -4983,7 +4983,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.setFontSize(8);
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
@@ -4992,7 +4992,7 @@ class FinancialReportsComponent {
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFont('NotoSerif', 'normal');
 
         // Process income items with avatars
         for (let idx = 0; idx < this.currentReport.income.length; idx++) {
@@ -5106,7 +5106,7 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont('BeVietnamPro', 'normal');
+            pdf.setFont('NotoSerif', 'normal');
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
@@ -5115,7 +5115,7 @@ class FinancialReportsComponent {
               }
             });
 
-            pdf.setFont('BeVietnamPro', 'normal');
+            pdf.setFont('NotoSerif', 'normal');
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -5124,7 +5124,7 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.setTextColor(0, 128, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
         pdf.text(
@@ -5139,13 +5139,13 @@ class FinancialReportsComponent {
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFont('NotoSerif', 'normal');
         pdf.text("No income items", margin + 1, yPos);
         yPos += 6;
       }
 
       // EXPENSES SECTION
-      pdf.setFont('BeVietnamPro', 'bold');
+      pdf.setFont('NotoSerif', 'bold');
       pdf.setFontSize(11);
       pdf.text("EXPENSES", margin, yPos);
       yPos += 5;
@@ -5160,7 +5160,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
         pdf.text("Person", colPerson, yPos);
@@ -5168,7 +5168,7 @@ class FinancialReportsComponent {
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFont('NotoSerif', 'normal');
 
         // Process expense items with avatars
         for (let idx = 0; idx < this.currentReport.expenses.length; idx++) {
@@ -5284,7 +5284,7 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont('BeVietnamPro', 'normal');
+            pdf.setFont('NotoSerif', 'normal');
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
@@ -5293,7 +5293,7 @@ class FinancialReportsComponent {
               }
             });
 
-            pdf.setFont('BeVietnamPro', 'normal');
+            pdf.setFont('NotoSerif', 'normal');
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -5302,7 +5302,7 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.setTextColor(128, 0, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
         pdf.text(
@@ -5317,7 +5317,7 @@ class FinancialReportsComponent {
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFont('NotoSerif', 'normal');
         pdf.text("No expense items", margin + 1, yPos);
         yPos += 6;
       }
@@ -5332,7 +5332,7 @@ class FinancialReportsComponent {
 
       // NET PROFIT - no box, no background
       pdf.setFontSize(10);
-      pdf.setFont('BeVietnamPro', 'bold');
+      pdf.setFont('NotoSerif', 'bold');
       pdf.text("NET PROFIT:", margin, yPos);
       pdf.setTextColor(netProfit >= 0 ? 0 : 150, netProfit >= 0 ? 100 : 0, 0);
       pdf.setFontSize(11);
@@ -5360,7 +5360,7 @@ class FinancialReportsComponent {
 
       if (investorDataSource && investorDataSource.length > 0) {
         pdf.setFontSize(11);
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.text("INVESTOR DISTRIBUTION", margin, yPos);
         yPos += 5;
 
@@ -5368,7 +5368,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont('BeVietnamPro', 'bold');
+        pdf.setFont('NotoSerif', 'bold');
         pdf.text("Investor", margin + 1, yPos);
         pdf.text("Share", margin + 48, yPos);
         pdf.text("Profit", margin + 63, yPos);
@@ -5377,7 +5377,7 @@ class FinancialReportsComponent {
         pdf.text("Final", pageWidth - margin - 1, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont('BeVietnamPro', 'normal');
+        pdf.setFont('NotoSerif', 'normal');
 
         // Process investor distribution
         for (let idx = 0; idx < investorDataSource.length; idx++) {
@@ -5455,11 +5455,11 @@ class FinancialReportsComponent {
             finalAmount >= 0 ? 100 : 0,
             0,
           );
-          pdf.setFont('BeVietnamPro', 'bold');
+          pdf.setFont('NotoSerif', 'bold');
           pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 1, yPos, {
             align: "right",
           });
-          pdf.setFont('BeVietnamPro', 'normal');
+          pdf.setFont('NotoSerif', 'normal');
           pdf.setTextColor(0, 0, 0);
           yPos += 4;
         }
@@ -5765,6 +5765,25 @@ class FinancialReportsComponent {
     } catch {
       /* logo optional */
     }
+
+    // Fetch Noto Serif as base64 for @font-face embedding — required for canvas rendering
+    const _toB64DataUri = async (url) => {
+      try {
+        const buf = await (await fetch(url)).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let s = '';
+        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        return `data:font/truetype;base64,${btoa(s)}`;
+      } catch { return null; }
+    };
+    const [fontRegUri, fontBoldUri] = await Promise.all([
+      _toB64DataUri('/fonts/NotoSerif-Regular.ttf'),
+      _toB64DataUri('/fonts/NotoSerif-Bold.ttf'),
+    ]);
+    const fontFaceStyle = (fontRegUri || fontBoldUri) ? `<style>
+      @font-face { font-family: 'Noto Serif'; font-weight: 400; src: url('${fontRegUri}') format('truetype'); }
+      @font-face { font-family: 'Noto Serif'; font-weight: 700; src: url('${fontBoldUri}') format('truetype'); }
+    </style>` : '';
 
     // Property info
     const property = this.properties?.find(
@@ -6399,9 +6418,9 @@ class FinancialReportsComponent {
     y += 24;
 
     const totalH = y + 4;
-    const defsBlock = defs.length > 0 ? `<defs>${defs.join("")}</defs>` : "";
+    const defsBlock = `<defs>${fontFaceStyle}${defs.join("")}</defs>`;
     return (
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Be Vietnam Pro,sans-serif" font-size="13">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Noto Serif,serif" font-size="13">` +
       defsBlock +
       `<rect width="${W}" height="${totalH}" fill="#ffffff"/>` +
       nodes.join("") +
