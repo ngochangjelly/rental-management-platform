@@ -133,6 +133,10 @@ const API_CONFIG = {
     CCTV_GO2RTC_STOP: "/api/cctv/go2rtc/stop",
     CCTV_GO2RTC_RELOAD: "/api/cctv/go2rtc/reload",
     CCTV_GO2RTC_APPLY_ALL: "/api/cctv/go2rtc/apply-all",
+    CCTV_GATEWAYS: "/api/cctv/gateways",
+    CCTV_GATEWAY_BY_ID: (id) => `/api/cctv/gateways/${id}`,
+    CCTV_GATEWAY_APPLY: (id) => `/api/cctv/gateways/${id}/apply`,
+    CCTV_GATEWAY_CONFIG: (id) => `/api/cctv/gateways/${id}/config`,
 
     // Docs
     DOCS: "/api/docs",

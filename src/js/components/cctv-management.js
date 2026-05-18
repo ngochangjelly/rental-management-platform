@@ -9,6 +9,7 @@ class CctvManagementComponent {
     this.hlsPlayers = {}; // cameraId → Hls instance
     this.editingId = null;
     this.properties = [];
+    this.gateways = [];   // per-property remote access config
     this.hlsLib = null; // loaded lazily
     this._container = null;
     this.init();
@@ -44,9 +45,10 @@ class CctvManagementComponent {
   async loadCameras() {
     this._render(this._loadingHtml());
     try {
-      const [camRes, propRes] = await Promise.all([
+      const [camRes, propRes, gwRes] = await Promise.all([
         API.get(API_CONFIG.ENDPOINTS.CCTV_CAMERAS),
         API.get(API_CONFIG.ENDPOINTS.PROPERTIES),
+        API.get(API_CONFIG.ENDPOINTS.CCTV_GATEWAYS).catch(() => null),
       ]);
 
       const camData = await camRes.json();
@@ -54,6 +56,11 @@ class CctvManagementComponent {
 
       this.cameras = camData.success ? camData.cameras : [];
       this.properties = propData.success ? propData.properties : [];
+
+      if (gwRes) {
+        const gwData = await gwRes.json();
+        this.gateways = gwData.success ? gwData.gateways : [];
+      }
 
       this._render(this._mainHtml());
       this._attachEvents();
@@ -111,6 +118,9 @@ class CctvManagementComponent {
       <!-- go2rtc status bar -->
       <div id="cctvGo2rtcBar"></div>
 
+      <!-- Property Gateways -->
+      ${this._gatewaysSectionHtml()}
+
       <!-- Camera grid -->
       ${
         this.cameras.length === 0
@@ -120,8 +130,11 @@ class CctvManagementComponent {
             </div>`
       }
 
-      <!-- Add / Edit Modal -->
+      <!-- Add / Edit Camera Modal -->
       ${this._modalHtml()}
+
+      <!-- Gateway Edit Modal -->
+      ${this._gatewayModalHtml()}
     </div>
 
     <style>
@@ -443,6 +456,22 @@ class CctvManagementComponent {
       this._selectedPropertyName = prop ? `${prop.propertyId} – ${prop.address || ""}` : "";
     });
 
+    // Gateway modal events
+    document.getElementById("cctvGatewayForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      this._saveGateway();
+    });
+    document.getElementById("cctvGatewayApplyBtn")?.addEventListener("click", () => {
+      if (this._editingGatewayPropertyId) this.applyGateway(this._editingGatewayPropertyId);
+    });
+    document.getElementById("cctvGatewayTogglePwd")?.addEventListener("click", () => {
+      const input = document.getElementById("cctvGatewayRouterPwd");
+      const icon = document.getElementById("cctvGatewayTogglePwdIcon");
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      icon.className = show ? "bi bi-eye-slash" : "bi bi-eye";
+    });
+
     // Restart any already-streaming cameras
     this.cameras.filter((c) => c.streaming).forEach((c) => {
       this._attachHlsPlayer(c._id);
@@ -527,6 +556,249 @@ class CctvManagementComponent {
     if (data.success) window.showToast?.("go2rtc reloaded with latest camera list", "success");
     else window.showToast?.(data.message, "danger");
     await this._refreshGo2rtcBar();
+  }
+
+  // ─── Property Gateways ─────────────────────────────────────────────────────
+
+  _gatewaysSectionHtml() {
+    const propertiesWithCameras = this.gateways.filter((g) => g.cameraCount > 0);
+    if (propertiesWithCameras.length === 0) return "";
+
+    const allRemote = propertiesWithCameras.every(
+      (g) => g.remoteCameraCount === g.enabledCameraCount && g.enabledCameraCount > 0
+    );
+
+    return `
+    <div class="card mb-3 border-0" style="background:#f8fafc;border-left:4px solid #6366f1 !important;border-radius:8px">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <span class="fw-semibold" style="font-size:.9rem">
+            <i class="bi bi-building-gear me-1" style="color:#6366f1"></i>
+            Property Remote Access
+          </span>
+          <button class="btn btn-link btn-sm p-0 text-muted" type="button"
+            data-bs-toggle="collapse" data-bs-target="#cctvGatewaysPanel">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+        </div>
+        <div class="collapse show" id="cctvGatewaysPanel">
+          <div class="row g-2 mt-1">
+            ${propertiesWithCameras.map((g) => this._gatewayCardHtml(g)).join("")}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  _gatewayCardHtml(gw) {
+    const hasGateway = !!gw.go2rtcGatewayUrl;
+    const allRemote =
+      gw.remoteCameraCount === gw.enabledCameraCount && gw.enabledCameraCount > 0;
+    const partialRemote = gw.remoteCameraCount > 0 && !allRemote;
+
+    const statusColor = allRemote ? "#22c55e" : partialRemote ? "#f59e0b" : "#ef4444";
+    const statusIcon = allRemote ? "bi-check-circle-fill" : partialRemote ? "bi-exclamation-circle-fill" : "bi-x-circle-fill";
+    const statusText = allRemote
+      ? `${gw.remoteCameraCount}/${gw.enabledCameraCount} remote`
+      : partialRemote
+      ? `${gw.remoteCameraCount}/${gw.enabledCameraCount} remote`
+      : "Not configured";
+
+    return `
+    <div class="col-sm-6 col-lg-4">
+      <div class="p-2 rounded border bg-white d-flex flex-column gap-1" style="font-size:.82rem">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold">${this._esc(gw.propertyId)}</div>
+            <div class="text-muted" style="font-size:.75rem">${this._esc(gw.address || "")}</div>
+          </div>
+          <span style="color:${statusColor};font-size:.75rem;white-space:nowrap">
+            <i class="bi ${statusIcon} me-1"></i>${statusText}
+          </span>
+        </div>
+        ${hasGateway
+          ? `<div class="text-truncate" style="color:#6366f1;font-size:.72rem" title="${this._esc(gw.go2rtcGatewayUrl)}">
+               <i class="bi bi-cloud-check me-1"></i>${this._esc(gw.go2rtcGatewayUrl)}
+             </div>`
+          : `<div style="color:#94a3b8;font-size:.72rem"><i class="bi bi-cloud-slash me-1"></i>No gateway set</div>`
+        }
+        ${gw.routerIp ? `<div style="color:#64748b;font-size:.72rem"><i class="bi bi-router me-1"></i>Router: ${this._esc(gw.routerIp)}</div>` : ""}
+        <div class="d-flex gap-1 mt-1 flex-wrap">
+          <button class="btn btn-outline-primary btn-sm" style="font-size:.7rem;padding:.2rem .5rem"
+            onclick="window.cctvManager._openGatewayModal('${this._esc(gw.propertyId)}')">
+            <i class="bi bi-pencil me-1"></i>Edit
+          </button>
+          ${hasGateway ? `
+          <button class="btn btn-success btn-sm" style="font-size:.7rem;padding:.2rem .5rem"
+            onclick="window.cctvManager.applyGateway('${this._esc(gw.propertyId)}')">
+            <i class="bi bi-lightning-charge-fill me-1"></i>Apply
+          </button>` : ""}
+          <a class="btn btn-outline-secondary btn-sm" style="font-size:.7rem;padding:.2rem .5rem"
+            href="${buildApiUrl(API_CONFIG.ENDPOINTS.CCTV_GATEWAY_CONFIG(gw.propertyId))}"
+            download="go2rtc-${this._esc(gw.propertyId)}.yaml">
+            <i class="bi bi-download me-1"></i>Config
+          </a>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  _gatewayModalHtml() {
+    return `
+    <div class="modal fade" id="cctvGatewayModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="bi bi-building-gear me-2 text-primary"></i>
+              Remote Gateway — <span id="cctvGatewayPropertyLabel"></span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="cctvGatewayForm">
+            <div class="modal-body">
+              <div class="alert alert-primary d-flex gap-2 align-items-start" style="font-size:.82rem">
+                <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                <div>
+                  Set the <strong>go2rtc URL</strong> running at this property (via Tailscale Pi or router VPN),
+                  then click <strong>Apply to cameras</strong> to configure all cameras there for remote streaming.
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">go2rtc Gateway URL</label>
+                <input type="text" class="form-control" id="cctvGatewayUrl"
+                  placeholder="http://100.x.x.x:1984  (Tailscale IP)  or  https://cam.yourdomain.com" />
+                <div class="form-text">The go2rtc API endpoint reachable from your backend server</div>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Router Admin IP</label>
+                  <input type="text" class="form-control" id="cctvGatewayRouterIp"
+                    placeholder="192.168.0.1" />
+                  <div class="form-text">For reference — open router admin panel</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Router Admin Password</label>
+                  <div class="input-group">
+                    <input type="password" class="form-control" id="cctvGatewayRouterPwd"
+                      placeholder="Router login password" autocomplete="new-password" />
+                    <button type="button" class="btn btn-outline-secondary" id="cctvGatewayTogglePwd">
+                      <i class="bi bi-eye" id="cctvGatewayTogglePwdIcon"></i>
+                    </button>
+                  </div>
+                  <div class="form-text">Stored securely for your reference</div>
+                </div>
+              </div>
+
+              <hr class="my-3" />
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="fw-semibold" style="font-size:.85rem">go2rtc streams at this property</span>
+              </div>
+              <div id="cctvGatewayStreamStatus" class="text-muted small">Save gateway URL to check live streams.</div>
+            </div>
+            <div class="modal-footer justify-content-between">
+              <button type="button" class="btn btn-success" id="cctvGatewayApplyBtn" disabled>
+                <i class="bi bi-lightning-charge-fill me-1"></i>Apply to all cameras
+              </button>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="cctvGatewaySaveBtn">
+                  <i class="bi bi-floppy me-1"></i>Save
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  _openGatewayModal(propertyId) {
+    const gw = this.gateways.find((g) => g.propertyId === propertyId);
+    if (!gw) return;
+
+    this._editingGatewayPropertyId = propertyId;
+
+    document.getElementById("cctvGatewayPropertyLabel").textContent = `${propertyId} — ${gw.address || ""}`;
+    document.getElementById("cctvGatewayUrl").value = gw.go2rtcGatewayUrl || "";
+    document.getElementById("cctvGatewayRouterIp").value = gw.routerIp || "";
+    document.getElementById("cctvGatewayRouterPwd").value = gw.routerAdminPassword || "";
+
+    const applyBtn = document.getElementById("cctvGatewayApplyBtn");
+    if (applyBtn) applyBtn.disabled = !gw.go2rtcGatewayUrl;
+
+    document.getElementById("cctvGatewayStreamStatus").innerHTML =
+      gw.go2rtcGatewayUrl
+        ? `<span class="text-muted">Cameras configured for remote: <strong>${gw.remoteCameraCount}/${gw.enabledCameraCount}</strong></span>`
+        : `<span class="text-muted">Set a gateway URL, save, then click Apply.</span>`;
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("cctvGatewayModal")).show();
+  }
+
+  async _saveGateway() {
+    const propertyId = this._editingGatewayPropertyId;
+    if (!propertyId) return;
+
+    const saveBtn = document.getElementById("cctvGatewaySaveBtn");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Saving…`; }
+
+    try {
+      const payload = {
+        go2rtcGatewayUrl: document.getElementById("cctvGatewayUrl").value.trim(),
+        routerIp: document.getElementById("cctvGatewayRouterIp").value.trim(),
+        routerAdminPassword: document.getElementById("cctvGatewayRouterPwd").value,
+      };
+
+      const res = await API.put(API_CONFIG.ENDPOINTS.CCTV_GATEWAY_BY_ID(propertyId), payload);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || "Save failed");
+
+      // Update local state
+      const gw = this.gateways.find((g) => g.propertyId === propertyId);
+      if (gw) {
+        gw.go2rtcGatewayUrl = payload.go2rtcGatewayUrl;
+        gw.routerIp = payload.routerIp;
+        gw.routerAdminPassword = payload.routerAdminPassword;
+      }
+
+      const applyBtn = document.getElementById("cctvGatewayApplyBtn");
+      if (applyBtn) applyBtn.disabled = !payload.go2rtcGatewayUrl;
+
+      document.getElementById("cctvGatewayStreamStatus").innerHTML =
+        `<span class="text-success"><i class="bi bi-check-circle me-1"></i>Saved. Click Apply to update all cameras at this property.</span>`;
+
+      window.showToast?.("Gateway settings saved", "success");
+    } catch (err) {
+      window.showToast?.(`Save failed: ${err.message}`, "danger");
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = `<i class="bi bi-floppy me-1"></i>Save`; }
+    }
+  }
+
+  async applyGateway(propertyId) {
+    const btn = document.getElementById("cctvGatewayApplyBtn") ||
+      document.querySelector(`[onclick*="applyGateway('${propertyId}')"]`);
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Applying…`; }
+
+    try {
+      const res = await API.post(API_CONFIG.ENDPOINTS.CCTV_GATEWAY_APPLY(propertyId));
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || "Apply failed");
+
+      window.showToast?.(
+        `Gateway applied to ${data.updated} camera${data.updated !== 1 ? "s" : ""} at ${propertyId}`,
+        "success"
+      );
+
+      bootstrap.Modal.getInstance(document.getElementById("cctvGatewayModal"))?.hide();
+      this._stopAllPlayers();
+      await this.loadCameras();
+    } catch (err) {
+      window.showToast?.(`Apply failed: ${err.message}`, "danger");
+      if (btn) { btn.disabled = false; btn.innerHTML = `<i class="bi bi-lightning-charge-fill me-1"></i>Apply to all cameras`; }
+    }
   }
 
   // ─── Modal ─────────────────────────────────────────────────────────────────

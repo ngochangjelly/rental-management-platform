@@ -18,6 +18,9 @@ class CommonPromptComponent {
     this.lastFetchedPropertyId = null;
     this.acScheduledData = {}; // propertyId -> { tenants, company, contactTenantId }
 
+    // Camera Order dynamic state
+    this.cameraQuantity = 2;
+
     this.prompts = this.initializePrompts();
     this.eventsBound = false;
     this.init();
@@ -79,6 +82,14 @@ class CommonPromptComponent {
         requiresProperty: true,
         template: this.getAcCleanBookingTemplate.bind(this),
       },
+      {
+        id: "camera-order",
+        name: "Order Camera",
+        description: "Tin nhắn đặt mua Tapo TC71 + thẻ nhớ 64GB",
+        icon: "bi-camera-video",
+        requiresProperty: true,
+        template: this.getCameraOrderTemplate.bind(this),
+      },
     ];
   }
 
@@ -105,15 +116,19 @@ class CommonPromptComponent {
     const vndAccountNo = property?.settlementVnd?.accountNumber || "";
     const vndAccountHolder = property?.settlementVnd?.accountHolderName || "";
 
-    const sgdBlock = sgdBank ? `\n🇸🇬 Tài khoản Singapore (${sgdBank})
+    const sgdBlock = sgdBank
+      ? `\n🇸🇬 Tài khoản Singapore (${sgdBank})
 • Bank: ${sgdBank}
 • Account No: ${sgdAccountNo}${sgdPayNow ? `\n• PayNow: ${sgdPayNow}` : ""}
-• Name: ${sgdAccountHolder}` : "";
+• Name: ${sgdAccountHolder}`
+      : "";
 
-    const vndBlock = vndBank ? `\n🇻🇳 Tài khoản Việt Nam (${vndBank})
+    const vndBlock = vndBank
+      ? `\n🇻🇳 Tài khoản Việt Nam (${vndBank})
 • Bank: ${vndBank}
 • Account No: ${vndAccountNo}
-• Tên: ${vndAccountHolder}` : "";
+• Tên: ${vndAccountHolder}`
+      : "";
 
     return `Hi mọi người 🌸
 
@@ -168,6 +183,26 @@ bill: ${bill}$
 
 when u arrive the property, pls call this whatssap number to help open door 
 ${contactPhone}`;
+  }
+
+  getCameraOrderTemplate(property) {
+    const unit = property?.unit ? `#${property.unit} ` : "";
+    const address = property?.address || "[address]";
+    const qty = this.cameraQuantity;
+    const sets = qty === 1 ? "set" : "sets";
+    return `Name
+Jelly
+
+Contact
+Phone: 96977399
+
+Address
+${unit}${address}
+
+Order
+${qty} ${sets} of Tapo TC71 + 64GB memory card
+
+Please leave at the doorstep.`;
   }
 
   bindEvents() {
@@ -598,7 +633,9 @@ ${contactPhone}`;
     );
     if (controlsContainer) {
       controlsContainer.style.display =
-        prompt.id === "ac-clean-booking" ? "block" : "none";
+        prompt.id === "ac-clean-booking" || prompt.id === "camera-order"
+          ? "block"
+          : "none";
     }
 
     // Show/hide WhatsApp button
@@ -703,6 +740,10 @@ ${contactPhone}`;
       }
     }
 
+    if (prompt.id === "camera-order") {
+      this.renderPromptControls();
+    }
+
     // Generate prompt text
     const promptText = prompt.template(property);
     previewTextarea.value = promptText;
@@ -771,7 +812,9 @@ ${contactPhone}`;
       }
 
       // Default selected contact is the main tenant (isMainTenant is a top-level field from API)
-      const mainTenant = this.propertyTenants.find((t) => t.isMainTenant) || this.propertyTenants[0];
+      const mainTenant =
+        this.propertyTenants.find((t) => t.isMainTenant) ||
+        this.propertyTenants[0];
       this.selectedContactTenantId = mainTenant?._id || null;
     } catch (e) {
       console.error("Error fetching property tenants:", e);
@@ -1018,14 +1061,18 @@ ${contactPhone}`;
           </div>
         </div>
         ${companyHtml}
-        ${tenants.length > 0 ? `
+        ${
+          tenants.length > 0
+            ? `
           <div class="mb-2">
             <label class="form-label small fw-bold mb-1" style="font-size:11px;">Người liên hệ mở cửa</label>
             <select class="form-select form-select-sm" id="acCardContact-${index}"
               onchange="commonPromptComponent.updateAcCardContact('${property.propertyId}', ${index}, this.value)">
               ${tenantOptions}
             </select>
-          </div>` : ""}
+          </div>`
+            : ""
+        }
       </div>
       <textarea class="form-control border-0 rounded-0" rows="14" readonly
         id="acCardMsg-${index}"
@@ -1043,7 +1090,11 @@ ${contactPhone}`;
     const textarea = document.getElementById(`acCardMsg-${index}`);
     if (textarea) {
       textarea.value = this.getAcCleanBookingTemplateFor(
-        property, data.tenants, data.contactTenantId, data.date, data.time,
+        property,
+        data.tenants,
+        data.contactTenantId,
+        data.date,
+        data.time,
       );
     }
   }
@@ -1057,7 +1108,11 @@ ${contactPhone}`;
     const textarea = document.getElementById(`acCardMsg-${index}`);
     if (textarea) {
       textarea.value = this.getAcCleanBookingTemplateFor(
-        property, data.tenants, contactTenantId, data.date, data.time,
+        property,
+        data.tenants,
+        contactTenantId,
+        data.date,
+        data.time,
       );
     }
   }
@@ -1065,7 +1120,9 @@ ${contactPhone}`;
   async copyAcCard(index) {
     const textarea = document.getElementById(`acCardMsg-${index}`);
     if (!textarea) return;
-    const btn = document.querySelector(`#acCard-${index} .btn-outline-primary, #acCard-${index} .btn-primary`);
+    const btn = document.querySelector(
+      `#acCard-${index} .btn-outline-primary, #acCard-${index} .btn-primary`,
+    );
     try {
       await navigator.clipboard.writeText(textarea.value);
       if (btn) {
@@ -1167,6 +1224,28 @@ ${contactPhone}`;
         .addEventListener("change", (e) => {
           this.selectedContactTenantId = e.target.value;
           this.updateActivePromptPreview();
+        });
+    } else if (
+      this.activePromptId === "camera-order" &&
+      this.selectedPropertyId
+    ) {
+      container.innerHTML = `
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold small">Số lượng (Quantity)</label>
+            <input type="number" id="cameraQuantityInput" class="form-control" value="${this.cameraQuantity}" min="1" max="20">
+          </div>
+        </div>
+      `;
+      document
+        .getElementById("cameraQuantityInput")
+        .addEventListener("input", (e) => {
+          const val = parseInt(e.target.value);
+          if (!isNaN(val) && val > 0) {
+            this.cameraQuantity = val;
+            this.updateActivePromptPreview();
+            if (this.mode === "all") this.renderBulkMessages();
+          }
         });
     } else {
       container.innerHTML =

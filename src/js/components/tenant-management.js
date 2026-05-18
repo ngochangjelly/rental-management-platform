@@ -1211,6 +1211,133 @@ class TenantManagementComponent {
 
     // Update badge text
     badge.textContent = `${registeredCount} registered`;
+
+    // Show/hide PDF + ZIP buttons: only when a real property is selected and eligible tenants exist
+    const eligibleCount = this.tenants.filter((t) => {
+      const s = t.registrationStatus || (t.isRegistered ? "registered" : "unregistered");
+      return s === "registered" || s === "pending";
+    }).length;
+    const showDocBtns = this.selectedProperty && this.selectedProperty !== "UNASSIGNED" && eligibleCount > 0;
+
+    const pdfBtn = document.getElementById("generateTenantPdfBtn");
+    if (pdfBtn) {
+      pdfBtn.style.display = showDocBtns ? "inline-flex" : "none";
+      if (showDocBtns) pdfBtn.title = `Generate PDF for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+    }
+    const zipBtn = document.getElementById("generateTenantZipBtn");
+    if (zipBtn) {
+      zipBtn.style.display = showDocBtns ? "inline-flex" : "none";
+      if (showDocBtns) zipBtn.title = `Download image ZIP for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+    }
+  }
+
+  async generateTenantListZIP() {
+    if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
+      alert("Please select a property first.");
+      return;
+    }
+
+    const btn = document.getElementById("generateTenantZipBtn");
+    const originalHtml = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+    }
+
+    try {
+      const response = await API.post(
+        `${API_CONFIG.ENDPOINTS.TENANTS}/generate-zip`,
+        { propertyId: this.selectedProperty },
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+      }
+
+      const xFilename = response.headers.get("X-ZIP-Filename");
+      const disposition = response.headers.get("Content-Disposition") || "";
+      let filename = "tenant-list.zip";
+      if (xFilename) {
+        filename = decodeURIComponent(xFilename);
+      } else {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("ZIP generation error:", err);
+      alert(`Failed to generate ZIP: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+  }
+
+  async generateTenantListPDF() {
+    if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
+      alert("Please select a property first.");
+      return;
+    }
+
+    const btn = document.getElementById("generateTenantPdfBtn");
+    const originalHtml = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+    }
+
+    try {
+      const response = await API.post(
+        `${API_CONFIG.ENDPOINTS.TENANTS}/generate-pdf`,
+        { propertyId: this.selectedProperty },
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+      }
+
+      // Get filename from header or fall back to a default
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const xFilename = response.headers.get("X-PDF-Filename");
+      let filename = "tenant-list.pdf";
+      if (xFilename) {
+        filename = decodeURIComponent(xFilename);
+      } else {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert(`Failed to generate PDF: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
   }
 
   showEmptyState(message = "No tenants found") {
@@ -1226,6 +1353,12 @@ class TenantManagementComponent {
 
     // Update badge to show 0 when empty
     this.updateRegisteredTenantsBadge();
+
+    // Hide PDF + ZIP buttons when no tenants
+    const pdfBtn = document.getElementById("generateTenantPdfBtn");
+    if (pdfBtn) pdfBtn.style.display = "none";
+    const zipBtn = document.getElementById("generateTenantZipBtn");
+    if (zipBtn) zipBtn.style.display = "none";
   }
 
   async filterTenants(searchTerm) {
