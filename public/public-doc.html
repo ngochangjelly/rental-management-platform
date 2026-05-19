@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shared Document</title>
 
+  <!-- Open Graph / social preview (populated dynamically after doc loads) -->
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Rental Hub Docs">
+  <meta id="ogTitle" property="og:title" content="Shared Document">
+  <meta id="ogDescription" property="og:description" content="">
+  <meta id="ogImage" property="og:image" content="">
+  <meta id="ogUrl" property="og:url" content="">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta id="twTitle" name="twitter:title" content="Shared Document">
+  <meta id="twDescription" name="twitter:description" content="">
+  <meta id="twImage" name="twitter:image" content="">
+
   <!-- Bootstrap -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -240,8 +252,30 @@
         return;
       }
 
+      // ── Inject OG / social-preview meta tags ────────────────────────
+      const pageTitle = (doc.title || "Shared Document") + " — Rental Hub Docs";
+      const ogDesc = (doc.contentText || "").trim().substring(0, 160) || "View this shared document on Rental Hub Docs.";
+      const ogUrl  = window.location.href;
+
+      document.title = pageTitle;
+
+      function setMeta(id, attr, value) {
+        const el = document.getElementById(id);
+        if (el && value) el.setAttribute(attr, value);
+      }
+
+      setMeta("ogTitle",       "content", pageTitle);
+      setMeta("ogDescription", "content", ogDesc);
+      setMeta("ogUrl",         "content", ogUrl);
+      setMeta("twTitle",       "content", pageTitle);
+      setMeta("twDescription", "content", ogDesc);
+
+      if (doc.thumbnailUrl) {
+        setMeta("ogImage", "content", doc.thumbnailUrl);
+        setMeta("twImage", "content", doc.thumbnailUrl);
+      }
+
       // ── Render ──────────────────────────────────────────────────────
-      document.title = (doc.title || "Shared Document") + " — Rental Hub Docs";
       titleEl.textContent = doc.title || "Untitled";
 
       if (doc.updatedAt) {
