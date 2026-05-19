@@ -5969,10 +5969,20 @@
                           type="button"
                           class="btn btn-sm btn-primary"
                           onclick="contractManager.sharePDF()"
-                          title="Share PDF via WhatsApp, Telegram, or other apps"
+                          title="Share PDF via AirDrop, Messages, or other apps"
                         >
                           <i class="bi bi-share me-1"></i
                           ><span data-i18n="createContract.sharePdf">Share</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          style="background-color: #25D366; color: #fff; border-color: #25D366;"
+                          onclick="contractManager.shareViaWhatsApp()"
+                          title="Send PDF via WhatsApp"
+                        >
+                          <i class="bi bi-whatsapp me-1"></i
+                          ><span data-i18n="createContract.shareWhatsapp">WhatsApp</span>
                         </button>
                       </div>
                     </div>

@@ -469,6 +469,23 @@ class PropertyManagementComponent {
       const archivedBadge = isArchived ? `<span class="badge bg-secondary ms-1" style="font-size: 0.65rem; vertical-align: middle;"><i class="bi bi-archive me-1"></i>Archived</span>` : '';
       const cardBorder = isArchived ? 'border: 1.5px dashed #adb5bd !important;' : '';
 
+      // Move-out overlay badge
+      let moveOutOverlayHtml = '';
+      if (property.moveOutDate) {
+        const moveOut = new Date(property.moveOutDate);
+        const diffDays = (moveOut - new Date()) / (1000 * 60 * 60 * 24);
+        let badgeBg;
+        if (diffDays < 0) badgeBg = 'rgba(220,53,69,0.92)';         // overdue — red
+        else if (diffDays <= 30) badgeBg = 'rgba(220,53,69,0.92)';  // ≤1 month — red
+        else if (diffDays <= 90) badgeBg = 'rgba(255,140,0,0.92)';  // ≤3 months — orange
+        else badgeBg = 'rgba(25,135,84,0.85)';                      // > 3 months — green
+        const moveOutFormatted = moveOut.toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+        moveOutOverlayHtml = `
+          <div class="position-absolute bottom-0 start-0 end-0 px-2 pb-1" style="background: linear-gradient(transparent, rgba(0,0,0,0.45)); pointer-events: none;">
+            <span class="badge" style="background:${badgeBg}; font-size: 0.6rem;"><i class="bi bi-calendar-x me-1"></i>Out: ${moveOutFormatted}</span>
+          </div>`;
+      }
+
       const cardHtml = `
         <div style="width: 100%;">
           <div class="card property-management-card h-100 overflow-hidden"
@@ -480,6 +497,7 @@ class PropertyManagementComponent {
                 <span class="badge bg-primary" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
               </div>
               ${property.digitalLockEnabled ? `<div class="position-absolute top-0 end-0 p-2"><span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span></div>` : ''}
+              ${moveOutOverlayHtml}
             </div>
             ` : `
             <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${isArchived ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};">
@@ -490,6 +508,7 @@ class PropertyManagementComponent {
               <div class="position-absolute top-50 start-50 translate-middle">
                 <i class="bi ${isArchived ? 'bi-archive' : 'bi-building'} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
               </div>
+              ${moveOutOverlayHtml}
             </div>
             `}
             <div class="card-header bg-white border-0 pb-0">
@@ -521,7 +540,6 @@ class PropertyManagementComponent {
               <div class="mt-2">
                 <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate}` : 'Not set'}</p>
                 <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
-                <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
                 <p class="mb-1 small"><strong>PUB Subsidy:</strong> $${(property.subsidizedPub || 0).toLocaleString()}</p>
               </div>
               ${property.rooms && property.rooms.length > 0 ? `
@@ -544,15 +562,23 @@ class PropertyManagementComponent {
               <div class="mt-2 p-2 bg-light rounded">
                 <p class="mb-1 small fw-bold"><i class="bi bi-cash-stack me-1"></i>Settlement</p>
                 ${property.settlementSgd?.bankName ? `
-                <div class="mb-1">
-                  <span class="badge bg-success me-1">SGD</span>
-                  <span class="small text-truncate" title="${this.escapeHtml(property.settlementSgd.bankName)}">${this.escapeHtml(property.settlementSgd.bankName)}</span>
+                <div class="mb-2">
+                  <div class="d-flex align-items-center gap-1 mb-1">
+                    <span class="badge bg-success">SGD</span>
+                    <span class="small fw-semibold">${this.escapeHtml(property.settlementSgd.bankName)}</span>
+                  </div>
+                  ${property.settlementSgd.accountHolderName ? `<p class="mb-0 small text-truncate" title="${this.escapeHtml(property.settlementSgd.accountHolderName)}">${this.escapeHtml(property.settlementSgd.accountHolderName)}</p>` : ''}
+                  ${property.settlementSgd.accountNumber ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.settlementSgd.accountNumber)}">${this.escapeHtml(property.settlementSgd.accountNumber)}</p>` : ''}
                 </div>
                 ` : ''}
                 ${property.settlementVnd?.bankName ? `
                 <div>
-                  <span class="badge bg-warning text-dark me-1">VND</span>
-                  <span class="small text-truncate" title="${this.escapeHtml(property.settlementVnd.bankName)}">${this.escapeHtml(property.settlementVnd.bankName)}</span>
+                  <div class="d-flex align-items-center gap-1 mb-1">
+                    <span class="badge bg-warning text-dark">VND</span>
+                    <span class="small fw-semibold">${this.escapeHtml(property.settlementVnd.bankName)}</span>
+                  </div>
+                  ${property.settlementVnd.accountHolderName ? `<p class="mb-0 small text-truncate" title="${this.escapeHtml(property.settlementVnd.accountHolderName)}">${this.escapeHtml(property.settlementVnd.accountHolderName)}</p>` : ''}
+                  ${property.settlementVnd.accountNumber ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.settlementVnd.accountNumber)}">${this.escapeHtml(property.settlementVnd.accountNumber)}</p>` : ''}
                 </div>
                 ` : ''}
               </div>

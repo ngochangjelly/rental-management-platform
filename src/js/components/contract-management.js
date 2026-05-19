@@ -2721,10 +2721,16 @@ class ContractManagementComponent {
     });
 
     // Get property address from custom input if available
-    const propertyAddress =
+    const _previewUnit = this.contractData.unit || "";
+    const _previewRawAddr =
       customAddressText && customAddressText.value.trim()
         ? customAddressText.value.trim()
         : this.contractData.address || "[Property Address]";
+    let _previewCleanAddr = _previewRawAddr;
+    if (_previewUnit && _previewCleanAddr.endsWith(`, ${_previewUnit}`)) {
+      _previewCleanAddr = _previewCleanAddr.slice(0, -`, ${_previewUnit}`.length).trim();
+    }
+    const propertyAddress = _previewUnit ? `${_previewUnit}, ${_previewCleanAddr}` : _previewCleanAddr;
 
     preview.innerHTML = `
             <div class="contract-content" style="font-family: 'Noto Serif', serif; line-height: 1.6; padding: 20px;">
@@ -3440,6 +3446,10 @@ class ContractManagementComponent {
     await this.exportToPDF("share");
   }
 
+  async shareViaWhatsApp() {
+    await this.exportToPDF("whatsapp");
+  }
+
   async exportToPDF(mode = "download") {
     try {
       // Sync form values to contractData before export to ensure we have the latest values
@@ -3491,14 +3501,16 @@ class ContractManagementComponent {
       }
 
       // Show loading state
-      const exportBtn = document.querySelector(
+      const exportBtnSelector =
         mode === "share"
           ? '[onclick="contractManager.sharePDF()"]'
-          : '[onclick="contractManager.exportToPDF()"]',
-      );
+          : mode === "whatsapp"
+          ? '[onclick="contractManager.shareViaWhatsApp()"]'
+          : '[onclick="contractManager.exportToPDF()"]';
+      const exportBtn = document.querySelector(exportBtnSelector);
       if (exportBtn) {
         exportBtn.innerHTML =
-          mode === "share"
+          mode === "share" || mode === "whatsapp"
             ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Preparing...'
             : '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
         exportBtn.disabled = true;
@@ -3762,10 +3774,20 @@ class ContractManagementComponent {
       }
 
       // Get property address from custom input if available
-      const propertyAddressForPDF =
+      const unit = this.contractData.unit || "";
+      const rawAddr =
         customAddressText && customAddressText.value.trim()
           ? customAddressText.value.trim()
           : this.contractData.address || "[Property Address]";
+      // Strip trailing ", unit" to avoid duplication, then put unit at the front
+      let cleanAddr = rawAddr;
+      if (unit) {
+        const suffix = `, ${unit}`;
+        if (cleanAddr.endsWith(suffix)) {
+          cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
+        }
+      }
+      const propertyAddressForPDF = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
 
       // Header
       addText("HOUSE SHARING AGREEMENT", {
@@ -4150,14 +4172,31 @@ class ContractManagementComponent {
       if (mode === "share") {
         const pdfBlob = pdf.output("blob");
         const file = new File([pdfBlob], filename, { type: "application/pdf" });
-        if (navigator.canShare({ files: [file] })) {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: filename });
           console.log(`✅ Contract shared successfully`);
           showToast("Contract shared successfully!", "success");
         } else {
-          // Fallback: download if file sharing not supported (e.g. desktop)
           pdf.save(filename);
           showToast("File sharing not supported on this device — PDF downloaded instead.", "warning");
+        }
+      } else if (mode === "whatsapp") {
+        const pdfBlob = pdf.output("blob");
+        const file = new File([pdfBlob], filename, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          // Mobile: native share sheet — WhatsApp appears here
+          await navigator.share({ files: [file], title: filename });
+          console.log(`✅ Contract shared via WhatsApp successfully`);
+          showToast("Contract shared successfully!", "success");
+        } else {
+          // Desktop: download PDF then open WhatsApp Web
+          pdf.save(filename);
+          window.open("https://web.whatsapp.com", "_blank");
+          showToast(
+            'PDF downloaded! In the WhatsApp Web tab, click the attachment icon (📎) and upload the file.',
+            "info",
+            8000,
+          );
         }
       } else {
         pdf.save(filename);
@@ -4174,6 +4213,12 @@ class ContractManagementComponent {
         if (shareBtn) {
           shareBtn.innerHTML = '<i class="bi bi-share me-1"></i><span data-i18n="createContract.sharePdf">Share</span>';
           shareBtn.disabled = false;
+        }
+      } else if (mode === "whatsapp") {
+        const waBtn = document.querySelector('[onclick="contractManager.shareViaWhatsApp()"]');
+        if (waBtn) {
+          waBtn.innerHTML = '<i class="bi bi-whatsapp me-1"></i><span data-i18n="createContract.shareWhatsapp">WhatsApp</span>';
+          waBtn.disabled = false;
         }
       } else {
         const exportBtn = document.querySelector('[onclick="contractManager.exportToPDF()"]');
@@ -4292,10 +4337,16 @@ class ContractManagementComponent {
     }
 
     // Get property address from custom input if available
-    const propertyAddressForPDF =
+    const _htmlUnit = this.contractData.unit || "";
+    const _htmlRawAddr =
       customAddressText && customAddressText.value.trim()
         ? customAddressText.value.trim()
         : this.contractData.address || "[Property Address]";
+    let _htmlCleanAddr = _htmlRawAddr;
+    if (_htmlUnit && _htmlCleanAddr.endsWith(`, ${_htmlUnit}`)) {
+      _htmlCleanAddr = _htmlCleanAddr.slice(0, -`, ${_htmlUnit}`.length).trim();
+    }
+    const propertyAddressForPDF = _htmlUnit ? `${_htmlUnit}, ${_htmlCleanAddr}` : _htmlCleanAddr;
 
     // Generate additional clauses HTML (starting from letter 'v' after clause 'u')
     let additionalClausesHtml = "";

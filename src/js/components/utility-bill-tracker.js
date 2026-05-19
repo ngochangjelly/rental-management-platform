@@ -216,16 +216,23 @@ class UtilityBillTrackerComponent {
       this.properties.map(p =>
         API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId))
           .then(r => r.json())
-          .then(data => ({
-            propertyId: p.propertyId,
-            hasBill: (data.bills || []).some(b => b.year === year && b.month === month),
-          }))
+          .then(data => {
+            const bill = (data.bills || []).find(b => b.year === year && b.month === month);
+            return {
+              propertyId: p.propertyId,
+              hasBill: !!bill,
+              billAmount: bill ? (bill.totalAmount || 0) : 0,
+            };
+          })
       )
     );
 
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        this.monthlyBillStatus[result.value.propertyId] = result.value.hasBill;
+        this.monthlyBillStatus[result.value.propertyId] = {
+          hasBill: result.value.hasBill,
+          billAmount: result.value.billAmount,
+        };
       }
     }
 
@@ -304,7 +311,7 @@ class UtilityBillTrackerComponent {
         const canvasId = `utilityPropChart_${idx}`;
         const prop = r.status === 'fulfilled' ? r.value.property : this.properties[idx];
         const label = prop.address || prop.propertyId;
-        const hasBill = this.monthlyBillStatus[prop.propertyId];
+        const hasBill = this.monthlyBillStatus[prop.propertyId]?.hasBill;
         const statusKnown = prop.propertyId in this.monthlyBillStatus;
         const badge = statusKnown
           ? (hasBill
@@ -409,7 +416,7 @@ class UtilityBillTrackerComponent {
     }
 
     const total = this.properties.length;
-    const filled = this.properties.filter(p => this.monthlyBillStatus[p.propertyId]).length;
+    const filled = this.properties.filter(p => this.monthlyBillStatus[p.propertyId]?.hasBill).length;
     const missing = total - filled;
     const pct = total ? Math.round((filled / total) * 100) : 0;
     const allDone = missing === 0;
@@ -462,10 +469,23 @@ class UtilityBillTrackerComponent {
     container.style.gridTemplateColumns = "repeat(auto-fill, minmax(120px, 1fr))";
     container.style.gap = "0.5rem";
 
+    const now = new Date();
+    const isCurrentPeriod = this.summaryYear === now.getFullYear() && this.summaryMonth === (now.getMonth() + 1);
+
     container.innerHTML = this.properties.map(p => {
       const sel = this.allSelected || this.selectedProperty === p.propertyId;
-      const hasBill = this.monthlyBillStatus[p.propertyId];
+      const status = this.monthlyBillStatus[p.propertyId];
+      const hasBill = status?.hasBill;
       const statusKnown = p.propertyId in this.monthlyBillStatus;
+      const subsidy = p.subsidizedPub || 0;
+      const billAmt = status?.billAmount || 0;
+      const overBudget = isCurrentPeriod && hasBill && subsidy > 0 && billAmt > subsidy;
+      // t = 0 (just over) → 1 (50%+ over); drives red intensity
+      const t = overBudget ? Math.min((billAmt - subsidy) / subsidy / 0.5, 1) : 0;
+      const borderL = Math.round(75 - t * 35);   // lightness: 75% (light pink) → 40% (deep red)
+      const borderSat = Math.round(70 + t * 20); // saturation: 70% → 90%
+      const shadowA = (0.08 + t * 0.22).toFixed(2);
+      const bgL = Math.round(99 - t * 7);        // background: near-white → pink
       let statusBadge = '';
       if (statusKnown) {
         statusBadge = hasBill
@@ -474,7 +494,10 @@ class UtilityBillTrackerComponent {
       }
       const borderStyle = sel
         ? 'border: 3px solid #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25);'
-        : (statusKnown && !hasBill ? 'border: 2px solid #ffc107;' : '');
+        : overBudget
+          ? `border: 2px solid hsl(0,${borderSat}%,${borderL}%); box-shadow: 0 0 0 2px hsla(0,80%,55%,${shadowA});`
+          : (statusKnown && !hasBill ? 'border: 2px solid #ffc107;' : '');
+      const bodyBg = sel ? 'rgba(13,110,253,0.07)' : overBudget ? `hsl(0,100%,${bgL}%)` : '#fff';
       return `
         <div class="card utility-prop-card overflow-hidden ${sel ? 'selected' : ''}"
              style="cursor:pointer;transition:all .2s ease;${borderStyle}"
@@ -484,9 +507,9 @@ class UtilityBillTrackerComponent {
                 <div data-role="selected-overlay" style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:${sel ? 'flex' : 'none'};align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>
                </div>`
             : ''}
-          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap:3px;background:${sel ? 'rgba(13,110,253,0.07)' : '#fff'};">
-            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
-                 style="width:28px;height:28px;font-size:11px;flex-shrink:0;">
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap:3px;background:${bodyBg};">
+            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width:28px;height:28px;font-size:11px;flex-shrink:0;background:${overBudget ? `hsl(0,${borderSat}%,${borderL}%)` : '#0d6efd'};">
               ${escapeHtml(p.propertyId.toString().substring(0, 3))}
             </div>
             <div class="text-center" style="line-height:1.2;width:100%;">
@@ -494,6 +517,7 @@ class UtilityBillTrackerComponent {
               <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.address || '')}</div>
             </div>
             ${statusBadge ? `<div>${statusBadge}</div>` : ''}
+            ${overBudget ? `<span class="badge" title="+$${(billAmt - subsidy).toFixed(2)} over limit" style="font-size:0.55rem;padding:2px 4px;background:hsl(0,${borderSat}%,${borderL}%);color:#fff;cursor:default;">⚠ over limit</span>` : ''}
             ${!p.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size:0.9rem;display:${sel ? 'inline' : 'none'};"></i>` : ''}
           </div>
         </div>`;
