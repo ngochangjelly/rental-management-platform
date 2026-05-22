@@ -3583,6 +3583,13 @@ class ContractManagementComponent {
 
       // Remove Singapore and postcode from address for filename
       let cleanAddress = addressSource || "Address";
+      // Strip unit number from address if it was appended (unit is already a separate filename part)
+      if (this.contractData.unit) {
+        const unitSuffix = `, ${this.contractData.unit}`;
+        if (cleanAddress.endsWith(unitSuffix)) {
+          cleanAddress = cleanAddress.slice(0, -unitSuffix.length);
+        }
+      }
       // Remove Singapore and common variations
       cleanAddress = cleanAddress.replace(/,?\s*Singapore\s*\d*$/i, "");
       cleanAddress = cleanAddress.replace(/,?\s*S\d{6}$/i, ""); // Remove Singapore postcode format
