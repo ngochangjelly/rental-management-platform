@@ -416,7 +416,8 @@ class FinancialReportsComponent {
     }
 
     // Generate compact property cards
-    properties.forEach((property) => {
+    const sortedProperties = [...properties].sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0));
+    sortedProperties.forEach((property) => {
       const isSelected =
         String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];

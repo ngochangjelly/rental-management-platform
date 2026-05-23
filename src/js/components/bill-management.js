@@ -123,7 +123,8 @@ class BillManagementComponent {
     container.style.gridTemplateColumns = "repeat(auto-fill, minmax(120px, 1fr))";
     container.style.gap = "0.5rem";
 
-    properties.forEach(property => {
+    const sortedProperties = [...properties].sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0));
+    sortedProperties.forEach(property => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
         <div class="card property-card ${isSelected ? 'selected-card' : ''} overflow-hidden"
@@ -142,8 +143,8 @@ class BillManagementComponent {
               ${escapeHtml(property.propertyId.toString().substring(0, 3))}
             </div>
             <div class="text-center" style="line-height: 1.2; width: 100%;">
-              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || '')}">${escapeHtml(property.propertyId)}</div>
-              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.address || 'No address')}</div>
+              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || '')}">${escapeHtml(property.address || property.propertyId)}</div>
+              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || '')}</div>
             </div>
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? 'inline' : 'none'};"></i>` : ''}
           </div>

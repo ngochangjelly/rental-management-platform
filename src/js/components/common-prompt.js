@@ -321,7 +321,8 @@ Please leave at the doorstep.`;
     }
 
     let html = '<div class="row g-3">';
-    this.properties.forEach((property, index) => {
+    const sortedProperties = [...this.properties].sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0));
+    sortedProperties.forEach((property, index) => {
       const message = prompt.template(property);
       const escapedMessage = this.escapeHtml(message);
       const propertyLabel = `${property.propertyId} - ${property.address || ""}`;

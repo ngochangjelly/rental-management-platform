@@ -149,6 +149,15 @@ class TenantManagementComponent {
     // Clear existing cards
     container.innerHTML = "";
 
+    // Sort properties by propertyId numerically ascending
+    const sortedProperties = properties
+      ? [...properties].sort((a, b) => {
+          const aId = parseInt(a.propertyId) || 0;
+          const bId = parseInt(b.propertyId) || 0;
+          return bId - aId;
+        })
+      : [];
+
     if (!properties || properties.length === 0) {
       container.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center;" class="text-muted py-4">
@@ -182,7 +191,7 @@ class TenantManagementComponent {
     container.innerHTML += unassignedCardHtml;
 
     // Generate property cards
-    properties.forEach((property) => {
+    sortedProperties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
                 <div class="card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"

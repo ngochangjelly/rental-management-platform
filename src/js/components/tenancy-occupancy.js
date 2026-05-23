@@ -131,7 +131,8 @@ class TenancyOccupancyComponent {
     container.style.gridTemplateColumns = "repeat(auto-fill, minmax(120px, 1fr))";
     container.style.gap = "0.5rem";
 
-    container.innerHTML = this.properties
+    container.innerHTML = [...this.properties]
+      .sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0))
       .map((property, index) => {
         const isSelected = this.selectedProperties.has(property.propertyId);
         return `
@@ -151,8 +152,8 @@ class TenancyOccupancyComponent {
             ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
           </div>
           <div class="text-center" style="line-height: 1.2; width: 100%;">
-            <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address || "")}">${this.escapeHtml(property.propertyId)}</div>
-            <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.address || "No address")}</div>
+            <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address || "")}">${this.escapeHtml(property.address || property.propertyId)}</div>
+            <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit || "")}</div>
           </div>
           ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
         </div>

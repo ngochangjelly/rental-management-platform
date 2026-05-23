@@ -1112,7 +1112,13 @@ class ContractManagementComponent {
       return;
     }
 
-    this.properties.forEach((property) => {
+    const sortedProperties = [...this.properties].sort((a, b) => {
+      const aId = parseInt(a.propertyId || a.id || a._id) || 0;
+      const bId = parseInt(b.propertyId || b.id || b._id) || 0;
+      return bId - aId;
+    });
+
+    sortedProperties.forEach((property) => {
       const id = property.propertyId || property.id || property._id || "";
       const isSelected = id && id === this.selectedPropertyId;
       const baseAddress = property.address || property.location || property.name || "Unknown";
@@ -3583,13 +3589,16 @@ class ContractManagementComponent {
 
       // Remove Singapore and postcode from address for filename
       let cleanAddress = addressSource || "Address";
-      // Strip unit number from address if it was appended (unit is already a separate filename part)
+      // Strip unit number from address end — unit is already the filename prefix.
+      // Try exact match first, then regex fallback for ", #XX-XXXX" patterns.
       if (this.contractData.unit) {
-        const unitSuffix = `, ${this.contractData.unit}`;
+        const unitSuffix = `, ${this.contractData.unit.trim()}`;
         if (cleanAddress.endsWith(unitSuffix)) {
           cleanAddress = cleanAddress.slice(0, -unitSuffix.length);
         }
       }
+      // Regex fallback: strip any trailing ", #XX-XXXX" regardless of contractData.unit state
+      cleanAddress = cleanAddress.replace(/,\s*#[^,]+$/, "").trim();
       // Remove Singapore and common variations
       cleanAddress = cleanAddress.replace(/,?\s*Singapore\s*\d*$/i, "");
       cleanAddress = cleanAddress.replace(/,?\s*S\d{6}$/i, ""); // Remove Singapore postcode format

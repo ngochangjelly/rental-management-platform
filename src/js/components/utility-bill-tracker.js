@@ -472,7 +472,9 @@ class UtilityBillTrackerComponent {
     const now = new Date();
     const isCurrentPeriod = this.summaryYear === now.getFullYear() && this.summaryMonth === (now.getMonth() + 1);
 
-    container.innerHTML = this.properties.map(p => {
+    container.innerHTML = [...this.properties]
+      .sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0))
+      .map(p => {
       const sel = this.allSelected || this.selectedProperty === p.propertyId;
       const status = this.monthlyBillStatus[p.propertyId];
       const hasBill = status?.hasBill;
@@ -513,8 +515,8 @@ class UtilityBillTrackerComponent {
               ${escapeHtml(p.propertyId.toString().substring(0, 3))}
             </div>
             <div class="text-center" style="line-height:1.2;width:100%;">
-              <div class="fw-semibold text-truncate" style="font-size:10px;" title="${escapeHtml(p.address || '')}">${escapeHtml(p.propertyId)}</div>
-              <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.address || '')}</div>
+              <div class="fw-semibold text-truncate" style="font-size:10px;" title="${escapeHtml(p.address || '')}">${escapeHtml(p.address || p.propertyId)}</div>
+              <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.unit || '')}</div>
             </div>
             ${statusBadge ? `<div>${statusBadge}</div>` : ''}
             ${overBudget ? `<span class="badge" title="+$${(billAmt - subsidy).toFixed(2)} over limit" style="font-size:0.55rem;padding:2px 4px;background:hsl(0,${borderSat}%,${borderL}%);color:#fff;cursor:default;">⚠ over limit</span>` : ''}
