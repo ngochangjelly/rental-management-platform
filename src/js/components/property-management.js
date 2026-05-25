@@ -540,6 +540,7 @@ class PropertyManagementComponent {
               <div class="mt-2">
                 <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate}` : 'Not set'}</p>
                 <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
+                <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
                 <p class="mb-1 small"><strong>PUB Subsidy:</strong> $${(property.subsidizedPub || 0).toLocaleString()}</p>
               </div>
               ${property.rooms && property.rooms.length > 0 ? `

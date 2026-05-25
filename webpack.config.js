@@ -191,6 +191,10 @@ module.exports = {
       overlay: {
         errors: true,
         warnings: false,
+        runtimeErrors: (error) => {
+          if (/Failed to connect to MetaMask/i.test(error.message)) return false;
+          return true;
+        },
       },
     },
   },

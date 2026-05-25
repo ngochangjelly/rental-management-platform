@@ -938,7 +938,7 @@ class CctvManagementComponent {
     try {
       const res = await API.post(API_CONFIG.ENDPOINTS.CCTV_STREAM_START(id));
       const data = await res.json();
-      if (!data.success) throw new Error(data.message || "Failed to start stream");
+      if (!data.success) throw new Error(data.error || data.message || "Failed to start stream");
 
       // Rebuild the card with video element, then attach HLS
       const cam = this.cameras.find((c) => c._id === id);
@@ -1009,6 +1009,32 @@ class CctvManagementComponent {
       </button>`;
   }
 
+  // Poll the manifest URL until it returns 200 (or until we give up).
+  // Returns true when ready, false on timeout or stream-gone (410).
+  async _waitForManifest(cameraId, manifestUrl) {
+    const token = getAuthToken();
+    const maxWaitMs = 15_000;
+    const pollIntervalMs = 600;
+    const start = Date.now();
+
+    while (Date.now() - start < maxWaitMs) {
+      // Stop polling if the card was reset while we were waiting
+      if (!document.getElementById(`cctv-video-${cameraId}`)) return false;
+
+      try {
+        const res = await fetch(manifestUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) return true;         // 200 — manifest ready
+        if (res.status === 410) return false; // stream gone — give up
+        // 503 = not ready yet — keep polling
+      } catch {}
+
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+    }
+    return false; // timed out
+  }
+
   async _attachHlsPlayer(cameraId) {
     const videoEl = document.getElementById(`cctv-video-${cameraId}`);
     if (!videoEl) return;
@@ -1016,29 +1042,124 @@ class CctvManagementComponent {
     const streamUrl = buildApiUrl(API_CONFIG.ENDPOINTS.CCTV_HLS(cameraId));
     const token = getAuthToken();
 
+    // Wait until the m3u8 is actually ready before handing to HLS.js.
+    // This avoids the HLS.js fatal-error loop during FFmpeg startup.
+    const ready = await this._waitForManifest(cameraId, streamUrl);
+    if (!ready) {
+      // Check if card was already reset by something else
+      if (document.getElementById(`cctv-video-${cameraId}`)) {
+        this._resetStreamCard(cameraId);
+        window.showToast?.("Camera unreachable — connect VPN then click Stream to retry", "warning");
+      }
+      return;
+    }
+
+    // Re-fetch the video element (card might have been rebuilt)
+    const videoReady = document.getElementById(`cctv-video-${cameraId}`);
+    if (!videoReady) return;
+
     if (this.hlsLib && this.hlsLib.isSupported()) {
       const hls = new this.hlsLib({
         xhrSetup: (xhr) => {
           if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         },
-        liveSyncDurationCount: 2,
-        liveMaxLatencyDurationCount: 5,
+        fetchSetup: (context, initParams) => {
+          if (token) initParams.headers = { ...initParams.headers, Authorization: `Bearer ${token}` };
+          return new Request(context.url, initParams);
+        },
+        // Disable LHLS — go2rtc adds partial segments to the playlist before
+        // they're fully encoded; lowLatencyMode causes HLS.js to request them
+        // mid-encode, resulting in fragParsingError "Found no media".
+        lowLatencyMode: false,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6,
+        maxMaxBufferLength: 30,
       });
 
       hls.loadSource(streamUrl);
-      hls.attachMedia(videoEl);
+      hls.attachMedia(videoReady);
 
+      let mediaRecoveryAttempts = 0;
+      let networkRetryCount = 0;
       hls.on(this.hlsLib.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          console.error(`[CCTV] HLS fatal error for ${cameraId}:`, data);
+        if (!data.fatal) return;
+        console.error(`[CCTV] HLS fatal error for ${cameraId}:`, data);
+
+        const details = data.details || "";
+        const statusCode = data.response?.code || 0;
+
+        // 410 = backend explicitly says the stream is gone (FFmpeg died, VPN dropped)
+        if (statusCode === 410 || details === "manifestParsingError") {
+          hls.destroy();
+          delete this.hlsPlayers[cameraId];
+          this._resetStreamCard(cameraId);
+          window.showToast?.("Stream lost — reconnect VPN then click Stream to restart", "warning");
+          return;
+        }
+
+        // 503 = stream active but m3u8 not written yet (FFmpeg still starting up)
+        // 404 = transient / old code fallback — retry with backoff
+        if (details === "manifestLoadError" || details === "manifestLoadTimeOut") {
+          networkRetryCount++;
+          if (networkRetryCount <= 12) {
+            // Wait longer between retries as count increases (up to ~3s)
+            const delay = Math.min(300 * networkRetryCount, 3000);
+            setTimeout(() => { if (this.hlsPlayers[cameraId]) hls.startLoad(); }, delay);
+          } else {
+            hls.destroy();
+            delete this.hlsPlayers[cameraId];
+            this._resetStreamCard(cameraId);
+            window.showToast?.("Stream unavailable — check VPN then click Stream to restart", "warning");
+          }
+          return;
+        }
+
+        if (data.type === this.hlsLib.ErrorTypes.NETWORK_ERROR) {
+          // Generic transient network blip
+          networkRetryCount++;
+          if (networkRetryCount <= 5) {
+            hls.startLoad();
+          } else {
+            hls.destroy();
+            delete this.hlsPlayers[cameraId];
+            this._resetStreamCard(cameraId);
+            window.showToast?.("Stream lost — click Stream to restart", "warning");
+          }
+        } else if (data.type === this.hlsLib.ErrorTypes.MEDIA_ERROR) {
+          if (mediaRecoveryAttempts < 3) {
+            mediaRecoveryAttempts++;
+            hls.recoverMediaError();
+          } else {
+            hls.destroy();
+            delete this.hlsPlayers[cameraId];
+            setTimeout(() => this._attachHlsPlayer(cameraId), 1500);
+          }
+        } else {
+          hls.destroy();
+          delete this.hlsPlayers[cameraId];
         }
       });
 
       this.hlsPlayers[cameraId] = hls;
-    } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+    } else if (videoReady.canPlayType("application/vnd.apple.mpegurl")) {
       // Safari native HLS — can't pass auth header easily, but try
-      videoEl.src = streamUrl;
+      videoReady.src = streamUrl;
     }
+  }
+
+  // Reset card to "stream off" state without hitting the stop API
+  // (used when the backend stream already died on its own)
+  _resetStreamCard(id) {
+    const cam = this.cameras.find((c) => c._id === id);
+    if (cam) cam.streaming = false;
+
+    const wrap = document.getElementById(`cctv-video-wrap-${id}`);
+    if (wrap) {
+      wrap.innerHTML = `<div class="cctv-placeholder">
+        <i class="bi bi-camera-video-off"></i><span>Stream off</span>
+      </div>`;
+    }
+    this._refreshCardActions(id, false);
   }
 
   _destroyPlayer(id) {
