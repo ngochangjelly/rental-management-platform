@@ -1688,43 +1688,17 @@ class TenantManagementComponent {
       }
     }
 
-    // Load available properties and populate select
-    await this.loadPropertiesForSelect();
-    // Load available investors for deposit receiver dropdown
-    await this.loadInvestorsForSelect();
-    // Load potential roommates for roommate dropdown
-    await this.loadRoommatesForSelect(tenant?._id);
-
-    // After investors are loaded, populate the depositReceiver field if in edit mode
-    if (isEdit && tenant && tenant.depositReceiver) {
-      document.getElementById("tenantDepositReceiver").value =
-        tenant.depositReceiver;
-    }
-
-    // After roommates are loaded, populate the roommateId field if in edit mode
-    if (isEdit && tenant && tenant.roommateId) {
-      const roommateIdValue =
-        typeof tenant.roommateId === "object"
-          ? tenant.roommateId._id
-          : tenant.roommateId;
-      document.getElementById("tenantRoommateId").value = roommateIdValue || "";
-    }
-
-    this.updateSelectedPropertiesList();
-
     // Add event listeners for image URL inputs
     this.setupImageUrlListeners();
 
-    // Show modal
+    // Show modal immediately — don't block on dropdown data loading
     const modalEl = document.getElementById("tenantModal");
     const modal = new bootstrap.Modal(modalEl);
 
-    // Add event listener for when modal is fully hidden
     modalEl.addEventListener(
       "hidden.bs.modal",
       () => {
         this.cleanupModal();
-        // Revert URL back to property-level route
         const property = this.properties.find(
           (p) => p.propertyId === this.selectedProperty,
         );
@@ -1736,7 +1710,6 @@ class TenantManagementComponent {
       { once: true },
     );
 
-    // Add event listener for when modal is fully shown
     modalEl.addEventListener(
       "shown.bs.modal",
       () => {
@@ -1744,22 +1717,19 @@ class TenantManagementComponent {
         this.updateImageGallery("visa");
         this.updateAvatarPreview();
         this.updateSignaturePreview();
-
-        // Show/hide signature section based on main tenant status
         this.toggleSignatureSection();
-
-        // Set up clipboard paste listeners after modal is shown
         this.setupModalClipboardListeners();
-
-        // Set up signature URL input listener
         this.setupSignatureUrlListener();
       },
       { once: true },
     );
 
+    // Render property list immediately (property names resolve from cache when available)
+    this.updateSelectedPropertiesList();
+
     modal.show();
 
-    // For new tenants, clear original data and enable button
+    // For new tenants enable submit right away
     if (!isEdit) {
       this.originalTenantData = null;
       const submitBtn = document.getElementById("tenantSubmitBtn");
@@ -1768,12 +1738,32 @@ class TenantManagementComponent {
         submitBtn.classList.remove("btn-secondary");
         submitBtn.classList.add("btn-primary");
       }
-    } else {
-      // For edit mode, check for changes after modal is shown
-      setTimeout(() => {
-        this.checkForChanges();
-      }, 100);
     }
+
+    // Load dropdown data in the background while the modal is already visible
+    Promise.all([
+      this.loadPropertiesForSelect(),
+      this.loadInvestorsForSelect(),
+      this.loadRoommatesForSelect(tenant?._id),
+    ]).then(() => {
+      // Populate select values now that options are rendered
+      if (isEdit && tenant && tenant.depositReceiver) {
+        const el = document.getElementById("tenantDepositReceiver");
+        if (el) el.value = tenant.depositReceiver;
+      }
+      if (isEdit && tenant && tenant.roommateId) {
+        const roommateIdValue =
+          typeof tenant.roommateId === "object"
+            ? tenant.roommateId._id
+            : tenant.roommateId;
+        const el = document.getElementById("tenantRoommateId");
+        if (el) el.value = roommateIdValue || "";
+      }
+      // Re-render property list now that cache has property names
+      this.updateSelectedPropertiesList();
+      // Check for changes now that all data is loaded
+      if (isEdit) this.checkForChanges();
+    });
   }
 
   cleanupModal() {
@@ -1906,18 +1896,17 @@ class TenantManagementComponent {
         return;
       }
 
-      // Fetch all tenants from the same properties
-      const allTenants = [];
-      for (const propertyId of currentProperties) {
-        const response = await API.get(
-          `${API_CONFIG.ENDPOINTS.TENANTS}?property=${propertyId}&limit=1000`,
-        );
-        const result = await response.json();
-
-        if (result.success && result.tenants) {
-          allTenants.push(...result.tenants);
-        }
-      }
+      // Fetch all tenants from the same properties in parallel
+      const results = await Promise.all(
+        currentProperties.map((propertyId) =>
+          API.get(`${API_CONFIG.ENDPOINTS.TENANTS}?property=${propertyId}&limit=1000`)
+            .then((r) => r.json())
+            .catch(() => ({})),
+        ),
+      );
+      const allTenants = results.flatMap((result) =>
+        result.success && result.tenants ? result.tenants : [],
+      );
 
       // Remove duplicates based on _id and filter out current tenant
       const uniqueTenants = allTenants.filter(

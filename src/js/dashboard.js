@@ -8,6 +8,7 @@ import "./components/toast/toast.js";
 import "./components/contract-analysis.js";
 import "./components/year-calendar.js"; // Reusable year calendar component
 import "./components/property-management.js";
+import "./components/property-moveout-timeline.js";
 import "./components/tenant-management.js";
 import "./components/tenant-calendar.js"; // Tenant timeline calendar
 import "./components/tenancy-occupancy.js"; // Tenancy Occupancy module

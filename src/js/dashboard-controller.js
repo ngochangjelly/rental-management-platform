@@ -88,6 +88,11 @@ class DashboardController {
   }
 
   showSection(sectionName, { fromRouter = false } = {}) {
+    // Stop CCTV streams when navigating away from the cctv section
+    if (this.currentSection === "cctv" && sectionName !== "cctv") {
+      window.cctvManager?.stopAllStreams();
+    }
+
     // Hide all sections
     document.querySelectorAll(".content-section").forEach((section) => {
       section.style.display = "none";
@@ -145,6 +150,11 @@ class DashboardController {
             new PropertyManagementComponent();
           // Make it globally accessible for button onclick handlers
           window.propertyManager = this.components.propertyManagement;
+        }
+        // Init the lease expiry timeline (sets up collapse listeners, lazy-loads data)
+        if (window.propertyMoveoutTimeline && !window.propertyMoveoutTimeline._initDone) {
+          window.propertyMoveoutTimeline.init();
+          window.propertyMoveoutTimeline._initDone = true;
         }
         break;
       case "tenants":

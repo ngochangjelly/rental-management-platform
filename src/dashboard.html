@@ -123,6 +123,7 @@
         min-height: 100vh;
         color: white;
         transition: transform 0.3s ease;
+        overflow-x: hidden;
       }
 
       /* ... existing styles ... */
@@ -464,8 +465,15 @@
         opacity: 1;
       }
 
+      /* Constrain flex nav-links so badges never bleed past the sidebar edge */
+      .sidebar .nav-link.d-flex {
+        min-width: 0;
+        overflow: hidden;
+      }
+
       /* Prevent text spans from overflowing so sidebar badges stay visible */
       .sidebar .nav-link.d-flex > span:not(.badge):not(.ms-auto) {
+        flex: 1 1 0;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -4509,6 +4517,57 @@
                 </div>
               </div>
 
+              <!-- ═══════════════════════════════════════════════════════
+                   Property Lease Expiry Timeline (collapsible)
+                   ═══════════════════════════════════════════════════════ -->
+              <div class="card mb-4" id="propertyMoveoutTimelineSection">
+                <!-- Header / toggle -->
+                <div id="propertyMoveoutTimelineHeader"
+                     class="card-header d-flex justify-content-between align-items-center"
+                     style="cursor:pointer;"
+                     data-bs-toggle="collapse"
+                     data-bs-target="#propertyMoveoutTimelineBody"
+                     aria-expanded="false"
+                     aria-controls="propertyMoveoutTimelineBody">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-calendar-range text-danger"></i>
+                    <h5 class="mb-0" data-i18n="propertyMoveoutTimeline.title">Property Lease Expiry Timeline</h5>
+                    <span id="moveoutUrgentCount"
+                          class="badge"
+                          style="background:#dc3545;display:none;"></span>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <small class="text-muted d-none d-md-inline" data-i18n="propertyMoveoutTimeline.hint">
+                      Click to expand — shows when leases expire and preparation deadlines
+                    </small>
+                    <i class="bi bi-chevron-down" id="moveoutTimelineChevron"
+                       style="transition:transform 0.25s;"></i>
+                  </div>
+                </div>
+                <!-- Collapsible body -->
+                <div class="collapse" id="propertyMoveoutTimelineBody">
+                  <div class="card-body">
+                    <!-- Property selection -->
+                    <div class="mb-3">
+                      <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                        <span class="small text-muted" id="moveoutTimelinePropertyCount">–</span>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                style="font-size:11px;"
+                                onclick="propertyMoveoutTimeline.selectAll()"
+                                data-i18n="propertyMoveoutTimeline.selectAll">All</button>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                style="font-size:11px;"
+                                onclick="propertyMoveoutTimeline.deselectAll()"
+                                data-i18n="propertyMoveoutTimeline.selectNone">None</button>
+                      </div>
+                      <div id="moveoutTimelinePropertyList"></div>
+                    </div>
+                    <!-- Timeline chart -->
+                    <div id="moveoutTimelineChart"></div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Property List -->
               <div class="card">
                 <div
@@ -5957,10 +6016,11 @@
                       >
                         Contract Preview
                       </h5>
-                      <div class="d-flex gap-2">
+                      <div class="d-flex gap-2 align-items-center">
                         <button
                           type="button"
                           class="btn btn-sm btn-outline-secondary"
+                          style="white-space: nowrap;"
                           onclick="contractManager.downloadContractTemplate()"
                           title="Download blank contract template for editing in Word"
                         >

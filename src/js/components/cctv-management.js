@@ -1179,6 +1179,17 @@ class CctvManagementComponent {
     Object.keys(this.hlsPlayers).forEach((id) => this._destroyPlayer(id));
   }
 
+  // Called by the router when the user navigates away from the CCTV section.
+  // Tears down HLS players and tells the backend to stop every active stream.
+  stopAllStreams() {
+    const streaming = this.cameras.filter((c) => c.streaming);
+    this._stopAllPlayers();
+    streaming.forEach((cam) => {
+      cam.streaming = false;
+      API.post(API_CONFIG.ENDPOINTS.CCTV_STREAM_STOP(cam._id)).catch(() => {});
+    });
+  }
+
   // ─── Camera Actions ────────────────────────────────────────────────────────
 
   async testCamera(id) {
