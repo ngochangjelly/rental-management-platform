@@ -1724,6 +1724,17 @@ class TenantManagementComponent {
       { once: true },
     );
 
+    // Move focus out of modal before Bootstrap sets aria-hidden="true" on close
+    modalEl.addEventListener(
+      "hide.bs.modal",
+      () => {
+        if (document.activeElement && modalEl.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
+      },
+      { once: true },
+    );
+
     // Render property list immediately (property names resolve from cache when available)
     this.updateSelectedPropertiesList();
 

@@ -583,8 +583,7 @@ class DashboardController {
       window.tenantManager = this.components.tenantManagement;
       console.log("✅ Tenant management component preloaded");
 
-      // Load tenant data immediately
-      this.components.tenantManagement.loadTenants();
+      // Component init() already calls loadProperties() — nothing more needed here
     }
   }
 
