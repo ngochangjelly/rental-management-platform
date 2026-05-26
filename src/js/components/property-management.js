@@ -1032,7 +1032,17 @@ class PropertyManagementComponent {
     const modalEl = document.getElementById("propertyModal");
     const modal = new bootstrap.Modal(modalEl);
 
-    // Add event listener for when modal is fully hidden
+    // Move focus out before Bootstrap sets aria-hidden="true" on close
+    modalEl.addEventListener(
+      "hide.bs.modal",
+      () => {
+        if (document.activeElement && modalEl.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
+      },
+      { once: true }
+    );
+
     modalEl.addEventListener(
       "hidden.bs.modal",
       () => {
