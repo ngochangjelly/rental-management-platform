@@ -229,7 +229,13 @@ class HouseViewSpecialistComponent {
               <div class="hvs-card-name">${escapeHtml(name)}</div>
               ${unit ? `<div class="hvs-card-unit">${escapeHtml(unit)}</div>` : ""}
             </div>
-            ${statusBadge}
+            <div class="hvs-card-header-right">
+              ${statusBadge}
+              <button class="hvs-card-delete-btn" title="Xóa"
+                onclick="event.stopPropagation(); houseViewSpecialist.confirmDelete('${r._id}')">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
           </div>
           <div class="hvs-card-meta">
             <span><i class="bi bi-calendar3"></i> ${date}</span>
@@ -1778,10 +1784,11 @@ class HouseViewSpecialistComponent {
       });
   }
 
-  confirmDelete() {
-    if (!this.editingId) return;
+  confirmDelete(id) {
+    const targetId = id || this.editingId;
+    if (!targetId) return;
     if (!confirm("Xác nhận xóa lần xem nhà này?")) return;
-    this.deleteRecord(this.editingId);
+    this.deleteRecord(targetId);
   }
 
   async deleteRecord(id) {
@@ -1792,7 +1799,12 @@ class HouseViewSpecialistComponent {
       const data = await res.json();
       if (data.success) {
         showToast("Đã xóa", "success");
-        this.goToList();
+        this.records = this.records.filter((r) => r._id !== id);
+        if (this.view === "list") {
+          this.renderList();
+        } else {
+          this.goToList();
+        }
       } else {
         showToast("Lỗi khi xóa", "error");
       }
