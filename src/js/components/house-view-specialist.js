@@ -160,6 +160,15 @@ class HouseViewSpecialistComponent {
     if (banner) banner.remove();
   }
 
+  clearAllDrafts() {
+    this._clearDraft();
+    this._pendingDraft = null;
+    const banner = document.getElementById("hvs-resume-banner");
+    if (banner) banner.remove();
+    showToast("Đã xóa nháp", "success");
+    this.renderList();
+  }
+
   // ─── Data loading ──────────────────────────────────────────────────────────
 
   async loadRecords() {
@@ -264,6 +273,10 @@ class HouseViewSpecialistComponent {
           <button class="hvs-btn-add-full" onclick="houseViewSpecialist.startNewViewing()">
             <i class="bi bi-plus-lg me-2"></i>Xem nhà mới
           </button>
+          ${this._loadDraft() ? `
+          <button class="hvs-btn-clear-draft" onclick="houseViewSpecialist.clearAllDrafts()">
+            <i class="bi bi-trash me-1"></i>Xóa nháp đang lưu
+          </button>` : ""}
         </div>
       </div>
     `;

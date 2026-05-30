@@ -4178,10 +4178,17 @@ class TenantManagementComponent {
         ? `${propertyInfo.address}, ${propertyInfo.unit}`
         : propertyId;
 
+      // Sort: main tenant first
+      const sortedTenants = [...tenantsInProperty].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
       // Format tenant list
       let copyText = `Property: ${propertyDisplay}\n\n`;
 
-      tenantsInProperty.forEach((tenant, index) => {
+      sortedTenants.forEach((tenant, index) => {
         const ordinalNumber = index + 1;
         const isMainTenant = this.hasMainTenantProperty(tenant);
         const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
@@ -4250,19 +4257,23 @@ class TenantManagementComponent {
           : this.selectedProperty;
       }
 
+      // Sort: main tenant first
+      const sortedActiveTenants = [...activeTenants].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
       // Format tenant list with all requested fields
       let copyText = `Property: ${propertyDisplay}\n`;
-      copyText += `Total Active Tenants: ${activeTenants.length}\n`;
+      copyText += `Total Active Tenants: ${sortedActiveTenants.length}\n`;
       copyText += `Generated on: ${new Date().toLocaleString()}\n`;
       copyText += `${"=".repeat(80)}\n\n`;
 
-      activeTenants.forEach((tenant, index) => {
+      sortedActiveTenants.forEach((tenant, index) => {
         const ordinalNumber = index + 1;
         const isMainTenant = this.hasMainTenantProperty(tenant);
         const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
-        const registrationStatus =
-          tenant.registrationStatus ||
-          (tenant.isRegistered ? "registered" : "unregistered");
         const moveinDate = this.getTenantMoveInDate(
           tenant,
           this.selectedProperty,
@@ -4271,7 +4282,6 @@ class TenantManagementComponent {
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
         copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
         copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
-        copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
@@ -4283,7 +4293,7 @@ class TenantManagementComponent {
         .writeText(copyText)
         .then(() => {
           // Show success message
-          this.showCopySuccessMessage(activeTenants.length);
+          this.showCopySuccessMessage(sortedActiveTenants.length);
         })
         .catch((err) => {
           console.error("Failed to copy to clipboard:", err);
@@ -4346,13 +4356,20 @@ class TenantManagementComponent {
           : this.selectedProperty;
       }
 
+      // Sort: main tenant first
+      const sortedRegisteredTenants = [...registeredTenants].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
       // Format tenant list with all requested fields
       let copyText = `Property: ${propertyDisplay}\n`;
-      copyText += `Registered Active Tenants Only: ${registeredTenants.length}\n`;
+      copyText += `Registered Active Tenants Only: ${sortedRegisteredTenants.length}\n`;
       copyText += `Generated on: ${new Date().toLocaleString()}\n`;
       copyText += `${"=".repeat(80)}\n\n`;
 
-      registeredTenants.forEach((tenant, index) => {
+      sortedRegisteredTenants.forEach((tenant, index) => {
         const ordinalNumber = index + 1;
         const isMainTenant = this.hasMainTenantProperty(tenant);
         const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
@@ -4364,7 +4381,6 @@ class TenantManagementComponent {
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
         copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
         copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
-        copyText += `   Registration Status: REGISTERED\n`;
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
@@ -4449,6 +4465,13 @@ class TenantManagementComponent {
           : this.selectedProperty;
       }
 
+      // Merge registered + pending, sort main tenant first
+      const allEligibleTenants = [...registeredTenants, ...pendingTenants].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
       // Helper to format a single tenant entry (WhatsApp/Messenger friendly)
       const formatTenant = (tenant, index) => {
         const isMainTenant = this.hasMainTenantProperty(tenant);
@@ -4466,26 +4489,12 @@ class TenantManagementComponent {
         return entry;
       };
 
-      // Build the copy text (WhatsApp/Messenger friendly format)
+      // Build the copy text (WhatsApp/Messenger friendly format) — flat list
       let copyText = `📍 *${propertyDisplay}*\n\n`;
 
-      let runningIndex = 1;
-
-      // Registered tenants section
-      if (registeredTenants.length > 0) {
-        copyText += `✅ *REGISTERED* (${registeredTenants.length})\n\n`;
-        registeredTenants.forEach((tenant) => {
-          copyText += formatTenant(tenant, runningIndex++) + "\n\n";
-        });
-      }
-
-      // Pending tenants section
-      if (pendingTenants.length > 0) {
-        copyText += `⏳ *PENDING* (${pendingTenants.length})\n\n`;
-        pendingTenants.forEach((tenant) => {
-          copyText += formatTenant(tenant, runningIndex++) + "\n\n";
-        });
-      }
+      allEligibleTenants.forEach((tenant, idx) => {
+        copyText += formatTenant(tenant, idx + 1) + "\n\n";
+      });
 
       // Summary
       copyText += `📊 *Total: ${totalCount}*`;
@@ -4550,19 +4559,23 @@ class TenantManagementComponent {
           : this.selectedProperty;
       }
 
+      // Sort: main tenant first
+      const sortedOutdatedTenants = [...outdatedTenants].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
       // Format tenant list with all requested fields
       let copyText = `Property: ${propertyDisplay}\n`;
-      copyText += `Outdated Tenants Only: ${outdatedTenants.length}\n`;
+      copyText += `Outdated Tenants Only: ${sortedOutdatedTenants.length}\n`;
       copyText += `Generated on: ${new Date().toLocaleString()}\n`;
       copyText += `${"=".repeat(80)}\n\n`;
 
-      outdatedTenants.forEach((tenant, index) => {
+      sortedOutdatedTenants.forEach((tenant, index) => {
         const ordinalNumber = index + 1;
         const isMainTenant = this.hasMainTenantProperty(tenant);
         const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
-        const registrationStatus =
-          tenant.registrationStatus ||
-          (tenant.isRegistered ? "registered" : "unregistered");
         const moveinDate = this.getTenantMoveInDate(
           tenant,
           this.selectedProperty,
@@ -4593,7 +4606,6 @@ class TenantManagementComponent {
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
         copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
         copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
-        copyText += `   Registration Status: ${registrationStatus.toUpperCase()}\n`;
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
