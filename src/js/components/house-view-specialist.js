@@ -856,21 +856,12 @@ class HouseViewSpecialistComponent {
     const p = this.viewingData.profit;
     const FIXED_COST = 600;
 
-    const rangePair = (minId, maxId, minVal, maxVal) => `
-      <div class="hvs-range-pair">
-        <div class="hvs-profit-iw">
-          <span class="hvs-currency">$</span>
-          <input type="number" id="${minId}" class="hvs-input hvs-profit-input"
-            placeholder="thấp" inputmode="numeric" value="${minVal || ""}"
-            oninput="houseViewSpecialist.updateProfitCalc()" />
-        </div>
-        <span class="hvs-range-sep">~</span>
-        <div class="hvs-profit-iw">
-          <span class="hvs-currency">$</span>
-          <input type="number" id="${maxId}" class="hvs-input hvs-profit-input"
-            placeholder="cao" inputmode="numeric" value="${maxVal || ""}"
-            oninput="houseViewSpecialist.updateProfitCalc()" />
-        </div>
+    const singleInput = (id, val) => `
+      <div class="hvs-profit-iw">
+        <span class="hvs-currency">$</span>
+        <input type="number" id="${id}" class="hvs-input hvs-profit-input"
+          placeholder="0" inputmode="numeric" value="${val || ""}"
+          oninput="houseViewSpecialist.updateProfitCalc()" />
       </div>
     `;
 
@@ -881,21 +872,7 @@ class HouseViewSpecialistComponent {
           <i class="bi bi-${room.enabled ? "check-circle-fill" : "circle"}"></i>
         </button>
         <span class="hvs-room-label">${room.label}</span>
-        <div class="hvs-range-pair${room.enabled ? "" : " hvs-hidden"}">
-          <div class="hvs-profit-iw">
-            <span class="hvs-currency">$</span>
-            <input type="number" id="hvs-room-min-${room.id}" class="hvs-input hvs-profit-input"
-              placeholder="thấp" inputmode="numeric" value="${room.min || ""}"
-              oninput="houseViewSpecialist.updateProfitCalc()" />
-          </div>
-          <span class="hvs-range-sep">~</span>
-          <div class="hvs-profit-iw">
-            <span class="hvs-currency">$</span>
-            <input type="number" id="hvs-room-max-${room.id}" class="hvs-input hvs-profit-input"
-              placeholder="cao" inputmode="numeric" value="${room.max || ""}"
-              oninput="houseViewSpecialist.updateProfitCalc()" />
-          </div>
-        </div>
+        ${room.enabled ? singleInput(`hvs-room-${room.id}`, room.min) : ""}
       </div>
     `;
 
@@ -912,7 +889,7 @@ class HouseViewSpecialistComponent {
           <div class="hvs-profit-inputs-panel">
             <div class="hvs-profit-landlord-row">
               <span class="hvs-profit-row-label"><i class="bi bi-house-lock me-1"></i>Thuê chủ nhà</span>
-              ${rangePair("hvs-landlord-min", "hvs-landlord-max", p.landlordRentMin, p.landlordRentMax)}
+              ${singleInput("hvs-landlord-rent", p.landlordRentMin)}
             </div>
 
             <div class="hvs-profit-section-title" style="margin-top:14px">
@@ -1325,13 +1302,16 @@ class HouseViewSpecialistComponent {
   _collectProfitStep() {
     const p = this.viewingData.profit;
     if (!p) return;
-    p.landlordRentMin = parseFloat(document.getElementById("hvs-landlord-min")?.value) || 0;
-    p.landlordRentMax = parseFloat(document.getElementById("hvs-landlord-max")?.value) || 0;
+    const rentVal = parseFloat(document.getElementById("hvs-landlord-rent")?.value) || 0;
+    p.landlordRentMin = rentVal;
+    p.landlordRentMax = rentVal;
     p.rooms.forEach((room) => {
-      const minEl = document.getElementById(`hvs-room-min-${room.id}`);
-      const maxEl = document.getElementById(`hvs-room-max-${room.id}`);
-      if (minEl) room.min = parseFloat(minEl.value) || 0;
-      if (maxEl) room.max = parseFloat(maxEl.value) || 0;
+      const el = document.getElementById(`hvs-room-${room.id}`);
+      if (el) {
+        const val = parseFloat(el.value) || 0;
+        room.min = val;
+        room.max = val;
+      }
     });
   }
 
@@ -1423,14 +1403,17 @@ class HouseViewSpecialistComponent {
   updateProfitCalc() {
     const p = this.viewingData.profit;
     if (!p) return;
-    p.landlordRentMin = parseFloat(document.getElementById("hvs-landlord-min")?.value) || 0;
-    p.landlordRentMax = parseFloat(document.getElementById("hvs-landlord-max")?.value) || 0;
+    const rentVal = parseFloat(document.getElementById("hvs-landlord-rent")?.value) || 0;
+    p.landlordRentMin = rentVal;
+    p.landlordRentMax = rentVal;
     p.rooms.forEach((room) => {
       if (!room.enabled) return;
-      const minEl = document.getElementById(`hvs-room-min-${room.id}`);
-      const maxEl = document.getElementById(`hvs-room-max-${room.id}`);
-      if (minEl) room.min = parseFloat(minEl.value) || 0;
-      if (maxEl) room.max = parseFloat(maxEl.value) || 0;
+      const el = document.getElementById(`hvs-room-${room.id}`);
+      if (el) {
+        const val = parseFloat(el.value) || 0;
+        room.min = val;
+        room.max = val;
+      }
     });
     const summaryEl = document.getElementById("hvs-profit-summary");
     if (summaryEl) summaryEl.innerHTML = this._renderProfitSummaryHtml(this._calculateProfit());

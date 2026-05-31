@@ -526,7 +526,11 @@ class PropertyManagementComponent {
               </div>
             </div>
             <div class="card-body pt-2">
-              <p class="mb-2 small"><i class="bi bi-geo-alt text-muted me-2"></i>${this.escapeHtml(property.address)}</p>
+              <p class="mb-2 small d-flex align-items-start gap-1">
+                <i class="bi bi-geo-alt text-muted me-1 mt-1" style="flex-shrink:0;"></i>
+                <span class="flex-grow-1">${this.escapeHtml(property.address)}</span>
+                <button type="button" class="btn btn-link p-0 ms-1 text-muted" style="font-size:0.75rem;flex-shrink:0;line-height:1;" title="Copy address" onclick="event.stopPropagation();copyPropertyAddress(this)" data-address="${this.escapeHtml(property.address)}"><i class="bi bi-copy"></i></button>
+              </p>
               <div class="row">
                 <div class="col-6">
                   <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</p>
@@ -2007,6 +2011,15 @@ class PropertyManagementComponent {
 
 // Export for use in other modules
 window.PropertyManagementComponent = PropertyManagementComponent;
+
+function copyPropertyAddress(btn) {
+  const address = btn.getAttribute('data-address');
+  navigator.clipboard.writeText(address).then(() => {
+    btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+    setTimeout(() => { btn.innerHTML = '<i class="bi bi-copy"></i>'; }, 1500);
+  });
+}
+window.copyPropertyAddress = copyPropertyAddress;
 
 async function openTenantFbGroup(el) {
   const url = el.dataset.fbUrl;
