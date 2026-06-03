@@ -124,7 +124,7 @@ class CommonPromptComponent {
       : "";
 
     const vndBlock = vndBank
-      ? `\n🇻🇳 Tài khoản Việt Nam (${vndBank})
+      ? `\n\n\n🇻🇳 Tài khoản Việt Nam (${vndBank})
 • Bank: ${vndBank}
 • Account No: ${vndAccountNo}
 • Tên: ${vndAccountHolder}`
@@ -132,13 +132,12 @@ class CommonPromptComponent {
 
     return `Hi mọi người 🌸
 
-Rent tháng ${currentMonth}, mọi người chuyển khoản giúp mình vào các tài khoản bên dưới nhé.
+Rent tháng ${currentMonth}, mọi người chuyển khoản giúp mình/em vào các tài khoản bên dưới nhé.
 
 💱 Ai đóng bằng VND thì áp dụng theo tỷ giá: ${rate} nhé. Vài hôm nữa có bill pub thì em sẽ báo lại sau ạ
 
-Sau khi chuyển khoản, mọi người vui lòng gửi hóa đơn qua tin nhắn riêng giúp mình để đảm bảo quyền riêng tư nhé.
+Sau khi chuyển khoản, mọi người vui lòng gửi hóa đơn qua tin nhắn riêng giúp mình/em để đảm bảo quyền riêng tư nhé.
 
-Chúc mọi người tháng mới nhiều thắng lợi, sức khỏe và thật nhiều niềm vui ✨
 ${sgdBlock}${vndBlock}`;
   }
 
@@ -321,7 +320,9 @@ Please leave at the doorstep.`;
     }
 
     let html = '<div class="row g-3">';
-    const sortedProperties = [...this.properties].sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0));
+    const sortedProperties = [...this.properties].sort(
+      (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
+    );
     sortedProperties.forEach((property, index) => {
       const message = prompt.template(property);
       const escapedMessage = this.escapeHtml(message);

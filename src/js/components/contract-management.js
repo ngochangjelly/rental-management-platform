@@ -37,6 +37,7 @@ class ContractManagementComponent {
       pestControlClause: false,
       airconFreeOfCharge: false,
       forfeitAcCleanFee: false,
+      cleaningCompulsory: false,
     };
 
     // Initialize template service
@@ -1508,6 +1509,50 @@ class ContractManagementComponent {
         this.updateSignaturePreview("A");
       }
 
+      // Auto-fill dates from the selected property's association for Tenant A
+      if (!this.isLoadingTemplate && tenant && tenant.properties && tenant.properties.length > 0) {
+        let propA = null;
+        if (this.selectedPropertyId) {
+          propA = tenant.properties.find(
+            (p) => p.propertyId === this.selectedPropertyId && (p.moveinDate || p.moveoutDate)
+          ) || null;
+        }
+        if (!propA) {
+          for (const p of tenant.properties) {
+            if (p.moveinDate || p.moveoutDate) {
+              if (!propA || new Date(p.moveinDate || 0) > new Date(propA.moveinDate || 0)) {
+                propA = p;
+              }
+            }
+          }
+        }
+        if (propA) {
+          if (propA.moveinDate) {
+            const moveInInput = document.getElementById("contractMoveInDate");
+            if (moveInInput) {
+              const d = new Date(propA.moveinDate).toISOString().split("T")[0];
+              moveInInput.value = d;
+              this.contractData.moveInDate = d;
+            }
+          }
+          if (propA.moveoutDate) {
+            const moveOutInput = document.getElementById("contractMoveOutDate");
+            if (moveOutInput) {
+              const d = new Date(propA.moveoutDate).toISOString().split("T")[0];
+              moveOutInput.value = d;
+              this.contractData.moveOutDate = d;
+            }
+          }
+          if (propA.room) {
+            const roomInput = document.getElementById("contractRoom");
+            if (roomInput) {
+              roomInput.value = propA.room;
+              this.contractData.room = propA.room;
+            }
+          }
+        }
+      }
+
       // Hide new tenant fields if a real tenant is selected (not ADD_NEW_TENANT or empty)
       if (identifier && identifier !== "ADD_NEW_TENANT" && identifier !== "") {
         this.hideNewTenantFields(tenantType);
@@ -1549,16 +1594,24 @@ class ContractManagementComponent {
           "🏠 Auto-filling move-in/move-out dates from tenant property info",
         );
 
-        // Find the latest property assignment (by moveinDate) with date info
+        // Find the property association to use for date auto-fill:
+        // prefer the selected property, fall back to latest by moveinDate
         let propertyWithDates = null;
-        for (const property of tenant.properties) {
-          if (property.moveinDate || property.moveoutDate) {
-            if (
-              !propertyWithDates ||
-              new Date(property.moveinDate || 0) >
-                new Date(propertyWithDates.moveinDate || 0)
-            ) {
-              propertyWithDates = property;
+        if (this.selectedPropertyId) {
+          propertyWithDates = tenant.properties.find(
+            (p) => p.propertyId === this.selectedPropertyId && (p.moveinDate || p.moveoutDate)
+          ) || null;
+        }
+        if (!propertyWithDates) {
+          for (const property of tenant.properties) {
+            if (property.moveinDate || property.moveoutDate) {
+              if (
+                !propertyWithDates ||
+                new Date(property.moveinDate || 0) >
+                  new Date(propertyWithDates.moveinDate || 0)
+              ) {
+                propertyWithDates = property;
+              }
             }
           }
         }
@@ -1767,17 +1820,34 @@ class ContractManagementComponent {
       let tenantWithDates = null;
       let propertyWithDates = null;
 
-      for (const tenant of this.selectedTenantB) {
-        if (tenant && tenant.properties && tenant.properties.length > 0) {
-          for (const property of tenant.properties) {
-            if (property.moveinDate || property.moveoutDate) {
-              if (
-                !propertyWithDates ||
-                new Date(property.moveinDate || 0) >
-                  new Date(propertyWithDates.moveinDate || 0)
-              ) {
-                tenantWithDates = tenant;
-                propertyWithDates = property;
+      // Prefer the selected property's association; fall back to latest by moveinDate
+      if (this.selectedPropertyId) {
+        for (const tenant of this.selectedTenantB) {
+          if (tenant && tenant.properties && tenant.properties.length > 0) {
+            const match = tenant.properties.find(
+              (p) => p.propertyId === this.selectedPropertyId && (p.moveinDate || p.moveoutDate)
+            );
+            if (match) {
+              tenantWithDates = tenant;
+              propertyWithDates = match;
+              break;
+            }
+          }
+        }
+      }
+      if (!propertyWithDates) {
+        for (const tenant of this.selectedTenantB) {
+          if (tenant && tenant.properties && tenant.properties.length > 0) {
+            for (const property of tenant.properties) {
+              if (property.moveinDate || property.moveoutDate) {
+                if (
+                  !propertyWithDates ||
+                  new Date(property.moveinDate || 0) >
+                    new Date(propertyWithDates.moveinDate || 0)
+                ) {
+                  tenantWithDates = tenant;
+                  propertyWithDates = property;
+                }
               }
             }
           }
@@ -2318,6 +2388,15 @@ class ContractManagementComponent {
     if (forfeitAcCleanFeeCheckbox) {
       forfeitAcCleanFeeCheckbox.addEventListener("change", () => {
         this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
+    // Handle cleaning compulsory checkbox
+    const cleaningCompulsoryCheckbox = document.getElementById("cleaningCompulsory");
+    if (cleaningCompulsoryCheckbox) {
+      cleaningCompulsoryCheckbox.addEventListener("change", () => {
+        this.contractData.cleaningCompulsory = cleaningCompulsoryCheckbox.checked;
         this.updateContractPreview();
       });
     }
@@ -3079,7 +3158,7 @@ class ContractManagementComponent {
                           this.contractData.fullPaymentReceived ? "e" : "f"
                         })</strong> Cleaning fee: SGD$${
                           this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")
-                        } / 1pax (if all tenants agree to hire a cleaning service)</p>
+                        } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}</p>
                     </div>
                 </div>
 
@@ -3454,6 +3533,379 @@ class ContractManagementComponent {
 
   async shareViaWhatsApp() {
     await this.exportToPDF("whatsapp");
+  }
+
+  async exportToDOCX() {
+    const docxBtn = document.querySelector('[onclick="contractManager.exportToDOCX()"]');
+    try {
+      this.syncFormValuesToContractData();
+
+      // Sync selectedTenantB from checkboxes if empty
+      if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
+        const checkedBoxes = document.querySelectorAll(".tenant-b-checkbox:checked");
+        if (checkedBoxes.length > 0) {
+          this.selectedTenantB = [];
+          checkedBoxes.forEach((checkbox) => {
+            const dataType = checkbox.getAttribute("data-type");
+            const index = parseInt(checkbox.getAttribute("data-index"));
+            let tenant = null;
+            if (dataType === "investor" && !isNaN(index) && index >= 0 && index < this.investors.length) {
+              tenant = this.investors[index];
+            } else if (dataType === "tenant" && !isNaN(index) && index >= 0 && index < this.tenants.length) {
+              tenant = this.tenants[index];
+            }
+            if (tenant) this.selectedTenantB.push(tenant);
+          });
+        }
+      }
+
+      if (docxBtn) {
+        docxBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
+        docxBtn.disabled = true;
+      }
+
+      if (!window.DocxLib) throw new Error("DOCX library not available");
+      const { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } = window.DocxLib;
+
+      // Build filename (same logic as PDF but .docx)
+      const unitNumber = this.contractData.unit ? this.contractData.unit.replace(/[^a-zA-Z0-9#-]/g, "_") : "";
+      const tenantBNameForFile = Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0
+        ? this.selectedTenantB.map((t) => t.name).join("_").replace(/[^a-zA-Z0-9_]/g, "_")
+        : "TenantB";
+      const roomTypeForFile = this.formatRoomType(this.contractData.room).replace(/[^a-zA-Z0-9]/g, "_");
+      const monthlyRentForFile = this.contractData.monthlyRental ? `${this.contractData.monthlyRental}` : "0";
+      const moveInForFile = this.formatDateForFilename(this.contractData.moveInDate);
+      const moveOutForFile = this.formatDateForFilename(this.contractData.moveOutDate);
+      const dateRangeForFile = moveInForFile && moveOutForFile ? `${moveInForFile}-${moveOutForFile}` : "";
+
+      const customAddressEl = document.getElementById("customAddressText");
+      const addrSource = customAddressEl && customAddressEl.value.trim() ? customAddressEl.value.trim() : this.contractData.address;
+      let cleanAddrForFile = addrSource || "Address";
+      if (this.contractData.unit) {
+        const unitSuffix = `, ${this.contractData.unit.trim()}`;
+        if (cleanAddrForFile.endsWith(unitSuffix)) cleanAddrForFile = cleanAddrForFile.slice(0, -unitSuffix.length);
+      }
+      cleanAddrForFile = cleanAddrForFile.replace(/,\s*#[^,]+$/, "").trim()
+        .replace(/,?\s*Singapore\s*\d*$/i, "")
+        .replace(/,?\s*S\d{6}$/i, "")
+        .replace(/,?\s*\d{6}$/i, "");
+      const propAddrForFile = cleanAddrForFile.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
+
+      const filenameParts = [];
+      if (unitNumber) filenameParts.push(unitNumber);
+      filenameParts.push(tenantBNameForFile, roomTypeForFile, monthlyRentForFile);
+      if (dateRangeForFile) filenameParts.push(dateRangeForFile);
+      filenameParts.push(propAddrForFile);
+      const filename = `${filenameParts.join("-")}.docx`;
+
+      // Prepare tenant info
+      const customTenantAEl = document.getElementById("customTenantAText");
+      const customTenantBEl = document.getElementById("customTenantBText");
+
+      const tenantAInfo = this.selectedTenantA
+        ? { name: this.selectedTenantA.name, passport: this.selectedTenantA.passportNumber || this.selectedTenantA.passport || "", fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "", email: this.selectedTenantA.email || "" }
+        : customTenantAEl && customTenantAEl.value.trim()
+          ? { name: customTenantAEl.value.trim(), passport: "", fin: "", email: "" }
+          : { name: "[Tenant A Name]", passport: "[Tenant A Passport]", fin: "[Tenant A FIN]", email: "[Email]" };
+
+      let tenantBInfo;
+      if (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0) {
+        tenantBInfo = this.selectedTenantB.map((t) => ({ name: t.name, passport: t.passportNumber || t.passport || "", fin: t.finNumber || t.fin || "" }));
+      } else if (customTenantBEl && customTenantBEl.value.trim()) {
+        tenantBInfo = [{ name: customTenantBEl.value.trim(), passport: "", fin: "" }];
+      } else {
+        tenantBInfo = [{ name: "[Tenant B Name]", passport: "[Tenant B Passport]", fin: "[Tenant B FIN]" }];
+      }
+
+      // Property address for contract body
+      const unit = this.contractData.unit || "";
+      const rawAddr = customAddressEl && customAddressEl.value.trim() ? customAddressEl.value.trim() : this.contractData.address || "[Property Address]";
+      let cleanAddr = rawAddr;
+      if (unit) {
+        const suffix = `, ${unit}`;
+        if (cleanAddr.endsWith(suffix)) cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
+      }
+      const propertyAddressForDocx = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
+
+      // Convert PDF spacing (mm) to DOCX twips (~56.7 twips/mm)
+      const sp = (mm) => Math.round(mm * 57);
+
+      // Paragraph builder matching addText options from PDF
+      const para = (text, opts = {}) => new Paragraph({
+        alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
+        indent: opts.indent ? { left: 720 } : undefined,
+        spacing: { after: sp(opts.spacing || 0) },
+        children: [new TextRun({
+          text: String(text || ""),
+          bold: opts.bold || false,
+          size: (opts.fontSize || 10) * 2,
+          font: "Times New Roman",
+        })],
+      });
+
+      const children = [];
+
+      // ── Header ──
+      children.push(para("HOUSE SHARING AGREEMENT", { fontSize: 16, bold: true, center: true, spacing: 10 }));
+      children.push(para(`Full address: ${propertyAddressForDocx}`, { center: true }));
+      children.push(para(`Room: ${this.formatRoomType(this.contractData.room)}`, { center: true }));
+      children.push(para(
+        `THIS AGREEMENT is made on: ${this.contractData.agreementDate || new Date().toISOString().split("T")[0]}`,
+        { center: true, spacing: 15 }
+      ));
+
+      // ── BETWEEN ──
+      children.push(para("BETWEEN", { bold: true, spacing: 5 }));
+      children.push(para(`Main tenant: ${tenantAInfo.name}`, { indent: true }));
+      if (tenantAInfo.passport) children.push(para(`Passport: ${tenantAInfo.passport}`, { indent: true }));
+      if (tenantAInfo.fin) children.push(para(`FIN: ${tenantAInfo.fin}`, { indent: true }));
+      children.push(para(`Email: ${tenantAInfo.email}`, { indent: true }));
+      children.push(para(
+        '(Hereinafter called "TenantA" which expresses together where the context so admits, shall include all persons having title under \'TenantA\') of the one part.',
+        { indent: true, spacing: 10 }
+      ));
+
+      // ── AND ──
+      children.push(para("AND", { bold: true, spacing: 5 }));
+      for (let i = 0; i < tenantBInfo.length; i++) {
+        const t = tenantBInfo[i];
+        const isLast = i === tenantBInfo.length - 1;
+        if (tenantBInfo.length > 1) children.push(para(`Tenant ${i + 1}:`, { indent: true, bold: true, spacing: 2 }));
+        children.push(para(`Name: ${t.name || "[Tenant Name]"}`, { indent: true }));
+        if (t.passport && String(t.passport).trim()) children.push(para(`Passport: ${String(t.passport)}`, { indent: true }));
+        if (t.fin && String(t.fin).trim()) {
+          children.push(para(`FIN: ${String(t.fin)}`, { indent: true, spacing: isLast ? 0 : 5 }));
+        } else if (!isLast) {
+          children.push(para("", { spacing: 5 }));
+        }
+      }
+      children.push(para(
+        '(Hereinafter called "Tenant B", which expresses together with where the context so admits, shall include all persons having title under \' Tenant B\') of the one part.',
+        { indent: true, spacing: 10 }
+      ));
+
+      // ── Payment method ──
+      children.push(para(`Payment method: ${this.formatPaymentMethod(this.contractData.paymentMethod)}`, { spacing: 10 }));
+
+      // ── Agreement terms ──
+      children.push(para("NOW IT IS HEREBY AGREED AS FOLLOWS:", { bold: true, spacing: 8 }));
+      children.push(para(`Lease Period: ${this.formatLeasePeriod()}`, { bold: true, spacing: 8 }));
+      children.push(para(`Tenancy Period: ${this.formatTenancyPeriod()}`, { bold: true, spacing: 8 }));
+      children.push(para("Moving Time: Move in after 15:00, Move out before 11:00", { bold: true, spacing: 8 }));
+      children.push(para(`Monthly Rental: $${this.contractData.monthlyRental || "[Monthly Rental]"}`, { bold: true, spacing: 5 }));
+      children.push(para("*Room rental rate is strictly confidential", { fontSize: 9, indent: true }));
+      children.push(para("*Renewal contract is subject to mutual agreement by Tenant A and Tenant B", { fontSize: 9, indent: true }));
+      children.push(para('*Payable by the 1st Day of each calendar month to "Tenant A"', {
+        fontSize: 9, indent: true, spacing: this.contractData.fullPaymentReceived ? 0 : 8,
+      }));
+      if (this.contractData.fullPaymentReceived) {
+        children.push(para(
+          `*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(2)})`,
+          { fontSize: 12, bold: true, indent: true, spacing: 8 }
+        ));
+      }
+      children.push(para(
+        `Security Deposit: $${this.contractData.securityDeposit || this.contractData.monthlyRental || "[Security Deposit]"}${this.contractData.partialDepositReceived && this.contractData.partialDepositAmount ? ` (Partial deposit received: $${this.contractData.partialDepositAmount})` : ""}`,
+        { bold: true, spacing: 5 }
+      ));
+      children.push(para("*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement", { fontSize: 9, indent: true, spacing: 10 }));
+      children.push(para("Monthly rentals include Wi-Fi, utilities, gas, usage of condominium facilities such as swimming pool, barbequepit and multi-purpose hall.", { fontSize: 9, spacing: 10 }));
+
+      // ── Section 1 ──
+      children.push(para("1. TENANT B(S) HEREBY AGREE(S) WITH TENANT A AS FOLLOWS:", { bold: true, fontSize: 12, spacing: 10 }));
+
+      const section1Clauses = [];
+      if (!this.contractData.fullPaymentReceived) {
+        const depositText = this.formatMonthsText(this.contractData.depositMonths || 1);
+        const advanceText = this.formatMonthsText(this.contractData.advanceMonths || 1);
+        const agreementDateFmt = this.contractData.agreementDate ? this.formatDate(this.contractData.agreementDate) : "[Agreement Date]";
+        const moveInDateFmt = this.contractData.moveInDate ? this.formatDate(this.contractData.moveInDate) : "[Move-in Date]";
+        section1Clauses.push(
+          `a) To pay the equivalent of ${depositText}'s rent as a deposit on the agreement date (${agreementDateFmt}) and ${advanceText}'s rent as an advance on the move-in date (${moveInDateFmt}). The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default.`,
+          "b) In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal.",
+        );
+      }
+
+      const baseClauseTexts = [
+        "To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.",
+        "Not to do or permit to be done upon the premises or room anything which may be unlawful, immoral, or become a nuisance or annoyance to occupiers of adjoining or adjacent room(s).",
+        "To use the premises for the purpose of private residence only and not to assign, sublet, or otherwise part possession of the premises or any part thereof without the written consent of Tenant A.",
+        "To peaceably and quietly at the expiration of the tenancy deliver up to Tenant A the room in like condition as the same was delivered to Tenant B at the commencement of this Agreement, except for fair wear and tear.",
+        "Not to create a nuisance, not to use the premises or any part thereof in a manner which may become a nuisance or annoyance to TenantA or the occupants of the premises, building or to neighbouring parties.",
+        "Strictly NO PETS in the premises.",
+        "No illegal or immoral activities, not to do or suffer to be done anything in or upon the said premises or any part thereof, any activities of an illegal or immoral nature.",
+        "To permit Tenant A to carry out due diligence checks to ensure that at all times during the currency of this Agreement, Tenant B and/or permitted occupants are not illegal immigrants and comply with all the rules and regulations relating to the Immigration Act and the Employment of Foreign Workers Act.",
+        "To provide TenantA, upon request, for physical inspection, all immigration and employment documents, including but not limited to the passports of all non-local occupants, the employment pass and/or work permits, proof of employment.",
+        "To permit the Main tenant and workmen with all necessary appliances to enter upon the said premises at all reasonable times by prior appointment for the purpose whether of viewing the condition thereof or of doing such works and things as may be required for any repairs, alterations or improvements whether of the said premises or of any parts of any building to which the said premises may form a part of or adjoin.",
+        "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
+        "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
+        "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
+        `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
+        "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
+        "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
+        "No visitors without permission from Tenant B to Tenant A.",
+        "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
+        "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
+        "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
+        "Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.",
+        "No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.",
+        "Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.",
+      ];
+
+      if (this.contractData.pestControlClause) {
+        baseClauseTexts.push(
+          "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.",
+        );
+      }
+
+      let clauseOffset = 0;
+      baseClauseTexts.forEach((clauseText, index) => {
+        const isAirconClause = clauseText.includes("air-conditioner servicing");
+        if (isAirconClause && !this.hasAircon()) { clauseOffset = 1; return; }
+        const letterIndex = this.contractData.fullPaymentReceived ? index - clauseOffset : index + 2 - clauseOffset;
+        const letter = String.fromCharCode(97 + letterIndex);
+        section1Clauses.push(`${letter}) ${clauseText}`);
+      });
+
+      section1Clauses.forEach((clause) => children.push(para(clause, { indent: true, spacing: 3 })));
+
+      this.additionalClauses.forEach((clause, index) => {
+        const letter = String.fromCharCode(97 + index + 21);
+        if (clause.text.trim()) children.push(para(`${letter}) ${clause.text}`, { indent: true, spacing: 3 }));
+      });
+
+      // ── Section 2 ──
+      children.push(para("", { spacing: 15 }));
+      children.push(para("2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:", { bold: true, fontSize: 12, spacing: 10 }));
+
+      const section2Clauses = [];
+      if (this.contractData.fullPaymentReceived) {
+        section2Clauses.push(
+          "If any covenants, conditions or stipulations on Tenant B's part herein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained.",
+        );
+      } else {
+        section2Clauses.push(
+          "If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B's part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith.",
+        );
+      }
+      section2Clauses.push(
+        "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
+        `a) ELECTRICITY: A monthly budget of S$${this.contractData.electricityBudget || "400"} (SINGAPORE DOLLARS ${this.numberToWords(parseInt(this.contractData.electricityBudget || "400")).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
+        "b) Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
+        "c) Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.",
+      );
+      if (!this.contractData.fullPaymentReceived) {
+        section2Clauses.push(
+          "d) Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month.",
+        );
+      }
+      const lawLetter = this.contractData.fullPaymentReceived ? "d" : "e";
+      const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
+      section2Clauses.push(
+        `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
+        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")} / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
+      );
+      section2Clauses.forEach((clause) => children.push(para(clause, { indent: true, spacing: 5 })));
+
+      // ── Signatures ──
+      children.push(para("", { spacing: 20 }));
+      children.push(para("By signing below, both parties agree to abide by all the above terms and conditions", { bold: true, center: true, spacing: 15 }));
+
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+      const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+
+      const fetchImgData = async (url) => {
+        try {
+          if (url.startsWith("data:")) {
+            const b64 = url.replace(/^data:image\/[a-z]+;base64,/, "");
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return { data: bytes, type: url.includes("image/png") ? "png" : "jpg" };
+          }
+          const resp = await fetch(url);
+          const buf = await resp.arrayBuffer();
+          const isJpg = /\.jpe?g($|\?)/i.test(url) || url.includes("jpeg");
+          return { data: new Uint8Array(buf), type: isJpg ? "jpg" : "png" };
+        } catch { return null; }
+      };
+
+      const [tenantASigData, tenantBSigData] = await Promise.all([
+        this.signatures.tenantA ? fetchImgData(this.signatures.tenantA) : Promise.resolve(null),
+        this.signatures.tenantB ? fetchImgData(this.signatures.tenantB) : Promise.resolve(null),
+      ]);
+
+      const buildSigCell = (label, names, sigData) => {
+        const cellChildren = [];
+        if (sigData) {
+          try {
+            cellChildren.push(new Paragraph({
+              children: [new ImageRun({ type: sigData.type, data: sigData.data, transformation: { width: 150, height: 60 } })],
+              spacing: { after: 80 },
+            }));
+          } catch { cellChildren.push(para("", { spacing: 5 })); cellChildren.push(para("________________________", { spacing: 5 })); }
+        } else {
+          cellChildren.push(para("", { spacing: 5 }));
+          cellChildren.push(para("________________________", { spacing: 5 }));
+        }
+        cellChildren.push(new Paragraph({
+          children: [new TextRun({ text: label, bold: true, size: 24, font: "Times New Roman" })],
+          spacing: { after: 60 },
+        }));
+        names.split("\n").forEach((name) => {
+          cellChildren.push(new Paragraph({
+            children: [new TextRun({ text: name, size: 20, font: "Times New Roman" })],
+            spacing: { after: 40 },
+          }));
+        });
+        // A4 usable width with 20mm margins: 170mm = 9639 twips; each col = half = 4819
+        return new TableCell({
+          borders: noBorders,
+          children: cellChildren,
+          width: { size: 4819, type: WidthType.DXA },
+        });
+      };
+
+      const tenantBNamesForSig = tenantBInfo.map((t) => t.name || "[Tenant B]").join("\n");
+      children.push(new Table({
+        width: { size: 9638, type: WidthType.DXA },
+        columnWidths: [4819, 4819],
+        borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
+        rows: [new TableRow({ children: [
+          buildSigCell("Tenant A", tenantAInfo.name || "[Tenant A]", tenantASigData),
+          buildSigCell("Tenant B", tenantBNamesForSig, tenantBSigData),
+        ]})],
+      }));
+
+      // Build and save
+      const doc = new Document({
+        sections: [{
+          properties: { page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } } },
+          children,
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(dlUrl);
+
+      console.log(`✅ Contract exported successfully as DOCX: ${filename}`);
+      showToast("Contract exported as DOCX successfully!", "success");
+    } catch (error) {
+      console.error("Error exporting DOCX:", error);
+      showToast("Error exporting DOCX: " + error.message, "error");
+    } finally {
+      if (docxBtn) {
+        docxBtn.innerHTML = '<i class="bi bi-file-word me-1"></i>Export DOCX';
+        docxBtn.disabled = false;
+      }
+    }
   }
 
   async exportToPDF(mode = "download") {
@@ -4101,7 +4553,7 @@ class ContractManagementComponent {
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
         `${cleaningClauseLetter}) Cleaning fee: SGD$${
           this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")
-        } / 1pax (if all tenants agree to hire a cleaning service)`,
+        } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
       );
 
       section2Clauses.forEach((clause) => {
@@ -4593,7 +5045,7 @@ class ContractManagementComponent {
                             
                             <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${
                               this.contractData.cleaningFee || "20"
-                            } / 1pax (if all tenants agree to hire a cleaning service)</p>
+                            } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}</p>
                         </div>
                     </div>
 
@@ -4999,6 +5451,11 @@ class ContractManagementComponent {
       this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
+    const cleaningCompulsoryElement = document.getElementById("cleaningCompulsory");
+    if (cleaningCompulsoryElement) {
+      this.contractData.cleaningCompulsory = cleaningCompulsoryElement.checked;
+    }
+
     console.log("✅ Synced form values to contractData:", {
       moveInDate: this.contractData.moveInDate,
       moveOutDate: this.contractData.moveOutDate,
@@ -5095,6 +5552,11 @@ class ContractManagementComponent {
       contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
+    const cleaningCompulsoryEl = document.getElementById("cleaningCompulsory");
+    if (cleaningCompulsoryEl) {
+      contractData.cleaningCompulsory = cleaningCompulsoryEl.checked;
+    }
+
     return contractData;
   }
 
@@ -5112,8 +5574,13 @@ class ContractManagementComponent {
       // Set flag to prevent auto-fill of dates when loading template
       this.isLoadingTemplate = true;
 
-      // Populate contract data
-      this.contractData = { ...templateData.contractData };
+      // Populate contract data — spread defaults first so old saved contracts
+      // without newer fields (e.g. cleaningCompulsory) still get safe values
+      this.contractData = {
+        forfeitAcCleanFee: false,
+        cleaningCompulsory: false,
+        ...templateData.contractData,
+      };
 
       // Store the dates separately to restore them after tenant loading
       const savedMoveInDate = templateData.contractData.moveInDate;
@@ -5129,9 +5596,11 @@ class ContractManagementComponent {
               ? document.getElementById("airconFreeOfCharge")
               : field === "forfeitAcCleanFee"
                 ? document.getElementById("forfeitAcCleanFee")
-                : document.getElementById(
-                  `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
-                );
+                : field === "cleaningCompulsory"
+                  ? document.getElementById("cleaningCompulsory")
+                  : document.getElementById(
+                    `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
+                  );
 
         if (element) {
           if (element.type === "checkbox") {

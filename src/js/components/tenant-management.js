@@ -2499,6 +2499,21 @@ class TenantManagementComponent {
         return;
       }
 
+      // Validate room assignments: each must have a room type and move-in date
+      for (const prop of tenantData.properties) {
+        const assignments = prop.roomAssignments || [];
+        for (const ra of assignments) {
+          if (!ra.room || ra.room.trim() === '') {
+            alert(`Please select a room type for all room assignments in property ${prop.propertyId}, or remove incomplete assignments.`);
+            return;
+          }
+          if (!ra.moveinDate || ra.moveinDate.trim() === '') {
+            alert(`Please enter a move-in date for all room assignments in property ${prop.propertyId}, or remove incomplete assignments.`);
+            return;
+          }
+        }
+      }
+
       // Validate FIN length if provided
       if (tenantData.fin && tenantData.fin.length > 20) {
         alert("FIN cannot exceed 20 characters");

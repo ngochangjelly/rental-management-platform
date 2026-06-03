@@ -133,8 +133,12 @@ class PropertyManagementComponent {
       const result = await response.json();
 
       if (result.success) {
-        this.allInvestors = result.investors || [];
+        this.allInvestors = result.data || result.investors || [];
         console.log(`📋 Loaded ${this.allInvestors.length} investors for management fee dropdown`);
+        // Re-render cards in case properties loaded before investors (race condition)
+        if (this.properties && this.properties.length > 0) {
+          this.renderPropertiesTable();
+        }
       } else {
         console.error("Failed to load investors:", result.error);
         this.allInvestors = [];
@@ -191,6 +195,55 @@ class PropertyManagementComponent {
     });
 
     console.log(`📋 Populated management fee payee dropdown with ${investorsToShow.length} investors`);
+  }
+
+  populateAccountantDropdown() {
+    const dropdown = document.getElementById("accountant");
+    if (!dropdown) return;
+
+    dropdown.innerHTML = '<option value="">-- Select Accountant --</option>';
+
+    this.allInvestors.forEach(investor => {
+      const option = document.createElement('option');
+      option.value = investor.investorId;
+      option.textContent = `${investor.name} (${investor.investorId})`;
+      dropdown.appendChild(option);
+    });
+  }
+
+  updateAccountantAvatarPreview(investorId) {
+    const preview = document.getElementById("accountantAvatarPreview");
+    const circle = document.getElementById("accountantAvatarCircle");
+    const nameEl = document.getElementById("accountantAvatarName");
+    const idEl = document.getElementById("accountantAvatarId");
+
+    if (!investorId) {
+      if (preview) preview.style.display = "none";
+      return;
+    }
+
+    const investor = this.allInvestors.find(i => i.investorId === investorId);
+    if (!investor) {
+      if (preview) preview.style.display = "none";
+      return;
+    }
+
+    if (preview) preview.style.display = "flex";
+    if (nameEl) nameEl.textContent = investor.name;
+    if (idEl) idEl.textContent = investor.investorId;
+
+    if (circle) {
+      if (investor.avatar) {
+        circle.innerHTML = `<img src="${investor.avatar}" style="width:100%;height:100%;object-fit:cover;" alt="${this.escapeHtml(investor.name)}">`;
+      } else {
+        const initials = investor.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        circle.style.background = 'linear-gradient(135deg,#6f42c1,#9d4edd)';
+        circle.style.display = 'flex';
+        circle.style.alignItems = 'center';
+        circle.style.justifyContent = 'center';
+        circle.innerHTML = `<span style="color:#fff;font-weight:700;font-size:16px;">${initials}</span>`;
+      }
+    }
   }
 
   populateAcServiceCompanyDropdown() {
@@ -255,6 +308,14 @@ class PropertyManagementComponent {
       fetchAddressBtn.addEventListener("click", () => {
         const postcode = document.getElementById("postcode").value;
         this.fetchAddressFromPostcode(postcode);
+      });
+    }
+
+    // Accountant dropdown - update avatar preview on change
+    const accountantDropdown = document.getElementById("accountant");
+    if (accountantDropdown) {
+      accountantDropdown.addEventListener("change", (e) => {
+        this.updateAccountantAvatarPreview(e.target.value);
       });
     }
 
@@ -362,6 +423,7 @@ class PropertyManagementComponent {
         // Debug: Log rent values from API
         this.properties.forEach(p => {
           console.log(`🔍 DEBUG - Property ${p.propertyId} rent from API:`, p.rent, 'type:', typeof p.rent);
+          if (p.accountant) console.log(`🧾 Property ${p.propertyId} accountant:`, p.accountant);
         });
 
         // Filter properties if current user is an investor
@@ -546,6 +608,7 @@ class PropertyManagementComponent {
                 <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
                 <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
                 <p class="mb-1 small"><strong>PUB Subsidy:</strong> $${(property.subsidizedPub || 0).toLocaleString()}</p>
+                ${property.spAccountUsername ? `<p class="mb-1 small d-flex align-items-center gap-1"><img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:14px;width:auto;flex-shrink:0;"> <span class="font-monospace">${this.escapeHtml(property.spAccountUsername)}</span></p>` : ''}
               </div>
               ${property.rooms && property.rooms.length > 0 ? `
               <div class="mt-2">
@@ -563,6 +626,24 @@ class PropertyManagementComponent {
                 ${property.landlordBankAccount ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.landlordBankAccount)}">${this.escapeHtml(property.landlordBankAccount)}</p>` : ''}
               </div>
               ` : ''}
+              ${(() => {
+                if (!property.accountant) return '';
+                const acc = this.allInvestors.find(i => i.investorId === property.accountant);
+                if (!acc) { console.warn(`⚠️ Accountant investor not found: ${property.accountant}, allInvestors count: ${this.allInvestors.length}`); return ''; }
+                const initials = acc.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                const avatarHtml = acc.avatar
+                  ? `<img src="${acc.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="${this.escapeHtml(acc.name)}">`
+                  : `<span style="color:#fff;font-weight:700;font-size:11px;">${initials}</span>`;
+                const circleBg = acc.avatar ? '' : 'background:linear-gradient(135deg,#6f42c1,#9d4edd);';
+                return `
+                <div class="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
+                  <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;${circleBg}">${avatarHtml}</div>
+                  <div>
+                    <div style="font-size:0.7rem;color:#6f42c1;font-weight:600;line-height:1;"><i class="bi bi-calculator me-1"></i>Accountant</div>
+                    <div class="small fw-semibold" style="line-height:1.3;">${this.escapeHtml(acc.name)}</div>
+                  </div>
+                </div>`;
+              })()}
               ${(property.settlementSgd?.bankName || property.settlementVnd?.bankName) ? `
               <div class="mt-2 p-2 bg-light rounded">
                 <p class="mb-1 small fw-bold"><i class="bi bi-cash-stack me-1"></i>Settlement</p>
@@ -897,6 +978,15 @@ class PropertyManagementComponent {
         // Handle Management Fee fields
         this.populateManagementFeePayeeDropdown(property.propertyId);
 
+        // Handle Accountant field
+        this.populateAccountantDropdown();
+        if (property.accountant) {
+          document.getElementById("accountant").value = property.accountant;
+        } else {
+          document.getElementById("accountant").value = "";
+        }
+        this.updateAccountantAvatarPreview(property.accountant || "");
+
         if (property.managementFeeStart) {
           const feeDate = new Date(property.managementFeeStart);
           document.getElementById("managementFeeStart").value = feeDate
@@ -961,6 +1051,12 @@ class PropertyManagementComponent {
           digitalLockPinInput.value = property.digitalLockPin || "";
         }
 
+        // SP utility account
+        const spUsernameInput = document.getElementById("spAccountUsername");
+        if (spUsernameInput) spUsernameInput.value = property.spAccountUsername || "";
+        const spPasswordInput = document.getElementById("spAccountPassword");
+        if (spPasswordInput) spPasswordInput.value = property.spAccountPassword || "";
+
         // Make propertyId readonly in edit mode
         document.getElementById("propertyId").readOnly = true;
         document.getElementById("propertyId").classList.add("bg-light");
@@ -999,6 +1095,11 @@ class PropertyManagementComponent {
         document.getElementById("managementFeeStart").value = "";
         document.getElementById("managementFeePayee").value = "";
 
+        // Reset Accountant field for add mode
+        this.populateAccountantDropdown();
+        document.getElementById("accountant").value = "";
+        this.updateAccountantAvatarPreview("");
+
         // Reset settlement bank dropdowns for add mode
         const sgdBankText = document.getElementById("settlementSgdBankText");
         if (sgdBankText) {
@@ -1019,6 +1120,12 @@ class PropertyManagementComponent {
         this.onDigitalLockToggle(false);
         const digitalLockPinInputReset = document.getElementById("digitalLockPin");
         if (digitalLockPinInputReset) digitalLockPinInputReset.value = "";
+
+        // Reset SP account for add mode
+        const spUsernameReset = document.getElementById("spAccountUsername");
+        if (spUsernameReset) spUsernameReset.value = "";
+        const spPasswordReset = document.getElementById("spAccountPassword");
+        if (spPasswordReset) spPasswordReset.value = "";
 
         // Make propertyId editable in add mode
         document.getElementById("propertyId").readOnly = false;
@@ -1175,11 +1282,15 @@ class PropertyManagementComponent {
         acServiceDate: acServiceDateValue || null,
         managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
         managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
+        accountant: formData.get("accountant")?.trim() || "",
         digitalLockEnabled: formData.get("digitalLockEnabled") === "true",
         digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
+        spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
+        spAccountPassword: formData.get("spAccountPassword")?.trim() || "",
       };
 
       // Debug: Log property data being saved
+      console.log('🧾 DEBUG - accountant from form:', formData.get("accountant"));
       console.log('🔍 DEBUG - Postcode from form:', formData.get("postcode"));
       console.log('🔍 DEBUG - Hidden field propertyImage:', formData.get("propertyImage"));
       console.log('🔍 DEBUG - this.propertyImage:', this.propertyImage);

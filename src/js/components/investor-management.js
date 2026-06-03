@@ -183,6 +183,9 @@ class InvestorManagementComponent {
                 </div>
               </div>
               <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-success" onclick="window.investorManager.copyInvestorText('${investor.investorId}')" title="Copy to Messenger">
+                  <i class="bi bi-clipboard"></i>
+                </button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="window.investorManager.exportInvestorReport('${investor.investorId}')" title="Export Report">
                   <i class="bi bi-download"></i>
                 </button>
@@ -1279,6 +1282,62 @@ class InvestorManagementComponent {
            url.includes('cloudinary.com') || 
            url.includes('imgur.com') ||
            url.includes('drive.google.com');
+  }
+
+  // ─── Copy investor summary to clipboard ──────────────────────────────────
+
+  copyInvestorText(investorId) {
+    const investor = this.investors.find(inv => inv.investorId === investorId);
+    if (!investor) return;
+
+    const activeProps = (investor.properties || []).filter(prop => {
+      const full = this.properties.find(p =>
+        p.propertyId === prop.propertyId || String(p.propertyId) === String(prop.propertyId)
+      );
+      return !full || !full.isArchived;
+    });
+
+    const totalPct = activeProps.reduce((sum, p) => sum + p.percentage, 0);
+    const divider = '─────────────────────';
+
+    const lines = [
+      `👤 ${investor.name}`,
+      divider,
+    ];
+
+    if (activeProps.length === 0) {
+      lines.push('No active property investments.');
+    } else {
+      lines.push('🏠 Properties & Ownership:');
+      activeProps.forEach(prop => {
+        const full = this.properties.find(p =>
+          p.propertyId === prop.propertyId || String(p.propertyId) === String(prop.propertyId)
+        );
+        const addr = full
+          ? `${full.address || 'N/A'}${full.unit ? `, ${full.unit}` : ''}`
+          : `ID: ${prop.propertyId}`;
+        lines.push(`  • ${addr} → ${prop.percentage}%`);
+      });
+      lines.push(divider);
+      lines.push(`📊 Total Investment: ${totalPct}%`);
+    }
+
+    const text = lines.join('\n');
+
+    navigator.clipboard.writeText(text).then(() => {
+      this.showSuccess('Copied to clipboard!');
+    }).catch(() => {
+      // Fallback for environments where clipboard API is blocked
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      this.showSuccess('Copied to clipboard!');
+    });
   }
 
   // ─── Investor Portfolio Export ───────────────────────────────────────────

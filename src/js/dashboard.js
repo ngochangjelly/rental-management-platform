@@ -3,6 +3,7 @@ import "./i18n.js";
 import "./config.js";
 import "./lib/html2canvas-loader.js"; // Load html2canvas locally
 import "./lib/jspdf-loader.js"; // Load jsPDF for PDF export
+import "./lib/docx-loader.js"; // Load docx for DOCX export
 import "./services/storage-service.js"; // Storage service for contract templates
 import "./components/toast/toast.js";
 import "./components/contract-analysis.js";

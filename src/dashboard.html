@@ -5835,6 +5835,27 @@
                         >
                       </div>
 
+                      <!-- Cleaning Fee Compulsory -->
+                      <div class="mb-3">
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            value=""
+                            id="cleaningCompulsory"
+                          />
+                          <label
+                            class="form-check-label"
+                            for="cleaningCompulsory"
+                          >
+                            <strong>Cleaning Fee Compulsory</strong>
+                          </label>
+                        </div>
+                        <small class="text-muted"
+                          >If checked, removes "(if all tenants agree to hire a cleaning service)" from the contract</small
+                        >
+                      </div>
+
                       <!-- Additional Clauses -->
                       <div class="mb-3">
                         <div
@@ -6035,6 +6056,14 @@
                         >
                           <i class="bi bi-file-pdf me-1"></i
                           ><span data-i18n="createContract.exportPdf">Export PDF</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-info text-white"
+                          onclick="contractManager.exportToDOCX()"
+                          title="Export contract as editable Word document"
+                        >
+                          <i class="bi bi-file-word me-1"></i>Export DOCX
                         </button>
                         <button
                           type="button"
@@ -10803,6 +10832,37 @@
                 </div>
               </div>
 
+              <!-- Accountant Section -->
+              <div class="mb-4">
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#6f42c1!important;">
+                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#6f42c1;">
+                    <i class="bi bi-calculator text-white" style="font-size:12px;"></i>
+                  </div>
+                  <h6 class="fw-bold mb-0" style="color:#6f42c1;">Accountant</h6>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="accountant" class="form-label">
+                      Accountant
+                      <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" title="Select the investor who acts as accountant and notes in financial reports for this property"></i>
+                    </label>
+                    <select class="form-select" id="accountant" name="accountant">
+                      <option value="">-- Select Accountant --</option>
+                    </select>
+                    <div class="form-text">The investor responsible for financial reporting on this property.</div>
+                  </div>
+                  <div class="col-md-6 mb-3 d-flex align-items-center">
+                    <div id="accountantAvatarPreview" style="display:none;" class="d-flex align-items-center gap-3 p-2 bg-light rounded">
+                      <div id="accountantAvatarCircle" style="width:48px;height:48px;border-radius:50%;overflow:hidden;flex-shrink:0;"></div>
+                      <div>
+                        <div id="accountantAvatarName" class="fw-semibold small"></div>
+                        <div id="accountantAvatarId" class="text-muted" style="font-size:0.75rem;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- AC Service Section -->
               <div class="mb-4">
                 <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0dcaf0!important;">
@@ -12078,6 +12138,45 @@
                         />
                       </div>
                       <div class="form-text">PIN code for tenant and admin access</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SP Utility Account Section -->
+              <div class="mb-4">
+                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#e0e0e0!important;">
+                  <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP Group" style="height:24px;width:auto;margin-right:8px;flex-shrink:0;">
+                  <h6 class="fw-bold mb-0" style="color:#e2001a;">SP Utility Account</h6>
+                </div>
+                <div class="p-3 rounded-3 border" style="background:linear-gradient(135deg,#f0fbff 0%,#fff 100%);border-color:#86e3f5!important;">
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="spAccountUsername" class="form-label fw-semibold">
+                        <i class="bi bi-person-fill me-1 text-info"></i>SP Account Username
+                      </label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="spAccountUsername"
+                        name="spAccountUsername"
+                        placeholder="e.g. name@email.com"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="spAccountPassword" class="form-label fw-semibold">
+                        <i class="bi bi-key-fill me-1 text-info"></i>SP Account Password
+                      </label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="spAccountPassword"
+                        name="spAccountPassword"
+                        placeholder="SP account password"
+                        autocomplete="off"
+                      />
+                      <div class="form-text text-warning"><i class="bi bi-shield-lock me-1"></i>Only visible to admins</div>
                     </div>
                   </div>
                 </div>
