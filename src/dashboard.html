@@ -5721,13 +5721,24 @@
                           data-i18n="createContract.cleaningFee"
                           >Cleaning Fee (S$)</label
                         >
-                        <input
-                          type="number"
-                          class="form-control"
-                          id="contractCleaningFee"
-                          value="20"
-                          placeholder="20"
-                        />
+                        <div class="input-group">
+                          <input
+                            type="number"
+                            class="form-control"
+                            id="contractCleaningFee"
+                            value="20"
+                            placeholder="20"
+                          />
+                          <span class="input-group-text">
+                            <input
+                              class="form-check-input mt-0 me-2"
+                              type="checkbox"
+                              value=""
+                              id="cleaningCompulsory"
+                            />
+                            <label class="form-check-label" for="cleaningCompulsory">Compulsory</label>
+                          </span>
+                        </div>
                       </div>
 
                       <div class="mb-3">
@@ -5835,26 +5846,6 @@
                         >
                       </div>
 
-                      <!-- Cleaning Fee Compulsory -->
-                      <div class="mb-3">
-                        <div class="form-check">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            value=""
-                            id="cleaningCompulsory"
-                          />
-                          <label
-                            class="form-check-label"
-                            for="cleaningCompulsory"
-                          >
-                            <strong>Cleaning Fee Compulsory</strong>
-                          </label>
-                        </div>
-                        <small class="text-muted"
-                          >If checked, removes "(if all tenants agree to hire a cleaning service)" from the contract</small
-                        >
-                      </div>
 
                       <!-- Additional Clauses -->
                       <div class="mb-3">
