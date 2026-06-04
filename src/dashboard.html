@@ -5728,12 +5728,23 @@
                           data-i18n="createContract.electricityBudget"
                           >Electricity Budget (S$)</label
                         >
-                        <input
-                          type="number"
-                          class="form-control"
-                          id="contractElectricityBudget"
-                          value="400"
-                        />
+                        <div class="input-group">
+                          <input
+                            type="number"
+                            class="form-control"
+                            id="contractElectricityBudget"
+                            value="400"
+                          />
+                          <span class="input-group-text">
+                            <input
+                              class="form-check-input mt-0 me-2"
+                              type="checkbox"
+                              value=""
+                              id="electricityFree"
+                            />
+                            <label class="form-check-label" for="electricityFree">Free</label>
+                          </span>
+                        </div>
                       </div>
 
                       <div class="mb-3">

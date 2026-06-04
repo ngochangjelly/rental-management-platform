@@ -31,6 +31,7 @@ class ContractManagementComponent {
       partialDepositReceived: false,
       partialDepositAmount: "",
       electricityBudget: "400",
+      electricityFree: false,
       cleaningFee: "20",
       paymentMethod: "BANK_TRANSFER",
       fullPaymentReceived: false,
@@ -2527,6 +2528,17 @@ class ContractManagementComponent {
       });
     }
 
+    // Handle electricity free checkbox
+    const electricityFreeCheckbox = document.getElementById("electricityFree");
+    if (electricityFreeCheckbox) {
+      electricityFreeCheckbox.addEventListener("change", () => {
+        this.contractData.electricityFree = electricityFreeCheckbox.checked;
+        const budgetInput = document.getElementById("contractElectricityBudget");
+        if (budgetInput) budgetInput.disabled = electricityFreeCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
     // Handle cleaning compulsory checkbox
     const cleaningCompulsoryCheckbox =
       document.getElementById("cleaningCompulsory");
@@ -3319,13 +3331,17 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
                         
                         <p>Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.</p>
                         
-                        <p><strong>a) ELECTRICITY:</strong> A monthly budget of S$${
-                          this.contractData.electricityBudget || "400"
-                        } (SINGAPORE DOLLARS ${this.numberToWords(
-                          parseInt(
-                            this.contractData.electricityBudget || "400",
-                          ),
-                        ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.</p>
+                        <p><strong>a) ELECTRICITY:</strong> ${
+                          this.contractData.electricityFree
+                            ? "The electricity (SP bills) for the whole unit is totally subsidized by Tenant A. Tenant B shall not be liable for any electricity charges."
+                            : `A monthly budget of S$${
+                                this.contractData.electricityBudget || "400"
+                              } (SINGAPORE DOLLARS ${this.numberToWords(
+                                parseInt(
+                                  this.contractData.electricityBudget || "400",
+                                ),
+                              ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`
+                        }</p>
                         
                         <p><strong>b)</strong> Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.</p>
                         
@@ -4223,7 +4239,9 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
       }
       section2Clauses.push(
         "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
-        `a) ELECTRICITY: A monthly budget of S$${this.contractData.electricityBudget || "400"} (SINGAPORE DOLLARS ${this.numberToWords(parseInt(this.contractData.electricityBudget || "400")).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
+        this.contractData.electricityFree
+          ? "a) ELECTRICITY: The electricity (SP bills) for the whole unit is totally subsidized by Tenant A. Tenant B shall not be liable for any electricity charges."
+          : `a) ELECTRICITY: A monthly budget of S$${this.contractData.electricityBudget || "400"} (SINGAPORE DOLLARS ${this.numberToWords(parseInt(this.contractData.electricityBudget || "400")).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
         "b) Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
         "c) Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.",
       );
@@ -5052,11 +5070,13 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
 
       section2Clauses.push(
         "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
-        `a) ELECTRICITY: A monthly budget of S$${
-          this.contractData.electricityBudget || "400"
-        } (SINGAPORE DOLLARS ${this.numberToWords(
-          parseInt(this.contractData.electricityBudget || "400"),
-        ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
+        this.contractData.electricityFree
+          ? "a) ELECTRICITY: The electricity (SP bills) for the whole unit is totally subsidized by Tenant A. Tenant B shall not be liable for any electricity charges."
+          : `a) ELECTRICITY: A monthly budget of S$${
+              this.contractData.electricityBudget || "400"
+            } (SINGAPORE DOLLARS ${this.numberToWords(
+              parseInt(this.contractData.electricityBudget || "400"),
+            ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
         "b) Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
         "c) Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.",
       );
@@ -5591,13 +5611,17 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                             
                             <p style="margin-bottom: 15px;">Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.</p>
                             
-                            <p style="margin-bottom: 15px;"><strong>a) ELECTRICITY:</strong> A monthly budget of S$${
-                              this.contractData.electricityBudget || "400"
-                            } (SINGAPORE DOLLARS ${this.numberToWords(
-                              parseInt(
-                                this.contractData.electricityBudget || "400",
-                              ),
-                            ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.</p>
+                            <p style="margin-bottom: 15px;"><strong>a) ELECTRICITY:</strong> ${
+                              this.contractData.electricityFree
+                                ? "The electricity (SP bills) for the whole unit is totally subsidized by Tenant A. Tenant B shall not be liable for any electricity charges."
+                                : `A monthly budget of S$${
+                                    this.contractData.electricityBudget || "400"
+                                  } (SINGAPORE DOLLARS ${this.numberToWords(
+                                    parseInt(
+                                      this.contractData.electricityBudget || "400",
+                                    ),
+                                  ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`
+                            }</p>
                             
                             <p style="margin-bottom: 15px;"><strong>b)</strong> Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.</p>
                             
@@ -6021,6 +6045,11 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       this.contractData.cleaningCompulsory = cleaningCompulsoryElement.checked;
     }
 
+    const electricityFreeElement = document.getElementById("electricityFree");
+    if (electricityFreeElement) {
+      this.contractData.electricityFree = electricityFreeElement.checked;
+    }
+
     console.log("✅ Synced form values to contractData:", {
       moveInDate: this.contractData.moveInDate,
       moveOutDate: this.contractData.moveOutDate,
@@ -6122,6 +6151,11 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       contractData.cleaningCompulsory = cleaningCompulsoryEl.checked;
     }
 
+    const electricityFreeEl = document.getElementById("electricityFree");
+    if (electricityFreeEl) {
+      contractData.electricityFree = electricityFreeEl.checked;
+    }
+
     return contractData;
   }
 
@@ -6144,6 +6178,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       this.contractData = {
         forfeitAcCleanFee: false,
         cleaningCompulsory: false,
+        electricityFree: false,
         ...templateData.contractData,
       };
 
@@ -6163,7 +6198,9 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                 ? document.getElementById("forfeitAcCleanFee")
                 : field === "cleaningCompulsory"
                   ? document.getElementById("cleaningCompulsory")
-                  : field === "showSettlementAccounts"
+                  : field === "electricityFree"
+                    ? document.getElementById("electricityFree")
+                    : field === "showSettlementAccounts"
                     ? document.getElementById("showSettlementAccounts")
                     : document.getElementById(
                         `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
@@ -6177,6 +6214,12 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
           }
         }
       });
+
+      // Sync electricity budget input disabled state
+      const budgetInput = document.getElementById("contractElectricityBudget");
+      if (budgetInput) {
+        budgetInput.disabled = !!this.contractData.electricityFree;
+      }
 
       // Handle partial deposit amount container visibility
       const partialDepositAmountContainer = document.getElementById(
@@ -6455,6 +6498,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
         partialDepositReceived: false,
         partialDepositAmount: "",
         electricityBudget: "400",
+        electricityFree: false,
         cleaningFee: "20",
         paymentMethod: "BANK_TRANSFER",
         fullPaymentReceived: false,
