@@ -38,6 +38,7 @@ class ContractManagementComponent {
       airconFreeOfCharge: false,
       forfeitAcCleanFee: false,
       cleaningCompulsory: false,
+      showSettlementAccounts: false,
     };
 
     // Initialize template service
@@ -74,13 +75,15 @@ class ContractManagementComponent {
     const btn = document.getElementById("reloadTenantsBtn");
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spin-animation"></i>Reloading...';
+      btn.innerHTML =
+        '<i class="bi bi-arrow-clockwise me-1 spin-animation"></i>Reloading...';
     }
     await this.loadTenants();
     await this.loadInvestors();
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Reload Tenants';
+      btn.innerHTML =
+        '<i class="bi bi-arrow-clockwise me-1"></i>Reload Tenants';
     }
   }
 
@@ -211,6 +214,89 @@ class ContractManagementComponent {
     }
 
     return propertyId; // Fallback to ID if property not found
+  }
+
+  getSettlementAccountsData() {
+    if (!this.contractData.showSettlementAccounts) return null;
+    const prop = this.getSelectedProperty();
+    if (!prop) return null;
+    const sgd = prop.settlementSgd || {};
+    const vnd = prop.settlementVnd || {};
+    const hasSgd = !!(sgd.bankName || sgd.accountNumber || sgd.accountHolderName);
+    const hasVnd = !!(vnd.bankName || vnd.accountNumber || vnd.accountHolderName);
+    if (!hasSgd && !hasVnd) return null;
+    return { sgd, vnd, hasSgd, hasVnd };
+  }
+
+  getSelectedProperty() {
+    if (!this.selectedPropertyId || !this.properties) return null;
+    return (
+      this.properties.find(
+        (p) =>
+          p.propertyId === this.selectedPropertyId ||
+          p._id === this.selectedPropertyId ||
+          p.id === this.selectedPropertyId,
+      ) || null
+    );
+  }
+
+  updateSettlementAccountsDisplay() {
+    const container = document.getElementById("settlementAccountsDisplay");
+    if (!container) return;
+
+    if (!this.contractData.showSettlementAccounts) {
+      container.style.display = "none";
+      return;
+    }
+
+    const property = this.getSelectedProperty();
+    if (!property) {
+      container.style.display = "none";
+      return;
+    }
+
+    const sgd = property.settlementSgd;
+    const vnd = property.settlementVnd;
+    const hasSgd =
+      sgd && (sgd.bankName || sgd.accountNumber || sgd.accountHolderName);
+    const hasVnd =
+      vnd && (vnd.bankName || vnd.accountNumber || vnd.accountHolderName);
+
+    if (!hasSgd && !hasVnd) {
+      container.style.display = "none";
+      return;
+    }
+
+    let html = `<div class="card border-secondary">
+      <div class="card-header py-1 bg-light"><small><strong>Settlement Accounts</strong></small></div>
+      <div class="card-body py-2">`;
+
+    if (hasSgd) {
+      html += `<div class="mb-1"><strong><small>SGD</small></strong><br>`;
+      if (sgd.bankName)
+        html += `<small class="text-muted">Bank:</small> <small>${sgd.bankName}</small><br>`;
+      if (sgd.accountHolderName)
+        html += `<small class="text-muted">Name:</small> <small>${sgd.accountHolderName}</small><br>`;
+      if (sgd.accountNumber)
+        html += `<small class="text-muted">Account No:</small> <small>${sgd.accountNumber}</small>`;
+      html += `</div>`;
+    }
+
+    if (hasVnd) {
+      if (hasSgd) html += `<hr class="my-1">`;
+      html += `<div class="mb-1"><strong><small>VND</small></strong><br>`;
+      if (vnd.bankName)
+        html += `<small class="text-muted">Bank:</small> <small>${vnd.bankName}</small><br>`;
+      if (vnd.accountHolderName)
+        html += `<small class="text-muted">Name:</small> <small>${vnd.accountHolderName}</small><br>`;
+      if (vnd.accountNumber)
+        html += `<small class="text-muted">Account No:</small> <small>${vnd.accountNumber}</small>`;
+      html += `</div>`;
+    }
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+    container.style.display = "block";
   }
 
   // Helper function for fuzzy search
@@ -846,15 +932,18 @@ class ContractManagementComponent {
       return;
     }
 
-    const rows = tenants.map((tenant) => {
-      const badges = renderTenantSocialBadges(tenant, { size: "sm" });
-      if (!badges) return "";
-      return `
+    const rows = tenants
+      .map((tenant) => {
+        const badges = renderTenantSocialBadges(tenant, { size: "sm" });
+        if (!badges) return "";
+        return `
         <div class="d-flex align-items-center gap-2 flex-wrap py-1">
           <small class="text-muted fw-semibold" style="min-width:80px;">${tenant.name || "Tenant"}</small>
           <div class="d-flex gap-1 flex-wrap">${badges}</div>
         </div>`;
-    }).filter(Boolean).join("");
+      })
+      .filter(Boolean)
+      .join("");
 
     panel.innerHTML = rows
       ? `<div class="border rounded p-2 bg-light mt-2">${rows}</div>`
@@ -1104,7 +1193,8 @@ class ContractManagementComponent {
     if (!container) return;
 
     container.style.display = "grid";
-    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(110px, 1fr))";
+    container.style.gridTemplateColumns =
+      "repeat(auto-fill, minmax(110px, 1fr))";
     container.style.gap = "0.5rem";
     container.innerHTML = "";
 
@@ -1122,19 +1212,23 @@ class ContractManagementComponent {
     sortedProperties.forEach((property) => {
       const id = property.propertyId || property.id || property._id || "";
       const isSelected = id && id === this.selectedPropertyId;
-      const baseAddress = property.address || property.location || property.name || "Unknown";
-      const address = property.unit ? `${baseAddress}, ${property.unit}` : baseAddress;
+      const baseAddress =
+        property.address || property.location || property.name || "Unknown";
+      const address = property.unit
+        ? `${baseAddress}, ${property.unit}`
+        : baseAddress;
 
       const cardHtml = `
         <div class="card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
              data-property-id="${id}"
              onclick="contractManager.selectPropertyCard('${id}')">
-          ${property.propertyImage
-            ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+          ${
+            property.propertyImage
+              ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
                 <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
               </div>`
-            : ""
+              : ""
           }
           <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
             <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
@@ -1156,16 +1250,20 @@ class ContractManagementComponent {
   }
 
   updatePropertyCardSelection() {
-    const allCards = document.querySelectorAll("#contractPropertyCards .property-card-compact");
+    const allCards = document.querySelectorAll(
+      "#contractPropertyCards .property-card-compact",
+    );
     allCards.forEach((card) => {
-      const isSelected = card.dataset.propertyId === String(this.selectedPropertyId || "");
+      const isSelected =
+        card.dataset.propertyId === String(this.selectedPropertyId || "");
       card.classList.toggle("selected-card", isSelected);
 
       const overlay = card.querySelector('[data-role="selected-overlay"]');
       if (overlay) overlay.style.display = isSelected ? "flex" : "none";
 
       const body = card.querySelector('[data-role="card-body"]');
-      if (body) body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
+      if (body)
+        body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
 
       const check = card.querySelector('[data-role="no-image-check"]');
       if (check) check.style.display = isSelected ? "inline" : "none";
@@ -1200,8 +1298,11 @@ class ContractManagementComponent {
     );
     if (!property) return;
 
-    const baseAddress = property.address || property.location || property.name || "";
-    const address = property.unit ? `${baseAddress}, ${property.unit}` : baseAddress;
+    const baseAddress =
+      property.address || property.location || property.name || "";
+    const address = property.unit
+      ? `${baseAddress}, ${property.unit}`
+      : baseAddress;
 
     // Sync the hidden dropdown so existing logic reads the right value
     const addressSelect = document.getElementById("contractAddress");
@@ -1326,6 +1427,7 @@ class ContractManagementComponent {
 
     this.updateContractPreview();
     this.updatePropertyCardSelection();
+    this.updateSettlementAccountsDisplay();
   }
 
   autoSelectMainTenantForProperty(propertyId) {
@@ -1510,17 +1612,28 @@ class ContractManagementComponent {
       }
 
       // Auto-fill dates from the selected property's association for Tenant A
-      if (!this.isLoadingTemplate && tenant && tenant.properties && tenant.properties.length > 0) {
+      if (
+        !this.isLoadingTemplate &&
+        tenant &&
+        tenant.properties &&
+        tenant.properties.length > 0
+      ) {
         let propA = null;
         if (this.selectedPropertyId) {
-          propA = tenant.properties.find(
-            (p) => p.propertyId === this.selectedPropertyId && (p.moveinDate || p.moveoutDate)
-          ) || null;
+          propA =
+            tenant.properties.find(
+              (p) =>
+                p.propertyId === this.selectedPropertyId &&
+                (p.moveinDate || p.moveoutDate),
+            ) || null;
         }
         if (!propA) {
           for (const p of tenant.properties) {
             if (p.moveinDate || p.moveoutDate) {
-              if (!propA || new Date(p.moveinDate || 0) > new Date(propA.moveinDate || 0)) {
+              if (
+                !propA ||
+                new Date(p.moveinDate || 0) > new Date(propA.moveinDate || 0)
+              ) {
                 propA = p;
               }
             }
@@ -1598,9 +1711,12 @@ class ContractManagementComponent {
         // prefer the selected property, fall back to latest by moveinDate
         let propertyWithDates = null;
         if (this.selectedPropertyId) {
-          propertyWithDates = tenant.properties.find(
-            (p) => p.propertyId === this.selectedPropertyId && (p.moveinDate || p.moveoutDate)
-          ) || null;
+          propertyWithDates =
+            tenant.properties.find(
+              (p) =>
+                p.propertyId === this.selectedPropertyId &&
+                (p.moveinDate || p.moveoutDate),
+            ) || null;
         }
         if (!propertyWithDates) {
           for (const property of tenant.properties) {
@@ -1825,7 +1941,9 @@ class ContractManagementComponent {
         for (const tenant of this.selectedTenantB) {
           if (tenant && tenant.properties && tenant.properties.length > 0) {
             const match = tenant.properties.find(
-              (p) => p.propertyId === this.selectedPropertyId && (p.moveinDate || p.moveoutDate)
+              (p) =>
+                p.propertyId === this.selectedPropertyId &&
+                (p.moveinDate || p.moveoutDate),
             );
             if (match) {
               tenantWithDates = tenant;
@@ -1907,37 +2025,54 @@ class ContractManagementComponent {
 
         // Auto-fill rent and deposit by summing all selected Tenant B (roommates)
         const totalRent = this.selectedTenantB.reduce(
-          (sum, t) => sum + (parseFloat(t.rent) || 0), 0
+          (sum, t) => sum + (parseFloat(t.rent) || 0),
+          0,
         );
         const totalDeposit = this.selectedTenantB.reduce(
-          (sum, t) => sum + (parseFloat(t.deposit) || 0), 0
+          (sum, t) => sum + (parseFloat(t.deposit) || 0),
+          0,
         );
 
         if (totalRent > 0) {
-          const monthlyRentalInput = document.getElementById("contractMonthlyRental");
+          const monthlyRentalInput = document.getElementById(
+            "contractMonthlyRental",
+          );
           if (monthlyRentalInput) {
             monthlyRentalInput.value = totalRent;
             this.contractData.monthlyRental = totalRent;
-            console.log("✅ Auto-filled total monthly rental from Tenant B roommates:", totalRent);
+            console.log(
+              "✅ Auto-filled total monthly rental from Tenant B roommates:",
+              totalRent,
+            );
           }
         }
 
         if (totalDeposit > 0) {
-          const securityDepositInput = document.getElementById("contractSecurityDeposit");
+          const securityDepositInput = document.getElementById(
+            "contractSecurityDeposit",
+          );
           if (securityDepositInput) {
             securityDepositInput.value = totalDeposit;
             this.contractData.securityDeposit = totalDeposit;
-            console.log("✅ Auto-filled total security deposit from Tenant B roommates:", totalDeposit);
+            console.log(
+              "✅ Auto-filled total security deposit from Tenant B roommates:",
+              totalDeposit,
+            );
           }
         }
 
         // Auto-fill cleaning fee from the tenant with dates
         if (tenantWithDates && tenantWithDates.cleaningFee) {
-          const cleaningFeeInput = document.getElementById("contractCleaningFee");
+          const cleaningFeeInput = document.getElementById(
+            "contractCleaningFee",
+          );
           if (cleaningFeeInput) {
             cleaningFeeInput.value = tenantWithDates.cleaningFee;
             this.contractData.cleaningFee = tenantWithDates.cleaningFee;
-            console.log("✅ Auto-filled cleaning fee from Tenant B:", tenantWithDates.cleaningFee);
+            console.log(
+              "✅ Auto-filled cleaning fee from Tenant B:",
+              tenantWithDates.cleaningFee,
+            );
           }
         }
 
@@ -2393,10 +2528,24 @@ class ContractManagementComponent {
     }
 
     // Handle cleaning compulsory checkbox
-    const cleaningCompulsoryCheckbox = document.getElementById("cleaningCompulsory");
+    const cleaningCompulsoryCheckbox =
+      document.getElementById("cleaningCompulsory");
     if (cleaningCompulsoryCheckbox) {
       cleaningCompulsoryCheckbox.addEventListener("change", () => {
-        this.contractData.cleaningCompulsory = cleaningCompulsoryCheckbox.checked;
+        this.contractData.cleaningCompulsory =
+          cleaningCompulsoryCheckbox.checked;
+        this.updateContractPreview();
+      });
+    }
+
+    const showSettlementAccountsCheckbox = document.getElementById(
+      "showSettlementAccounts",
+    );
+    if (showSettlementAccountsCheckbox) {
+      showSettlementAccountsCheckbox.addEventListener("change", () => {
+        this.contractData.showSettlementAccounts =
+          showSettlementAccountsCheckbox.checked;
+        this.updateSettlementAccountsDisplay();
         this.updateContractPreview();
       });
     }
@@ -2813,9 +2962,13 @@ class ContractManagementComponent {
         : this.contractData.address || "[Property Address]";
     let _previewCleanAddr = _previewRawAddr;
     if (_previewUnit && _previewCleanAddr.endsWith(`, ${_previewUnit}`)) {
-      _previewCleanAddr = _previewCleanAddr.slice(0, -`, ${_previewUnit}`.length).trim();
+      _previewCleanAddr = _previewCleanAddr
+        .slice(0, -`, ${_previewUnit}`.length)
+        .trim();
     }
-    const propertyAddress = _previewUnit ? `${_previewUnit}, ${_previewCleanAddr}` : _previewCleanAddr;
+    const propertyAddress = _previewUnit
+      ? `${_previewUnit}, ${_previewCleanAddr}`
+      : _previewCleanAddr;
 
     preview.innerHTML = `
             <div class="contract-content" style="font-family: 'Noto Serif', serif; line-height: 1.6; padding: 20px;">
@@ -2846,6 +2999,29 @@ class ContractManagementComponent {
                             : ""
                         }
                         <strong>Email:</strong> ${tenantAInfo.email}
+                        ${(() => {
+                          const sa = this.getSettlementAccountsData();
+                          if (!sa) return "";
+                          let s = `<br><strong>Settlement Accounts:</strong><br>`;
+                          if (sa.hasSgd) {
+                            s += `<em>SGD</em> — `;
+                            const parts = [];
+                            if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
+                            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
+                            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+                            s += parts.join(", ");
+                            s += `<br>`;
+                          }
+                          if (sa.hasVnd) {
+                            s += `<em>VND</em> — `;
+                            const parts = [];
+                            if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
+                            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
+                            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+                            s += parts.join(", ");
+                          }
+                          return s;
+                        })()}
                     </p>
                     <p style="margin-left: 20px; font-style: italic;">
                         (Hereinafter called "Tenant A", which expression together, where the context so admits, shall include all persons having title under 'Tenant A') of the one part.
@@ -3041,7 +3217,7 @@ class ContractManagementComponent {
                               ? "p"
                               : "r"
                         })</strong> Visitors are allowed 
-Tenant B must inform Tenant A at least one week before the guests arrive.Tenant B must obtain Tenant A’s consent before the guests arrive.</p>
+Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.</p>
 
                         <p><strong>${
                           this.hasAircon()
@@ -3168,7 +3344,9 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                         <p><strong>${
                           this.contractData.fullPaymentReceived ? "e" : "f"
                         })</strong> Cleaning fee: SGD$${
-                          this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")
+                          this.contractData.forfeitAcCleanFee
+                            ? "0"
+                            : this.contractData.cleaningFee || "20"
                         } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}</p>
                     </div>
                 </div>
@@ -3536,7 +3714,10 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
 
   async sharePDF() {
     if (!navigator.canShare) {
-      showToast("Sharing is not supported on this browser. Please use the Export PDF button to download and share manually.", "warning");
+      showToast(
+        "Sharing is not supported on this browser. Please use the Export PDF button to download and share manually.",
+        "warning",
+      );
       return;
     }
     await this.exportToPDF("share");
@@ -3547,22 +3728,39 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
   }
 
   async exportToDOCX() {
-    const docxBtn = document.querySelector('[onclick="contractManager.exportToDOCX()"]');
+    const docxBtn = document.querySelector(
+      '[onclick="contractManager.exportToDOCX()"]',
+    );
     try {
       this.syncFormValuesToContractData();
 
       // Sync selectedTenantB from checkboxes if empty
-      if (!Array.isArray(this.selectedTenantB) || this.selectedTenantB.length === 0) {
-        const checkedBoxes = document.querySelectorAll(".tenant-b-checkbox:checked");
+      if (
+        !Array.isArray(this.selectedTenantB) ||
+        this.selectedTenantB.length === 0
+      ) {
+        const checkedBoxes = document.querySelectorAll(
+          ".tenant-b-checkbox:checked",
+        );
         if (checkedBoxes.length > 0) {
           this.selectedTenantB = [];
           checkedBoxes.forEach((checkbox) => {
             const dataType = checkbox.getAttribute("data-type");
             const index = parseInt(checkbox.getAttribute("data-index"));
             let tenant = null;
-            if (dataType === "investor" && !isNaN(index) && index >= 0 && index < this.investors.length) {
+            if (
+              dataType === "investor" &&
+              !isNaN(index) &&
+              index >= 0 &&
+              index < this.investors.length
+            ) {
               tenant = this.investors[index];
-            } else if (dataType === "tenant" && !isNaN(index) && index >= 0 && index < this.tenants.length) {
+            } else if (
+              dataType === "tenant" &&
+              !isNaN(index) &&
+              index >= 0 &&
+              index < this.tenants.length
+            ) {
               tenant = this.tenants[index];
             }
             if (tenant) this.selectedTenantB.push(tenant);
@@ -3571,40 +3769,81 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       }
 
       if (docxBtn) {
-        docxBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
+        docxBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
         docxBtn.disabled = true;
       }
 
       if (!window.DocxLib) throw new Error("DOCX library not available");
-      const { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } = window.DocxLib;
+      const {
+        Document,
+        Packer,
+        Paragraph,
+        TextRun,
+        AlignmentType,
+        Table,
+        TableRow,
+        TableCell,
+        WidthType,
+        BorderStyle,
+        ImageRun,
+      } = window.DocxLib;
 
       // Build filename (same logic as PDF but .docx)
-      const unitNumber = this.contractData.unit ? this.contractData.unit.replace(/[^a-zA-Z0-9#-]/g, "_") : "";
-      const tenantBNameForFile = Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0
-        ? this.selectedTenantB.map((t) => t.name).join("_").replace(/[^a-zA-Z0-9_]/g, "_")
-        : "TenantB";
-      const roomTypeForFile = this.formatRoomType(this.contractData.room).replace(/[^a-zA-Z0-9]/g, "_");
-      const monthlyRentForFile = this.contractData.monthlyRental ? `${this.contractData.monthlyRental}` : "0";
-      const moveInForFile = this.formatDateForFilename(this.contractData.moveInDate);
-      const moveOutForFile = this.formatDateForFilename(this.contractData.moveOutDate);
-      const dateRangeForFile = moveInForFile && moveOutForFile ? `${moveInForFile}-${moveOutForFile}` : "";
+      const unitNumber = this.contractData.unit
+        ? this.contractData.unit.replace(/[^a-zA-Z0-9#-]/g, "_")
+        : "";
+      const tenantBNameForFile =
+        Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0
+          ? this.selectedTenantB
+              .map((t) => t.name)
+              .join("_")
+              .replace(/[^a-zA-Z0-9_]/g, "_")
+          : "TenantB";
+      const roomTypeForFile = this.formatRoomType(
+        this.contractData.room,
+      ).replace(/[^a-zA-Z0-9]/g, "_");
+      const monthlyRentForFile = this.contractData.monthlyRental
+        ? `${this.contractData.monthlyRental}`
+        : "0";
+      const moveInForFile = this.formatDateForFilename(
+        this.contractData.moveInDate,
+      );
+      const moveOutForFile = this.formatDateForFilename(
+        this.contractData.moveOutDate,
+      );
+      const dateRangeForFile =
+        moveInForFile && moveOutForFile
+          ? `${moveInForFile}-${moveOutForFile}`
+          : "";
 
       const customAddressEl = document.getElementById("customAddressText");
-      const addrSource = customAddressEl && customAddressEl.value.trim() ? customAddressEl.value.trim() : this.contractData.address;
+      const addrSource =
+        customAddressEl && customAddressEl.value.trim()
+          ? customAddressEl.value.trim()
+          : this.contractData.address;
       let cleanAddrForFile = addrSource || "Address";
       if (this.contractData.unit) {
         const unitSuffix = `, ${this.contractData.unit.trim()}`;
-        if (cleanAddrForFile.endsWith(unitSuffix)) cleanAddrForFile = cleanAddrForFile.slice(0, -unitSuffix.length);
+        if (cleanAddrForFile.endsWith(unitSuffix))
+          cleanAddrForFile = cleanAddrForFile.slice(0, -unitSuffix.length);
       }
-      cleanAddrForFile = cleanAddrForFile.replace(/,\s*#[^,]+$/, "").trim()
+      cleanAddrForFile = cleanAddrForFile
+        .replace(/,\s*#[^,]+$/, "")
+        .trim()
         .replace(/,?\s*Singapore\s*\d*$/i, "")
         .replace(/,?\s*S\d{6}$/i, "")
         .replace(/,?\s*\d{6}$/i, "");
-      const propAddrForFile = cleanAddrForFile.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
+      const propAddrForFile =
+        cleanAddrForFile.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
 
       const filenameParts = [];
       if (unitNumber) filenameParts.push(unitNumber);
-      filenameParts.push(tenantBNameForFile, roomTypeForFile, monthlyRentForFile);
+      filenameParts.push(
+        tenantBNameForFile,
+        roomTypeForFile,
+        monthlyRentForFile,
+      );
       if (dateRangeForFile) filenameParts.push(dateRangeForFile);
       filenameParts.push(propAddrForFile);
       const filename = `${filenameParts.join("-")}.docx`;
@@ -3614,27 +3853,65 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       const customTenantBEl = document.getElementById("customTenantBText");
 
       const tenantAInfo = this.selectedTenantA
-        ? { name: this.selectedTenantA.name, passport: this.selectedTenantA.passportNumber || this.selectedTenantA.passport || "", fin: this.selectedTenantA.finNumber || this.selectedTenantA.fin || "", email: this.selectedTenantA.email || "" }
+        ? {
+            name: this.selectedTenantA.name,
+            passport:
+              this.selectedTenantA.passportNumber ||
+              this.selectedTenantA.passport ||
+              "",
+            fin:
+              this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
+            email: this.selectedTenantA.email || "",
+          }
         : customTenantAEl && customTenantAEl.value.trim()
-          ? { name: customTenantAEl.value.trim(), passport: "", fin: "", email: "" }
-          : { name: "[Tenant A Name]", passport: "[Tenant A Passport]", fin: "[Tenant A FIN]", email: "[Email]" };
+          ? {
+              name: customTenantAEl.value.trim(),
+              passport: "",
+              fin: "",
+              email: "",
+            }
+          : {
+              name: "[Tenant A Name]",
+              passport: "[Tenant A Passport]",
+              fin: "[Tenant A FIN]",
+              email: "[Email]",
+            };
 
       let tenantBInfo;
-      if (Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0) {
-        tenantBInfo = this.selectedTenantB.map((t) => ({ name: t.name, passport: t.passportNumber || t.passport || "", fin: t.finNumber || t.fin || "" }));
+      if (
+        Array.isArray(this.selectedTenantB) &&
+        this.selectedTenantB.length > 0
+      ) {
+        tenantBInfo = this.selectedTenantB.map((t) => ({
+          name: t.name,
+          passport: t.passportNumber || t.passport || "",
+          fin: t.finNumber || t.fin || "",
+        }));
       } else if (customTenantBEl && customTenantBEl.value.trim()) {
-        tenantBInfo = [{ name: customTenantBEl.value.trim(), passport: "", fin: "" }];
+        tenantBInfo = [
+          { name: customTenantBEl.value.trim(), passport: "", fin: "" },
+        ];
       } else {
-        tenantBInfo = [{ name: "[Tenant B Name]", passport: "[Tenant B Passport]", fin: "[Tenant B FIN]" }];
+        tenantBInfo = [
+          {
+            name: "[Tenant B Name]",
+            passport: "[Tenant B Passport]",
+            fin: "[Tenant B FIN]",
+          },
+        ];
       }
 
       // Property address for contract body
       const unit = this.contractData.unit || "";
-      const rawAddr = customAddressEl && customAddressEl.value.trim() ? customAddressEl.value.trim() : this.contractData.address || "[Property Address]";
+      const rawAddr =
+        customAddressEl && customAddressEl.value.trim()
+          ? customAddressEl.value.trim()
+          : this.contractData.address || "[Property Address]";
       let cleanAddr = rawAddr;
       if (unit) {
         const suffix = `, ${unit}`;
-        if (cleanAddr.endsWith(suffix)) cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
+        if (cleanAddr.endsWith(suffix))
+          cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
       }
       const propertyAddressForDocx = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
 
@@ -3642,95 +3919,223 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       const sp = (mm) => Math.round(mm * 57);
 
       // Paragraph builder matching addText options from PDF
-      const para = (text, opts = {}) => new Paragraph({
-        alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
-        indent: opts.indent ? { left: 720 } : undefined,
-        spacing: { after: sp(opts.spacing || 0) },
-        children: [new TextRun({
-          text: String(text || ""),
-          bold: opts.bold || false,
-          size: (opts.fontSize || 10) * 2,
-          font: "Times New Roman",
-        })],
-      });
+      const para = (text, opts = {}) =>
+        new Paragraph({
+          alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
+          indent: opts.indent ? { left: 720 } : undefined,
+          spacing: { after: sp(opts.spacing || 0) },
+          children: [
+            new TextRun({
+              text: String(text || ""),
+              bold: opts.bold || false,
+              size: (opts.fontSize || 10) * 2,
+              font: "Times New Roman",
+            }),
+          ],
+        });
 
       const children = [];
 
       // ── Header ──
-      children.push(para("HOUSE SHARING AGREEMENT", { fontSize: 16, bold: true, center: true, spacing: 10 }));
-      children.push(para(`Full address: ${propertyAddressForDocx}`, { center: true }));
-      children.push(para(`Room: ${this.formatRoomType(this.contractData.room)}`, { center: true }));
-      children.push(para(
-        `THIS AGREEMENT is made on: ${this.contractData.agreementDate || new Date().toISOString().split("T")[0]}`,
-        { center: true, spacing: 15 }
-      ));
+      children.push(
+        para("HOUSE SHARING AGREEMENT", {
+          fontSize: 16,
+          bold: true,
+          center: true,
+          spacing: 10,
+        }),
+      );
+      children.push(
+        para(`Full address: ${propertyAddressForDocx}`, { center: true }),
+      );
+      children.push(
+        para(`Room: ${this.formatRoomType(this.contractData.room)}`, {
+          center: true,
+        }),
+      );
+      children.push(
+        para(
+          `THIS AGREEMENT is made on: ${this.contractData.agreementDate || new Date().toISOString().split("T")[0]}`,
+          { center: true, spacing: 15 },
+        ),
+      );
 
       // ── BETWEEN ──
       children.push(para("BETWEEN", { bold: true, spacing: 5 }));
       children.push(para(`Main tenant: ${tenantAInfo.name}`, { indent: true }));
-      if (tenantAInfo.passport) children.push(para(`Passport: ${tenantAInfo.passport}`, { indent: true }));
-      if (tenantAInfo.fin) children.push(para(`FIN: ${tenantAInfo.fin}`, { indent: true }));
+      if (tenantAInfo.passport)
+        children.push(
+          para(`Passport: ${tenantAInfo.passport}`, { indent: true }),
+        );
+      if (tenantAInfo.fin)
+        children.push(para(`FIN: ${tenantAInfo.fin}`, { indent: true }));
       children.push(para(`Email: ${tenantAInfo.email}`, { indent: true }));
-      children.push(para(
-        '(Hereinafter called "TenantA" which expresses together where the context so admits, shall include all persons having title under \'TenantA\') of the one part.',
-        { indent: true, spacing: 10 }
-      ));
+      {
+        const sa = this.getSettlementAccountsData();
+        if (sa) {
+          children.push(para("Settlement Accounts:", { indent: true, bold: true }));
+          if (sa.hasSgd) {
+            const parts = [];
+            if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
+            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
+            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+            children.push(para(`SGD — ${parts.join(", ")}`, { indent: true }));
+          }
+          if (sa.hasVnd) {
+            const parts = [];
+            if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
+            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
+            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+            children.push(para(`VND — ${parts.join(", ")}`, { indent: true }));
+          }
+        }
+      }
+      children.push(
+        para(
+          "(Hereinafter called \"TenantA\" which expresses together where the context so admits, shall include all persons having title under 'TenantA') of the one part.",
+          { indent: true, spacing: 10 },
+        ),
+      );
 
       // ── AND ──
       children.push(para("AND", { bold: true, spacing: 5 }));
       for (let i = 0; i < tenantBInfo.length; i++) {
         const t = tenantBInfo[i];
         const isLast = i === tenantBInfo.length - 1;
-        if (tenantBInfo.length > 1) children.push(para(`Tenant ${i + 1}:`, { indent: true, bold: true, spacing: 2 }));
-        children.push(para(`Name: ${t.name || "[Tenant Name]"}`, { indent: true }));
-        if (t.passport && String(t.passport).trim()) children.push(para(`Passport: ${String(t.passport)}`, { indent: true }));
+        if (tenantBInfo.length > 1)
+          children.push(
+            para(`Tenant ${i + 1}:`, { indent: true, bold: true, spacing: 2 }),
+          );
+        children.push(
+          para(`Name: ${t.name || "[Tenant Name]"}`, { indent: true }),
+        );
+        if (t.passport && String(t.passport).trim())
+          children.push(
+            para(`Passport: ${String(t.passport)}`, { indent: true }),
+          );
         if (t.fin && String(t.fin).trim()) {
-          children.push(para(`FIN: ${String(t.fin)}`, { indent: true, spacing: isLast ? 0 : 5 }));
+          children.push(
+            para(`FIN: ${String(t.fin)}`, {
+              indent: true,
+              spacing: isLast ? 0 : 5,
+            }),
+          );
         } else if (!isLast) {
           children.push(para("", { spacing: 5 }));
         }
       }
-      children.push(para(
-        '(Hereinafter called "Tenant B", which expresses together with where the context so admits, shall include all persons having title under \' Tenant B\') of the one part.',
-        { indent: true, spacing: 10 }
-      ));
+      children.push(
+        para(
+          "(Hereinafter called \"Tenant B\", which expresses together with where the context so admits, shall include all persons having title under ' Tenant B') of the one part.",
+          { indent: true, spacing: 10 },
+        ),
+      );
 
       // ── Payment method ──
-      children.push(para(`Payment method: ${this.formatPaymentMethod(this.contractData.paymentMethod)}`, { spacing: 10 }));
+      children.push(
+        para(
+          `Payment method: ${this.formatPaymentMethod(this.contractData.paymentMethod)}`,
+          { spacing: 10 },
+        ),
+      );
 
       // ── Agreement terms ──
-      children.push(para("NOW IT IS HEREBY AGREED AS FOLLOWS:", { bold: true, spacing: 8 }));
-      children.push(para(`Lease Period: ${this.formatLeasePeriod()}`, { bold: true, spacing: 8 }));
-      children.push(para(`Tenancy Period: ${this.formatTenancyPeriod()}`, { bold: true, spacing: 8 }));
-      children.push(para("Moving Time: Move in after 15:00, Move out before 11:00", { bold: true, spacing: 8 }));
-      children.push(para(`Monthly Rental: $${this.contractData.monthlyRental || "[Monthly Rental]"}`, { bold: true, spacing: 5 }));
-      children.push(para("*Room rental rate is strictly confidential", { fontSize: 9, indent: true }));
-      children.push(para("*Renewal contract is subject to mutual agreement by Tenant A and Tenant B", { fontSize: 9, indent: true }));
-      children.push(para('*Payable by the 1st Day of each calendar month to "Tenant A"', {
-        fontSize: 9, indent: true, spacing: this.contractData.fullPaymentReceived ? 0 : 8,
-      }));
+      children.push(
+        para("NOW IT IS HEREBY AGREED AS FOLLOWS:", { bold: true, spacing: 8 }),
+      );
+      children.push(
+        para(`Lease Period: ${this.formatLeasePeriod()}`, {
+          bold: true,
+          spacing: 8,
+        }),
+      );
+      children.push(
+        para(`Tenancy Period: ${this.formatTenancyPeriod()}`, {
+          bold: true,
+          spacing: 8,
+        }),
+      );
+      children.push(
+        para("Moving Time: Move in after 15:00, Move out before 11:00", {
+          bold: true,
+          spacing: 8,
+        }),
+      );
+      children.push(
+        para(
+          `Monthly Rental: $${this.contractData.monthlyRental || "[Monthly Rental]"}`,
+          { bold: true, spacing: 5 },
+        ),
+      );
+      children.push(
+        para("*Room rental rate is strictly confidential", {
+          fontSize: 9,
+          indent: true,
+        }),
+      );
+      children.push(
+        para(
+          "*Renewal contract is subject to mutual agreement by Tenant A and Tenant B",
+          { fontSize: 9, indent: true },
+        ),
+      );
+      children.push(
+        para('*Payable by the 1st Day of each calendar month to "Tenant A"', {
+          fontSize: 9,
+          indent: true,
+          spacing: this.contractData.fullPaymentReceived ? 0 : 8,
+        }),
+      );
       if (this.contractData.fullPaymentReceived) {
-        children.push(para(
-          `*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(2)})`,
-          { fontSize: 12, bold: true, indent: true, spacing: 8 }
-        ));
+        children.push(
+          para(
+            `*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${this.calculateTotalRental().toFixed(2)})`,
+            { fontSize: 12, bold: true, indent: true, spacing: 8 },
+          ),
+        );
       }
-      children.push(para(
-        `Security Deposit: $${this.contractData.securityDeposit || this.contractData.monthlyRental || "[Security Deposit]"}${this.contractData.partialDepositReceived && this.contractData.partialDepositAmount ? ` (Partial deposit received: $${this.contractData.partialDepositAmount})` : ""}`,
-        { bold: true, spacing: 5 }
-      ));
-      children.push(para("*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement", { fontSize: 9, indent: true, spacing: 10 }));
-      children.push(para("Monthly rentals include Wi-Fi, utilities, gas, usage of condominium facilities such as swimming pool, barbequepit and multi-purpose hall.", { fontSize: 9, spacing: 10 }));
+      children.push(
+        para(
+          `Security Deposit: $${this.contractData.securityDeposit || this.contractData.monthlyRental || "[Security Deposit]"}${this.contractData.partialDepositReceived && this.contractData.partialDepositAmount ? ` (Partial deposit received: $${this.contractData.partialDepositAmount})` : ""}`,
+          { bold: true, spacing: 5 },
+        ),
+      );
+      children.push(
+        para(
+          "*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement",
+          { fontSize: 9, indent: true, spacing: 10 },
+        ),
+      );
+      children.push(
+        para(
+          "Monthly rentals include Wi-Fi, utilities, gas, usage of condominium facilities such as swimming pool, barbequepit and multi-purpose hall.",
+          { fontSize: 9, spacing: 10 },
+        ),
+      );
 
       // ── Section 1 ──
-      children.push(para("1. TENANT B(S) HEREBY AGREE(S) WITH TENANT A AS FOLLOWS:", { bold: true, fontSize: 12, spacing: 10 }));
+      children.push(
+        para("1. TENANT B(S) HEREBY AGREE(S) WITH TENANT A AS FOLLOWS:", {
+          bold: true,
+          fontSize: 12,
+          spacing: 10,
+        }),
+      );
 
       const section1Clauses = [];
       if (!this.contractData.fullPaymentReceived) {
-        const depositText = this.formatMonthsText(this.contractData.depositMonths || 1);
-        const advanceText = this.formatMonthsText(this.contractData.advanceMonths || 1);
-        const agreementDateFmt = this.contractData.agreementDate ? this.formatDate(this.contractData.agreementDate) : "[Agreement Date]";
-        const moveInDateFmt = this.contractData.moveInDate ? this.formatDate(this.contractData.moveInDate) : "[Move-in Date]";
+        const depositText = this.formatMonthsText(
+          this.contractData.depositMonths || 1,
+        );
+        const advanceText = this.formatMonthsText(
+          this.contractData.advanceMonths || 1,
+        );
+        const agreementDateFmt = this.contractData.agreementDate
+          ? this.formatDate(this.contractData.agreementDate)
+          : "[Agreement Date]";
+        const moveInDateFmt = this.contractData.moveInDate
+          ? this.formatDate(this.contractData.moveInDate)
+          : "[Move-in Date]";
         section1Clauses.push(
           `a) To pay the equivalent of ${depositText}'s rent as a deposit on the agreement date (${agreementDateFmt}) and ${advanceText}'s rent as an advance on the move-in date (${moveInDateFmt}). The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default.`,
           "b) In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal.",
@@ -3773,22 +4178,38 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       let clauseOffset = 0;
       baseClauseTexts.forEach((clauseText, index) => {
         const isAirconClause = clauseText.includes("air-conditioner servicing");
-        if (isAirconClause && !this.hasAircon()) { clauseOffset = 1; return; }
-        const letterIndex = this.contractData.fullPaymentReceived ? index - clauseOffset : index + 2 - clauseOffset;
+        if (isAirconClause && !this.hasAircon()) {
+          clauseOffset = 1;
+          return;
+        }
+        const letterIndex = this.contractData.fullPaymentReceived
+          ? index - clauseOffset
+          : index + 2 - clauseOffset;
         const letter = String.fromCharCode(97 + letterIndex);
         section1Clauses.push(`${letter}) ${clauseText}`);
       });
 
-      section1Clauses.forEach((clause) => children.push(para(clause, { indent: true, spacing: 3 })));
+      section1Clauses.forEach((clause) =>
+        children.push(para(clause, { indent: true, spacing: 3 })),
+      );
 
       this.additionalClauses.forEach((clause, index) => {
         const letter = String.fromCharCode(97 + index + 21);
-        if (clause.text.trim()) children.push(para(`${letter}) ${clause.text}`, { indent: true, spacing: 3 }));
+        if (clause.text.trim())
+          children.push(
+            para(`${letter}) ${clause.text}`, { indent: true, spacing: 3 }),
+          );
       });
 
       // ── Section 2 ──
       children.push(para("", { spacing: 15 }));
-      children.push(para("2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:", { bold: true, fontSize: 12, spacing: 10 }));
+      children.push(
+        para("2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:", {
+          bold: true,
+          fontSize: 12,
+          spacing: 10,
+        }),
+      );
 
       const section2Clauses = [];
       if (this.contractData.fullPaymentReceived) {
@@ -3815,16 +4236,28 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
       section2Clauses.push(
         `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")} / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
+        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee || "20"} / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
       );
-      section2Clauses.forEach((clause) => children.push(para(clause, { indent: true, spacing: 5 })));
+      section2Clauses.forEach((clause) =>
+        children.push(para(clause, { indent: true, spacing: 5 })),
+      );
 
       // ── Signatures ──
       children.push(para("", { spacing: 20 }));
-      children.push(para("By signing below, both parties agree to abide by all the above terms and conditions", { bold: true, center: true, spacing: 15 }));
+      children.push(
+        para(
+          "By signing below, both parties agree to abide by all the above terms and conditions",
+          { bold: true, center: true, spacing: 15 },
+        ),
+      );
 
       const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-      const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+      const noBorders = {
+        top: noBorder,
+        bottom: noBorder,
+        left: noBorder,
+        right: noBorder,
+      };
 
       const fetchImgData = async (url) => {
         try {
@@ -3833,42 +4266,75 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
             const bin = atob(b64);
             const bytes = new Uint8Array(bin.length);
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-            return { data: bytes, type: url.includes("image/png") ? "png" : "jpg" };
+            return {
+              data: bytes,
+              type: url.includes("image/png") ? "png" : "jpg",
+            };
           }
           const resp = await fetch(url);
           const buf = await resp.arrayBuffer();
           const isJpg = /\.jpe?g($|\?)/i.test(url) || url.includes("jpeg");
           return { data: new Uint8Array(buf), type: isJpg ? "jpg" : "png" };
-        } catch { return null; }
+        } catch {
+          return null;
+        }
       };
 
       const [tenantASigData, tenantBSigData] = await Promise.all([
-        this.signatures.tenantA ? fetchImgData(this.signatures.tenantA) : Promise.resolve(null),
-        this.signatures.tenantB ? fetchImgData(this.signatures.tenantB) : Promise.resolve(null),
+        this.signatures.tenantA
+          ? fetchImgData(this.signatures.tenantA)
+          : Promise.resolve(null),
+        this.signatures.tenantB
+          ? fetchImgData(this.signatures.tenantB)
+          : Promise.resolve(null),
       ]);
 
       const buildSigCell = (label, names, sigData) => {
         const cellChildren = [];
         if (sigData) {
           try {
-            cellChildren.push(new Paragraph({
-              children: [new ImageRun({ type: sigData.type, data: sigData.data, transformation: { width: 150, height: 60 } })],
-              spacing: { after: 80 },
-            }));
-          } catch { cellChildren.push(para("", { spacing: 5 })); cellChildren.push(para("________________________", { spacing: 5 })); }
+            cellChildren.push(
+              new Paragraph({
+                children: [
+                  new ImageRun({
+                    type: sigData.type,
+                    data: sigData.data,
+                    transformation: { width: 150, height: 60 },
+                  }),
+                ],
+                spacing: { after: 80 },
+              }),
+            );
+          } catch {
+            cellChildren.push(para("", { spacing: 5 }));
+            cellChildren.push(para("________________________", { spacing: 5 }));
+          }
         } else {
           cellChildren.push(para("", { spacing: 5 }));
           cellChildren.push(para("________________________", { spacing: 5 }));
         }
-        cellChildren.push(new Paragraph({
-          children: [new TextRun({ text: label, bold: true, size: 24, font: "Times New Roman" })],
-          spacing: { after: 60 },
-        }));
+        cellChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: label,
+                bold: true,
+                size: 24,
+                font: "Times New Roman",
+              }),
+            ],
+            spacing: { after: 60 },
+          }),
+        );
         names.split("\n").forEach((name) => {
-          cellChildren.push(new Paragraph({
-            children: [new TextRun({ text: name, size: 20, font: "Times New Roman" })],
-            spacing: { after: 40 },
-          }));
+          cellChildren.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: name, size: 20, font: "Times New Roman" }),
+              ],
+              spacing: { after: 40 },
+            }),
+          );
         });
         // A4 usable width with 20mm margins: 170mm = 9639 twips; each col = half = 4819
         return new TableCell({
@@ -3878,23 +4344,48 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
         });
       };
 
-      const tenantBNamesForSig = tenantBInfo.map((t) => t.name || "[Tenant B]").join("\n");
-      children.push(new Table({
-        width: { size: 9638, type: WidthType.DXA },
-        columnWidths: [4819, 4819],
-        borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
-        rows: [new TableRow({ children: [
-          buildSigCell("Tenant A", tenantAInfo.name || "[Tenant A]", tenantASigData),
-          buildSigCell("Tenant B", tenantBNamesForSig, tenantBSigData),
-        ]})],
-      }));
+      const tenantBNamesForSig = tenantBInfo
+        .map((t) => t.name || "[Tenant B]")
+        .join("\n");
+      children.push(
+        new Table({
+          width: { size: 9638, type: WidthType.DXA },
+          columnWidths: [4819, 4819],
+          borders: {
+            top: noBorder,
+            bottom: noBorder,
+            left: noBorder,
+            right: noBorder,
+            insideHorizontal: noBorder,
+            insideVertical: noBorder,
+          },
+          rows: [
+            new TableRow({
+              children: [
+                buildSigCell(
+                  "Tenant A",
+                  tenantAInfo.name || "[Tenant A]",
+                  tenantASigData,
+                ),
+                buildSigCell("Tenant B", tenantBNamesForSig, tenantBSigData),
+              ],
+            }),
+          ],
+        }),
+      );
 
       // Build and save
       const doc = new Document({
-        sections: [{
-          properties: { page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } } },
-          children,
-        }],
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+              },
+            },
+            children,
+          },
+        ],
       });
 
       const blob = await Packer.toBlob(doc);
@@ -3975,8 +4466,8 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
         mode === "share"
           ? '[onclick="contractManager.sharePDF()"]'
           : mode === "whatsapp"
-          ? '[onclick="contractManager.shareViaWhatsApp()"]'
-          : '[onclick="contractManager.exportToPDF()"]';
+            ? '[onclick="contractManager.shareViaWhatsApp()"]'
+            : '[onclick="contractManager.exportToPDF()"]';
       const exportBtn = document.querySelector(exportBtnSelector);
       if (exportBtn) {
         exportBtn.innerHTML =
@@ -4090,19 +4581,20 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       const _loadFont = async (url) => {
         const buf = await (await fetch(url)).arrayBuffer();
         const bytes = new Uint8Array(buf);
-        let s = '';
-        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        let s = "";
+        for (let i = 0; i < bytes.length; i++)
+          s += String.fromCharCode(bytes[i]);
         return btoa(s);
       };
       const [_regB64, _boldB64] = await Promise.all([
-        _loadFont('/fonts/NotoSerif-Regular.ttf'),
-        _loadFont('/fonts/NotoSerif-Bold.ttf'),
+        _loadFont("/fonts/NotoSerif-Regular.ttf"),
+        _loadFont("/fonts/NotoSerif-Bold.ttf"),
       ]);
-      pdf.addFileToVFS('NotoSerif-Regular.ttf', _regB64);
-      pdf.addFont('NotoSerif-Regular.ttf', 'NotoSerif', 'normal');
-      pdf.addFileToVFS('NotoSerif-Bold.ttf', _boldB64);
-      pdf.addFont('NotoSerif-Bold.ttf', 'NotoSerif', 'bold');
-      pdf.setFont('NotoSerif', 'normal');
+      pdf.addFileToVFS("NotoSerif-Regular.ttf", _regB64);
+      pdf.addFont("NotoSerif-Regular.ttf", "NotoSerif", "normal");
+      pdf.addFileToVFS("NotoSerif-Bold.ttf", _boldB64);
+      pdf.addFont("NotoSerif-Bold.ttf", "NotoSerif", "bold");
+      pdf.setFont("NotoSerif", "normal");
 
       // A4 dimensions in mm
       const pageWidth = 210;
@@ -4124,7 +4616,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
         for (let i = 1; i <= totalPages; i++) {
           pdf.setPage(i);
           pdf.setFontSize(10);
-          pdf.setFont('NotoSerif', 'normal');
+          pdf.setFont("NotoSerif", "normal");
 
           // Add page number at middle bottom
           const pageText = `${i}`;
@@ -4155,9 +4647,9 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
 
         pdf.setFontSize(fontSize);
         if (isBold) {
-          pdf.setFont('NotoSerif', 'bold');
+          pdf.setFont("NotoSerif", "bold");
         } else {
-          pdf.setFont('NotoSerif', 'normal');
+          pdf.setFont("NotoSerif", "normal");
         }
 
         // Check if we need a new page (leaving space for page number)
@@ -4298,6 +4790,26 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
         addText(`FIN: ${tenantAInfo.fin}`, { indent: true });
       }
       addText(`Email: ${tenantAInfo.email}`, { indent: true });
+      {
+        const sa = this.getSettlementAccountsData();
+        if (sa) {
+          addText("Settlement Accounts:", { indent: true, bold: true });
+          if (sa.hasSgd) {
+            const parts = [];
+            if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
+            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
+            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+            addText(`SGD — ${parts.join(", ")}`, { indent: true });
+          }
+          if (sa.hasVnd) {
+            const parts = [];
+            if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
+            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
+            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+            addText(`VND — ${parts.join(", ")}`, { indent: true });
+          }
+        }
+      }
       addText(
         "(Hereinafter called \"TenantA\" which expresses together where the context so admits, shall include all persons having title under 'TenantA') of the one part.",
         { indent: true, spacing: 10 },
@@ -4565,7 +5077,9 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       section2Clauses.push(
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
         `${cleaningClauseLetter}) Cleaning fee: SGD$${
-          this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "20")
+          this.contractData.forfeitAcCleanFee
+            ? "0"
+            : this.contractData.cleaningFee || "20"
         } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
       );
 
@@ -4659,7 +5173,10 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
           showToast("Contract shared successfully!", "success");
         } else {
           pdf.save(filename);
-          showToast("File sharing not supported on this device — PDF downloaded instead.", "warning");
+          showToast(
+            "File sharing not supported on this device — PDF downloaded instead.",
+            "warning",
+          );
         }
       } else if (mode === "whatsapp") {
         const pdfBlob = pdf.output("blob");
@@ -4674,7 +5191,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
           pdf.save(filename);
           window.open("https://web.whatsapp.com", "_blank");
           showToast(
-            'PDF downloaded! In the WhatsApp Web tab, click the attachment icon (📎) and upload the file.',
+            "PDF downloaded! In the WhatsApp Web tab, click the attachment icon (📎) and upload the file.",
             "info",
             8000,
           );
@@ -4690,21 +5207,30 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
     } finally {
       // Restore button state
       if (mode === "share") {
-        const shareBtn = document.querySelector('[onclick="contractManager.sharePDF()"]');
+        const shareBtn = document.querySelector(
+          '[onclick="contractManager.sharePDF()"]',
+        );
         if (shareBtn) {
-          shareBtn.innerHTML = '<i class="bi bi-share me-1"></i><span data-i18n="createContract.sharePdf">Share</span>';
+          shareBtn.innerHTML =
+            '<i class="bi bi-share me-1"></i><span data-i18n="createContract.sharePdf">Share</span>';
           shareBtn.disabled = false;
         }
       } else if (mode === "whatsapp") {
-        const waBtn = document.querySelector('[onclick="contractManager.shareViaWhatsApp()"]');
+        const waBtn = document.querySelector(
+          '[onclick="contractManager.shareViaWhatsApp()"]',
+        );
         if (waBtn) {
-          waBtn.innerHTML = '<i class="bi bi-whatsapp me-1"></i><span data-i18n="createContract.shareWhatsapp">WhatsApp</span>';
+          waBtn.innerHTML =
+            '<i class="bi bi-whatsapp me-1"></i><span data-i18n="createContract.shareWhatsapp">WhatsApp</span>';
           waBtn.disabled = false;
         }
       } else {
-        const exportBtn = document.querySelector('[onclick="contractManager.exportToPDF()"]');
+        const exportBtn = document.querySelector(
+          '[onclick="contractManager.exportToPDF()"]',
+        );
         if (exportBtn) {
-          exportBtn.innerHTML = '<i class="bi bi-file-pdf me-1"></i><span data-i18n="createContract.exportPdf">Export PDF</span>';
+          exportBtn.innerHTML =
+            '<i class="bi bi-file-pdf me-1"></i><span data-i18n="createContract.exportPdf">Export PDF</span>';
           exportBtn.disabled = false;
         }
       }
@@ -4827,7 +5353,9 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
     if (_htmlUnit && _htmlCleanAddr.endsWith(`, ${_htmlUnit}`)) {
       _htmlCleanAddr = _htmlCleanAddr.slice(0, -`, ${_htmlUnit}`.length).trim();
     }
-    const propertyAddressForPDF = _htmlUnit ? `${_htmlUnit}, ${_htmlCleanAddr}` : _htmlCleanAddr;
+    const propertyAddressForPDF = _htmlUnit
+      ? `${_htmlUnit}, ${_htmlCleanAddr}`
+      : _htmlCleanAddr;
 
     // Generate additional clauses HTML (starting from letter 'v' after clause 'u')
     let additionalClausesHtml = "";
@@ -4875,6 +5403,26 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                         <p style="margin-bottom: 12px;"><strong>Email:</strong> ${
                           tenantAInfo.email
                         }</p>
+                        ${(() => {
+                          const sa = this.getSettlementAccountsData();
+                          if (!sa) return "";
+                          let s = `<p style="margin-bottom: 5px;"><strong>Settlement Accounts:</strong></p>`;
+                          if (sa.hasSgd) {
+                            const parts = [];
+                            if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
+                            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
+                            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+                            s += `<p style="margin-bottom: 3px;"><em>SGD</em> — ${parts.join(", ")}</p>`;
+                          }
+                          if (sa.hasVnd) {
+                            const parts = [];
+                            if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
+                            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
+                            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+                            s += `<p style="margin-bottom: 12px;"><em>VND</em> — ${parts.join(", ")}</p>`;
+                          }
+                          return s;
+                        })()}
                         <p style="font-style: italic; margin-bottom: 20px;">
                             (Hereinafter called "TenantA" which expresses together where the context so admits, shall include all persons having title under 'TenantA') of the one part.
                         </p>
@@ -5467,7 +6015,8 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
-    const cleaningCompulsoryElement = document.getElementById("cleaningCompulsory");
+    const cleaningCompulsoryElement =
+      document.getElementById("cleaningCompulsory");
     if (cleaningCompulsoryElement) {
       this.contractData.cleaningCompulsory = cleaningCompulsoryElement.checked;
     }
@@ -5614,9 +6163,11 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                 ? document.getElementById("forfeitAcCleanFee")
                 : field === "cleaningCompulsory"
                   ? document.getElementById("cleaningCompulsory")
-                  : document.getElementById(
-                    `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
-                  );
+                  : field === "showSettlementAccounts"
+                    ? document.getElementById("showSettlementAccounts")
+                    : document.getElementById(
+                        `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
+                      );
 
         if (element) {
           if (element.type === "checkbox") {
@@ -5728,6 +6279,10 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
       // Clear the flag after loading is complete
       this.isLoadingTemplate = false;
 
+      // Sync settlement accounts display and preview after full restore
+      this.updateSettlementAccountsDisplay();
+      this.updateContractPreview();
+
       showToast(`Template "${templateName}" loaded successfully!`, "success");
     } catch (error) {
       console.error("❌ Error loading template:", error);
@@ -5779,28 +6334,39 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
 
     // Check the boxes for each tenant in the template
     for (const tenantData of tenantsData) {
-      // Find the matching checkbox by FIN or other identifier
       const identifier =
-        tenantData.fin || tenantData.finNumber || tenantData.id;
+        tenantData.fin ||
+        tenantData.finNumber ||
+        tenantData.id ||
+        tenantData._id;
 
-      if (identifier) {
-        // Try to find checkbox with this identifier
-        const checkbox = Array.from(allCheckboxes).find((cb) => {
-          return (
-            cb.value === identifier ||
-            cb.value.includes(identifier) ||
-            cb.getAttribute("data-name") === tenantData.name
-          );
-        });
-
-        if (checkbox) {
-          checkbox.checked = true;
+      const checkbox = Array.from(allCheckboxes).find((cb) => {
+        if (identifier && (cb.value === identifier || cb.value.includes(identifier))) {
+          return true;
         }
+        if (tenantData.name && cb.getAttribute("data-name") === tenantData.name) {
+          return true;
+        }
+        if (tenantData.passportNumber && cb.getAttribute("data-passport") === tenantData.passportNumber) {
+          return true;
+        }
+        return false;
+      });
+
+      if (checkbox) {
+        checkbox.checked = true;
       }
     }
 
     // Trigger the change event to update display and process selections
     this.handleTenantBCheckboxChange();
+
+    // If checkbox matching failed to populate selectedTenantB, fall back to
+    // the saved tenant objects directly (handles cases where FIN/id is missing)
+    if (this.selectedTenantB.length === 0 && tenantsData.length > 0) {
+      this.selectedTenantB = [...tenantsData];
+      this.updateTenantBDisplayText();
+    }
 
     // Update the contract preview
     this.updateContractPreview();
