@@ -3040,7 +3040,8 @@ class ContractManagementComponent {
                             : this.contractData.fullPaymentReceived
                               ? "p"
                               : "r"
-                        })</strong> No visitors without permission from Tenant B to Tenant A.</p>
+                        })</strong> Visitors are allowed 
+Tenant B must inform Tenant A at least one week before the guests arrive.Tenant B must obtain Tenant A’s consent before the guests arrive.</p>
 
                         <p><strong>${
                           this.hasAircon()
@@ -3743,7 +3744,7 @@ class ContractManagementComponent {
         `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
         "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
         "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
-        "No visitors without permission from Tenant B to Tenant A.",
+        "Visitors are allowed. Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.",
         "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
         "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
         "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
@@ -4456,7 +4457,7 @@ class ContractManagementComponent {
         `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
         "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
         "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
-        "No visitors without permission from Tenant B to Tenant A.",
+        "Visitors are allowed. Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.",
         "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
         "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
         "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
@@ -4992,7 +4993,8 @@ class ContractManagementComponent {
 
                         <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "r" : "q"})</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "s" : "r"})</strong> No visitors without permission from Tenant B to Tenant A.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "s" : "r"})</strong> Visitors are allowed 
+Tenant B must inform Tenant A at least one week before the guests arrive.Tenant B must obtain Tenant A’s consent before the guests arrive.</p>
 
                         <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "t" : "s"})</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
 
@@ -6257,7 +6259,7 @@ class ContractManagementComponent {
               ]),
               clausePara("s", [
                 normal(
-                  "No visitors without permission from Tenant B to Tenant A.",
+                  "Visitors are allowed. Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.",
                 ),
               ]),
               clausePara("t", [
