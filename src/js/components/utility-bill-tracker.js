@@ -579,13 +579,33 @@ class UtilityBillTrackerComponent {
     this.tenants = tenantsResult.status === 'fulfilled' && tenantsResult.value.success
       ? tenantsResult.value.tenants || []
       : [];
-    this.propertySubsidy = propResult.status === 'fulfilled' && propResult.value.success
-      ? propResult.value.property?.subsidizedPub || 0
-      : 0;
+    const prop = propResult.status === 'fulfilled' && propResult.value.success
+      ? propResult.value.property || {}
+      : {};
+    this.propertySubsidy = prop.subsidizedPub || 0;
+    this._renderFbGroups(prop);
     this._renderChart();
     this._renderBillsTable();
     this._showAddForm(false);
     document.getElementById('utilityBillContent')?.removeAttribute('hidden');
+  }
+
+  // ── FB Group links ─────────────────────────────────────────────────────────
+
+  _renderFbGroups(property) {
+    const container = document.getElementById('utilityFbGroups');
+    if (!container) return;
+    const tenantGroup = property?.tenantFacebookGroup;
+    const adminGroup = property?.adminFacebookGroup;
+    if (!tenantGroup && !adminGroup) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = '';
+    container.innerHTML = [
+      tenantGroup ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : '',
+      adminGroup  ? `<a href="${escapeHtml(adminGroup)}"  target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success"><i class="bi bi-facebook me-1"></i>Admin Group</a>`  : '',
+    ].join('');
   }
 
   // ── Chart ──────────────────────────────────────────────────────────────────

@@ -590,10 +590,28 @@ class BillManagementComponent {
       const data = await res.json();
       if (data.success && data.property) {
         this.propertySubsidy = data.property.subsidizedPub || 0;
+        this._renderFbGroups(data.property);
       }
     } catch {
       this.propertySubsidy = 0;
+      this._renderFbGroups(null);
     }
+  }
+
+  _renderFbGroups(property) {
+    const container = document.getElementById('billFbGroups');
+    if (!container) return;
+    const tenantGroup = property?.tenantFacebookGroup;
+    const adminGroup  = property?.adminFacebookGroup;
+    if (!tenantGroup && !adminGroup) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = '';
+    container.innerHTML = [
+      tenantGroup ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : '',
+      adminGroup  ? `<a href="${escapeHtml(adminGroup)}"  target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success"><i class="bi bi-facebook me-1"></i>Admin Group</a>`  : '',
+    ].join('');
   }
 
   async _loadAllUtilityBillsForChart() {

@@ -1663,6 +1663,9 @@ class FinancialReportsComponent {
           tenant._moveInDateForDisplay = null;
         }
 
+        // Store move-out date for CSS differentiation in unpaid reminder
+        tenant._moveOutDate = moveOutDate;
+
         return true; // Tenant was/is in property during this month
       });
 
@@ -1797,6 +1800,9 @@ class FinancialReportsComponent {
                 <ul class="mb-0">
         `;
 
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
         tenantsWithRoomType.forEach((tenant) => {
           const displayName = tenant.name || tenant.username || tenant.tenantId;
           const phoneNumber = tenant.phoneNumber || "";
@@ -1804,6 +1810,7 @@ class FinancialReportsComponent {
           const facebookUrl = tenant.facebookUrl || "";
           const roommateName = tenant.roommateId?.name || "";
           const roommateAvatar = tenant.roommateId?.avatar || "";
+          const hasMovedOut = tenant._moveOutDate && tenant._moveOutDate < now;
           const upcomingMoveIn = tenant._upcomingMoveInDate
             ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", {
                 day: "numeric",
@@ -1854,11 +1861,18 @@ class FinancialReportsComponent {
           }
 
           const tenantNotes = tenant.notes ? tenant.notes.trim() : "";
+          const movedOutBadge = hasMovedOut
+            ? `<span class="badge text-white" style="background-color:#6c757d;font-size:0.7em;"><i class="bi bi-box-arrow-right me-1"></i>Moved Out</span>`
+            : "";
+          const liStyle = hasMovedOut
+            ? `opacity:0.55;filter:grayscale(0.4);`
+            : "";
           html += `
-            <li class="mb-2">
+            <li class="mb-2" style="${liStyle}">
               <div class="d-flex align-items-center flex-wrap gap-2">
-                <strong>${escapeHtml(displayName)}</strong>
+                <strong${hasMovedOut ? ` class="text-muted"` : ""}>${escapeHtml(displayName)}</strong>
                 <span class="text-muted">(${escapeHtml(roomType)})</span>
+                ${movedOutBadge}
                 ${moveInBadge}
                 ${periodBadge}
                 ${rentBadge}
@@ -2024,11 +2038,14 @@ class FinancialReportsComponent {
         details = data.bill.billingPeriod || "";
       }
 
+      const itemTitle = details
+        ? `Utility Bill — ${details}`
+        : `Utility Bill — ${monthName} ${year}`;
       const prefilled = {
-        item: `Utility Bill — ${monthName} ${year}`,
+        item: itemTitle,
         amount,
         date: new Date(year, month - 1, 1).toISOString().split("T")[0],
-        details,
+        details: "",
         recipientAccountDetail: "",
         personInCharge: "",
         currency: "SGD",
@@ -2576,6 +2593,7 @@ class FinancialReportsComponent {
     let displayName = "";
     let avatar = null;
     let roomType = null;
+    let contactUrl = null;
 
     if (paidByValue.startsWith("tenant_")) {
       const tenantId = paidByValue.replace("tenant_", "");
@@ -2593,6 +2611,12 @@ class FinancialReportsComponent {
           const assoc = person.properties.find((p) => p.propertyId === this.selectedProperty);
           if (assoc?.room) roomType = assoc.room;
         }
+        const phone = (person.phoneNumber || "").replace(/[^0-9]/g, "");
+        if (person.facebookUrl) {
+          contactUrl = person.facebookUrl;
+        } else if (phone) {
+          contactUrl = `https://wa.me/${phone}`;
+        }
       }
     } else {
       person =
@@ -2605,18 +2629,24 @@ class FinancialReportsComponent {
     }
 
     if (!person) return null;
-    return { displayName, avatar, roomType };
+    return { displayName, avatar, roomType, contactUrl };
   }
 
   _renderAvatarCircle(info, size = 32) {
     if (!info) {
       return `<div class="rounded-circle bg-warning bg-opacity-25 border border-warning d-flex align-items-center justify-content-center text-warning" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.5)}px;" data-bs-toggle="tooltip" data-bs-title="Unknown payer"><i class="bi bi-person-question"></i></div>`;
     }
-    const { displayName, avatar } = info;
+    const { displayName, avatar, contactUrl } = info;
+    const linkAttrs = contactUrl
+      ? `href="${escapeHtml(contactUrl)}" target="_blank" rel="noopener noreferrer" style="cursor:pointer;" title="Message ${escapeHtml(displayName)}"`
+      : "";
+    const wrap = (inner) =>
+      contactUrl ? `<a ${linkAttrs}>${inner}</a>` : inner;
+
     if (avatar) {
-      return `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">`;
+      return wrap(`<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">`);
     }
-    return `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`;
+    return wrap(`<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`);
   }
 
   renderPaidByAvatar(paidBy) {
@@ -2927,9 +2957,7 @@ class FinancialReportsComponent {
     // Add paidBy, currency, exchange rate only for income transactions
     if (type === "income") {
       const paidByValues = formData.getAll("paidBy").filter((v) => v);
-      if (paidByValues.length > 0) {
-        itemData.paidBy = paidByValues;
-      }
+      itemData.paidBy = paidByValues;
 
       // Add currency and exchange rate
       const currency = formData.get("currency");
@@ -6523,13 +6551,20 @@ class FinancialReportsComponent {
       const currentYear = this.currentDate.getFullYear();
 
       // Build the summary text
-      let summary = `THU CHI ${currentMonth} - ${currentYear}\n\n`;
+      const property = this.properties?.find(
+        (p) => p.propertyId === this.selectedProperty,
+      );
+      const propertyLine = property
+        ? `${property.propertyId} - ${property.unit} - ${property.address}${property.postcode ? " " + property.postcode : ""}`
+        : "";
+      let summary = `THU CHI ${currentMonth} - ${currentYear}\n${propertyLine}\n\n`;
 
       // Income section (THU)
       summary += "THU\n";
       if (this.currentReport.income && this.currentReport.income.length > 0) {
         this.currentReport.income.forEach((item) => {
           const amount = item.amount.toFixed(2);
+          const currencyPrefix = item.currency === "VND" ? "🇻🇳$" : "$";
           const fullName = this.getPersonName(item.personInCharge);
           const shortName = fullName.split(" ").pop(); // Get last word only
           let payeeInfo = "";
@@ -6541,7 +6576,7 @@ class FinancialReportsComponent {
           const itemWithPayee = payeeInfo
             ? `${item.item} (${payeeInfo})`
             : item.item;
-          summary += `- ${itemWithPayee} - $${amount} - ${shortName}\n`;
+          summary += `- ${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";
@@ -6555,6 +6590,7 @@ class FinancialReportsComponent {
       ) {
         this.currentReport.expenses.forEach((item) => {
           const amount = item.amount.toFixed(2);
+          const currencyPrefix = item.currency === "VND" ? "🇻🇳$" : "$";
           const fullName = this.getPersonName(item.personInCharge);
           const shortName = fullName.split(" ").pop(); // Get last word only
           let paidToInfo = "";
@@ -6568,7 +6604,7 @@ class FinancialReportsComponent {
           const itemWithPaidTo = paidToInfo
             ? `${item.item} (→${paidToInfo})`
             : item.item;
-          summary += `- ${itemWithPaidTo} - $${amount} - ${shortName}\n`;
+          summary += `- ${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";

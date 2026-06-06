@@ -223,8 +223,16 @@ class ContractManagementComponent {
     if (!prop) return null;
     const sgd = prop.settlementSgd || {};
     const vnd = prop.settlementVnd || {};
-    const hasSgd = !!(sgd.bankName || sgd.accountNumber || sgd.accountHolderName);
-    const hasVnd = !!(vnd.bankName || vnd.accountNumber || vnd.accountHolderName);
+    const hasSgd = !!(
+      sgd.bankName ||
+      sgd.accountNumber ||
+      sgd.accountHolderName
+    );
+    const hasVnd = !!(
+      vnd.bankName ||
+      vnd.accountNumber ||
+      vnd.accountHolderName
+    );
     if (!hasSgd && !hasVnd) return null;
     return { sgd, vnd, hasSgd, hasVnd };
   }
@@ -2533,7 +2541,9 @@ class ContractManagementComponent {
     if (electricityFreeCheckbox) {
       electricityFreeCheckbox.addEventListener("change", () => {
         this.contractData.electricityFree = electricityFreeCheckbox.checked;
-        const budgetInput = document.getElementById("contractElectricityBudget");
+        const budgetInput = document.getElementById(
+          "contractElectricityBudget",
+        );
         if (budgetInput) budgetInput.disabled = electricityFreeCheckbox.checked;
         this.updateContractPreview();
       });
@@ -3018,18 +3028,24 @@ class ContractManagementComponent {
                           if (sa.hasSgd) {
                             s += `<em>SGD</em> — `;
                             const parts = [];
-                            if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
-                            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
-                            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+                            if (sa.sgd.bankName)
+                              parts.push(`Bank: ${sa.sgd.bankName}`);
+                            if (sa.sgd.accountHolderName)
+                              parts.push(`Name: ${sa.sgd.accountHolderName}`);
+                            if (sa.sgd.accountNumber)
+                              parts.push(`Account No: ${sa.sgd.accountNumber}`);
                             s += parts.join(", ");
                             s += `<br>`;
                           }
                           if (sa.hasVnd) {
                             s += `<em>VND</em> — `;
                             const parts = [];
-                            if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
-                            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
-                            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+                            if (sa.vnd.bankName)
+                              parts.push(`Bank: ${sa.vnd.bankName}`);
+                            if (sa.vnd.accountHolderName)
+                              parts.push(`Name: ${sa.vnd.accountHolderName}`);
+                            if (sa.vnd.accountNumber)
+                              parts.push(`Account No: ${sa.vnd.accountNumber}`);
                             s += parts.join(", ");
                           }
                           return s;
@@ -3228,8 +3244,7 @@ class ContractManagementComponent {
                             : this.contractData.fullPaymentReceived
                               ? "p"
                               : "r"
-                        })</strong> Visitors are allowed 
-Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.</p>
+                        })</strong> Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.</p>
 
                         <p><strong>${
                           this.hasAircon()
@@ -3989,19 +4004,25 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
       {
         const sa = this.getSettlementAccountsData();
         if (sa) {
-          children.push(para("Settlement Accounts:", { indent: true, bold: true }));
+          children.push(
+            para("Settlement Accounts:", { indent: true, bold: true }),
+          );
           if (sa.hasSgd) {
             const parts = [];
             if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
-            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
-            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+            if (sa.sgd.accountHolderName)
+              parts.push(`Name: ${sa.sgd.accountHolderName}`);
+            if (sa.sgd.accountNumber)
+              parts.push(`Account No: ${sa.sgd.accountNumber}`);
             children.push(para(`SGD — ${parts.join(", ")}`, { indent: true }));
           }
           if (sa.hasVnd) {
             const parts = [];
             if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
-            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
-            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+            if (sa.vnd.accountHolderName)
+              parts.push(`Name: ${sa.vnd.accountHolderName}`);
+            if (sa.vnd.accountNumber)
+              parts.push(`Account No: ${sa.vnd.accountNumber}`);
             children.push(para(`VND — ${parts.join(", ")}`, { indent: true }));
           }
         }
@@ -4175,7 +4196,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
         `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
         "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
         "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
-        "Visitors are allowed. Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.",
+        "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
         "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
         "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
         "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
@@ -4815,15 +4836,19 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
           if (sa.hasSgd) {
             const parts = [];
             if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
-            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
-            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+            if (sa.sgd.accountHolderName)
+              parts.push(`Name: ${sa.sgd.accountHolderName}`);
+            if (sa.sgd.accountNumber)
+              parts.push(`Account No: ${sa.sgd.accountNumber}`);
             addText(`SGD — ${parts.join(", ")}`, { indent: true });
           }
           if (sa.hasVnd) {
             const parts = [];
             if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
-            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
-            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+            if (sa.vnd.accountHolderName)
+              parts.push(`Name: ${sa.vnd.accountHolderName}`);
+            if (sa.vnd.accountNumber)
+              parts.push(`Account No: ${sa.vnd.accountNumber}`);
             addText(`VND — ${parts.join(", ")}`, { indent: true });
           }
         }
@@ -4998,7 +5023,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
         `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
         "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
         "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
-        "Visitors are allowed. Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.",
+        "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
         "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
         "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
         "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
@@ -5429,16 +5454,22 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
                           let s = `<p style="margin-bottom: 5px;"><strong>Settlement Accounts:</strong></p>`;
                           if (sa.hasSgd) {
                             const parts = [];
-                            if (sa.sgd.bankName) parts.push(`Bank: ${sa.sgd.bankName}`);
-                            if (sa.sgd.accountHolderName) parts.push(`Name: ${sa.sgd.accountHolderName}`);
-                            if (sa.sgd.accountNumber) parts.push(`Account No: ${sa.sgd.accountNumber}`);
+                            if (sa.sgd.bankName)
+                              parts.push(`Bank: ${sa.sgd.bankName}`);
+                            if (sa.sgd.accountHolderName)
+                              parts.push(`Name: ${sa.sgd.accountHolderName}`);
+                            if (sa.sgd.accountNumber)
+                              parts.push(`Account No: ${sa.sgd.accountNumber}`);
                             s += `<p style="margin-bottom: 3px;"><em>SGD</em> — ${parts.join(", ")}</p>`;
                           }
                           if (sa.hasVnd) {
                             const parts = [];
-                            if (sa.vnd.bankName) parts.push(`Bank: ${sa.vnd.bankName}`);
-                            if (sa.vnd.accountHolderName) parts.push(`Name: ${sa.vnd.accountHolderName}`);
-                            if (sa.vnd.accountNumber) parts.push(`Account No: ${sa.vnd.accountNumber}`);
+                            if (sa.vnd.bankName)
+                              parts.push(`Bank: ${sa.vnd.bankName}`);
+                            if (sa.vnd.accountHolderName)
+                              parts.push(`Name: ${sa.vnd.accountHolderName}`);
+                            if (sa.vnd.accountNumber)
+                              parts.push(`Account No: ${sa.vnd.accountNumber}`);
                             s += `<p style="margin-bottom: 12px;"><em>VND</em> — ${parts.join(", ")}</p>`;
                           }
                           return s;
@@ -5573,8 +5604,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive. Tenant
 
                         <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "r" : "q"})</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "s" : "r"})</strong> Visitors are allowed 
-Tenant B must inform Tenant A at least one week before the guests arrive.Tenant B must obtain Tenant A’s consent before the guests arrive.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "s" : "r"})</strong> Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.</p>
 
                         <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "t" : "s"})</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
 
@@ -5618,7 +5648,8 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                                     this.contractData.electricityBudget || "400"
                                   } (SINGAPORE DOLLARS ${this.numberToWords(
                                     parseInt(
-                                      this.contractData.electricityBudget || "400",
+                                      this.contractData.electricityBudget ||
+                                        "400",
                                     ),
                                   ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`
                             }</p>
@@ -6201,10 +6232,10 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
                   : field === "electricityFree"
                     ? document.getElementById("electricityFree")
                     : field === "showSettlementAccounts"
-                    ? document.getElementById("showSettlementAccounts")
-                    : document.getElementById(
-                        `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
-                      );
+                      ? document.getElementById("showSettlementAccounts")
+                      : document.getElementById(
+                          `contract${field.charAt(0).toUpperCase() + field.slice(1)}`,
+                        );
 
         if (element) {
           if (element.type === "checkbox") {
@@ -6384,13 +6415,22 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
         tenantData._id;
 
       const checkbox = Array.from(allCheckboxes).find((cb) => {
-        if (identifier && (cb.value === identifier || cb.value.includes(identifier))) {
+        if (
+          identifier &&
+          (cb.value === identifier || cb.value.includes(identifier))
+        ) {
           return true;
         }
-        if (tenantData.name && cb.getAttribute("data-name") === tenantData.name) {
+        if (
+          tenantData.name &&
+          cb.getAttribute("data-name") === tenantData.name
+        ) {
           return true;
         }
-        if (tenantData.passportNumber && cb.getAttribute("data-passport") === tenantData.passportNumber) {
+        if (
+          tenantData.passportNumber &&
+          cb.getAttribute("data-passport") === tenantData.passportNumber
+        ) {
           return true;
         }
         return false;
@@ -6883,7 +6923,7 @@ Tenant B must inform Tenant A at least one week before the guests arrive.Tenant 
               ]),
               clausePara("s", [
                 normal(
-                  "Visitors are allowed. Tenant B must inform Tenant A at least one week before the guests arrive. Tenant B must obtain Tenant A’s consent before the guests arrive.",
+                  "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
                 ),
               ]),
               clausePara("t", [
