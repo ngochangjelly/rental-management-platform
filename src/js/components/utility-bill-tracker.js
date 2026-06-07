@@ -21,6 +21,8 @@ class UtilityBillTrackerComponent {
     const now = new Date();
     this.summaryYear = now.getFullYear();
     this.summaryMonth = now.getMonth() + 1;
+    this.calendarYear = now.getFullYear();
+    this.calendarMonth = now.getMonth() + 1;
     this._init();
   }
 
@@ -199,6 +201,7 @@ class UtilityBillTrackerComponent {
       }
       this.properties = allProperties;
       this._renderPropertyCards();
+      this._renderBillingCalendar();
       this._loadMonthlyBillStatus(this.summaryYear, this.summaryMonth);
     } catch (err) {
       console.error('[UtilityBillTracker] load properties error:', err);
@@ -217,11 +220,19 @@ class UtilityBillTrackerComponent {
         API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId))
           .then(r => r.json())
           .then(data => {
-            const bill = (data.bills || []).find(b => b.year === year && b.month === month);
+            const bills = data.bills || [];
+            const bill = bills.find(b => b.year === year && b.month === month);
+            // Collect day-of-month from recent actual bill dates for per-property estimation
+            const recentBillDays = bills
+              .filter(b => b.billDate)
+              .sort((a, b) => new Date(b.billDate) - new Date(a.billDate))
+              .slice(0, 6)
+              .map(b => new Date(b.billDate).getDate());
             return {
               propertyId: p.propertyId,
               hasBill: !!bill,
               billAmount: bill ? (bill.totalAmount || 0) : 0,
+              recentBillDays,
             };
           })
       )
@@ -232,12 +243,14 @@ class UtilityBillTrackerComponent {
         this.monthlyBillStatus[result.value.propertyId] = {
           hasBill: result.value.hasBill,
           billAmount: result.value.billAmount,
+          recentBillDays: result.value.recentBillDays || [],
         };
       }
     }
 
     this._renderPropertyCards();
     this._renderMonthlySummary(false);
+    this._renderBillingCalendar();
   }
 
   _syncSelectAllToggle(checked) {
@@ -393,6 +406,143 @@ class UtilityBillTrackerComponent {
       });
       this._allCharts.push(chart);
     });
+  }
+
+  // ── Billing Calendar ──────────────────────────────────────────────────────
+
+  _adjustForWeekend(year, month, day) {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    day = Math.max(1, Math.min(day, daysInMonth));
+    const dow = new Date(year, month - 1, day).getDay();
+    if (dow === 0) return Math.min(day + 1, daysInMonth); // Sunday → Monday
+    if (dow === 6) return day > 1 ? day - 1 : Math.min(day + 2, daysInMonth); // Saturday → Friday (or Mon if day=1)
+    return day;
+  }
+
+  _estimatedBillingDayForProperty(propertyId, year, month) {
+    const recentBillDays = this.monthlyBillStatus[propertyId]?.recentBillDays;
+    if (recentBillDays && recentBillDays.length >= 1) {
+      const avg = Math.round(recentBillDays.reduce((s, d) => s + d, 0) / recentBillDays.length);
+      return this._adjustForWeekend(year, month, avg);
+    }
+    return this._adjustForWeekend(year, month, 8); // fallback: 8th
+  }
+
+  navigateBillingCalendar(delta) {
+    if (delta === 0) {
+      const now = new Date();
+      this.calendarYear = now.getFullYear();
+      this.calendarMonth = now.getMonth() + 1;
+    } else {
+      this.calendarMonth += delta;
+      if (this.calendarMonth > 12) { this.calendarMonth = 1; this.calendarYear++; }
+      if (this.calendarMonth < 1)  { this.calendarMonth = 12; this.calendarYear--; }
+    }
+    this._renderBillingCalendar();
+  }
+
+  _renderBillingCalendar() {
+    const container = document.getElementById('utilityBillingCalendar');
+    const monthLabel = document.getElementById('utilityCalendarMonthLabel');
+    if (!container) return;
+
+    const year  = this.calendarYear;
+    const month = this.calendarMonth;
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const dayNames   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    if (monthLabel) monthLabel.textContent = `${monthNames[month - 1]} ${year}`;
+
+    const now     = new Date();
+    const todayY  = now.getFullYear(), todayM = now.getMonth() + 1, todayD = now.getDate();
+    const isToday = (d) => year === todayY && month === todayM && d === todayD;
+
+    const firstDow     = new Date(year, month - 1, 1).getDay();
+    const daysInMonth  = new Date(year, month, 0).getDate();
+    const prevMonthDays = new Date(year, month - 1, 0).getDate();
+
+    const isSummaryMonth = year === this.summaryYear && month === this.summaryMonth;
+
+    // Map: day → array of event objects (each property on its own estimated day)
+    const dayEvents = {};
+    for (const prop of this.properties) {
+      const propEstDay = this._estimatedBillingDayForProperty(prop.propertyId, year, month);
+      if (!dayEvents[propEstDay]) dayEvents[propEstDay] = [];
+      let status = 'estimated';
+      if (isSummaryMonth && prop.propertyId in this.monthlyBillStatus) {
+        status = this.monthlyBillStatus[prop.propertyId]?.hasBill ? 'filled' : 'missing';
+      }
+      dayEvents[propEstDay].push({ propertyId: prop.propertyId, label: prop.address || prop.propertyId, status });
+    }
+
+    // Build 42 cells (6 rows × 7 cols)
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const cellNum = i - firstDow + 1;
+      if (cellNum < 1) {
+        cells.push({ day: prevMonthDays + cellNum, type: 'prev', events: [] });
+      } else if (cellNum > daysInMonth) {
+        cells.push({ day: cellNum - daysInMonth, type: 'next', events: [] });
+      } else {
+        cells.push({ day: cellNum, type: 'current', events: dayEvents[cellNum] || [] });
+      }
+    }
+
+    const MAX_VISIBLE = 3;
+
+    const headerHtml = dayNames.map(d =>
+      `<div style="text-align:center;font-size:0.7rem;font-weight:600;color:#70757a;padding:8px 2px 6px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #e0e0e0;">${d}</div>`
+    ).join('');
+
+    const cellsHtml = cells.map((cell, i) => {
+      const dow = i % 7;
+      const isWeekend = dow === 0 || dow === 6;
+      const today = isToday(cell.day) && cell.type === 'current';
+
+      const dateLabelStyle = today
+        ? 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#1a73e8;color:#fff;font-weight:700;font-size:0.8rem;line-height:1;'
+        : `font-size:0.8rem;font-weight:${cell.type === 'current' ? (isWeekend ? '600' : '500') : '400'};color:${cell.type === 'current' ? (isWeekend ? '#3c4043' : '#3c4043') : '#c0c4cb'};padding:3px 2px 0;display:inline-block;`;
+
+      const visible  = cell.events.slice(0, MAX_VISIBLE);
+      const overflow = cell.events.length - MAX_VISIBLE;
+
+      const eventsHtml = visible.map(ev => {
+        const bg   = ev.status === 'filled' ? '#137333' : ev.status === 'missing' ? '#d4a000' : '#1967d2';
+        const icon = ev.status === 'filled' ? '✓ ' : ev.status === 'missing' ? '! ' : '';
+        const lbl  = ev.label.length > 20 ? ev.label.substring(0, 18) + '…' : ev.label;
+        return `<div onclick="utilityBillTracker.selectProperty('${ev.propertyId}')" title="${escapeHtml(ev.label)} — ${ev.status}" style="cursor:pointer;background:${bg};color:#fff;border-radius:3px;padding:1px 5px;font-size:0.67rem;line-height:1.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;user-select:none;">${icon}${escapeHtml(lbl)}</div>`;
+      }).join('');
+
+      const overflowHtml = overflow > 0
+        ? `<div style="font-size:0.67rem;color:#1967d2;padding:1px 4px;cursor:default;">+${overflow} more</div>`
+        : '';
+
+      const bg = cell.type !== 'current'
+        ? '#f8f9fa'
+        : (isWeekend ? 'rgba(0,0,0,0.015)' : '#fff');
+
+      return `
+        <div style="min-height:88px;border-right:1px solid #e0e0e0;border-bottom:1px solid #e0e0e0;padding:4px 3px 3px;background:${bg};box-sizing:border-box;overflow:hidden;">
+          <div style="margin-bottom:2px;"><span style="${dateLabelStyle}">${cell.day}</span></div>
+          ${eventsHtml}${overflowHtml}
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;border-top:1px solid #e0e0e0;">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid #e0e0e0;">
+          ${headerHtml}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid #e0e0e0;">
+          ${cellsHtml}
+        </div>
+        ${!this.properties.length ? `<div class="text-center text-muted small py-3"><i class="bi bi-info-circle me-1"></i>Load properties to see estimated billing dates.</div>` : ''}
+        <div style="font-size:0.7rem;color:#70757a;padding:6px 10px;border-top:1px solid #e0e0e0;background:#f8f9fa;">
+          <i class="bi bi-info-circle me-1"></i>
+          Dates estimated from each property's billing history (nearest weekday). Fallback: 8th of month.
+          ${isSummaryMonth && this.properties.length ? ` Filing status reflects <em>${monthNames[month-1]} ${year}</em>.` : ' Navigate to the summary month to see filing status.'}
+        </div>
+      </div>`;
   }
 
   _renderMonthlySummary(loading = false) {
@@ -1136,11 +1286,13 @@ class UtilityBillTrackerComponent {
       this._showToast(i18next.t('utilityBillTracker.billSaved'), 'success');
       // Refresh the monthly completion status for the saved property
       if (this.selectedProperty) {
-        this.monthlyBillStatus[this.selectedProperty] = this.bills.some(
-          b => b.year === this.summaryYear && b.month === this.summaryMonth
-        );
+        this.monthlyBillStatus[this.selectedProperty] = {
+          hasBill: this.bills.some(b => b.year === this.summaryYear && b.month === this.summaryMonth),
+          billAmount: (this.bills.find(b => b.year === this.summaryYear && b.month === this.summaryMonth)?.totalAmount || 0),
+        };
         this._renderPropertyCards();
         this._renderMonthlySummary(false);
+        this._renderBillingCalendar();
       }
     } catch (err) {
       console.error('[UtilityBillTracker] save error:', err);
@@ -1159,11 +1311,13 @@ class UtilityBillTrackerComponent {
       await this._loadBills();
       this._showToast(i18next.t('utilityBillTracker.billDeleted'), 'info');
       if (this.selectedProperty) {
-        this.monthlyBillStatus[this.selectedProperty] = this.bills.some(
-          b => b.year === this.summaryYear && b.month === this.summaryMonth
-        );
+        this.monthlyBillStatus[this.selectedProperty] = {
+          hasBill: this.bills.some(b => b.year === this.summaryYear && b.month === this.summaryMonth),
+          billAmount: (this.bills.find(b => b.year === this.summaryYear && b.month === this.summaryMonth)?.totalAmount || 0),
+        };
         this._renderPropertyCards();
         this._renderMonthlySummary(false);
+        this._renderBillingCalendar();
       }
     } catch (err) {
       alert(i18next.t('utilityBillTracker.deleteFailed', { error: err.message }));

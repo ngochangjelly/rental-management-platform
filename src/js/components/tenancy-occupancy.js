@@ -658,9 +658,6 @@ class TenancyOccupancyComponent {
         const occupancyStart = moveinDate;
         const occupancyEnd = moveoutDate || new Date(); // Use today if no moveout date
 
-        // Skip tenants who have already moved out (moveoutDate is in the past)
-        if (moveoutDate && moveoutDate < new Date()) return;
-
         // Skip if occupancy doesn't overlap with current year
         if (occupancyEnd < yearStart || occupancyStart > yearEnd) return;
 
@@ -894,10 +891,12 @@ class TenancyOccupancyComponent {
 
     let barColor = "#667eea"; // Default blue
     let isFutureMoveout = false;
+    let isPastMoveout = false;
     if (!tenant.moveoutDate) {
       barColor = "#48bb78"; // Green for current tenants
     } else if (moveoutDate && moveoutDate < today) {
       barColor = "#a0aec0"; // Gray for past tenants
+      isPastMoveout = true;
     } else if (
       moveoutDate &&
       moveoutDate >= today &&
@@ -1073,13 +1072,14 @@ class TenancyOccupancyComponent {
         `;
 
     return `
-            <div class="tenant-row">
+            <div class="tenant-row ${isPastMoveout ? "past-moveout-row" : ""}">
                 <div class="tenant-name-column">
                     <div class="tenant-info-wrapper">
                         ${avatarHtml}
                         <div class="tenant-info">
                             <div class="tenant-name-text">${this.escapeHtml(displayName)} ${leaveDaysBadgeHtml}</div>
                             <div class="tenant-room-text">${roomDisplayName}</div>
+                            ${isPastMoveout ? `<div class="moved-out-badge"><i class="bi bi-box-arrow-right"></i> Moved out</div>` : ""}
                         </div>
                         <div class="tenant-actions-column">
                             ${socialBadgesHtml ? `<div class="tenant-social-badges">${socialBadgesHtml}</div>` : ""}
@@ -1089,7 +1089,7 @@ class TenancyOccupancyComponent {
                 </div>
                 <div class="timeline-container">
                     <div
-                        class="occupancy-bar ${!tenant.moveoutDate ? "current-tenant" : ""} ${isFutureMoveout ? "future-moveout" : ""}"
+                        class="occupancy-bar ${!tenant.moveoutDate ? "current-tenant" : ""} ${isFutureMoveout ? "future-moveout" : ""} ${isPastMoveout ? "past-moveout" : ""}"
                         style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};">
                         ${moveinBadgeHtml}
                         <span class="occupancy-bar-label" title="${this.escapeHtml(displayName)}&#10;${roomDisplayName}&#10;${i18next.t("tenancyOccupancy.moveIn", "Move-in")}: ${moveinStr}&#10;${i18next.t("tenancyOccupancy.moveOut", "Move-out")}: ${moveoutStr}&#10;${durationText}: ${duration} ${daysText}${totalLeaveDays > 0 ? `&#10;${i18next.t("tenancyOccupancy.totalLeaveDays", "Total leave days")}: ${totalLeaveDays}` : ""}">${this.escapeHtml(displayName)}</span>

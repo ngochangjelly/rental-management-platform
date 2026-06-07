@@ -2895,6 +2895,45 @@
         }
       }
 
+      /* Already moved out - past tenants */
+      .occupancy-bar.past-moveout {
+        background-image: repeating-linear-gradient(
+          45deg,
+          rgba(255, 255, 255, 0) 0px,
+          rgba(255, 255, 255, 0) 5px,
+          rgba(255, 255, 255, 0.22) 5px,
+          rgba(255, 255, 255, 0.22) 10px
+        );
+        border: 1px dashed #9aabb8;
+        opacity: 0.72;
+      }
+
+      .tenant-row.past-moveout-row {
+        background-color: #f9fafb;
+      }
+
+      .tenant-row.past-moveout-row:hover {
+        background-color: #f1f4f7;
+      }
+
+      .tenant-row.past-moveout-row .tenant-name-text {
+        color: #9aa5b4;
+      }
+
+      .tenant-row.past-moveout-row .tenant-room-text {
+        color: #b0bec5;
+      }
+
+      .moved-out-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        color: #9aa5b4;
+        font-style: italic;
+        margin-top: 1px;
+      }
+
       .occupancy-bar-label {
         font-size: 13px;
         font-weight: 600;
@@ -6838,6 +6877,35 @@
                     <i class="bi bi-arrow-left me-1"></i
                     ><span data-i18n="utilityBillTracker.back">Back</span>
                   </button>
+                </div>
+              </div>
+
+              <!-- Billing Calendar -->
+              <div class="card mb-4 shadow-sm" id="utilityBillingCalendarCard">
+                <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0">
+                      <i class="bi bi-calendar3 me-2 text-primary"></i>Billing Calendar
+                    </h6>
+                    <div class="d-flex align-items-center gap-2" style="font-size:0.72rem;">
+                      <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#137333;"></span>Filled</span>
+                      <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d4a000;"></span>Missing</span>
+                      <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1967d2;"></span>Estimated</span>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="utilityBillTracker.navigateBillingCalendar(-1)" title="Previous month">
+                      <i class="bi bi-chevron-left" style="font-size:0.75rem;"></i>
+                    </button>
+                    <span id="utilityCalendarMonthLabel" class="fw-semibold small px-2" style="min-width:120px;text-align:center;"></span>
+                    <button class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="utilityBillTracker.navigateBillingCalendar(1)" title="Next month">
+                      <i class="bi bi-chevron-right" style="font-size:0.75rem;"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary px-2 py-1 ms-1" onclick="utilityBillTracker.navigateBillingCalendar(0)" style="font-size:0.75rem;">Today</button>
+                  </div>
+                </div>
+                <div class="card-body p-0" style="overflow:hidden;border-radius:0 0 var(--bs-card-border-radius) var(--bs-card-border-radius);">
+                  <div id="utilityBillingCalendar"></div>
                 </div>
               </div>
 
