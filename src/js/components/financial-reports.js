@@ -340,31 +340,44 @@ class FinancialReportsComponent {
     const cacheKey = `${year}-${month}`;
 
     // Skip if already loaded for this month or a fetch is already running
-    if (this._statusCacheKey === cacheKey && Object.keys(this.propertyReportStatus).length > 0) return;
+    if (
+      this._statusCacheKey === cacheKey &&
+      Object.keys(this.propertyReportStatus).length > 0
+    )
+      return;
     if (this._loadingStatuses) return;
 
     this._loadingStatuses = true;
     this.propertyReportStatus = {};
 
     try {
-      await Promise.all(this.properties.map(async (property) => {
-        try {
-          const response = await API.get(
-            API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(property.propertyId, year, month),
-          );
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.data) {
-              this.propertyReportStatus[property.propertyId] = {
-                isClosed: result.data.isClosed || false,
-                isSettled: result.data.isSettled || false,
-              };
+      await Promise.all(
+        this.properties.map(async (property) => {
+          try {
+            const response = await API.get(
+              API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
+                property.propertyId,
+                year,
+                month,
+              ),
+            );
+            if (response.ok) {
+              const result = await response.json();
+              if (result.success && result.data) {
+                this.propertyReportStatus[property.propertyId] = {
+                  isClosed: result.data.isClosed || false,
+                  isSettled: result.data.isSettled || false,
+                };
+              }
             }
+          } catch (error) {
+            console.debug(
+              `Could not fetch report status for ${property.propertyId}:`,
+              error,
+            );
           }
-        } catch (error) {
-          console.debug(`Could not fetch report status for ${property.propertyId}:`, error);
-        }
-      }));
+        }),
+      );
     } finally {
       this._loadingStatuses = false;
       this._statusCacheKey = cacheKey;
@@ -416,14 +429,20 @@ class FinancialReportsComponent {
     }
 
     // Generate compact property cards
-    const sortedProperties = [...properties].sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0));
+    const sortedProperties = [...properties].sort(
+      (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
+    );
     sortedProperties.forEach((property) => {
       const isSelected =
         String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
       const isReportSettled = reportStatus && reportStatus.isSettled;
-      const cardStatusColor = isReportSettled ? "#0d9488" : isReportClosed ? "#198754" : null;
+      const cardStatusColor = isReportSettled
+        ? "#0d9488"
+        : isReportClosed
+          ? "#198754"
+          : null;
       const cardHtml = `
         <div class="card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
@@ -751,15 +770,19 @@ class FinancialReportsComponent {
   async _loadPropertySubsidyAndBills(propertyId) {
     try {
       const [propRes, billsRes] = await Promise.allSettled([
-        API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)).then(r => r.json()),
-        API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(propertyId)).then(r => r.json()),
+        API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)).then((r) =>
+          r.json(),
+        ),
+        API.get(
+          API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(propertyId),
+        ).then((r) => r.json()),
       ]);
       this.propertySubsidy =
-        propRes.status === 'fulfilled' && propRes.value.success
+        propRes.status === "fulfilled" && propRes.value.success
           ? propRes.value.property?.subsidizedPub || 0
           : 0;
       this._utilityBills =
-        billsRes.status === 'fulfilled' && billsRes.value.success
+        billsRes.status === "fulfilled" && billsRes.value.success
           ? billsRes.value.bills || []
           : [];
     } catch {
@@ -771,19 +794,21 @@ class FinancialReportsComponent {
   _findOverlappingUtilityBill() {
     if (!this.propertySubsidy || !this._utilityBills.length) return null;
 
-    const year  = this.currentDate.getFullYear();
+    const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth() + 1;
     // Reporting month window: 1st–last day
     const reportStart = new Date(year, month - 1, 1);
-    const reportEnd   = new Date(year, month, 0);   // last day of month
+    const reportEnd = new Date(year, month, 0); // last day of month
     reportEnd.setHours(23, 59, 59, 999);
 
     for (const bill of this._utilityBills) {
       let overlap = false;
 
       if (bill.billingPeriodStart && bill.billingPeriodEnd) {
-        const bStart = new Date(bill.billingPeriodStart); bStart.setHours(0, 0, 0, 0);
-        const bEnd   = new Date(bill.billingPeriodEnd);   bEnd.setHours(23, 59, 59, 999);
+        const bStart = new Date(bill.billingPeriodStart);
+        bStart.setHours(0, 0, 0, 0);
+        const bEnd = new Date(bill.billingPeriodEnd);
+        bEnd.setHours(23, 59, 59, 999);
         overlap = bStart <= reportEnd && bEnd >= reportStart;
       } else {
         // No billing period dates — match by bill year/month
@@ -798,23 +823,31 @@ class FinancialReportsComponent {
   }
 
   _renderPubOverageBanner() {
-    const banner = document.getElementById('pubOverageBanner');
+    const banner = document.getElementById("pubOverageBanner");
     if (!banner) return;
 
     const bill = this._findOverlappingUtilityBill();
     if (!bill) {
-      banner.style.display = 'none';
-      banner.innerHTML = '';
+      banner.style.display = "none";
+      banner.innerHTML = "";
       return;
     }
 
-    const excess   = (bill.totalAmount || 0) - this.propertySubsidy;
-    const fmtDate  = v => v ? new Date(v).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
-    const period   = (bill.billingPeriodStart || bill.billingPeriodEnd)
-      ? `${fmtDate(bill.billingPeriodStart) || '?'} – ${fmtDate(bill.billingPeriodEnd) || '?'}`
-      : `${bill.month}/${bill.year}`;
+    const excess = (bill.totalAmount || 0) - this.propertySubsidy;
+    const fmtDate = (v) =>
+      v
+        ? new Date(v).toLocaleDateString("en-SG", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : null;
+    const period =
+      bill.billingPeriodStart || bill.billingPeriodEnd
+        ? `${fmtDate(bill.billingPeriodStart) || "?"} – ${fmtDate(bill.billingPeriodEnd) || "?"}`
+        : `${bill.month}/${bill.year}`;
 
-    banner.style.display = '';
+    banner.style.display = "";
     banner.innerHTML = `
       <div class="alert mb-0 d-flex align-items-start gap-3"
            style="background:#fff1f0;border:1.5px solid #dc3545;border-radius:8px;padding:12px 16px;">
@@ -860,6 +893,7 @@ class FinancialReportsComponent {
     let total = 0;
     let totalSGD = 0;
     let totalVND = 0;
+    let pendingIncomeTotal = 0;
 
     // Bulk action bar for income
     const incomeSelectedCount = [...this.selectedItems].filter((k) =>
@@ -915,14 +949,17 @@ class FinancialReportsComponent {
         </div>`;
 
     this.currentReport.income.forEach((item, index) => {
-      total += item.amount;
-
-      // Track currency totals
+      // Track currency totals — pending items are excluded from confirmed totals
       const currency = item.currency || "SGD";
-      if (currency === "VND") {
-        totalVND += item.amount;
+      if (item.isPending) {
+        pendingIncomeTotal += item.amount;
       } else {
-        totalSGD += item.amount;
+        total += item.amount;
+        if (currency === "VND") {
+          totalVND += item.amount;
+        } else {
+          totalSGD += item.amount;
+        }
       }
 
       // Find investor name by ID (for income, show investor responsible instead of tenant)
@@ -986,7 +1023,7 @@ class FinancialReportsComponent {
 
       // --- Desktop table row ---
       tableHtml += `
-        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
+        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;${item.isPending ? "background:#fffde7;" : ""}">
           ${incomeIsClosed ? '<td class="border-0" style="width:20px;"></td>' : '<td class="border-0 align-middle text-center drag-handle" style="width:20px;cursor:grab;color:#adb5bd;font-size:14px;padding:0 4px;user-select:none;" title="Drag to reorder">⠿</td>'}
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
@@ -996,6 +1033,7 @@ class FinancialReportsComponent {
           </td>
           <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
+              ${item.isPending ? `<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>` : ""}
               <span>${escapeHtml(item.item)}</span>
               ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
             </div>
@@ -1008,7 +1046,7 @@ class FinancialReportsComponent {
           </td>
           <td class="small border-0 align-middle">${this.renderPaidByAvatar(item.paidBy)}</td>
           <td class="small border-0 align-middle text-center">${this.renderCurrencyFlag(item.currency)}</td>
-          <td class="small border-0 align-middle text-end fw-bold text-success" style="font-size:16px;">$${item.amount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold" style="font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};">$${item.amount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>
           </td>
@@ -1017,16 +1055,19 @@ class FinancialReportsComponent {
       // --- Mobile card (single-row flat layout) ---
       const paidByInline = this._renderPaidByAvatarInline(item.paidBy);
       cardsHtml += `
-        <div data-item-index="${index}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #198754;">
+        <div data-item-index="${index}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : item.isPending ? "#fffde7" : "#fff"};border-radius:10px;border:1px solid ${item.isPending ? "#f59e0b" : "#e0e0e0"};border-left:3px solid ${item.isPending ? "#f59e0b" : "#198754"};">
           ${incomeIsClosed ? "" : '<span class="drag-handle" style="color:#ccc;font-size:16px;cursor:grab;flex-shrink:0;padding:0 2px;user-select:none;" title="Drag to reorder">⠿</span>'}
           <input type="checkbox" class="form-check-input flex-shrink-0 bulk-checkbox" style="margin:0;" data-item-key="${itemKey}"
             ${isSelected ? "checked" : ""}
             onchange="window.financialReports.toggleItemSelection('income', ${index})"
             onclick="event.stopPropagation()">
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
-              <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
-              <span style="font-weight:700;color:#198754;white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              <div style="display:flex;align-items:center;gap:4px;min-width:0;">
+                ${item.isPending ? '<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>' : ""}
+                <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
+              </div>
+              <span style="font-weight:700;color:${item.isPending ? "#b45309" : "#198754"};white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
               <span style="font-size:0.75rem;color:#6c757d;">${transactionDate}</span>
@@ -1052,13 +1093,16 @@ class FinancialReportsComponent {
 
       // Display currency breakdown
       let breakdownHtml = "";
-      if (totalSGD > 0 || totalVND > 0) {
+      if (totalSGD > 0 || totalVND > 0 || pendingIncomeTotal > 0) {
         breakdownHtml = '<div class="mt-2 small text-muted">';
         if (totalSGD > 0) {
           breakdownHtml += `<div class="d-flex justify-content-between"><span>🇸🇬 SGD:</span><span>$${totalSGD.toFixed(2)}</span></div>`;
         }
         if (totalVND > 0) {
           breakdownHtml += `<div class="d-flex justify-content-between"><span>🇻🇳 VND:</span><span>$${totalVND.toFixed(2)}</span></div>`;
+        }
+        if (pendingIncomeTotal > 0) {
+          breakdownHtml += `<div class="d-flex justify-content-between mt-1 fw-semibold" style="color:#b45309;border-top:1px solid #fde68a;padding-top:4px;"><span>⏳ Pending:</span><span>$${pendingIncomeTotal.toFixed(2)}</span></div>`;
         }
         breakdownHtml += "</div>";
       }
@@ -1104,6 +1148,7 @@ class FinancialReportsComponent {
     }
 
     let total = 0;
+    let pendingExpenseTotal = 0;
 
     // Bulk action bar for expenses
     const expenseSelectedCount = [...this.selectedItems].filter((k) =>
@@ -1158,7 +1203,11 @@ class FinancialReportsComponent {
         </div>`;
 
     this.currentReport.expenses.forEach((item, index) => {
-      total += item.amount;
+      if (item.isPending) {
+        pendingExpenseTotal += item.amount;
+      } else {
+        total += item.amount;
+      }
 
       // Find investor name by ID
       const investor = this.investors.find(
@@ -1196,16 +1245,18 @@ class FinancialReportsComponent {
 
       // paid-to avatar: desktop (flex-column with badge) vs mobile (inline)
       const unknownCircle = `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:32px;height:32px;font-size:16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`;
-      const paidToAvatarHtml = item.paidTo === "unknown"
-        ? unknownCircle
-        : item.paidTo
-          ? this.renderPaidByAvatar(item.paidTo)
-          : `<span class="text-muted small">—</span>`;
-      const paidToInline = item.paidTo === "unknown"
-        ? `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:26px;height:26px;font-size:14px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`
-        : item.paidTo
-          ? this._renderPaidByAvatarInline(item.paidTo)
-          : "";
+      const paidToAvatarHtml =
+        item.paidTo === "unknown"
+          ? unknownCircle
+          : item.paidTo
+            ? this.renderPaidByAvatar(item.paidTo)
+            : `<span class="text-muted small">—</span>`;
+      const paidToInline =
+        item.paidTo === "unknown"
+          ? `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:26px;height:26px;font-size:14px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`
+          : item.paidTo
+            ? this._renderPaidByAvatarInline(item.paidTo)
+            : "";
 
       // Shared: action buttons (desktop)
       const evidenceBtn = hasEvidence
@@ -1234,7 +1285,7 @@ class FinancialReportsComponent {
 
       // --- Desktop table row ---
       tableHtml += `
-        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;">
+        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;${item.isPending ? "background:#fffde7;" : ""}">
           ${expenseIsClosed ? '<td class="border-0" style="width:20px;"></td>' : '<td class="border-0 align-middle text-center drag-handle" style="width:20px;cursor:grab;color:#adb5bd;font-size:14px;padding:0 4px;user-select:none;" title="Drag to reorder">⠿</td>'}
           <td class="border-0 align-middle text-center" style="width:32px;">
             <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
@@ -1244,6 +1295,7 @@ class FinancialReportsComponent {
           </td>
           <td class="small border-0 align-middle ps-3">
             <div class="d-flex align-items-center gap-1">
+              ${item.isPending ? `<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>` : ""}
               <span>${escapeHtml(item.item)}</span>
               ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
             </div>
@@ -1255,7 +1307,7 @@ class FinancialReportsComponent {
             <div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>
           </td>
           <td class="small border-0 align-middle text-center">${paidToAvatarHtml}</td>
-          <td class="small border-0 align-middle text-end fw-bold text-danger" style="font-size:16px;">$${item.amount.toFixed(2)}</td>
+          <td class="small border-0 align-middle text-end fw-bold" style="font-size:16px;color:${item.isPending ? "#b45309" : "#dc3545"};">$${item.amount.toFixed(2)}</td>
           <td class="border-0 align-middle text-center actions-column">
             <div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>
           </td>
@@ -1263,16 +1315,19 @@ class FinancialReportsComponent {
 
       // --- Mobile card (single-row flat layout) ---
       cardsHtml += `
-        <div data-item-index="${index}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : "#fff"};border-radius:10px;border:1px solid #e0e0e0;border-left:3px solid #dc3545;">
+        <div data-item-index="${index}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isSelected ? "#fffbe6" : item.isPending ? "#fffde7" : "#fff"};border-radius:10px;border:1px solid ${item.isPending ? "#f59e0b" : "#e0e0e0"};border-left:3px solid ${item.isPending ? "#f59e0b" : "#dc3545"};">
           ${expenseIsClosed ? "" : '<span class="drag-handle" style="color:#ccc;font-size:16px;cursor:grab;flex-shrink:0;padding:0 2px;user-select:none;" title="Drag to reorder">⠿</span>'}
           <input type="checkbox" class="form-check-input flex-shrink-0 bulk-checkbox" style="margin:0;" data-item-key="${itemKey}"
             ${isSelected ? "checked" : ""}
             onchange="window.financialReports.toggleItemSelection('expense', ${index})"
             onclick="event.stopPropagation()">
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
-              <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
-              <span style="font-weight:700;color:#dc3545;white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              <div style="display:flex;align-items:center;gap:4px;min-width:0;">
+                ${item.isPending ? '<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>' : ""}
+                <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
+              </div>
+              <span style="font-weight:700;color:${item.isPending ? "#b45309" : "#dc3545"};white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
               <span style="font-size:0.75rem;color:#6c757d;">${transactionDate}</span>
@@ -1291,7 +1346,24 @@ class FinancialReportsComponent {
 
     let html = `${expenseBulkBar}${tableHtml}${cardsHtml}`;
     expenseList.innerHTML = html;
-    if (totalExpensesEl) totalExpensesEl.textContent = `$${total.toFixed(2)}`;
+    if (totalExpensesEl) {
+      totalExpensesEl.textContent = `$${total.toFixed(2)}`;
+
+      // Display pending expense breakdown
+      let expenseBreakdownEl = document.getElementById(
+        "expensePendingBreakdown",
+      );
+      if (!expenseBreakdownEl) {
+        expenseBreakdownEl = document.createElement("div");
+        expenseBreakdownEl.id = "expensePendingBreakdown";
+        totalExpensesEl.parentElement.appendChild(expenseBreakdownEl);
+      }
+      if (pendingExpenseTotal > 0) {
+        expenseBreakdownEl.innerHTML = `<div class="mt-1 small fw-semibold" style="color:#b45309;border-top:1px solid #fde68a;padding-top:4px;"><span>⏳ Pending: $${pendingExpenseTotal.toFixed(2)}</span></div>`;
+      } else {
+        expenseBreakdownEl.innerHTML = "";
+      }
+    }
 
     // Initialize tooltips
     this.initializeTooltips();
@@ -1391,20 +1463,24 @@ class FinancialReportsComponent {
         (propertyData ? propertyData.percentage : 0);
       const profitShare = (netProfit * percentage) / 100;
 
-      // Calculate paid amount (expenses paid by this investor)
+      // Calculate paid amount (expenses paid by this investor, excluding pending)
       // Note: For expenses, the person who paid is stored in 'personInCharge' field
       const paidAmount =
         this.currentReport && this.currentReport.expenses
           ? this.currentReport.expenses
-              .filter((e) => e.personInCharge === investor.investorId)
+              .filter(
+                (e) => !e.isPending && e.personInCharge === investor.investorId,
+              )
               .reduce((sum, e) => sum + (e.amount || 0), 0)
           : 0;
 
-      // Calculate received amount (income received by this investor)
+      // Calculate received amount (income received by this investor, excluding pending)
       const receivedAmount =
         this.currentReport && this.currentReport.income
           ? this.currentReport.income
-              .filter((i) => i.personInCharge === investor.investorId)
+              .filter(
+                (i) => !i.isPending && i.personInCharge === investor.investorId,
+              )
               .reduce((sum, i) => sum + (i.amount || 0), 0)
           : 0;
 
@@ -1679,8 +1755,8 @@ class FinancialReportsComponent {
           const paidByList = Array.isArray(incomeItem.paidBy)
             ? incomeItem.paidBy
             : incomeItem.paidBy
-            ? [incomeItem.paidBy]
-            : [];
+              ? [incomeItem.paidBy]
+              : [];
           paidByList.forEach((paidByValue) => {
             if (!paidByValue || !paidByValue.startsWith("tenant_")) return;
             const tenantId = paidByValue.replace("tenant_", "");
@@ -2328,7 +2404,9 @@ class FinancialReportsComponent {
       options += '<optgroup label="Investors">';
       options += this.investors
         .map((investor) => {
-          const isSelected = vals.includes(investor.investorId) ? " selected" : "";
+          const isSelected = vals.includes(investor.investorId)
+            ? " selected"
+            : "";
           return `<option value="${investor.investorId}"${isSelected}>${escapeHtml(investor.name)} (ID: ${investor.investorId})</option>`;
         })
         .join("");
@@ -2347,15 +2425,23 @@ class FinancialReportsComponent {
         const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
         const isSelected = vals.includes(tenantValue) ? " selected" : "";
         const baseName = tenant.name || "Unknown Tenant";
-        const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+        const displayName = tenant.nickname
+          ? `${baseName} (${tenant.nickname})`
+          : baseName;
 
         const additionalInfo = [];
-        if (tenant.roomType) additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+        if (tenant.roomType)
+          additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
         if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
-        const infoString = additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
+        const infoString =
+          additionalInfo.length > 0 ? ` - ${additionalInfo.join(", ")}` : "";
 
-        const propertyRecord = tenant.properties?.find((p) => p.propertyId === this.selectedProperty);
-        const moveoutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+        const propertyRecord = tenant.properties?.find(
+          (p) => p.propertyId === this.selectedProperty,
+        );
+        const moveoutDate = propertyRecord?.moveoutDate
+          ? new Date(propertyRecord.moveoutDate)
+          : null;
         const isOutdated = moveoutDate && moveoutDate < oneMonthAgo;
 
         if (isOutdated) {
@@ -2410,7 +2496,11 @@ class FinancialReportsComponent {
       html += `<div class="px-3 pt-2 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">Investors</div>`;
       this.investors.forEach((investor) => {
         const isChecked = vals.includes(investor.investorId) ? " checked" : "";
-        const mini = makeMiniAvatar(investor.name, investor.avatar, "bg-secondary");
+        const mini = makeMiniAvatar(
+          investor.name,
+          investor.avatar,
+          "bg-secondary",
+        );
         html += `<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item" style="cursor:pointer;" data-value="${investor.investorId}">
           <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${investor.investorId}"${isChecked}>
           ${mini}
@@ -2429,22 +2519,32 @@ class FinancialReportsComponent {
         const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
         const isChecked = vals.includes(tenantValue) ? " checked" : "";
         const baseName = tenant.name || "Unknown Tenant";
-        const displayName = tenant.nickname ? `${baseName} (${tenant.nickname})` : baseName;
+        const displayName = tenant.nickname
+          ? `${baseName} (${tenant.nickname})`
+          : baseName;
         const mini = makeMiniAvatar(displayName, tenant.avatar, "bg-info");
 
         const additionalInfo = [];
-        if (tenant.roomType) additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
+        if (tenant.roomType)
+          additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
         if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
         const infoStr = additionalInfo.length
           ? `<span class="text-muted ms-1" style="font-size:0.8em;">${additionalInfo.join(" · ")}</span>`
           : "";
 
-        const propertyRecord = tenant.properties?.find((p) => p.propertyId === this.selectedProperty);
-        const moveoutDate = propertyRecord?.moveoutDate ? new Date(propertyRecord.moveoutDate) : null;
+        const propertyRecord = tenant.properties?.find(
+          (p) => p.propertyId === this.selectedProperty,
+        );
+        const moveoutDate = propertyRecord?.moveoutDate
+          ? new Date(propertyRecord.moveoutDate)
+          : null;
         const isOutdated = moveoutDate && moveoutDate < oneMonthAgo;
 
         if (isOutdated) {
-          const movedOutStr = moveoutDate.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+          const movedOutStr = moveoutDate.toLocaleDateString("en-GB", {
+            month: "short",
+            year: "2-digit",
+          });
           outdatedItems.push(`<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item paid-by-outdated" style="cursor:pointer;opacity:0.6;" data-value="${tenantValue}">
             <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${tenantValue}"${isChecked}>
             ${mini}
@@ -2469,7 +2569,10 @@ class FinancialReportsComponent {
       }
     }
 
-    return html || `<div class="px-3 py-2 text-muted small">No investors or tenants available</div>`;
+    return (
+      html ||
+      `<div class="px-3 py-2 text-muted small">No investors or tenants available</div>`
+    );
   }
 
   setupPaidByDropdown() {
@@ -2483,7 +2586,9 @@ class FinancialReportsComponent {
     if (!toggleBtn || !panel || !hiddenSelect || !wrapper) return;
 
     const updateState = () => {
-      const checkedBoxes = panel.querySelectorAll('input[type="checkbox"]:checked');
+      const checkedBoxes = panel.querySelectorAll(
+        'input[type="checkbox"]:checked',
+      );
       const values = Array.from(checkedBoxes).map((cb) => cb.value);
 
       Array.from(hiddenSelect.options).forEach((opt) => {
@@ -2495,7 +2600,9 @@ class FinancialReportsComponent {
       } else {
         const getFirstName = (v) => {
           const info = this._resolvePaidByPerson(v);
-          return info ? info.displayName.split(" ").slice(0, 2).join(" ") : "Unknown";
+          return info
+            ? info.displayName.split(" ").slice(0, 2).join(" ")
+            : "Unknown";
         };
         const first = escapeHtml(getFirstName(values[0]));
         btnLabel.innerHTML =
@@ -2534,11 +2641,17 @@ class FinancialReportsComponent {
 
     wrapper.addEventListener("show.bs.dropdown", () => {
       const chevron = toggleBtn.querySelector(".bi");
-      if (chevron) { chevron.classList.remove("bi-chevron-down"); chevron.classList.add("bi-chevron-up"); }
+      if (chevron) {
+        chevron.classList.remove("bi-chevron-down");
+        chevron.classList.add("bi-chevron-up");
+      }
     });
     wrapper.addEventListener("hide.bs.dropdown", () => {
       const chevron = toggleBtn.querySelector(".bi");
-      if (chevron) { chevron.classList.remove("bi-chevron-up"); chevron.classList.add("bi-chevron-down"); }
+      if (chevron) {
+        chevron.classList.remove("bi-chevron-up");
+        chevron.classList.add("bi-chevron-down");
+      }
     });
 
     updateState();
@@ -2608,7 +2721,9 @@ class FinancialReportsComponent {
         displayName = person.name || "Unknown Tenant";
         avatar = person.avatar;
         if (person.properties && this.selectedProperty) {
-          const assoc = person.properties.find((p) => p.propertyId === this.selectedProperty);
+          const assoc = person.properties.find(
+            (p) => p.propertyId === this.selectedProperty,
+          );
           if (assoc?.room) roomType = assoc.room;
         }
         const phone = (person.phoneNumber || "").replace(/[^0-9]/g, "");
@@ -2621,7 +2736,8 @@ class FinancialReportsComponent {
     } else {
       person =
         this.investors.find((i) => i.investorId === paidByValue) ||
-        (this.allInvestors && this.allInvestors.find((i) => i.investorId === paidByValue));
+        (this.allInvestors &&
+          this.allInvestors.find((i) => i.investorId === paidByValue));
       if (person) {
         displayName = person.name || "Unknown Investor";
         avatar = person.avatar;
@@ -2644,9 +2760,13 @@ class FinancialReportsComponent {
       contactUrl ? `<a ${linkAttrs}>${inner}</a>` : inner;
 
     if (avatar) {
-      return wrap(`<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">`);
+      return wrap(
+        `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">`,
+      );
     }
-    return wrap(`<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`);
+    return wrap(
+      `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`,
+    );
   }
 
   renderPaidByAvatar(paidBy) {
@@ -2713,7 +2833,9 @@ class FinancialReportsComponent {
     const persons = paidByArray.map((pb) => this._resolvePaidByPerson(pb));
     const tooltipParts = persons.map((p) => {
       if (!p) return "Unknown";
-      return p.roomType ? `${p.displayName} (${this.getRoomTypeDisplayName(p.roomType)})` : p.displayName;
+      return p.roomType
+        ? `${p.displayName} (${this.getRoomTypeDisplayName(p.roomType)})`
+        : p.displayName;
     });
     const tooltipText = tooltipParts.join(", ");
 
@@ -2801,6 +2923,9 @@ class FinancialReportsComponent {
       existingItem && existingItem.exchangeRate
         ? existingItem.exchangeRate.toLocaleString("en-US")
         : "";
+    const isPendingValue = existingItem
+      ? existingItem.isPending || false
+      : false;
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -2913,6 +3038,16 @@ class FinancialReportsComponent {
                                     <textarea class="form-control" name="details" rows="3" placeholder="Additional details about this ${type} (optional)" maxlength="500">${detailsValue}</textarea>
                                     <div class="form-text">Optional: Add any additional details or notes (max 500 characters)</div>
                                 </div>
+                                <div class="mb-3 p-3 rounded" style="background:${isPendingValue ? "#fffde7" : "#f8f9fa"};border:1px solid ${isPendingValue ? "#f59e0b" : "#dee2e6"};" id="pendingCheckboxWrapper">
+                                    <div class="form-check mb-0">
+                                        <input type="checkbox" class="form-check-input" name="isPending" id="isPendingCheck" ${isPendingValue ? "checked" : ""}
+                                            onchange="(function(cb){var w=document.getElementById('pendingCheckboxWrapper');w.style.background=cb.checked?'#fffde7':'#f8f9fa';w.style.borderColor=cb.checked?'#f59e0b':'#dee2e6';})(this)">
+                                        <label class="form-check-label" for="isPendingCheck">
+                                            <span class="fw-semibold"><i class="bi bi-hourglass-split me-1" style="color:#f59e0b;"></i>Mark as Pending</span>
+                                            <div class="small text-muted mt-1">Tenant hasn't paid / bill not yet settled — item is visible for tracking but <strong>excluded from this month's totals</strong>. Untick when payment is received.</div>
+                                        </label>
+                                    </div>
+                                </div>
                                 <div class="mb-3">
                                     <label class="form-label">Bill Evidence</label>
                                     <input type="file" class="form-control" id="billEvidenceFiles" multiple accept="image/*,.pdf" style="display: none;">
@@ -2952,6 +3087,7 @@ class FinancialReportsComponent {
       personInCharge: formData.get("personInCharge"),
       recipientAccountDetail: formData.get("recipientAccountDetail"),
       details: formData.get("details") || "",
+      isPending: formData.get("isPending") === "on",
     };
 
     // Add paidBy, currency, exchange rate only for income transactions
@@ -3873,13 +4009,18 @@ class FinancialReportsComponent {
       elements.forEach((el) => {
         const handle = el.querySelector(".drag-handle");
         if (handle) {
-          handle.addEventListener("mousedown", () => { dragAllowed = true; });
+          handle.addEventListener("mousedown", () => {
+            dragAllowed = true;
+          });
         }
 
         el.setAttribute("draggable", "true");
 
         el.addEventListener("dragstart", (e) => {
-          if (!dragAllowed) { e.preventDefault(); return; }
+          if (!dragAllowed) {
+            e.preventDefault();
+            return;
+          }
           dragSrcIndex = parseInt(el.dataset.itemIndex);
           e.dataTransfer.effectAllowed = "move";
           el.style.opacity = "0.45";
@@ -3908,7 +4049,9 @@ class FinancialReportsComponent {
 
         el.addEventListener("dragend", () => {
           el.style.opacity = "";
-          container.querySelectorAll(".drag-row-over").forEach((r) => r.classList.remove("drag-row-over"));
+          container
+            .querySelectorAll(".drag-row-over")
+            .forEach((r) => r.classList.remove("drag-row-over"));
           dragAllowed = false;
           dragSrcIndex = null;
         });
@@ -3919,13 +4062,19 @@ class FinancialReportsComponent {
     if (tbody) bindDragEvents(tbody, "tr[data-item-index]");
 
     const mobileContainer = document.getElementById(mobileCardsId);
-    if (mobileContainer) bindDragEvents(mobileContainer, "div[data-item-index]");
+    if (mobileContainer)
+      bindDragEvents(mobileContainer, "div[data-item-index]");
 
-    document.addEventListener("mouseup", () => { dragAllowed = false; });
+    document.addEventListener("mouseup", () => {
+      dragAllowed = false;
+    });
   }
 
   _reorderItems(type, fromIndex, toIndex) {
-    const arr = type === "income" ? this.currentReport.income : this.currentReport.expenses;
+    const arr =
+      type === "income"
+        ? this.currentReport.income
+        : this.currentReport.expenses;
     const [item] = arr.splice(fromIndex, 1);
     arr.splice(toIndex, 0, item);
 
@@ -3943,11 +4092,22 @@ class FinancialReportsComponent {
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
-      const items = type === "income" ? this.currentReport.income : this.currentReport.expenses;
+      const items =
+        type === "income"
+          ? this.currentReport.income
+          : this.currentReport.expenses;
       const endpoint =
         type === "income"
-          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME_REORDER(this.selectedProperty, year, month)
-          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES_REORDER(this.selectedProperty, year, month);
+          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME_REORDER(
+              this.selectedProperty,
+              year,
+              month,
+            )
+          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES_REORDER(
+              this.selectedProperty,
+              year,
+              month,
+            );
       const response = await API.put(endpoint, { items });
       const result = await response.json();
       if (!result.success) throw new Error(result.message);
@@ -4144,7 +4304,10 @@ class FinancialReportsComponent {
         this.currentReport = result.data;
         await this.updateClosedStatus();
         // Update property card to show closed status
-        this.propertyReportStatus[this.selectedProperty] = { isClosed: true, isSettled: result.data.isSettled || false };
+        this.propertyReportStatus[this.selectedProperty] = {
+          isClosed: true,
+          isSettled: result.data.isSettled || false,
+        };
         this.renderPropertyCards(this.properties);
         this.showSuccess("Month closed successfully!");
       } else {
@@ -4187,7 +4350,10 @@ class FinancialReportsComponent {
         this.currentReport = result.data;
         await this.updateClosedStatus();
         // Update property card to show reopened status
-        this.propertyReportStatus[this.selectedProperty] = { isClosed: false, isSettled: false };
+        this.propertyReportStatus[this.selectedProperty] = {
+          isClosed: false,
+          isSettled: false,
+        };
         this.renderPropertyCards(this.properties);
         this.showSuccess("Month reopened successfully!");
       } else {
@@ -4215,14 +4381,20 @@ class FinancialReportsComponent {
       const month = this.currentDate.getMonth() + 1;
 
       const response = await API.post(
-        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_SETTLE(this.selectedProperty, year, month),
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_SETTLE(
+          this.selectedProperty,
+          year,
+          month,
+        ),
       );
       const result = await response.json();
 
       if (result.success) {
         this.currentReport = result.data;
         await this.updateClosedStatus();
-        this.showSuccess("Settlement marked — investor payments recorded as paid out!");
+        this.showSuccess(
+          "Settlement marked — investor payments recorded as paid out!",
+        );
       } else {
         throw new Error(result.message || "Failed to mark settlement");
       }
@@ -4244,7 +4416,11 @@ class FinancialReportsComponent {
       const month = this.currentDate.getMonth() + 1;
 
       const response = await API.post(
-        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_UNSETTLE(this.selectedProperty, year, month),
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_UNSETTLE(
+          this.selectedProperty,
+          year,
+          month,
+        ),
       );
       const result = await response.json();
 
@@ -4277,13 +4453,25 @@ class FinancialReportsComponent {
     }
 
     const monthNames = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
     const currentMonth = monthNames[this.currentDate.getMonth()];
     const currentYear = this.currentDate.getFullYear();
-    const nextMonthIndex = this.currentDate.getMonth() === 11 ? 0 : this.currentDate.getMonth() + 1;
-    const nextYear = this.currentDate.getMonth() === 11 ? currentYear + 1 : currentYear;
+    const nextMonthIndex =
+      this.currentDate.getMonth() === 11 ? 0 : this.currentDate.getMonth() + 1;
+    const nextYear =
+      this.currentDate.getMonth() === 11 ? currentYear + 1 : currentYear;
     const nextMonth = monthNames[nextMonthIndex];
 
     const totalItems =
@@ -4469,10 +4657,12 @@ class FinancialReportsComponent {
     const markSettledBtn = document.getElementById("markSettledBtn");
     const unmarkSettledBtn = document.getElementById("unmarkSettledBtn");
     if (markSettledBtn) {
-      markSettledBtn.style.display = isClosed && !isSettled ? "inline-block" : "none";
+      markSettledBtn.style.display =
+        isClosed && !isSettled ? "inline-block" : "none";
     }
     if (unmarkSettledBtn) {
-      unmarkSettledBtn.style.display = isClosed && isSettled ? "inline-block" : "none";
+      unmarkSettledBtn.style.display =
+        isClosed && isSettled ? "inline-block" : "none";
       if (isSettled && this.currentReport?.settledBy) {
         const settledDate = this.currentReport.settledAt
           ? new Date(this.currentReport.settledAt).toLocaleDateString("en-SG")
@@ -4557,19 +4747,24 @@ class FinancialReportsComponent {
 
       // Update the dedicated last-updated info bar
       const lastUpdatedDiv = document.getElementById("reportLastUpdated");
-      const lastUpdatedDateEl = document.getElementById("reportLastUpdatedDate");
+      const lastUpdatedDateEl = document.getElementById(
+        "reportLastUpdatedDate",
+      );
       const lastUpdatedByEl = document.getElementById("reportLastUpdatedBy");
       if (lastUpdatedDiv && lastUpdatedDateEl && lastUpdatedByEl) {
         const lastUpdatedAt = this.currentReport?.updatedAt;
         const lastUpdatedBy = this.currentReport?.lastUpdatedBy;
         if (lastUpdatedAt) {
-          const formattedDate = new Date(lastUpdatedAt).toLocaleString("en-SG", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+          const formattedDate = new Date(lastUpdatedAt).toLocaleString(
+            "en-SG",
+            {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            },
+          );
           lastUpdatedDateEl.textContent = formattedDate;
           lastUpdatedByEl.textContent = lastUpdatedBy || "—";
           lastUpdatedDiv.style.display = "flex";
@@ -4773,19 +4968,20 @@ class FinancialReportsComponent {
       const _loadFont = async (url) => {
         const buf = await (await fetch(url)).arrayBuffer();
         const bytes = new Uint8Array(buf);
-        let s = '';
-        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        let s = "";
+        for (let i = 0; i < bytes.length; i++)
+          s += String.fromCharCode(bytes[i]);
         return btoa(s);
       };
       const [_regB64, _boldB64] = await Promise.all([
-        _loadFont('/fonts/NotoSerif-Regular.ttf'),
-        _loadFont('/fonts/NotoSerif-Bold.ttf'),
+        _loadFont("/fonts/NotoSerif-Regular.ttf"),
+        _loadFont("/fonts/NotoSerif-Bold.ttf"),
       ]);
-      pdf.addFileToVFS('NotoSerif-Regular.ttf', _regB64);
-      pdf.addFont('NotoSerif-Regular.ttf', 'NotoSerif', 'normal');
-      pdf.addFileToVFS('NotoSerif-Bold.ttf', _boldB64);
-      pdf.addFont('NotoSerif-Bold.ttf', 'NotoSerif', 'bold');
-      pdf.setFont('NotoSerif', 'normal');
+      pdf.addFileToVFS("NotoSerif-Regular.ttf", _regB64);
+      pdf.addFont("NotoSerif-Regular.ttf", "NotoSerif", "normal");
+      pdf.addFileToVFS("NotoSerif-Bold.ttf", _boldB64);
+      pdf.addFont("NotoSerif-Bold.ttf", "NotoSerif", "bold");
+      pdf.setFont("NotoSerif", "normal");
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       let yPos = 15;
@@ -4837,11 +5033,13 @@ class FinancialReportsComponent {
           } else {
             person =
               this.investors.find((i) => i.investorId === pb) ||
-              (this.allInvestors && this.allInvestors.find((i) => i.investorId === pb));
+              (this.allInvestors &&
+                this.allInvestors.find((i) => i.investorId === pb));
             if (person) displayName = person.name || "Unknown Investor";
           }
 
-          if (!person || !displayName) return { name: "Unknown", roomType: null };
+          if (!person || !displayName)
+            return { name: "Unknown", roomType: null };
           return {
             name: getShortName(displayName),
             roomType: roomType ? this.getRoomTypeDisplayName(roomType) : null,
@@ -4931,7 +5129,7 @@ class FinancialReportsComponent {
       });
 
       pdf.setFontSize(16);
-      pdf.setFont('NotoSerif', 'bold');
+      pdf.setFont("NotoSerif", "bold");
       pdf.text("FINANCIAL REPORT", pageWidth / 2, yPos, { align: "center" });
 
       // Add month/year on the right side of the same line
@@ -4940,7 +5138,7 @@ class FinancialReportsComponent {
 
       yPos += 6;
       pdf.setFontSize(9);
-      pdf.setFont('NotoSerif', 'normal');
+      pdf.setFont("NotoSerif", "normal");
       const propertyLines = propertyHeader.split("\n");
       propertyLines.forEach((line) => {
         pdf.text(line, pageWidth / 2, yPos, { align: "center" });
@@ -4952,48 +5150,56 @@ class FinancialReportsComponent {
       // PUB OVERAGE INDICATOR (only when utility bill exceeds subsidizedPub for this period)
       const _overBill = this._findOverlappingUtilityBill();
       if (_overBill) {
-        const _excess   = ((_overBill.totalAmount || 0) - this.propertySubsidy);
-        const _barH     = 7;
-        const _accentW  = 2;
+        const _excess = (_overBill.totalAmount || 0) - this.propertySubsidy;
+        const _barH = 7;
+        const _accentW = 2;
         // Left accent strip (solid red)
         pdf.setFillColor(220, 53, 69);
-        pdf.rect(margin, yPos, _accentW, _barH, 'F');
+        pdf.rect(margin, yPos, _accentW, _barH, "F");
         // Background strip (pale red)
         pdf.setFillColor(255, 243, 243);
-        pdf.rect(margin + _accentW, yPos, contentWidth - _accentW, _barH, 'F');
+        pdf.rect(margin + _accentW, yPos, contentWidth - _accentW, _barH, "F");
         // Label
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.setFontSize(7.5);
         pdf.setTextColor(185, 28, 28);
-        pdf.text('PUB OVERAGE', margin + _accentW + 2.5, yPos + 4.5);
+        pdf.text("PUB OVERAGE", margin + _accentW + 2.5, yPos + 4.5);
         // Detail text
-        const _fmtD = v => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short' }) : null;
-        const _period = (_overBill.billingPeriodStart || _overBill.billingPeriodEnd)
-          ? `${_fmtD(_overBill.billingPeriodStart) || '?'}-${_fmtD(_overBill.billingPeriodEnd) || '?'}`
-          : `${_overBill.month}/${_overBill.year}`;
-        pdf.setFont('NotoSerif', 'normal');
+        const _fmtD = (v) =>
+          v
+            ? new Date(v).toLocaleDateString("en-SG", {
+                day: "2-digit",
+                month: "short",
+              })
+            : null;
+        const _period =
+          _overBill.billingPeriodStart || _overBill.billingPeriodEnd
+            ? `${_fmtD(_overBill.billingPeriodStart) || "?"}-${_fmtD(_overBill.billingPeriodEnd) || "?"}`
+            : `${_overBill.month}/${_overBill.year}`;
+        pdf.setFont("NotoSerif", "normal");
         pdf.setFontSize(7);
         pdf.setTextColor(120, 0, 0);
         pdf.text(
-          `${_period}  |  Bill $${(_overBill.totalAmount||0).toFixed(2)}  max $${this.propertySubsidy.toFixed(2)}`,
-          margin + _accentW + 26, yPos + 4.5
+          `${_period}  |  Bill $${(_overBill.totalAmount || 0).toFixed(2)}  max $${this.propertySubsidy.toFixed(2)}`,
+          margin + _accentW + 26,
+          yPos + 4.5,
         );
         // Badge pill on right edge
         const _badgeTxt = `+$${_excess.toFixed(2)}`;
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.setFontSize(7);
         const _bw = pdf.getTextWidth(_badgeTxt) + 4;
         const _bx = pageWidth - margin - _bw - 1;
         pdf.setFillColor(220, 53, 69);
-        pdf.roundedRect(_bx, yPos + 1.2, _bw, 4.5, 1.2, 1.2, 'F');
+        pdf.roundedRect(_bx, yPos + 1.2, _bw, 4.5, 1.2, 1.2, "F");
         pdf.setTextColor(255, 255, 255);
-        pdf.text(_badgeTxt, _bx + _bw / 2, yPos + 4.4, { align: 'center' });
+        pdf.text(_badgeTxt, _bx + _bw / 2, yPos + 4.4, { align: "center" });
         pdf.setTextColor(0, 0, 0);
         yPos += _barH + 4;
       }
 
       // INCOME SECTION
-      pdf.setFont('NotoSerif', 'bold');
+      pdf.setFont("NotoSerif", "bold");
       pdf.setFontSize(11);
       pdf.text("INCOME", margin, yPos);
       yPos += 5;
@@ -5012,7 +5218,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.setFontSize(8);
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
@@ -5021,7 +5227,7 @@ class FinancialReportsComponent {
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont('NotoSerif', 'normal');
+        pdf.setFont("NotoSerif", "normal");
 
         // Process income items with avatars
         for (let idx = 0; idx < this.currentReport.income.length; idx++) {
@@ -5135,7 +5341,7 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont('NotoSerif', 'normal');
+            pdf.setFont("NotoSerif", "normal");
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
@@ -5144,7 +5350,7 @@ class FinancialReportsComponent {
               }
             });
 
-            pdf.setFont('NotoSerif', 'normal');
+            pdf.setFont("NotoSerif", "normal");
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -5153,7 +5359,7 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.setTextColor(0, 128, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
         pdf.text(
@@ -5168,13 +5374,13 @@ class FinancialReportsComponent {
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont('NotoSerif', 'normal');
+        pdf.setFont("NotoSerif", "normal");
         pdf.text("No income items", margin + 1, yPos);
         yPos += 6;
       }
 
       // EXPENSES SECTION
-      pdf.setFont('NotoSerif', 'bold');
+      pdf.setFont("NotoSerif", "bold");
       pdf.setFontSize(11);
       pdf.text("EXPENSES", margin, yPos);
       yPos += 5;
@@ -5189,7 +5395,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.text("Item", colItem, yPos);
         pdf.text("Date", colDate, yPos);
         pdf.text("Person", colPerson, yPos);
@@ -5197,7 +5403,7 @@ class FinancialReportsComponent {
         pdf.text("Amount", colAmount, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont('NotoSerif', 'normal');
+        pdf.setFont("NotoSerif", "normal");
 
         // Process expense items with avatars
         for (let idx = 0; idx < this.currentReport.expenses.length; idx++) {
@@ -5313,7 +5519,7 @@ class FinancialReportsComponent {
             const detailsStartY = rowStartY + itemHeight + 2;
             pdf.setFontSize(7);
             pdf.setTextColor(100, 100, 100);
-            pdf.setFont('NotoSerif', 'normal');
+            pdf.setFont("NotoSerif", "normal");
 
             detailsLines.forEach((line, lineIdx) => {
               // Only draw non-empty lines
@@ -5322,7 +5528,7 @@ class FinancialReportsComponent {
               }
             });
 
-            pdf.setFont('NotoSerif', 'normal');
+            pdf.setFont("NotoSerif", "normal");
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(8);
           }
@@ -5331,7 +5537,7 @@ class FinancialReportsComponent {
         }
 
         yPos += 2;
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.setTextColor(128, 0, 0);
         pdf.text("Total:", pageWidth - margin - 35, yPos);
         pdf.text(
@@ -5346,7 +5552,7 @@ class FinancialReportsComponent {
         pdf.setLineWidth(0.2);
         yPos += 6;
       } else {
-        pdf.setFont('NotoSerif', 'normal');
+        pdf.setFont("NotoSerif", "normal");
         pdf.text("No expense items", margin + 1, yPos);
         yPos += 6;
       }
@@ -5361,7 +5567,7 @@ class FinancialReportsComponent {
 
       // NET PROFIT - no box, no background
       pdf.setFontSize(10);
-      pdf.setFont('NotoSerif', 'bold');
+      pdf.setFont("NotoSerif", "bold");
       pdf.text("NET PROFIT:", margin, yPos);
       pdf.setTextColor(netProfit >= 0 ? 0 : 150, netProfit >= 0 ? 100 : 0, 0);
       pdf.setFontSize(11);
@@ -5389,7 +5595,7 @@ class FinancialReportsComponent {
 
       if (investorDataSource && investorDataSource.length > 0) {
         pdf.setFontSize(11);
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.text("INVESTOR DISTRIBUTION", margin, yPos);
         yPos += 5;
 
@@ -5397,7 +5603,7 @@ class FinancialReportsComponent {
         pdf.setFillColor(245, 245, 245);
         pdf.setDrawColor(200, 200, 200);
         pdf.rect(margin, yPos - 4, contentWidth, 5, "FD");
-        pdf.setFont('NotoSerif', 'bold');
+        pdf.setFont("NotoSerif", "bold");
         pdf.text("Investor", margin + 1, yPos);
         pdf.text("Share", margin + 48, yPos);
         pdf.text("Profit", margin + 63, yPos);
@@ -5406,7 +5612,7 @@ class FinancialReportsComponent {
         pdf.text("Final", pageWidth - margin - 1, yPos, { align: "right" });
         yPos += 5;
 
-        pdf.setFont('NotoSerif', 'normal');
+        pdf.setFont("NotoSerif", "normal");
 
         // Process investor distribution
         for (let idx = 0; idx < investorDataSource.length; idx++) {
@@ -5484,11 +5690,11 @@ class FinancialReportsComponent {
             finalAmount >= 0 ? 100 : 0,
             0,
           );
-          pdf.setFont('NotoSerif', 'bold');
+          pdf.setFont("NotoSerif", "bold");
           pdf.text(`$${finalAmount.toFixed(2)}`, pageWidth - margin - 1, yPos, {
             align: "right",
           });
-          pdf.setFont('NotoSerif', 'normal');
+          pdf.setFont("NotoSerif", "normal");
           pdf.setTextColor(0, 0, 0);
           yPos += 4;
         }
@@ -5588,24 +5794,28 @@ class FinancialReportsComponent {
       const svgStr = await this._generateReportSVG();
       const blob = await this._svgToPngBlob(svgStr);
 
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
+      // Show preview modal first (non-blocking)
+      this._showReportImagePreview(blob);
+
+      // Also copy to clipboard (best-effort)
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        const isMac = /Mac|iPhone|iPad|iPod/.test(
+          navigator.platform || navigator.userAgent,
+        );
+        const pasteKey = isMac ? "⌘ Cmd+V" : "Ctrl+V";
+        const title = i18next.t("financialReport.exportCopied");
+        const hint = i18next.t("financialReport.exportPasteHint", { key: pasteKey });
+        showToast(`${title} ${hint}`, "success", 5000);
+      } catch (_clipErr) {
+        // Clipboard copy is optional — preview modal is the primary deliverable
+      }
 
       btn.innerHTML = '<i class="bi bi-check-circle"></i>';
       btn.classList.remove("btn-light");
       btn.classList.add("btn-success");
-
-      // Detect platform for paste shortcut hint
-      const isMac = /Mac|iPhone|iPad|iPod/.test(
-        navigator.platform || navigator.userAgent,
-      );
-      const pasteKey = isMac ? "⌘ Cmd+V" : "Ctrl+V";
-      const title = i18next.t("financialReport.exportCopied");
-      const hint = i18next.t("financialReport.exportPasteHint", {
-        key: pasteKey,
-      });
-      showToast(`${title} ${hint}`, "success", 5000);
 
       setTimeout(() => {
         btn.innerHTML = originalHTML;
@@ -5621,6 +5831,80 @@ class FinancialReportsComponent {
       btn.title = "Capture Screenshot";
       btn.disabled = false;
     }
+  }
+
+  /** Show exported report image in a Bootstrap preview modal */
+  _showReportImagePreview(blob) {
+    const objectUrl = URL.createObjectURL(blob);
+
+    // Build filename for the download link
+    const property = this.properties?.find(p => p.propertyId === this.selectedProperty);
+    const date = this.currentDate || new Date();
+    const monthName = date.toLocaleDateString('en-SG', { month: 'long', year: 'numeric' });
+    const safeName = (property
+      ? `${property.propertyId}_${property.unit}`
+      : this.selectedProperty || 'report'
+    ).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Financial_Report_${safeName}_${monthName.replace(/\s+/g, '_')}.png`;
+
+    // Remove any stale preview modal
+    document.getElementById('frImagePreviewModal')?.remove();
+
+    const modalHtml = `
+      <div class="modal fade" id="frImagePreviewModal" tabindex="-1"
+           aria-labelledby="frImagePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle bg-white d-flex align-items-center justify-content-center"
+                     style="width:32px;height:32px;flex-shrink:0;">
+                  <i class="bi bi-image text-primary" style="font-size:1rem;"></i>
+                </div>
+                <h6 class="modal-title text-white fw-bold mb-0" id="frImagePreviewModalLabel">
+                  Report Preview
+                  <small class="fw-normal opacity-75 ms-2" style="font-size:0.75rem;">${monthName}</small>
+                </h6>
+              </div>
+              <button type="button" class="btn-close btn-close-white ms-auto"
+                      data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-dark" style="min-height:200px;">
+              <img id="frPreviewImg" src="${objectUrl}" alt="Financial Report"
+                   style="max-width:100%;display:block;margin:0 auto;" />
+            </div>
+            <div class="modal-footer border-0 justify-content-between"
+                 style="background:#f8f9fa;">
+              <div class="text-muted" style="font-size:0.78rem;">
+                <i class="bi bi-keyboard me-1"></i>Press <kbd>Esc</kbd> to close
+              </div>
+              <div class="d-flex gap-2">
+                <a id="frPreviewDownloadBtn" href="${objectUrl}" download="${fileName}"
+                   class="btn btn-primary btn-sm">
+                  <i class="bi bi-download me-1"></i>Download PNG
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        data-bs-dismiss="modal">
+                  <i class="bi bi-x-lg me-1"></i>Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modalEl = document.getElementById('frImagePreviewModal');
+    const modal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+
+    // Revoke object URL when the modal is fully hidden to free memory
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      URL.revokeObjectURL(objectUrl);
+      modalEl.remove();
+    }, { once: true });
+
+    modal.show();
   }
 
   /** Convert an SVG string to a high-resolution PNG Blob (2× scale) */
@@ -5740,6 +6024,7 @@ class FinancialReportsComponent {
   async _fetchAvatarsAsBase64() {
     const urls = new Set();
     this.investors.forEach((inv) => inv.avatar && urls.add(inv.avatar));
+    this.allInvestors?.forEach((inv) => inv.avatar && urls.add(inv.avatar));
     (this.currentReport?.investorSnapshot || []).forEach(
       (s) => s.avatar && urls.add(s.avatar),
     );
@@ -5800,19 +6085,25 @@ class FinancialReportsComponent {
       try {
         const buf = await (await fetch(url)).arrayBuffer();
         const bytes = new Uint8Array(buf);
-        let s = '';
-        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        let s = "";
+        for (let i = 0; i < bytes.length; i++)
+          s += String.fromCharCode(bytes[i]);
         return `data:font/truetype;base64,${btoa(s)}`;
-      } catch { return null; }
+      } catch {
+        return null;
+      }
     };
     const [fontRegUri, fontBoldUri] = await Promise.all([
-      _toB64DataUri('/fonts/NotoSerif-Regular.ttf'),
-      _toB64DataUri('/fonts/NotoSerif-Bold.ttf'),
+      _toB64DataUri("/fonts/NotoSerif-Regular.ttf"),
+      _toB64DataUri("/fonts/NotoSerif-Bold.ttf"),
     ]);
-    const fontFaceStyle = (fontRegUri || fontBoldUri) ? `<style>
+    const fontFaceStyle =
+      fontRegUri || fontBoldUri
+        ? `<style>
       @font-face { font-family: 'Noto Serif'; font-weight: 400; src: url('${fontRegUri}') format('truetype'); }
       @font-face { font-family: 'Noto Serif'; font-weight: 700; src: url('${fontBoldUri}') format('truetype'); }
-    </style>` : '';
+    </style>`
+        : "";
 
     // Property info
     const property = this.properties?.find(
@@ -5914,7 +6205,9 @@ class FinancialReportsComponent {
       const startX = colX + 34;
 
       // Small arrow indicator
-      p(`<text x="${startX}" y="${rowY + R + 3}" font-size="9" fill="#94a3b8" font-weight="600">→</text>`);
+      p(
+        `<text x="${startX}" y="${rowY + R + 3}" font-size="9" fill="#94a3b8" font-weight="600">→</text>`,
+      );
 
       const avatarStartX = startX + 13;
       persons.forEach((person, idx) => {
@@ -5922,13 +6215,24 @@ class FinancialReportsComponent {
         const cy = rowY + R;
         if (person.isUnknown) {
           p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="#f59e0b"/>`);
-          p(`<text x="${cx}" y="${cy + 4}" font-size="9" fill="#fff" font-weight="700" text-anchor="middle">?</text>`);
+          p(
+            `<text x="${cx}" y="${cy + 4}" font-size="9" fill="#fff" font-weight="700" text-anchor="middle">?</text>`,
+          );
         } else {
           const fallback = person.isTenant ? "#0ea5e9" : "#6c757d";
-          renderCircleAvatar(person.avatar || null, person.displayName, cx, cy, R, fallback);
+          renderCircleAvatar(
+            person.avatar || null,
+            person.displayName,
+            cx,
+            cy,
+            R,
+            fallback,
+          );
         }
         // White border ring between overlapping circles
-        p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-width="1.5"/>`);
+        p(
+          `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-width="1.5"/>`,
+        );
       });
 
       const clusterW = R * 2 + (persons.length - 1) * STEP;
@@ -5942,17 +6246,25 @@ class FinancialReportsComponent {
           return parts.length > 1 ? parts[parts.length - 1] : parts[0];
         })
         .join(", ");
-      p(`<text x="${textX}" y="${rowY + R + 4}" font-size="10" fill="${META_TXT}">${this._svgEsc(nameStr)}</text>`);
+      p(
+        `<text x="${textX}" y="${rowY + R + 4}" font-size="10" fill="${META_TXT}">${this._svgEsc(nameStr)}</text>`,
+      );
 
       // Room type badge (first person that has one)
       const withRoom = persons.find((q) => q?.roomType);
       if (withRoom) {
         const approxNameW = nameStr.length * 5.8;
         const badgeX = textX + approxNameW + 4;
-        const badgeText = this._svgEsc(this.getRoomTypeDisplayName(withRoom.roomType));
+        const badgeText = this._svgEsc(
+          this.getRoomTypeDisplayName(withRoom.roomType),
+        );
         const badgeW = badgeText.length * 5.5 + 8;
-        p(`<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="#dbeafe"/>`);
-        p(`<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="8" fill="${COL_HDR_TXT}" text-anchor="middle" font-weight="600">${badgeText}</text>`);
+        p(
+          `<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="#dbeafe"/>`,
+        );
+        p(
+          `<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="8" fill="${COL_HDR_TXT}" text-anchor="middle" font-weight="600">${badgeText}</text>`,
+        );
       }
     };
 
@@ -6011,29 +6323,46 @@ class FinancialReportsComponent {
     const _ovBill = this._findOverlappingUtilityBill();
     if (_ovBill) {
       const OVPUB_H = 30;
-      const _excess = ((_ovBill.totalAmount || 0) - this.propertySubsidy);
-      const _fmtD = (v) => v
-        ? new Date(v).toLocaleDateString('en-SG', { day: '2-digit', month: 'short' })
-        : null;
-      const _period = (_ovBill.billingPeriodStart || _ovBill.billingPeriodEnd)
-        ? `${_fmtD(_ovBill.billingPeriodStart) || '?'} – ${_fmtD(_ovBill.billingPeriodEnd) || '?'}`
-        : `${_ovBill.month}/${_ovBill.year}`;
+      const _excess = (_ovBill.totalAmount || 0) - this.propertySubsidy;
+      const _fmtD = (v) =>
+        v
+          ? new Date(v).toLocaleDateString("en-SG", {
+              day: "2-digit",
+              month: "short",
+            })
+          : null;
+      const _period =
+        _ovBill.billingPeriodStart || _ovBill.billingPeriodEnd
+          ? `${_fmtD(_ovBill.billingPeriodStart) || "?"} – ${_fmtD(_ovBill.billingPeriodEnd) || "?"}`
+          : `${_ovBill.month}/${_ovBill.year}`;
       const _detail = this._svgEsc(
-        `${_period}  ·  Bill $${(_ovBill.totalAmount || 0).toFixed(2)}  ·  Max $${this.propertySubsidy.toFixed(2)}`
+        `${_period}  ·  Bill $${(_ovBill.totalAmount || 0).toFixed(2)}  ·  Max $${this.propertySubsidy.toFixed(2)}`,
       );
       const _badgeTxt = this._svgEsc(`+$${_excess.toFixed(2)}`);
       const _badgeW = _excess.toFixed(2).length * 7 + 28;
       // Strip background + left accent
-      p(`<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="#fff1f0"/>`);
+      p(
+        `<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="#fff1f0"/>`,
+      );
       p(`<rect x="0" y="${y}" width="5" height="${OVPUB_H}" fill="#dc2626"/>`);
-      p(`<line x1="0" y1="${y + OVPUB_H}" x2="${W}" y2="${y + OVPUB_H}" stroke="#fca5a5" stroke-width="1"/>`);
+      p(
+        `<line x1="0" y1="${y + OVPUB_H}" x2="${W}" y2="${y + OVPUB_H}" stroke="#fca5a5" stroke-width="1"/>`,
+      );
       // Label
-      p(`<text x="14" y="${y + 19}" font-size="11" fill="#991b1b" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`);
+      p(
+        `<text x="14" y="${y + 19}" font-size="11" fill="#991b1b" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`,
+      );
       // Detail
-      p(`<text x="110" y="${y + 19}" font-size="11" fill="#7f1d1d">${_detail}</text>`);
+      p(
+        `<text x="110" y="${y + 19}" font-size="11" fill="#7f1d1d">${_detail}</text>`,
+      );
       // Badge pill
-      p(`<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="18" rx="9" fill="#dc2626"/>`);
-      p(`<text x="${W - M - _badgeW / 2}" y="${y + 19}" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">${_badgeTxt}</text>`);
+      p(
+        `<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="18" rx="9" fill="#dc2626"/>`,
+      );
+      p(
+        `<text x="${W - M - _badgeW / 2}" y="${y + 19}" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">${_badgeTxt}</text>`,
+      );
       y += OVPUB_H;
     }
 
@@ -6069,13 +6398,16 @@ class FinancialReportsComponent {
       const paidByList = Array.isArray(item.paidBy)
         ? item.paidBy.filter(Boolean)
         : item.paidBy
-        ? [item.paidBy]
-        : [];
+          ? [item.paidBy]
+          : [];
       const paidByPersons = paidByList
         .map((pv) => {
           const resolved = this._resolvePaidByPerson(pv);
           if (!resolved) return null;
-          return { ...resolved, isTenant: typeof pv === "string" && pv.startsWith("tenant_") };
+          return {
+            ...resolved,
+            isTenant: typeof pv === "string" && pv.startsWith("tenant_"),
+          };
         })
         .filter(Boolean);
       const rowH = Math.max(
@@ -6102,11 +6434,26 @@ class FinancialReportsComponent {
         : "";
       let paidToPersons = [];
       if (item.paidTo === "unknown") {
-        paidToPersons = [{ displayName: "Unknown", avatar: null, roomType: null, isTenant: false, isUnknown: true }];
+        paidToPersons = [
+          {
+            displayName: "Unknown",
+            avatar: null,
+            roomType: null,
+            isTenant: false,
+            isUnknown: true,
+          },
+        ];
       } else if (item.paidTo) {
         const resolved = this._resolvePaidByPerson(item.paidTo);
         if (resolved) {
-          paidToPersons = [{ ...resolved, isTenant: typeof item.paidTo === "string" && item.paidTo.startsWith("tenant_") }];
+          paidToPersons = [
+            {
+              ...resolved,
+              isTenant:
+                typeof item.paidTo === "string" &&
+                item.paidTo.startsWith("tenant_"),
+            },
+          ];
         }
       }
       const rowH = Math.max(
@@ -6224,6 +6571,11 @@ class FinancialReportsComponent {
 
     // ── Income rows (personInCharge avatar + description + paidBy avatar cluster) ──
     const renderIncomeRow = (item, meta, pairH, colX, rowY, colW) => {
+      if (item.isPending) {
+        p(
+          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="#fffde7"/>`,
+        );
+      }
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge,
       );
@@ -6244,22 +6596,39 @@ class FinancialReportsComponent {
           );
         });
       }
-      const metaBaseY = rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
+      const metaBaseY =
+        rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
       if (meta.subtitle) {
         p(
           `<text x="${colX + 34}" y="${metaBaseY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
       }
       if (meta.paidByPersons && meta.paidByPersons.length > 0) {
-        renderPersonCluster(meta.paidByPersons, colX, metaBaseY + (meta.subtitle ? 1 : -14));
+        renderPersonCluster(
+          meta.paidByPersons,
+          colX,
+          metaBaseY + (meta.subtitle ? 1 : -14),
+        );
       }
+      const amountColor = item.isPending ? "#b45309" : "#16a34a";
       p(
-        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="#16a34a" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
+        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="${amountColor}" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
       );
-      const curr = item.currency || "SGD";
-      p(
-        `<text x="${colX + colW - 4}" y="${rowY + 30}" font-size="10" fill="${META_TXT}" text-anchor="end">${curr}</text>`,
-      );
+      if (item.isPending) {
+        const bW = 52;
+        const bX = colX + colW - 4 - bW;
+        p(
+          `<rect x="${bX}" y="${rowY + 21}" width="${bW}" height="13" rx="6" fill="#f59e0b"/>`,
+        );
+        p(
+          `<text x="${bX + bW / 2}" y="${rowY + 31}" font-size="8" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
+        );
+      } else {
+        const curr = item.currency || "SGD";
+        p(
+          `<text x="${colX + colW - 4}" y="${rowY + 30}" font-size="10" fill="${META_TXT}" text-anchor="end">${curr}</text>`,
+        );
+      }
     };
 
     const incomeMetas = income.map(makeIncomeMeta);
@@ -6274,6 +6643,11 @@ class FinancialReportsComponent {
 
     // ── Expense rows (personInCharge avatar + description + paidTo avatar cluster) ──
     const renderExpenseRow = (item, meta, pairH, colX, rowY, colW) => {
+      if (item.isPending) {
+        p(
+          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="#fffde7"/>`,
+        );
+      }
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge,
       );
@@ -6294,18 +6668,34 @@ class FinancialReportsComponent {
           );
         });
       }
-      const metaBaseY = rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
+      const metaBaseY =
+        rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
       if (meta.subtitle) {
         p(
           `<text x="${colX + 34}" y="${metaBaseY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
       }
       if (meta.paidToPersons && meta.paidToPersons.length > 0) {
-        renderPersonCluster(meta.paidToPersons, colX, metaBaseY + (meta.subtitle ? 1 : -14));
+        renderPersonCluster(
+          meta.paidToPersons,
+          colX,
+          metaBaseY + (meta.subtitle ? 1 : -14),
+        );
       }
+      const expAmountColor = item.isPending ? "#b45309" : "#dc2626";
       p(
-        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="#dc2626" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
+        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="${expAmountColor}" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
       );
+      if (item.isPending) {
+        const bW = 52;
+        const bX = colX + colW - 4 - bW;
+        p(
+          `<rect x="${bX}" y="${rowY + 21}" width="${bW}" height="13" rx="6" fill="#f59e0b"/>`,
+        );
+        p(
+          `<text x="${bX + bW / 2}" y="${rowY + 31}" font-size="8" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
+        );
+      }
     };
 
     const expenseMetas = expenses.map(makeExpenseMeta);
@@ -6464,7 +6854,10 @@ class FinancialReportsComponent {
     if (!personId) return "";
 
     if (Array.isArray(personId)) {
-      return personId.map((id) => this.getPersonName(id)).filter(Boolean).join(", ");
+      return personId
+        .map((id) => this.getPersonName(id))
+        .filter(Boolean)
+        .join(", ");
     }
 
     // Check if it's a tenant (prefixed with 'tenant_')
@@ -6576,7 +6969,8 @@ class FinancialReportsComponent {
           const itemWithPayee = payeeInfo
             ? `${item.item} (${payeeInfo})`
             : item.item;
-          summary += `- ${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          const pendingPrefix = item.isPending ? "🟡 " : "";
+          summary += `${pendingPrefix}- ${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";
@@ -6604,7 +6998,8 @@ class FinancialReportsComponent {
           const itemWithPaidTo = paidToInfo
             ? `${item.item} (→${paidToInfo})`
             : item.item;
-          summary += `- ${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          const expPendingPrefix = item.isPending ? "🟡 " : "";
+          summary += `${expPendingPrefix}- ${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";

@@ -138,6 +138,10 @@ const API_CONFIG = {
     CCTV_GATEWAY_APPLY: (id) => `/api/cctv/gateways/${id}/apply`,
     CCTV_GATEWAY_CONFIG: (id) => `/api/cctv/gateways/${id}/config`,
 
+    // Sales Map
+    SALES_MAP_DATA: "/api/sales/map-data",
+    SALES_GEOCODE: (propertyId) => `/api/sales/geocode/${propertyId}`,
+
     // Docs
     DOCS: "/api/docs",
     DOC_BY_ID: (id) => `/api/docs/${id}`,

@@ -525,11 +525,36 @@ class PropertyManagementComponent {
           </div>`;
       }
 
+      const isCondo = property.propertyType === 'condo';
       const cardOpacity = isArchived ? 'opacity: 0.6;' : '';
       const cardFilter = isArchived ? 'filter: grayscale(60%);' : '';
       const imgOverlay = isArchived ? `<div class="position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.35);"></div>` : '';
       const archivedBadge = isArchived ? `<span class="badge bg-secondary ms-1" style="font-size: 0.65rem; vertical-align: middle;"><i class="bi bi-archive me-1"></i>Archived</span>` : '';
       const cardBorder = isArchived ? 'border: 1.5px dashed #adb5bd !important;' : '';
+
+      // Type-specific styling
+      const typeGradient = isArchived
+        ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)'
+        : isCondo
+          ? 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)'
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      const typeIcon = isCondo ? 'bi-buildings' : 'bi-building';
+      const typeAvatarBg = isArchived ? 'bg-secondary' : isCondo ? '' : 'bg-primary';
+      const typeAvatarStyle = isArchived
+        ? ''
+        : isCondo
+          ? 'background:linear-gradient(135deg,#f6d365,#fda085);'
+          : '';
+      const typeIdBadgeClass = isCondo ? '' : isArchived ? 'text-secondary' : 'text-primary';
+      const typeIdBadgeStyle = isCondo
+        ? 'background:rgba(0,0,0,0.45);color:white;'
+        : isArchived
+          ? ''
+          : '';
+      const typeBadge = isCondo
+        ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#f6d365,#fda085);color:#7c2d12;font-size:0.6rem;vertical-align:middle;" title="Condominium"><i class="bi bi-buildings me-1"></i>Condo</span>`
+        : `<span class="badge bg-primary ms-1" style="font-size:0.6rem;vertical-align:middle;" title="HDB"><i class="bi bi-building me-1"></i>HDB</span>`;
+      const cardExtraClass = isCondo ? 'pm-card-condo' : '';
 
       // Move-out overlay badge
       let moveOutOverlayHtml = '';
@@ -550,7 +575,7 @@ class PropertyManagementComponent {
 
       const cardHtml = `
         <div style="width: 100%;">
-          <div class="card property-management-card h-100 overflow-hidden"
+          <div class="card property-management-card h-100 overflow-hidden ${cardExtraClass}"
                style="transition: all 0.2s ease; ${cardOpacity} ${cardFilter} ${cardBorder}">
             ${property.propertyImage ? `
             <div class="card-img-top position-relative" style="height: 130px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
@@ -562,13 +587,13 @@ class PropertyManagementComponent {
               ${moveOutOverlayHtml}
             </div>
             ` : `
-            <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${isArchived ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};">
+            <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${typeGradient};">
               <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-white ${isArchived ? 'text-secondary' : 'text-primary'}" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
+                <span class="badge bg-white ${typeIdBadgeClass}" style="font-size: 0.75rem;${typeIdBadgeStyle}">${this.escapeHtml(property.propertyId)}</span>
               </div>
               ${property.digitalLockEnabled ? `<div class="position-absolute top-0 end-0 p-2"><span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span></div>` : ''}
               <div class="position-absolute top-50 start-50 translate-middle">
-                <i class="bi ${isArchived ? 'bi-archive' : 'bi-building'} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
+                <i class="bi ${isArchived ? 'bi-archive' : typeIcon} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
               </div>
               ${moveOutOverlayHtml}
             </div>
@@ -576,13 +601,13 @@ class PropertyManagementComponent {
             <div class="card-header bg-white border-0 pb-0">
               <div class="d-flex align-items-center">
                 <div class="me-3">
-                  <div class="rounded-circle ${isArchived ? 'bg-secondary' : 'bg-primary'} d-flex align-items-center justify-content-center text-white"
-                       style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                  <div class="rounded-circle ${typeAvatarBg} d-flex align-items-center justify-content-center text-white"
+                       style="width: 40px; height: 40px; font-size: 14px; font-weight: bold; ${typeAvatarStyle}">
                     ${this.escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
                   </div>
                 </div>
                 <div class="flex-grow-1">
-                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}${archivedBadge}${property.digitalLockEnabled ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#6f42c1,#9d4edd);font-size:0.6rem;vertical-align:middle;" title="Digital Lock Installed"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>` : ''}</h6>
+                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}${archivedBadge}${!isArchived ? typeBadge : ''}${property.digitalLockEnabled ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#6f42c1,#9d4edd);font-size:0.6rem;vertical-align:middle;" title="Digital Lock Installed"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>` : ''}</h6>
                   <small class="text-muted">Property ID</small>
                 </div>
               </div>
@@ -739,6 +764,20 @@ class PropertyManagementComponent {
         }
         .property-management-card .card-footer {
           padding: 0.75rem 0.5rem;
+        }
+        /* Condo card — warm gold accent */
+        .pm-card-condo {
+          border-color: #fde68a !important;
+        }
+        .pm-card-condo:hover {
+          border-color: #f59e0b !important;
+          box-shadow: 0 8px 25px rgba(245,158,11,0.22) !important;
+        }
+        /* Form toggle — condo checked state */
+        #propertyTypeCondo:checked + label {
+          background: linear-gradient(135deg,#f6d365,#fda085) !important;
+          color: #7c2d12 !important;
+          border-color: #fda085 !important;
         }
       `;
       document.head.appendChild(style);
@@ -1051,6 +1090,11 @@ class PropertyManagementComponent {
           digitalLockPinInput.value = property.digitalLockPin || "";
         }
 
+        // Property type (HDB / Condo)
+        const propTypeValue = property.propertyType || 'hdb';
+        const propTypeRadio = document.getElementById(propTypeValue === 'condo' ? 'propertyTypeCondo' : 'propertyTypeHdb');
+        if (propTypeRadio) propTypeRadio.checked = true;
+
         // SP utility account
         const spUsernameInput = document.getElementById("spAccountUsername");
         if (spUsernameInput) spUsernameInput.value = property.spAccountUsername || "";
@@ -1120,6 +1164,10 @@ class PropertyManagementComponent {
         this.onDigitalLockToggle(false);
         const digitalLockPinInputReset = document.getElementById("digitalLockPin");
         if (digitalLockPinInputReset) digitalLockPinInputReset.value = "";
+
+        // Reset property type to HDB for add mode
+        const hdbRadioReset = document.getElementById("propertyTypeHdb");
+        if (hdbRadioReset) hdbRadioReset.checked = true;
 
         // Reset SP account for add mode
         const spUsernameReset = document.getElementById("spAccountUsername");
@@ -1287,6 +1335,7 @@ class PropertyManagementComponent {
         digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
         spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
         spAccountPassword: formData.get("spAccountPassword")?.trim() || "",
+        propertyType: formData.get("propertyType") || 'hdb',
       };
 
       // Debug: Log property data being saved

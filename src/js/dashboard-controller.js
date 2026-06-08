@@ -294,6 +294,11 @@ class DashboardController {
           window.docsManagement.refresh();
         }
         break;
+      case "sales-map":
+        if (window.salesMapComponent) {
+          window.salesMapComponent.activate();
+        }
+        break;
     }
   }
 

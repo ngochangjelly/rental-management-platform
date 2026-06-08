@@ -27,6 +27,7 @@ import "./components/house-view-specialist.js"; // House View Specialist module
 import "./components/utility-bill-tracker.js"; // Utility Bill Tracker module
 import "./components/cctv-management.js"; // CCTV Monitor module
 import "./components/docs-management.js"; // Docs module
+import "./components/sales-map.js"; // Sales Map module
 import "./router.js"; // Hash-based client-side router (must come before controller)
 import "./dashboard-controller.js";
 
