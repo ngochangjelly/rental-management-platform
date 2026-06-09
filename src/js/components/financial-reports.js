@@ -288,6 +288,25 @@ class FinancialReportsComponent {
         }
       });
     }
+
+    // Hotkeys: Cmd/Ctrl+K → export image, Cmd/Ctrl+C (no selection) → copy report summary
+    document.addEventListener("keydown", (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+
+      if (e.key === "k") {
+        const btn = document.getElementById("captureScreenshotBtn");
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          this.captureScreenshot();
+        }
+      } else if (e.key === "c" && !window.getSelection()?.toString()) {
+        const btn = document.getElementById("copyReportSummaryBtn");
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          this.copyReportSummary();
+        }
+      }
+    });
   }
 
   async loadProperties() {
@@ -521,6 +540,15 @@ class FinancialReportsComponent {
         existingTooltip.dispose();
       }
     });
+
+    // Patch hotkey labels to match the user's OS (⌘ on Mac, Ctrl on others)
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
+      navigator.userAgentData?.platform === 'macOS';
+    const mod = isMac ? '⌘' : 'Ctrl+';
+    document.getElementById('captureScreenshotBtn')
+      ?.setAttribute('data-bs-title', `Export report as image (${mod}K)`);
+    document.getElementById('copyReportSummaryBtn')
+      ?.setAttribute('data-bs-title', `Copy report summary to clipboard (${mod}C)`);
 
     // Initialize new tooltips with custom placement
     const tooltipTriggerList = document.querySelectorAll(
@@ -5902,6 +5930,17 @@ class FinancialReportsComponent {
     modalEl.addEventListener('hidden.bs.modal', () => {
       URL.revokeObjectURL(objectUrl);
       modalEl.remove();
+    }, { once: true });
+
+    // Explicit Escape handler — dynamically created modals can miss Bootstrap's built-in keyboard trap
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        modal.hide();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      document.removeEventListener('keydown', onKeyDown);
     }, { once: true });
 
     modal.show();
