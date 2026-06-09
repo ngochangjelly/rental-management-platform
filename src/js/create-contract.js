@@ -433,11 +433,12 @@ class PublicContractCreator {
     this._setupAutoSave();
     this._setupPartialDepositToggle();
     this._setupAdditionalOptionsChevron();
-    this._setupPreviewChevron();
 
     // Try to restore last draft automatically
     const draft = loadDraft();
     if (draft) this._restoreState(draft);
+
+    this._renderPreview();
   }
 
   // ── Defaults ────────────────────────────────────────────────────────────────
@@ -667,16 +668,9 @@ class PublicContractCreator {
 
   // ── Auto-save on any input change ────────────────────────────────────────────
   _setupAutoSave() {
-    let previewTimer = null;
     const onAnyChange = () => {
-      const state = this._collectState();
-      saveDraft(state);
-      // Re-render preview only when it's open (avoid unnecessary work)
-      const previewEl = document.getElementById("contractPreviewCollapse");
-      if (previewEl?.classList.contains("show")) {
-        clearTimeout(previewTimer);
-        previewTimer = setTimeout(() => this._renderPreview(), 250);
-      }
+      saveDraft(this._collectState());
+      this._renderPreview();
     };
     document.querySelector(".container-fluid").addEventListener("input", onAnyChange);
     document.querySelector(".container-fluid").addEventListener("change", onAnyChange);
@@ -798,19 +792,6 @@ class PublicContractCreator {
     } else {
       this._addTenantBRow();
     }
-  }
-
-  // ── Preview chevron ──────────────────────────────────────────────────────────
-  _setupPreviewChevron() {
-    const el = document.getElementById("contractPreviewCollapse");
-    if (!el) return;
-    el.addEventListener("show.bs.collapse", () => {
-      document.getElementById("previewChevron")?.classList.replace("bi-chevron-down", "bi-chevron-up");
-      this._renderPreview();
-    });
-    el.addEventListener("hide.bs.collapse", () => {
-      document.getElementById("previewChevron")?.classList.replace("bi-chevron-up", "bi-chevron-down");
-    });
   }
 
   // ── Contract preview ─────────────────────────────────────────────────────────
