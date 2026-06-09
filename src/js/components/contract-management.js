@@ -4,6 +4,7 @@
  */
 import i18next from "i18next";
 import { renderTenantSocialBadges } from "../utils/social-links.js";
+import { getSection1BaseClauseTexts } from "./contract-clauses.js";
 
 class ContractManagementComponent {
   constructor() {
@@ -38,7 +39,6 @@ class ContractManagementComponent {
       pestControlClause: false,
       airconFreeOfCharge: false,
       forfeitAcCleanFee: false,
-      cleaningCompulsory: false,
       showSettlementAccounts: false,
     };
 
@@ -2549,17 +2549,6 @@ class ContractManagementComponent {
       });
     }
 
-    // Handle cleaning compulsory checkbox
-    const cleaningCompulsoryCheckbox =
-      document.getElementById("cleaningCompulsory");
-    if (cleaningCompulsoryCheckbox) {
-      cleaningCompulsoryCheckbox.addEventListener("change", () => {
-        this.contractData.cleaningCompulsory =
-          cleaningCompulsoryCheckbox.checked;
-        this.updateContractPreview();
-      });
-    }
-
     const showSettlementAccountsCheckbox = document.getElementById(
       "showSettlementAccounts",
     );
@@ -3378,7 +3367,7 @@ class ContractManagementComponent {
                           this.contractData.forfeitAcCleanFee
                             ? "0"
                             : this.contractData.cleaningFee || "20"
-                        } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}</p>
+                        } / 1pax</p>
                     </div>
                 </div>
 
@@ -4179,38 +4168,7 @@ class ContractManagementComponent {
         );
       }
 
-      const baseClauseTexts = [
-        "To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.",
-        "Not to do or permit to be done upon the premises or room anything which may be unlawful, immoral, or become a nuisance or annoyance to occupiers of adjoining or adjacent room(s).",
-        "To use the premises for the purpose of private residence only and not to assign, sublet, or otherwise part possession of the premises or any part thereof without the written consent of Tenant A.",
-        "To peaceably and quietly at the expiration of the tenancy deliver up to Tenant A the room in like condition as the same was delivered to Tenant B at the commencement of this Agreement, except for fair wear and tear.",
-        "Not to create a nuisance, not to use the premises or any part thereof in a manner which may become a nuisance or annoyance to TenantA or the occupants of the premises, building or to neighbouring parties.",
-        "Strictly NO PETS in the premises.",
-        "No illegal or immoral activities, not to do or suffer to be done anything in or upon the said premises or any part thereof, any activities of an illegal or immoral nature.",
-        "To permit Tenant A to carry out due diligence checks to ensure that at all times during the currency of this Agreement, Tenant B and/or permitted occupants are not illegal immigrants and comply with all the rules and regulations relating to the Immigration Act and the Employment of Foreign Workers Act.",
-        "To provide TenantA, upon request, for physical inspection, all immigration and employment documents, including but not limited to the passports of all non-local occupants, the employment pass and/or work permits, proof of employment.",
-        "To permit the Main tenant and workmen with all necessary appliances to enter upon the said premises at all reasonable times by prior appointment for the purpose whether of viewing the condition thereof or of doing such works and things as may be required for any repairs, alterations or improvements whether of the said premises or of any parts of any building to which the said premises may form a part of or adjoin.",
-        "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
-        "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
-        "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
-        `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
-        "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
-        "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
-        "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
-        "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
-        "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
-        "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
-        "Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.",
-        "No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.",
-        "Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.",
-        "The landlord has agreed for the main tenant to share the house with friends/authorized occupants.",
-      ];
-
-      if (this.contractData.pestControlClause) {
-        baseClauseTexts.push(
-          "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.",
-        );
-      }
+      const baseClauseTexts = getSection1BaseClauseTexts(this.contractData);
 
       let clauseOffset = 0;
       baseClauseTexts.forEach((clauseText, index) => {
@@ -4275,7 +4233,7 @@ class ContractManagementComponent {
       const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
       section2Clauses.push(
         `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee || "20"} / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
+        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee || "20"} / 1pax`,
       );
       section2Clauses.forEach((clause) =>
         children.push(para(clause, { indent: true, spacing: 5 })),
@@ -5006,39 +4964,7 @@ class ContractManagementComponent {
       }
 
       // Add remaining clauses with appropriate letters
-      const baseClauseTexts = [
-        "To use and manage the room, premises, and furniture therein in a careful manner and to keep the interior of the premises in a GOOD, CLEAN, TIDY, and TENANTABLE condition except for normal fair wear and tear.",
-        "Not to do or permit to be done upon the premises or room anything which may be unlawful, immoral, or become a nuisance or annoyance to occupiers of adjoining or adjacent room(s).",
-        "To use the premises for the purpose of private residence only and not to assign, sublet, or otherwise part possession of the premises or any part thereof without the written consent of Tenant A.",
-        "To peaceably and quietly at the expiration of the tenancy deliver up to Tenant A the room in like condition as the same was delivered to Tenant B at the commencement of this Agreement, except for fair wear and tear.",
-        "Not to create a nuisance, not to use the premises or any part thereof in a manner which may become a nuisance or annoyance to TenantA or the occupants of the premises, building or to neighbouring parties.",
-        "Strictly NO PETS in the premises.",
-        "No illegal or immoral activities, not to do or suffer to be done anything in or upon the said premises or any part thereof, any activities of an illegal or immoral nature.",
-        "To permit Tenant A to carry out due diligence checks to ensure that at all times during the currency of this Agreement, Tenant B and/or permitted occupants are not illegal immigrants and comply with all the rules and regulations relating to the Immigration Act and the Employment of Foreign Workers Act.",
-        "To provide TenantA, upon request, for physical inspection, all immigration and employment documents, including but not limited to the passports of all non-local occupants, the employment pass and/or work permits, proof of employment.",
-        "To permit the Main tenant and workmen with all necessary appliances to enter upon the said premises at all reasonable times by prior appointment for the purpose whether of viewing the condition thereof or of doing such works and things as may be required for any repairs, alterations or improvements whether of the said premises or of any parts of any building to which the said premises may form a part of or adjoin.",
-        "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
-        "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
-        "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
-        `For a 6-month agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${this.contractData.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${this.contractData.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
-        "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
-        "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
-        "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
-        "No gathering (with/without alcoholic consumption) without permission from Tenant A.",
-        "Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).",
-        "Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.",
-        "Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.",
-        "No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.",
-        "Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.",
-        "The landlord has agreed for the main tenant to share the house with friends/authorized occupants.",
-      ];
-
-      // Add pest control clause if checkbox is checked
-      if (this.contractData.pestControlClause) {
-        baseClauseTexts.push(
-          "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.",
-        );
-      }
+      const baseClauseTexts = getSection1BaseClauseTexts(this.contractData);
 
       // Add remaining clauses with proper letter sequence, skipping air-conditioner clause if no aircon
       let clauseOffset = 0;
@@ -5125,7 +5051,7 @@ class ContractManagementComponent {
           this.contractData.forfeitAcCleanFee
             ? "0"
             : this.contractData.cleaningFee || "20"
-        } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}`,
+        } / 1pax`,
       );
 
       section2Clauses.forEach((clause) => {
@@ -5664,7 +5590,7 @@ class ContractManagementComponent {
                             
                             <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${
                               this.contractData.cleaningFee || "20"
-                            } / 1pax${this.contractData.cleaningCompulsory ? "" : " (if all tenants agree to hire a cleaning service)"}</p>
+                            } / 1pax</p>
                         </div>
                     </div>
 
@@ -6070,12 +5996,6 @@ class ContractManagementComponent {
       this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
-    const cleaningCompulsoryElement =
-      document.getElementById("cleaningCompulsory");
-    if (cleaningCompulsoryElement) {
-      this.contractData.cleaningCompulsory = cleaningCompulsoryElement.checked;
-    }
-
     const electricityFreeElement = document.getElementById("electricityFree");
     if (electricityFreeElement) {
       this.contractData.electricityFree = electricityFreeElement.checked;
@@ -6177,11 +6097,6 @@ class ContractManagementComponent {
       contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
-    const cleaningCompulsoryEl = document.getElementById("cleaningCompulsory");
-    if (cleaningCompulsoryEl) {
-      contractData.cleaningCompulsory = cleaningCompulsoryEl.checked;
-    }
-
     const electricityFreeEl = document.getElementById("electricityFree");
     if (electricityFreeEl) {
       contractData.electricityFree = electricityFreeEl.checked;
@@ -6205,10 +6120,9 @@ class ContractManagementComponent {
       this.isLoadingTemplate = true;
 
       // Populate contract data — spread defaults first so old saved contracts
-      // without newer fields (e.g. cleaningCompulsory) still get safe values
+      // without newer fields still get safe values
       this.contractData = {
         forfeitAcCleanFee: false,
-        cleaningCompulsory: false,
         electricityFree: false,
         ...templateData.contractData,
       };
@@ -6227,9 +6141,7 @@ class ContractManagementComponent {
               ? document.getElementById("airconFreeOfCharge")
               : field === "forfeitAcCleanFee"
                 ? document.getElementById("forfeitAcCleanFee")
-                : field === "cleaningCompulsory"
-                  ? document.getElementById("cleaningCompulsory")
-                  : field === "electricityFree"
+                : field === "electricityFree"
                     ? document.getElementById("electricityFree")
                     : field === "showSettlementAccounts"
                       ? document.getElementById("showSettlementAccounts")
@@ -7010,7 +6922,7 @@ class ContractManagementComponent {
               ]),
               clausePara("f", [
                 normal(
-                  "Cleaning fee: SGD$_____ / 1pax (if all tenants agree to hire a cleaning service)",
+                  "Cleaning fee: SGD$_____ / 1pax",
                 ),
               ]),
               blankPara(),
