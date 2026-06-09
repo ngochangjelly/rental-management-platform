@@ -259,26 +259,26 @@ class BillManagementComponent {
       return;
     }
 
-    // Load utility bill tracker data and chart data in parallel
-    this.loadUtilityBillForMonth();
+    // Load utility bill tracker data and monthly bill in parallel
+    const [, billResponse] = await Promise.all([
+      this.loadUtilityBillForMonth(),
+      API.get(API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(
+        this.selectedProperty,
+        this.currentDate.getFullYear(),
+        this.currentDate.getMonth() + 1,
+      )).catch(() => ({ status: 503 })),
+    ]);
     this._loadAllUtilityBillsForChart();
 
     try {
-      const year = this.currentDate.getFullYear();
-      const month = this.currentDate.getMonth() + 1;
-
-      const response = await API.get(
-        API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(this.selectedProperty, year, month)
-      );
-
-      if (response.status === 404) {
+      if (billResponse.status === 404) {
         // Bill not generated yet
         this.currentBill = null;
         this.showGenerateBillPrompt();
         return;
       }
 
-      const result = await response.json();
+      const result = await billResponse.json();
 
       if (result.success) {
         this.currentBill = result.bill;
@@ -301,8 +301,71 @@ class BillManagementComponent {
     const mn   = monthName(this.currentDate.getMonth());
     const year = this.currentDate.getFullYear();
 
+    const ub = this.currentUtilityBill;
+    let utilityHtml = '';
+    if (ub) {
+      const exceeded = this.propertySubsidy > 0 && (ub.totalAmount||0) > this.propertySubsidy;
+      const excess   = exceeded ? (ub.totalAmount||0) - this.propertySubsidy : 0;
+      const fmtDate  = (v) => v ? new Date(v).toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' }) : null;
+      const period   = (ub.billingPeriodStart || ub.billingPeriodEnd)
+        ? `${fmtDate(ub.billingPeriodStart) || '?'} – ${fmtDate(ub.billingPeriodEnd) || '?'}`
+        : null;
+      const gasOther = (ub.gasAmount||0) + (ub.refuseAmount||0) + (ub.otherAmount||0);
+      const cardStyle = exceeded ? 'border:2px solid #dc3545!important;background:#fff5f5;' : 'background:#f8f9fa;';
+      const isPdf = ub.billImageUrl && (ub.billImageUrl.includes('raw-proxy') || ub.billImageUrl.toLowerCase().includes('.pdf'));
+      utilityHtml = `
+        <div class="col-md-4 mx-auto mb-3">
+          <h6 class="d-flex align-items-center gap-2">
+            ${t('spGroupUtilityBill')}
+            ${this.propertySubsidy > 0 ? `<span class="badge bg-secondary" style="font-size:0.7rem;font-weight:500;">Max: $${this.propertySubsidy.toFixed(2)}</span>` : ''}
+          </h6>
+          <div class="border rounded p-2" style="font-size:0.82rem;${cardStyle}">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <span class="fw-semibold text-primary">${monthName((ub.month||1)-1, true)} ${ub.year}</span>
+              ${exceeded ? `<span class="badge bg-danger" style="font-size:0.7rem;">⚠ +$${excess.toFixed(2)} over limit</span>` : ''}
+            </div>
+            ${period ? `<div class="text-muted mb-1" style="font-size:0.75rem;">${period}</div>` : ''}
+            <div class="d-flex justify-content-between"><span><i class="bi bi-lightning-charge-fill text-warning me-1"></i>${t('electricity')}</span><span>$${(ub.electricityAmount||0).toFixed(2)}</span></div>
+            <div class="d-flex justify-content-between"><span><i class="bi bi-droplet-fill text-info me-1"></i>${t('water')}</span><span>$${(ub.waterAmount||0).toFixed(2)}</span></div>
+            ${gasOther > 0 ? `<div class="d-flex justify-content-between"><span><i class="bi bi-fire text-secondary me-1"></i>${t('gasAndOthers')}</span><span>$${gasOther.toFixed(2)}</span></div>` : ''}
+            <div class="d-flex justify-content-between fw-bold border-top mt-1 pt-1">
+              <span>${t('total')}</span>
+              <span style="color:${exceeded ? '#dc3545' : '#0d6efd'};">$${(ub.totalAmount||0).toFixed(2)}</span>
+            </div>
+            ${this.propertySubsidy > 0 ? `<div class="d-flex justify-content-between border-top mt-1 pt-1" style="font-size:0.75rem;color:#6c757d;"><span>Max covered</span><span>$${this.propertySubsidy.toFixed(2)}</span></div>` : ''}
+            ${ub.billImageUrl ? `<a href="${ub.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 w-100 py-0" style="font-size:0.75rem;"><i class="bi bi-${isPdf ? 'file-earmark-pdf' : 'image'} me-1"></i>${t('viewBill')}</a>` : ''}
+          </div>
+          <div id="utilityBillDropZoneInline"
+               class="border rounded p-2 text-center mt-2"
+               style="border-style:dashed!important;cursor:pointer;transition:background 0.15s;"
+               onclick="document.getElementById('utilityBillFileInputInline').click()">
+            <input type="file" id="utilityBillFileInputInline" accept="application/pdf,.pdf,image/jpeg,image/png,image/heic" style="display:none">
+            <i class="bi bi-file-earmark-arrow-up text-secondary" style="font-size:1.4rem;"></i>
+            <div class="small text-muted mt-1">${t('dropPdfHere')}</div>
+            <div id="utilityDropStatus" class="small mt-1"></div>
+          </div>
+        </div>`;
+    } else {
+      utilityHtml = `
+        <div class="col-md-4 mx-auto mb-3">
+          <h6>${t('spGroupUtilityBill')}</h6>
+          <div id="utilityBillDropZoneInline"
+               class="border rounded p-2 text-center"
+               style="border-style:dashed!important;cursor:pointer;transition:background 0.15s;"
+               onclick="document.getElementById('utilityBillFileInputInline').click()">
+            <input type="file" id="utilityBillFileInputInline" accept="application/pdf,.pdf,image/jpeg,image/png,image/heic" style="display:none">
+            <i class="bi bi-file-earmark-arrow-up text-secondary" style="font-size:1.4rem;"></i>
+            <div class="small text-muted mt-1">${t('dropPdfHere')}</div>
+            <div id="utilityDropStatus" class="small mt-1"></div>
+          </div>
+        </div>`;
+    }
+
     container.innerHTML = `
-      <div class="text-center text-muted py-5">
+      <div class="row justify-content-center">
+        ${utilityHtml}
+      </div>
+      <div class="text-center text-muted py-3">
         <i class="bi bi-file-earmark-plus fs-1 d-block mb-3"></i>
         <h5>${t('noBillGenerated', { month: mn, year })}</h5>
         <p>${t('clickToGenerate')}</p>
@@ -311,6 +374,8 @@ class BillManagementComponent {
         </button>
       </div>
     `;
+
+    this.bindUtilityDropZone();
   }
 
   showEmptyState(message) {
@@ -471,7 +536,7 @@ class BillManagementComponent {
                       <span>Max covered</span>
                       <span>$${this.propertySubsidy.toFixed(2)}</span>
                     </div>` : ''}
-                    ${ub.billImageUrl ? `<a href="${ub.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 w-100 py-0" style="font-size:0.75rem;"><i class="bi bi-image me-1"></i>${t('viewBill')}</a>` : ''}
+                    ${ub.billImageUrl ? (() => { const isPdf = ub.billImageUrl.includes('raw-proxy') || ub.billImageUrl.toLowerCase().includes('.pdf'); return `<a href="${ub.billImageUrl}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2 w-100 py-0" style="font-size:0.75rem;"><i class="bi bi-${isPdf ? 'file-earmark-pdf' : 'image'} me-1"></i>${t('viewBill')}</a>`; })() : ''}
                   </div>`;
               })() : ''}
               <div id="utilityBillDropZoneInline"
@@ -575,7 +640,12 @@ class BillManagementComponent {
       setStatus(`<i class="bi bi-check-circle-fill text-success me-1"></i>Saved`);
       // Refresh utility bill and re-render
       await this.loadUtilityBillForMonth();
-      this.renderBillTable();
+      if (dropZone) dropZone.style.pointerEvents = '';
+      if (this.currentBill) {
+        this.renderBillTable();
+      } else {
+        this.showGenerateBillPrompt();
+      }
     } catch (err) {
       console.error('[BillManagement] utility drop upload error:', err);
       setStatus(`<i class="bi bi-exclamation-triangle text-danger me-1"></i>${err.message}`);

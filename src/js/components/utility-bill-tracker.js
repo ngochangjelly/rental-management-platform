@@ -120,6 +120,14 @@ class UtilityBillTrackerComponent {
       await new Promise(r => setTimeout(r, 950));
       this._qdzSetState('idle');
 
+      // Store file in the hidden input so _saveBill includes it when submitted
+      const imageInputQdz = document.getElementById('utilityBillImageInput');
+      if (imageInputQdz) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        imageInputQdz.files = dt.files;
+      }
+
       // Open form with prefilled data
       this._showAddForm(true);
       document.getElementById('utilityOcrSection')?.removeAttribute('hidden');
@@ -1051,6 +1059,14 @@ class UtilityBillTrackerComponent {
   }
 
   _processBillFile(file) {
+    // Sync the file to the hidden input so _saveBill can read it via files[0]
+    const imageInput = document.getElementById('utilityBillImageInput');
+    if (imageInput) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      imageInput.files = dt.files;
+    }
+
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const dropZone = document.getElementById('utilityBillDropZone');
     const preview = document.getElementById('utilityBillImagePreview');

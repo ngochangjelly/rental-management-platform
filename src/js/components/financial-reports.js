@@ -2115,8 +2115,8 @@ class FinancialReportsComponent {
       }
 
       const itemTitle = details
-        ? `Utility Bill — ${details}`
-        : `Utility Bill — ${monthName} ${year}`;
+        ? `⚡ Utility Bill — ${details}`
+        : `⚡ Utility Bill — ${monthName} ${year}`;
       const prefilled = {
         item: itemTitle,
         amount,
