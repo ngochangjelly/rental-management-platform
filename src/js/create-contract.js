@@ -755,7 +755,7 @@ class PublicContractCreator {
       paymentMethod: document.getElementById("ccPaymentMethod")?.value || "BANK_TRANSFER",
       electricityBudget: document.getElementById("ccElecBudget")?.value || "400",
       electricityFree: document.getElementById("ccElecFree")?.checked || false,
-      cleaningFee: document.getElementById("ccCleaningFee")?.value || "20",
+      cleaningFee: document.getElementById("ccCleaningFee")?.value || "",
       fullPaymentReceived: document.getElementById("ccFullPayment")?.checked || false,
       partialDepositReceived: document.getElementById("ccPartialDeposit")?.checked || false,
       partialDepositAmount: document.getElementById("ccPartialAmount")?.value || "",

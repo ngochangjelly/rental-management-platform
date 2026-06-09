@@ -247,8 +247,10 @@ export function buildSection2Clauses(contractData) {
   const cleaningLetter = cd.fullPaymentReceived ? "e" : "f";
   clauses.push(
     `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-    `${cleaningLetter}) Cleaning fee: SGD$${cd.forfeitAcCleanFee ? "0" : cd.cleaningFee || "20"} / 1pax`,
   );
+  if (cd.forfeitAcCleanFee || cd.cleaningFee) {
+    clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.forfeitAcCleanFee ? "0" : cd.cleaningFee} / 1pax`);
+  }
 
   return clauses;
 }

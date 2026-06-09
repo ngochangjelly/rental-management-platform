@@ -3361,13 +3361,13 @@ class ContractManagementComponent {
                           this.contractData.fullPaymentReceived ? "d" : "e"
                         })</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                         
-                        <p><strong>${
+                        ${(this.contractData.forfeitAcCleanFee || this.contractData.cleaningFee) ? `<p><strong>${
                           this.contractData.fullPaymentReceived ? "e" : "f"
                         })</strong> Cleaning fee: SGD$${
                           this.contractData.forfeitAcCleanFee
                             ? "0"
-                            : this.contractData.cleaningFee || "20"
-                        } / 1pax</p>
+                            : this.contractData.cleaningFee
+                        } / 1pax</p>` : ""}
                     </div>
                 </div>
 
@@ -4233,8 +4233,10 @@ class ContractManagementComponent {
       const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
       section2Clauses.push(
         `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee || "20"} / 1pax`,
       );
+      if (this.contractData.forfeitAcCleanFee || this.contractData.cleaningFee) {
+        section2Clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee} / 1pax`);
+      }
       section2Clauses.forEach((clause) =>
         children.push(para(clause, { indent: true, spacing: 5 })),
       );
@@ -5047,12 +5049,10 @@ class ContractManagementComponent {
 
       section2Clauses.push(
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningClauseLetter}) Cleaning fee: SGD$${
-          this.contractData.forfeitAcCleanFee
-            ? "0"
-            : this.contractData.cleaningFee || "20"
-        } / 1pax`,
       );
+      if (this.contractData.forfeitAcCleanFee || this.contractData.cleaningFee) {
+        section2Clauses.push(`${cleaningClauseLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee} / 1pax`);
+      }
 
       section2Clauses.forEach((clause) => {
         addText(clause, { indent: true, spacing: 5 });
@@ -5588,9 +5588,7 @@ class ContractManagementComponent {
                             
                             <p style="margin-bottom: 15px;"><strong>e)</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                             
-                            <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${
-                              this.contractData.cleaningFee || "20"
-                            } / 1pax</p>
+                            ${(this.contractData.forfeitAcCleanFee || this.contractData.cleaningFee) ? `<p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : this.contractData.cleaningFee} / 1pax</p>` : ""}
                         </div>
                     </div>
 
