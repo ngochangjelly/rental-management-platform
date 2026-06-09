@@ -433,6 +433,7 @@ class PublicContractCreator {
     this._setupAutoSave();
     this._setupPartialDepositToggle();
     this._setupAdditionalOptionsChevron();
+    this._setupPreviewChevron();
 
     // Try to restore last draft automatically
     const draft = loadDraft();
@@ -527,20 +528,20 @@ class PublicContractCreator {
     row.className = "tenant-b-row";
     row.dataset.idx = idx;
     row.innerHTML = `
-      <div class="tenant-b-number">Tenant B${idx + 1}</div>
+      <div class="tenant-b-number">Bên B${idx + 1}</div>
       ${idx > 0 ? `<button class="btn btn-sm btn-outline-danger remove-tenant-btn" data-idx="${idx}"><i class="bi bi-x"></i></button>` : ""}
       <div class="mb-2">
-        <label class="form-label">Full Name <span class="text-danger">*</span></label>
-        <input type="text" class="form-control tb-name" placeholder="Full legal name" value="${data.name || ""}" />
+        <label class="form-label">Họ và Tên <span class="text-danger">*</span></label>
+        <input type="text" class="form-control tb-name" placeholder="Họ và tên đầy đủ" value="${data.name || ""}" />
       </div>
       <div class="row g-2">
         <div class="col-6">
-          <label class="form-label">FIN Number</label>
-          <input type="text" class="form-control tb-fin" placeholder="e.g. G1234567X" value="${data.fin || ""}" />
+          <label class="form-label">Số FIN</label>
+          <input type="text" class="form-control tb-fin" placeholder="Ví dụ: G1234567X" value="${data.fin || ""}" />
         </div>
         <div class="col-6">
-          <label class="form-label">Passport Number</label>
-          <input type="text" class="form-control tb-passport" placeholder="Passport no." value="${data.passport || ""}" />
+          <label class="form-label">Số Hộ Chiếu</label>
+          <input type="text" class="form-control tb-passport" placeholder="Số hộ chiếu" value="${data.passport || ""}" />
         </div>
       </div>
     `;
@@ -582,20 +583,20 @@ class PublicContractCreator {
     const doSearch = async () => {
       const pc = input.value.trim().replace(/\D/g, "");
       if (pc.length !== 6) {
-        showToast("Please enter a valid 6-digit postcode.", "warning");
+        showToast("Vui lòng nhập mã bưu chính 6 chữ số hợp lệ.", "warning");
         return;
       }
       searchBtn.disabled = true;
-      searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Searching...';
+      searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang tìm...';
       try {
         const results = await lookupPostcode(pc);
         this._showAddressResults(results, pc);
       } catch (e) {
-        showToast("Address lookup failed. Please enter address manually.", "error");
+        showToast("Không tra được địa chỉ. Vui lòng nhập thủ công.", "error");
         console.error("OneMap lookup error:", e);
       } finally {
         searchBtn.disabled = false;
-        searchBtn.innerHTML = '<i class="bi bi-search me-1"></i>Search';
+        searchBtn.innerHTML = '<i class="bi bi-search me-1"></i>Tìm';
       }
     };
 
@@ -611,7 +612,7 @@ class PublicContractCreator {
 
     if (!results.length) {
       container.style.display = "";
-      container.innerHTML = `<div class="text-muted" style="font-size:0.83rem;">No addresses found for postcode ${postcode}. Enter address manually.</div>`;
+      container.innerHTML = `<div class="text-muted" style="font-size:0.83rem;">Không tìm thấy địa chỉ cho mã ${postcode}. Vui lòng nhập thủ công.</div>`;
       return;
     }
 
@@ -666,26 +667,33 @@ class PublicContractCreator {
 
   // ── Auto-save on any input change ────────────────────────────────────────────
   _setupAutoSave() {
-    document.querySelector(".container-fluid").addEventListener("input", () => {
-      saveDraft(this._collectState());
-    });
-    document.querySelector(".container-fluid").addEventListener("change", () => {
-      saveDraft(this._collectState());
-    });
+    let previewTimer = null;
+    const onAnyChange = () => {
+      const state = this._collectState();
+      saveDraft(state);
+      // Re-render preview only when it's open (avoid unnecessary work)
+      const previewEl = document.getElementById("contractPreviewCollapse");
+      if (previewEl?.classList.contains("show")) {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => this._renderPreview(), 250);
+      }
+    };
+    document.querySelector(".container-fluid").addEventListener("input", onAnyChange);
+    document.querySelector(".container-fluid").addEventListener("change", onAnyChange);
   }
 
   // ── Action buttons ────────────────────────────────────────────────────────────
   _setupActions() {
     document.getElementById("saveDraftBtn").addEventListener("click", () => {
-      if (saveDraft(this._collectState())) showToast("Draft saved!", "success");
-      else showToast("Could not save (storage full?)", "error");
+      if (saveDraft(this._collectState())) showToast("Đã lưu bản nháp!", "success");
+      else showToast("Không thể lưu (bộ nhớ đầy?)", "error");
     });
 
     document.getElementById("loadDraftBtn").addEventListener("click", () => {
       const draft = loadDraft();
-      if (!draft) { showToast("No saved draft found.", "warning"); return; }
+      if (!draft) { showToast("Không tìm thấy bản nháp.", "warning"); return; }
       this._restoreState(draft);
-      showToast("Draft loaded!", "success");
+      showToast("Đã tải bản nháp!", "success");
     });
 
     document.getElementById("exportPdfBtn").addEventListener("click", () => this._exportPDF("download"));
@@ -792,12 +800,152 @@ class PublicContractCreator {
     }
   }
 
+  // ── Preview chevron ──────────────────────────────────────────────────────────
+  _setupPreviewChevron() {
+    const el = document.getElementById("contractPreviewCollapse");
+    if (!el) return;
+    el.addEventListener("show.bs.collapse", () => {
+      document.getElementById("previewChevron")?.classList.replace("bi-chevron-down", "bi-chevron-up");
+      this._renderPreview();
+    });
+    el.addEventListener("hide.bs.collapse", () => {
+      document.getElementById("previewChevron")?.classList.replace("bi-chevron-up", "bi-chevron-down");
+    });
+  }
+
+  // ── Contract preview ─────────────────────────────────────────────────────────
+  _renderPreview() {
+    const el = document.getElementById("contractPreviewContent");
+    if (!el) return;
+    el.innerHTML = this._buildPreviewHTML(this._collectState());
+  }
+
+  _buildPreviewHTML(state) {
+    const unit = state.unit || "";
+    let cleanAddr = state.address || "[Property Address]";
+    if (unit && cleanAddr.endsWith(`, ${unit}`)) cleanAddr = cleanAddr.slice(0, -`, ${unit}`.length).trim();
+    const propertyAddr = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
+
+    const tA = {
+      name: state.tenantA?.name || "[Tenant A Name]",
+      fin: state.tenantA?.fin || "",
+      passport: state.tenantA?.passport || "",
+      email: state.tenantA?.email || "",
+    };
+    const tBList = (state.tenantsB || []).length > 0
+      ? state.tenantsB.map((t) => ({ name: t.name || "[Tenant B Name]", fin: t.fin || "", passport: t.passport || "" }))
+      : [{ name: "[Tenant B Name]", fin: "", passport: "" }];
+
+    const p = (txt, style = "") => `<p style="margin:4px 0;${style}">${txt}</p>`;
+    const indent = (txt) => p(txt, "margin-left:20px;");
+    const bold = (txt) => `<strong>${txt}</strong>`;
+    const small = (txt) => `<small style="margin-left:20px;">${txt}</small>`;
+
+    // ── Section 1 clauses ──────────────────────────────────────────────────────
+    const section1Parts = [];
+    if (!state.fullPaymentReceived) {
+      const depText = formatMonthsText(state.depositMonths || 1);
+      const advText = formatMonthsText(state.advanceMonths || 1);
+      const agDate = state.agreementDate ? formatDate(state.agreementDate) : "[Agreement Date]";
+      const miDate = state.moveInDate ? formatDate(state.moveInDate) : "[Move-in Date]";
+      section1Parts.push(
+        `a) To pay the equivalent of ${depText}'s rent as a deposit on the agreement date (${agDate}) and ${advText}'s rent as an advance on the move-in date (${miDate}). The deposit is to be held by TenantA as security for the due performance and observance by TenantB of all covenants, conditions, and stipulations on the part of Tenant B herein contained, failing which TenantB shall forfeit to TenantA the said deposit or such part thereof as may be necessary to remedy such default.`,
+        `b) In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal.`,
+      );
+    }
+    const baseClauseTexts = getSection1BaseClauseTexts(state);
+    let clauseOffset = 0;
+    baseClauseTexts.forEach((text, idx) => {
+      const isAircon = text.includes("air-conditioner servicing");
+      if (isAircon && !hasAircon(state.room)) { clauseOffset = 1; return; }
+      const li = state.fullPaymentReceived ? idx - clauseOffset : idx + 2 - clauseOffset;
+      section1Parts.push(`${String.fromCharCode(97 + li)}) ${text}`);
+    });
+
+    const section2Clauses = buildSection2Clauses(state);
+
+    return `
+      <div style="text-align:center;margin-bottom:24px;">
+        <h3 style="font-weight:700;margin-bottom:8px;">HOUSE SHARING AGREEMENT</h3>
+        ${p(`<strong>Full address:</strong> ${propertyAddr}`)}
+        ${p(`<strong>Room:</strong> ${formatRoomType(state.room)}`)}
+        ${p(`<strong>THIS AGREEMENT is made on:</strong> ${state.agreementDate || new Date().toISOString().split("T")[0]}`)}
+      </div>
+
+      <div style="margin-bottom:16px;">
+        ${p(bold("BETWEEN"))}
+        ${indent(`${bold("Main tenant:")} ${tA.name}${tA.passport ? `<br>${bold("Passport:")} ${tA.passport}` : ""}${tA.fin ? `<br>${bold("FIN:")} ${tA.fin}` : ""}${tA.email ? `<br>${bold("Email:")} ${tA.email}` : ""}`)}
+        ${indent(`<em>(Hereinafter called "TenantA" which expresses together where the context so admits, shall include all persons having title under 'TenantA') of the one part.</em>`)}
+      </div>
+
+      <div style="margin-bottom:16px;">
+        ${p(bold("AND"))}
+        ${tBList.map((tb, i) => indent(
+          `${tBList.length > 1 ? `${bold(`Tenant ${i + 1}:`)}<br>` : ""}${bold("Name:")} ${tb.name}${tb.passport ? `<br>${bold("Passport:")} ${tb.passport}` : ""}${tb.fin ? `<br>${bold("FIN:")} ${tb.fin}` : ""}`,
+        )).join("")}
+        ${indent(`<em>(Hereinafter called "Tenant B", which expresses together with where the context so admits, shall include all persons having title under 'Tenant B') of the one part.</em>`)}
+      </div>
+
+      ${p(`${bold("Payment method:")} ${formatPaymentMethod(state.paymentMethod)}`)}
+
+      <div style="margin:20px 0;">
+        ${p(bold("NOW IT IS HEREBY AGREED AS FOLLOWS:"))}
+        ${p(`${bold("Lease Period:")} ${formatLeasePeriod(state)}`)}
+        ${p(`${bold("Tenancy Period:")} ${formatTenancyPeriod(state)}`)}
+        ${p(`${bold("Moving Time:")} Move in after 15:00, Move out before 11:00`)}
+
+        ${p(`${bold("Monthly Rental:")} $${state.monthlyRental || "[Monthly Rental]"}<br>
+          ${small(`*Room rental rate is strictly confidential<br>
+          *Renewal contract is subject to mutual agreement by Tenant A and Tenant B${
+            state.fullPaymentReceived
+              ? `<br><strong>*Tenant A hereby confirms receipt of full rental payment for the entire tenancy period (S$${calculateTotalRental(state).toFixed(2)})</strong>`
+              : '<br>*Payable by the 1st Day of each calendar month to "Tenant A"'
+          }`)}`)}
+
+        ${p(`${bold("Security Deposit:")} $${state.securityDeposit || state.monthlyRental || "[Security Deposit]"}${state.partialDepositReceived && state.partialDepositAmount ? ` <em>(Partial deposit received: $${state.partialDepositAmount})</em>` : ""}<br>
+          ${small("*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement")}`)}
+
+        ${p("<small>Monthly rentals include Wi-Fi, utilities, gas, usage of condominium facilities such as swimming pool, barbequepit and multi-purpose hall.</small>")}
+      </div>
+
+      <div style="margin:16px 0;">
+        ${p(bold("1. TENANT B(S) HEREBY AGREE(S) WITH TENANT A AS FOLLOWS:"))}
+        <div style="margin-left:20px;">
+          ${section1Parts.map((c) => p(c, "margin-bottom:6px;")).join("")}
+        </div>
+      </div>
+
+      <div style="margin:16px 0;">
+        ${p(bold("2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:"))}
+        <div style="margin-left:20px;">
+          ${section2Clauses.map((c) => p(c, "margin-bottom:6px;")).join("")}
+        </div>
+      </div>
+
+      <div style="margin-top:32px;border-top:1px solid #dee2e6;padding-top:16px;">
+        ${p("By signing below, both parties agree to abide by all the above terms and conditions", "text-align:center;font-weight:600;")}
+        <div style="display:flex;gap:40px;margin-top:20px;">
+          <div>
+            ${state.signatureA ? `<img src="${state.signatureA}" style="max-height:60px;border:1px solid #dee2e6;border-radius:4px;padding:4px;background:#fff;" />` : `<div style="width:150px;height:50px;border-bottom:1px solid #333;"></div>`}
+            <div style="margin-top:4px;font-size:0.8rem;">${bold("Tenant A")}</div>
+            <div style="font-size:0.8rem;">${tA.name}</div>
+          </div>
+          <div>
+            <div style="width:150px;height:50px;border-bottom:1px solid #333;"></div>
+            <div style="margin-top:4px;font-size:0.8rem;">${bold("Tenant B")}</div>
+            ${tBList.map((tb) => `<div style="font-size:0.8rem;">${tb.name}</div>`).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // ── Export / Share ─────────────────────────────────────────────────────────────
   async _exportPDF(mode = "download") {
     const state = this._collectState();
 
     if (!state.tenantA.name) {
-      showToast("Please enter Tenant A name before exporting.", "warning");
+      showToast("Vui lòng nhập tên Bên A trước khi xuất.", "warning");
       return;
     }
 
@@ -809,7 +957,7 @@ class PublicContractCreator {
 
     const origHTML = btn?.innerHTML;
     if (btn) {
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Please wait...';
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Vui lòng đợi...';
       btn.disabled = true;
     }
 
@@ -830,22 +978,22 @@ class PublicContractCreator {
         const file = new File([blob], filename, { type: "application/pdf" });
         if (navigator.canShare?.({ files: [file] })) {
           await navigator.share({ files: [file], title: filename });
-          showToast("Contract shared!", "success");
+          showToast("Đã chia sẻ hợp đồng!", "success");
         } else if (mode === "whatsapp") {
           pdf.save(filename);
           window.open("https://web.whatsapp.com", "_blank");
-          showToast("PDF downloaded! Upload it in the WhatsApp Web tab.", "info", 7000);
+          showToast("Đã tải PDF! Hãy đính kèm trong tab WhatsApp Web.", "info", 7000);
         } else {
           pdf.save(filename);
-          showToast("Sharing not supported on this device — PDF downloaded instead.", "warning");
+          showToast("Thiết bị không hỗ trợ chia sẻ — đã tải PDF thay thế.", "warning");
         }
       } else {
         pdf.save(filename);
-        showToast("PDF exported successfully!", "success");
+        showToast("Xuất PDF thành công!", "success");
       }
     } catch (e) {
       console.error("PDF export error:", e);
-      showToast("Export failed: " + e.message, "error");
+      showToast("Xuất thất bại: " + e.message, "error");
     } finally {
       if (btn) {
         btn.innerHTML = origHTML;

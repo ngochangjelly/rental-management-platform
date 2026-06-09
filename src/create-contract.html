@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create Contract – Rental Hub</title>
+    <title>Tạo Hợp Đồng – Rental Hub</title>
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23667eea' d='M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z'/></svg>"
@@ -233,13 +233,13 @@
         <i class="bi bi-house-fill"></i>
         <span>Rental Hub</span>
       </a>
-      <span class="draft-badge">PUBLIC</span>
+      <span class="draft-badge">CÔNG KHAI</span>
       <div class="d-flex gap-2 ms-auto">
-        <button class="btn btn-sm btn-outline-secondary" id="loadDraftBtn" title="Load saved draft">
-          <i class="bi bi-folder2-open me-1"></i>Load
+        <button class="btn btn-sm btn-outline-secondary" id="loadDraftBtn" title="Tải bản nháp đã lưu">
+          <i class="bi bi-folder2-open me-1"></i>Tải
         </button>
-        <button class="btn btn-sm btn-outline-primary" id="saveDraftBtn" title="Save to browser">
-          <i class="bi bi-floppy me-1"></i>Save
+        <button class="btn btn-sm btn-outline-primary" id="saveDraftBtn" title="Lưu vào trình duyệt">
+          <i class="bi bi-floppy me-1"></i>Lưu
         </button>
       </div>
     </div>
@@ -248,48 +248,48 @@
       <!-- Notice -->
       <div class="alert alert-info py-2 px-3 mb-3" style="font-size:0.83rem; border-radius:10px;">
         <i class="bi bi-incognito me-1"></i>
-        <strong>No login required.</strong> Your draft is saved locally in this browser only.
+        <strong>Không cần đăng nhập.</strong> Bản nháp được lưu trên trình duyệt này.
       </div>
 
-      <!-- 1. Property Address -->
+      <!-- 1. Địa Chỉ Nhà -->
       <div class="section-card">
         <div class="section-header">
-          <i class="bi bi-geo-alt-fill"></i> 1. Property Address
+          <i class="bi bi-geo-alt-fill"></i> 1. Địa Chỉ Nhà
         </div>
         <div class="section-body">
-          <label class="form-label">Singapore Postcode</label>
+          <label class="form-label">Mã Bưu Chính Singapore</label>
           <div class="input-group mb-2">
             <input
               type="text"
               id="ccPostcode"
               class="form-control"
-              placeholder="e.g. 520123"
+              placeholder="Ví dụ: 520123"
               maxlength="6"
               inputmode="numeric"
             />
             <button class="btn btn-primary" id="ccSearchBtn">
-              <i class="bi bi-search me-1"></i>Search
+              <i class="bi bi-search me-1"></i>Tìm
             </button>
           </div>
           <div id="ccAddressResults" style="display:none;" class="mb-3"></div>
           <div class="mb-2">
-            <label class="form-label">Full Address</label>
+            <label class="form-label">Địa Chỉ Đầy Đủ</label>
             <input
               type="text"
               id="ccAddress"
               class="form-control"
-              placeholder="Address will appear after postcode search"
+              placeholder="Địa chỉ sẽ xuất hiện sau khi tìm mã bưu chính"
             />
           </div>
           <div class="row g-2">
             <div class="col-6">
-              <label class="form-label">Unit Number</label>
-              <input type="text" id="ccUnit" class="form-control" placeholder="e.g. #05-12" />
+              <label class="form-label">Số Phòng / Unit</label>
+              <input type="text" id="ccUnit" class="form-control" placeholder="Ví dụ: #05-12" />
             </div>
             <div class="col-6">
-              <label class="form-label">Room Type</label>
+              <label class="form-label">Loại Phòng</label>
               <select id="ccRoom" class="form-select">
-                <option value="">Select...</option>
+                <option value="">Chọn...</option>
                 <option value="MASTER">Master</option>
                 <option value="MASTER_BEDROOM">Master Bedroom</option>
                 <option value="COMMON_ROOM">Common Room</option>
@@ -322,43 +322,43 @@
         </div>
       </div>
 
-      <!-- 2. Contract Terms -->
+      <!-- 2. Điều Khoản Hợp Đồng -->
       <div class="section-card">
         <div class="section-header">
-          <i class="bi bi-file-text-fill"></i> 2. Contract Terms
+          <i class="bi bi-file-text-fill"></i> 2. Điều Khoản Hợp Đồng
         </div>
         <div class="section-body">
           <div class="row g-2 mb-2">
             <div class="col-sm-4">
-              <label class="form-label">Agreement Date</label>
+              <label class="form-label">Ngày Ký Hợp Đồng</label>
               <input type="date" id="ccAgreementDate" class="form-control" />
             </div>
             <div class="col-sm-4">
-              <label class="form-label">Move-in Date</label>
+              <label class="form-label">Ngày Vào Ở</label>
               <input type="date" id="ccMoveIn" class="form-control" />
             </div>
             <div class="col-sm-4">
-              <label class="form-label">Move-out Date</label>
+              <label class="form-label">Ngày Rời Đi</label>
               <input type="date" id="ccMoveOut" class="form-control" />
             </div>
           </div>
           <div class="mb-2">
-            <label class="form-label">Lease Period <small class="text-muted fw-normal">(auto-calculated or enter manually)</small></label>
-            <input type="text" id="ccLeasePeriod" class="form-control" placeholder="e.g. 12 months" />
+            <label class="form-label">Thời Hạn Thuê <small class="text-muted fw-normal">(tự tính hoặc nhập thủ công)</small></label>
+            <input type="text" id="ccLeasePeriod" class="form-control" placeholder="Ví dụ: 12 tháng" />
           </div>
           <div class="row g-2 mb-2">
             <div class="col-6">
-              <label class="form-label">Monthly Rental (SGD)</label>
-              <input type="number" id="ccRental" class="form-control" placeholder="e.g. 1500" min="0" />
+              <label class="form-label">Tiền Thuê Hàng Tháng (SGD)</label>
+              <input type="number" id="ccRental" class="form-control" placeholder="Ví dụ: 1500" min="0" />
             </div>
             <div class="col-6">
-              <label class="form-label">Security Deposit (SGD)</label>
-              <input type="number" id="ccDeposit" class="form-control" placeholder="Same as rental" min="0" />
+              <label class="form-label">Tiền Cọc (SGD)</label>
+              <input type="number" id="ccDeposit" class="form-control" placeholder="Bằng tiền thuê" min="0" />
             </div>
           </div>
           <div class="row g-2 mb-2">
             <div class="col-6">
-              <label class="form-label">Deposit Months</label>
+              <label class="form-label">Số Tháng Cọc</label>
               <select id="ccDepositMonths" class="form-select">
                 <option value="0.5">0.5</option>
                 <option value="1" selected>1</option>
@@ -369,7 +369,7 @@
               </select>
             </div>
             <div class="col-6">
-              <label class="form-label">Advance Months</label>
+              <label class="form-label">Số Tháng Trả Trước</label>
               <select id="ccAdvanceMonths" class="form-select">
                 <option value="0.5">0.5</option>
                 <option value="1" selected>1</option>
@@ -380,20 +380,20 @@
           </div>
           <div class="row g-2 mb-2">
             <div class="col-6">
-              <label class="form-label">Payment Method</label>
+              <label class="form-label">Phương Thức Thanh Toán</label>
               <select id="ccPaymentMethod" class="form-select">
-                <option value="BANK_TRANSFER">Bank Transfer</option>
-                <option value="CASH">Cash</option>
-                <option value="CHECK">Check</option>
+                <option value="BANK_TRANSFER">Chuyển Khoản</option>
+                <option value="CASH">Tiền Mặt</option>
+                <option value="CHECK">Séc</option>
               </select>
             </div>
             <div class="col-6">
-              <label class="form-label">Electricity Budget (SGD)</label>
+              <label class="form-label">Ngân Sách Điện (SGD)</label>
               <input type="number" id="ccElecBudget" class="form-control" value="400" min="0" />
             </div>
           </div>
           <div class="mb-2">
-            <label class="form-label">Cleaning Fee (SGD/pax)</label>
+            <label class="form-label">Phí Dọn Phòng (SGD/người)</label>
             <input type="number" id="ccCleaningFee" class="form-control" value="20" min="0" />
           </div>
           <!-- Optional flags -->
@@ -401,46 +401,46 @@
             <div class="col-6">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="ccElecFree" />
-                <label class="form-check-label" for="ccElecFree" style="font-size:0.82rem;">Free electricity</label>
+                <label class="form-check-label" for="ccElecFree" style="font-size:0.82rem;">Điện miễn phí</label>
               </div>
             </div>
             <div class="col-6">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="ccFullPayment" />
-                <label class="form-check-label" for="ccFullPayment" style="font-size:0.82rem;">Full payment received</label>
+                <label class="form-check-label" for="ccFullPayment" style="font-size:0.82rem;">Đã nhận đủ tiền thuê</label>
               </div>
             </div>
             <div class="col-6">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="ccPartialDeposit" />
-                <label class="form-check-label" for="ccPartialDeposit" style="font-size:0.82rem;">Partial deposit</label>
+                <label class="form-check-label" for="ccPartialDeposit" style="font-size:0.82rem;">Đặt cọc một phần</label>
               </div>
             </div>
             <div class="col-6" id="ccPartialAmountWrap" style="display:none;">
-              <input type="number" id="ccPartialAmount" class="form-control form-control-sm" placeholder="Partial amt (SGD)" />
+              <input type="number" id="ccPartialAmount" class="form-control form-control-sm" placeholder="Số tiền đặt cọc (SGD)" />
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 3. Tenant A -->
+      <!-- 3. Người Thuê Chính (Bên A) -->
       <div class="section-card">
         <div class="section-header">
-          <i class="bi bi-person-fill"></i> 3. Main Tenant (Tenant A)
+          <i class="bi bi-person-fill"></i> 3. Người Thuê Chính (Bên A)
         </div>
         <div class="section-body">
           <div class="mb-2">
-            <label class="form-label">Full Name <span class="text-danger">*</span></label>
-            <input type="text" id="ccTenantAName" class="form-control" placeholder="Full legal name" />
+            <label class="form-label">Họ và Tên <span class="text-danger">*</span></label>
+            <input type="text" id="ccTenantAName" class="form-control" placeholder="Họ và tên đầy đủ" />
           </div>
           <div class="row g-2 mb-2">
             <div class="col-6">
-              <label class="form-label">FIN Number</label>
-              <input type="text" id="ccTenantAFin" class="form-control" placeholder="e.g. G1234567X" />
+              <label class="form-label">Số FIN</label>
+              <input type="text" id="ccTenantAFin" class="form-control" placeholder="Ví dụ: G1234567X" />
             </div>
             <div class="col-6">
-              <label class="form-label">Passport Number</label>
-              <input type="text" id="ccTenantAPassport" class="form-control" placeholder="Passport no." />
+              <label class="form-label">Số Hộ Chiếu</label>
+              <input type="text" id="ccTenantAPassport" class="form-control" placeholder="Số hộ chiếu" />
             </div>
           </div>
           <div class="mb-3">
@@ -448,53 +448,53 @@
             <input type="email" id="ccTenantAEmail" class="form-control" placeholder="email@example.com" />
           </div>
 
-          <!-- Signature -->
-          <label class="form-label fw-bold">Signature (Tenant A)</label>
+          <!-- Chữ Ký -->
+          <label class="form-label fw-bold">Chữ Ký (Bên A)</label>
           <ul class="nav nav-tabs mb-2" id="sigTabs">
             <li class="nav-item">
-              <a class="nav-link active" href="#" data-tab="draw">Draw</a>
+              <a class="nav-link active" href="#" data-tab="draw">Vẽ</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#" data-tab="upload">Upload</a>
+              <a class="nav-link" href="#" data-tab="upload">Tải Lên</a>
             </li>
           </ul>
           <div id="sigTabDraw">
             <canvas id="signaturePadCanvas"></canvas>
             <div class="d-flex gap-2 mt-2">
               <button class="btn btn-sm btn-outline-secondary" id="clearSigBtn">
-                <i class="bi bi-eraser me-1"></i>Clear
+                <i class="bi bi-eraser me-1"></i>Xóa
               </button>
-              <span id="sigDrawHint" class="text-muted" style="font-size:0.78rem; align-self:center;">Sign above</span>
+              <span id="sigDrawHint" class="text-muted" style="font-size:0.78rem; align-self:center;">Ký tên phía trên</span>
             </div>
           </div>
           <div id="sigTabUpload" style="display:none;">
             <input type="file" id="ccSigUpload" class="form-control" accept="image/*" />
-            <small class="text-muted">PNG, JPG, or GIF. Transparent background recommended.</small>
+            <small class="text-muted">PNG, JPG hoặc GIF. Nên dùng nền trong suốt.</small>
           </div>
           <div id="sigPreviewWrap" class="mt-2" style="display:none;">
-            <small class="text-muted d-block mb-1">Preview:</small>
-            <img id="sigPreviewImg" class="sig-preview-img" alt="Signature preview" />
+            <small class="text-muted d-block mb-1">Xem trước:</small>
+            <img id="sigPreviewImg" class="sig-preview-img" alt="Xem trước chữ ký" />
           </div>
         </div>
       </div>
 
-      <!-- 4. Tenant B(s) -->
+      <!-- 4. Người Thuê (Bên B) -->
       <div class="section-card">
         <div class="section-header">
-          <i class="bi bi-people-fill"></i> 4. Tenant B(s)
+          <i class="bi bi-people-fill"></i> 4. Người Thuê (Bên B)
         </div>
         <div class="section-body">
           <div id="tenantBList"></div>
           <button class="btn btn-sm btn-outline-primary mt-1" id="addTenantBBtn">
-            <i class="bi bi-plus-circle me-1"></i>Add Tenant B
+            <i class="bi bi-plus-circle me-1"></i>Thêm Bên B
           </button>
         </div>
       </div>
 
-      <!-- 5. Additional Clauses -->
+      <!-- 5. Tùy Chọn Thêm -->
       <div class="section-card">
         <div class="section-header collapsible-toggle" data-bs-toggle="collapse" data-bs-target="#additionalOptions">
-          <i class="bi bi-sliders me-1"></i> 5. Additional Options
+          <i class="bi bi-sliders me-1"></i> 5. Tùy Chọn Thêm
           <i class="bi bi-chevron-down ms-auto" id="additionalChevron"></i>
         </div>
         <div class="collapse" id="additionalOptions">
@@ -503,28 +503,44 @@
               <div class="col-6">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="ccPestControl" />
-                  <label class="form-check-label" for="ccPestControl" style="font-size:0.82rem;">Pest control clause</label>
+                  <label class="form-check-label" for="ccPestControl" style="font-size:0.82rem;">Điều khoản diệt côn trùng</label>
                 </div>
               </div>
               <div class="col-6">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="ccAirconFree" />
-                  <label class="form-check-label" for="ccAirconFree" style="font-size:0.82rem;">Aircon free of charge</label>
+                  <label class="form-check-label" for="ccAirconFree" style="font-size:0.82rem;">Điều hòa miễn phí</label>
                 </div>
               </div>
               <div class="col-6">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="ccForfeitAc" />
-                  <label class="form-check-label" for="ccForfeitAc" style="font-size:0.82rem;">Forfeit AC clean fee</label>
+                  <label class="form-check-label" for="ccForfeitAc" style="font-size:0.82rem;">Mất phí vệ sinh điều hòa</label>
                 </div>
               </div>
               <div class="col-6">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="ccCleaningCompulsory" />
-                  <label class="form-check-label" for="ccCleaningCompulsory" style="font-size:0.82rem;">Cleaning compulsory</label>
+                  <label class="form-check-label" for="ccCleaningCompulsory" style="font-size:0.82rem;">Dọn phòng bắt buộc</label>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Xem Trước Hợp Đồng -->
+      <div class="section-card">
+        <div class="section-header collapsible-toggle" data-bs-toggle="collapse" data-bs-target="#contractPreviewCollapse">
+          <i class="bi bi-eye-fill me-1"></i> Xem Trước Hợp Đồng
+          <i class="bi bi-chevron-down ms-auto" id="previewChevron"></i>
+        </div>
+        <div class="collapse" id="contractPreviewCollapse">
+          <div class="section-body p-0">
+            <div
+              id="contractPreviewContent"
+              style="font-family:'Noto Serif',serif; line-height:1.6; padding:20px; font-size:0.82rem; max-height:70vh; overflow-y:auto;"
+            ></div>
           </div>
         </div>
       </div>
@@ -535,10 +551,10 @@
     <!-- Fixed action bar -->
     <div class="action-bar">
       <button class="btn-brand" id="exportPdfBtn">
-        <i class="bi bi-file-pdf"></i> Export PDF
+        <i class="bi bi-file-pdf"></i> Xuất PDF
       </button>
       <button class="btn-brand" id="shareBtn" style="background:#6c757d;">
-        <i class="bi bi-share"></i> Share
+        <i class="bi bi-share"></i> Chia Sẻ
       </button>
       <button class="btn-whatsapp" id="whatsappBtn">
         <i class="bi bi-whatsapp"></i> WhatsApp
