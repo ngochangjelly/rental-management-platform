@@ -36,6 +36,7 @@ module.exports = {
     dashboard: "./src/js/dashboard.js",
     login: "./src/js/login.js",
     "investor-management": "./src/js/investor-management.js",
+    "create-contract": "./src/js/create-contract.js",
   },
   output: {
     path: path.resolve(__dirname, "dist"),
@@ -123,6 +124,13 @@ module.exports = {
       chunks: ["investor-management"],
       inject: "body",
     }),
+    // Public contract creation page (no auth required)
+    new HtmlWebpackPlugin({
+      template: "./src/create-contract.html",
+      filename: "create-contract.html",
+      chunks: ["create-contract"],
+      inject: "body",
+    }),
     // Copy static assets
     new CopyWebpackPlugin({
       patterns: [
@@ -167,6 +175,7 @@ module.exports = {
         { from: /^\/login/, to: "/login.html" },
         { from: /^\/investor-management/, to: "/investor-management.html" },
         { from: /^\/bill-upload/, to: "/bill-upload.html" },
+        { from: /^\/create-contract/, to: "/create-contract.html" },
       ],
     },
     proxy: [

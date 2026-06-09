@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Contract – Rental Hub</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23667eea' d='M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z'/></svg>"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --brand: #667eea;
+        --brand-dark: #5568d8;
+      }
+      body {
+        font-family: "Noto Serif", serif;
+        background: #f4f5f7;
+        padding-bottom: 80px;
+      }
+      .topbar {
+        background: #fff;
+        border-bottom: 1px solid #e2e4e8;
+        padding: 10px 16px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .topbar-brand {
+        font-weight: 700;
+        color: var(--brand);
+        font-size: 1rem;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 1;
+      }
+      .section-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        margin-bottom: 16px;
+        overflow: hidden;
+      }
+      .section-header {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+        color: #fff;
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-body {
+        padding: 16px;
+      }
+      .form-label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 4px;
+      }
+      .form-control,
+      .form-select {
+        font-size: 0.88rem;
+        border-radius: 8px;
+      }
+      .address-result-item {
+        padding: 8px 12px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.83rem;
+        transition: background 0.15s;
+        margin-bottom: 6px;
+      }
+      .address-result-item:hover,
+      .address-result-item.selected {
+        background: #e8f0fe;
+        border-color: var(--brand);
+      }
+      #signaturePadCanvas {
+        border: 2px dashed #ced4da;
+        border-radius: 8px;
+        cursor: crosshair;
+        touch-action: none;
+        width: 100%;
+        max-width: 400px;
+        height: 140px;
+        display: block;
+        background: #fafafa;
+      }
+      .sig-preview-img {
+        max-height: 80px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 4px;
+        background: #fff;
+      }
+      .tenant-b-row {
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 10px;
+        position: relative;
+        background: #fafbfc;
+      }
+      .tenant-b-row .remove-tenant-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+      }
+      .tenant-b-number {
+        font-weight: 700;
+        color: var(--brand);
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+      }
+      .action-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-top: 1px solid #e2e4e8;
+        padding: 10px 16px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        z-index: 100;
+        justify-content: center;
+      }
+      .btn-brand {
+        background: var(--brand);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-brand:hover {
+        background: var(--brand-dark);
+        color: #fff;
+      }
+      .btn-whatsapp {
+        background: #25d366;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-whatsapp:hover {
+        background: #1ebe59;
+        color: #fff;
+      }
+      .toast-container-custom {
+        position: fixed;
+        bottom: 80px;
+        right: 16px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        pointer-events: none;
+        max-width: 320px;
+      }
+      .toast-item {
+        background: #333;
+        color: #fff;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 0.83rem;
+        animation: toastIn 0.25s ease;
+        pointer-events: auto;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+      .toast-item.success { background: #198754; }
+      .toast-item.error { background: #dc3545; }
+      .toast-item.warning { background: #fd7e14; }
+      @keyframes toastIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .nav-tabs .nav-link {
+        font-size: 0.83rem;
+        padding: 6px 14px;
+      }
+      .collapsible-toggle {
+        cursor: pointer;
+        user-select: none;
+      }
+      .draft-badge {
+        background: #e8f0fe;
+        color: var(--brand);
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 99px;
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top Bar -->
+    <div class="topbar">
+      <a href="/dashboard.html" class="topbar-brand">
+        <i class="bi bi-house-fill"></i>
+        <span>Rental Hub</span>
+      </a>
+      <span class="draft-badge">PUBLIC</span>
+      <div class="d-flex gap-2 ms-auto">
+        <button class="btn btn-sm btn-outline-secondary" id="loadDraftBtn" title="Load saved draft">
+          <i class="bi bi-folder2-open me-1"></i>Load
+        </button>
+        <button class="btn btn-sm btn-outline-primary" id="saveDraftBtn" title="Save to browser">
+          <i class="bi bi-floppy me-1"></i>Save
+        </button>
+      </div>
+    </div>
+
+    <div class="container-fluid" style="max-width: 640px; padding: 16px 12px;">
+      <!-- Notice -->
+      <div class="alert alert-info py-2 px-3 mb-3" style="font-size:0.83rem; border-radius:10px;">
+        <i class="bi bi-incognito me-1"></i>
+        <strong>No login required.</strong> Your draft is saved locally in this browser only.
+      </div>
+
+      <!-- 1. Property Address -->
+      <div class="section-card">
+        <div class="section-header">
+          <i class="bi bi-geo-alt-fill"></i> 1. Property Address
+        </div>
+        <div class="section-body">
+          <label class="form-label">Singapore Postcode</label>
+          <div class="input-group mb-2">
+            <input
+              type="text"
+              id="ccPostcode"
+              class="form-control"
+              placeholder="e.g. 520123"
+              maxlength="6"
+              inputmode="numeric"
+            />
+            <button class="btn btn-primary" id="ccSearchBtn">
+              <i class="bi bi-search me-1"></i>Search
+            </button>
+          </div>
+          <div id="ccAddressResults" style="display:none;" class="mb-3"></div>
+          <div class="mb-2">
+            <label class="form-label">Full Address</label>
+            <input
+              type="text"
+              id="ccAddress"
+              class="form-control"
+              placeholder="Address will appear after postcode search"
+            />
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Unit Number</label>
+              <input type="text" id="ccUnit" class="form-control" placeholder="e.g. #05-12" />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Room Type</label>
+              <select id="ccRoom" class="form-select">
+                <option value="">Select...</option>
+                <option value="MASTER">Master</option>
+                <option value="MASTER_BEDROOM">Master Bedroom</option>
+                <option value="COMMON_ROOM">Common Room</option>
+                <option value="COMMON1">Common 1</option>
+                <option value="COMMON2">Common 2</option>
+                <option value="COMMON_1_PAX">Common 1 Pax</option>
+                <option value="COMMON_2_PAX">Common 2 Pax</option>
+                <option value="COMMON_3_PAX">Common 3 Pax</option>
+                <option value="SMALL_SINGLE_1_PAX">Small Single 1 Pax</option>
+                <option value="SMALL_SINGLE_2_PAX">Small Single 2 Pax</option>
+                <option value="BIG_SINGLE_1_PAX">Big Single 1 Pax</option>
+                <option value="BIG_SINGLE_2_PAX">Big Single 2 Pax</option>
+                <option value="MEDIUM_SINGLE_1_PAX">Medium Single (1 Pax)</option>
+                <option value="LARGE_SINGLE_1_PAX">Large Single (1 Pax)</option>
+                <option value="SMALL_SHARED_2_PAX">Small Shared (2 Pax)</option>
+                <option value="MEDIUM_SHARED_2_PAX">Medium Shared (2 Pax)</option>
+                <option value="LARGE_SHARED_2_PAX">Large Shared (2 Pax)</option>
+                <option value="SINGLE_1_PAX_NO_AIRCON">Single 1 Pax (No Aircon)</option>
+                <option value="SINGLE_2_PAX_NO_AIRCON">Single 2 Pax (No Aircon)</option>
+                <option value="COMPARTMENT1">Compartment 1</option>
+                <option value="COMPARTMENT2">Compartment 2</option>
+                <option value="STORE">Store</option>
+                <option value="STUDIO">Studio</option>
+                <option value="ONE_BEDROOM">1 Bedroom</option>
+                <option value="TWO_BEDROOM">2 Bedroom</option>
+                <option value="THREE_BEDROOM">3 Bedroom</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Contract Terms -->
+      <div class="section-card">
+        <div class="section-header">
+          <i class="bi bi-file-text-fill"></i> 2. Contract Terms
+        </div>
+        <div class="section-body">
+          <div class="row g-2 mb-2">
+            <div class="col-sm-4">
+              <label class="form-label">Agreement Date</label>
+              <input type="date" id="ccAgreementDate" class="form-control" />
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Move-in Date</label>
+              <input type="date" id="ccMoveIn" class="form-control" />
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Move-out Date</label>
+              <input type="date" id="ccMoveOut" class="form-control" />
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Lease Period <small class="text-muted fw-normal">(auto-calculated or enter manually)</small></label>
+            <input type="text" id="ccLeasePeriod" class="form-control" placeholder="e.g. 12 months" />
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Monthly Rental (SGD)</label>
+              <input type="number" id="ccRental" class="form-control" placeholder="e.g. 1500" min="0" />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Security Deposit (SGD)</label>
+              <input type="number" id="ccDeposit" class="form-control" placeholder="Same as rental" min="0" />
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Deposit Months</label>
+              <select id="ccDepositMonths" class="form-select">
+                <option value="0.5">0.5</option>
+                <option value="1" selected>1</option>
+                <option value="1.5">1.5</option>
+                <option value="2">2</option>
+                <option value="2.5">2.5</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Advance Months</label>
+              <select id="ccAdvanceMonths" class="form-select">
+                <option value="0.5">0.5</option>
+                <option value="1" selected>1</option>
+                <option value="1.5">1.5</option>
+                <option value="2">2</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Payment Method</label>
+              <select id="ccPaymentMethod" class="form-select">
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CASH">Cash</option>
+                <option value="CHECK">Check</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Electricity Budget (SGD)</label>
+              <input type="number" id="ccElecBudget" class="form-control" value="400" min="0" />
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Cleaning Fee (SGD/pax)</label>
+            <input type="number" id="ccCleaningFee" class="form-control" value="20" min="0" />
+          </div>
+          <!-- Optional flags -->
+          <div class="row g-2 mt-1">
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ccElecFree" />
+                <label class="form-check-label" for="ccElecFree" style="font-size:0.82rem;">Free electricity</label>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ccFullPayment" />
+                <label class="form-check-label" for="ccFullPayment" style="font-size:0.82rem;">Full payment received</label>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ccPartialDeposit" />
+                <label class="form-check-label" for="ccPartialDeposit" style="font-size:0.82rem;">Partial deposit</label>
+              </div>
+            </div>
+            <div class="col-6" id="ccPartialAmountWrap" style="display:none;">
+              <input type="number" id="ccPartialAmount" class="form-control form-control-sm" placeholder="Partial amt (SGD)" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Tenant A -->
+      <div class="section-card">
+        <div class="section-header">
+          <i class="bi bi-person-fill"></i> 3. Main Tenant (Tenant A)
+        </div>
+        <div class="section-body">
+          <div class="mb-2">
+            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+            <input type="text" id="ccTenantAName" class="form-control" placeholder="Full legal name" />
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">FIN Number</label>
+              <input type="text" id="ccTenantAFin" class="form-control" placeholder="e.g. G1234567X" />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Passport Number</label>
+              <input type="text" id="ccTenantAPassport" class="form-control" placeholder="Passport no." />
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" id="ccTenantAEmail" class="form-control" placeholder="email@example.com" />
+          </div>
+
+          <!-- Signature -->
+          <label class="form-label fw-bold">Signature (Tenant A)</label>
+          <ul class="nav nav-tabs mb-2" id="sigTabs">
+            <li class="nav-item">
+              <a class="nav-link active" href="#" data-tab="draw">Draw</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-tab="upload">Upload</a>
+            </li>
+          </ul>
+          <div id="sigTabDraw">
+            <canvas id="signaturePadCanvas"></canvas>
+            <div class="d-flex gap-2 mt-2">
+              <button class="btn btn-sm btn-outline-secondary" id="clearSigBtn">
+                <i class="bi bi-eraser me-1"></i>Clear
+              </button>
+              <span id="sigDrawHint" class="text-muted" style="font-size:0.78rem; align-self:center;">Sign above</span>
+            </div>
+          </div>
+          <div id="sigTabUpload" style="display:none;">
+            <input type="file" id="ccSigUpload" class="form-control" accept="image/*" />
+            <small class="text-muted">PNG, JPG, or GIF. Transparent background recommended.</small>
+          </div>
+          <div id="sigPreviewWrap" class="mt-2" style="display:none;">
+            <small class="text-muted d-block mb-1">Preview:</small>
+            <img id="sigPreviewImg" class="sig-preview-img" alt="Signature preview" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Tenant B(s) -->
+      <div class="section-card">
+        <div class="section-header">
+          <i class="bi bi-people-fill"></i> 4. Tenant B(s)
+        </div>
+        <div class="section-body">
+          <div id="tenantBList"></div>
+          <button class="btn btn-sm btn-outline-primary mt-1" id="addTenantBBtn">
+            <i class="bi bi-plus-circle me-1"></i>Add Tenant B
+          </button>
+        </div>
+      </div>
+
+      <!-- 5. Additional Clauses -->
+      <div class="section-card">
+        <div class="section-header collapsible-toggle" data-bs-toggle="collapse" data-bs-target="#additionalOptions">
+          <i class="bi bi-sliders me-1"></i> 5. Additional Options
+          <i class="bi bi-chevron-down ms-auto" id="additionalChevron"></i>
+        </div>
+        <div class="collapse" id="additionalOptions">
+          <div class="section-body">
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ccPestControl" />
+                  <label class="form-check-label" for="ccPestControl" style="font-size:0.82rem;">Pest control clause</label>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ccAirconFree" />
+                  <label class="form-check-label" for="ccAirconFree" style="font-size:0.82rem;">Aircon free of charge</label>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ccForfeitAc" />
+                  <label class="form-check-label" for="ccForfeitAc" style="font-size:0.82rem;">Forfeit AC clean fee</label>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ccCleaningCompulsory" />
+                  <label class="form-check-label" for="ccCleaningCompulsory" style="font-size:0.82rem;">Cleaning compulsory</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 16px;"></div>
+    </div>
+
+    <!-- Fixed action bar -->
+    <div class="action-bar">
+      <button class="btn-brand" id="exportPdfBtn">
+        <i class="bi bi-file-pdf"></i> Export PDF
+      </button>
+      <button class="btn-brand" id="shareBtn" style="background:#6c757d;">
+        <i class="bi bi-share"></i> Share
+      </button>
+      <button class="btn-whatsapp" id="whatsappBtn">
+        <i class="bi bi-whatsapp"></i> WhatsApp
+      </button>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container-custom" id="toastContainer"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

@@ -88,6 +88,18 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/create-contract"
+  to = "/create-contract.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/create-contract/"
+  to = "/create-contract.html"
+  status = 200
+  force = true
+
 # Proxy API requests to Vercel backend
 [[redirects]]
   from = "/api/*"
