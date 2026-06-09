@@ -448,6 +448,39 @@
             <input type="email" id="ccTenantAEmail" class="form-control" placeholder="email@example.com" />
           </div>
 
+          <!-- Tài Khoản Thanh Toán (tuỳ chọn) -->
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="ccShowSettlement" />
+            <label class="form-check-label fw-semibold" for="ccShowSettlement" style="font-size:0.82rem;">
+              Thêm tài khoản thanh toán (SGD / VND)
+            </label>
+          </div>
+          <div id="ccSettlementWrap" style="display:none;">
+            <div class="p-2 mb-3" style="border:1px solid #dee2e6; border-radius:8px; background:#fafbfc;">
+              <div class="fw-semibold mb-2" style="font-size:0.8rem; color:#555;">SGD</div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <input type="text" id="ccSgdBank" class="form-control form-control-sm" placeholder="Tên ngân hàng" />
+                </div>
+                <div class="col-6">
+                  <input type="text" id="ccSgdHolder" class="form-control form-control-sm" placeholder="Tên chủ tài khoản" />
+                </div>
+              </div>
+              <input type="text" id="ccSgdAccNo" class="form-control form-control-sm" placeholder="Số tài khoản" />
+
+              <div class="fw-semibold mt-3 mb-2" style="font-size:0.8rem; color:#555;">VND</div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <input type="text" id="ccVndBank" class="form-control form-control-sm" placeholder="Tên ngân hàng" />
+                </div>
+                <div class="col-6">
+                  <input type="text" id="ccVndHolder" class="form-control form-control-sm" placeholder="Tên chủ tài khoản" />
+                </div>
+              </div>
+              <input type="text" id="ccVndAccNo" class="form-control form-control-sm" placeholder="Số tài khoản" />
+            </div>
+          </div>
+
           <!-- Chữ Ký -->
           <label class="form-label fw-bold">Chữ Ký (Bên A)</label>
           <ul class="nav nav-tabs mb-2" id="sigTabs">
@@ -455,7 +488,7 @@
               <a class="nav-link active" href="#" data-tab="draw">Vẽ</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#" data-tab="upload">Tải Lên</a>
+              <a class="nav-link" href="#" data-tab="upload">Tải Lên / Chụp</a>
             </li>
           </ul>
           <div id="sigTabDraw">
@@ -468,8 +501,18 @@
             </div>
           </div>
           <div id="sigTabUpload" style="display:none;">
-            <input type="file" id="ccSigUpload" class="form-control" accept="image/*" />
-            <small class="text-muted">PNG, JPG hoặc GIF. Nên dùng nền trong suốt.</small>
+            <!-- hidden inputs: one for gallery, one for camera -->
+            <input type="file" id="ccSigUpload" accept="image/*" style="display:none;" />
+            <input type="file" id="ccSigCamera" accept="image/*" capture="environment" style="display:none;" />
+            <div class="d-flex gap-2 flex-wrap mt-1">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="ccSigUploadBtn">
+                <i class="bi bi-image me-1"></i>Chọn ảnh
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="ccSigCameraBtn">
+                <i class="bi bi-camera me-1"></i>Chụp ảnh
+              </button>
+            </div>
+            <small class="text-muted d-block mt-1">PNG, JPG hoặc GIF. Nên dùng nền trong suốt.</small>
           </div>
           <div id="sigPreviewWrap" class="mt-2" style="display:none;">
             <small class="text-muted d-block mb-1">Xem trước:</small>

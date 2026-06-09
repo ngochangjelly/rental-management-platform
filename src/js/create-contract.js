@@ -276,6 +276,23 @@ async function generatePDF(state) {
   if (tenantAInfo.passport) addText(`Passport: ${tenantAInfo.passport}`, { indent: true });
   if (tenantAInfo.fin) addText(`FIN: ${tenantAInfo.fin}`, { indent: true });
   if (tenantAInfo.email) addText(`Email: ${tenantAInfo.email}`, { indent: true });
+  if (state.showSettlementAccounts) {
+    const sgd = state.settlementSgd || {};
+    const vnd = state.settlementVnd || {};
+    const hasSgd = sgd.bankName || sgd.accountNumber || sgd.accountHolderName;
+    const hasVnd = vnd.bankName || vnd.accountNumber || vnd.accountHolderName;
+    if (hasSgd || hasVnd) {
+      addText("Settlement Accounts:", { indent: true, bold: true });
+      if (hasSgd) {
+        const parts = [sgd.bankName && `Bank: ${sgd.bankName}`, sgd.accountHolderName && `Name: ${sgd.accountHolderName}`, sgd.accountNumber && `Account No: ${sgd.accountNumber}`].filter(Boolean);
+        addText(`SGD — ${parts.join(", ")}`, { indent: true, fontSize: 9 });
+      }
+      if (hasVnd) {
+        const parts = [vnd.bankName && `Bank: ${vnd.bankName}`, vnd.accountHolderName && `Name: ${vnd.accountHolderName}`, vnd.accountNumber && `Account No: ${vnd.accountNumber}`].filter(Boolean);
+        addText(`VND — ${parts.join(", ")}`, { indent: true, fontSize: 9 });
+      }
+    }
+  }
   addText(
     "(Hereinafter called \"TenantA\" which expresses together where the context so admits, shall include all persons having title under 'TenantA') of the one part.",
     { indent: true, spacing: 10 },
@@ -432,6 +449,7 @@ class PublicContractCreator {
     this._setupActions();
     this._setupAutoSave();
     this._setupPartialDepositToggle();
+    this._setupSettlementToggle();
     this._setupAdditionalOptionsChevron();
 
     // Try to restore last draft automatically
@@ -475,16 +493,31 @@ class PublicContractCreator {
       this._updateSigPreview(null);
     });
 
-    // File upload
-    document.getElementById("ccSigUpload").addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        this.signatureDataURL = ev.target.result;
-        this._updateSigPreview(this.signatureDataURL);
-      };
-      reader.readAsDataURL(file);
+    // Helper: read file input into dataURL
+    const readSigFile = (input) => {
+      input.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          this.signatureDataURL = ev.target.result;
+          this._updateSigPreview(this.signatureDataURL);
+          this._renderPreview();
+        };
+        reader.readAsDataURL(file);
+        // Reset so same file can be re-selected
+        input.value = "";
+      });
+    };
+    readSigFile(document.getElementById("ccSigUpload"));
+    readSigFile(document.getElementById("ccSigCamera"));
+
+    // Button triggers for gallery and camera
+    document.getElementById("ccSigUploadBtn").addEventListener("click", () => {
+      document.getElementById("ccSigUpload").click();
+    });
+    document.getElementById("ccSigCameraBtn").addEventListener("click", () => {
+      document.getElementById("ccSigCamera").click();
     });
 
     // Capture drawn signature on mouse/touch up (update after each stroke)
@@ -654,6 +687,13 @@ class PublicContractCreator {
     });
   }
 
+  // ── Settlement accounts toggle ───────────────────────────────────────────────
+  _setupSettlementToggle() {
+    document.getElementById("ccShowSettlement").addEventListener("change", (e) => {
+      document.getElementById("ccSettlementWrap").style.display = e.target.checked ? "" : "none";
+    });
+  }
+
   // ── Accordion chevron ────────────────────────────────────────────────────────
   _setupAdditionalOptionsChevron() {
     const el = document.getElementById("additionalOptions");
@@ -731,6 +771,18 @@ class PublicContractCreator {
         passport: document.getElementById("ccTenantAPassport")?.value || "",
         email: document.getElementById("ccTenantAEmail")?.value || "",
       },
+      // Settlement accounts
+      showSettlementAccounts: document.getElementById("ccShowSettlement")?.checked || false,
+      settlementSgd: {
+        bankName: document.getElementById("ccSgdBank")?.value || "",
+        accountHolderName: document.getElementById("ccSgdHolder")?.value || "",
+        accountNumber: document.getElementById("ccSgdAccNo")?.value || "",
+      },
+      settlementVnd: {
+        bankName: document.getElementById("ccVndBank")?.value || "",
+        accountHolderName: document.getElementById("ccVndHolder")?.value || "",
+        accountNumber: document.getElementById("ccVndAccNo")?.value || "",
+      },
       signatureA: this.signatureDataURL || null,
       tenantsB: this.tenantsB.map((t) => ({ ...t })),
     };
@@ -776,6 +828,17 @@ class PublicContractCreator {
     if (s.partialDepositReceived) {
       document.getElementById("ccPartialAmountWrap").style.display = "";
     }
+
+    set("ccShowSettlement", s.showSettlementAccounts);
+    if (s.showSettlementAccounts) {
+      document.getElementById("ccSettlementWrap").style.display = "";
+    }
+    set("ccSgdBank", s.settlementSgd?.bankName);
+    set("ccSgdHolder", s.settlementSgd?.accountHolderName);
+    set("ccSgdAccNo", s.settlementSgd?.accountNumber);
+    set("ccVndBank", s.settlementVnd?.bankName);
+    set("ccVndHolder", s.settlementVnd?.accountHolderName);
+    set("ccVndAccNo", s.settlementVnd?.accountNumber);
 
     if (s.signatureA) {
       this.signatureDataURL = s.signatureA;
@@ -855,7 +918,24 @@ class PublicContractCreator {
 
       <div style="margin-bottom:16px;">
         ${p(bold("BETWEEN"))}
-        ${indent(`${bold("Main tenant:")} ${tA.name}${tA.passport ? `<br>${bold("Passport:")} ${tA.passport}` : ""}${tA.fin ? `<br>${bold("FIN:")} ${tA.fin}` : ""}${tA.email ? `<br>${bold("Email:")} ${tA.email}` : ""}`)}
+        ${indent(`${bold("Main tenant:")} ${tA.name}${tA.passport ? `<br>${bold("Passport:")} ${tA.passport}` : ""}${tA.fin ? `<br>${bold("FIN:")} ${tA.fin}` : ""}${tA.email ? `<br>${bold("Email:")} ${tA.email}` : ""}${(() => {
+          if (!state.showSettlementAccounts) return "";
+          const sgd = state.settlementSgd || {};
+          const vnd = state.settlementVnd || {};
+          const hasSgd = sgd.bankName || sgd.accountNumber || sgd.accountHolderName;
+          const hasVnd = vnd.bankName || vnd.accountNumber || vnd.accountHolderName;
+          if (!hasSgd && !hasVnd) return "";
+          let s = `<br><strong>Settlement Accounts:</strong>`;
+          if (hasSgd) {
+            const parts = [sgd.bankName && `Bank: ${sgd.bankName}`, sgd.accountHolderName && `Name: ${sgd.accountHolderName}`, sgd.accountNumber && `Account No: ${sgd.accountNumber}`].filter(Boolean);
+            s += `<br><em>SGD</em> — ${parts.join(", ")}`;
+          }
+          if (hasVnd) {
+            const parts = [vnd.bankName && `Bank: ${vnd.bankName}`, vnd.accountHolderName && `Name: ${vnd.accountHolderName}`, vnd.accountNumber && `Account No: ${vnd.accountNumber}`].filter(Boolean);
+            s += `<br><em>VND</em> — ${parts.join(", ")}`;
+          }
+          return s;
+        })()}`)}
         ${indent(`<em>(Hereinafter called "TenantA" which expresses together where the context so admits, shall include all persons having title under 'TenantA') of the one part.</em>`)}
       </div>
 
