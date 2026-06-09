@@ -147,6 +147,8 @@ async function lookupPostcode(postcode) {
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
 
 const LS_KEY = "publicContractDraft";
+const LS_DRAFTS_KEY = "publicContractDrafts";
+const MAX_SAVED_DRAFTS = 15;
 
 function saveDraft(state) {
   try {
@@ -164,6 +166,121 @@ function loadDraft() {
   } catch {
     return null;
   }
+}
+
+function buildDraftName(state) {
+  const tA = state.tenantA?.name?.trim();
+  const bNames = (state.tenantsB || []).map((t) => t.name?.trim()).filter(Boolean);
+  const unit = state.unit?.trim();
+  const postcode = state.postcode?.trim();
+
+  const tenants = [tA, ...bNames].filter(Boolean).join(" & ");
+  const location = [unit && `#${unit.replace(/^#/, "")}`, postcode].filter(Boolean).join(" · ");
+  if (tenants && location) return `${tenants} · ${location}`;
+  if (tenants) return tenants;
+  if (location) return location;
+  return "Bản nháp";
+}
+
+// Safe clause letter: a–z, then aa, ab… handles any index
+function clauseLetter(n) {
+  let s = "";
+  n++;
+  while (n > 0) {
+    s = String.fromCharCode(96 + (n % 26 || 26)) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+// Identity key: postcode + unit + tenantA name + all tenantB names
+function buildDraftKey(state) {
+  const bNames = (state.tenantsB || []).map((t) => t.name?.trim()).filter(Boolean).join(",");
+  return [
+    state.postcode?.trim() || "",
+    state.unit?.trim() || "",
+    state.tenantA?.name?.trim() || "",
+    bNames,
+  ].join("|");
+}
+
+// All four identity fields must be filled to qualify for saving
+function isDraftSaveable(state) {
+  const hasPostcode = Boolean(state.postcode?.trim());
+  const hasUnit = Boolean(state.unit?.trim());
+  const hasTenantA = Boolean(state.tenantA?.name?.trim());
+  const hasTenantB = (state.tenantsB || []).some((t) => t.name?.trim());
+  return hasPostcode && hasUnit && hasTenantA && hasTenantB;
+}
+
+function isDraftKeyEmpty(key) {
+  return !key.replace(/\|/g, "").trim();
+}
+
+// Upsert by session ID — same editing session always updates the same entry
+function upsertNamedDraft(state, sessionId) {
+  // Only save tenant B rows that have a name — ignore empty rows
+  const saveState = {
+    ...state,
+    tenantsB: (state.tenantsB || []).filter((t) => t.name?.trim()),
+  };
+  if (!isDraftSaveable(saveState)) return false;
+  const key = buildDraftKey(saveState);
+  try {
+    const drafts = loadNamedDrafts();
+    // Match by session ID first (stable across key changes), then fall back to key
+    let idx = sessionId ? drafts.findIndex((d) => d.sessionId === sessionId) : -1;
+    if (idx < 0) idx = drafts.findIndex((d) => d.key === key);
+    const entry = {
+      id: idx >= 0 ? drafts[idx].id : Date.now().toString(36),
+      sessionId: sessionId || (idx >= 0 ? drafts[idx].sessionId : Date.now().toString(36)),
+      key,
+      name: buildDraftName(saveState),
+      savedAt: new Date().toISOString(),
+      state: saveState,
+    };
+    if (idx >= 0) {
+      drafts[idx] = entry; // update in-place, keep list position
+    } else {
+      drafts.unshift(entry);
+      if (drafts.length > MAX_SAVED_DRAFTS) drafts.splice(MAX_SAVED_DRAFTS);
+    }
+    localStorage.setItem(LS_DRAFTS_KEY, JSON.stringify(drafts));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadNamedDrafts() {
+  try {
+    const raw = localStorage.getItem(LS_DRAFTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function deleteNamedDraft(id) {
+  try {
+    const drafts = loadNamedDrafts().filter((d) => d.id !== id);
+    localStorage.setItem(LS_DRAFTS_KEY, JSON.stringify(drafts));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function relativeTime(isoStr) {
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "vừa xong";
+  if (mins < 60) return `${mins} phút trước`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} giờ trước`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days} ngày trước`;
+  return new Date(isoStr).toLocaleDateString("vi-VN");
 }
 
 // ─── PDF filename builder ─────────────────────────────────────────────────────
@@ -381,13 +498,13 @@ async function generatePDF(state) {
     );
   }
 
-  const baseClauseTexts = getSection1BaseClauseTexts(state);
+  const baseClauseTexts = getSection1BaseClauseTexts({ ...state, pestControlClause: true });
   let clauseOffset = 0;
   baseClauseTexts.forEach((text, idx) => {
     const isAircon = text.includes("air-conditioner servicing");
     if (isAircon && !hasAircon(state.room)) { clauseOffset = 1; return; }
     const li = state.fullPaymentReceived ? idx - clauseOffset : idx + 2 - clauseOffset;
-    section1Clauses.push(`${String.fromCharCode(97 + li)}) ${text}`);
+    section1Clauses.push(`${clauseLetter(li)}) ${text}`);
   });
 
   section1Clauses.forEach((c) => addText(c, { indent: true, spacing: 3 }));
@@ -459,17 +576,16 @@ class PublicContractCreator {
     this.signaturePad = null;
     this.signatureDataURL = null; // final resolved signature (draw or upload)
     this.tenantsB = []; // array of { name, fin, passport }
+    this._sessionId = Date.now().toString(36); // stable ID for current editing session
     this._init();
   }
 
   _init() {
-    this._setDefaultDates();
     this._setupSignature();
     this._setupTenantB();
     this._setupPostcode();
     this._setupActions();
     this._setupAutoSave();
-    this._setupPartialDepositToggle();
     this._setupSettlementToggle();
     this._setupAdditionalOptionsChevron();
     this._setupRipples();
@@ -481,6 +597,8 @@ class PublicContractCreator {
     const draft = loadDraft();
     if (draft) this._restoreState(draft);
 
+    // Set today after restore so empty date always shows today
+    this._setDefaultDates();
     this._renderPreview();
     this._updateProgress();
   }
@@ -516,7 +634,9 @@ class PublicContractCreator {
     document.getElementById("clearSigBtn").addEventListener("click", () => {
       this.signaturePad.clear();
       this.signatureDataURL = null;
-      this._updateSigPreview(null);
+      this._updateSigIndicator(false);
+      const hint = document.getElementById("sigHint");
+      if (hint) hint.classList.remove("hidden");
     });
 
     // Helper: read file input into dataURL
@@ -527,7 +647,8 @@ class PublicContractCreator {
         const reader = new FileReader();
         reader.onload = (ev) => {
           this.signatureDataURL = ev.target.result;
-          this._updateSigPreview(this.signatureDataURL);
+          this._drawDataURLToCanvas(this.signatureDataURL);
+          this._updateSigIndicator(true);
           this._renderPreview();
         };
         reader.readAsDataURL(file);
@@ -562,20 +683,32 @@ class PublicContractCreator {
   _captureDrawnSig() {
     if (!this.signaturePad.isEmpty()) {
       this.signatureDataURL = this.signaturePad.toDataURL();
-      this._updateSigPreview(this.signatureDataURL);
+      this._updateSigIndicator(true);
       this._renderPreview();
     }
   }
 
-  _updateSigPreview(dataURL) {
-    const wrap = document.getElementById("sigPreviewWrap");
-    const img = document.getElementById("sigPreviewImg");
-    if (dataURL) {
-      img.src = dataURL;
-      wrap.style.display = "";
-    } else {
-      wrap.style.display = "none";
-    }
+  _updateSigIndicator(visible) {
+    const el = document.getElementById("sigIndicator");
+    if (el) el.style.display = visible ? "" : "none";
+  }
+
+  // Draw an image dataURL onto the signature canvas (for uploads and draft restore)
+  _drawDataURLToCanvas(dataURL) {
+    if (!dataURL) return;
+    const canvas = document.getElementById("signaturePadCanvas");
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.85;
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+    };
+    img.src = dataURL;
+    const hint = document.getElementById("sigHint");
+    if (hint) hint.classList.add("hidden");
   }
 
   // ── Tenant B ─────────────────────────────────────────────────────────────────
@@ -590,7 +723,7 @@ class PublicContractCreator {
 
   _addTenantBRow(data = {}) {
     const idx = this.tenantsB.length;
-    this.tenantsB.push({ name: "", fin: "", passport: "" });
+    this.tenantsB.push({ name: data.name || "", fin: data.fin || "", passport: data.passport || "" });
 
     const container = document.getElementById("tenantBList");
     const row = document.createElement("div");
@@ -717,13 +850,6 @@ class PublicContractCreator {
     }
   }
 
-  // ── Partial deposit toggle ───────────────────────────────────────────────────
-  _setupPartialDepositToggle() {
-    document.getElementById("ccPartialDeposit").addEventListener("change", (e) => {
-      document.getElementById("ccPartialAmountWrap").style.display = e.target.checked ? "" : "none";
-    });
-  }
-
   // ── Settlement accounts toggle ───────────────────────────────────────────────
   _setupSettlementToggle() {
     document.getElementById("ccShowSettlement").addEventListener("change", (e) => {
@@ -735,22 +861,38 @@ class PublicContractCreator {
   // ── Accordion chevron ────────────────────────────────────────────────────────
   _setupAdditionalOptionsChevron() {
     const el = document.getElementById("additionalOptions");
-    if (!el) return;
-    el.addEventListener("show.bs.collapse", () => {
-      document.getElementById("additionalChevron")?.classList.replace("bi-chevron-down", "bi-chevron-up");
-    });
-    el.addEventListener("hide.bs.collapse", () => {
-      document.getElementById("additionalChevron")?.classList.replace("bi-chevron-up", "bi-chevron-down");
-    });
+    if (el) {
+      el.addEventListener("show.bs.collapse", () => {
+        document.getElementById("additionalChevron")?.classList.replace("bi-chevron-down", "bi-chevron-up");
+      });
+      el.addEventListener("hide.bs.collapse", () => {
+        document.getElementById("additionalChevron")?.classList.replace("bi-chevron-up", "bi-chevron-down");
+      });
+    }
+
+    const preview = document.getElementById("contractPreviewCollapse");
+    if (preview) {
+      preview.addEventListener("show.bs.collapse", () => {
+        document.getElementById("previewChevron")?.classList.add("open");
+      });
+      preview.addEventListener("hide.bs.collapse", () => {
+        document.getElementById("previewChevron")?.classList.remove("open");
+      });
+    }
   }
 
   // ── Auto-save on any input change ────────────────────────────────────────────
   _setupAutoSave() {
+    let upsertTimer = null;
     const onAnyChange = () => {
-      saveDraft(this._collectState());
+      const state = this._collectState();
+      saveDraft(state);
       this._renderPreview();
       this._updateProgress();
       this._updateFieldFill();
+      // Debounced upsert to named drafts by identity key (avoids duplicate entries)
+      clearTimeout(upsertTimer);
+      upsertTimer = setTimeout(() => upsertNamedDraft(state, this._sessionId), 1500);
     };
     document.querySelector(".container-fluid").addEventListener("input", onAnyChange);
     document.querySelector(".container-fluid").addEventListener("change", onAnyChange);
@@ -832,21 +974,99 @@ class PublicContractCreator {
 
   // ── Action buttons ────────────────────────────────────────────────────────────
   _setupActions() {
-    document.getElementById("saveDraftBtn").addEventListener("click", () => {
-      if (saveDraft(this._collectState())) showToast("Đã lưu bản nháp!", "success");
-      else showToast("Không thể lưu (bộ nhớ đầy?)", "error");
-    });
+    document.getElementById("newContractBtn").addEventListener("click", () => this._resetContract());
 
     document.getElementById("loadDraftBtn").addEventListener("click", () => {
-      const draft = loadDraft();
-      if (!draft) { showToast("Không tìm thấy bản nháp.", "warning"); return; }
-      this._restoreState(draft);
-      showToast("Đã tải bản nháp!", "success");
+      this._toggleDraftsPanel();
+    });
+
+    // Close panel when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!document.getElementById("draftsPanelWrap").contains(e.target) &&
+          !document.getElementById("loadDraftBtn").contains(e.target)) {
+        this._closeDraftsPanel();
+      }
     });
 
     document.getElementById("exportPdfBtn").addEventListener("click", () => this._exportPDF("download"));
     document.getElementById("shareBtn").addEventListener("click", () => this._exportPDF("share"));
     document.getElementById("whatsappBtn").addEventListener("click", () => this._exportPDF("whatsapp"));
+  }
+
+  // ── Drafts panel ─────────────────────────────────────────────────────────────
+  _toggleDraftsPanel() {
+    const wrap = document.getElementById("draftsPanelWrap");
+    if (wrap.classList.contains("open")) {
+      this._closeDraftsPanel();
+    } else {
+      this._renderDraftsList();
+      wrap.classList.add("open");
+      document.getElementById("loadDraftBtn").classList.add("panel-open");
+    }
+  }
+
+  _closeDraftsPanel() {
+    document.getElementById("draftsPanelWrap").classList.remove("open");
+    document.getElementById("loadDraftBtn").classList.remove("panel-open");
+  }
+
+  _renderDraftsList() {
+    const list = document.getElementById("draftsList");
+    const empty = document.getElementById("draftsEmpty");
+    const drafts = loadNamedDrafts();
+
+    if (!drafts.length) {
+      list.innerHTML = "";
+      empty.style.display = "";
+      return;
+    }
+
+    // Highlight whichever draft key matches the current editing state
+    const currentState = this._collectState();
+    const activeKey = isDraftSaveable(currentState) ? buildDraftKey(currentState) : null;
+
+    empty.style.display = "none";
+    list.innerHTML = drafts.map((d, i) => {
+      const isActive = activeKey && d.key === activeKey;
+      return `
+        <div class="draft-item${isActive ? " draft-item-current" : ""}" style="animation-delay:${i * 40}ms" data-id="${d.id}">
+          <div class="draft-item-icon">
+            <i class="bi ${isActive ? "bi-pencil-square" : "bi-file-earmark-text"}"></i>
+          </div>
+          <div class="draft-item-body">
+            <div class="draft-item-name">${d.name}${isActive ? ' <span class="draft-auto-badge">đang soạn</span>' : ""}</div>
+            <div class="draft-item-meta">${relativeTime(d.savedAt)}</div>
+          </div>
+          <button class="draft-item-load" data-load="${d.id}">Tải</button>
+          <button class="draft-item-del" title="Xoá" data-del="${d.id}"><i class="bi bi-x"></i></button>
+        </div>
+      `;
+    }).join("");
+
+    list.querySelectorAll("[data-load]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.load;
+        const draft = drafts.find((d) => d.id === id);
+        if (!draft) return;
+        this._restoreState(draft.state, draft.sessionId);
+        this._closeDraftsPanel();
+        showToast(`Đã tải: ${draft.name}`, "success");
+      });
+    });
+
+    list.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.del;
+        deleteNamedDraft(id);
+        const row = btn.closest(".draft-item");
+        row.style.transition = "opacity 0.2s, transform 0.2s";
+        row.style.opacity = "0";
+        row.style.transform = "translateX(20px)";
+        setTimeout(() => this._renderDraftsList(), 220);
+      });
+    });
   }
 
   // ── State collection ──────────────────────────────────────────────────────────
@@ -870,14 +1090,8 @@ class PublicContractCreator {
       electricityBudget: document.getElementById("ccElecBudget")?.value || "400",
       electricityFree: document.getElementById("ccElecFree")?.checked || false,
       cleaningFee: document.getElementById("ccCleaningFee")?.value || "",
-      fullPaymentReceived: document.getElementById("ccFullPayment")?.checked || false,
-      partialDepositReceived: document.getElementById("ccPartialDeposit")?.checked || false,
-      partialDepositAmount: document.getElementById("ccPartialAmount")?.value || "",
       // Options
-      pestControlClause: document.getElementById("ccPestControl")?.checked || false,
       airconFreeOfCharge: document.getElementById("ccAirconFree")?.checked || false,
-      forfeitAcCleanFee: document.getElementById("ccForfeitAc")?.checked || false,
-      cleaningCompulsory: document.getElementById("ccCleaningCompulsory")?.checked || false,
       // Tenant A
       tenantA: {
         name: document.getElementById("ccTenantAName")?.value || "",
@@ -903,14 +1117,33 @@ class PublicContractCreator {
   }
 
   // ── State restoration ─────────────────────────────────────────────────────────
-  _restoreState(s) {
+  _restoreState(s, sessionId) {
+    // Inherit the session ID from the loaded draft so further edits update the same entry
+    this._sessionId = sessionId || s._sessionId || Date.now().toString(36);
+
+    // Always sets value — clears field if val is null/undefined
     const set = (id, val) => {
       const el = document.getElementById(id);
-      if (!el || val == null) return;
+      if (!el) return;
       if (el.type === "checkbox") el.checked = Boolean(val);
-      else el.value = val;
+      else el.value = val ?? "";
     };
 
+    // ── Pre-clear stale UI ──────────────────────────────────────────
+    const addrResults = document.getElementById("ccAddressResults");
+    if (addrResults) { addrResults.style.display = "none"; addrResults.innerHTML = ""; }
+
+    // Clear signature canvas first, then restore below
+    if (this.signaturePad) this.signaturePad.clear();
+    this.signatureDataURL = null;
+    this._updateSigIndicator(false);
+    const sigHint = document.querySelector(".sig-hint");
+    if (sigHint) { sigHint.classList.remove("hidden"); sigHint.style.display = ""; }
+
+    // Hide conditional sections — will re-show below if data present
+    document.getElementById("ccSettlementWrap").style.display = "none";
+
+    // ── Restore fields ──────────────────────────────────────────────
     set("ccPostcode", s.postcode);
     set("ccAddress", s.address);
     set("ccUnit", s.unit);
@@ -921,27 +1154,17 @@ class PublicContractCreator {
     set("ccLeasePeriod", s.leasePeriod);
     set("ccRental", s.monthlyRental);
     set("ccDeposit", s.securityDeposit);
-    set("ccDepositMonths", s.depositMonths);
-    set("ccAdvanceMonths", s.advanceMonths);
-    set("ccPaymentMethod", s.paymentMethod);
-    set("ccElecBudget", s.electricityBudget);
+    set("ccDepositMonths", s.depositMonths ?? 1);
+    set("ccAdvanceMonths", s.advanceMonths ?? 1);
+    set("ccPaymentMethod", s.paymentMethod || "BANK_TRANSFER");
+    set("ccElecBudget", s.electricityBudget ?? "400");
     set("ccElecFree", s.electricityFree);
-    set("ccCleaningFee", s.cleaningFee);
-    set("ccFullPayment", s.fullPaymentReceived);
-    set("ccPartialDeposit", s.partialDepositReceived);
-    set("ccPartialAmount", s.partialDepositAmount);
-    set("ccPestControl", s.pestControlClause);
+    set("ccCleaningFee", s.cleaningFee ?? "20");
     set("ccAirconFree", s.airconFreeOfCharge);
-    set("ccForfeitAc", s.forfeitAcCleanFee);
-    set("ccCleaningCompulsory", s.cleaningCompulsory);
     set("ccTenantAName", s.tenantA?.name);
     set("ccTenantAFin", s.tenantA?.fin);
     set("ccTenantAPassport", s.tenantA?.passport);
     set("ccTenantAEmail", s.tenantA?.email);
-
-    if (s.partialDepositReceived) {
-      document.getElementById("ccPartialAmountWrap").style.display = "";
-    }
 
     set("ccShowSettlement", s.showSettlementAccounts);
     if (s.showSettlementAccounts) {
@@ -954,9 +1177,11 @@ class PublicContractCreator {
     set("ccVndHolder", s.settlementVnd?.accountHolderName);
     set("ccVndAccNo", s.settlementVnd?.accountNumber);
 
+    // Restore signature — draw onto canvas so it's visible in the pad
     if (s.signatureA) {
       this.signatureDataURL = s.signatureA;
-      this._updateSigPreview(s.signatureA);
+      this._drawDataURLToCanvas(s.signatureA);
+      this._updateSigIndicator(true);
     }
 
     // Restore tenant B rows
@@ -973,6 +1198,62 @@ class PublicContractCreator {
     this._syncToggleRowsFromState();
     this._updateFieldFill();
     this._updateProgress();
+    this._renderPreview();
+  }
+
+  // ── Reset / new contract ─────────────────────────────────────────────────────
+  _resetContract() {
+    if (!confirm("Tạo hợp đồng mới?\nTất cả nội dung hiện tại sẽ bị xoá.")) return;
+
+    this._closeDraftsPanel();
+    // Snapshot current work before wiping, then start a fresh session
+    upsertNamedDraft(this._collectState(), this._sessionId);
+    this._sessionId = Date.now().toString(36);
+    localStorage.removeItem("publicContractDraft");
+
+    // Reset all text/select/date fields
+    const clear = (id, val = "") => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+    const uncheck = (id) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    };
+
+    clear("ccPostcode"); clear("ccAddress"); clear("ccUnit");
+    clear("ccRoom"); clear("ccAgreementDate", new Date().toISOString().split("T")[0]); clear("ccMoveIn");
+    clear("ccMoveOut"); clear("ccLeasePeriod"); clear("ccRental");
+    clear("ccDeposit"); clear("ccDepositMonths", "1"); clear("ccAdvanceMonths", "1");
+    clear("ccPaymentMethod", "BANK_TRANSFER");
+    clear("ccElecBudget", "400"); clear("ccCleaningFee", "20");
+    clear("ccTenantAName"); clear("ccTenantAFin"); clear("ccTenantAPassport"); clear("ccTenantAEmail");
+    clear("ccSgdBank"); clear("ccSgdHolder"); clear("ccSgdAccNo");
+    clear("ccVndBank"); clear("ccVndHolder"); clear("ccVndAccNo");
+
+    // Uncheck all toggles and hide conditional sections
+    ["ccElecFree","ccAirconFree","ccShowSettlement"].forEach(uncheck);
+    const settlementWrap = document.getElementById("ccSettlementWrap");
+    if (settlementWrap) settlementWrap.style.display = "none";
+
+    // Clear signature
+    if (this.signaturePad) this.signaturePad.clear();
+    this.signatureDataURL = null;
+    this._updateSigIndicator(false);
+    const hint = document.querySelector(".sig-hint");
+    if (hint) { hint.classList.remove("hidden"); hint.style.display = ""; }
+
+    // Reset tenant B list to one empty row
+    const container = document.getElementById("tenantBList");
+    container.innerHTML = "";
+    this.tenantsB = [];
+    this._addTenantBRow();
+
+    this._syncToggleRowsFromState();
+    this._updateFieldFill();
+    this._updateProgress();
+    this._renderPreview();
+    showToast("Đã tạo hợp đồng mới!", "success");
   }
 
   // ── Contract preview ─────────────────────────────────────────────────────────
@@ -1015,13 +1296,13 @@ class PublicContractCreator {
         `b) In addition, and without prejudice to any other right power or remedy of Tenant A if the rent hereby reserved or any part thereof shall remain unpaid for 7 (SEVEN) days after the same shall have become due then, Tenant A shall forfeit the security deposit and at anytime thereafter, repossess The Room and remove all Tenant B's belongings from The Room without being liable for any loss or damage of such removal.`,
       );
     }
-    const baseClauseTexts = getSection1BaseClauseTexts(state);
+    const baseClauseTexts = getSection1BaseClauseTexts({ ...state, pestControlClause: true });
     let clauseOffset = 0;
     baseClauseTexts.forEach((text, idx) => {
       const isAircon = text.includes("air-conditioner servicing");
       if (isAircon && !hasAircon(state.room)) { clauseOffset = 1; return; }
       const li = state.fullPaymentReceived ? idx - clauseOffset : idx + 2 - clauseOffset;
-      section1Parts.push(`${String.fromCharCode(97 + li)}) ${text}`);
+      section1Parts.push(`${clauseLetter(li)}) ${text}`);
     });
 
     const section2Clauses = buildSection2Clauses(state);
@@ -1120,13 +1401,77 @@ class PublicContractCreator {
   }
 
   // ── Export / Share ─────────────────────────────────────────────────────────────
-  async _exportPDF(mode = "download") {
-    const state = this._collectState();
+  // ── Validation ───────────────────────────────────────────────────────────────
+  _validateForExport() {
+    const REQUIRED = [
+      { id: "ccAddress",       label: "Địa chỉ" },
+      { id: "ccUnit",          label: "Số phòng / Unit" },
+      { id: "ccAgreementDate", label: "Ngày ký" },
+      { id: "ccMoveIn",        label: "Ngày vào ở" },
+      { id: "ccMoveOut",       label: "Ngày kết thúc" },
+      { id: "ccRental",        label: "Tiền thuê" },
+      { id: "ccDeposit",       label: "Tiền cọc" },
+      { id: "ccTenantAName",   label: "Tên Bên A" },
+    ];
 
-    if (!state.tenantA.name) {
-      showToast("Vui lòng nhập tên Bên A trước khi xuất.", "warning");
-      return;
+    // Clear previous errors
+    document.querySelectorAll(".field-error").forEach((el) => el.classList.remove("field-error"));
+    document.querySelectorAll(".field-error-label").forEach((el) => el.classList.remove("field-error-label"));
+    document.querySelectorAll(".field-error-msg").forEach((el) => el.remove());
+
+    const missing = [];
+    let firstEl = null;
+
+    const markError = (el, label) => {
+      el.classList.add("field-error");
+      missing.push(label);
+      if (!firstEl) firstEl = el;
+
+      // Find the nearest label sibling and highlight it
+      const wrap = el.closest(".mb-2, .mb-3, .col-6, .col");
+      if (wrap) {
+        wrap.querySelector("label")?.classList.add("field-error-label");
+        // Inject inline error message below the field
+        const msg = document.createElement("div");
+        msg.className = "field-error-msg";
+        msg.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> Bắt buộc`;
+        el.insertAdjacentElement("afterend", msg);
+      }
+
+      // Auto-clear error on next input
+      const clear = () => {
+        el.classList.remove("field-error");
+        wrap?.querySelector("label")?.classList.remove("field-error-label");
+        wrap?.querySelector(".field-error-msg")?.remove();
+        el.removeEventListener("input", clear);
+        el.removeEventListener("change", clear);
+      };
+      el.addEventListener("input", clear);
+      el.addEventListener("change", clear);
+    };
+
+    REQUIRED.forEach(({ id, label }) => {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) markError(el, label);
+    });
+
+    // Check at least one Tenant B name
+    const firstTbName = document.querySelector("#tenantBList .tb-name");
+    if (firstTbName && !firstTbName.value.trim()) {
+      markError(firstTbName, "Tên Bên B");
     }
+
+    if (missing.length) {
+      showToast(`Thiếu ${missing.length} trường bắt buộc: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`, "error", 4000);
+      firstEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return false;
+    }
+    return true;
+  }
+
+  async _exportPDF(mode = "download") {
+    if (!this._validateForExport()) return;
+    const state = this._collectState();
 
     const btn = {
       download: document.getElementById("exportPdfBtn"),
