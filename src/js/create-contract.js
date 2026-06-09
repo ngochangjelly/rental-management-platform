@@ -97,14 +97,35 @@ class SignaturePad {
 
 // ─── Toast helper ─────────────────────────────────────────────────────────────
 
+const TOAST_ICONS = { success: "bi-check-circle-fill", error: "bi-x-circle-fill", warning: "bi-exclamation-triangle-fill", info: "bi-info-circle-fill" };
+
 function showToast(msg, type = "info", duration = 3000) {
   const container = document.getElementById("toastContainer");
   if (!container) return;
   const el = document.createElement("div");
   el.className = `toast-item ${type}`;
-  el.textContent = msg;
+  el.innerHTML = `<i class="bi ${TOAST_ICONS[type] || TOAST_ICONS.info} t-icon"></i><span>${msg}</span>`;
   container.appendChild(el);
-  setTimeout(() => el.remove(), duration);
+  setTimeout(() => {
+    el.style.transition = "opacity 0.25s, transform 0.25s";
+    el.style.opacity = "0";
+    el.style.transform = "translateX(20px)";
+    setTimeout(() => el.remove(), 260);
+  }, duration);
+}
+
+// ─── Ripple effect ─────────────────────────────────────────────────────────────
+
+function addRipple(btn) {
+  btn.addEventListener("pointerdown", (e) => {
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement("span");
+    const size = Math.max(rect.width, rect.height) * 2;
+    r.className = "ripple";
+    r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - rect.left - size / 2}px;top:${e.clientY - rect.top - size / 2}px;`;
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 520);
+  });
 }
 
 // ─── OneMap address lookup ────────────────────────────────────────────────────
@@ -451,12 +472,17 @@ class PublicContractCreator {
     this._setupPartialDepositToggle();
     this._setupSettlementToggle();
     this._setupAdditionalOptionsChevron();
+    this._setupRipples();
+    this._setupFieldFillTracking();
+    this._setupAutoLeasePeriod();
+    this._syncToggleRowsFromState();
 
     // Try to restore last draft automatically
     const draft = loadDraft();
     if (draft) this._restoreState(draft);
 
     this._renderPreview();
+    this._updateProgress();
   }
 
   // ── Defaults ────────────────────────────────────────────────────────────────
@@ -520,15 +546,24 @@ class PublicContractCreator {
       document.getElementById("ccSigCamera").click();
     });
 
-    // Capture drawn signature on mouse/touch up (update after each stroke)
-    canvas.addEventListener("mouseup", () => this._captureDrawnSig());
-    canvas.addEventListener("touchend", () => this._captureDrawnSig());
+    // Signing state — add glow border, hide hint
+    const hint = document.getElementById("sigHint");
+    const markSigning = () => canvas.classList.add("signing");
+    const onStrokeEnd = () => {
+      this._captureDrawnSig();
+      if (hint && !this.signaturePad.isEmpty()) hint.classList.add("hidden");
+    };
+    canvas.addEventListener("mousedown", markSigning);
+    canvas.addEventListener("touchstart", markSigning, { passive: true });
+    canvas.addEventListener("mouseup", onStrokeEnd);
+    canvas.addEventListener("touchend", onStrokeEnd);
   }
 
   _captureDrawnSig() {
     if (!this.signaturePad.isEmpty()) {
       this.signatureDataURL = this.signaturePad.toDataURL();
       this._updateSigPreview(this.signatureDataURL);
+      this._renderPreview();
     }
   }
 
@@ -583,6 +618,8 @@ class PublicContractCreator {
     // Sync inputs to state
     row.querySelector(".tb-name").addEventListener("input", (e) => {
       this.tenantsB[idx].name = e.target.value;
+      this._updateProgress();
+      this._updateSectionDone();
     });
     row.querySelector(".tb-fin").addEventListener("input", (e) => {
       this.tenantsB[idx].fin = e.target.value;
@@ -690,7 +727,8 @@ class PublicContractCreator {
   // ── Settlement accounts toggle ───────────────────────────────────────────────
   _setupSettlementToggle() {
     document.getElementById("ccShowSettlement").addEventListener("change", (e) => {
-      document.getElementById("ccSettlementWrap").style.display = e.target.checked ? "" : "none";
+      const wrap = document.getElementById("ccSettlementWrap");
+      wrap.style.display = e.target.checked ? "" : "none";
     });
   }
 
@@ -711,9 +749,85 @@ class PublicContractCreator {
     const onAnyChange = () => {
       saveDraft(this._collectState());
       this._renderPreview();
+      this._updateProgress();
+      this._updateFieldFill();
     };
     document.querySelector(".container-fluid").addEventListener("input", onAnyChange);
     document.querySelector(".container-fluid").addEventListener("change", onAnyChange);
+  }
+
+  // ── Ripple on all ripple-host buttons ─────────────────────────────────────────
+  _setupRipples() {
+    document.querySelectorAll(".ripple-host").forEach(addRipple);
+  }
+
+  // ── Field fill state (green border + tick) ────────────────────────────────────
+  _setupFieldFillTracking() {
+    document.querySelectorAll(".input-wrap .form-control").forEach((el) => {
+      el.addEventListener("input", () => this._updateFieldFill());
+      el.addEventListener("change", () => this._updateFieldFill());
+    });
+  }
+
+  _updateFieldFill() {
+    document.querySelectorAll(".input-wrap .form-control, .form-control").forEach((el) => {
+      el.classList.toggle("is-filled", Boolean(el.value?.trim()));
+    });
+    // Section done badges
+    this._updateSectionDone();
+  }
+
+  _updateSectionDone() {
+    const has = (id) => Boolean(document.getElementById(id)?.value?.trim());
+    const badge = (id, done) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("visible", done);
+    };
+    badge("done1", has("ccAddress") && has("ccUnit") && has("ccRoom"));
+    badge("done2", has("ccMoveIn") && has("ccMoveOut") && has("ccRental"));
+    badge("done3", has("ccTenantAName"));
+    badge("done4", (this.tenantsB || []).some((t) => t.name?.trim()));
+  }
+
+  // ── Progress bar ──────────────────────────────────────────────────────────────
+  _updateProgress() {
+    const fields = ["ccAddress", "ccUnit", "ccRoom", "ccMoveIn", "ccMoveOut",
+      "ccRental", "ccAgreementDate", "ccTenantAName"];
+    const filled = fields.filter((id) => Boolean(document.getElementById(id)?.value?.trim())).length;
+    const hasTenantB = (this.tenantsB || []).some((t) => t.name?.trim());
+    const total = fields.length + 1;
+    const done = filled + (hasTenantB ? 1 : 0);
+    const pct = Math.round((done / total) * 100);
+    const bar = document.getElementById("progressBarFill");
+    if (bar) bar.style.width = `${pct}%`;
+  }
+
+  // ── Auto lease period from dates ──────────────────────────────────────────────
+  _setupAutoLeasePeriod() {
+    const calc = () => {
+      const mi = document.getElementById("ccMoveIn")?.value;
+      const mo = document.getElementById("ccMoveOut")?.value;
+      const lp = document.getElementById("ccLeasePeriod");
+      if (!mi || !mo || !lp) return;
+      const diff = new Date(mo) - new Date(mi);
+      if (diff <= 0) return;
+      const months = diff / (1000 * 60 * 60 * 24 * 30.44);
+      const rounded = Math.round(months * 2) / 2;
+      lp.value = `${rounded} month${rounded === 1 ? "" : "s"}`;
+      lp.classList.add("is-filled");
+    };
+    document.getElementById("ccMoveIn")?.addEventListener("change", calc);
+    document.getElementById("ccMoveOut")?.addEventListener("change", calc);
+  }
+
+  // ── Sync toggle row checked state from underlying checkbox ────────────────────
+  _syncToggleRowsFromState() {
+    document.querySelectorAll(".toggle-row").forEach((row) => {
+      const cbId = row.getAttribute("onclick")?.match(/'([^']+)'\)/)?.[1];
+      if (!cbId) return;
+      const cb = document.getElementById(cbId);
+      if (cb) row.classList.toggle("checked", cb.checked);
+    });
   }
 
   // ── Action buttons ────────────────────────────────────────────────────────────
@@ -855,6 +969,10 @@ class PublicContractCreator {
     } else {
       this._addTenantBRow();
     }
+
+    this._syncToggleRowsFromState();
+    this._updateFieldFill();
+    this._updateProgress();
   }
 
   // ── Contract preview ─────────────────────────────────────────────────────────
