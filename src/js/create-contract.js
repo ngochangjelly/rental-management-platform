@@ -586,6 +586,7 @@ class PublicContractCreator {
     this._setupPostcode();
     this._setupActions();
     this._setupAutoSave();
+    this._setupLiveValidation();
     this._setupSettlementToggle();
     this._setupAdditionalOptionsChevron();
     this._setupRipples();
@@ -754,12 +755,17 @@ class PublicContractCreator {
       this._updateProgress();
       this._updateSectionDone();
     });
-    row.querySelector(".tb-fin").addEventListener("input", (e) => {
-      this.tenantsB[idx].fin = e.target.value;
-    });
-    row.querySelector(".tb-passport").addEventListener("input", (e) => {
-      this.tenantsB[idx].passport = e.target.value;
-    });
+    const tbFin = row.querySelector(".tb-fin");
+    const tbPass = row.querySelector(".tb-passport");
+    tbFin.addEventListener("input", (e) => { this.tenantsB[idx].fin = e.target.value; });
+    tbPass.addEventListener("input", (e) => { this.tenantsB[idx].passport = e.target.value; });
+
+    // Live pair validation: show error on blur if both are empty
+    [tbFin, tbPass].forEach((el) =>
+      el.addEventListener("blur", () => {
+        if (!tbFin.value.trim() && !tbPass.value.trim()) this._showPairError(tbFin, tbPass);
+      })
+    );
 
     const removeBtn = row.querySelector(".remove-tenant-btn");
     if (removeBtn) {
@@ -1400,6 +1406,94 @@ class PublicContractCreator {
     `;
   }
 
+  // ── Validation helpers ───────────────────────────────────────────────────────
+
+  _clearFieldError(el) {
+    el.classList.remove("field-error");
+    const wrap = el.closest(".mb-2, .mb-3, .col-6, .col");
+    wrap?.querySelector("label")?.classList.remove("field-error-label");
+    wrap?.querySelector(".field-error-msg")?.remove();
+  }
+
+  _showFieldError(el) {
+    if (el.classList.contains("field-error")) return;
+    el.classList.add("field-error");
+    const wrap = el.closest(".mb-2, .mb-3, .col-6, .col");
+    wrap?.querySelector("label")?.classList.add("field-error-label");
+    if (!wrap?.querySelector(".field-error-msg")) {
+      const msg = document.createElement("div");
+      msg.className = "field-error-msg";
+      msg.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> Bắt buộc`;
+      el.insertAdjacentElement("afterend", msg);
+    }
+    const clear = () => {
+      if (el.value.trim()) {
+        this._clearFieldError(el);
+        el.removeEventListener("input", clear);
+        el.removeEventListener("change", clear);
+      }
+    };
+    el.addEventListener("input", clear);
+    el.addEventListener("change", clear);
+  }
+
+  _showPairError(el1, el2) {
+    [el1, el2].forEach((el) => {
+      if (el.classList.contains("field-error")) return;
+      el.classList.add("field-error");
+      const wrap = el.closest(".mb-2, .mb-3, .col-6, .col");
+      wrap?.querySelector("label")?.classList.add("field-error-label");
+      if (!wrap?.querySelector(".field-error-msg")) {
+        const msg = document.createElement("div");
+        msg.className = "field-error-msg";
+        msg.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> FIN hoặc Hộ chiếu`;
+        el.insertAdjacentElement("afterend", msg);
+      }
+      const clear = () => {
+        if (el1.value.trim() || el2.value.trim()) {
+          this._clearFieldError(el1);
+          this._clearFieldError(el2);
+          el1.removeEventListener("input", clear);
+          el2.removeEventListener("input", clear);
+        }
+      };
+      el.addEventListener("input", clear);
+    });
+  }
+
+  _setupLiveValidation() {
+    const SINGLE = [
+      { id: "ccAddress",       label: "Địa chỉ" },
+      { id: "ccUnit",          label: "Số phòng / Unit" },
+      { id: "ccRoom",          label: "Loại phòng" },
+      { id: "ccAgreementDate", label: "Ngày ký" },
+      { id: "ccMoveIn",        label: "Ngày vào ở" },
+      { id: "ccMoveOut",       label: "Ngày kết thúc" },
+      { id: "ccRental",        label: "Tiền thuê" },
+      { id: "ccDeposit",       label: "Tiền cọc" },
+      { id: "ccTenantAName",   label: "Tên Bên A" },
+    ];
+    SINGLE.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // blur for text inputs, change for selects/dates
+      const validate = () => { if (!el.value.trim()) this._showFieldError(el); };
+      el.addEventListener("blur", validate);
+      el.addEventListener("change", validate);
+    });
+
+    // Tenant A FIN / passport pair
+    const finA = document.getElementById("ccTenantAFin");
+    const passA = document.getElementById("ccTenantAPassport");
+    if (finA && passA) {
+      [finA, passA].forEach((el) =>
+        el.addEventListener("blur", () => {
+          if (!finA.value.trim() && !passA.value.trim()) this._showPairError(finA, passA);
+        })
+      );
+    }
+  }
+
   // ── Export / Share ─────────────────────────────────────────────────────────────
   // ── Validation ───────────────────────────────────────────────────────────────
   _validateForExport() {
@@ -1415,94 +1509,45 @@ class PublicContractCreator {
       { id: "ccTenantAName",   label: "Tên Bên A" },
     ];
 
-    // Clear previous errors
-    document.querySelectorAll(".field-error").forEach((el) => el.classList.remove("field-error"));
-    document.querySelectorAll(".field-error-label").forEach((el) => el.classList.remove("field-error-label"));
-    document.querySelectorAll(".field-error-msg").forEach((el) => el.remove());
+    // Clear all existing errors
+    document.querySelectorAll(".field-error").forEach((el) => this._clearFieldError(el));
 
     const missing = [];
     let firstEl = null;
 
-    const markError = (el, label) => {
-      el.classList.add("field-error");
-      missing.push(label);
-      if (!firstEl) firstEl = el;
-
-      const wrap = el.closest(".mb-2, .mb-3, .col-6, .col");
-      if (wrap) {
-        wrap.querySelector("label")?.classList.add("field-error-label");
-        const msg = document.createElement("div");
-        msg.className = "field-error-msg";
-        msg.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> Bắt buộc`;
-        el.insertAdjacentElement("afterend", msg);
+    const check = (el, label) => {
+      if (el && !el.value.trim()) {
+        this._showFieldError(el);
+        missing.push(label);
+        if (!firstEl) firstEl = el;
       }
-
-      const clear = () => {
-        el.classList.remove("field-error");
-        wrap?.querySelector("label")?.classList.remove("field-error-label");
-        wrap?.querySelector(".field-error-msg")?.remove();
-        el.removeEventListener("input", clear);
-        el.removeEventListener("change", clear);
-      };
-      el.addEventListener("input", clear);
-      el.addEventListener("change", clear);
     };
 
-    // Mark two fields as an either/or pair — both turn red, clear when either is filled
-    const markPairError = (el1, el2, label) => {
-      missing.push(label);
-      if (!firstEl) firstEl = el1;
-      [el1, el2].forEach((el) => {
-        el.classList.add("field-error");
-        const wrap = el.closest(".mb-2, .mb-3, .col-6, .col");
-        wrap?.querySelector("label")?.classList.add("field-error-label");
-        if (!wrap?.querySelector(".field-error-msg")) {
-          const msg = document.createElement("div");
-          msg.className = "field-error-msg";
-          msg.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> FIN hoặc Hộ chiếu`;
-          el.insertAdjacentElement("afterend", msg);
-        }
-        const clear = () => {
-          if (el1.value.trim() || el2.value.trim()) {
-            [el1, el2].forEach((e) => {
-              e.classList.remove("field-error");
-              const w = e.closest(".mb-2, .mb-3, .col-6, .col");
-              w?.querySelector("label")?.classList.remove("field-error-label");
-              w?.querySelector(".field-error-msg")?.remove();
-            });
-            el1.removeEventListener("input", clear);
-            el2.removeEventListener("input", clear);
-          }
-        };
-        el.addEventListener("input", clear);
-      });
+    const checkPair = (el1, el2, label) => {
+      if (el1 && el2 && !el1.value.trim() && !el2.value.trim()) {
+        this._showPairError(el1, el2);
+        missing.push(label);
+        if (!firstEl) firstEl = el1;
+      }
     };
 
-    REQUIRED.forEach(({ id, label }) => {
-      const el = document.getElementById(id);
-      if (el && !el.value.trim()) markError(el, label);
-    });
+    REQUIRED.forEach(({ id, label }) => check(document.getElementById(id), label));
 
-    // Tenant A: must have FIN or passport
-    const finA = document.getElementById("ccTenantAFin");
-    const passA = document.getElementById("ccTenantAPassport");
-    if (finA && passA && !finA.value.trim() && !passA.value.trim()) {
-      markPairError(finA, passA, "FIN / Hộ chiếu Bên A");
-    }
+    checkPair(
+      document.getElementById("ccTenantAFin"),
+      document.getElementById("ccTenantAPassport"),
+      "FIN / Hộ chiếu Bên A"
+    );
 
-    // Check at least one Tenant B name
     const firstTbName = document.querySelector("#tenantBList .tb-name");
     if (firstTbName && !firstTbName.value.trim()) {
-      markError(firstTbName, "Tên Bên B");
+      this._showFieldError(firstTbName);
+      missing.push("Tên Bên B");
+      if (!firstEl) firstEl = firstTbName;
     }
 
-    // Each Tenant B row: must have FIN or passport
     document.querySelectorAll("#tenantBList .tenant-b-row").forEach((row, i) => {
-      const tbFin = row.querySelector(".tb-fin");
-      const tbPass = row.querySelector(".tb-passport");
-      if (tbFin && tbPass && !tbFin.value.trim() && !tbPass.value.trim()) {
-        markPairError(tbFin, tbPass, `FIN / Hộ chiếu Bên B${i + 1}`);
-      }
+      checkPair(row.querySelector(".tb-fin"), row.querySelector(".tb-passport"), `FIN / Hộ chiếu Bên B${i + 1}`);
     });
 
     if (missing.length) {
