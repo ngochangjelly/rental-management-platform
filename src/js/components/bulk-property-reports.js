@@ -2382,6 +2382,8 @@ class BulkPropertyReportsComponent {
     let   clipIdx = 0;
     const p = (s) => nodes.push(s);
 
+    const fontFaceStyle = await this._loadFontFaceStyle();
+
     // Fetch avatars
     const urls = new Set();
     if (payerInvestor?.avatar) urls.add(payerInvestor.avatar);
@@ -2576,8 +2578,8 @@ class BulkPropertyReportsComponent {
 
     const H = y;
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
-      `<defs>${defs.join("")}</defs>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Noto Serif,serif">`,
+      `<defs>${fontFaceStyle}${defs.join("")}</defs>`,
       `<rect x="0" y="0" width="${W}" height="${H}" fill="#f1f5f9"/>`,
       ...nodes,
       `</svg>`,
@@ -2675,6 +2677,31 @@ class BulkPropertyReportsComponent {
       .replace(/"/g, "&quot;");
   }
 
+  /** Fetch Noto Serif font faces as base64 @font-face style block for SVG embedding */
+  async _loadFontFaceStyle() {
+    const _toB64DataUri = async (url) => {
+      try {
+        const buf = await (await fetch(url)).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let s = "";
+        for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        return `data:font/truetype;base64,${btoa(s)}`;
+      } catch {
+        return null;
+      }
+    };
+    const [fontRegUri, fontBoldUri] = await Promise.all([
+      _toB64DataUri("/fonts/NotoSerif-Regular.ttf"),
+      _toB64DataUri("/fonts/NotoSerif-Bold.ttf"),
+    ]);
+    return fontRegUri || fontBoldUri
+      ? `<style>
+      @font-face { font-family: 'Noto Serif'; font-weight: 400; src: url('${fontRegUri}') format('truetype'); }
+      @font-face { font-family: 'Noto Serif'; font-weight: 700; src: url('${fontBoldUri}') format('truetype'); }
+    </style>`
+      : "";
+  }
+
   /** Truncate text to maxChars with ellipsis */
   _svgTrunc(text, maxChars) {
     if (!text) return "";
@@ -2766,6 +2793,8 @@ class BulkPropertyReportsComponent {
     let   y      = 0;
     let   clipIdx = 0;
     const p = (s) => nodes.push(s);
+
+    const fontFaceStyle = await this._loadFontFaceStyle();
 
     // Avatar cache
     const avatarCache = await this._fetchSettlementAvatarsAsBase64(settlements);
@@ -2938,8 +2967,8 @@ class BulkPropertyReportsComponent {
     // ── Compose SVG ──────────────────────────────────────────────────────
     const H = y;
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
-      `<defs>${defs.join("")}</defs>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Noto Serif,serif">`,
+      `<defs>${fontFaceStyle}${defs.join("")}</defs>`,
       `<rect x="0" y="0" width="${W}" height="${H}" fill="#f1f5f9"/>`,
       ...nodes,
       `</svg>`,

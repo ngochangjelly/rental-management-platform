@@ -958,6 +958,92 @@
         align-items: center;
         gap: 4px;
       }
+
+      /* ── Desktop 2-column full-screen layout ─────────────────────── */
+      /* Mobile default: preview panel matches form container centering */
+      #ccPreviewPanel {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 0 12px;
+      }
+
+      @media (min-width: 1024px) {
+        body {
+          padding-bottom: 0;
+          overflow: hidden;
+        }
+
+        /* Drafts panel overlays content on desktop (doesn't push layout down) */
+        .drafts-panel-wrap {
+          position: fixed;
+          top: 59px;
+          left: 0;
+          right: 0;
+          z-index: 201;
+        }
+
+        #ccLayout {
+          display: grid;
+          grid-template-columns: 520px 1fr;
+          height: calc(100vh - 59px);
+        }
+
+        #ccFormPanel {
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-right: 1px solid rgba(102, 126, 234, 0.12);
+        }
+
+        .cc-form-container {
+          flex: 1;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          max-width: 100% !important;
+          padding: 14px 16px !important;
+        }
+        .cc-form-container::-webkit-scrollbar { width: 5px; }
+        .cc-form-container::-webkit-scrollbar-thumb {
+          background: rgba(102, 126, 234, 0.2);
+          border-radius: 4px;
+        }
+
+        .action-bar {
+          position: static;
+          border-top: 1px solid rgba(102, 126, 234, 0.12);
+          padding: 10px 14px;
+          box-shadow: none;
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          background: rgba(255, 255, 255, 0.98);
+        }
+
+        #ccPreviewPanel {
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          background: #f4f5f7;
+          max-width: none;
+          margin: 0;
+          padding: 16px;
+        }
+        #ccPreviewPanel::-webkit-scrollbar { width: 5px; }
+        #ccPreviewPanel::-webkit-scrollbar-thumb {
+          background: rgba(102, 126, 234, 0.2);
+          border-radius: 4px;
+        }
+        #ccPreviewPanel .section-card { margin-bottom: 0; }
+
+        /* Preview always expanded on desktop, hide collapse toggle */
+        #previewHeader {
+          cursor: default;
+          pointer-events: none;
+        }
+        #previewHeader #previewChevron { display: none; }
+        #contractPreviewCollapse { display: block !important; }
+
+        /* Toasts: no fixed action bar to dodge on desktop */
+        .toast-container-custom { bottom: 24px; }
+      }
     </style>
   </head>
   <body>
@@ -1004,7 +1090,9 @@
       </div>
     </div>
 
-    <div class="container-fluid" style="max-width: 640px; padding: 14px 12px">
+    <div id="ccLayout">
+    <div id="ccFormPanel">
+    <div class="container-fluid cc-form-container" style="max-width: 640px; padding: 14px 12px">
       <!-- Notice -->
       <div class="notice-banner">
         <div class="notice-icon"><i class="bi bi-shield-check"></i></div>
@@ -1535,7 +1623,28 @@
         </div>
       </div>
 
-      <!-- Xem Trước Hợp Đồng -->
+      <div style="height: 10px"></div>
+    </div><!-- /.cc-form-container -->
+
+    <!-- Action bar: fixed on mobile, static at bottom of form panel on desktop -->
+    <div class="action-bar">
+      <button
+        class="btn-action btn-pdf action-bar-pdf ripple-host"
+        id="exportPdfBtn"
+      >
+        <i class="bi bi-file-earmark-pdf"></i> Xuất PDF
+      </button>
+      <button class="btn-action btn-share ripple-host" id="shareBtn">
+        <i class="bi bi-share-fill"></i> Chia Sẻ
+      </button>
+      <button class="btn-action btn-wa ripple-host" id="whatsappBtn">
+        <i class="bi bi-whatsapp"></i> WhatsApp
+      </button>
+    </div>
+    </div><!-- /#ccFormPanel -->
+
+    <!-- Preview panel: right sidebar on desktop, below form on mobile -->
+    <div id="ccPreviewPanel">
       <div class="section-card">
         <div
           class="section-header collapsible-toggle"
@@ -1556,25 +1665,8 @@
           </div>
         </div>
       </div>
-
-      <div style="height: 10px"></div>
-    </div>
-
-    <!-- Fixed action bar -->
-    <div class="action-bar">
-      <button
-        class="btn-action btn-pdf action-bar-pdf ripple-host"
-        id="exportPdfBtn"
-      >
-        <i class="bi bi-file-earmark-pdf"></i> Xuất PDF
-      </button>
-      <button class="btn-action btn-share ripple-host" id="shareBtn">
-        <i class="bi bi-share-fill"></i> Chia Sẻ
-      </button>
-      <button class="btn-action btn-wa ripple-host" id="whatsappBtn">
-        <i class="bi bi-whatsapp"></i> WhatsApp
-      </button>
-    </div>
+    </div><!-- /#ccPreviewPanel -->
+    </div><!-- /#ccLayout -->
 
     <!-- Toast container -->
     <div class="toast-container-custom" id="toastContainer"></div>

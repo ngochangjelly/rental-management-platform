@@ -434,6 +434,9 @@ class FinancialReportsComponent {
       "repeat(auto-fill, minmax(120px, 1fr))";
     container.style.gap = "0.5rem";
 
+    // Persist filter across re-renders
+    if (!this.propertyFilter) this.propertyFilter = "all";
+
     // Clear existing cards
     container.innerHTML = "";
 
@@ -447,10 +450,45 @@ class FinancialReportsComponent {
       return;
     }
 
+    // Filter bar
+    const filterDef = [
+      { key: "all",         label: "All",                                                          color: "#6c757d" },
+      { key: "settled",     label: '<i class="bi bi-cash-coin me-1"></i>Settled',                  color: "#0d9488" },
+      { key: "not-settled", label: '<i class="bi bi-cash-coin me-1"></i>Not Settled',              color: "#0d9488" },
+      { key: "locked",      label: '<i class="bi bi-lock-fill me-1"></i>Locked',                   color: "#198754" },
+      { key: "not-locked",  label: '<i class="bi bi-unlock-fill me-1"></i>Not Locked',             color: "#198754" },
+    ];
+    const filterBar = document.createElement("div");
+    filterBar.style.cssText = "grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap;";
+    filterBar.innerHTML = filterDef.map(({ key, label, color }) => {
+      const active = this.propertyFilter === key;
+      const baseStyle = `font-size: 11px; padding: 2px 10px; border-radius: 20px; border: 1.5px solid; cursor: pointer; transition: all 0.15s;`;
+      const activeStyle  = `background:${color}; border-color:${color}; color:#fff;`;
+      const inactiveStyle = `background:transparent; border-color:${color}; color:${color};`;
+      return `<button style="${baseStyle}${active ? activeStyle : inactiveStyle}" onclick="window.financialReports.setPropertyFilter('${key}')">${label}</button>`;
+    }).join("");
+    container.appendChild(filterBar);
+
     // Generate compact property cards
-    const sortedProperties = [...properties].sort(
+    const allSorted = [...properties].sort(
       (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
     );
+    const sortedProperties = allSorted.filter((p) => {
+      const status = this.propertyReportStatus[p.propertyId];
+      if (this.propertyFilter === "settled")     return status && status.isSettled;
+      if (this.propertyFilter === "not-settled") return !status || !status.isSettled;
+      if (this.propertyFilter === "locked")      return status && status.isClosed;
+      if (this.propertyFilter === "not-locked")  return !status || !status.isClosed;
+      return true;
+    });
+    if (sortedProperties.length === 0) {
+      const empty = document.createElement("div");
+      empty.style.cssText = "grid-column: 1 / -1; text-align: center;";
+      empty.className = "text-muted py-3";
+      empty.innerHTML = `<i class="bi bi-funnel me-1"></i>No properties match this filter`;
+      container.appendChild(empty);
+      return;
+    }
     sortedProperties.forEach((property) => {
       const isSelected =
         String(this.selectedProperty) === String(property.propertyId);
@@ -463,19 +501,20 @@ class FinancialReportsComponent {
           ? "#198754"
           : null;
       const cardHtml = `
-        <div class="card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportClosed ? "property-card-closed" : ""} overflow-hidden"
+        <div class="card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportSettled ? "property-card-settled" : isReportClosed ? "property-card-closed" : ""} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
              data-property-id="${property.propertyId}"
              onclick="window.financialReports.selectProperty('${property.propertyId}')">
           ${
             property.propertyImage
               ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-                 ${isReportSettled ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin"></i></span></div>' : isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
+                 ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
+                 ${isReportSettled ? `<div style="position: absolute; inset: 0; background: rgba(13,148,136,0.42); display: ${isSelected ? "none" : "flex"}; align-items: center; justify-content: center;"><i class="bi bi-cash-coin text-white" style="font-size: 1.3rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i></div>` : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                </div>`
               : ""
           }
-          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : isReportSettled ? "rgba(13,148,136,0.07)" : "#fff"};">
             <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
                  style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${cardStatusColor || "#0d6efd"};">
               ${isReportSettled ? '<i class="bi bi-cash-coin" style="font-size: 10px;"></i>' : isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
@@ -524,9 +563,23 @@ class FinancialReportsComponent {
           border: 3px solid #0d6efd !important;
           box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
         }
+        .property-card-compact.property-card-settled {
+          border: 2px solid #0d9488 !important;
+          box-shadow: 0 0 0 2px rgba(13,148,136,0.18), 0 2px 8px rgba(13,148,136,0.15) !important;
+          background: rgba(13,148,136,0.04);
+        }
+        .property-card-compact.property-card-settled.selected-card {
+          border: 3px solid #0d6efd !important;
+          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
+        }
       `;
       document.head.appendChild(style);
     }
+  }
+
+  setPropertyFilter(filter) {
+    this.propertyFilter = filter;
+    this.renderPropertyCards(this.properties);
   }
 
   initializeTooltips() {
@@ -4420,6 +4473,11 @@ class FinancialReportsComponent {
       if (result.success) {
         this.currentReport = result.data;
         await this.updateClosedStatus();
+        this.propertyReportStatus[this.selectedProperty] = {
+          isClosed: true,
+          isSettled: true,
+        };
+        this.renderPropertyCards(this.properties);
         this.showSuccess(
           "Settlement marked — investor payments recorded as paid out!",
         );
@@ -4455,6 +4513,11 @@ class FinancialReportsComponent {
       if (result.success) {
         this.currentReport = result.data;
         await this.updateClosedStatus();
+        this.propertyReportStatus[this.selectedProperty] = {
+          isClosed: true,
+          isSettled: false,
+        };
+        this.renderPropertyCards(this.properties);
         this.showSuccess("Settlement status removed");
       } else {
         throw new Error(result.message || "Failed to unmark settlement");
@@ -6340,20 +6403,20 @@ class FinancialReportsComponent {
       `<text x="${TX}" y="24" font-size="11" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">FINANCIAL REPORT</text>`,
     );
     p(
-      `<text x="${TX}" y="58" font-size="20" fill="#ffffff" font-weight="700">${this._svgEsc(propTitle)}</text>`,
+      `<text x="${W - M}" y="26" font-size="17" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`,
     );
     p(
-      `<text x="${W - M}" y="58" font-size="19" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`,
+      `<text x="${TX}" y="62" font-size="20" fill="#ffffff" font-weight="700">${this._svgEsc(propTitle)}</text>`,
     );
     p(
-      `<text x="${W - M}" y="78" font-size="12" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
+      `<text x="${W - M}" y="80" font-size="12" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
     );
     if (report.isClosed) {
       p(
-        `<rect x="${W - M - 66}" y="8" width="62" height="16" rx="8" fill="#dc2626"/>`,
+        `<rect x="${W - M - 66}" y="6" width="62" height="16" rx="8" fill="#dc2626"/>`,
       );
       p(
-        `<text x="${W - M - 35}" y="20" font-size="10" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`,
+        `<text x="${W - M - 35}" y="18" font-size="10" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`,
       );
     }
     y = HEADER_H;

@@ -12493,6 +12493,103 @@
                   </div>
                 </div>
                 <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label for="tenantDateOfBirth" class="form-label">Date of Birth</label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="tenantDateOfBirth"
+                      name="dateOfBirth"
+                    />
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label for="tenantGender" class="form-label">Gender</label>
+                    <select class="form-select" id="tenantGender" name="gender">
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label for="tenantPassType" class="form-label">Pass Type</label>
+                    <select class="form-select" id="tenantPassType" name="passType">
+                      <option value="">Select pass type</option>
+                      <optgroup label="Citizenship">
+                        <option value="Citizen">Citizen</option>
+                        <option value="Permanent Resident (PR)">Permanent Resident (PR)</option>
+                      </optgroup>
+                      <optgroup label="Work Passes">
+                        <option value="Employment Pass (EP)">Employment Pass (EP)</option>
+                        <option value="S Pass">S Pass</option>
+                        <option value="Work Permit">Work Permit</option>
+                        <option value="Personalised Employment Pass (PEP)">Personalised Employment Pass (PEP)</option>
+                        <option value="EntrePass">EntrePass</option>
+                        <option value="Training Employment Pass">Training Employment Pass</option>
+                        <option value="Work Holiday Pass">Work Holiday Pass</option>
+                        <option value="Letter of Consent (LOC)">Letter of Consent (LOC)</option>
+                        <option value="Miscellaneous Work Pass">Miscellaneous Work Pass</option>
+                      </optgroup>
+                      <optgroup label="Dependant / Visit">
+                        <option value="Dependant Pass (DP)">Dependant Pass (DP)</option>
+                        <option value="Long-Term Visit Pass (LTVP)">Long-Term Visit Pass (LTVP)</option>
+                        <option value="Long-Term Visit Pass Plus (LTVP+)">Long-Term Visit Pass Plus (LTVP+)</option>
+                      </optgroup>
+                      <optgroup label="Student">
+                        <option value="Student Pass">Student Pass</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3" id="tenantIndustryRow">
+                    <label for="tenantIndustry" class="form-label">Industry</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantIndustry"
+                      name="industry"
+                      maxlength="100"
+                      placeholder="e.g. Information Technology, Service…"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3" id="tenantUniversityRow" style="display:none;">
+                    <label for="tenantUniversity" class="form-label">University</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="tenantUniversity"
+                      name="university"
+                      maxlength="150"
+                      placeholder="Select or type university name"
+                      list="sgUniversityList"
+                      autocomplete="off"
+                    />
+                    <datalist id="sgUniversityList">
+                      <option value="National University of Singapore (NUS)">
+                      <option value="Nanyang Technological University (NTU)">
+                      <option value="Singapore Management University (SMU)">
+                      <option value="Singapore University of Technology and Design (SUTD)">
+                      <option value="Singapore Institute of Technology (SIT)">
+                      <option value="Singapore University of Social Sciences (SUSS)">
+                      <option value="LASALLE College of the Arts">
+                      <option value="Nanyang Academy of Fine Arts (NAFA)">
+                      <option value="Republic Polytechnic">
+                      <option value="Ngee Ann Polytechnic">
+                      <option value="Temasek Polytechnic">
+                      <option value="Nanyang Polytechnic">
+                      <option value="Singapore Polytechnic">
+                      <option value="DigiPen Institute of Technology Singapore">
+                      <option value="Kaplan Singapore">
+                      <option value="James Cook University Singapore">
+                      <option value="PSB Academy">
+                      <option value="MDIS (Management Development Institute of Singapore)">
+                      <option value="EduCo International">
+                      <option value="Curtin Singapore">
+                    </datalist>
+                  </div>
+                </div>
+                <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="tenantPhoneNumber" class="form-label"
                       >Phone Number</label

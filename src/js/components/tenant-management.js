@@ -810,6 +810,17 @@ class TenantManagementComponent {
                                 <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(
         tenant.passportNumber,
       )}</div>
+                                <div class="mb-2"><strong>DOB:</strong> ${tenant.dateOfBirth ? this.formatDate(tenant.dateOfBirth) : "-"}</div>
+                                <div class="mb-2"><strong>Gender:</strong> ${tenant.gender ? this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)) : "-"}</div>
+                                <div class="mb-2"><strong>Pass Type:</strong> ${tenant.passType ? this.escapeHtml(tenant.passType) : "-"}</div>
+                                ${tenant.industry
+        ? `<div class="mb-2"><strong>Industry:</strong> ${this.escapeHtml(tenant.industry)}</div>`
+        : ""
+      }
+                                ${tenant.university
+        ? `<div class="mb-2"><strong>University:</strong> ${this.escapeHtml(tenant.university)}</div>`
+        : ""
+      }
                                 <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(
         roomInfo,
       )}</div>
@@ -1300,6 +1311,15 @@ class TenantManagementComponent {
       return;
     }
 
+    // Build default header from property info
+    const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+    const defaultHeader = propertyInfo
+      ? `${propertyInfo.unit ? propertyInfo.unit + ", " : ""}${propertyInfo.address}${propertyInfo.postcode ? ", Singapore " + propertyInfo.postcode : ""}`
+      : this.selectedProperty;
+
+    const customHeader = window.prompt("PDF header (shown on every page):", defaultHeader);
+    if (customHeader === null) return; // user cancelled
+
     const btn = document.getElementById("generateTenantPdfBtn");
     const originalHtml = btn ? btn.innerHTML : "";
     if (btn) {
@@ -1310,7 +1330,7 @@ class TenantManagementComponent {
     try {
       const response = await API.post(
         `${API_CONFIG.ENDPOINTS.TENANTS}/generate-pdf`,
-        { propertyId: this.selectedProperty },
+        { propertyId: this.selectedProperty, customHeader: customHeader.trim() || defaultHeader },
       );
 
       if (!response.ok) {
@@ -1486,6 +1506,11 @@ class TenantManagementComponent {
           nickname: tenant.nickname || "",
           fin: tenant.fin || "",
           passportNumber: tenant.passportNumber || "",
+          dateOfBirth: tenant.dateOfBirth || null,
+          gender: tenant.gender || "",
+          passType: tenant.passType || "",
+          industry: tenant.industry || "",
+          university: tenant.university || "",
           phoneNumber: tenant.phoneNumber || "",
           facebookUrl: tenant.facebookUrl || "",
           registrationStatus:
@@ -1527,6 +1552,12 @@ class TenantManagementComponent {
         document.getElementById("tenantFin").value = tenant.fin || "";
         document.getElementById("tenantPassport").value =
           tenant.passportNumber || "";
+        document.getElementById("tenantDateOfBirth").value =
+          tenant.dateOfBirth ? new Date(tenant.dateOfBirth).toISOString().split("T")[0] : "";
+        document.getElementById("tenantGender").value = tenant.gender || "";
+        document.getElementById("tenantPassType").value = tenant.passType || "";
+        document.getElementById("tenantIndustry").value = tenant.industry || "";
+        document.getElementById("tenantUniversity").value = tenant.university || "";
         document.getElementById("tenantPhoneNumber").value =
           tenant.phoneNumber || "";
         document.getElementById("tenantFacebookUrl").value =
@@ -1664,6 +1695,18 @@ class TenantManagementComponent {
         // Reset registration status to unregistered
         this.setRegistrationStatus("unregistered");
 
+        // Reset new profile fields for add mode
+        const dobField = document.getElementById("tenantDateOfBirth");
+        const genderField = document.getElementById("tenantGender");
+        const passTypeField = document.getElementById("tenantPassType");
+        const industryField = document.getElementById("tenantIndustry");
+        const universityField = document.getElementById("tenantUniversity");
+        if (dobField) dobField.value = "";
+        if (genderField) genderField.value = "";
+        if (passTypeField) passTypeField.value = "";
+        if (industryField) industryField.value = "";
+        if (universityField) universityField.value = "";
+
         // Reset room/date/main tenant fields for add mode
         const roomField = document.getElementById("tenantRoom");
         const moveInField = document.getElementById("tenantMoveInDate");
@@ -1690,6 +1733,9 @@ class TenantManagementComponent {
 
     // Add event listeners for image URL inputs
     this.setupImageUrlListeners();
+
+    // Wire up passType → industry/university toggle
+    this.setupStudentFieldToggle(tenant);
 
     // Show modal immediately — don't block on dropdown data loading
     const modalEl = document.getElementById("tenantModal");
@@ -2437,6 +2483,11 @@ class TenantManagementComponent {
         nickname: formData.get("nickname")?.trim() || null,
         fin: formData.get("fin").trim().toUpperCase() || null,
         passportNumber: formData.get("passportNumber").trim().toUpperCase(),
+        dateOfBirth: formData.get("dateOfBirth") || null,
+        gender: formData.get("gender")?.trim() || null,
+        passType: formData.get("passType")?.trim() || null,
+        industry: formData.get("industry")?.trim() || null,
+        university: formData.get("university")?.trim() || null,
         phoneNumber: formData.get("phoneNumber").trim() || null,
         facebookUrl: formData.get("facebookUrl")?.trim() || null,
         registrationStatus:
@@ -2838,6 +2889,15 @@ class TenantManagementComponent {
       "'": "&#039;",
     };
     return String(text).replace(/[&<>"']/g, (m) => map[m]);
+  }
+
+  formatDate(dateValue) {
+    if (!dateValue) return "";
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return "";
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    return `${day}/${month}/${d.getFullYear()}`;
   }
 
   // Method to get registration status badge
@@ -3535,6 +3595,27 @@ class TenantManagementComponent {
     }
   }
 
+  setupStudentFieldToggle(tenant = null) {
+    const passTypeEl = document.getElementById("tenantPassType");
+    const industryRow = document.getElementById("tenantIndustryRow");
+    const universityRow = document.getElementById("tenantUniversityRow");
+    if (!passTypeEl || !industryRow || !universityRow) return;
+
+    const applyToggle = () => {
+      const isStudent = /student/i.test(passTypeEl.value);
+      industryRow.style.display = isStudent ? "none" : "";
+      universityRow.style.display = isStudent ? "" : "none";
+    };
+
+    // Apply immediately based on current value
+    applyToggle();
+
+    // Update on every change
+    passTypeEl.removeEventListener("change", passTypeEl._studentToggleHandler);
+    passTypeEl._studentToggleHandler = applyToggle;
+    passTypeEl.addEventListener("change", passTypeEl._studentToggleHandler);
+  }
+
   // Helper method to check if tenant has any main tenant properties
   hasMainTenantProperty(tenant) {
     if (!tenant.properties || !Array.isArray(tenant.properties)) {
@@ -3640,6 +3721,9 @@ class TenantManagementComponent {
       "tenantNickname",
       "tenantFin",
       "tenantPassport",
+      "tenantDateOfBirth",
+      "tenantIndustry",
+      "tenantUniversity",
       "tenantPhoneNumber",
       "tenantFacebookUrl",
       "tenantRent",
@@ -3684,6 +3768,10 @@ class TenantManagementComponent {
     ["tenantUsesElectricity", "tenantUsesWater", "tenantUsesGas"].forEach((id) => {
       document.getElementById(id)?.addEventListener("change", () => this.checkForChanges());
     });
+
+    // Listen for select field changes
+    document.getElementById("tenantGender")?.addEventListener("change", () => this.checkForChanges());
+    document.getElementById("tenantPassType")?.addEventListener("change", () => this.checkForChanges());
 
     // Listen for roommate dropdown changes
     const roommateDropdown = document.getElementById("tenantRoommateId");
@@ -3761,6 +3849,11 @@ class TenantManagementComponent {
       passportNumber: (
         document.getElementById("tenantPassport")?.value || ""
       ).trim(),
+      dateOfBirth: document.getElementById("tenantDateOfBirth")?.value || null,
+      gender: (document.getElementById("tenantGender")?.value || "").trim(),
+      passType: (document.getElementById("tenantPassType")?.value || "").trim(),
+      industry: (document.getElementById("tenantIndustry")?.value || "").trim(),
+      university: (document.getElementById("tenantUniversity")?.value || "").trim(),
       phoneNumber: (
         document.getElementById("tenantPhoneNumber")?.value || ""
       ).trim(),
@@ -3815,6 +3908,11 @@ class TenantManagementComponent {
       "nickname",
       "fin",
       "passportNumber",
+      "dateOfBirth",
+      "gender",
+      "passType",
+      "industry",
+      "university",
       "phoneNumber",
       "facebookUrl",
       "registrationStatus",
@@ -4297,6 +4395,11 @@ class TenantManagementComponent {
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
         copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
         copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        if (tenant.dateOfBirth) copyText += `   DOB: ${this.formatDate(tenant.dateOfBirth)}\n`;
+        if (tenant.gender) copyText += `   Gender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}\n`;
+        if (tenant.passType) copyText += `   Pass Type: ${tenant.passType}\n`;
+        if (tenant.industry) copyText += `   Industry: ${tenant.industry}\n`;
+        if (tenant.university) copyText += `   University: ${tenant.university}\n`;
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
@@ -4396,6 +4499,11 @@ class TenantManagementComponent {
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
         copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
         copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        if (tenant.dateOfBirth) copyText += `   DOB: ${this.formatDate(tenant.dateOfBirth)}\n`;
+        if (tenant.gender) copyText += `   Gender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}\n`;
+        if (tenant.passType) copyText += `   Pass Type: ${tenant.passType}\n`;
+        if (tenant.industry) copyText += `   Industry: ${tenant.industry}\n`;
+        if (tenant.university) copyText += `   University: ${tenant.university}\n`;
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
@@ -4492,9 +4600,14 @@ class TenantManagementComponent {
         const isMainTenant = this.hasMainTenantProperty(tenant);
         const mainTenantIndicator = isMainTenant ? " (Main)" : "";
 
-        let entry = `${index}. *${tenant.name}*${mainTenantIndicator}`;
+        let entry = `${index}. ${tenant.name}${mainTenantIndicator}`;
         entry += `\nFIN: ${tenant.fin || "-"}`;
         entry += `\nPassport: ${tenant.passportNumber || "-"}`;
+        if (tenant.dateOfBirth) entry += `\nDOB: ${this.formatDate(tenant.dateOfBirth)}`;
+        if (tenant.gender) entry += `\nGender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}`;
+        if (tenant.passType) entry += `\nPass Type: ${tenant.passType}`;
+        if (tenant.industry) entry += `\nIndustry: ${tenant.industry}`;
+        if (tenant.university) entry += `\nUniversity: ${tenant.university}`;
         if (includeMoveIn) {
           const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
           if (moveinDate) {
@@ -4505,14 +4618,14 @@ class TenantManagementComponent {
       };
 
       // Build the copy text (WhatsApp/Messenger friendly format) — flat list
-      let copyText = `📍 *${propertyDisplay}*\n\n`;
+      let copyText = `📍 ${propertyDisplay}\n\n`;
 
       allEligibleTenants.forEach((tenant, idx) => {
         copyText += formatTenant(tenant, idx + 1) + "\n\n";
       });
 
       // Summary
-      copyText += `📊 *Total: ${totalCount}*`;
+      copyText += `📊 Total: ${totalCount}`;
 
       // Copy to clipboard
       navigator.clipboard
@@ -4621,6 +4734,11 @@ class TenantManagementComponent {
         copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
         copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
         copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        if (tenant.dateOfBirth) copyText += `   DOB: ${this.formatDate(tenant.dateOfBirth)}\n`;
+        if (tenant.gender) copyText += `   Gender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}\n`;
+        if (tenant.passType) copyText += `   Pass Type: ${tenant.passType}\n`;
+        if (tenant.industry) copyText += `   Industry: ${tenant.industry}\n`;
+        if (tenant.university) copyText += `   University: ${tenant.university}\n`;
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
