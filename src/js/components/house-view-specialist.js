@@ -898,9 +898,17 @@ class HouseViewSpecialistComponent {
             <div class="hvs-profit-rooms">
               ${p.rooms.map(roomRow).join("")}
             </div>
-            <button class="hvs-btn-add-store" onclick="houseViewSpecialist.addStoreRoom()">
-              <i class="bi bi-plus-circle me-1"></i>Thêm phòng kho
-            </button>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="hvs-btn-add-store" onclick="houseViewSpecialist.addMasterRoom()">
+                <i class="bi bi-plus-circle me-1"></i>Thêm Master
+              </button>
+              <button class="hvs-btn-add-store" onclick="houseViewSpecialist.addCommonRoom()">
+                <i class="bi bi-plus-circle me-1"></i>Thêm Common
+              </button>
+              <button class="hvs-btn-add-store" onclick="houseViewSpecialist.addStoreRoom()">
+                <i class="bi bi-plus-circle me-1"></i>Thêm phòng kho
+              </button>
+            </div>
 
             <div class="hvs-profit-fixed-note">
               <i class="bi bi-pin-angle me-1"></i>Chi phí cố định:
@@ -1423,6 +1431,38 @@ class HouseViewSpecialistComponent {
     this._collectProfitStep();
     const room = this.viewingData.profit?.rooms.find((r) => r.id === id);
     if (room) room.enabled = !room.enabled;
+    this.renderWizard();
+  }
+
+  addMasterRoom() {
+    this._collectProfitStep();
+    const masters = this.viewingData.profit.rooms.filter(
+      (r) => r.id === "master" || r.id.startsWith("master"),
+    );
+    const n = masters.length + 1;
+    this.viewingData.profit.rooms.push({
+      id: `master${n}`,
+      label: `Master ${n}`,
+      min: 0,
+      max: 0,
+      enabled: true,
+    });
+    this.renderWizard();
+  }
+
+  addCommonRoom() {
+    this._collectProfitStep();
+    const commons = this.viewingData.profit.rooms.filter((r) =>
+      r.id.startsWith("common"),
+    );
+    const n = commons.length + 1;
+    this.viewingData.profit.rooms.push({
+      id: `common${n}`,
+      label: `Common ${n}`,
+      min: 0,
+      max: 0,
+      enabled: true,
+    });
     this.renderWizard();
   }
 

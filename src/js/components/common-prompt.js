@@ -21,6 +21,9 @@ class CommonPromptComponent {
     // Camera Order dynamic state
     this.cameraQuantity = 2;
 
+    // Portable Aircon Order state
+    this.airconOrders = {}; // propertyId -> { airconQty, hose2m, hose3m, remotes }
+
     this.prompts = this.initializePrompts();
     this.eventsBound = false;
     this.init();
@@ -89,6 +92,14 @@ class CommonPromptComponent {
         icon: "bi-camera-video",
         requiresProperty: true,
         template: this.getCameraOrderTemplate.bind(this),
+      },
+      {
+        id: "portable-aircon-order",
+        name: "Order Portable Aircon",
+        description: "Đặt mua portable aircon, dây hose và remote controller từ Lyn",
+        icon: "bi-wind",
+        requiresProperty: true,
+        template: this.getPortableAirconTemplate.bind(this),
       },
     ];
   }
@@ -204,6 +215,109 @@ ${qty} ${sets} of Tapo TC71 + 64GB memory card
 Please leave at the doorstep.`;
   }
 
+  getAirconOrder(propertyId) {
+    if (!this.airconOrders[propertyId]) {
+      this.airconOrders[propertyId] = { airconQty: 0, hose2m: 0, hose3m: 0, remotes: 0, bringInside: false };
+    }
+    return this.airconOrders[propertyId];
+  }
+
+  buildAirconPropertyBlock(label, order, bringInside, digitalLockPin) {
+    const itemLines = [];
+    if (order.airconQty > 0) itemLines.push(`• Portable Aircon: ${order.airconQty} unit(s)`);
+    if (order.hose2m > 0) itemLines.push(`• Hose 2m: ${order.hose2m} unit(s)`);
+    if (order.hose3m > 0) itemLines.push(`• Hose 3m: ${order.hose3m} unit(s)`);
+    if (order.remotes > 0) itemLines.push(`• Remote Controller: ${order.remotes} unit(s)`);
+    if (itemLines.length === 0) return `📍 ${label}\n(No items selected)`;
+    const deliveryLines = bringInside
+      ? [`🏠 Please bring items inside the unit`, ...(digitalLockPin ? [`🔓 Door access PIN: ${digitalLockPin}`] : [])]
+      : [`📦 Please leave at doorstep`];
+    return `📍 ${label}\n${[...itemLines, ...deliveryLines].join("\n")}`;
+  }
+
+  getAirconRequirementsBlock() {
+    return `📋 Product Requirements:
+✅ Must come with insurance coverage
+✅ Must operate quietly (low noise level)
+✅ Must have inverter technology for energy savings`;
+  }
+
+  buildAirconSummary(orders) {
+    const totals = orders.reduce(
+      (acc, o) => {
+        acc.airconQty += o.airconQty || 0;
+        acc.hose2m += o.hose2m || 0;
+        acc.hose3m += o.hose3m || 0;
+        acc.remotes += o.remotes || 0;
+        return acc;
+      },
+      { airconQty: 0, hose2m: 0, hose3m: 0, remotes: 0 },
+    );
+    const lines = [];
+    if (totals.airconQty > 0) lines.push(`• Portable Aircon: ${totals.airconQty} unit(s)`);
+    if (totals.hose2m > 0) lines.push(`• Hose 2m: ${totals.hose2m} unit(s)`);
+    if (totals.hose3m > 0) lines.push(`• Hose 3m: ${totals.hose3m} unit(s)`);
+    if (totals.remotes > 0) lines.push(`• Remote Controller: ${totals.remotes} unit(s)`);
+    return lines.length > 0 ? lines.join("\n") : "(No items selected)";
+  }
+
+  buildCombinedAirconOrderMessage() {
+    const sortedProperties = [...this.properties].sort(
+      (a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0),
+    );
+    const activeProperties = sortedProperties.filter((p) => {
+      const o = this.airconOrders[p.propertyId];
+      return o && (o.airconQty > 0 || o.hose2m > 0 || o.hose3m > 0 || o.remotes > 0);
+    });
+    if (activeProperties.length === 0) {
+      return "No items ordered yet. Please set quantities for at least one property above.";
+    }
+    const blocks = activeProperties.map((p) => {
+      const order = this.airconOrders[p.propertyId];
+      const unit = p.unit ? `#${p.unit} ` : "";
+      const pin = order.bringInside && p.digitalLockEnabled ? p.digitalLockPin : null;
+      return this.buildAirconPropertyBlock(`${unit}${p.address || ""}`, order, order.bringInside, pin);
+    });
+    const allOrders = activeProperties.map((p) => this.airconOrders[p.propertyId]);
+    const unitWord = activeProperties.length === 1 ? "unit" : "units";
+    return `Hi Lyn (+6580159026) 😊
+
+I would like to order portable aircon items for the following ${unitWord}:
+
+${blocks.join("\n\n")}
+
+---
+📋 Total Quotation:
+${this.buildAirconSummary(allOrders)}
+
+${this.getAirconRequirementsBlock()}
+
+📸 Please send a photo as proof of delivery for each unit.
+Please advise on pricing and availability. Thank you! 🙏`;
+  }
+
+  getPortableAirconTemplate(property) {
+    if (!property) return "Vui lòng chọn căn hộ để xem trước tin nhắn.";
+    const order = this.getAirconOrder(property.propertyId);
+    const unit = property.unit ? `#${property.unit} ` : "";
+    const label = `${unit}${property.address || "[address]"}`;
+    const pin = order.bringInside && property.digitalLockEnabled ? property.digitalLockPin : null;
+    return `Hi Lyn (+6580159026) 😊
+
+I would like to order portable aircon items for the following unit:
+
+${this.buildAirconPropertyBlock(label, order, order.bringInside, pin)}
+
+---
+📋 Total Quotation:
+${this.buildAirconSummary([order])}
+
+${this.getAirconRequirementsBlock()}
+
+📸 Please send a photo as proof of delivery.
+Please advise on pricing and availability. Thank you! 🙏`;
+  }
+
   bindEvents() {
     // Property selection change
     const propertySelect = document.getElementById(
@@ -238,6 +352,33 @@ Please leave at the doorstep.`;
           }
         }
       });
+    }
+
+    // Hotkey: Cmd/Ctrl+Shift+C → copy active prompt to clipboard
+    if (!document.getElementById("commonPromptHotkeyBound")) {
+      const marker = document.createElement("span");
+      marker.id = "commonPromptHotkeyBound";
+      marker.style.display = "none";
+      document.body.appendChild(marker);
+
+      document.addEventListener("keydown", (e) => {
+        if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key !== "C") return;
+        const previewSection = document.getElementById("promptPreviewSection");
+        if (!previewSection || previewSection.style.display === "none") return;
+        e.preventDefault();
+        if (this.activePromptId === "portable-aircon-order" && this.mode === "all") {
+          this.copyCombinedAirconMessage();
+        } else {
+          this.copyPromptToClipboard();
+        }
+      });
+
+      // Patch copy button title to show hotkey hint
+      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
+        navigator.userAgentData?.platform === "macOS";
+      const mod = isMac ? "⌘" : "Ctrl+";
+      document.getElementById("copyPromptBtn")
+        ?.setAttribute("title", `Copy to clipboard (${mod}⇧C)`);
     }
 
     // Mark events as bound if all key elements exist
@@ -301,6 +442,10 @@ Please leave at the doorstep.`;
   renderBulkMessages() {
     if (this.activePromptId === "ac-clean-booking") {
       this.renderAcScheduledBulk();
+      return;
+    }
+    if (this.activePromptId === "portable-aircon-order") {
+      this.renderPortableAirconBulk();
       return;
     }
 
@@ -408,6 +553,10 @@ Please leave at the doorstep.`;
   }
 
   async copyAllMessages() {
+    if (this.activePromptId === "portable-aircon-order") {
+      await this.copyCombinedAirconMessage();
+      return;
+    }
     const prompt = this.prompts.find((p) => p.id === this.activePromptId);
     if (!prompt) return;
 
@@ -635,7 +784,7 @@ Please leave at the doorstep.`;
     );
     if (controlsContainer) {
       controlsContainer.style.display =
-        prompt.id === "ac-clean-booking" || prompt.id === "camera-order"
+        prompt.id === "ac-clean-booking" || prompt.id === "camera-order" || prompt.id === "portable-aircon-order"
           ? "block"
           : "none";
     }
@@ -685,8 +834,16 @@ Please leave at the doorstep.`;
         previewSection?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
+    } else if (promptId === "portable-aircon-order") {
+      const bulkBtn = document.getElementById("allPropertiesModeBtn");
+      if (bulkBtn) {
+        bulkBtn.innerHTML = `<i class="bi bi-cart me-1"></i>Order Builder`;
+      }
+      this.setAllMode();
+      previewSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     } else {
-      // Restore default bulk button label when switching away from AC booking
+      // Restore default bulk button label when switching away from AC booking or aircon order
       const bulkBtn = document.getElementById("allPropertiesModeBtn");
       if (bulkBtn) {
         bulkBtn.innerHTML = `<i class="bi bi-buildings me-1"></i>Tất cả căn hộ (Bulk)`;
@@ -742,7 +899,7 @@ Please leave at the doorstep.`;
       }
     }
 
-    if (prompt.id === "camera-order") {
+    if (prompt.id === "camera-order" || prompt.id === "portable-aircon-order") {
       this.renderPromptControls();
     }
 
@@ -1151,6 +1308,156 @@ ${contactPhone}`;
     );
   }
 
+  renderPortableAirconBulk() {
+    const container = document.getElementById("bulkMessagesContainer");
+    const countBadge = document.getElementById("bulkPropertyCount");
+    if (!container) return;
+
+    if (countBadge) countBadge.textContent = `${this.properties.length} căn hộ`;
+
+    const sortedProperties = [...this.properties].sort(
+      (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
+    );
+
+    const headerHtml = `
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="text-muted small"><i class="bi bi-info-circle me-1"></i>Properties with all-zero quantities are excluded from the order message.</div>
+        <button class="btn btn-sm btn-outline-danger" onclick="commonPromptComponent.clearAllAirconOrders()">
+          <i class="bi bi-x-circle me-1"></i>Clear All
+        </button>
+      </div>
+    `;
+
+    let cardsHtml = '<div class="row g-3 mb-4">';
+    sortedProperties.forEach((property) => {
+      const order = this.getAirconOrder(property.propertyId);
+      const imgHtml = property.propertyImage
+        ? `<img src="${this.escapeHtml(property.propertyImage)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
+        : `<div style="width:48px;height:48px;border-radius:8px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted" style="font-size:1.2rem;"></i></div>`;
+      const hasPinAccess = property.digitalLockEnabled && property.digitalLockPin;
+      const pinHtml = hasPinAccess
+        ? `<div id="airconPin-${this.escapeHtml(property.propertyId)}"
+              style="display:${order.bringInside ? "flex" : "none"};align-items:center;gap:6px;margin-top:6px;padding:6px 10px;border-radius:6px;background:linear-gradient(135deg,#6f42c1,#9d4edd);color:#fff;font-size:12px;">
+            <i class="bi bi-shield-lock-fill"></i>
+            <span>Door access PIN: <strong>${this.escapeHtml(property.digitalLockPin)}</strong></span>
+          </div>`
+        : "";
+      cardsHtml += `
+        <div class="col-12 col-sm-6 col-xl-3 col-lg-4">
+          <div class="border rounded overflow-hidden h-100">
+            <div class="d-flex align-items-center px-3 py-2 bg-light gap-2">
+              ${imgHtml}
+              <strong style="font-size:13px;">${this.escapeHtml(property.propertyId)} - ${this.escapeHtml(property.address || "")}</strong>
+            </div>
+            <div class="p-3">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small fw-bold mb-1" style="font-size:11px;">Portable Aircon</label>
+                  <input type="number" class="form-control form-control-sm" value="${order.airconQty}" min="0"
+                    oninput="commonPromptComponent.updateAirconOrder('${property.propertyId}', 'airconQty', this.value)">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-bold mb-1" style="font-size:11px;">Hose 2m</label>
+                  <input type="number" class="form-control form-control-sm" value="${order.hose2m}" min="0"
+                    oninput="commonPromptComponent.updateAirconOrder('${property.propertyId}', 'hose2m', this.value)">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-bold mb-1" style="font-size:11px;">Hose 3m</label>
+                  <input type="number" class="form-control form-control-sm" value="${order.hose3m}" min="0"
+                    oninput="commonPromptComponent.updateAirconOrder('${property.propertyId}', 'hose3m', this.value)">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-bold mb-1" style="font-size:11px;">Remote</label>
+                  <input type="number" class="form-control form-control-sm" value="${order.remotes}" min="0"
+                    oninput="commonPromptComponent.updateAirconOrder('${property.propertyId}', 'remotes', this.value)">
+                </div>
+                <div class="col-12 mt-1">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                      id="bringInside-${this.escapeHtml(property.propertyId)}"
+                      ${order.bringInside ? "checked" : ""}
+                      onchange="commonPromptComponent.updateAirconOrder('${property.propertyId}', 'bringInside', this.checked)">
+                    <label class="form-check-label small fw-bold" for="bringInside-${this.escapeHtml(property.propertyId)}" style="font-size:11px;">
+                      🏠 Bring inside house
+                    </label>
+                  </div>
+                  ${pinHtml}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    cardsHtml += "</div>";
+
+    const combinedMessage = this.buildCombinedAirconOrderMessage();
+    const combinedHtml = `
+      <div class="border rounded overflow-hidden">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 gap-3" style="background:linear-gradient(135deg,#667eea22,#764ba222);">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-chat-text-fill text-primary"></i>
+            <strong>Combined Order Message</strong>
+            <span class="badge bg-success"><i class="bi bi-whatsapp me-1"></i>Lyn +6580159026</span>
+          </div>
+          <button class="btn btn-sm btn-outline-success" id="copyAirconCombinedBtn" onclick="commonPromptComponent.copyCombinedAirconMessage()">
+            <i class="bi bi-clipboard me-1"></i>Copy
+          </button>
+        </div>
+        <textarea id="portableAirconCombinedMsg" class="form-control border-0 rounded-0"
+          rows="20" readonly
+          style="font-family:'Noto Serif',serif;font-size:13px;line-height:1.6;background:#fafafa;resize:none;"
+        >${this.escapeHtml(combinedMessage)}</textarea>
+      </div>
+    `;
+
+    container.innerHTML = headerHtml + cardsHtml + combinedHtml;
+  }
+
+  updateAirconOrder(propertyId, field, value) {
+    const order = this.getAirconOrder(propertyId);
+    if (field === "bringInside") {
+      order.bringInside = value === true || value === "true";
+      const pinEl = document.getElementById(`airconPin-${propertyId}`);
+      if (pinEl) pinEl.style.display = order.bringInside ? "flex" : "none";
+    } else {
+      order[field] = Math.max(0, parseInt(value) || 0);
+    }
+    const combinedTextarea = document.getElementById("portableAirconCombinedMsg");
+    if (combinedTextarea) {
+      combinedTextarea.value = this.buildCombinedAirconOrderMessage();
+    }
+    if (this.mode === "single" && this.selectedPropertyId === propertyId) {
+      this.updateActivePromptPreview();
+    }
+  }
+
+  clearAllAirconOrders() {
+    this.airconOrders = {};
+    this.renderPortableAirconBulk();
+  }
+
+  async copyCombinedAirconMessage() {
+    const textarea = document.getElementById("portableAirconCombinedMsg");
+    if (!textarea) return;
+    const btn = document.getElementById("copyAirconCombinedBtn");
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Copied!';
+        btn.classList.replace("btn-outline-success", "btn-success");
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.replace("btn-success", "btn-outline-success");
+        }, 2000);
+      }
+    } catch {
+      textarea.select();
+      document.execCommand("copy");
+    }
+  }
+
   renderPromptControls() {
     const container = document.getElementById("promptControlsBody");
     if (!container) return;
@@ -1249,6 +1556,64 @@ ${contactPhone}`;
             if (this.mode === "all") this.renderBulkMessages();
           }
         });
+    } else if (
+      this.activePromptId === "portable-aircon-order" &&
+      this.selectedPropertyId
+    ) {
+      const controlsContainer = document.getElementById("promptControlsContainer");
+      if (controlsContainer) controlsContainer.style.display = "block";
+      const order = this.getAirconOrder(this.selectedPropertyId);
+      const property = this.properties.find((p) => p.propertyId === this.selectedPropertyId);
+      const hasPinAccess = property?.digitalLockEnabled && property?.digitalLockPin;
+      container.innerHTML = `
+        <div class="row g-3">
+          <div class="col-md-3 col-6">
+            <label class="form-label fw-bold small">Portable Aircon</label>
+            <input type="number" id="airconQtyInput" class="form-control" value="${order.airconQty}" min="0">
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label fw-bold small">Hose 2m</label>
+            <input type="number" id="hose2mInput" class="form-control" value="${order.hose2m}" min="0">
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label fw-bold small">Hose 3m</label>
+            <input type="number" id="hose3mInput" class="form-control" value="${order.hose3m}" min="0">
+          </div>
+          <div class="col-md-3 col-6">
+            <label class="form-label fw-bold small">Remote Controller</label>
+            <input type="number" id="remotesInput" class="form-control" value="${order.remotes}" min="0">
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="bringInsideSingleInput" ${order.bringInside ? "checked" : ""}>
+              <label class="form-check-label fw-bold small" for="bringInsideSingleInput">🏠 Bring inside house</label>
+            </div>
+            ${hasPinAccess ? `
+              <div id="airconPin-single" style="display:${order.bringInside ? "flex" : "none"};align-items:center;gap:6px;margin-top:6px;padding:6px 10px;border-radius:6px;background:linear-gradient(135deg,#6f42c1,#9d4edd);color:#fff;font-size:13px;width:fit-content;">
+                <i class="bi bi-shield-lock-fill"></i>
+                <span>Door access PIN: <strong>${this.escapeHtml(property.digitalLockPin)}</strong></span>
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      `;
+      [
+        ["airconQtyInput", "airconQty"],
+        ["hose2mInput", "hose2m"],
+        ["hose3mInput", "hose3m"],
+        ["remotesInput", "remotes"],
+      ].forEach(([id, field]) => {
+        document.getElementById(id)?.addEventListener("input", (e) => {
+          this.updateAirconOrder(this.selectedPropertyId, field, e.target.value);
+          this.updateActivePromptPreview();
+        });
+      });
+      document.getElementById("bringInsideSingleInput")?.addEventListener("change", (e) => {
+        this.updateAirconOrder(this.selectedPropertyId, "bringInside", e.target.checked);
+        const pinEl = document.getElementById("airconPin-single");
+        if (pinEl) pinEl.style.display = e.target.checked ? "flex" : "none";
+        this.updateActivePromptPreview();
+      });
     } else {
       container.innerHTML =
         '<div class="text-center text-muted py-2">Vui lòng chọn căn hộ để hiển thị tùy chọn.</div>';
