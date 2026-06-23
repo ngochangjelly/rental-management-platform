@@ -1436,49 +1436,28 @@ class HouseViewSpecialistComponent {
 
   addMasterRoom() {
     this._collectProfitStep();
-    const masters = this.viewingData.profit.rooms.filter(
-      (r) => r.id === "master" || r.id.startsWith("master"),
-    );
-    const n = masters.length + 1;
-    this.viewingData.profit.rooms.push({
-      id: `master${n}`,
-      label: `Master ${n}`,
-      min: 0,
-      max: 0,
-      enabled: true,
-    });
+    const rooms = this.viewingData.profit.rooms;
+    const n = rooms.filter((r) => r.id.startsWith("master")).length + 1;
+    const lastIdx = rooms.reduce((acc, r, i) => r.id.startsWith("master") ? i : acc, -1);
+    rooms.splice(lastIdx + 1, 0, { id: `master${n}`, label: `Master ${n}`, min: 0, max: 0, enabled: true });
     this.renderWizard();
   }
 
   addCommonRoom() {
     this._collectProfitStep();
-    const commons = this.viewingData.profit.rooms.filter((r) =>
-      r.id.startsWith("common"),
-    );
-    const n = commons.length + 1;
-    this.viewingData.profit.rooms.push({
-      id: `common${n}`,
-      label: `Common ${n}`,
-      min: 0,
-      max: 0,
-      enabled: true,
-    });
+    const rooms = this.viewingData.profit.rooms;
+    const n = rooms.filter((r) => r.id.startsWith("common")).length + 1;
+    const lastIdx = rooms.reduce((acc, r, i) => r.id.startsWith("common") ? i : acc, -1);
+    rooms.splice(lastIdx + 1, 0, { id: `common${n}`, label: `Common ${n}`, min: 0, max: 0, enabled: true });
     this.renderWizard();
   }
 
   addStoreRoom() {
     this._collectProfitStep();
-    const stores = this.viewingData.profit.rooms.filter((r) =>
-      r.id.startsWith("store"),
-    );
-    const n = stores.length + 1;
-    this.viewingData.profit.rooms.push({
-      id: `store${n}`,
-      label: `Store ${n}`,
-      min: 0,
-      max: 0,
-      enabled: true,
-    });
+    const rooms = this.viewingData.profit.rooms;
+    const n = rooms.filter((r) => r.id.startsWith("store")).length + 1;
+    const lastIdx = rooms.reduce((acc, r, i) => r.id.startsWith("store") ? i : acc, -1);
+    rooms.splice(lastIdx + 1, 0, { id: `store${n}`, label: `Store ${n}`, min: 0, max: 0, enabled: true });
     this.renderWizard();
   }
 
