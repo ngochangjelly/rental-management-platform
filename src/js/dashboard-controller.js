@@ -299,6 +299,11 @@ class DashboardController {
           window.salesMapComponent.activate();
         }
         break;
+      case "loi":
+        if (window.loiManager) {
+          window.loiManager.refresh();
+        }
+        break;
     }
   }
 

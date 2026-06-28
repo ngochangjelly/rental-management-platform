@@ -13,10 +13,12 @@ class CommonPromptComponent {
     this.acBookingDate = new Date().toISOString().split("T")[0];
     this.acBookingTime = "10:00";
     this.propertyTenants = [];
+    this.propertyInvestors = [];
     this.selectedContactTenantId = null;
     this.acServiceCompany = null;
     this.lastFetchedPropertyId = null;
     this.acScheduledData = {}; // propertyId -> { tenants, company, contactTenantId }
+    this.acContractorGroupList = []; // [{company, propertyIds[]}]
 
     // Camera Order dynamic state
     this.cameraQuantity = 2;
@@ -169,13 +171,13 @@ ${sgdBlock}${vndBlock}`;
     const acUnits = property.airconUnits || 0;
     const bill = acUnits * 20;
 
-    // Contact person (selected by user)
-    const contactTenant = this.selectedContactTenantId
-      ? this.propertyTenants.find((t) => t._id === this.selectedContactTenantId)
-      : mainTenant;
-    const contactPhone = contactTenant
-      ? contactTenant.phoneNumber
-      : "[sđt liên hệ]";
+    // Contact person (selected by user) — may be a tenant or investor
+    const contact = this.resolveContact(
+      this.selectedContactTenantId,
+      this.propertyTenants,
+      this.propertyInvestors,
+    );
+    const contactPhone = contact?.phoneNumber || "[sđt liên hệ]";
 
     return `hello
 
@@ -885,16 +887,18 @@ Please advise on pricing and availability. Thank you! 🙏`;
 
       if (property && this.lastFetchedPropertyId !== property.propertyId) {
         this.lastFetchedPropertyId = property.propertyId;
-        await this.fetchPropertyTenants(property.propertyId);
-        if (property.acServiceCompanyId) {
-          await this.fetchAcServiceCompany(property.acServiceCompanyId);
-        } else {
-          this.acServiceCompany = null;
-        }
+        await Promise.all([
+          this.fetchPropertyTenants(property.propertyId),
+          this.fetchPropertyInvestors(property.propertyId),
+          property.acServiceCompanyId
+            ? this.fetchAcServiceCompany(property.acServiceCompanyId)
+            : Promise.resolve((this.acServiceCompany = null)),
+        ]);
         this.renderPromptControls();
       } else if (!property) {
         this.lastFetchedPropertyId = null;
         this.propertyTenants = [];
+        this.propertyInvestors = [];
         this.renderPromptControls();
       }
     }
@@ -996,7 +1000,37 @@ Please advise on pricing and availability. Thank you! 🙏`;
     }
   }
 
-  getAcCleanBookingTemplateFor(property, tenants, contactTenantId, date, time) {
+  async fetchPropertyInvestors(propertyId) {
+    try {
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(propertyId),
+      );
+      const result = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        this.propertyInvestors = result.data;
+      } else if (result.success && Array.isArray(result.investors)) {
+        this.propertyInvestors = result.investors;
+      } else if (Array.isArray(result)) {
+        this.propertyInvestors = result;
+      } else {
+        this.propertyInvestors = [];
+      }
+    } catch (e) {
+      this.propertyInvestors = [];
+    }
+  }
+
+  resolveContact(contactId, tenants, investors) {
+    if (!contactId) return tenants.find((t) => t.isMainTenant) || tenants[0] || null;
+    if (contactId.startsWith("investor:")) {
+      const investorId = contactId.slice("investor:".length);
+      const inv = (investors || []).find((i) => i._id === investorId);
+      if (inv) return { name: inv.name, phoneNumber: inv.phone };
+    }
+    return tenants.find((t) => t._id === contactId) || null;
+  }
+
+  getAcCleanBookingTemplateFor(property, tenants, contactTenantId, date, time, investors) {
     date = this.formatDate(date) || "[date]";
     time = time || "[time]";
 
@@ -1007,12 +1041,8 @@ Please advise on pricing and availability. Thank you! 🙏`;
     const acUnits = property.airconUnits || 0;
     const bill = acUnits * 20;
 
-    const contactTenant = contactTenantId
-      ? tenants.find((t) => t._id === contactTenantId)
-      : mainTenant;
-    const contactPhone = contactTenant
-      ? contactTenant.phoneNumber
-      : "[sđt liên hệ]";
+    const contact = this.resolveContact(contactTenantId, tenants, investors || []);
+    const contactPhone = contact?.phoneNumber || "[sđt liên hệ]";
 
     return `hello
 
@@ -1048,34 +1078,11 @@ ${contactPhone}`;
       return;
     }
 
-    // Render loading skeleton — 4 cards per row on desktop (date/time is per-card)
-    container.innerHTML = `
-      <div class="row g-3" id="acScheduledCards">
-        ${scheduled
-          .map(
-            (p, i) => `
-          <div class="col-12 col-sm-6 col-xl-3 col-lg-4">
-            <div class="border rounded overflow-hidden h-100" id="acCard-${i}">
-              <div class="d-flex align-items-center px-3 py-2 bg-light gap-2">
-                ${
-                  p.propertyImage
-                    ? `<img src="${this.escapeHtml(p.propertyImage)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">`
-                    : `<div style="width:40px;height:40px;border-radius:6px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted"></i></div>`
-                }
-                <strong style="font-size:13px;">${this.escapeHtml(p.propertyId)} - ${this.escapeHtml(p.address || "")}</strong>
-              </div>
-              <div class="p-3 text-center text-muted"><i class="bi bi-hourglass-split me-2"></i>Đang tải...</div>
-            </div>
-          </div>
-        `,
-          )
-          .join("")}
-      </div>
-    `;
+    container.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-hourglass-split me-2 fs-4"></i><br>Đang tải dữ liệu...</div>`;
 
     // Fetch tenant + company data in parallel for all scheduled properties
     await Promise.all(
-      scheduled.map(async (property, i) => {
+      scheduled.map(async (property) => {
         try {
           let tenants = [];
           try {
@@ -1106,25 +1113,209 @@ ${contactPhone}`;
             }
           }
 
+          let investors = [];
+          try {
+            const res = await API.get(
+              API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(property.propertyId),
+            );
+            const result = await res.json();
+            if (result.success && Array.isArray(result.data)) investors = result.data;
+            else if (result.success && Array.isArray(result.investors)) investors = result.investors;
+            else if (Array.isArray(result)) investors = result;
+          } catch (e) {
+            /* no investors */
+          }
+
           const mainTenant = tenants.find((t) => t.isMainTenant) || tenants[0];
-          const contactTenantId = mainTenant?._id || null;
           this.acScheduledData[property.propertyId] = {
             tenants,
+            investors,
             company,
-            contactTenantId,
+            contactTenantId: mainTenant?._id || null,
             date: this.acBookingDate,
             time: this.acBookingTime,
           };
-
-          this.renderAcScheduledCard(property, i);
         } catch (e) {
-          const card = document.getElementById(`acCard-${i}`);
-          if (card)
-            card.querySelector(".p-3.text-center").textContent =
-              "Lỗi tải dữ liệu.";
+          this.acScheduledData[property.propertyId] = {
+            tenants: [],
+            investors: [],
+            company: null,
+            contactTenantId: null,
+            date: this.acBookingDate,
+            time: this.acBookingTime,
+          };
         }
       }),
     );
+
+    // Group by contractor
+    const groupKeyMap = {};
+    this.acContractorGroupList = [];
+    scheduled.forEach((p) => {
+      const data = this.acScheduledData[p.propertyId];
+      const company = data?.company;
+      const key = company ? (company._id || company.name || "unknown") : "__none__";
+      if (groupKeyMap[key] === undefined) {
+        groupKeyMap[key] = this.acContractorGroupList.length;
+        this.acContractorGroupList.push({ company: company || null, propertyIds: [] });
+      }
+      const groupIdx = groupKeyMap[key];
+      this.acContractorGroupList[groupIdx].propertyIds.push(p.propertyId);
+      data.groupIndex = groupIdx;
+    });
+
+    this.renderAcScheduledGroups(scheduled);
+  }
+
+  renderAcScheduledGroups(scheduled) {
+    const container = document.getElementById("bulkMessagesContainer");
+    if (!container) return;
+
+    const sortedGroupIndices = this.acContractorGroupList
+      .map((_, i) => i)
+      .sort((a, b) => {
+        const ga = this.acContractorGroupList[a];
+        const gb = this.acContractorGroupList[b];
+        if (!ga.company && gb.company) return 1;
+        if (ga.company && !gb.company) return -1;
+        return (ga.company?.name || "").localeCompare(gb.company?.name || "");
+      });
+
+    let html = "";
+    sortedGroupIndices.forEach((groupIdx) => {
+      const { company, propertyIds } = this.acContractorGroupList[groupIdx];
+      const groupProperties = propertyIds
+        .map((id) => this.properties.find((p) => p.propertyId === id))
+        .filter(Boolean);
+      const isMultiple = groupProperties.length > 1;
+
+      let waPhone = "";
+      if (company?.phone) {
+        const digits = company.phone.replace(/[^0-9]/g, "");
+        waPhone = digits.length === 8 && /^[893]/.test(digits) ? "65" + digits : digits;
+      }
+
+      if (company) {
+        html += `<div class="mb-4">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2" style="background:linear-gradient(135deg,#d4edda,#c3e6cb);border:2px solid #a3d7b4;border-radius:8px 8px 0 0;">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <i class="bi bi-tools text-success fs-5"></i>
+              <strong>${this.escapeHtml(company.name)}</strong>
+              ${company.phone ? `<span class="text-muted small">${this.escapeHtml(company.phone)}</span>` : ""}
+              <span class="badge bg-success">${groupProperties.length} căn hộ</span>
+            </div>
+            ${isMultiple ? `<div class="d-flex gap-2">
+              ${waPhone ? `<button class="btn btn-sm btn-success" onclick="commonPromptComponent.sendContractorGroupWhatsApp(${groupIdx}, '${waPhone}')"><i class="bi bi-whatsapp me-1"></i>WhatsApp tất cả</button>` : ""}
+              <button class="btn btn-sm btn-outline-success" id="copyContractorBtn-${groupIdx}" onclick="commonPromptComponent.copyContractorMessage(${groupIdx})"><i class="bi bi-clipboard me-1"></i>Copy tất cả</button>
+            </div>` : ""}
+          </div>
+          <div class="row g-3 p-3" style="background:#f8f9fa;border:2px solid #a3d7b4;border-top:0;">`;
+      } else {
+        html += `<div class="mb-4">
+          <div class="d-flex align-items-center gap-2 px-3 py-2" style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px 8px 0 0;">
+            <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+            <strong>Chưa gán AC contractor</strong>
+            <span class="badge bg-warning text-dark">${groupProperties.length} căn hộ</span>
+          </div>
+          <div class="row g-3 p-3" style="background:#f8f9fa;border:2px solid #ffc107;border-top:0;">`;
+      }
+
+      groupProperties.forEach((p) => {
+        const globalIdx = scheduled.findIndex((sp) => sp.propertyId === p.propertyId);
+        const imgHtml = p.propertyImage
+          ? `<img src="${this.escapeHtml(p.propertyImage)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">`
+          : `<div style="width:40px;height:40px;border-radius:6px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted"></i></div>`;
+        html += `<div class="col-12 col-sm-6 col-xl-3 col-lg-4">
+            <div class="border rounded overflow-hidden h-100 bg-white" id="acCard-${globalIdx}">
+              <div class="d-flex align-items-center px-3 py-2 bg-light gap-2">
+                ${imgHtml}
+                <strong style="font-size:13px;">${this.escapeHtml(p.propertyId)} - ${this.escapeHtml(p.address || "")}</strong>
+              </div>
+              <div class="p-3 text-center text-muted"><i class="bi bi-hourglass-split me-2"></i>Đang tải...</div>
+            </div>
+          </div>`;
+      });
+
+      html += `</div>`; // close row g-3
+
+      if (isMultiple && company) {
+        const combinedMsg = this.buildCombinedAcContractorMessage(groupIdx);
+        html += `<div style="border:2px solid #a3d7b4;border-top:0;border-radius:0 0 8px 8px;overflow:hidden;">
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 gap-2" style="background:linear-gradient(135deg,#b8dfc5,#9ecfb0);">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-chat-text-fill text-success"></i>
+                <strong class="small">Tin nhắn gộp → ${this.escapeHtml(company.name)}</strong>
+                <span class="badge bg-success">${groupProperties.length} căn hộ</span>
+              </div>
+              <div class="d-flex gap-2">
+                ${waPhone ? `<button class="btn btn-sm btn-success" onclick="commonPromptComponent.sendContractorGroupWhatsApp(${groupIdx}, '${waPhone}')"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>` : ""}
+                <button class="btn btn-sm btn-outline-success" id="copyContractorMsgBtn-${groupIdx}" onclick="commonPromptComponent.copyContractorMessage(${groupIdx})"><i class="bi bi-clipboard me-1"></i>Copy</button>
+              </div>
+            </div>
+            <textarea id="contractorCombinedMsg-${groupIdx}" class="form-control border-0 rounded-0" rows="12" readonly
+              style="font-family:'Noto Serif',serif;font-size:13px;line-height:1.6;background:#f0fff4;resize:none;"
+            >${this.escapeHtml(combinedMsg)}</textarea>
+          </div>`;
+      }
+
+      html += `</div>`; // close mb-4
+    });
+
+    container.innerHTML = html;
+
+    scheduled.forEach((property, i) => {
+      this.renderAcScheduledCard(property, i);
+    });
+  }
+
+  buildCombinedAcContractorMessage(groupIdx) {
+    const group = this.acContractorGroupList[groupIdx];
+    if (!group) return "";
+
+    const blocks = group.propertyIds
+      .map((propertyId) => {
+        const property = this.properties.find((p) => p.propertyId === propertyId);
+        const data = this.acScheduledData[propertyId];
+        if (!property || !data) return null;
+
+        const { tenants, investors = [], contactTenantId, date, time } = data;
+        const mainTenant = tenants.find((t) => t.isMainTenant) || tenants[0];
+        const contact = this.resolveContact(contactTenantId, tenants, investors);
+
+        const acUnits = property.airconUnits || 0;
+        const bill = acUnits * 20;
+        const formattedDate = this.formatDate(date) || "[date]";
+
+        return `📍 #${property.unit || ""} ${property.address || ""}
+DATE: ${formattedDate} ${time || "[time]"}
+name: ${mainTenant?.name || "[tên]"}
+phone: ${mainTenant?.phoneNumber || "[sđt]"}
+AC units: ${acUnits}
+bill: ${bill}$
+contact to open door: ${contact?.phoneNumber || "[sđt liên hệ]"}`;
+      })
+      .filter(Boolean);
+
+    return `hello
+
+its our cleaning AC cycle again
+I would like to book AC clean service for the following properties:
+
+${blocks.join("\n\n")}
+
+Thank you! 🙏`;
+  }
+
+  refreshContractorGroupMessage(propertyId) {
+    const data = this.acScheduledData[propertyId];
+    if (data?.groupIndex === undefined) return;
+    const groupIdx = data.groupIndex;
+    const group = this.acContractorGroupList[groupIdx];
+    if (!group || group.propertyIds.length <= 1) return;
+    const textarea = document.getElementById(`contractorCombinedMsg-${groupIdx}`);
+    if (textarea) {
+      textarea.value = this.buildCombinedAcContractorMessage(groupIdx);
+    }
   }
 
   renderAcScheduledCard(property, index) {
@@ -1138,21 +1329,32 @@ ${contactPhone}`;
       date: this.acBookingDate,
       time: this.acBookingTime,
     };
-    const { tenants, company, contactTenantId, date, time } = data;
+    const { tenants, investors = [], company, contactTenantId, date, time } = data;
     const message = this.getAcCleanBookingTemplateFor(
       property,
       tenants,
       contactTenantId,
       date,
       time,
+      investors,
     );
 
-    const tenantOptions = tenants
-      .map(
-        (t) =>
-          `<option value="${t._id}" ${t._id === contactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`,
-      )
-      .join("");
+    let contactOptions = "";
+    if (tenants.length > 0) {
+      contactOptions += `<optgroup label="Tenants">`;
+      contactOptions += tenants.map((t) =>
+        `<option value="${t._id}" ${t._id === contactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`
+      ).join("");
+      contactOptions += `</optgroup>`;
+    }
+    if (investors.length > 0) {
+      contactOptions += `<optgroup label="Investors">`;
+      contactOptions += investors.map((inv) => {
+        const val = `investor:${inv._id}`;
+        return `<option value="${val}" ${val === contactTenantId ? "selected" : ""}>${this.escapeHtml(inv.name)} (${inv.phone || "no phone"})</option>`;
+      }).join("");
+      contactOptions += `</optgroup>`;
+    }
 
     const companyHtml = company
       ? `<div class="p-2 rounded bg-light border-start border-4 border-success mb-2 d-flex align-items-center gap-2">
@@ -1221,13 +1423,13 @@ ${contactPhone}`;
         </div>
         ${companyHtml}
         ${
-          tenants.length > 0
+          contactOptions
             ? `
           <div class="mb-2">
             <label class="form-label small fw-bold mb-1" style="font-size:11px;">Người liên hệ mở cửa</label>
             <select class="form-select form-select-sm" id="acCardContact-${index}"
               onchange="commonPromptComponent.updateAcCardContact('${property.propertyId}', ${index}, this.value)">
-              ${tenantOptions}
+              ${contactOptions}
             </select>
           </div>`
             : ""
@@ -1254,8 +1456,10 @@ ${contactPhone}`;
         data.contactTenantId,
         data.date,
         data.time,
+        data.investors,
       );
     }
+    this.refreshContractorGroupMessage(propertyId);
   }
 
   updateAcCardContact(propertyId, index, contactTenantId) {
@@ -1272,8 +1476,10 @@ ${contactPhone}`;
         contactTenantId,
         data.date,
         data.time,
+        data.investors,
       );
     }
+    this.refreshContractorGroupMessage(propertyId);
   }
 
   async copyAcCard(index) {
@@ -1301,6 +1507,37 @@ ${contactPhone}`;
 
   sendAcWhatsApp(index, phone) {
     const textarea = document.getElementById(`acCardMsg-${index}`);
+    if (!textarea || !phone) return;
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(textarea.value)}`,
+      "_blank",
+    );
+  }
+
+  async copyContractorMessage(groupIdx) {
+    const textarea = document.getElementById(`contractorCombinedMsg-${groupIdx}`);
+    if (!textarea) return;
+    const btn = document.getElementById(`copyContractorMsgBtn-${groupIdx}`) ||
+      document.getElementById(`copyContractorBtn-${groupIdx}`);
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Copied!';
+        btn.classList.replace("btn-outline-success", "btn-success");
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.replace("btn-success", "btn-outline-success");
+        }, 2000);
+      }
+    } catch {
+      textarea.select();
+      document.execCommand("copy");
+    }
+  }
+
+  sendContractorGroupWhatsApp(groupIdx, phone) {
+    const textarea = document.getElementById(`contractorCombinedMsg-${groupIdx}`);
     if (!textarea || !phone) return;
     window.open(
       `https://wa.me/${phone}?text=${encodeURIComponent(textarea.value)}`,
@@ -1463,12 +1700,22 @@ ${contactPhone}`;
     if (!container) return;
 
     if (this.activePromptId === "ac-clean-booking" && this.selectedPropertyId) {
-      let tenantOptions = this.propertyTenants
-        .map(
-          (t) =>
-            `<option value="${t._id}" ${t._id === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`,
-        )
-        .join("");
+      let contactOptions = "";
+      if (this.propertyTenants.length > 0) {
+        contactOptions += `<optgroup label="Tenants">`;
+        contactOptions += this.propertyTenants.map((t) =>
+          `<option value="${t._id}" ${t._id === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`
+        ).join("");
+        contactOptions += `</optgroup>`;
+      }
+      if (this.propertyInvestors.length > 0) {
+        contactOptions += `<optgroup label="Investors">`;
+        contactOptions += this.propertyInvestors.map((inv) => {
+          const val = `investor:${inv._id}`;
+          return `<option value="${val}" ${val === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(inv.name)} (${inv.phone || "no phone"})</option>`;
+        }).join("");
+        contactOptions += `</optgroup>`;
+      }
 
       container.innerHTML = `
         <div class="row g-3">
@@ -1483,11 +1730,11 @@ ${contactPhone}`;
           <div class="col-12">
             <label class="form-label fw-bold small">Người liên hệ mở cửa (Contact Person)</label>
             <select id="acContactTenantSelect" class="form-select">
-              <option value="">-- Chọn tenant --</option>
-              ${tenantOptions}
+              <option value="">-- Chọn --</option>
+              ${contactOptions}
             </select>
             <small class="text-muted mt-1 d-block">
-              <i class="bi bi-whatsapp me-1"></i>Số WhatsApp của tenant này sẽ được điền vào tin nhắn
+              <i class="bi bi-whatsapp me-1"></i>Số WhatsApp của người này sẽ được điền vào tin nhắn
             </small>
           </div>
           ${
