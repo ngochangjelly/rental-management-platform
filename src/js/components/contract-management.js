@@ -1782,15 +1782,16 @@ class ContractManagementComponent {
 
           // Auto-fill rent and deposit from tenant data
           if (tenant) {
-            // Auto-fill monthly rental
-            if (tenant.rent) {
+            // Auto-fill monthly rental from latest room assignment
+            const effectiveRent = typeof getEffectiveTenantRent === "function" ? getEffectiveTenantRent(tenant) : tenant.rent;
+            if (effectiveRent) {
               const monthlyRentalInput = document.getElementById(
                 "contractMonthlyRental",
               );
               if (monthlyRentalInput) {
-                monthlyRentalInput.value = tenant.rent;
-                this.contractData.monthlyRental = tenant.rent;
-                console.log("✅ Auto-filled monthly rental:", tenant.rent);
+                monthlyRentalInput.value = effectiveRent;
+                this.contractData.monthlyRental = effectiveRent;
+                console.log("✅ Auto-filled monthly rental:", effectiveRent);
               }
             }
 
@@ -2034,7 +2035,7 @@ class ContractManagementComponent {
 
         // Auto-fill rent and deposit by summing all selected Tenant B (roommates)
         const totalRent = this.selectedTenantB.reduce(
-          (sum, t) => sum + (parseFloat(t.rent) || 0),
+          (sum, t) => sum + (parseFloat(typeof getEffectiveTenantRent === "function" ? getEffectiveTenantRent(t) : t.rent) || 0),
           0,
         );
         const totalDeposit = this.selectedTenantB.reduce(

@@ -73,6 +73,70 @@ class LoiManagementComponent {
     if (!section) return;
     section.addEventListener("input", (e) => this.handleFieldChange(e));
     section.addEventListener("change", (e) => this.handleFieldChange(e));
+    this.bindPostcodeLookup();
+  }
+
+  bindPostcodeLookup() {
+    const btn = document.getElementById("loiPostcodeLookupBtn");
+    const input = document.getElementById("loiPostcodeLookup");
+    if (!btn || !input) return;
+
+    const doLookup = () => this.fetchPostcode(input.value.trim());
+    btn.addEventListener("click", doLookup);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); doLookup(); } });
+  }
+
+  async fetchPostcode(postcode) {
+    const resultsEl = document.getElementById("loiPostcodeResults");
+    const errorEl = document.getElementById("loiPostcodeError");
+    if (!postcode || !/^\d{5,6}$/.test(postcode)) {
+      errorEl.textContent = "Enter a valid 5-6 digit postcode.";
+      errorEl.style.display = "";
+      resultsEl.style.display = "none";
+      return;
+    }
+    errorEl.style.display = "none";
+    resultsEl.style.display = "none";
+    resultsEl.innerHTML = "";
+
+    const btn = document.getElementById("loiPostcodeLookupBtn");
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`https://www.onemap.gov.sg/api/common/elastic/search?searchVal=${encodeURIComponent(postcode)}&returnGeom=N&getAddrDetails=Y&pageNum=1`);
+      if (!res.ok) throw new Error("OneMap request failed");
+      const data = await res.json();
+      const results = (data.results || []).slice(0, 8);
+      if (!results.length) {
+        errorEl.textContent = "No results found for this postcode.";
+        errorEl.style.display = "";
+        return;
+      }
+      results.forEach((r) => {
+        const addr = [r.BLK_NO, r.ROAD_NAME, r.BUILDING !== "NIL" ? r.BUILDING : "", `S(${r.POSTAL})`].filter(Boolean).join(" ");
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "list-group-item list-group-item-action py-1 px-2 small";
+        item.textContent = addr;
+        item.addEventListener("click", () => {
+          document.getElementById("loiPropertyAddress").value = addr;
+          this.loiData.propertyAddress = addr;
+          this.renderPreview();
+          resultsEl.style.display = "none";
+          resultsEl.innerHTML = "";
+          document.getElementById("loiPostcodeLookup").value = "";
+        });
+        resultsEl.appendChild(item);
+      });
+      resultsEl.style.display = "";
+    } catch (err) {
+      errorEl.textContent = "Lookup failed: " + err.message;
+      errorEl.style.display = "";
+    } finally {
+      btn.innerHTML = '<i class="bi bi-search me-1"></i>Fetch';
+      btn.disabled = false;
+    }
   }
 
   handleFieldChange(e) {
@@ -168,8 +232,8 @@ class LoiManagementComponent {
     <tr>
       <td style="vertical-align:top; font-weight:700;">To:</td>
       <td>
-        ${this.blank(d.landlordName)}<br>
-        ${this.blank(d.landlordNric)}
+        ${this.blank(d.landlordName)}
+        ${d.landlordNric ? `<br>${this.blank(d.landlordNric)}` : ""}
       </td>
     </tr>
   </table>
@@ -517,7 +581,7 @@ class LoiManagementComponent {
       checkY(6); pdf.text("Letter Of Intent", W / 2, y, { align: "center" }); y += 5.5;
       pdf.setFontSize(10); pdf.setFont("NotoSerif", "normal");
       checkY(); pdf.text("(ERA Serving Landlord)", W / 2, y, { align: "center" }); y += lh;
-      line(ML, ML + CW, [100,100,100]); y += 2;
+      line(ML, ML + CW, [100,100,100]); y += lh;
 
       // Date + To block
       pdf.setFontSize(10); pdf.setFont("NotoSerif", "bold");
@@ -526,12 +590,15 @@ class LoiManagementComponent {
       pdf.setFont("NotoSerif", "bold"); pdf.text("To:", ML, y);
       pdf.setFont("NotoSerif", "normal");
       pdf.text(val(d.landlordName), ML + 10, y); y += lh;
-      pdf.text(val(d.landlordNric), ML + 10, y); y += lh * 1.5;
+      if (d.landlordNric && d.landlordNric.trim()) {
+        pdf.text(d.landlordNric, ML + 10, y);
+      }
+      y += lh * 1.5;
 
       // Subject to contract
       pdf.setFontSize(10); pdf.setFont("NotoSerif", "bold");
       checkY(); pdf.text("SUBJECT TO CONTRACT", W / 2, y, { align: "center" }); y += lh;
-      line(ML, ML + CW); y += 2;
+      line(ML, ML + CW); y += lh;
 
       // Dear / RE
       pdf.setFont("NotoSerif", "normal"); pdf.setFontSize(10);

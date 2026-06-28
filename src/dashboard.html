@@ -3970,7 +3970,7 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="col-md-9 col-lg-10 ms-sm-auto px-4 main-content">
+        <main class="px-4 main-content">
           <!-- Mobile Header -->
           <div class="mobile-header">
             <button class="mobile-toggle" id="mobileToggle">
@@ -4627,10 +4627,10 @@
                   class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3"
                 >
                   <h5 class="mb-0">Properties</h5>
-                  <div class="d-flex align-items-center gap-2">
+                  <div class="d-flex align-items-center gap-2 flex-nowrap">
                     <div
                       class="input-group"
-                      style="max-width: 300px; width: 100%"
+                      style="max-width: 300px;"
                     >
                       <input
                         type="text"
@@ -4646,7 +4646,7 @@
                       </button>
                     </div>
                     <button
-                      class="btn btn-outline-primary btn-sm"
+                      class="btn btn-outline-primary btn-sm flex-shrink-0"
                       onclick="propertyManager.loadProperties()"
                       title="Reload property list"
                     >
@@ -6225,6 +6225,18 @@
                   <div class="card mb-3">
                     <div class="card-header py-2"><strong><i class="bi bi-building me-1"></i>Property Address</strong></div>
                     <div class="card-body py-3">
+                      <div class="mb-2">
+                        <label class="form-label fw-semibold small">Postcode lookup</label>
+                        <div class="input-group">
+                          <input type="text" class="form-control" id="loiPostcodeLookup"
+                            placeholder="e.g. 370053" maxlength="6" inputmode="numeric">
+                          <button class="btn btn-outline-secondary" type="button" id="loiPostcodeLookupBtn">
+                            <i class="bi bi-search me-1"></i>Fetch
+                          </button>
+                        </div>
+                        <div id="loiPostcodeResults" class="list-group mt-1" style="display:none;"></div>
+                        <div id="loiPostcodeError" class="form-text text-danger" style="display:none;"></div>
+                      </div>
                       <label class="form-label fw-semibold small">Full address (including unit &amp; postal code)</label>
                       <input type="text" class="form-control" data-loi-field="propertyAddress"
                         placeholder="e.g. Blk 53 Pipit Rd #12-94 S(370053)" id="loiPropertyAddress">
@@ -10691,7 +10703,7 @@
           if (propertiesResponse.ok) {
             const propertiesResult = await propertiesResponse.json();
             const propertiesCount = propertiesResult.success
-              ? propertiesResult.properties.length
+              ? propertiesResult.properties.filter(p => !p.isArchived).length
               : 0;
 
             const propertiesBadge = document.getElementById("propertiesBadge");
@@ -11006,8 +11018,8 @@
                   </div>
                   <h6 class="text-primary fw-bold mb-0">Required Information</h6>
                 </div>
-                <div class="row">
-                  <div class="col-md-6 mb-3">
+                <div class="row align-items-start">
+                  <div class="col-md-2 mb-3">
                     <label for="propertyId" class="form-label"
                       >Property ID <span class="text-danger">*</span></label
                     >
@@ -11024,7 +11036,7 @@
                       Unique identifier for the property.
                     </div>
                   </div>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-2 mb-3">
                     <label for="unit" class="form-label"
                       >Unit <span class="text-danger">*</span></label
                     >
@@ -11034,13 +11046,10 @@
                       id="unit"
                       name="unit"
                       required
-                      placeholder="e.g., #12-34, Unit A"
+                      placeholder="e.g., #12-34"
                     />
                   </div>
-                </div>
-                <!-- Postal Code Row -->
-                <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="postcode" class="form-label">Postal Code</label>
                     <div class="input-group">
                       <input
@@ -11048,7 +11057,7 @@
                         class="form-control"
                         id="postcode"
                         name="postcode"
-                        placeholder="6-digit postal code"
+                        placeholder="6-digit"
                         maxlength="6"
                       />
                       <button
@@ -11060,19 +11069,19 @@
                       </button>
                     </div>
                   </div>
-                </div>
-                <div class="mb-3">
-                  <label for="address" class="form-label"
-                    >Address <span class="text-danger">*</span></label
-                  >
-                  <textarea
-                    class="form-control"
-                    id="address"
-                    name="address"
-                    rows="2"
-                    required
-                    placeholder="Full property address"
-                  ></textarea>
+                  <div class="col-md-5 mb-3">
+                    <label for="address" class="form-label"
+                      >Address <span class="text-danger">*</span></label
+                    >
+                    <textarea
+                      class="form-control"
+                      id="address"
+                      name="address"
+                      rows="2"
+                      required
+                      placeholder="Full property address"
+                    ></textarea>
+                  </div>
                 </div>
               </div>
 
@@ -11099,8 +11108,9 @@
                   </div>
                   <div class="form-text">Affects map icon colour and card appearance.</div>
                 </div>
+                <!-- Occupancy + Dates + Payment Day — one desktop row -->
                 <div class="row">
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="maxPax" class="form-label"
                       >Maximum Occupancy</label
                     >
@@ -11113,9 +11123,9 @@
                       max="20"
                       value="1"
                     />
-                    <div class="form-text">Number of people allowed (1-20)</div>
+                    <div class="form-text">People allowed (1-20)</div>
                   </div>
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="moveInDate" class="form-label"
                       >Move-in Date</label
                     >
@@ -11126,7 +11136,7 @@
                       name="moveInDate"
                     />
                   </div>
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="moveOutDate" class="form-label"
                       >Move-out Date</label
                     >
@@ -11137,9 +11147,7 @@
                       name="moveOutDate"
                     />
                   </div>
-                </div>
-                <div class="row">
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="rentPaymentDate" class="form-label"
                       >Rent Payment Date</label
                     >
@@ -11182,60 +11190,62 @@
                     </select>
                   </div>
                 </div>
-                <div class="mb-3">
-                  <label for="rent" class="form-label"
-                    >Monthly Rent (SGD)</label
-                  >
-                  <div class="input-group">
-                    <span class="input-group-text">$</span>
+                <!-- Financials — one desktop row -->
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label for="rent" class="form-label"
+                      >Monthly Rent (SGD)</label
+                    >
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="rent"
+                        name="rent"
+                        min="0"
+                        step="0.01"
+                        value="0"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label for="airconUnits" class="form-label"
+                      >Number of Aircon Units</label
+                    >
                     <input
                       type="number"
                       class="form-control"
-                      id="rent"
-                      name="rent"
+                      id="airconUnits"
+                      name="airconUnits"
                       min="0"
-                      step="0.01"
                       value="0"
-                      placeholder="0.00"
+                      placeholder="0"
                     />
+                    <div class="form-text">Air conditioning units</div>
                   </div>
-                </div>
-                <div class="mb-3">
-                  <label for="airconUnits" class="form-label"
-                    >Number of Aircon Units</label
-                  >
-                  <input
-                    type="number"
-                    class="form-control"
-                    id="airconUnits"
-                    name="airconUnits"
-                    min="0"
-                    value="0"
-                    placeholder="0"
-                  />
-                  <div class="form-text">Number of air conditioning units</div>
-                </div>
-                <div class="mb-3">
-                  <label for="subsidizedPub" class="form-label">
-                    <i class="bi bi-lightning-charge me-1"></i>Subsidized PUB
-                    (S$)
-                  </label>
-                  <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="subsidizedPub"
-                      name="subsidizedPub"
-                      min="0"
-                      step="0.01"
-                      value="400"
-                      placeholder="400.00"
-                    />
-                  </div>
-                  <div class="form-text">
-                    Amount investor covers for utility bills. Tenant pays any
-                    excess.
+                  <div class="col-md-4 mb-3">
+                    <label for="subsidizedPub" class="form-label">
+                      <i class="bi bi-lightning-charge me-1"></i>Subsidized PUB
+                      (S$)
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="subsidizedPub"
+                        name="subsidizedPub"
+                        min="0"
+                        step="0.01"
+                        value="400"
+                        placeholder="400.00"
+                      />
+                    </div>
+                    <div class="form-text">
+                      Investor's utility bill subsidy.
+                    </div>
                   </div>
                 </div>
                 <div class="mb-3">
@@ -11495,7 +11505,7 @@
                   <h6 class="fw-bold mb-0" style="color:#fd7e14;">Landlord Banking Details</h6>
                 </div>
                 <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
                     <label for="landlordBankName" class="form-label"
                       >Bank Name</label
                     >
@@ -11517,7 +11527,7 @@
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
                     <label for="landlordAccountName" class="form-label"
                       >Account Holder Name</label
                     >
@@ -11529,18 +11539,18 @@
                       placeholder="Name on bank account"
                     />
                   </div>
-                </div>
-                <div class="mb-3">
-                  <label for="landlordBankAccount" class="form-label"
-                    >Bank Account Number</label
-                  >
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="landlordBankAccount"
-                    name="landlordBankAccount"
-                    placeholder="Account number for rent payments"
-                  />
+                  <div class="col-md-4 mb-3">
+                    <label for="landlordBankAccount" class="form-label"
+                      >Bank Account Number</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="landlordBankAccount"
+                      name="landlordBankAccount"
+                      placeholder="Account number for rent payments"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -12871,7 +12881,7 @@
                   </div>
                 </div>
                 <div class="row">
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="tenantDateOfBirth" class="form-label">Date of Birth</label>
                     <input
                       type="date"
@@ -12880,7 +12890,7 @@
                       name="dateOfBirth"
                     />
                   </div>
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="tenantGender" class="form-label">Gender</label>
                     <select class="form-select" id="tenantGender" name="gender">
                       <option value="">Select gender</option>
@@ -12889,7 +12899,7 @@
                       <option value="other">Other</option>
                     </select>
                   </div>
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="tenantPassType" class="form-label">Pass Type</label>
                     <select class="form-select" id="tenantPassType" name="passType">
                       <option value="">Select pass type</option>
@@ -12918,9 +12928,7 @@
                       </optgroup>
                     </select>
                   </div>
-                </div>
-                <div class="row">
-                  <div class="col-md-6 mb-3" id="tenantIndustryRow">
+                  <div class="col-md-3 mb-3" id="tenantIndustryRow">
                     <label for="tenantIndustry" class="form-label">Industry</label>
                     <input
                       type="text"
@@ -12931,6 +12939,8 @@
                       placeholder="e.g. Information Technology, Service…"
                     />
                   </div>
+                </div>
+                <div class="row">
                   <div class="col-md-6 mb-3" id="tenantUniversityRow" style="display:none;">
                     <label for="tenantUniversity" class="form-label">University</label>
                     <input
@@ -12999,43 +13009,6 @@
                     </div>
                   </div>
                 </div>
-                <div class="row">
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label">
-                      <i class="bi bi-person-circle me-1"></i>Avatar Image
-                    </label>
-                    <div class="input-group mb-2">
-                      <input
-                        type="url"
-                        class="form-control"
-                        id="tenantAvatarUrl"
-                        placeholder="Paste Cloudinary URL here"
-                      />
-                      <button
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        onclick="tenantManager.addAvatarFromUrl()"
-                      >
-                        <i class="bi bi-plus"></i> Add
-                      </button>
-                    </div>
-                    <div class="d-grid gap-2">
-                      <button
-                        class="btn btn-outline-primary"
-                        type="button"
-                        onclick="tenantManager.openAvatarUpload()"
-                      >
-                        <i class="bi bi-cloud-upload"></i> Upload Avatar
-                      </button>
-                    </div>
-                    <div class="form-text">
-                      Upload tenant's avatar image - upload or paste URL
-                    </div>
-                    <div id="avatarPreview" class="mt-3">
-                      <!-- Avatar preview will be displayed here -->
-                    </div>
-                  </div>
-                </div>
 
                 <!-- Signature Section (only for main tenants) -->
                 <div class="row" id="signatureSection" style="display: none">
@@ -13069,24 +13042,6 @@
 
                 <!-- Financial Information -->
                 <div class="row">
-                  <div class="col-md-6 mb-3">
-                    <label for="tenantRent" class="form-label">
-                      <i class="bi bi-currency-dollar me-1"></i>Monthly Rent
-                    </label>
-                    <div class="input-group">
-                      <span class="input-group-text">$</span>
-                      <input
-                        type="number"
-                        class="form-control"
-                        id="tenantRent"
-                        name="rent"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div class="form-text">Monthly rental amount in SGD</div>
-                  </div>
                   <div class="col-md-6 mb-3">
                     <label for="tenantDeposit" class="form-label">
                       <i class="bi bi-shield-check me-1"></i>Deposit Amount
@@ -13370,7 +13325,42 @@
                   <i class="bi bi-images me-1"></i>Document Images (Optional)
                 </h6>
                 <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <i class="bi bi-person-circle me-1"></i>Avatar Image
+                    </label>
+                    <div class="input-group mb-2">
+                      <input
+                        type="url"
+                        class="form-control"
+                        id="tenantAvatarUrl"
+                        placeholder="Paste Cloudinary URL here"
+                      />
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        onclick="tenantManager.addAvatarFromUrl()"
+                      >
+                        <i class="bi bi-plus"></i> Add
+                      </button>
+                    </div>
+                    <div class="d-grid gap-2">
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        onclick="tenantManager.openAvatarUpload()"
+                      >
+                        <i class="bi bi-cloud-upload"></i> Upload Avatar
+                      </button>
+                    </div>
+                    <div class="form-text">
+                      Upload tenant's avatar image - upload or paste URL
+                    </div>
+                    <div id="avatarPreview" class="mt-3">
+                      <!-- Avatar preview will be displayed here -->
+                    </div>
+                  </div>
+                  <div class="col-md-4 mb-3">
                     <label class="form-label">
                       <i class="bi bi-passport me-1"></i>Passport Pictures
                     </label>
@@ -13405,7 +13395,7 @@
                       <!-- Passport images will be displayed here -->
                     </div>
                   </div>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
                     <label class="form-label">
                       <i class="bi bi-credit-card me-1"></i>Visa Pictures
                     </label>

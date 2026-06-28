@@ -6,6 +6,34 @@ import {
 import { renderTenantSocialBadges } from "../utils/social-links.js";
 
 /**
+ * Returns the effective rent for a tenant derived from their room assignments.
+ * Priority: active assignment (no moveoutDate) > most recent historical assignment > legacy tenant.rent field.
+ * Exposed globally so contract-management.js and dashboard.js can call it.
+ */
+export function getEffectiveTenantRent(tenant) {
+  const props = (tenant?.properties || []).filter(p => typeof p === "object" && p.propertyId);
+  // First pass: return active assignment rent immediately
+  for (const prop of props) {
+    const active = (prop.roomAssignments || []).find(ra => !ra.moveoutDate);
+    if (active?.rent != null) return active.rent;
+  }
+  // Second pass: find most recent historical assignment by moveinDate
+  let bestRent = null;
+  let bestDate = -Infinity;
+  for (const prop of props) {
+    for (const ra of (prop.roomAssignments || [])) {
+      if (ra.rent != null) {
+        const d = ra.moveinDate ? new Date(ra.moveinDate).getTime() : 0;
+        if (d > bestDate) { bestDate = d; bestRent = ra.rent; }
+      }
+    }
+  }
+  return bestRent ?? tenant?.rent ?? null;
+}
+// Make available to non-module scripts
+if (typeof window !== "undefined") window.getEffectiveTenantRent = getEffectiveTenantRent;
+
+/**
  * Tenant Management Component (v2 - fixed update endpoint)
  * Handles tenant CRUD operations
  */
@@ -723,7 +751,7 @@ class TenantManagementComponent {
     let roomInfo = "No property";
     let moveInDate = "N/A";
     let moveOutDate = "N/A";
-    let rentAmount = tenant.rent || "N/A";
+    let rentAmount = this.getEffectiveRent(tenant) || "N/A";
 
     if (this.selectedProperty !== "UNASSIGNED") {
       const propertyInfo = tenant.properties?.find((prop) => {
@@ -781,9 +809,7 @@ class TenantManagementComponent {
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-start mb-1">
                                         <div>
-                                            <h5 class="mb-0">${this.escapeHtml(
-        tenant.name,
-      )}</h5>
+                                            <h5 class="mb-0 prop-copy-val" data-copy="${this.escapeHtml(tenant.name)}" title="Click to copy name" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.name)}</h5>
                                             ${tenant.nickname
         ? `<small class="text-muted">（${this.escapeHtml(
           tenant.nickname,
@@ -799,57 +825,25 @@ class TenantManagementComponent {
       }
                                         </div>
                                     </div>
-                                    <p class="text-muted mb-0">${this.escapeHtml(
-        tenant.phoneNumber || "No phone",
-      )}</p>
+                                    <p class="text-muted mb-0${tenant.phoneNumber ? ' prop-copy-val' : ''}" ${tenant.phoneNumber ? `data-copy="${this.escapeHtml(tenant.phoneNumber)}" title="Click to copy phone" onclick="event.stopPropagation();copyToClipboardInline(this)"` : ''}>${this.escapeHtml(tenant.phoneNumber || "No phone")}</p>
                                 </div>
                             </div>
                             <div class="small mb-3">
-                                <div class="mb-2"><strong>FIN:</strong> ${this.escapeHtml(tenant.fin) || "-"
-      }</div>
-                                <div class="mb-2"><strong>Passport:</strong> ${this.escapeHtml(
-        tenant.passportNumber,
-      )}</div>
-                                <div class="mb-2"><strong>DOB:</strong> ${tenant.dateOfBirth ? this.formatDate(tenant.dateOfBirth) : "-"}</div>
-                                <div class="mb-2"><strong>Gender:</strong> ${tenant.gender ? this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)) : "-"}</div>
-                                <div class="mb-2"><strong>Pass Type:</strong> ${tenant.passType ? this.escapeHtml(tenant.passType) : "-"}</div>
-                                ${tenant.industry
-        ? `<div class="mb-2"><strong>Industry:</strong> ${this.escapeHtml(tenant.industry)}</div>`
-        : ""
-      }
-                                ${tenant.university
-        ? `<div class="mb-2"><strong>University:</strong> ${this.escapeHtml(tenant.university)}</div>`
-        : ""
-      }
-                                <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(
-        roomInfo,
-      )}</div>
-                                <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === "number"
-        ? "$" + rentAmount.toFixed(2)
-        : rentAmount
-      }</div>
-                                <div class="mb-2"><strong>Cleaning Fee:</strong> ${typeof tenant.cleaningFee === "number"
-        ? "$" + tenant.cleaningFee.toFixed(2)
-        : "N/A"
-      }</div>
-                                ${tenant.isUtilitySubsidized
-        ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>'
-        : ""
-      }
-                                ${tenant.isHouseCleaner
-        ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>'
-        : ""
-      }
-                                <div class="mb-2"><strong>Move-in:</strong> ${this.escapeHtml(
-        moveInDate,
-      )}</div>
-                                <div class="mb-2"><strong>Move-out:</strong> ${this.escapeHtml(
-        moveOutDate,
-      )}</div>
-                                ${tenant.notes
-        ? `<div class="mt-2 pt-2 border-top text-muted" style="font-size:0.82em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>`
-        : ""
-      }
+                                <div class="mb-2"><strong>FIN:</strong> ${tenant.fin ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.fin)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.fin)}</span>` : "-"}</div>
+                                <div class="mb-2"><strong>Passport:</strong> ${tenant.passportNumber ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.passportNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.passportNumber)}</span>` : "-"}</div>
+                                <div class="mb-2"><strong>DOB:</strong> ${tenant.dateOfBirth ? `<span class="prop-copy-val" data-copy="${this.formatDate(tenant.dateOfBirth)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.formatDate(tenant.dateOfBirth)}</span>` : "-"}</div>
+                                <div class="mb-2"><strong>Gender:</strong> ${tenant.gender ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1))}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1))}</span>` : "-"}</div>
+                                <div class="mb-2"><strong>Pass Type:</strong> ${tenant.passType ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.passType)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.passType)}</span>` : "-"}</div>
+                                ${tenant.industry ? `<div class="mb-2"><strong>Industry:</strong> <span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.industry)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.industry)}</span></div>` : ""}
+                                ${tenant.university ? `<div class="mb-2"><strong>University:</strong> <span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.university)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.university)}</span></div>` : ""}
+                                <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
+                                <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === "number" ? `<span class="prop-copy-val" data-copy="${rentAmount}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${rentAmount.toFixed(2)}</span>` : rentAmount}</div>
+                                <div class="mb-2"><strong>Cleaning Fee:</strong> ${typeof tenant.cleaningFee === "number" ? `<span class="prop-copy-val" data-copy="${tenant.cleaningFee}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${tenant.cleaningFee.toFixed(2)}</span>` : "N/A"}</div>
+                                ${tenant.isUtilitySubsidized ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>' : ""}
+                                ${tenant.isHouseCleaner ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>' : ""}
+                                <div class="mb-2"><strong>Move-in:</strong> ${moveInDate !== "N/A" ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(moveInDate)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(moveInDate)}</span>` : moveInDate}</div>
+                                <div class="mb-2"><strong>Move-out:</strong> ${moveOutDate !== "N/A" ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(moveOutDate)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(moveOutDate)}</span>` : moveOutDate}</div>
+                                ${tenant.notes ? `<div class="mt-2 pt-2 border-top text-muted" style="font-size:0.82em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>` : ""}
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
                                 ${this.getRegistrationStatusBadge(
@@ -886,6 +880,16 @@ class TenantManagementComponent {
                 .tenant-detail-card {
                     transition: transform 0.2s ease, box-shadow 0.2s ease;
                     border: 1px solid #dee2e6;
+                }
+                .prop-copy-val {
+                    border-radius: 4px;
+                    padding: 1px 3px;
+                    transition: background 0.15s, color 0.15s;
+                    cursor: pointer;
+                }
+                .prop-copy-val:hover {
+                    background: #e9f0ff;
+                    color: #0d6efd;
                 }
                 .tenant-detail-card .card-body {
                     padding: 0.75rem 0.5rem;
@@ -1564,7 +1568,6 @@ class TenantManagementComponent {
           tenant.facebookUrl || "";
 
         // Populate financial fields (except depositReceiver which is populated after investors are loaded)
-        document.getElementById("tenantRent").value = tenant.rent || "";
         document.getElementById("tenantDeposit").value = tenant.deposit || "";
         document.getElementById("tenantCleaningFee").value =
           tenant.cleaningFee || "";
@@ -2364,6 +2367,8 @@ class TenantManagementComponent {
     this.checkForChanges();
   }
 
+  getEffectiveRent(tenant) { return getEffectiveTenantRent(tenant); }
+
   // Helper to sync legacy room/moveinDate/moveoutDate fields from roomAssignments
   syncLegacyFieldsFromRoomAssignments(propertyDetail) {
     const roomAssignments = propertyDetail.roomAssignments || [];
@@ -2503,7 +2508,6 @@ class TenantManagementComponent {
         avatar: this.avatar || null,
         signature: this.signature || null, // Send null instead of empty string
         // New financial fields
-        rent: formData.get("rent") ? parseFloat(formData.get("rent")) : null,
         deposit: formData.get("deposit")
           ? parseFloat(formData.get("deposit"))
           : null,
@@ -3726,7 +3730,6 @@ class TenantManagementComponent {
       "tenantUniversity",
       "tenantPhoneNumber",
       "tenantFacebookUrl",
-      "tenantRent",
       "tenantDeposit",
       "tenantDepositReceiver",
       "tenantCleaningFee",
@@ -3869,9 +3872,6 @@ class TenantManagementComponent {
       avatar: this.avatar || "",
       signature: this.signature || "",
       // New financial fields
-      rent: document.getElementById("tenantRent")?.value
-        ? parseFloat(document.getElementById("tenantRent").value)
-        : null,
       deposit: document.getElementById("tenantDeposit")?.value
         ? parseFloat(document.getElementById("tenantDeposit").value)
         : null,
@@ -3918,7 +3918,6 @@ class TenantManagementComponent {
       "registrationStatus",
       "avatar",
       "signature",
-      "rent",
       "deposit",
       "depositReceiver",
       "cleaningFee",
@@ -3932,7 +3931,7 @@ class TenantManagementComponent {
     ];
 
     // Numeric fields that should be compared as numbers
-    const numericFields = ["rent", "deposit", "cleaningFee"];
+    const numericFields = ["deposit", "cleaningFee"];
     // Boolean fields that should be compared as booleans
     const booleanFields = ["isUtilitySubsidized", "isHouseCleaner", "usesElectricity", "usesWater", "usesGas"];
 
@@ -4869,7 +4868,7 @@ class TenantManagementComponent {
             ? new Date(propertyInfo.moveoutDate).toISOString().split("T")[0]
             : "",
           "Is Main Tenant": propertyInfo.isMainTenant ? "Yes" : "No",
-          "Monthly Rent (SGD)": tenant.rent || "",
+          "Monthly Rent (SGD)": this.getEffectiveRent(tenant) || "",
           "Deposit Amount (SGD)": tenant.deposit || "",
           "Deposit Receiver": tenant.depositReceiver || "",
           "Cleaning Fee (SGD)": tenant.cleaningFee || "",

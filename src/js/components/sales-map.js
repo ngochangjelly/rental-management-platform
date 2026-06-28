@@ -281,22 +281,48 @@ class SalesMapComponent {
     const list = filter === 'all' ? this.properties : this.properties.filter(p => p.propertyType === filter);
     this._updateStats(list);
     const noCoords = [];
+    const withCoords = [];
 
     for (const prop of list) {
       if (!prop.latitude || !prop.longitude) { noCoords.push(prop); continue; }
+      withCoords.push(prop);
+    }
 
-      const t = (k) => i18next.t(`salesMap.${k}`);
-      const icon = this._makeIcon(prop.propertyType);
-      const marker = L.marker([prop.latitude, prop.longitude], { icon }).addTo(this.map);
+    // Group by exact coordinates — properties sharing the same postcode (same building,
+    // different units) receive identical lat/lng from OneMap and would stack on one pin.
+    // Spread them in a small circle (~20 m radius) so every pin is individually clickable.
+    const groups = new Map();
+    for (const prop of withCoords) {
+      const key = `${prop.latitude.toFixed(5)}_${prop.longitude.toFixed(5)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(prop);
+    }
 
-      marker.bindTooltip(
-        `<strong>${prop.address}</strong><br>${prop.unit}<br><span style="color:#16a34a">${t('available')}: ${prop.availableCount}/${prop.totalRooms}</span>`,
-        { permanent: false, direction: 'top', offset: [0, -38] }
-      );
+    const SPREAD = 0.00018; // ~20 m at Singapore latitude
+    const t = (k) => i18next.t(`salesMap.${k}`);
 
-      marker.on('mouseover', () => this._showPanel(prop));
-      marker.on('click', () => this._showPanel(prop));
-      this.markers.push({ marker, property: prop });
+    for (const group of groups.values()) {
+      group.forEach((prop, i) => {
+        let lat = prop.latitude;
+        let lng = prop.longitude;
+        if (group.length > 1) {
+          const angle = (2 * Math.PI * i) / group.length;
+          lat += SPREAD * Math.sin(angle);
+          lng += SPREAD * Math.cos(angle);
+        }
+
+        const icon = this._makeIcon(prop.propertyType);
+        const marker = L.marker([lat, lng], { icon }).addTo(this.map);
+
+        marker.bindTooltip(
+          `<strong>${prop.address}</strong><br>${prop.unit}<br><span style="color:#16a34a">${t('available')}: ${prop.availableCount}/${prop.totalRooms}</span>`,
+          { permanent: false, direction: 'top', offset: [0, -38] }
+        );
+
+        marker.on('mouseover', () => this._showPanel(prop));
+        marker.on('click', () => this._showPanel(prop));
+        this.markers.push({ marker, property: prop });
+      });
     }
 
     if (noCoords.length) this._showNoCoordsBanner(noCoords);
@@ -456,7 +482,8 @@ class SalesMapComponent {
     const banner = document.createElement('div');
     banner.id = 'sm-no-coords-banner';
     banner.style.cssText = 'position:absolute;top:52px;left:12px;right:12px;z-index:1000;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 12px;font-size:0.78rem;color:#92400e;';
-    banner.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>${i18next.t('salesMap.missingCoords', { count: props.length })}`;
+    const addressList = props.map(p => `<span style="font-weight:600;">${p.address} ${p.unit}${p.postcode ? ' S(' + p.postcode + ')' : ''}</span>`).join(', ');
+    banner.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>${i18next.t('salesMap.missingCoords', { count: props.length })}: ${addressList}`;
     mapEl.parentElement.appendChild(banner);
   }
 

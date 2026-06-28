@@ -1901,7 +1901,7 @@ class FinancialReportsComponent {
 
         // Calculate total rent for this room (all roommates)
         const totalRoomRent = roommates.reduce(
-          (sum, t) => sum + (t.rent || 0),
+          (sum, t) => sum + (typeof getEffectiveTenantRent === "function" ? (getEffectiveTenantRent(t) || 0) : (t.rent || 0)),
           0,
         );
 
@@ -1988,8 +1988,9 @@ class FinancialReportsComponent {
           }
 
           // Build fee badges
-          const rentBadge = tenant.rent
-            ? `<span class="badge bg-secondary" title="Monthly Rent">Rent: $${tenant.rent.toFixed(2)}</span>`
+          const _effectiveRent1 = typeof getEffectiveTenantRent === "function" ? getEffectiveTenantRent(tenant) : tenant.rent;
+          const rentBadge = _effectiveRent1
+            ? `<span class="badge bg-secondary" title="Monthly Rent">Rent: $${Number(_effectiveRent1).toFixed(2)}</span>`
             : "";
           const cleaningBadge = tenant.cleaningFee
             ? `<span class="badge bg-secondary" title="Cleaning Fee">Cleaning: $${tenant.cleaningFee.toFixed(2)}</span>`
@@ -7863,7 +7864,7 @@ class FinancialReportsComponent {
       const groupKey = tenantToGroup.get(tenant._id);
       const roommates = roomGroups.get(groupKey) || [tenant];
       const totalRoomRent = roommates.reduce(
-        (sum, t) => sum + (t.rent || 0),
+        (sum, t) => sum + (typeof getEffectiveTenantRent === "function" ? (getEffectiveTenantRent(t) || 0) : (t.rent || 0)),
         0,
       );
       const totalPaid = roommates.reduce(
@@ -7968,9 +7969,10 @@ class FinancialReportsComponent {
           }
 
           const feeParts = [];
-          if (tenant.rent)
+          const _effectiveRent2 = typeof getEffectiveTenantRent === "function" ? getEffectiveTenantRent(tenant) : tenant.rent;
+          if (_effectiveRent2)
             feeParts.push(
-              `<span class="badge bg-secondary" style="font-size:0.7em;">$${tenant.rent.toFixed(0)}</span>`,
+              `<span class="badge bg-secondary" style="font-size:0.7em;">$${Number(_effectiveRent2).toFixed(0)}</span>`,
             );
           if (tenant.cleaningFee)
             feeParts.push(

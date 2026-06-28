@@ -607,7 +607,7 @@ class PropertyManagementComponent {
                   </div>
                 </div>
                 <div class="flex-grow-1">
-                  <h6 class="mb-0 fw-bold">${this.escapeHtml(property.propertyId)}${archivedBadge}${!isArchived ? typeBadge : ''}${property.digitalLockEnabled ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#6f42c1,#9d4edd);font-size:0.6rem;vertical-align:middle;" title="Digital Lock Installed"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>` : ''}</h6>
+                  <h6 class="mb-0 fw-bold"><span class="prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>${archivedBadge}${!isArchived ? typeBadge : ''}${property.digitalLockEnabled ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#6f42c1,#9d4edd);font-size:0.6rem;vertical-align:middle;" title="Digital Lock Installed"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>` : ''}</h6>
                   <small class="text-muted">Property ID</small>
                 </div>
               </div>
@@ -615,25 +615,30 @@ class PropertyManagementComponent {
             <div class="card-body pt-2">
               <p class="mb-2 small d-flex align-items-start gap-1">
                 <i class="bi bi-geo-alt text-muted me-1 mt-1" style="flex-shrink:0;"></i>
-                <span class="flex-grow-1">${this.escapeHtml(property.address)}</span>
-                <button type="button" class="btn btn-link p-0 ms-1 text-muted" style="font-size:0.75rem;flex-shrink:0;line-height:1;" title="Copy address" onclick="event.stopPropagation();copyPropertyAddress(this)" data-address="${this.escapeHtml(property.address)}"><i class="bi bi-copy"></i></button>
+                <span class="flex-grow-1 prop-copy-val" data-copy="${this.escapeHtml(property.address)}" title="Click to copy address" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.address)}</span>
               </p>
               <div class="row">
                 <div class="col-6">
-                  <p class="mb-1 small"><strong>Unit:</strong> ${this.escapeHtml(property.unit)}</p>
-                  <p class="mb-1 small"><strong>Max Pax:</strong> ${property.maxPax}</p>
+                  <p class="mb-1 small"><strong>Unit:</strong> <span class="prop-copy-val" data-copy="${this.escapeHtml(property.unit)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.unit)}</span></p>
+                  <p class="mb-1 small"><strong>Max Pax:</strong> <span class="prop-copy-val" data-copy="${property.maxPax}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${property.maxPax}</span></p>
                 </div>
                 <div class="col-6">
                   <p class="mb-1 small"><strong>Rent:</strong></p>
-                  <h6 class="text-success mb-0">$${(property.rent || 0).toLocaleString()}</h6>
+                  <h6 class="text-success mb-0 prop-copy-val" data-copy="${property.rent || 0}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${(property.rent || 0).toLocaleString()}</h6>
                 </div>
               </div>
               <div class="mt-2">
-                <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `Day ${property.rentPaymentDate}` : 'Not set'}</p>
-                <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
-                <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</p>
-                <p class="mb-1 small"><strong>PUB Subsidy:</strong> $${(property.subsidizedPub || 0).toLocaleString()}</p>
-                ${property.spAccountUsername ? `<p class="mb-1 small d-flex align-items-center gap-1"><img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:14px;width:auto;flex-shrink:0;"> <span class="font-monospace">${this.escapeHtml(property.spAccountUsername)}</span></p>` : ''}
+                <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `<span class="prop-copy-val" data-copy="${property.rentPaymentDate}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">Day ${property.rentPaymentDate}</span>` : 'Not set'}</p>
+                <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? `<span class="prop-copy-val" data-copy="${new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span>` : 'Not set'}</p>
+                <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? `<span class="prop-copy-val" data-copy="${new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span>` : 'Not set'}</p>
+                <p class="mb-1 small"><strong>PUB Subsidy:</strong> $<span class="prop-copy-val" data-copy="${property.subsidizedPub || 0}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${(property.subsidizedPub || 0).toLocaleString()}</span></p>
+                ${(property.spAccountUsername || property.spAccountPassword) ? `
+                <div class="mb-1 small d-flex align-items-center gap-1 flex-wrap">
+                  <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:14px;width:auto;flex-shrink:0;">
+                  ${property.spAccountUsername ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountUsername)}" title="Click to copy username" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountUsername)}</span>` : ''}
+                  ${property.spAccountUsername && property.spAccountPassword ? `<span class="text-muted">/</span>` : ''}
+                  ${property.spAccountPassword ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountPassword)}" title="Click to copy password" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountPassword)}</span>` : ''}
+                </div>` : ''}
               </div>
               ${property.rooms && property.rooms.length > 0 ? `
               <div class="mt-2">
@@ -646,9 +651,9 @@ class PropertyManagementComponent {
               ${property.landlordBankName || property.landlordAccountName ? `
               <div class="mt-2 p-2 bg-light rounded">
                 <p class="mb-1 small fw-bold"><i class="bi bi-bank me-1"></i>Landlord Bank</p>
-                ${property.landlordBankName ? `<p class="mb-0 small text-truncate" title="${this.escapeHtml(property.landlordBankName)}">${this.escapeHtml(property.landlordBankName)}</p>` : ''}
-                ${property.landlordAccountName ? `<p class="mb-0 small text-muted text-truncate" title="${this.escapeHtml(property.landlordAccountName)}">${this.escapeHtml(property.landlordAccountName)}</p>` : ''}
-                ${property.landlordBankAccount ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.landlordBankAccount)}">${this.escapeHtml(property.landlordBankAccount)}</p>` : ''}
+                ${property.landlordBankName ? `<p class="mb-0 small prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.landlordBankName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.landlordBankName)}</p>` : ''}
+                ${property.landlordAccountName ? `<p class="mb-0 small text-muted prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.landlordAccountName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.landlordAccountName)}</p>` : ''}
+                ${property.landlordBankAccount ? `<p class="mb-0 small font-monospace prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.landlordBankAccount)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.landlordBankAccount)}</p>` : ''}
               </div>
               ` : ''}
               ${(() => {
@@ -665,7 +670,7 @@ class PropertyManagementComponent {
                   <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;${circleBg}">${avatarHtml}</div>
                   <div>
                     <div style="font-size:0.7rem;color:#6f42c1;font-weight:600;line-height:1;"><i class="bi bi-calculator me-1"></i>Accountant</div>
-                    <div class="small fw-semibold" style="line-height:1.3;">${this.escapeHtml(acc.name)}</div>
+                    <div class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(acc.name)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)" style="line-height:1.3;">${this.escapeHtml(acc.name)}</div>
                   </div>
                 </div>`;
               })()}
@@ -676,20 +681,20 @@ class PropertyManagementComponent {
                 <div class="mb-2">
                   <div class="d-flex align-items-center gap-1 mb-1">
                     <span class="badge bg-success">SGD</span>
-                    <span class="small fw-semibold">${this.escapeHtml(property.settlementSgd.bankName)}</span>
+                    <span class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(property.settlementSgd.bankName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementSgd.bankName)}</span>
                   </div>
-                  ${property.settlementSgd.accountHolderName ? `<p class="mb-0 small text-truncate" title="${this.escapeHtml(property.settlementSgd.accountHolderName)}">${this.escapeHtml(property.settlementSgd.accountHolderName)}</p>` : ''}
-                  ${property.settlementSgd.accountNumber ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.settlementSgd.accountNumber)}">${this.escapeHtml(property.settlementSgd.accountNumber)}</p>` : ''}
+                  ${property.settlementSgd.accountHolderName ? `<p class="mb-0 small prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementSgd.accountHolderName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementSgd.accountHolderName)}</p>` : ''}
+                  ${property.settlementSgd.accountNumber ? `<p class="mb-0 small font-monospace prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementSgd.accountNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementSgd.accountNumber)}</p>` : ''}
                 </div>
                 ` : ''}
                 ${property.settlementVnd?.bankName ? `
                 <div>
                   <div class="d-flex align-items-center gap-1 mb-1">
                     <span class="badge bg-warning text-dark">VND</span>
-                    <span class="small fw-semibold">${this.escapeHtml(property.settlementVnd.bankName)}</span>
+                    <span class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(property.settlementVnd.bankName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementVnd.bankName)}</span>
                   </div>
-                  ${property.settlementVnd.accountHolderName ? `<p class="mb-0 small text-truncate" title="${this.escapeHtml(property.settlementVnd.accountHolderName)}">${this.escapeHtml(property.settlementVnd.accountHolderName)}</p>` : ''}
-                  ${property.settlementVnd.accountNumber ? `<p class="mb-0 small font-monospace text-truncate" title="${this.escapeHtml(property.settlementVnd.accountNumber)}">${this.escapeHtml(property.settlementVnd.accountNumber)}</p>` : ''}
+                  ${property.settlementVnd.accountHolderName ? `<p class="mb-0 small prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementVnd.accountHolderName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementVnd.accountHolderName)}</p>` : ''}
+                  ${property.settlementVnd.accountNumber ? `<p class="mb-0 small font-monospace prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementVnd.accountNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementVnd.accountNumber)}</p>` : ''}
                 </div>
                 ` : ''}
               </div>
@@ -778,6 +783,17 @@ class PropertyManagementComponent {
           background: linear-gradient(135deg,#f6d365,#fda085) !important;
           color: #7c2d12 !important;
           border-color: #fda085 !important;
+        }
+        /* Click-to-copy value fields */
+        .prop-copy-val {
+          border-radius: 4px;
+          padding: 1px 3px;
+          transition: background 0.15s, color 0.15s;
+          cursor: pointer;
+        }
+        .prop-copy-val:hover {
+          background: #e9f0ff;
+          color: #0d6efd;
         }
       `;
       document.head.appendChild(style);
@@ -2180,6 +2196,20 @@ function copyPropertyAddress(btn) {
   });
 }
 window.copyPropertyAddress = copyPropertyAddress;
+
+function copyToClipboardInline(el) {
+  const text = el.dataset.copy !== undefined ? el.dataset.copy : el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = el.innerHTML;
+    el.innerHTML = '✓ Copied';
+    el.style.color = '#198754';
+    setTimeout(() => {
+      el.innerHTML = orig;
+      el.style.color = '';
+    }, 1500);
+  });
+}
+window.copyToClipboardInline = copyToClipboardInline;
 
 async function openTenantFbGroup(el) {
   const url = el.dataset.fbUrl;
