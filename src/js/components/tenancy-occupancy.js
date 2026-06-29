@@ -674,9 +674,20 @@ class TenancyOccupancyComponent {
       });
     });
 
+    const today = new Date();
     return tenantRows
       .filter((t) => t.room) // Filter out entries without a room
-      .sort((a, b) => new Date(a.moveinDate) - new Date(b.moveinDate));
+      .sort((a, b) => {
+        const aIsPastMoveout = !!(a.moveoutDate && new Date(a.moveoutDate) < today);
+        const bIsPastMoveout = !!(b.moveoutDate && new Date(b.moveoutDate) < today);
+        // Past moveout tenants go last
+        if (aIsPastMoveout !== bIsPastMoveout) return aIsPastMoveout ? 1 : -1;
+        // Then group by room type
+        const roomCompare = (a.room || "").localeCompare(b.room || "");
+        if (roomCompare !== 0) return roomCompare;
+        // Then by move-in date
+        return new Date(a.moveinDate) - new Date(b.moveinDate);
+      });
   }
 
   /**

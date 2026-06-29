@@ -628,17 +628,26 @@ class TenantManagementComponent {
     }
 
     // Properties cache is already loaded in loadTenantsForProperty
-    // Sort tenants: active tenants first, expired tenants last
+    // Helper: get room key for a tenant in the selected property
+    const getRoomKey = (tenant) => {
+      if (this.selectedProperty === "UNASSIGNED") return "";
+      const prop = (tenant.properties || []).find((p) => {
+        const id = typeof p === "object" ? p.propertyId : p;
+        return id === this.selectedProperty;
+      });
+      return (prop && typeof prop === "object" && prop.room) ? prop.room : "";
+    };
+
+    // Sort: active-with-room (grouped by room) → active-no-room → outdated-with-room (grouped by room) → outdated-no-room
     const sortedTenants = [...this.tenants].sort((a, b) => {
       const aIsOutdated = this.isTenantOutdated(a, this.selectedProperty);
       const bIsOutdated = this.isTenantOutdated(b, this.selectedProperty);
+      const aRoom = getRoomKey(a);
+      const bRoom = getRoomKey(b);
 
-      // If one is outdated and the other isn't, sort accordingly
-      if (aIsOutdated && !bIsOutdated) return 1; // a goes after b
-      if (!aIsOutdated && bIsOutdated) return -1; // a goes before b
-
-      // If both have the same status, maintain original order
-      return 0;
+      if (aIsOutdated !== bIsOutdated) return aIsOutdated ? 1 : -1;
+      if (!!aRoom !== !!bRoom) return aRoom ? -1 : 1;
+      return aRoom.localeCompare(bRoom);
     });
 
     // Group tenants by roommate relationships
