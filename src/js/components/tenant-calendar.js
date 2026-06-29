@@ -363,10 +363,12 @@ class TenantCalendar {
             </span>
         ` : '';
 
+        const isPastTenant = moveoutDate && moveoutDate < today;
+
         return `
-            <div class="tenant-row">
+            <div class="tenant-row${isPastTenant ? ' past-moveout-row' : ''}">
                 <div class="tenant-name-column">
-                    <div class="tenant-info-wrapper">
+                    <div class="tenant-info-wrapper${isPastTenant ? ' past-tenant-info' : ''}">
                         ${avatarHtml}
                         <div class="tenant-info">
                             <div class="tenant-name-text">${this.escapeHtml(displayName)} ${leaveDaysBadgeHtml}</div>
