@@ -198,8 +198,10 @@ ${contactPhone}`;
   }
 
   getCameraOrderTemplate(property) {
-    const unit = property?.unit ? `#${property.unit} ` : "";
-    const address = property?.address || "[address]";
+    const street = property?.address || "[address]";
+    const unit = property?.unit ? `#${property.unit}` : "";
+    const postcode = property?.postcode ? `Singapore ${property.postcode}` : "";
+    const addressLines = [street, unit, postcode].filter(Boolean).join("\n");
     const qty = this.cameraQuantity;
     const sets = qty === 1 ? "set" : "sets";
     return `Name
@@ -209,7 +211,7 @@ Contact
 Phone: 96977399
 
 Address
-${unit}${address}
+${addressLines}
 
 Order
 ${qty} ${sets} of Tapo TC71 + 64GB memory card

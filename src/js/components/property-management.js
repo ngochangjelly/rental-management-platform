@@ -209,6 +209,10 @@ class PropertyManagementComponent {
       option.textContent = `${investor.name} (${investor.investorId})`;
       dropdown.appendChild(option);
     });
+
+    // Force reset to placeholder — browsers may restore a prior selection
+    // when a matching option is appended back into the dropdown
+    dropdown.selectedIndex = 0;
   }
 
   updateAccountantAvatarPreview(investorId) {
@@ -2180,6 +2184,323 @@ class PropertyManagementComponent {
       const pinInput = document.getElementById("digitalLockPin");
       if (pinInput) pinInput.value = "";
     }
+  }
+
+  async copyPropertiesAsText() {
+    const btn = document.getElementById('copyPropertiesTextBtn');
+    const origHtml = btn?.innerHTML;
+    try {
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Copying...'; }
+
+      const active = this.properties
+        .filter(p => !p.isArchived)
+        .sort((a, b) => {
+          const nameA = this.allInvestors.find(i => i.investorId === a.accountant)?.name || '';
+          const nameB = this.allInvestors.find(i => i.investorId === b.accountant)?.name || '';
+          return nameA.localeCompare(nameB);
+        });
+
+      const fmtDate = d => d ? new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      const calcLease = (moveIn, moveOut) => {
+        if (!moveIn || !moveOut) return '';
+        const ms = new Date(moveOut) - new Date(moveIn);
+        if (ms <= 0) return '';
+        const months = Math.round(ms / (1000 * 60 * 60 * 24 * 30.44));
+        if (months < 12) return `${months} mo`;
+        const yrs = Math.round(months / 12 * 2) / 2;
+        return yrs === 1 ? '1 year' : `${yrs} years`;
+      };
+
+      const headers = ['#', 'Address', 'Unit', 'Rent (S$)', 'Lease', 'Move-in', 'Move-out', 'Accountant'];
+      const rows = active.map((p, i) => {
+        const acc = this.allInvestors.find(inv => inv.investorId === p.accountant);
+        return [
+          i + 1,
+          p.address || '',
+          p.unit || '',
+          p.rent || '',
+          calcLease(p.moveInDate, p.moveOutDate),
+          fmtDate(p.moveInDate),
+          fmtDate(p.moveOutDate),
+          acc ? acc.name : '',
+        ];
+      });
+
+      const tsv = [headers, ...rows].map(r => r.join('\t')).join('\n');
+      await navigator.clipboard.writeText(tsv);
+
+      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      showToast(`${active.length} properties copied — paste with ${isMac ? '⌘ Cmd+V' : 'Ctrl+V'} in Excel`, 'success', 5000);
+
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Copied!';
+        btn.classList.replace('btn-outline-primary', 'btn-success');
+        setTimeout(() => {
+          btn.innerHTML = origHtml;
+          btn.classList.replace('btn-success', 'btn-outline-primary');
+          btn.disabled = false;
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Copy as text failed:', err);
+      showToast('Failed to copy: ' + err.message, 'danger');
+      if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+    }
+  }
+
+  async _fetchAvatarDataUrl(url) {
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch { return null; }
+  }
+
+  async exportPropertiesAsImage() {
+    const btn = document.getElementById('exportPropertiesBtn');
+    const origHtml = btn?.innerHTML;
+    try {
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting...'; }
+      const active = this.properties
+        .filter(p => !p.isArchived)
+        .sort((a, b) => {
+          const nameA = this.allInvestors.find(i => i.investorId === a.accountant)?.name || '';
+          const nameB = this.allInvestors.find(i => i.investorId === b.accountant)?.name || '';
+          return nameA.localeCompare(nameB);
+        });
+
+      // Pre-fetch avatars as base64 so they can be embedded in the SVG
+      const avatarMap = {};
+      const uniqueAccountants = [...new Set(active.map(p => p.accountant).filter(Boolean))];
+      await Promise.all(uniqueAccountants.map(async id => {
+        const inv = this.allInvestors.find(i => i.investorId === id);
+        if (inv?.avatar) avatarMap[id] = await this._fetchAvatarDataUrl(inv.avatar);
+      }));
+
+      const svgStr = this._buildPropertiesTableSVG(active, active.length, avatarMap);
+      const blob = await this._propSvgToPngBlob(svgStr);
+      this._showPropImagePreview(blob);
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+        showToast(`Copied to clipboard — paste with ${isMac ? '⌘ Cmd+V' : 'Ctrl+V'}`, 'success', 5000);
+      } catch (_clipErr) {
+        // Clipboard copy is optional — preview modal is the primary deliverable
+      }
+    } catch (err) {
+      console.error('Export properties image failed:', err);
+      alert('Export failed: ' + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+    }
+  }
+
+  _buildPropertiesTableSVG(rows, activeCount, avatarMap = {}) {
+    const TITLE_H = 56;
+    const COL_H = 36;
+    const ROW_H = 44;
+    const PAD = 24;
+    const FOOTER_H = 32;
+
+    const COLS = [
+      { label: '#',          w: 40,  align: 'middle' },
+      { label: 'Address',    w: 330, align: 'start'  },
+      { label: 'Rent (S$)',  w: 95,  align: 'end'    },
+      { label: 'Lease',      w: 90,  align: 'middle' },
+      { label: 'Move-in',    w: 110, align: 'middle' },
+      { label: 'Move-out',   w: 110, align: 'middle' },
+      { label: 'Accountant', w: 207, align: 'start'  },
+    ];
+
+    const tableW = COLS.reduce((s, c) => s + c.w, 0);
+    const SVG_W = tableW + 2 * PAD;
+    const SVG_H = TITLE_H + COL_H + rows.length * ROW_H + FOOTER_H;
+
+    const colX = [];
+    let cx = PAD;
+    COLS.forEach(col => { colX.push(cx); cx += col.w; });
+
+    const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const trunc = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const calcLease = (moveIn, moveOut) => {
+      if (!moveIn || !moveOut) return '—';
+      const ms = new Date(moveOut) - new Date(moveIn);
+      if (ms <= 0) return '—';
+      const months = Math.round(ms / (1000 * 60 * 60 * 24 * 30.44));
+      if (months < 12) return `${months} mo`;
+      const yrs = Math.round(months / 12 * 2) / 2;
+      return yrs === 1 ? '1 year' : `${yrs} years`;
+    };
+
+    const parts = [];
+    const avatarClipDefs = [];
+
+    parts.push(`<rect width="${SVG_W}" height="${SVG_H}" fill="#f8f9fa"/>`);
+
+    parts.push(`<rect x="0" y="0" width="${SVG_W}" height="${TITLE_H}" fill="url(#pmTitleGrad)"/>`);
+    parts.push(`<text x="${PAD + 8}" y="${TITLE_H / 2 + 7}" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="white">Property Portfolio Overview</text>`);
+    const dateStr = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+    parts.push(`<text x="${SVG_W - PAD - 8}" y="${TITLE_H / 2 + 7}" font-family="Arial,sans-serif" font-size="12" fill="rgba(255,255,255,0.8)" text-anchor="end">${esc(dateStr)}</text>`);
+
+    parts.push(`<rect x="${PAD}" y="${TITLE_H}" width="${tableW}" height="${COL_H}" fill="#2d3748"/>`);
+    COLS.forEach((col, i) => {
+      const tx = col.align === 'end' ? colX[i] + col.w - 8 : col.align === 'middle' ? colX[i] + col.w / 2 : colX[i] + 8;
+      const anchor = col.align === 'end' ? 'end' : col.align === 'middle' ? 'middle' : 'start';
+      parts.push(`<text x="${tx}" y="${TITLE_H + COL_H / 2 + 5}" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#e2e8f0" text-anchor="${anchor}">${esc(col.label)}</text>`);
+    });
+
+    let archivedSepDrawn = false;
+    rows.forEach((prop, idx) => {
+      const rowY = TITLE_H + COL_H + idx * ROW_H;
+      const isArchived = !!prop.isArchived;
+
+      if (isArchived && !archivedSepDrawn) {
+        archivedSepDrawn = true;
+        parts.push(`<rect x="${PAD}" y="${rowY}" width="${tableW}" height="2" fill="#cbd5e0"/>`);
+      }
+
+      const rowBg = isArchived ? '#f0f0f0' : idx % 2 === 0 ? '#ffffff' : '#f8faff';
+      const textFill = isArchived ? '#9ca3af' : '#1a202c';
+      parts.push(`<rect x="${PAD}" y="${rowY}" width="${tableW}" height="${ROW_H}" fill="${rowBg}"/>`);
+      parts.push(`<line x1="${PAD}" y1="${rowY + ROW_H}" x2="${PAD + tableW}" y2="${rowY + ROW_H}" stroke="#e2e8f0" stroke-width="0.5"/>`);
+
+      const textY = rowY + ROW_H / 2 + 5;
+      const acc = this.allInvestors.find(i => i.investorId === prop.accountant);
+
+      const cells = [
+        { v: String(idx + 1),                                    align: 'middle', colIdx: 0 },
+        { v: prop.rent ? `$${prop.rent.toLocaleString()}` : '—', align: 'end',    colIdx: 2 },
+        { v: calcLease(prop.moveInDate, prop.moveOutDate),       align: 'middle', colIdx: 3 },
+        { v: fmtDate(prop.moveInDate),                           align: 'middle', colIdx: 4 },
+        { v: fmtDate(prop.moveOutDate),                          align: 'middle', colIdx: 5 },
+      ];
+      // Render non-address, non-accountant cells
+      cells.forEach(({ v, align, colIdx }) => {
+        const col = COLS[colIdx];
+        const tx = align === 'end' ? colX[colIdx] + col.w - 8 : align === 'middle' ? colX[colIdx] + col.w / 2 : colX[colIdx] + 8;
+        const anchor = align === 'end' ? 'end' : align === 'middle' ? 'middle' : 'start';
+        parts.push(`<text x="${tx}" y="${textY}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}" text-anchor="${anchor}">${esc(v)}</text>`);
+      });
+
+      // Accountant cell: avatar circle + name
+      const AVATAR_R = 13;
+      const avatarCX = colX[6] + 8 + AVATAR_R;
+      const avatarCY = rowY + ROW_H / 2;
+      if (acc) {
+        const dataUrl = avatarMap[prop.accountant];
+        if (dataUrl) {
+          const clipId = `accClip_${idx}`;
+          avatarClipDefs.push(`<clipPath id="${clipId}"><circle cx="${avatarCX}" cy="${avatarCY}" r="${AVATAR_R}"/></clipPath>`);
+          parts.push(`<circle cx="${avatarCX}" cy="${avatarCY}" r="${AVATAR_R}" fill="#e9ecef"/>`);
+          parts.push(`<image href="${dataUrl}" x="${avatarCX - AVATAR_R}" y="${avatarCY - AVATAR_R}" width="${AVATAR_R * 2}" height="${AVATAR_R * 2}" clip-path="url(#accClip_${idx})" preserveAspectRatio="xMidYMid slice"/>`);
+        } else {
+          const initials = acc.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+          parts.push(`<circle cx="${avatarCX}" cy="${avatarCY}" r="${AVATAR_R}" fill="url(#pmAccGrad)"/>`);
+          parts.push(`<text x="${avatarCX}" y="${avatarCY + 4}" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle">${esc(initials)}</text>`);
+        }
+        const nameX = avatarCX + AVATAR_R + 5;
+        parts.push(`<text x="${nameX}" y="${textY}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}">${esc(trunc(acc.name, 22))}</text>`);
+      } else {
+        parts.push(`<text x="${colX[6] + 8}" y="${textY}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}">—</text>`);
+      }
+
+      // Address: two lines (address line 1, unit line 2) — no truncation
+      const addrX = colX[1] + 8;
+      const addrLine1Y = rowY + 16;
+      const addrLine2Y = rowY + 31;
+      parts.push(`<text x="${addrX}" y="${addrLine1Y}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}">${esc(prop.address || '—')}</text>`);
+      if (prop.unit) {
+        parts.push(`<text x="${addrX}" y="${addrLine2Y}" font-family="Arial,sans-serif" font-size="11" fill="${isArchived ? '#b0b8c4' : '#6b7280'}">${esc(prop.unit)}</text>`);
+      }
+
+      COLS.forEach((_, i) => {
+        if (i > 0) parts.push(`<line x1="${colX[i]}" y1="${rowY}" x2="${colX[i]}" y2="${rowY + ROW_H}" stroke="#e2e8f0" stroke-width="0.5"/>`);
+      });
+    });
+
+    parts.push(`<rect x="${PAD}" y="${TITLE_H}" width="${tableW}" height="${COL_H + rows.length * ROW_H}" fill="none" stroke="#cbd5e0" stroke-width="1"/>`);
+
+    const footerY = TITLE_H + COL_H + rows.length * ROW_H + 10;
+    const archivedCount = rows.length - activeCount;
+    const footerText = `${activeCount} active propert${activeCount === 1 ? 'y' : 'ies'}${archivedCount > 0 ? ` · ${archivedCount} archived` : ''}`;
+    parts.push(`<text x="${SVG_W / 2}" y="${footerY + 12}" font-family="Arial,sans-serif" font-size="11" fill="#6b7280" text-anchor="middle">${esc(footerText)}</text>`);
+
+    const defs = `<defs><linearGradient id="pmTitleGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient><linearGradient id="pmAccGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6f42c1"/><stop offset="100%" stop-color="#9d4edd"/></linearGradient>${avatarClipDefs.join('')}</defs>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}">${defs}${parts.join('')}</svg>`;
+  }
+
+  _propSvgToPngBlob(svgStr) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth * scale;
+        canvas.height = img.naturalHeight * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas toBlob failed')), 'image/png');
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to render SVG')); };
+      img.src = url;
+    });
+  }
+
+  _showPropImagePreview(blob) {
+    const objectUrl = URL.createObjectURL(blob);
+    const fileName = `Property_Portfolio_${new Date().toISOString().slice(0, 10)}.png`;
+
+    document.getElementById('pmImagePreviewModal')?.remove();
+
+    const modalHtml = `
+      <div class="modal fade" id="pmImagePreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle bg-white d-flex align-items-center justify-content-center" style="width:32px;height:32px;flex-shrink:0;">
+                  <i class="bi bi-image text-primary" style="font-size:1rem;"></i>
+                </div>
+                <h6 class="modal-title text-white fw-bold mb-0">Property Portfolio Export</h6>
+              </div>
+              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-dark" style="min-height:200px;">
+              <img src="${objectUrl}" alt="Property Portfolio" style="max-width:100%;display:block;margin:0 auto;"/>
+            </div>
+            <div class="modal-footer border-0 justify-content-between" style="background:#f8f9fa;">
+              <div class="text-muted" style="font-size:0.78rem;"><i class="bi bi-keyboard me-1"></i>Press <kbd>Esc</kbd> to close</div>
+              <div class="d-flex gap-2">
+                <a href="${objectUrl}" download="${fileName}" class="btn btn-primary btn-sm">
+                  <i class="bi bi-download me-1"></i>Download PNG
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                  <i class="bi bi-x-lg me-1"></i>Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modalEl = document.getElementById('pmImagePreviewModal');
+    const modal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+    modalEl.addEventListener('hidden.bs.modal', () => { URL.revokeObjectURL(objectUrl); modalEl.remove(); }, { once: true });
+    const onKey = e => { if (e.key === 'Escape') modal.hide(); };
+    document.addEventListener('keydown', onKey);
+    modalEl.addEventListener('hidden.bs.modal', () => document.removeEventListener('keydown', onKey), { once: true });
+    modal.show();
   }
 
 

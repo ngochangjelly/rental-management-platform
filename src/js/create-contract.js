@@ -472,10 +472,17 @@ async function generatePDF(state) {
     );
   }
 
-  addText(
-    `Security Deposit: $${state.securityDeposit || state.monthlyRental || "[Security Deposit]"}${state.partialDepositReceived && state.partialDepositAmount ? ` (Partial deposit received: $${state.partialDepositAmount})` : ""}`,
-    { bold: true, spacing: 5 },
-  );
+  const totalDepStr = state.securityDeposit || state.monthlyRental || "[Security Deposit]";
+  addText(`Security Deposit: $${totalDepStr}`, { bold: true, spacing: 2 });
+  if (state.partialDepositReceived && state.partialDepositAmount) {
+    const totalDep = parseFloat(totalDepStr);
+    const received = parseFloat(state.partialDepositAmount);
+    const remaining = !isNaN(totalDep) && !isNaN(received) ? (totalDep - received).toFixed(2) : "–";
+    const dueStr = state.remainingDepositDate ? ` – due by ${formatDate(state.remainingDepositDate)}` : "";
+    addText(`*Initial deposit received: $${state.partialDepositAmount} · Remaining balance: $${remaining}${dueStr}`, {
+      fontSize: 9, indent: true, spacing: 3,
+    });
+  }
   addText("*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement", {
     fontSize: 9, indent: true, spacing: 10,
   });
@@ -588,6 +595,7 @@ class PublicContractCreator {
     this._setupAutoSave();
     this._setupLiveValidation();
     this._setupSettlementToggle();
+    this._setupPartialDepositToggle();
     this._setupAdditionalOptionsChevron();
     this._setupRipples();
     this._setupFieldFillTracking();
@@ -864,6 +872,14 @@ class PublicContractCreator {
     });
   }
 
+  // ── Partial deposit toggle ───────────────────────────────────────────────────
+  _setupPartialDepositToggle() {
+    document.getElementById("ccPartialDeposit").addEventListener("change", (e) => {
+      const wrap = document.getElementById("ccPartialDepositWrap");
+      if (wrap) wrap.style.display = e.target.checked ? "" : "none";
+    });
+  }
+
   // ── Accordion chevron ────────────────────────────────────────────────────────
   _setupAdditionalOptionsChevron() {
     const el = document.getElementById("additionalOptions");
@@ -1096,6 +1112,9 @@ class PublicContractCreator {
       electricityBudget: document.getElementById("ccElecBudget")?.value || "400",
       electricityFree: document.getElementById("ccElecFree")?.checked || false,
       cleaningFee: document.getElementById("ccCleaningFee")?.value || "",
+      partialDepositReceived: document.getElementById("ccPartialDeposit")?.checked || false,
+      partialDepositAmount: document.getElementById("ccPartialDepositAmount")?.value || "",
+      remainingDepositDate: document.getElementById("ccRemainingDepositDate")?.value || "",
       // Options
       airconFreeOfCharge: document.getElementById("ccAirconFree")?.checked || false,
       // Tenant A
@@ -1148,6 +1167,8 @@ class PublicContractCreator {
 
     // Hide conditional sections — will re-show below if data present
     document.getElementById("ccSettlementWrap").style.display = "none";
+    const partialWrap = document.getElementById("ccPartialDepositWrap");
+    if (partialWrap) partialWrap.style.display = "none";
 
     // ── Restore fields ──────────────────────────────────────────────
     set("ccPostcode", s.postcode);
@@ -1175,6 +1196,14 @@ class PublicContractCreator {
     set("ccShowSettlement", s.showSettlementAccounts);
     if (s.showSettlementAccounts) {
       document.getElementById("ccSettlementWrap").style.display = "";
+    }
+
+    set("ccPartialDeposit", s.partialDepositReceived);
+    set("ccPartialDepositAmount", s.partialDepositAmount);
+    set("ccRemainingDepositDate", s.remainingDepositDate);
+    if (s.partialDepositReceived) {
+      const pw = document.getElementById("ccPartialDepositWrap");
+      if (pw) pw.style.display = "";
     }
     set("ccSgdBank", s.settlementSgd?.bankName);
     set("ccSgdHolder", s.settlementSgd?.accountHolderName);
@@ -1238,9 +1267,13 @@ class PublicContractCreator {
     clear("ccVndBank"); clear("ccVndHolder"); clear("ccVndAccNo");
 
     // Uncheck all toggles and hide conditional sections
-    ["ccElecFree","ccAirconFree","ccShowSettlement"].forEach(uncheck);
+    ["ccElecFree","ccAirconFree","ccShowSettlement","ccPartialDeposit"].forEach(uncheck);
     const settlementWrap = document.getElementById("ccSettlementWrap");
     if (settlementWrap) settlementWrap.style.display = "none";
+    clear("ccPartialDepositAmount");
+    clear("ccRemainingDepositDate");
+    const partialDepWrap = document.getElementById("ccPartialDepositWrap");
+    if (partialDepWrap) partialDepWrap.style.display = "none";
 
     // Clear signature
     if (this.signaturePad) this.signaturePad.clear();
@@ -1368,8 +1401,18 @@ class PublicContractCreator {
               : '<br>*Payable by the 1st Day of each calendar month to "Tenant A"'
           }`)}`)}
 
-        ${p(`${bold("Security Deposit:")} $${state.securityDeposit || state.monthlyRental || "[Security Deposit]"}${state.partialDepositReceived && state.partialDepositAmount ? ` <em>(Partial deposit received: $${state.partialDepositAmount})</em>` : ""}<br>
-          ${small("*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement")}`)}
+        ${(() => {
+          const totalDep = state.securityDeposit || state.monthlyRental || "[Security Deposit]";
+          let partialNote = "";
+          if (state.partialDepositReceived && state.partialDepositAmount) {
+            const total = parseFloat(totalDep);
+            const received = parseFloat(state.partialDepositAmount);
+            const remaining = !isNaN(total) && !isNaN(received) ? (total - received).toFixed(2) : "–";
+            const dueStr = state.remainingDepositDate ? ` – due by ${formatDate(state.remainingDepositDate)}` : "";
+            partialNote = `<br>${small(`Initial deposit received: $${state.partialDepositAmount} · Remaining balance: $${remaining}${dueStr}`)}`;
+          }
+          return p(`${bold("Security Deposit:")} $${totalDep}${partialNote}<br>${small("*This deposit shall not be utilised to set off rent due and payable during the currency of this Agreement")}`);
+        })()}
 
         ${p("<small>Monthly rentals include Wi-Fi, utilities, gas, usage of condominium facilities such as swimming pool, barbequepit and multi-purpose hall.</small>")}
       </div>

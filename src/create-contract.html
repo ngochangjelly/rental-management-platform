@@ -1280,6 +1280,42 @@
               </div>
             </div>
           </div>
+          <!-- Partial deposit -->
+          <div
+            class="toggle-row mb-2"
+            id="tr-partialDeposit"
+            onclick="toggleRow(this, 'ccPartialDeposit')"
+          >
+            <input type="checkbox" id="ccPartialDeposit" />
+            <label for="ccPartialDeposit"
+              ><i class="bi bi-cash-coin me-1" style="color:#8b5cf6"></i>Cọc trả từng phần</label
+            >
+            <div class="toggle-switch"></div>
+          </div>
+          <div id="ccPartialDepositWrap" style="display:none" class="mb-3">
+            <div class="settlement-card">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Cọc đã nhận (SGD)</label>
+                  <div class="input-wrap">
+                    <input
+                      type="number"
+                      id="ccPartialDepositAmount"
+                      class="form-control"
+                      placeholder="500"
+                      min="0"
+                    />
+                    <i class="bi bi-check-circle-fill input-done-tick"></i>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Ngày trả phần còn lại</label>
+                  <input type="date" id="ccRemainingDepositDate" class="form-control" />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="row g-2 mb-3">
             <div class="col-6">
               <label class="form-label">Số Tháng Cọc</label>

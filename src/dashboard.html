@@ -34,7 +34,7 @@
     />
     <style>
       body {
-        font-family: 'Noto Serif', serif;
+        font-family: "Noto Serif", serif;
       }
       /* Hide content until translations are ready to prevent language flash */
       body:not(.i18n-ready) {
@@ -253,8 +253,7 @@
         .sidebar.collapsed .ios-segmented-control,
         .sidebar.collapsed .badge {
           opacity: 0;
-          transition:
-            opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition: opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
           pointer-events: none;
           position: absolute;
           visibility: hidden;
@@ -466,10 +465,9 @@
         opacity: 1;
       }
 
-      /* Constrain flex nav-links so badges never bleed past the sidebar edge */
+      /* Constrain flex nav-links so text truncates but badges remain visible */
       .sidebar .nav-link.d-flex {
         min-width: 0;
-        overflow: hidden;
       }
 
       /* Prevent text spans from overflowing so sidebar badges stay visible */
@@ -1044,7 +1042,7 @@
 
       /* Apple-style export enhancements */
       #exportableFinancialReport {
-        font-family: 'Noto Serif', serif;
+        font-family: "Noto Serif", serif;
         line-height: 1.6;
         color: #1d1d1f;
       }
@@ -1560,14 +1558,14 @@
         -webkit-tap-highlight-color: transparent;
         user-select: none;
         transition:
-          transform 0.45s cubic-bezier(0.34,1.56,0.64,1),
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
           box-shadow 0.3s ease,
           border-color 0.25s ease,
           background 0.25s ease;
       }
       #utilityQuickDropZone:hover {
         border-color: #9ca3af;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
         transform: scale(1.007);
       }
       #utilityQuickDropZone:active {
@@ -1576,8 +1574,10 @@
       }
       #utilityQuickDropZone.qdz-drag-active {
         border-color: #0d6efd;
-        background: rgba(13,110,253,0.04);
-        box-shadow: 0 0 0 5px rgba(13,110,253,0.14), 0 10px 36px rgba(13,110,253,0.16);
+        background: rgba(13, 110, 253, 0.04);
+        box-shadow:
+          0 0 0 5px rgba(13, 110, 253, 0.14),
+          0 10px 36px rgba(13, 110, 253, 0.16);
         transform: scale(1.025);
       }
       .qdz-state {
@@ -1595,19 +1595,31 @@
         display: block;
         margin-bottom: 2px;
         animation: qdzFloat 3s ease-in-out infinite;
-        transition: color 0.3s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+        transition:
+          color 0.3s ease,
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
       #utilityQuickDropZone.qdz-drag-active .qdz-cloud-icon {
         color: #0d6efd;
-        animation: qdzFloatActive 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        animation: qdzFloatActive 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)
+          forwards;
       }
       @keyframes qdzFloat {
-        0%,100% { transform: translateY(0px); }
-        50%      { transform: translateY(-8px); }
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
       }
       @keyframes qdzFloatActive {
-        0%   { transform: translateY(0) scale(1); }
-        100% { transform: translateY(-10px) scale(1.2); }
+        0% {
+          transform: translateY(0) scale(1);
+        }
+        100% {
+          transform: translateY(-10px) scale(1.2);
+        }
       }
       .qdz-title {
         font-size: 0.9rem;
@@ -1637,15 +1649,19 @@
         inset: 0;
         transform: rotate(-90deg);
       }
-      .qdz-ring-bg  { fill:none; stroke:#f3f4f6; stroke-width:5; }
-      .qdz-ring-fg  {
+      .qdz-ring-bg {
+        fill: none;
+        stroke: #f3f4f6;
+        stroke-width: 5;
+      }
+      .qdz-ring-fg {
         fill: none;
         stroke: #0d6efd;
         stroke-width: 5;
         stroke-linecap: round;
         stroke-dasharray: 219.9;
         stroke-dashoffset: 219.9;
-        transition: stroke-dashoffset 0.55s cubic-bezier(0.4,0,0.2,1);
+        transition: stroke-dashoffset 0.55s cubic-bezier(0.4, 0, 0.2, 1);
       }
       .qdz-pct {
         font-size: 0.88rem;
@@ -1659,13 +1675,21 @@
         width: 72px;
         height: 72px;
         margin-bottom: 4px;
-        animation: qdzSpringIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+        animation: qdzSpringIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
       }
       @keyframes qdzSpringIn {
-        0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
-        100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+        0% {
+          transform: scale(0) rotate(-20deg);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
+        }
       }
-      .qdz-check-circle { fill: #22c55e; }
+      .qdz-check-circle {
+        fill: #22c55e;
+      }
       .qdz-check-mark {
         fill: none;
         stroke: #fff;
@@ -1674,17 +1698,26 @@
         stroke-linejoin: round;
         stroke-dasharray: 32;
         stroke-dashoffset: 32;
-        animation: qdzCheckDraw 0.35s 0.22s cubic-bezier(0.4,0,0.2,1) forwards;
+        animation: qdzCheckDraw 0.35s 0.22s cubic-bezier(0.4, 0, 0.2, 1)
+          forwards;
       }
-      @keyframes qdzCheckDraw { to { stroke-dashoffset: 0; } }
-      .qdz-success-title { color: #16a34a !important; }
+      @keyframes qdzCheckDraw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      .qdz-success-title {
+        color: #16a34a !important;
+      }
       /* error */
       .qdz-error-icon {
         font-size: 2.6rem;
         color: #ef4444;
-        animation: qdzSpringIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+        animation: qdzSpringIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
       }
-      .qdz-error-title { color: #dc2626 !important; }
+      .qdz-error-title {
+        color: #dc2626 !important;
+      }
       /* ── End Quick Drop Zone ─────────────────────────────────────── */
 
       .utility-prop-card:hover {
@@ -2652,7 +2685,7 @@
       /* Tenant Timeline Calendar Styles */
       .tenant-timeline-calendar {
         min-width: 1200px;
-        font-family: 'Noto Serif', serif;
+        font-family: "Noto Serif", serif;
         --name-col-width: 280px;
       }
 
@@ -3400,10 +3433,12 @@
         background: #fff;
         border: 1px solid #e8eaed;
         border-radius: 14px;
-        transition: box-shadow 0.18s, transform 0.18s;
+        transition:
+          box-shadow 0.18s,
+          transform 0.18s;
       }
       .ipr-stat-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         transform: translateY(-2px);
       }
       .ipr-stat-icon {
@@ -3422,8 +3457,14 @@
         border-radius: 20px;
         font-weight: 600;
       }
-      .ipr-trend-up   { background: #e6f9f0; color: #15803d; }
-      .ipr-trend-down { background: #fef2f2; color: #b91c1c; }
+      .ipr-trend-up {
+        background: #e6f9f0;
+        color: #15803d;
+      }
+      .ipr-trend-down {
+        background: #fef2f2;
+        color: #b91c1c;
+      }
 
       .ipr-section-card {
         background: #fff;
@@ -3441,12 +3482,12 @@
       .ipr-investor-card:hover:not(.selected) {
         border-color: #4f46e5;
         transform: translateY(-3px);
-        box-shadow: 0 6px 18px rgba(79,70,229,0.18);
+        box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
       }
       .ipr-investor-card.selected {
         border-width: 2px;
         transform: translateY(-2px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.13);
       }
 
       .ipr-controls-bar {
@@ -3488,10 +3529,14 @@
         overflow: hidden;
         transition: box-shadow 0.15s;
       }
-      .ipr-prop-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.09); }
+      .ipr-prop-card:hover {
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.09);
+      }
 
       @media (max-width: 576px) {
-        .ipr-topbar { padding: 0.75rem 1rem; }
+        .ipr-topbar {
+          padding: 0.75rem 1rem;
+        }
       }
     </style>
 
@@ -3517,13 +3562,21 @@
         max-width: 640px;
         background: rgba(255, 255, 255, 0.97);
         border-radius: 16px;
-        box-shadow: 0 32px 80px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.12);
+        box-shadow:
+          0 32px 80px rgba(0, 0, 0, 0.35),
+          0 2px 8px rgba(0, 0, 0, 0.12);
         overflow: hidden;
         animation: spotlightSlideIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
       @keyframes spotlightSlideIn {
-        from { opacity: 0; transform: scale(0.94) translateY(-12px); }
-        to   { opacity: 1; transform: scale(1)    translateY(0); }
+        from {
+          opacity: 0;
+          transform: scale(0.94) translateY(-12px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
       }
       #spotlightInput {
         width: 100%;
@@ -3537,7 +3590,9 @@
         line-height: 1.4;
         caret-color: #667eea;
       }
-      #spotlightInput::placeholder { color: #aaa; }
+      #spotlightInput::placeholder {
+        color: #aaa;
+      }
       #spotlightInputWrap {
         position: relative;
         border-bottom: 1px solid #eee;
@@ -3556,13 +3611,17 @@
         right: 16px;
         display: none;
       }
-      #spotlightInputWrap .sp-spinner.active { display: block; }
+      #spotlightInputWrap .sp-spinner.active {
+        display: block;
+      }
       #spotlightResults {
         max-height: 420px;
         overflow-y: auto;
         padding: 6px 0;
       }
-      #spotlightResults:empty { padding: 0; }
+      #spotlightResults:empty {
+        padding: 0;
+      }
       .sp-result-item {
         display: flex;
         align-items: center;
@@ -3576,7 +3635,9 @@
       .sp-result-item.sp-active {
         background: #f0f0ff;
       }
-      .sp-result-item.sp-active { background: #e8e8ff; }
+      .sp-result-item.sp-active {
+        background: #e8e8ff;
+      }
       .sp-avatar {
         width: 38px;
         height: 38px;
@@ -3591,8 +3652,15 @@
         flex-shrink: 0;
         overflow: hidden;
       }
-      .sp-avatar img { width: 100%; height: 100%; object-fit: cover; }
-      .sp-info { flex: 1; min-width: 0; }
+      .sp-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .sp-info {
+        flex: 1;
+        min-width: 0;
+      }
       .sp-name {
         font-weight: 600;
         font-size: 0.92rem;
@@ -3704,10 +3772,18 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link d-flex align-items-center" href="#" data-section="sales-map">
+              <a
+                class="nav-link d-flex align-items-center"
+                href="#"
+                data-section="sales-map"
+              >
                 <i class="bi bi-map me-2"></i
                 ><span data-i18n="sidebar.salesMap">Sales Map</span>
-                <span class="badge bg-success text-white ms-auto" style="font-size:0.65rem">NEW</span>
+                <span
+                  class="badge bg-success text-white ms-auto"
+                  style="font-size: 0.65rem"
+                  >NEW</span
+                >
               </a>
             </li>
             <li class="nav-item">
@@ -3768,8 +3844,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="loi">
-                <i class="bi bi-pen me-2"></i
-                ><span>Letter of Intent</span>
+                <i class="bi bi-pen me-2"></i><span>Letter of Intent</span>
               </a>
             </li>
             <li class="nav-item">
@@ -3902,38 +3977,49 @@
             <!-- Global Tenant Search Shortcut Hint -->
             <div
               id="tenantSearchShortcut"
-              onclick="document.getElementById('spotlightOverlay').classList.add('active'); setTimeout(()=>document.getElementById('spotlightInput').focus(),30);"
+              onclick="
+                document
+                  .getElementById('spotlightOverlay')
+                  .classList.add('active');
+                setTimeout(
+                  () => document.getElementById('spotlightInput').focus(),
+                  30,
+                );
+              "
               style="
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
-                background: rgba(255,255,255,0.1);
-                color: rgba(255,255,255,0.85);
+                background: rgba(255, 255, 255, 0.1);
+                color: rgba(255, 255, 255, 0.85);
                 border-radius: 20px;
                 padding: 5px 12px;
                 font-size: 11px;
                 font-weight: 500;
                 margin-bottom: 8px;
-                border: 1px solid rgba(255,255,255,0.2);
+                border: 1px solid rgba(255, 255, 255, 0.2);
                 transition: background 0.2s;
               "
-              onmouseover="this.style.background='rgba(255,255,255,0.22)'"
-              onmouseout="this.style.background='rgba(255,255,255,0.1)'"
+              onmouseover="this.style.background = 'rgba(255,255,255,0.22)'"
+              onmouseout="this.style.background = 'rgba(255,255,255,0.1)'"
               title="Search all tenants from anywhere"
             >
-              <i class="bi bi-search" style="font-size:10px;"></i>
+              <i class="bi bi-search" style="font-size: 10px"></i>
               <span>Tenant Search</span>
-              <span style="
-                background: rgba(255,255,255,0.2);
-                border-radius: 4px;
-                padding: 1px 5px;
-                font-size: 10px;
-                letter-spacing: 0.3px;
-                font-family: monospace;
-              ">⌃⇧F</span>
+              <span
+                style="
+                  background: rgba(255, 255, 255, 0.2);
+                  border-radius: 4px;
+                  padding: 1px 5px;
+                  font-size: 10px;
+                  letter-spacing: 0.3px;
+                  font-family: monospace;
+                "
+                >⌃⇧F</span
+              >
             </div>
-            <br>
+            <br />
             <!-- Global Exchange Rate Badge -->
             <div
               id="globalExchangeRateBadge"
@@ -3990,11 +4076,19 @@
               <span>Rental Hub</span>
             </div>
             <button
-              onclick="document.getElementById('spotlightOverlay').classList.add('active'); setTimeout(()=>document.getElementById('spotlightInput').focus(),30);"
+              onclick="
+                document
+                  .getElementById('spotlightOverlay')
+                  .classList.add('active');
+                setTimeout(
+                  () => document.getElementById('spotlightInput').focus(),
+                  30,
+                );
+              "
               title="Search tenants (Ctrl+Shift+F)"
               style="
-                background: rgba(255,255,255,0.18);
-                border: 1px solid rgba(255,255,255,0.35);
+                background: rgba(255, 255, 255, 0.18);
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 50%;
                 width: 32px;
                 height: 32px;
@@ -4005,7 +4099,9 @@
                 flex-shrink: 0;
                 cursor: pointer;
               "
-            ><i class="bi bi-search" style="font-size:13px;"></i></button>
+            >
+              <i class="bi bi-search" style="font-size: 13px"></i>
+            </button>
             <div
               id="globalExchangeRateBadgeMobile"
               onclick="dashboardController.showSection('exchange-rate')"
@@ -4568,6 +4664,20 @@
                     <i class="bi bi-plus-circle me-1"></i>Add Property
                   </button>
                   <button
+                    class="btn btn-outline-success"
+                    id="exportPropertiesBtn"
+                    onclick="propertyManager.exportPropertiesAsImage()"
+                  >
+                    <i class="bi bi-image me-1"></i>Export Property Porfolio
+                  </button>
+                  <button
+                    class="btn btn-outline-primary"
+                    id="copyPropertiesTextBtn"
+                    onclick="propertyManager.copyPropertiesAsText()"
+                  >
+                    <i class="bi bi-table me-1"></i>Copy as Excel
+                  </button>
+                  <button
                     class="btn btn-outline-secondary"
                     onclick="dashboardController.goToDashboard()"
                   >
@@ -4581,26 +4691,39 @@
                    ═══════════════════════════════════════════════════════ -->
               <div class="card mb-4" id="propertyMoveoutTimelineSection">
                 <!-- Header / toggle -->
-                <div id="propertyMoveoutTimelineHeader"
-                     class="card-header d-flex justify-content-between align-items-center"
-                     style="cursor:pointer;"
-                     data-bs-toggle="collapse"
-                     data-bs-target="#propertyMoveoutTimelineBody"
-                     aria-expanded="false"
-                     aria-controls="propertyMoveoutTimelineBody">
+                <div
+                  id="propertyMoveoutTimelineHeader"
+                  class="card-header d-flex justify-content-between align-items-center"
+                  style="cursor: pointer"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#propertyMoveoutTimelineBody"
+                  aria-expanded="false"
+                  aria-controls="propertyMoveoutTimelineBody"
+                >
                   <div class="d-flex align-items-center gap-2">
                     <i class="bi bi-calendar-range text-danger"></i>
-                    <h5 class="mb-0" data-i18n="propertyMoveoutTimeline.title">Property Lease Expiry Timeline</h5>
-                    <span id="moveoutUrgentCount"
-                          class="badge"
-                          style="background:#dc3545;display:none;"></span>
+                    <h5 class="mb-0" data-i18n="propertyMoveoutTimeline.title">
+                      Property Lease Expiry Timeline
+                    </h5>
+                    <span
+                      id="moveoutUrgentCount"
+                      class="badge"
+                      style="background: #dc3545; display: none"
+                    ></span>
                   </div>
                   <div class="d-flex align-items-center gap-2">
-                    <small class="text-muted d-none d-md-inline" data-i18n="propertyMoveoutTimeline.hint">
-                      Click to expand — shows when leases expire and preparation deadlines
+                    <small
+                      class="text-muted d-none d-md-inline"
+                      data-i18n="propertyMoveoutTimeline.hint"
+                    >
+                      Click to expand — shows when leases expire and preparation
+                      deadlines
                     </small>
-                    <i class="bi bi-chevron-down" id="moveoutTimelineChevron"
-                       style="transition:transform 0.25s;"></i>
+                    <i
+                      class="bi bi-chevron-down"
+                      id="moveoutTimelineChevron"
+                      style="transition: transform 0.25s"
+                    ></i>
                   </div>
                 </div>
                 <!-- Collapsible body -->
@@ -4608,16 +4731,30 @@
                   <div class="card-body">
                     <!-- Property selection -->
                     <div class="mb-3">
-                      <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-                        <span class="small text-muted" id="moveoutTimelinePropertyCount">–</span>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                                style="font-size:11px;"
-                                onclick="propertyMoveoutTimeline.selectAll()"
-                                data-i18n="propertyMoveoutTimeline.selectAll">All</button>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                                style="font-size:11px;"
-                                onclick="propertyMoveoutTimeline.deselectAll()"
-                                data-i18n="propertyMoveoutTimeline.selectNone">None</button>
+                      <div
+                        class="d-flex align-items-center flex-wrap gap-2 mb-2"
+                      >
+                        <span
+                          class="small text-muted"
+                          id="moveoutTimelinePropertyCount"
+                          >–</span
+                        >
+                        <button
+                          class="btn btn-sm btn-outline-secondary py-0 px-2"
+                          style="font-size: 11px"
+                          onclick="propertyMoveoutTimeline.selectAll()"
+                          data-i18n="propertyMoveoutTimeline.selectAll"
+                        >
+                          All
+                        </button>
+                        <button
+                          class="btn btn-sm btn-outline-secondary py-0 px-2"
+                          style="font-size: 11px"
+                          onclick="propertyMoveoutTimeline.deselectAll()"
+                          data-i18n="propertyMoveoutTimeline.selectNone"
+                        >
+                          None
+                        </button>
                       </div>
                       <div id="moveoutTimelinePropertyList"></div>
                     </div>
@@ -4634,10 +4771,7 @@
                 >
                   <h5 class="mb-0">Properties</h5>
                   <div class="d-flex align-items-center gap-2 flex-nowrap">
-                    <div
-                      class="input-group"
-                      style="max-width: 300px;"
-                    >
+                    <div class="input-group" style="max-width: 300px">
                       <input
                         type="text"
                         class="form-control form-control-sm"
@@ -4687,7 +4821,10 @@
                   <div>
                     <div class="input-group" style="width: 300px">
                       <span class="input-group-text bg-white border-end-0 py-1">
-                        <i class="bi bi-search text-muted" style="font-size:13px;"></i>
+                        <i
+                          class="bi bi-search text-muted"
+                          style="font-size: 13px"
+                        ></i>
                       </span>
                       <input
                         type="text"
@@ -4700,14 +4837,29 @@
                         class="btn btn-outline-secondary btn-sm border-start-0"
                         type="button"
                         id="tenantSearchClearBtn"
-                        style="display:none;"
+                        style="display: none"
                         title="Clear search"
                       >
-                        <i class="bi bi-x-lg" style="font-size:11px;"></i>
+                        <i class="bi bi-x-lg" style="font-size: 11px"></i>
                       </button>
                     </div>
-                    <div class="text-end mt-1" style="font-size:10px; color:#bbb; padding-right:2px;">
-                      Press <kbd style="font-size:9px;background:#f0f0f0;border:1px solid #ddd;border-radius:3px;padding:1px 4px;color:#666;">Ctrl+Shift+F</kbd> to search from anywhere
+                    <div
+                      class="text-end mt-1"
+                      style="font-size: 10px; color: #bbb; padding-right: 2px"
+                    >
+                      Press
+                      <kbd
+                        style="
+                          font-size: 9px;
+                          background: #f0f0f0;
+                          border: 1px solid #ddd;
+                          border-radius: 3px;
+                          padding: 1px 4px;
+                          color: #666;
+                        "
+                        >Ctrl+Shift+F</kbd
+                      >
+                      to search from anywhere
                     </div>
                   </div>
                   <button class="btn btn-primary btn-sm" id="addTenantBtn">
@@ -4844,18 +4996,20 @@
                       id="generateTenantPdfBtn"
                       onclick="tenantManager.generateTenantListPDF()"
                       title="Generate PDF tenant list (registered &amp; pending only) for landlord submission"
-                      style="display: none;"
+                      style="display: none"
                     >
-                      <i class="bi bi-file-earmark-pdf me-1"></i> Tenant List PDF
+                      <i class="bi bi-file-earmark-pdf me-1"></i> Tenant List
+                      PDF
                     </button>
                     <button
                       class="btn btn-outline-dark btn-sm"
                       id="generateTenantZipBtn"
                       onclick="tenantManager.generateTenantListZIP()"
                       title="Download all tenant document images as a ZIP (registered &amp; pending only)"
-                      style="display: none;"
+                      style="display: none"
                     >
-                      <i class="bi bi-file-earmark-zip me-1"></i> Tenant List ZIP
+                      <i class="bi bi-file-earmark-zip me-1"></i> Tenant List
+                      ZIP
                     </button>
                     <button
                       class="btn btn-outline-info btn-sm"
@@ -4993,9 +5147,7 @@
                               "
                             />
                           </div>
-                          <div
-                            id="tenancyOccupancyPropertyList"
-                          >
+                          <div id="tenancyOccupancyPropertyList">
                             <!-- Property cards will be loaded here -->
                             <div class="col-12 text-center text-muted py-3">
                               <i class="bi bi-building me-2"></i>
@@ -5239,7 +5391,9 @@
                 <!-- Contract Input Form -->
                 <div class="col-lg-6">
                   <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div
+                      class="card-header d-flex justify-content-between align-items-center"
+                    >
                       <h5
                         class="mb-0"
                         data-i18n="createContract.contractDetails"
@@ -5325,7 +5479,9 @@
                       </div>
 
                       <div class="mb-3">
-                        <label for="contractRoom" class="form-label">Room Type</label>
+                        <label for="contractRoom" class="form-label"
+                          >Room Type</label
+                        >
                         <select class="form-select" id="contractRoom">
                           <option value="">Select room type</option>
                           <option value="COMMON1">Common 1</option>
@@ -5337,12 +5493,24 @@
                           <option value="COMMON_1_PAX">Common 1 Pax</option>
                           <option value="COMMON_2_PAX">Common 2 Pax</option>
                           <option value="COMMON_3_PAX">Common 3 Pax</option>
-                          <option value="SMALL_SINGLE_1_PAX">Small Single 1 Pax</option>
-                          <option value="SMALL_SINGLE_2_PAX">Small Single 2 Pax</option>
-                          <option value="BIG_SINGLE_1_PAX">Big Single 1 Pax</option>
-                          <option value="BIG_SINGLE_2_PAX">Big Single 2 Pax</option>
-                          <option value="SINGLE_1_PAX_NO_AIRCON">Single 1 Pax No Aircon</option>
-                          <option value="SINGLE_2_PAX_NO_AIRCON">Single 2 Pax No Aircon</option>
+                          <option value="SMALL_SINGLE_1_PAX">
+                            Small Single 1 Pax
+                          </option>
+                          <option value="SMALL_SINGLE_2_PAX">
+                            Small Single 2 Pax
+                          </option>
+                          <option value="BIG_SINGLE_1_PAX">
+                            Big Single 1 Pax
+                          </option>
+                          <option value="BIG_SINGLE_2_PAX">
+                            Big Single 2 Pax
+                          </option>
+                          <option value="SINGLE_1_PAX_NO_AIRCON">
+                            Single 1 Pax No Aircon
+                          </option>
+                          <option value="SINGLE_2_PAX_NO_AIRCON">
+                            Single 2 Pax No Aircon
+                          </option>
                         </select>
                       </div>
 
@@ -5451,7 +5619,7 @@
                       <div class="mb-3">
                         <div
                           class="form-check p-2 rounded"
-                          style="background: #f0f4ff; border: 1px solid #c5d3f0;"
+                          style="background: #f0f4ff; border: 1px solid #c5d3f0"
                         >
                           <input
                             class="form-check-input"
@@ -5461,12 +5629,17 @@
                           <label
                             class="form-check-label fw-semibold"
                             for="showSettlementAccounts"
-                            style="color: #3a5fc8;"
+                            style="color: #3a5fc8"
                           >
-                            <i class="bi bi-bank me-1"></i>Show settlement accounts
+                            <i class="bi bi-bank me-1"></i>Show settlement
+                            accounts
                           </label>
                         </div>
-                        <div id="settlementAccountsDisplay" style="display: none;" class="mt-2"></div>
+                        <div
+                          id="settlementAccountsDisplay"
+                          style="display: none"
+                          class="mt-2"
+                        ></div>
                       </div>
 
                       <div class="mb-3">
@@ -5800,7 +5973,11 @@
                               value=""
                               id="electricityFree"
                             />
-                            <label class="form-check-label" for="electricityFree">Free</label>
+                            <label
+                              class="form-check-label"
+                              for="electricityFree"
+                              >Free</label
+                            >
                           </span>
                         </div>
                       </div>
@@ -5925,10 +6102,10 @@
                           </label>
                         </div>
                         <small class="text-muted"
-                          >If checked, AC cleaning deduction and cleaning service fee are shown as $0 in the contract</small
+                          >If checked, AC cleaning deduction and cleaning
+                          service fee are shown as $0 in the contract</small
                         >
                       </div>
-
 
                       <!-- Additional Clauses -->
                       <div class="mb-3">
@@ -6041,10 +6218,14 @@
                   <!-- Template Section -->
                   <div class="card mb-3">
                     <div class="card-header">
-                      <div class="d-flex justify-content-between align-items-center">
+                      <div
+                        class="d-flex justify-content-between align-items-center"
+                      >
                         <h5 class="mb-0">
                           <i class="bi bi-bookmark me-1"></i
-                          ><span data-i18n="createContract.contractTemplates">Contract Templates</span>
+                          ><span data-i18n="createContract.contractTemplates"
+                            >Contract Templates</span
+                          >
                         </h5>
                         <div class="btn-group">
                           <button
@@ -6052,7 +6233,9 @@
                             onclick="contractManager.resetForm()"
                           >
                             <i class="bi bi-arrow-clockwise me-1"></i
-                            ><span data-i18n="createContract.resetForm">Reset Form</span>
+                            ><span data-i18n="createContract.resetForm"
+                              >Reset Form</span
+                            >
                           </button>
                           <button
                             class="btn btn-outline-primary btn-sm"
@@ -6060,7 +6243,9 @@
                             onclick="contractManager.showSaveTemplateModal()"
                           >
                             <i class="bi bi-save me-1"></i
-                            ><span data-i18n="createContract.saveTemplate">Save Template</span>
+                            ><span data-i18n="createContract.saveTemplate"
+                              >Save Template</span
+                            >
                           </button>
                         </div>
                       </div>
@@ -6080,21 +6265,59 @@
                             class="skeleton-item mb-2 p-3 border rounded bg-light"
                             style="animation: pulse 1.5s ease-in-out infinite"
                           >
-                            <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 70%;"></div>
-                            <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 50%;"></div>
+                            <div
+                              style="
+                                height: 20px;
+                                background: #d1d5db;
+                                border-radius: 4px;
+                                margin-bottom: 8px;
+                                width: 70%;
+                              "
+                            ></div>
+                            <div
+                              style="
+                                height: 14px;
+                                background: #e5e7eb;
+                                border-radius: 4px;
+                                width: 50%;
+                              "
+                            ></div>
                           </div>
                           <div
                             class="skeleton-item mb-2 p-3 border rounded bg-light"
-                            style="animation: pulse 1.5s ease-in-out infinite; animation-delay: 0.2s;"
+                            style="
+                              animation: pulse 1.5s ease-in-out infinite;
+                              animation-delay: 0.2s;
+                            "
                           >
-                            <div style="height: 20px; background: #d1d5db; border-radius: 4px; margin-bottom: 8px; width: 65%;"></div>
-                            <div style="height: 14px; background: #e5e7eb; border-radius: 4px; width: 45%;"></div>
+                            <div
+                              style="
+                                height: 20px;
+                                background: #d1d5db;
+                                border-radius: 4px;
+                                margin-bottom: 8px;
+                                width: 65%;
+                              "
+                            ></div>
+                            <div
+                              style="
+                                height: 14px;
+                                background: #e5e7eb;
+                                border-radius: 4px;
+                                width: 45%;
+                              "
+                            ></div>
                           </div>
                         </div>
                         <style>
                           @keyframes pulse {
-                            0%, 100% { opacity: 1; }
-                            50% { opacity: 0.5; }
+                            0%,
+                            100% {
+                              opacity: 1;
+                            }
+                            50% {
+                              opacity: 0.5;
+                            }
                           }
                         </style>
                       </div>
@@ -6116,12 +6339,14 @@
                         <button
                           type="button"
                           class="btn btn-sm btn-outline-secondary"
-                          style="white-space: nowrap;"
+                          style="white-space: nowrap"
                           onclick="contractManager.downloadContractTemplate()"
                           title="Download blank contract template for editing in Word"
                         >
                           <i class="bi bi-download me-1"></i>
-                          <span data-i18n="createContract.downloadTemplate">Download Template</span>
+                          <span data-i18n="createContract.downloadTemplate"
+                            >Download Template</span
+                          >
                         </button>
                         <button
                           type="button"
@@ -6129,7 +6354,9 @@
                           onclick="contractManager.exportToPDF()"
                         >
                           <i class="bi bi-file-pdf me-1"></i
-                          ><span data-i18n="createContract.exportPdf">Export PDF</span>
+                          ><span data-i18n="createContract.exportPdf"
+                            >Export PDF</span
+                          >
                         </button>
                         <button
                           type="button"
@@ -6146,17 +6373,25 @@
                           title="Share PDF via AirDrop, Messages, or other apps"
                         >
                           <i class="bi bi-share me-1"></i
-                          ><span data-i18n="createContract.sharePdf">Share</span>
+                          ><span data-i18n="createContract.sharePdf"
+                            >Share</span
+                          >
                         </button>
                         <button
                           type="button"
                           class="btn btn-sm"
-                          style="background-color: #25D366; color: #fff; border-color: #25D366;"
+                          style="
+                            background-color: #25d366;
+                            color: #fff;
+                            border-color: #25d366;
+                          "
                           onclick="contractManager.shareViaWhatsApp()"
                           title="Send PDF via WhatsApp"
                         >
                           <i class="bi bi-whatsapp me-1"></i
-                          ><span data-i18n="createContract.shareWhatsapp">WhatsApp</span>
+                          ><span data-i18n="createContract.shareWhatsapp"
+                            >WhatsApp</span
+                          >
                         </button>
                       </div>
                     </div>
@@ -6190,9 +6425,19 @@
           <!-- Letter of Intent Section -->
           <div id="loi-section" class="content-section">
             <div class="p-4">
-              <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-pen me-2 text-primary"></i>Letter of Intent <span class="fs-6 text-muted fw-normal">(ERA Serving Landlord)</span></h2>
-                <button class="btn btn-outline-secondary" onclick="dashboardController.goToDashboard()">
+              <div
+                class="d-flex justify-content-between align-items-center mb-4"
+              >
+                <h2>
+                  <i class="bi bi-pen me-2 text-primary"></i>Letter of Intent
+                  <span class="fs-6 text-muted fw-normal"
+                    >(ERA Serving Landlord)</span
+                  >
+                </h2>
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="dashboardController.goToDashboard()"
+                >
                   <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
                 </button>
               </div>
@@ -6200,114 +6445,264 @@
               <div class="row g-4">
                 <!-- Left: Form -->
                 <div class="col-lg-5">
-
                   <!-- ── PAGE 1 FIELDS ── -->
-                  <div class="small fw-semibold text-muted text-uppercase letter-spacing-1 mb-2 ps-1">Page 1</div>
+                  <div
+                    class="small fw-semibold text-muted text-uppercase letter-spacing-1 mb-2 ps-1"
+                  >
+                    Page 1
+                  </div>
 
                   <!-- Date -->
                   <div class="card mb-3">
                     <div class="card-header py-2"><strong>Date</strong></div>
                     <div class="card-body py-3">
-                      <input type="date" class="form-control" data-loi-field="loiDate" id="loiDate">
+                      <input
+                        type="date"
+                        class="form-control"
+                        data-loi-field="loiDate"
+                        id="loiDate"
+                      />
                     </div>
                   </div>
 
                   <!-- To: Landlord -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-person-badge me-1"></i>To: Landlord</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-person-badge me-1"></i>To:
+                        Landlord</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Full Name</label>
-                        <input type="text" class="form-control" data-loi-field="landlordName" placeholder="e.g. Mdm Chua Swee Keng" id="loiLandlordName">
+                        <label class="form-label fw-semibold small"
+                          >Full Name</label
+                        >
+                        <input
+                          type="text"
+                          class="form-control"
+                          data-loi-field="landlordName"
+                          placeholder="e.g. Mdm Chua Swee Keng"
+                          id="loiLandlordName"
+                        />
                       </div>
                       <div class="mb-0">
-                        <label class="form-label fw-semibold small">NRIC / FIN</label>
-                        <input type="text" class="form-control" data-loi-field="landlordNric" placeholder="S1234567A" id="loiLandlordNric">
+                        <label class="form-label fw-semibold small"
+                          >NRIC / FIN</label
+                        >
+                        <input
+                          type="text"
+                          class="form-control"
+                          data-loi-field="landlordNric"
+                          placeholder="S1234567A"
+                          id="loiLandlordNric"
+                        />
                       </div>
                     </div>
                   </div>
 
                   <!-- Property -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-building me-1"></i>Property Address</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-building me-1"></i>Property
+                        Address</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Postcode lookup</label>
+                        <label class="form-label fw-semibold small"
+                          >Postcode lookup</label
+                        >
                         <div class="input-group">
-                          <input type="text" class="form-control" id="loiPostcodeLookup"
-                            placeholder="e.g. 370053" maxlength="6" inputmode="numeric">
-                          <button class="btn btn-outline-secondary" type="button" id="loiPostcodeLookupBtn">
+                          <input
+                            type="text"
+                            class="form-control"
+                            id="loiPostcodeLookup"
+                            placeholder="e.g. 370053"
+                            maxlength="6"
+                            inputmode="numeric"
+                          />
+                          <button
+                            class="btn btn-outline-secondary"
+                            type="button"
+                            id="loiPostcodeLookupBtn"
+                          >
                             <i class="bi bi-search me-1"></i>Fetch
                           </button>
                         </div>
-                        <div id="loiPostcodeResults" class="list-group mt-1" style="display:none;"></div>
-                        <div id="loiPostcodeError" class="form-text text-danger" style="display:none;"></div>
+                        <div
+                          id="loiPostcodeResults"
+                          class="list-group mt-1"
+                          style="display: none"
+                        ></div>
+                        <div
+                          id="loiPostcodeError"
+                          class="form-text text-danger"
+                          style="display: none"
+                        ></div>
                       </div>
-                      <label class="form-label fw-semibold small">Full address (including unit &amp; postal code)</label>
-                      <input type="text" class="form-control" data-loi-field="propertyAddress"
-                        placeholder="e.g. Blk 53 Pipit Rd #12-94 S(370053)" id="loiPropertyAddress">
-                      <div class="form-text">Enter the complete address as it should appear in the document.</div>
+                      <label class="form-label fw-semibold small"
+                        >Full address (including unit &amp; postal code)</label
+                      >
+                      <input
+                        type="text"
+                        class="form-control"
+                        data-loi-field="propertyAddress"
+                        placeholder="e.g. Blk 53 Pipit Rd #12-94 S(370053)"
+                        id="loiPropertyAddress"
+                      />
+                      <div class="form-text">
+                        Enter the complete address as it should appear in the
+                        document.
+                      </div>
                     </div>
                   </div>
 
                   <!-- Tenant -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-person me-1"></i>Tenant</strong></div>
+                    <div class="card-header py-2">
+                      <strong><i class="bi bi-person me-1"></i>Tenant</strong>
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Full Name</label>
-                        <input type="text" class="form-control" data-loi-field="tenantName" placeholder="Tenant's full name" id="loiTenantName">
+                        <label class="form-label fw-semibold small"
+                          >Full Name</label
+                        >
+                        <input
+                          type="text"
+                          class="form-control"
+                          data-loi-field="tenantName"
+                          placeholder="Tenant's full name"
+                          id="loiTenantName"
+                        />
                       </div>
                       <div class="mb-0">
-                        <label class="form-label fw-semibold small">FIN / NRIC</label>
-                        <input type="text" class="form-control" data-loi-field="tenantFin" placeholder="M1234567A" id="loiTenantFin">
+                        <label class="form-label fw-semibold small"
+                          >FIN / NRIC</label
+                        >
+                        <input
+                          type="text"
+                          class="form-control"
+                          data-loi-field="tenantFin"
+                          placeholder="M1234567A"
+                          id="loiTenantFin"
+                        />
                       </div>
                     </div>
                   </div>
 
                   <!-- Rent -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-cash me-1"></i>Rent</strong></div>
+                    <div class="card-header py-2">
+                      <strong><i class="bi bi-cash me-1"></i>Rent</strong>
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Monthly Rent (SGD)</label>
+                        <label class="form-label fw-semibold small"
+                          >Monthly Rent (SGD)</label
+                        >
                         <div class="input-group">
                           <span class="input-group-text">S$</span>
-                          <input type="number" class="form-control" data-loi-field="monthlyRent" placeholder="4200" id="loiMonthlyRent">
+                          <input
+                            type="number"
+                            class="form-control"
+                            data-loi-field="monthlyRent"
+                            placeholder="4200"
+                            id="loiMonthlyRent"
+                          />
                           <span class="input-group-text">/ month</span>
                         </div>
                       </div>
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Furnishing</label>
-                        <select class="form-select" data-loi-field="furnishing" id="loiFurnishing">
+                        <label class="form-label fw-semibold small"
+                          >Furnishing</label
+                        >
+                        <select
+                          class="form-select"
+                          data-loi-field="furnishing"
+                          id="loiFurnishing"
+                        >
                           <option value="unfurnished">Unfurnished</option>
-                          <option value="partially furnished as per attached Inventory List" selected>Partially Furnished (as per Inventory List)</option>
-                          <option value="fully furnished as per attached Inventory List">Fully Furnished (as per Inventory List)</option>
+                          <option
+                            value="partially furnished as per attached Inventory List"
+                            selected
+                          >
+                            Partially Furnished (as per Inventory List)
+                          </option>
+                          <option
+                            value="fully furnished as per attached Inventory List"
+                          >
+                            Fully Furnished (as per Inventory List)
+                          </option>
                         </select>
                       </div>
                       <div class="mb-0">
-                        <label class="form-label fw-semibold small">Payment due on (day of each month)</label>
-                        <input type="number" class="form-control" data-loi-field="paymentDay" placeholder="1" min="1" max="28" id="loiPaymentDay" value="1">
+                        <label class="form-label fw-semibold small"
+                          >Payment due on (day of each month)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-control"
+                          data-loi-field="paymentDay"
+                          placeholder="1"
+                          min="1"
+                          max="28"
+                          id="loiPaymentDay"
+                          value="1"
+                        />
                       </div>
                     </div>
                   </div>
 
                   <!-- Tenancy Period -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-calendar-range me-1"></i>Tenancy Period</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-calendar-range me-1"></i>Tenancy
+                        Period</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Tenancy Commences On</label>
-                        <input type="date" class="form-control" data-loi-field="commencementDate" id="loiCommencementDate">
+                        <label class="form-label fw-semibold small"
+                          >Tenancy Commences On</label
+                        >
+                        <input
+                          type="date"
+                          class="form-control"
+                          data-loi-field="commencementDate"
+                          id="loiCommencementDate"
+                        />
                       </div>
                       <div class="row g-2 mb-0">
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">Duration (months)</label>
-                          <input type="number" class="form-control" data-loi-field="leaseDurationMonths" placeholder="12" min="1" id="loiLeaseDurationMonths" value="12">
+                          <label class="form-label fw-semibold small"
+                            >Duration (months)</label
+                          >
+                          <input
+                            type="number"
+                            class="form-control"
+                            data-loi-field="leaseDurationMonths"
+                            placeholder="12"
+                            min="1"
+                            id="loiLeaseDurationMonths"
+                            value="12"
+                          />
                         </div>
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">Option to Renew (months)</label>
-                          <input type="number" class="form-control" data-loi-field="renewalMonths" placeholder="24" min="0" id="loiRenewalMonths" value="24">
+                          <label class="form-label fw-semibold small"
+                            >Option to Renew (months)</label
+                          >
+                          <input
+                            type="number"
+                            class="form-control"
+                            data-loi-field="renewalMonths"
+                            placeholder="24"
+                            min="0"
+                            id="loiRenewalMonths"
+                            value="24"
+                          />
                         </div>
                       </div>
                     </div>
@@ -6315,17 +6710,40 @@
 
                   <!-- Diplomatic Clause -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-shield-check me-1"></i>Diplomatic Clause</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-shield-check me-1"></i>Diplomatic
+                        Clause</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Notice period (months)</label>
-                        <input type="number" class="form-control" data-loi-field="diplomaticNoticeMonths" placeholder="02" min="1" id="loiDiplomaticNotice" value="02">
+                        <label class="form-label fw-semibold small"
+                          >Notice period (months)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-control"
+                          data-loi-field="diplomaticNoticeMonths"
+                          placeholder="02"
+                          min="1"
+                          id="loiDiplomaticNotice"
+                          value="02"
+                        />
                       </div>
                       <div class="mb-0">
-                        <label class="form-label fw-semibold small">Commission refund amount (SGD, incl. GST)</label>
+                        <label class="form-label fw-semibold small"
+                          >Commission refund amount (SGD, incl. GST)</label
+                        >
                         <div class="input-group">
                           <span class="input-group-text">S$</span>
-                          <input type="text" class="form-control" data-loi-field="diplomaticCommission" placeholder="4578" id="loiDiplomaticCommission">
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="diplomaticCommission"
+                            placeholder="4578"
+                            id="loiDiplomaticCommission"
+                          />
                         </div>
                       </div>
                     </div>
@@ -6333,18 +6751,33 @@
 
                   <!-- Security Deposit -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-bank me-1"></i>Security Deposit</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-bank me-1"></i>Security Deposit</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="input-group">
                         <span class="input-group-text">S$</span>
-                        <input type="number" class="form-control" data-loi-field="securityDeposit" placeholder="8400" id="loiSecurityDeposit">
+                        <input
+                          type="number"
+                          class="form-control"
+                          data-loi-field="securityDeposit"
+                          placeholder="8400"
+                          id="loiSecurityDeposit"
+                        />
                       </div>
                     </div>
                   </div>
 
                   <!-- Fixed terms notice -->
                   <div class="card mb-3 border-secondary-subtle">
-                    <div class="card-header py-2 bg-light"><strong class="text-secondary"><i class="bi bi-info-circle me-1"></i>Fixed Clauses (auto-included)</strong></div>
+                    <div class="card-header py-2 bg-light">
+                      <strong class="text-secondary"
+                        ><i class="bi bi-info-circle me-1"></i>Fixed Clauses
+                        (auto-included)</strong
+                      >
+                    </div>
                     <div class="card-body py-2">
                       <ul class="small text-muted mb-0 ps-3">
                         <li>Utilities Supply — borne by Tenant</li>
@@ -6360,92 +6793,230 @@
 
                   <!-- Lapse of Offer -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-hourglass-split me-1"></i>Lapse of Offer</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-hourglass-split me-1"></i>Lapse of
+                        Offer</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
-                      <label class="form-label fw-semibold small">Offer valid for (days)</label>
-                      <input type="number" class="form-control" data-loi-field="lapseOfferDays" placeholder="02" min="1" max="30" id="loiLapseOfferDays" value="02">
+                      <label class="form-label fw-semibold small"
+                        >Offer valid for (days)</label
+                      >
+                      <input
+                        type="number"
+                        class="form-control"
+                        data-loi-field="lapseOfferDays"
+                        placeholder="02"
+                        min="1"
+                        max="30"
+                        id="loiLapseOfferDays"
+                        value="02"
+                      />
                     </div>
                   </div>
 
                   <!-- Tenant's Other Requirements -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-list-ul me-1"></i>Tenant's Other Requirements</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-list-ul me-1"></i>Tenant's Other
+                        Requirements</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
-                      <textarea class="form-control" data-loi-field="tenantRequirements" id="loiTenantRequirements" rows="4"
-                        placeholder="e.g. 1) Professional Cleaning 2) Aircon Serviced 3) Unit as it is"></textarea>
+                      <textarea
+                        class="form-control"
+                        data-loi-field="tenantRequirements"
+                        id="loiTenantRequirements"
+                        rows="4"
+                        placeholder="e.g. 1) Professional Cleaning 2) Aircon Serviced 3) Unit as it is"
+                      ></textarea>
                     </div>
                   </div>
 
                   <!-- ── PAGE 2 FIELDS ── -->
-                  <div class="small fw-semibold text-muted text-uppercase letter-spacing-1 mb-2 ps-1 mt-3">Page 2</div>
+                  <div
+                    class="small fw-semibold text-muted text-uppercase letter-spacing-1 mb-2 ps-1 mt-3"
+                  >
+                    Page 2
+                  </div>
 
                   <!-- Good Faith Deposit -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-wallet2 me-1"></i>Good Faith Deposit</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-wallet2 me-1"></i>Good Faith
+                        Deposit</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-3">
-                        <label class="form-label fw-semibold small">Amount (SGD)</label>
+                        <label class="form-label fw-semibold small"
+                          >Amount (SGD)</label
+                        >
                         <div class="input-group">
                           <span class="input-group-text">$</span>
-                          <input type="number" class="form-control" data-loi-field="gfdAmount" placeholder="4200" id="loiGfdAmount">
+                          <input
+                            type="number"
+                            class="form-control"
+                            data-loi-field="gfdAmount"
+                            placeholder="4200"
+                            id="loiGfdAmount"
+                          />
                         </div>
                       </div>
                       <div class="mb-3">
-                        <label class="form-label fw-semibold small">Payment Method</label>
+                        <label class="form-label fw-semibold small"
+                          >Payment Method</label
+                        >
                         <div class="d-flex gap-3">
                           <div class="form-check">
-                            <input class="form-check-input" type="radio" name="loiGfdMethod" id="loiGfdMethodCheque" data-loi-field="gfdMethod" value="cheque">
-                            <label class="form-check-label" for="loiGfdMethodCheque">Cheque</label>
+                            <input
+                              class="form-check-input"
+                              type="radio"
+                              name="loiGfdMethod"
+                              id="loiGfdMethodCheque"
+                              data-loi-field="gfdMethod"
+                              value="cheque"
+                            />
+                            <label
+                              class="form-check-label"
+                              for="loiGfdMethodCheque"
+                              >Cheque</label
+                            >
                           </div>
                           <div class="form-check">
-                            <input class="form-check-input" type="radio" name="loiGfdMethod" id="loiGfdMethodTransfer" data-loi-field="gfdMethod" value="transfer" checked>
-                            <label class="form-check-label" for="loiGfdMethodTransfer">Bank Transfer / PayNow</label>
+                            <input
+                              class="form-check-input"
+                              type="radio"
+                              name="loiGfdMethod"
+                              id="loiGfdMethodTransfer"
+                              data-loi-field="gfdMethod"
+                              value="transfer"
+                              checked
+                            />
+                            <label
+                              class="form-check-label"
+                              for="loiGfdMethodTransfer"
+                              >Bank Transfer / PayNow</label
+                            >
                           </div>
                         </div>
                       </div>
                       <!-- Cheque fields -->
-                      <div id="loiGfdChequeFields" class="mb-3" style="display:none;">
-                        <label class="form-label fw-semibold small">Cheque No.</label>
-                        <input type="text" class="form-control" data-loi-field="gfdChequeNo" placeholder="Cheque number" id="loiGfdChequeNo">
+                      <div
+                        id="loiGfdChequeFields"
+                        class="mb-3"
+                        style="display: none"
+                      >
+                        <label class="form-label fw-semibold small"
+                          >Cheque No.</label
+                        >
+                        <input
+                          type="text"
+                          class="form-control"
+                          data-loi-field="gfdChequeNo"
+                          placeholder="Cheque number"
+                          id="loiGfdChequeNo"
+                        />
                       </div>
                       <!-- Transfer fields -->
                       <div id="loiGfdTransferFields">
                         <div class="mb-2">
-                          <label class="form-label fw-semibold small">Bank Name</label>
-                          <input type="text" class="form-control" data-loi-field="gfdBankName" placeholder="e.g. DBS / POSB or PAYNOW TO NRIC" id="loiGfdBankName">
+                          <label class="form-label fw-semibold small"
+                            >Bank Name</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="gfdBankName"
+                            placeholder="e.g. DBS / POSB or PAYNOW TO NRIC"
+                            id="loiGfdBankName"
+                          />
                         </div>
                         <div class="mb-2">
-                          <label class="form-label fw-semibold small">Account Name</label>
-                          <input type="text" class="form-control" data-loi-field="gfdAccountName" placeholder="Account holder name" id="loiGfdAccountName">
+                          <label class="form-label fw-semibold small"
+                            >Account Name</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="gfdAccountName"
+                            placeholder="Account holder name"
+                            id="loiGfdAccountName"
+                          />
                         </div>
                         <div class="mb-0">
-                          <label class="form-label fw-semibold small">Bank Account No. / PayNow NRIC</label>
-                          <input type="text" class="form-control" data-loi-field="gfdAccountNo" placeholder="Account no. or NRIC for PayNow" id="loiGfdAccountNo">
+                          <label class="form-label fw-semibold small"
+                            >Bank Account No. / PayNow NRIC</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="gfdAccountNo"
+                            placeholder="Account no. or NRIC for PayNow"
+                            id="loiGfdAccountNo"
+                          />
                         </div>
                       </div>
                       <div class="mt-3">
-                        <label class="form-label fw-semibold small">Tenancy Agreement must be executed by</label>
-                        <input type="date" class="form-control" data-loi-field="gfdForfeitureDate" id="loiGfdForfeitureDate">
+                        <label class="form-label fw-semibold small"
+                          >Tenancy Agreement must be executed by</label
+                        >
+                        <input
+                          type="date"
+                          class="form-control"
+                          data-loi-field="gfdForfeitureDate"
+                          id="loiGfdForfeitureDate"
+                        />
                       </div>
                     </div>
                   </div>
 
                   <!-- ERA Salesperson -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-briefcase me-1"></i>ERA Salesperson</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-briefcase me-1"></i>ERA
+                        Salesperson</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
                         <label class="form-label fw-semibold small">Name</label>
-                        <input type="text" class="form-control" data-loi-field="agentName" placeholder="Agent's full name" id="loiAgentName">
+                        <input
+                          type="text"
+                          class="form-control"
+                          data-loi-field="agentName"
+                          placeholder="Agent's full name"
+                          id="loiAgentName"
+                        />
                       </div>
                       <div class="row g-2 mb-0">
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">CEA Reg No.</label>
-                          <input type="text" class="form-control" data-loi-field="agentCeaNo" placeholder="R021989H" id="loiAgentCeaNo">
+                          <label class="form-label fw-semibold small"
+                            >CEA Reg No.</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="agentCeaNo"
+                            placeholder="R021989H"
+                            id="loiAgentCeaNo"
+                          />
                         </div>
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">Associate Code</label>
-                          <input type="text" class="form-control" data-loi-field="agentAssociateCode" placeholder="3407916" id="loiAgentAssociateCode">
+                          <label class="form-label fw-semibold small"
+                            >Associate Code</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="agentAssociateCode"
+                            placeholder="3407916"
+                            id="loiAgentAssociateCode"
+                          />
                         </div>
                       </div>
                     </div>
@@ -6453,37 +7024,102 @@
 
                   <!-- Tenant Signatures -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-pen me-1"></i>Tenant Signature Block</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-pen me-1"></i>Tenant Signature
+                        Block</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Dated this ___ day of ___ 20__</label>
+                        <label class="form-label fw-semibold small"
+                          >Dated this ___ day of ___ 20__</label
+                        >
                         <div class="row g-2">
                           <div class="col-3">
-                            <input type="number" class="form-control" data-loi-field="tenantSignDate" placeholder="22" min="1" max="31" id="loiTenantSignDate">
+                            <input
+                              type="number"
+                              class="form-control"
+                              data-loi-field="tenantSignDate"
+                              placeholder="22"
+                              min="1"
+                              max="31"
+                              id="loiTenantSignDate"
+                            />
                             <div class="form-text text-center">Day</div>
                           </div>
                           <div class="col-5">
-                            <input type="text" class="form-control" data-loi-field="tenantSignMonth" placeholder="JUNE" id="loiTenantSignMonth">
+                            <input
+                              type="text"
+                              class="form-control"
+                              data-loi-field="tenantSignMonth"
+                              placeholder="JUNE"
+                              id="loiTenantSignMonth"
+                            />
                             <div class="form-text text-center">Month</div>
                           </div>
                           <div class="col-4">
-                            <input type="text" class="form-control" data-loi-field="tenantSignYear" placeholder="26" maxlength="2" id="loiTenantSignYear">
-                            <div class="form-text text-center">Year (last 2)</div>
+                            <input
+                              type="text"
+                              class="form-control"
+                              data-loi-field="tenantSignYear"
+                              placeholder="26"
+                              maxlength="2"
+                              id="loiTenantSignYear"
+                            />
+                            <div class="form-text text-center">
+                              Year (last 2)
+                            </div>
                           </div>
                         </div>
                       </div>
                       <div class="row g-2 mb-0">
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">Tenant 1 Name</label>
-                          <input type="text" class="form-control" data-loi-field="tenant1Name" placeholder="Full name" id="loiTenant1Name">
-                          <label class="form-label fw-semibold small mt-1">ID No.</label>
-                          <input type="text" class="form-control" data-loi-field="tenant1IdNo" placeholder="FIN / NRIC" id="loiTenant1IdNo">
+                          <label class="form-label fw-semibold small"
+                            >Tenant 1 Name</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="tenant1Name"
+                            placeholder="Full name"
+                            id="loiTenant1Name"
+                          />
+                          <label class="form-label fw-semibold small mt-1"
+                            >ID No.</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="tenant1IdNo"
+                            placeholder="FIN / NRIC"
+                            id="loiTenant1IdNo"
+                          />
                         </div>
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">Tenant 2 Name <span class="fw-normal text-muted">(if applicable)</span></label>
-                          <input type="text" class="form-control" data-loi-field="tenant2Name" placeholder="-NA-" id="loiTenant2Name">
-                          <label class="form-label fw-semibold small mt-1">ID No.</label>
-                          <input type="text" class="form-control" data-loi-field="tenant2IdNo" placeholder="-NA-" id="loiTenant2IdNo">
+                          <label class="form-label fw-semibold small"
+                            >Tenant 2 Name
+                            <span class="fw-normal text-muted"
+                              >(if applicable)</span
+                            ></label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="tenant2Name"
+                            placeholder="-NA-"
+                            id="loiTenant2Name"
+                          />
+                          <label class="form-label fw-semibold small mt-1"
+                            >ID No.</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="tenant2IdNo"
+                            placeholder="-NA-"
+                            id="loiTenant2IdNo"
+                          />
                         </div>
                       </div>
                     </div>
@@ -6491,31 +7127,80 @@
 
                   <!-- Landlord Signatures -->
                   <div class="card mb-3">
-                    <div class="card-header py-2"><strong><i class="bi bi-pen me-1"></i>Landlord Signature Block</strong></div>
+                    <div class="card-header py-2">
+                      <strong
+                        ><i class="bi bi-pen me-1"></i>Landlord Signature
+                        Block</strong
+                      >
+                    </div>
                     <div class="card-body py-3">
                       <div class="mb-2">
-                        <label class="form-label fw-semibold small">Dated this ___ day of ___ 20__</label>
+                        <label class="form-label fw-semibold small"
+                          >Dated this ___ day of ___ 20__</label
+                        >
                         <div class="row g-2">
                           <div class="col-3">
-                            <input type="number" class="form-control" data-loi-field="landlordSignDate" placeholder="26" min="1" max="31" id="loiLandlordSignDate">
+                            <input
+                              type="number"
+                              class="form-control"
+                              data-loi-field="landlordSignDate"
+                              placeholder="26"
+                              min="1"
+                              max="31"
+                              id="loiLandlordSignDate"
+                            />
                             <div class="form-text text-center">Day</div>
                           </div>
                           <div class="col-5">
-                            <input type="text" class="form-control" data-loi-field="landlordSignMonth" placeholder="JUNE" id="loiLandlordSignMonth">
+                            <input
+                              type="text"
+                              class="form-control"
+                              data-loi-field="landlordSignMonth"
+                              placeholder="JUNE"
+                              id="loiLandlordSignMonth"
+                            />
                             <div class="form-text text-center">Month</div>
                           </div>
                           <div class="col-4">
-                            <input type="text" class="form-control" data-loi-field="landlordSignYear" placeholder="26" maxlength="2" id="loiLandlordSignYear">
-                            <div class="form-text text-center">Year (last 2)</div>
+                            <input
+                              type="text"
+                              class="form-control"
+                              data-loi-field="landlordSignYear"
+                              placeholder="26"
+                              maxlength="2"
+                              id="loiLandlordSignYear"
+                            />
+                            <div class="form-text text-center">
+                              Year (last 2)
+                            </div>
                           </div>
                         </div>
                       </div>
                       <div class="row g-2 mb-0">
                         <div class="col-6">
-                          <label class="form-label fw-semibold small">2nd Landlord Name <span class="fw-normal text-muted">(if applicable)</span></label>
-                          <input type="text" class="form-control" data-loi-field="landlord2Name" placeholder="-NA-" id="loiLandlord2Name">
-                          <label class="form-label fw-semibold small mt-1">ID No.</label>
-                          <input type="text" class="form-control" data-loi-field="landlord2IdNo" placeholder="-NA-" id="loiLandlord2IdNo">
+                          <label class="form-label fw-semibold small"
+                            >2nd Landlord Name
+                            <span class="fw-normal text-muted"
+                              >(if applicable)</span
+                            ></label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="landlord2Name"
+                            placeholder="-NA-"
+                            id="loiLandlord2Name"
+                          />
+                          <label class="form-label fw-semibold small mt-1"
+                            >ID No.</label
+                          >
+                          <input
+                            type="text"
+                            class="form-control"
+                            data-loi-field="landlord2IdNo"
+                            placeholder="-NA-"
+                            id="loiLandlord2IdNo"
+                          />
                         </div>
                       </div>
                     </div>
@@ -6523,35 +7208,65 @@
 
                   <!-- Actions -->
                   <div class="d-grid gap-2">
-                    <button class="btn btn-primary" id="loiExportPdfBtn" onclick="loiManager.exportToPDF()">
+                    <button
+                      class="btn btn-primary"
+                      id="loiExportPdfBtn"
+                      onclick="loiManager.exportToPDF()"
+                    >
                       <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
                     </button>
-                    <button class="btn btn-outline-primary" id="loiExportDocxBtn" onclick="loiManager.exportToDocx()">
+                    <button
+                      class="btn btn-outline-primary"
+                      id="loiExportDocxBtn"
+                      onclick="loiManager.exportToDocx()"
+                    >
                       <i class="bi bi-file-earmark-word me-1"></i>Export DOCX
                     </button>
-                    <button class="btn btn-outline-secondary" onclick="loiManager.clearForm()">
+                    <button
+                      class="btn btn-outline-secondary"
+                      onclick="loiManager.clearForm()"
+                    >
                       <i class="bi bi-trash me-1"></i>Clear Form
                     </button>
                   </div>
-
                 </div>
 
                 <!-- Right: Live Preview -->
                 <div class="col-lg-7">
-                  <div class="sticky-top" style="top: 80px;">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <h6 class="mb-0 text-muted"><i class="bi bi-eye me-1"></i>Live Preview</h6>
+                  <div class="sticky-top" style="top: 80px">
+                    <div
+                      class="d-flex justify-content-between align-items-center mb-2"
+                    >
+                      <h6 class="mb-0 text-muted">
+                        <i class="bi bi-eye me-1"></i>Live Preview
+                      </h6>
                       <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-primary" id="loiExportDocxBtn2" onclick="loiManager.exportToDocx()">
+                        <button
+                          class="btn btn-sm btn-outline-primary"
+                          id="loiExportDocxBtn2"
+                          onclick="loiManager.exportToDocx()"
+                        >
                           <i class="bi bi-file-earmark-word me-1"></i>DOCX
                         </button>
-                        <button class="btn btn-sm btn-primary" id="loiExportPdfBtn2" onclick="loiManager.exportToPDF()">
+                        <button
+                          class="btn btn-sm btn-primary"
+                          id="loiExportPdfBtn2"
+                          onclick="loiManager.exportToPDF()"
+                        >
                           <i class="bi bi-file-earmark-pdf me-1"></i>PDF
                         </button>
                       </div>
                     </div>
-                    <div id="loiPreviewContainer" style="max-height: calc(100vh - 160px); overflow-y: auto; border-radius: 6px; background: #f0f0f0; padding: 12px;">
-                    </div>
+                    <div
+                      id="loiPreviewContainer"
+                      style="
+                        max-height: calc(100vh - 160px);
+                        overflow-y: auto;
+                        border-radius: 6px;
+                        background: #f0f0f0;
+                        padding: 12px;
+                      "
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -6560,13 +7275,18 @@
 
           <!-- GFD toggle script -->
           <script>
-            document.addEventListener('change', function(e) {
-              if (e.target && e.target.name === 'loiGfdMethod') {
-                const isCheque = e.target.value === 'cheque';
-                const chequeFields = document.getElementById('loiGfdChequeFields');
-                const transferFields = document.getElementById('loiGfdTransferFields');
-                if (chequeFields) chequeFields.style.display = isCheque ? '' : 'none';
-                if (transferFields) transferFields.style.display = isCheque ? 'none' : '';
+            document.addEventListener("change", function (e) {
+              if (e.target && e.target.name === "loiGfdMethod") {
+                const isCheque = e.target.value === "cheque";
+                const chequeFields =
+                  document.getElementById("loiGfdChequeFields");
+                const transferFields = document.getElementById(
+                  "loiGfdTransferFields",
+                );
+                if (chequeFields)
+                  chequeFields.style.display = isCheque ? "" : "none";
+                if (transferFields)
+                  transferFields.style.display = isCheque ? "none" : "";
               }
             });
           </script>
@@ -6720,7 +7440,11 @@
                         </div>
                       </div>
                       <!-- Last Updated Info -->
-                      <div id="reportLastUpdated" class="mt-2 pt-2 border-top align-items-center gap-3 flex-wrap" style="display: none;">
+                      <div
+                        id="reportLastUpdated"
+                        class="mt-2 pt-2 border-top align-items-center gap-3 flex-wrap"
+                        style="display: none"
+                      >
                         <small class="text-muted">
                           <i class="bi bi-clock-history me-1"></i>
                           <span id="reportLastUpdatedDate">—</span>
@@ -6739,7 +7463,11 @@
                   </div>
 
                   <!-- PUB Overage Banner -->
-                  <div id="pubOverageBanner" style="display:none;" class="mb-3"></div>
+                  <div
+                    id="pubOverageBanner"
+                    style="display: none"
+                    class="mb-3"
+                  ></div>
 
                   <!-- Income and Expenses -->
                   <div class="row">
@@ -6770,7 +7498,7 @@
                                 padding: 0 10px;
                                 border-radius: 15px;
                                 border: none;
-                                background: rgba(255,255,255,0.2);
+                                background: rgba(255, 255, 255, 0.2);
                                 color: white;
                                 font-size: 12px;
                                 font-weight: 600;
@@ -7176,7 +7904,11 @@
               <!-- Bill Management Content -->
               <div id="billManagementContent">
                 <!-- FB Group Links -->
-                <div id="billFbGroups" class="d-flex gap-2 mb-3" style="display:none!important;"></div>
+                <div
+                  id="billFbGroups"
+                  class="d-flex gap-2 mb-3"
+                  style="display: none !important"
+                ></div>
 
                 <!-- Month Navigation -->
                 <div class="card mb-4">
@@ -7281,29 +8013,99 @@
 
               <!-- Billing Calendar -->
               <div class="card mb-4 shadow-sm" id="utilityBillingCalendarCard">
-                <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div
+                  class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2"
+                >
                   <div class="d-flex align-items-center gap-3">
                     <h6 class="mb-0">
-                      <i class="bi bi-calendar3 me-2 text-primary"></i>Billing Calendar
+                      <i class="bi bi-calendar3 me-2 text-primary"></i>Billing
+                      Calendar
                     </h6>
-                    <div class="d-flex align-items-center gap-2" style="font-size:0.72rem;">
-                      <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#137333;"></span>Filled</span>
-                      <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d4a000;"></span>Missing</span>
-                      <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1967d2;"></span>Estimated</span>
+                    <div
+                      class="d-flex align-items-center gap-2"
+                      style="font-size: 0.72rem"
+                    >
+                      <span class="d-flex align-items-center gap-1"
+                        ><span
+                          style="
+                            display: inline-block;
+                            width: 10px;
+                            height: 10px;
+                            border-radius: 2px;
+                            background: #137333;
+                          "
+                        ></span
+                        >Filled</span
+                      >
+                      <span class="d-flex align-items-center gap-1"
+                        ><span
+                          style="
+                            display: inline-block;
+                            width: 10px;
+                            height: 10px;
+                            border-radius: 2px;
+                            background: #d4a000;
+                          "
+                        ></span
+                        >Missing</span
+                      >
+                      <span class="d-flex align-items-center gap-1"
+                        ><span
+                          style="
+                            display: inline-block;
+                            width: 10px;
+                            height: 10px;
+                            border-radius: 2px;
+                            background: #1967d2;
+                          "
+                        ></span
+                        >Estimated</span
+                      >
                     </div>
                   </div>
                   <div class="d-flex align-items-center gap-1">
-                    <button class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="utilityBillTracker.navigateBillingCalendar(-1)" title="Previous month">
-                      <i class="bi bi-chevron-left" style="font-size:0.75rem;"></i>
+                    <button
+                      class="btn btn-sm btn-outline-secondary px-2 py-1"
+                      onclick="utilityBillTracker.navigateBillingCalendar(-1)"
+                      title="Previous month"
+                    >
+                      <i
+                        class="bi bi-chevron-left"
+                        style="font-size: 0.75rem"
+                      ></i>
                     </button>
-                    <span id="utilityCalendarMonthLabel" class="fw-semibold small px-2" style="min-width:120px;text-align:center;"></span>
-                    <button class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="utilityBillTracker.navigateBillingCalendar(1)" title="Next month">
-                      <i class="bi bi-chevron-right" style="font-size:0.75rem;"></i>
+                    <span
+                      id="utilityCalendarMonthLabel"
+                      class="fw-semibold small px-2"
+                      style="min-width: 120px; text-align: center"
+                    ></span>
+                    <button
+                      class="btn btn-sm btn-outline-secondary px-2 py-1"
+                      onclick="utilityBillTracker.navigateBillingCalendar(1)"
+                      title="Next month"
+                    >
+                      <i
+                        class="bi bi-chevron-right"
+                        style="font-size: 0.75rem"
+                      ></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-primary px-2 py-1 ms-1" onclick="utilityBillTracker.navigateBillingCalendar(0)" style="font-size:0.75rem;">Today</button>
+                    <button
+                      class="btn btn-sm btn-outline-primary px-2 py-1 ms-1"
+                      onclick="utilityBillTracker.navigateBillingCalendar(0)"
+                      style="font-size: 0.75rem"
+                    >
+                      Today
+                    </button>
                   </div>
                 </div>
-                <div class="card-body p-0" style="overflow:hidden;border-radius:0 0 var(--bs-card-border-radius) var(--bs-card-border-radius);">
+                <div
+                  class="card-body p-0"
+                  style="
+                    overflow: hidden;
+                    border-radius: 0 0 var(--bs-card-border-radius)
+                      var(--bs-card-border-radius);
+                  "
+                >
                   <div id="utilityBillingCalendar"></div>
                 </div>
               </div>
@@ -7359,37 +8161,70 @@
               <!-- Content (shown after property selected) -->
               <div id="utilityBillContent" hidden>
                 <!-- FB Group Links -->
-                <div id="utilityFbGroups" class="d-flex gap-2 mb-3" style="display:none!important;"></div>
+                <div
+                  id="utilityFbGroups"
+                  class="d-flex gap-2 mb-3"
+                  style="display: none !important"
+                ></div>
 
                 <!-- Quick PDF Drop Zone -->
                 <div id="utilityQuickDropZone" class="mb-3">
-
                   <!-- IDLE -->
                   <div class="qdz-state" id="utilityQdzIdle">
                     <i class="bi bi-cloud-upload qdz-cloud-icon"></i>
-                    <div class="qdz-title" data-i18n="utilityBillTracker.quickDropHint">Drop PDF bill here or click to upload</div>
-                    <div class="qdz-sub">PDF · JPG · PNG &nbsp;—&nbsp; auto OCR</div>
+                    <div
+                      class="qdz-title"
+                      data-i18n="utilityBillTracker.quickDropHint"
+                    >
+                      Drop PDF bill here or click to upload
+                    </div>
+                    <div class="qdz-sub">
+                      PDF · JPG · PNG &nbsp;—&nbsp; auto OCR
+                    </div>
                   </div>
 
                   <!-- UPLOADING -->
                   <div class="qdz-state" id="utilityQdzUploading" hidden>
                     <div class="qdz-ring-wrap">
-                      <svg class="qdz-ring" width="80" height="80" viewBox="0 0 80 80">
-                        <circle class="qdz-ring-bg" cx="40" cy="40" r="35"/>
-                        <circle class="qdz-ring-fg" id="utilityQdzRingFg" cx="40" cy="40" r="35"/>
+                      <svg
+                        class="qdz-ring"
+                        width="80"
+                        height="80"
+                        viewBox="0 0 80 80"
+                      >
+                        <circle class="qdz-ring-bg" cx="40" cy="40" r="35" />
+                        <circle
+                          class="qdz-ring-fg"
+                          id="utilityQdzRingFg"
+                          cx="40"
+                          cy="40"
+                          r="35"
+                        />
                       </svg>
                       <span class="qdz-pct" id="utilityQdzPct">0%</span>
                     </div>
-                    <div class="qdz-title" id="utilityQdzFileName">Analyzing bill…</div>
-                    <div class="qdz-sub" id="utilityQdzSubtext">Reading with OCR…</div>
+                    <div class="qdz-title" id="utilityQdzFileName">
+                      Analyzing bill…
+                    </div>
+                    <div class="qdz-sub" id="utilityQdzSubtext">
+                      Reading with OCR…
+                    </div>
                   </div>
 
                   <!-- SUCCESS -->
                   <div class="qdz-state" id="utilityQdzSuccess" hidden>
                     <div class="qdz-check-wrap">
-                      <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
-                        <circle class="qdz-check-circle" cx="36" cy="36" r="36"/>
-                        <path class="qdz-check-mark" d="M19 36l13 13 21-22"/>
+                      <svg
+                        viewBox="0 0 72 72"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle
+                          class="qdz-check-circle"
+                          cx="36"
+                          cy="36"
+                          r="36"
+                        />
+                        <path class="qdz-check-mark" d="M19 36l13 13 21-22" />
                       </svg>
                     </div>
                     <div class="qdz-title qdz-success-title">Bill parsed!</div>
@@ -7403,7 +8238,12 @@
                     <div class="qdz-sub">Form opened — fill in manually</div>
                   </div>
 
-                  <input type="file" id="utilityQuickDropInput" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf,.pdf" class="d-none" />
+                  <input
+                    type="file"
+                    id="utilityQuickDropInput"
+                    accept="image/jpeg,image/png,image/heic,image/heif,application/pdf,.pdf"
+                    class="d-none"
+                  />
                 </div>
 
                 <!-- Upload / OCR Form Panel -->
@@ -8336,19 +9176,43 @@
             style="display: none"
           >
             <!-- Top Bar -->
-            <div class="ipr-topbar d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div
+              class="ipr-topbar d-flex justify-content-between align-items-center flex-wrap gap-2"
+            >
               <div class="d-flex align-items-center gap-3">
-                <div class="d-flex align-items-center justify-content-center rounded-3" style="width:38px;height:38px;background:linear-gradient(135deg,#4f46e5,#7c3aed)">
-                  <i class="bi bi-graph-up-arrow text-white" style="font-size:1rem"></i>
+                <div
+                  class="d-flex align-items-center justify-content-center rounded-3"
+                  style="
+                    width: 38px;
+                    height: 38px;
+                    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+                  "
+                >
+                  <i
+                    class="bi bi-graph-up-arrow text-white"
+                    style="font-size: 1rem"
+                  ></i>
                 </div>
                 <div>
-                  <h5 class="mb-0 fw-bold" data-i18n="investorProfitChart.title">Investor Profit Report</h5>
-                  <small class="text-muted">Track and compare investor returns</small>
+                  <h5
+                    class="mb-0 fw-bold"
+                    data-i18n="investorProfitChart.title"
+                  >
+                    Investor Profit Report
+                  </h5>
+                  <small class="text-muted"
+                    >Track and compare investor returns</small
+                  >
                 </div>
               </div>
-              <button class="btn btn-outline-secondary btn-sm px-3" onclick="dashboardController.goToDashboard()">
+              <button
+                class="btn btn-outline-secondary btn-sm px-3"
+                onclick="dashboardController.goToDashboard()"
+              >
                 <i class="bi bi-arrow-left me-1"></i>
-                <span data-i18n="investorProfitChart.backToDashboard">Back</span>
+                <span data-i18n="investorProfitChart.backToDashboard"
+                  >Back</span
+                >
               </button>
             </div>
 
@@ -8359,19 +9223,40 @@
               <!-- Investor Selection -->
               <div class="ipr-section-card card mb-4">
                 <div class="card-body p-4">
-                  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+                  <div
+                    class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4"
+                  >
                     <div>
-                      <h6 class="mb-0 fw-bold" data-i18n="investorProfitChart.selectInvestor">Select Investors</h6>
-                      <small id="investorProfitSelectedCount" class="text-muted">0 investors selected</small>
+                      <h6
+                        class="mb-0 fw-bold"
+                        data-i18n="investorProfitChart.selectInvestor"
+                      >
+                        Select Investors
+                      </h6>
+                      <small id="investorProfitSelectedCount" class="text-muted"
+                        >0 investors selected</small
+                      >
                     </div>
                     <div class="d-flex gap-2">
-                      <button type="button" class="btn btn-primary btn-sm px-3" onclick="investorProfitChart.selectAllInvestors()">
+                      <button
+                        type="button"
+                        class="btn btn-primary btn-sm px-3"
+                        onclick="investorProfitChart.selectAllInvestors()"
+                      >
                         <i class="bi bi-check-all me-1"></i>
-                        <span data-i18n="investorProfitChart.selectAll">Select All</span>
+                        <span data-i18n="investorProfitChart.selectAll"
+                          >Select All</span
+                        >
                       </button>
-                      <button type="button" class="btn btn-outline-secondary btn-sm px-3" onclick="investorProfitChart.deselectAllInvestors()">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm px-3"
+                        onclick="investorProfitChart.deselectAllInvestors()"
+                      >
                         <i class="bi bi-x-lg me-1"></i>
-                        <span data-i18n="investorProfitChart.deselectAll">Clear</span>
+                        <span data-i18n="investorProfitChart.deselectAll"
+                          >Clear</span
+                        >
                       </button>
                     </div>
                   </div>
@@ -8386,41 +9271,125 @@
                 <div class="card-body p-3">
                   <div class="d-flex flex-wrap align-items-end gap-4">
                     <div>
-                      <label class="form-label small fw-semibold text-muted text-uppercase mb-2" style="font-size:0.7rem;letter-spacing:.05em" data-i18n="investorProfitChart.dateRange">Date Range</label>
+                      <label
+                        class="form-label small fw-semibold text-muted text-uppercase mb-2"
+                        style="font-size: 0.7rem; letter-spacing: 0.05em"
+                        data-i18n="investorProfitChart.dateRange"
+                        >Date Range</label
+                      >
                       <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" id="investorProfitStartMonth" style="width:auto" onchange="investorProfitChart.handleDateFilterChange()">
-                          <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
-                          <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
-                          <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
-                          <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                        <select
+                          class="form-select form-select-sm"
+                          id="investorProfitStartMonth"
+                          style="width: auto"
+                          onchange="
+                            investorProfitChart.handleDateFilterChange()
+                          "
+                        >
+                          <option value="1">Jan</option>
+                          <option value="2">Feb</option>
+                          <option value="3">Mar</option>
+                          <option value="4">Apr</option>
+                          <option value="5">May</option>
+                          <option value="6">Jun</option>
+                          <option value="7">Jul</option>
+                          <option value="8">Aug</option>
+                          <option value="9">Sep</option>
+                          <option value="10">Oct</option>
+                          <option value="11">Nov</option>
+                          <option value="12">Dec</option>
                         </select>
-                        <select class="form-select form-select-sm" id="investorProfitStartYear" style="width:auto" onchange="investorProfitChart.handleDateFilterChange()">
-                          <option value="2023">2023</option><option value="2024">2024</option>
-                          <option value="2025">2025</option><option value="2026">2026</option>
+                        <select
+                          class="form-select form-select-sm"
+                          id="investorProfitStartYear"
+                          style="width: auto"
+                          onchange="
+                            investorProfitChart.handleDateFilterChange()
+                          "
+                        >
+                          <option value="2023">2023</option>
+                          <option value="2024">2024</option>
+                          <option value="2025">2025</option>
+                          <option value="2026">2026</option>
                         </select>
                         <span class="text-muted px-1">→</span>
-                        <select class="form-select form-select-sm" id="investorProfitEndMonth" style="width:auto" onchange="investorProfitChart.handleDateFilterChange()">
-                          <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
-                          <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
-                          <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
-                          <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                        <select
+                          class="form-select form-select-sm"
+                          id="investorProfitEndMonth"
+                          style="width: auto"
+                          onchange="
+                            investorProfitChart.handleDateFilterChange()
+                          "
+                        >
+                          <option value="1">Jan</option>
+                          <option value="2">Feb</option>
+                          <option value="3">Mar</option>
+                          <option value="4">Apr</option>
+                          <option value="5">May</option>
+                          <option value="6">Jun</option>
+                          <option value="7">Jul</option>
+                          <option value="8">Aug</option>
+                          <option value="9">Sep</option>
+                          <option value="10">Oct</option>
+                          <option value="11">Nov</option>
+                          <option value="12">Dec</option>
                         </select>
-                        <select class="form-select form-select-sm" id="investorProfitEndYear" style="width:auto" onchange="investorProfitChart.handleDateFilterChange()">
-                          <option value="2023">2023</option><option value="2024">2024</option>
-                          <option value="2025">2025</option><option value="2026">2026</option>
+                        <select
+                          class="form-select form-select-sm"
+                          id="investorProfitEndYear"
+                          style="width: auto"
+                          onchange="
+                            investorProfitChart.handleDateFilterChange()
+                          "
+                        >
+                          <option value="2023">2023</option>
+                          <option value="2024">2024</option>
+                          <option value="2025">2025</option>
+                          <option value="2026">2026</option>
                         </select>
                       </div>
                     </div>
                     <div class="ms-md-auto">
-                      <label class="form-label small fw-semibold text-muted text-uppercase mb-2" style="font-size:0.7rem;letter-spacing:.05em" data-i18n="investorProfitChart.chartType">Chart Type</label>
+                      <label
+                        class="form-label small fw-semibold text-muted text-uppercase mb-2"
+                        style="font-size: 0.7rem; letter-spacing: 0.05em"
+                        data-i18n="investorProfitChart.chartType"
+                        >Chart Type</label
+                      >
                       <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-primary chart-type-btn" data-chart-type="bar" onclick="investorProfitChart.handleChartTypeChange('bar')" title="Bar chart">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-primary chart-type-btn"
+                          data-chart-type="bar"
+                          onclick="
+                            investorProfitChart.handleChartTypeChange('bar')
+                          "
+                          title="Bar chart"
+                        >
                           <i class="bi bi-bar-chart-fill"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary chart-type-btn" data-chart-type="line" onclick="investorProfitChart.handleChartTypeChange('line')" title="Line chart">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary chart-type-btn"
+                          data-chart-type="line"
+                          onclick="
+                            investorProfitChart.handleChartTypeChange('line')
+                          "
+                          title="Line chart"
+                        >
                           <i class="bi bi-graph-up"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary chart-type-btn" data-chart-type="doughnut" onclick="investorProfitChart.handleChartTypeChange('doughnut')" title="Doughnut chart">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary chart-type-btn"
+                          data-chart-type="doughnut"
+                          onclick="
+                            investorProfitChart.handleChartTypeChange(
+                              'doughnut',
+                            )
+                          "
+                          title="Doughnut chart"
+                        >
                           <i class="bi bi-pie-chart-fill"></i>
                         </button>
                       </div>
@@ -8432,21 +9401,40 @@
               <!-- Chart Area -->
               <div class="ipr-chart-card card mb-4">
                 <div class="card-body p-4">
-                  <div class="d-flex justify-content-between align-items-center mb-4">
+                  <div
+                    class="d-flex justify-content-between align-items-center mb-4"
+                  >
                     <div>
                       <h6 class="mb-0 fw-bold">
-                        <span data-i18n="investorProfitChart.profitChart">Profit Chart</span>
+                        <span data-i18n="investorProfitChart.profitChart"
+                          >Profit Chart</span
+                        >
                       </h6>
-                      <small class="text-muted">Monthly profit by investor</small>
+                      <small class="text-muted"
+                        >Monthly profit by investor</small
+                      >
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary px-3" onclick="investorProfitChart.openFullscreenChart()" title="View fullscreen">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary px-3"
+                      onclick="investorProfitChart.openFullscreenChart()"
+                      title="View fullscreen"
+                    >
                       <i class="bi bi-arrows-fullscreen me-1"></i>Fullscreen
                     </button>
                   </div>
                   <div id="investorProfitChartContainer">
                     <div class="text-center text-muted py-5">
-                      <i class="bi bi-graph-up fs-1 mb-3 d-block" style="color:#d1d5db"></i>
-                      <p class="mb-0" data-i18n="investorProfitChart.selectInvestorToView">Select an investor to view profit report</p>
+                      <i
+                        class="bi bi-graph-up fs-1 mb-3 d-block"
+                        style="color: #d1d5db"
+                      ></i>
+                      <p
+                        class="mb-0"
+                        data-i18n="investorProfitChart.selectInvestorToView"
+                      >
+                        Select an investor to view profit report
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -8533,7 +9521,7 @@
           </div>
 
           <!-- Docs Section -->
-          <div id="docs-section" class="content-section" style="padding: 0;">
+          <div id="docs-section" class="content-section" style="padding: 0">
             <div id="docs-container"></div>
           </div>
 
@@ -8874,7 +9862,7 @@
                       rows="18"
                       readonly
                       style="
-                        font-family: 'Noto Serif', serif;
+                        font-family: &quot;Noto Serif&quot;, serif;
                         font-size: 14px;
                         line-height: 1.6;
                         background-color: #f8f9fa;
@@ -9158,7 +10146,9 @@
                 font-size: 13px;
                 line-height: 1;
                 border-radius: 6px;
-                transition: color 0.15s, background 0.15s;
+                transition:
+                  color 0.15s,
+                  background 0.15s;
               }
               .hvs-card-delete-btn:hover {
                 color: #ef4444;
@@ -9885,7 +10875,9 @@
                 padding: 9px 12px;
                 transition: opacity 0.2s;
               }
-              .hvs-profit-room-off { opacity: 0.45; }
+              .hvs-profit-room-off {
+                opacity: 0.45;
+              }
               .hvs-room-label {
                 font-size: 13px;
                 font-weight: 600;
@@ -9902,7 +10894,9 @@
                 color: #adb5bd;
                 flex-shrink: 0;
               }
-              .hvs-room-toggle.on { color: #198754; }
+              .hvs-room-toggle.on {
+                color: #198754;
+              }
               /* Inline range pair: $[min] ~ $[max] */
               .hvs-range-pair {
                 display: flex;
@@ -9943,7 +10937,9 @@
                 flex: 1;
                 min-width: 0;
               }
-              .hvs-hidden { display: none !important; }
+              .hvs-hidden {
+                display: none !important;
+              }
               .hvs-btn-add-store {
                 background: none;
                 border: 1.5px dashed #ced4da;
@@ -9984,16 +10980,43 @@
                 font-size: 13px;
                 color: #495057;
               }
-              .hvs-pr-row.exp { color: #dc3545; font-size: 12px; }
-              .hvs-pr-row.profit { font-size: 18px; font-weight: 700; }
-              .hvs-pr-row.mid { font-size: 12px; color: #6c757d; }
-              .hvs-pr-label { flex: 1; }
-              .hvs-pr-value { font-weight: 600; text-align: right; }
-              .hvs-pr-value.income { color: #0d6efd; }
-              .hvs-pr-mo { font-size: 11px; font-weight: 400; color: #adb5bd; margin-left: 2px; }
-              .hvs-profit-positive { color: #198754; }
-              .hvs-profit-mixed .hvs-pr-value { color: #fd7e14; }
-              .hvs-profit-negative .hvs-pr-value { color: #dc3545; }
+              .hvs-pr-row.exp {
+                color: #dc3545;
+                font-size: 12px;
+              }
+              .hvs-pr-row.profit {
+                font-size: 18px;
+                font-weight: 700;
+              }
+              .hvs-pr-row.mid {
+                font-size: 12px;
+                color: #6c757d;
+              }
+              .hvs-pr-label {
+                flex: 1;
+              }
+              .hvs-pr-value {
+                font-weight: 600;
+                text-align: right;
+              }
+              .hvs-pr-value.income {
+                color: #0d6efd;
+              }
+              .hvs-pr-mo {
+                font-size: 11px;
+                font-weight: 400;
+                color: #adb5bd;
+                margin-left: 2px;
+              }
+              .hvs-profit-positive {
+                color: #198754;
+              }
+              .hvs-profit-mixed .hvs-pr-value {
+                color: #fd7e14;
+              }
+              .hvs-profit-negative .hvs-pr-value {
+                color: #dc3545;
+              }
               .hvs-pr-divider {
                 height: 1px;
                 background: #dee2e6;
@@ -10027,7 +11050,9 @@
                 color: #495057;
                 cursor: pointer;
                 text-align: center;
-                transition: background 0.15s, border-color 0.15s;
+                transition:
+                  background 0.15s,
+                  border-color 0.15s;
               }
               .hvs-edit-step-btn:active {
                 background: #e9ecef;
@@ -10199,7 +11224,7 @@
                 .hvs-profit-result {
                   border-radius: 16px;
                   padding: 18px 20px;
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+                  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
                 }
                 /* Report: larger, more readable */
                 .hvs-report-box {
@@ -10344,8 +11369,12 @@
           <!-- Sales Map Section -->
           <div id="sales-map-section" class="content-section">
             <div class="container-fluid px-3 py-3">
-              <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="mb-0 fw-bold" data-i18n="salesMap.title">Sales Map</h5>
+              <div
+                class="d-flex align-items-center justify-content-between mb-3"
+              >
+                <h5 class="mb-0 fw-bold" data-i18n="salesMap.title">
+                  Sales Map
+                </h5>
               </div>
               <div id="sales-map-container">
                 <div class="text-center p-5 text-muted">
@@ -10709,7 +11738,7 @@
           if (propertiesResponse.ok) {
             const propertiesResult = await propertiesResponse.json();
             const propertiesCount = propertiesResult.success
-              ? propertiesResult.properties.filter(p => !p.isArchived).length
+              ? propertiesResult.properties.filter((p) => !p.isArchived).length
               : 0;
 
             const propertiesBadge = document.getElementById("propertiesBadge");
@@ -10995,7 +12024,12 @@
     >
       <div class="modal-dialog modal-xl">
         <div class="modal-content border-0 shadow-lg">
-          <div class="modal-header text-white py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <div
+            class="modal-header text-white py-3"
+            style="
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            "
+          >
             <h5 class="modal-title fw-bold" id="propertyModalLabel">
               <i class="bi bi-building me-2"></i
               ><span id="propertyModalTitle">Add New Property</span>
@@ -11018,11 +12052,21 @@
             <div class="modal-body p-4">
               <!-- Required Fields Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-primary">
-                  <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
-                    <i class="bi bi-asterisk text-white" style="font-size:11px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom border-primary"
+                >
+                  <div
+                    class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-2"
+                    style="width: 28px; height: 28px; flex-shrink: 0"
+                  >
+                    <i
+                      class="bi bi-asterisk text-white"
+                      style="font-size: 11px"
+                    ></i>
                   </div>
-                  <h6 class="text-primary fw-bold mb-0">Required Information</h6>
+                  <h6 class="text-primary fw-bold mb-0">
+                    Required Information
+                  </h6>
                 </div>
                 <div class="row align-items-start">
                   <div class="col-md-2 mb-3">
@@ -11093,9 +12137,17 @@
 
               <!-- Property Details Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
-                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
-                    <i class="bi bi-house-door text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
+                >
+                  <div
+                    class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
+                    style="width: 28px; height: 28px; flex-shrink: 0"
+                  >
+                    <i
+                      class="bi bi-house-door text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
                   <h6 class="text-secondary fw-bold mb-0">Property Details</h6>
                 </div>
@@ -11103,16 +12155,48 @@
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Property Type</label>
                   <div class="d-flex gap-2">
-                    <input type="radio" class="btn-check" name="propertyType" id="propertyTypeHdb" value="hdb" autocomplete="off" checked>
-                    <label class="btn btn-outline-primary d-flex align-items-center gap-2 px-4" for="propertyTypeHdb" style="border-radius:10px;font-weight:600;">
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="propertyType"
+                      id="propertyTypeHdb"
+                      value="hdb"
+                      autocomplete="off"
+                      checked
+                    />
+                    <label
+                      class="btn btn-outline-primary d-flex align-items-center gap-2 px-4"
+                      for="propertyTypeHdb"
+                      style="border-radius: 10px; font-weight: 600"
+                    >
                       <i class="bi bi-building"></i> HDB
                     </label>
-                    <input type="radio" class="btn-check" name="propertyType" id="propertyTypeCondo" value="condo" autocomplete="off">
-                    <label class="btn d-flex align-items-center gap-2 px-4" for="propertyTypeCondo" style="border-radius:10px;font-weight:600;border:1px solid #e0a800;color:#856404;background:white;" id="propertyTypeCondoLabel">
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="propertyType"
+                      id="propertyTypeCondo"
+                      value="condo"
+                      autocomplete="off"
+                    />
+                    <label
+                      class="btn d-flex align-items-center gap-2 px-4"
+                      for="propertyTypeCondo"
+                      style="
+                        border-radius: 10px;
+                        font-weight: 600;
+                        border: 1px solid #e0a800;
+                        color: #856404;
+                        background: white;
+                      "
+                      id="propertyTypeCondoLabel"
+                    >
                       <i class="bi bi-buildings"></i> Condo
                     </label>
                   </div>
-                  <div class="form-text">Affects map icon colour and card appearance.</div>
+                  <div class="form-text">
+                    Affects map icon colour and card appearance.
+                  </div>
                 </div>
                 <!-- Occupancy + Dates + Payment Day — one desktop row -->
                 <div class="row">
@@ -11304,11 +12388,27 @@
 
               <!-- Management Fee & Accountant Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#198754!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#198754;">
-                    <i class="bi bi-receipt text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #198754 !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #198754;
+                    "
+                  >
+                    <i
+                      class="bi bi-receipt text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color:#198754;">Management Fee</h6>
+                  <h6 class="fw-bold mb-0" style="color: #198754">
+                    Management Fee
+                  </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-4 mb-3">
@@ -11356,17 +12456,49 @@
                   <div class="col-md-4 mb-3">
                     <label for="accountant" class="form-label">
                       Accountant
-                      <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" title="Select the investor who acts as accountant and notes in financial reports for this property"></i>
+                      <i
+                        class="bi bi-info-circle text-muted"
+                        data-bs-toggle="tooltip"
+                        title="Select the investor who acts as accountant and notes in financial reports for this property"
+                      ></i>
                     </label>
-                    <select class="form-select" id="accountant" name="accountant">
+                    <select
+                      class="form-select"
+                      id="accountant"
+                      name="accountant"
+                      autocomplete="off"
+                    >
                       <option value="">-- Select Accountant --</option>
                     </select>
-                    <div class="form-text">The investor responsible for financial reporting on this property.</div>
-                    <div id="accountantAvatarPreview" style="display:none;" class="d-flex align-items-center gap-2 mt-2 p-2 bg-light rounded">
-                      <div id="accountantAvatarCircle" style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;"></div>
+                    <div class="form-text">
+                      The investor responsible for financial reporting on this
+                      property.
+                    </div>
+                    <div
+                      id="accountantAvatarPreview"
+                      style="display: none"
+                      class="d-flex align-items-center gap-2 mt-2 p-2 bg-light rounded"
+                    >
+                      <div
+                        id="accountantAvatarCircle"
+                        style="
+                          width: 36px;
+                          height: 36px;
+                          border-radius: 50%;
+                          overflow: hidden;
+                          flex-shrink: 0;
+                        "
+                      ></div>
                       <div>
-                        <div id="accountantAvatarName" class="fw-semibold small"></div>
-                        <div id="accountantAvatarId" class="text-muted" style="font-size:0.75rem;"></div>
+                        <div
+                          id="accountantAvatarName"
+                          class="fw-semibold small"
+                        ></div>
+                        <div
+                          id="accountantAvatarId"
+                          class="text-muted"
+                          style="font-size: 0.75rem"
+                        ></div>
                       </div>
                     </div>
                   </div>
@@ -11375,11 +12507,27 @@
 
               <!-- AC Service Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0dcaf0!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#0dcaf0;">
-                    <i class="bi bi-wind text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #0dcaf0 !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #0dcaf0;
+                    "
+                  >
+                    <i
+                      class="bi bi-wind text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color:#0dcaf0;">Air Conditioning Service</h6>
+                  <h6 class="fw-bold mb-0" style="color: #0dcaf0">
+                    Air Conditioning Service
+                  </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
@@ -11456,9 +12604,17 @@
 
               <!-- Agent Information Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
-                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
-                    <i class="bi bi-person-badge text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
+                >
+                  <div
+                    class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
+                    style="width: 28px; height: 28px; flex-shrink: 0"
+                  >
+                    <i
+                      class="bi bi-person-badge text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
                   <h6 class="text-secondary fw-bold mb-0">Agent Information</h6>
                 </div>
@@ -11490,11 +12646,27 @@
 
               <!-- Landlord Banking Details Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#fd7e14!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#fd7e14;">
-                    <i class="bi bi-bank text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #fd7e14 !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #fd7e14;
+                    "
+                  >
+                    <i
+                      class="bi bi-bank text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color:#fd7e14;">Landlord Banking Details</h6>
+                  <h6 class="fw-bold mb-0" style="color: #fd7e14">
+                    Landlord Banking Details
+                  </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-4 mb-3">
@@ -11548,11 +12720,27 @@
 
               <!-- Settlement Accounts Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#fd7e14!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#fd7e14;">
-                    <i class="bi bi-cash-stack text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #fd7e14 !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #fd7e14;
+                    "
+                  >
+                    <i
+                      class="bi bi-cash-stack text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color:#fd7e14;">Settlement Accounts</h6>
+                  <h6 class="fw-bold mb-0" style="color: #fd7e14">
+                    Settlement Accounts
+                  </h6>
                 </div>
 
                 <!-- SGD Settlement Account -->
@@ -12424,11 +13612,27 @@
 
               <!-- Telegram Bot Configuration Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0d6efd!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#0d6efd;">
-                    <i class="bi bi-telegram text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #0d6efd !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #0d6efd;
+                    "
+                  >
+                    <i
+                      class="bi bi-telegram text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0 text-primary">Telegram Bot Configuration</h6>
+                  <h6 class="fw-bold mb-0 text-primary">
+                    Telegram Bot Configuration
+                  </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
@@ -12469,15 +13673,25 @@
                 <div class="col-md-6">
                   <!-- WiFi Router Section -->
                   <div class="mb-0">
-                    <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
-                      <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
-                        <i class="bi bi-wifi text-white" style="font-size:12px;"></i>
+                    <div
+                      class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
+                    >
+                      <div
+                        class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
+                        style="width: 28px; height: 28px; flex-shrink: 0"
+                      >
+                        <i
+                          class="bi bi-wifi text-white"
+                          style="font-size: 12px"
+                        ></i>
                       </div>
                       <h6 class="text-secondary fw-bold mb-0">WiFi Router</h6>
                     </div>
                     <div class="row">
                       <div class="col-6 mb-3">
-                        <label for="wifiAccountNumber" class="form-label">WiFi Account Number</label>
+                        <label for="wifiAccountNumber" class="form-label"
+                          >WiFi Account Number</label
+                        >
                         <input
                           type="text"
                           class="form-control"
@@ -12487,7 +13701,9 @@
                         />
                       </div>
                       <div class="col-6 mb-3">
-                        <label for="wifiAccountHolderName" class="form-label">WiFi Account Holder Name</label>
+                        <label for="wifiAccountHolderName" class="form-label"
+                          >WiFi Account Holder Name</label
+                        >
                         <input
                           type="text"
                           class="form-control"
@@ -12516,7 +13732,8 @@
                         </button>
                       </div>
                       <div class="form-text">
-                        Multiple WiFi router images supported - upload or paste URLs
+                        Multiple WiFi router images supported - upload or paste
+                        URLs
                       </div>
                       <div id="wifiImagesGallery" class="mt-3">
                         <!-- WiFi images will be displayed here -->
@@ -12527,14 +13744,42 @@
                 <div class="col-md-6">
                   <!-- SP Utility Account Section -->
                   <div class="mb-0">
-                    <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#e0e0e0!important;">
-                      <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP Group" style="height:24px;width:auto;margin-right:8px;flex-shrink:0;">
-                      <h6 class="fw-bold mb-0" style="color:#e2001a;">SP Utility Account</h6>
+                    <div
+                      class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                      style="border-color: #e0e0e0 !important"
+                    >
+                      <img
+                        src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg"
+                        alt="SP Group"
+                        style="
+                          height: 24px;
+                          width: auto;
+                          margin-right: 8px;
+                          flex-shrink: 0;
+                        "
+                      />
+                      <h6 class="fw-bold mb-0" style="color: #e2001a">
+                        SP Utility Account
+                      </h6>
                     </div>
-                    <div class="p-3 rounded-3 border" style="background:linear-gradient(135deg,#f0fbff 0%,#fff 100%);border-color:#86e3f5!important;">
+                    <div
+                      class="p-3 rounded-3 border"
+                      style="
+                        background: linear-gradient(
+                          135deg,
+                          #f0fbff 0%,
+                          #fff 100%
+                        );
+                        border-color: #86e3f5 !important;
+                      "
+                    >
                       <div class="mb-3">
-                        <label for="spAccountUsername" class="form-label fw-semibold">
-                          <i class="bi bi-person-fill me-1 text-info"></i>SP Account Username
+                        <label
+                          for="spAccountUsername"
+                          class="form-label fw-semibold"
+                        >
+                          <i class="bi bi-person-fill me-1 text-info"></i>SP
+                          Account Username
                         </label>
                         <input
                           type="text"
@@ -12546,8 +13791,12 @@
                         />
                       </div>
                       <div class="mb-0">
-                        <label for="spAccountPassword" class="form-label fw-semibold">
-                          <i class="bi bi-key-fill me-1 text-info"></i>SP Account Password
+                        <label
+                          for="spAccountPassword"
+                          class="form-label fw-semibold"
+                        >
+                          <i class="bi bi-key-fill me-1 text-info"></i>SP
+                          Account Password
                         </label>
                         <input
                           type="text"
@@ -12557,7 +13806,10 @@
                           placeholder="SP account password"
                           autocomplete="off"
                         />
-                        <div class="form-text text-warning"><i class="bi bi-shield-lock me-1"></i>Only visible to admins</div>
+                        <div class="form-text text-warning">
+                          <i class="bi bi-shield-lock me-1"></i>Only visible to
+                          admins
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -12566,11 +13818,27 @@
 
               <!-- Facebook Groups Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#0d6efd!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#1877f2;">
-                    <i class="bi bi-facebook text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #0d6efd !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #1877f2;
+                    "
+                  >
+                    <i
+                      class="bi bi-facebook text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color:#1877f2;">Facebook Groups</h6>
+                  <h6 class="fw-bold mb-0" style="color: #1877f2">
+                    Facebook Groups
+                  </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
@@ -12608,9 +13876,17 @@
 
               <!-- Integration Settings Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-info">
-                  <div class="rounded-circle bg-info d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
-                    <i class="bi bi-gear text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom border-info"
+                >
+                  <div
+                    class="rounded-circle bg-info d-flex align-items-center justify-content-center me-2"
+                    style="width: 28px; height: 28px; flex-shrink: 0"
+                  >
+                    <i
+                      class="bi bi-gear text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
                   <h6 class="text-info fw-bold mb-0">Integration Settings</h6>
                 </div>
@@ -12642,38 +13918,93 @@
 
               <!-- Digital Lock Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom" style="border-color:#6f42c1!important;">
-                  <div class="rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;background:#6f42c1;">
-                    <i class="bi bi-shield-lock text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom"
+                  style="border-color: #6f42c1 !important"
+                >
+                  <div
+                    class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="
+                      width: 28px;
+                      height: 28px;
+                      flex-shrink: 0;
+                      background: #6f42c1;
+                    "
+                  >
+                    <i
+                      class="bi bi-shield-lock text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color:#6f42c1;">Digital Lock</h6>
+                  <h6 class="fw-bold mb-0" style="color: #6f42c1">
+                    Digital Lock
+                  </h6>
                 </div>
-                <div class="p-3 rounded-3 border" style="background:linear-gradient(135deg,#f8f5ff 0%,#fff 100%);border-color:#d8b4fe!important;">
+                <div
+                  class="p-3 rounded-3 border"
+                  style="
+                    background: linear-gradient(135deg, #f8f5ff 0%, #fff 100%);
+                    border-color: #d8b4fe !important;
+                  "
+                >
                   <div class="row align-items-center">
                     <div class="col-md-6 mb-3 mb-md-0">
-                      <label class="form-label fw-semibold">Digital Lock Installed?</label>
+                      <label class="form-label fw-semibold"
+                        >Digital Lock Installed?</label
+                      >
                       <div class="d-flex gap-3 mt-1">
                         <div class="form-check form-check-inline">
-                          <input class="form-check-input" type="radio" name="digitalLockEnabled" id="digitalLockYes" value="true" onchange="propertyManager.onDigitalLockToggle(true)">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="digitalLockEnabled"
+                            id="digitalLockYes"
+                            value="true"
+                            onchange="propertyManager.onDigitalLockToggle(true)"
+                          />
                           <label class="form-check-label" for="digitalLockYes">
-                            <i class="bi bi-lock-fill text-success me-1"></i><strong>Yes</strong>
+                            <i class="bi bi-lock-fill text-success me-1"></i
+                            ><strong>Yes</strong>
                           </label>
                         </div>
                         <div class="form-check form-check-inline">
-                          <input class="form-check-input" type="radio" name="digitalLockEnabled" id="digitalLockNo" value="false" checked onchange="propertyManager.onDigitalLockToggle(false)">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="digitalLockEnabled"
+                            id="digitalLockNo"
+                            value="false"
+                            checked
+                            onchange="
+                              propertyManager.onDigitalLockToggle(false)
+                            "
+                          />
                           <label class="form-check-label" for="digitalLockNo">
                             <i class="bi bi-unlock text-secondary me-1"></i>No
                           </label>
                         </div>
                       </div>
-                      <div class="form-text">Indicate if this property has a digital lock installed</div>
+                      <div class="form-text">
+                        Indicate if this property has a digital lock installed
+                      </div>
                     </div>
-                    <div class="col-md-6" id="digitalLockPinSection" style="display:none;">
-                      <label for="digitalLockPin" class="form-label fw-semibold">
-                        <i class="bi bi-key-fill text-warning me-1"></i>Lock PIN / Access Code
+                    <div
+                      class="col-md-6"
+                      id="digitalLockPinSection"
+                      style="display: none"
+                    >
+                      <label
+                        for="digitalLockPin"
+                        class="form-label fw-semibold"
+                      >
+                        <i class="bi bi-key-fill text-warning me-1"></i>Lock PIN
+                        / Access Code
                       </label>
                       <div class="input-group">
-                        <span class="input-group-text" style="background:#6f42c1;border-color:#6f42c1;">
+                        <span
+                          class="input-group-text"
+                          style="background: #6f42c1; border-color: #6f42c1"
+                        >
                           <i class="bi bi-lock-fill text-white"></i>
                         </span>
                         <input
@@ -12683,21 +14014,34 @@
                           name="digitalLockPin"
                           placeholder="Enter PIN or access code"
                           autocomplete="off"
-                          style="border-color:#d8b4fe;letter-spacing:2px;font-size:1.1em;"
+                          style="
+                            border-color: #d8b4fe;
+                            letter-spacing: 2px;
+                            font-size: 1.1em;
+                          "
                         />
                       </div>
-                      <div class="form-text">PIN code for tenant and admin access</div>
+                      <div class="form-text">
+                        PIN code for tenant and admin access
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-
               <!-- Property Image Section -->
               <div class="mb-4">
-                <div class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary">
-                  <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;flex-shrink:0;">
-                    <i class="bi bi-image text-white" style="font-size:12px;"></i>
+                <div
+                  class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
+                >
+                  <div
+                    class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
+                    style="width: 28px; height: 28px; flex-shrink: 0"
+                  >
+                    <i
+                      class="bi bi-image text-white"
+                      style="font-size: 12px"
+                    ></i>
                   </div>
                   <h6 class="text-secondary fw-bold mb-0">Property Image</h6>
                 </div>
@@ -12765,7 +14109,10 @@
                 type="submit"
                 class="btn btn-primary px-4 fw-semibold"
                 id="propertySubmitBtn"
-                style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;"
+                style="
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  border: none;
+                "
               >
                 <i class="bi bi-plus-circle me-1"></i
                 ><span id="propertySubmitText">Add Property</span>
@@ -12875,7 +14222,9 @@
                 </div>
                 <div class="row">
                   <div class="col-md-3 mb-3">
-                    <label for="tenantDateOfBirth" class="form-label">Date of Birth</label>
+                    <label for="tenantDateOfBirth" class="form-label"
+                      >Date of Birth</label
+                    >
                     <input
                       type="date"
                       class="form-control"
@@ -12893,28 +14242,54 @@
                     </select>
                   </div>
                   <div class="col-md-3 mb-3">
-                    <label for="tenantPassType" class="form-label">Pass Type</label>
-                    <select class="form-select" id="tenantPassType" name="passType">
+                    <label for="tenantPassType" class="form-label"
+                      >Pass Type</label
+                    >
+                    <select
+                      class="form-select"
+                      id="tenantPassType"
+                      name="passType"
+                    >
                       <option value="">Select pass type</option>
                       <optgroup label="Citizenship">
                         <option value="Citizen">Citizen</option>
-                        <option value="Permanent Resident (PR)">Permanent Resident (PR)</option>
+                        <option value="Permanent Resident (PR)">
+                          Permanent Resident (PR)
+                        </option>
                       </optgroup>
                       <optgroup label="Work Passes">
-                        <option value="Employment Pass (EP)">Employment Pass (EP)</option>
+                        <option value="Employment Pass (EP)">
+                          Employment Pass (EP)
+                        </option>
                         <option value="S Pass">S Pass</option>
                         <option value="Work Permit">Work Permit</option>
-                        <option value="Personalised Employment Pass (PEP)">Personalised Employment Pass (PEP)</option>
+                        <option value="Personalised Employment Pass (PEP)">
+                          Personalised Employment Pass (PEP)
+                        </option>
                         <option value="EntrePass">EntrePass</option>
-                        <option value="Training Employment Pass">Training Employment Pass</option>
-                        <option value="Work Holiday Pass">Work Holiday Pass</option>
-                        <option value="Letter of Consent (LOC)">Letter of Consent (LOC)</option>
-                        <option value="Miscellaneous Work Pass">Miscellaneous Work Pass</option>
+                        <option value="Training Employment Pass">
+                          Training Employment Pass
+                        </option>
+                        <option value="Work Holiday Pass">
+                          Work Holiday Pass
+                        </option>
+                        <option value="Letter of Consent (LOC)">
+                          Letter of Consent (LOC)
+                        </option>
+                        <option value="Miscellaneous Work Pass">
+                          Miscellaneous Work Pass
+                        </option>
                       </optgroup>
                       <optgroup label="Dependant / Visit">
-                        <option value="Dependant Pass (DP)">Dependant Pass (DP)</option>
-                        <option value="Long-Term Visit Pass (LTVP)">Long-Term Visit Pass (LTVP)</option>
-                        <option value="Long-Term Visit Pass Plus (LTVP+)">Long-Term Visit Pass Plus (LTVP+)</option>
+                        <option value="Dependant Pass (DP)">
+                          Dependant Pass (DP)
+                        </option>
+                        <option value="Long-Term Visit Pass (LTVP)">
+                          Long-Term Visit Pass (LTVP)
+                        </option>
+                        <option value="Long-Term Visit Pass Plus (LTVP+)">
+                          Long-Term Visit Pass Plus (LTVP+)
+                        </option>
                       </optgroup>
                       <optgroup label="Student">
                         <option value="Student Pass">Student Pass</option>
@@ -12922,7 +14297,9 @@
                     </select>
                   </div>
                   <div class="col-md-3 mb-3" id="tenantIndustryRow">
-                    <label for="tenantIndustry" class="form-label">Industry</label>
+                    <label for="tenantIndustry" class="form-label"
+                      >Industry</label
+                    >
                     <input
                       type="text"
                       class="form-control"
@@ -12934,8 +14311,14 @@
                   </div>
                 </div>
                 <div class="row">
-                  <div class="col-md-6 mb-3" id="tenantUniversityRow" style="display:none;">
-                    <label for="tenantUniversity" class="form-label">University</label>
+                  <div
+                    class="col-md-6 mb-3"
+                    id="tenantUniversityRow"
+                    style="display: none"
+                  >
+                    <label for="tenantUniversity" class="form-label"
+                      >University</label
+                    >
                     <input
                       type="text"
                       class="form-control"
@@ -12947,26 +14330,44 @@
                       autocomplete="off"
                     />
                     <datalist id="sgUniversityList">
-                      <option value="National University of Singapore (NUS)">
-                      <option value="Nanyang Technological University (NTU)">
-                      <option value="Singapore Management University (SMU)">
-                      <option value="Singapore University of Technology and Design (SUTD)">
-                      <option value="Singapore Institute of Technology (SIT)">
-                      <option value="Singapore University of Social Sciences (SUSS)">
-                      <option value="LASALLE College of the Arts">
-                      <option value="Nanyang Academy of Fine Arts (NAFA)">
-                      <option value="Republic Polytechnic">
-                      <option value="Ngee Ann Polytechnic">
-                      <option value="Temasek Polytechnic">
-                      <option value="Nanyang Polytechnic">
-                      <option value="Singapore Polytechnic">
-                      <option value="DigiPen Institute of Technology Singapore">
-                      <option value="Kaplan Singapore">
-                      <option value="James Cook University Singapore">
-                      <option value="PSB Academy">
-                      <option value="MDIS (Management Development Institute of Singapore)">
-                      <option value="EduCo International">
-                      <option value="Curtin Singapore">
+                      <option
+                        value="National University of Singapore (NUS)"
+                      ></option>
+                      <option
+                        value="Nanyang Technological University (NTU)"
+                      ></option>
+                      <option
+                        value="Singapore Management University (SMU)"
+                      ></option>
+                      <option
+                        value="Singapore University of Technology and Design (SUTD)"
+                      ></option>
+                      <option
+                        value="Singapore Institute of Technology (SIT)"
+                      ></option>
+                      <option
+                        value="Singapore University of Social Sciences (SUSS)"
+                      ></option>
+                      <option value="LASALLE College of the Arts"></option>
+                      <option
+                        value="Nanyang Academy of Fine Arts (NAFA)"
+                      ></option>
+                      <option value="Republic Polytechnic"></option>
+                      <option value="Ngee Ann Polytechnic"></option>
+                      <option value="Temasek Polytechnic"></option>
+                      <option value="Nanyang Polytechnic"></option>
+                      <option value="Singapore Polytechnic"></option>
+                      <option
+                        value="DigiPen Institute of Technology Singapore"
+                      ></option>
+                      <option value="Kaplan Singapore"></option>
+                      <option value="James Cook University Singapore"></option>
+                      <option value="PSB Academy"></option>
+                      <option
+                        value="MDIS (Management Development Institute of Singapore)"
+                      ></option>
+                      <option value="EduCo International"></option>
+                      <option value="Curtin Singapore"></option>
                     </datalist>
                   </div>
                 </div>
@@ -13137,7 +14538,9 @@
                 <!-- Utility Usage -->
                 <div class="row">
                   <div class="col-12 mb-1">
-                    <label class="form-label fw-semibold small text-muted">Utility Usage (used for bill breakdown)</label>
+                    <label class="form-label fw-semibold small text-muted"
+                      >Utility Usage (used for bill breakdown)</label
+                    >
                   </div>
                   <div class="col-md-4 mb-3">
                     <div class="form-check">
@@ -13148,8 +14551,14 @@
                         name="usesElectricity"
                         checked
                       />
-                      <label class="form-check-label" for="tenantUsesElectricity">
-                        <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Electricity
+                      <label
+                        class="form-check-label"
+                        for="tenantUsesElectricity"
+                      >
+                        <i
+                          class="bi bi-lightning-charge-fill text-warning me-1"
+                        ></i
+                        >Electricity
                       </label>
                     </div>
                   </div>
@@ -13177,7 +14586,8 @@
                         checked
                       />
                       <label class="form-check-label" for="tenantUsesGas">
-                        <i class="bi bi-fire text-secondary me-1"></i>Gas / Others
+                        <i class="bi bi-fire text-secondary me-1"></i>Gas /
+                        Others
                       </label>
                     </div>
                   </div>
@@ -13529,7 +14939,10 @@
                     <label class="form-label">
                       <i class="bi bi-list-check me-1"></i>To-Do List
                     </label>
-                    <div id="tenantTodoList" class="border rounded p-3 bg-light">
+                    <div
+                      id="tenantTodoList"
+                      class="border rounded p-3 bg-light"
+                    >
                       <div id="tenantTodoItems"></div>
                       <div class="input-group mt-2">
                         <input
@@ -13623,7 +15036,12 @@
       </div>
     </div>
     <!-- Spotlight Search Overlay -->
-    <div id="spotlightOverlay" role="dialog" aria-modal="true" aria-label="Global tenant search">
+    <div
+      id="spotlightOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Global tenant search"
+    >
       <div id="spotlightBox">
         <div id="spotlightInputWrap">
           <i class="bi bi-search sp-icon"></i>
@@ -13635,7 +15053,11 @@
             spellcheck="false"
           />
           <div class="sp-spinner" id="spotlightSpinner">
-            <div class="spinner-border spinner-border-sm text-secondary" style="width:18px;height:18px;" role="status"></div>
+            <div
+              class="spinner-border spinner-border-sm text-secondary"
+              style="width: 18px; height: 18px"
+              role="status"
+            ></div>
           </div>
         </div>
         <div id="spotlightResults"></div>
@@ -13649,163 +15071,215 @@
     </div>
 
     <script>
-    (function () {
-      const overlay   = document.getElementById('spotlightOverlay');
-      const input     = document.getElementById('spotlightInput');
-      const results   = document.getElementById('spotlightResults');
-      const spinner   = document.getElementById('spotlightSpinner');
+      (function () {
+        const overlay = document.getElementById("spotlightOverlay");
+        const input = document.getElementById("spotlightInput");
+        const results = document.getElementById("spotlightResults");
+        const spinner = document.getElementById("spotlightSpinner");
 
-      let activeIdx   = -1;
-      let debounceTimer = null;
-      let lastQuery   = '';
-      let resultItems = [];
+        let activeIdx = -1;
+        let debounceTimer = null;
+        let lastQuery = "";
+        let resultItems = [];
 
-      function open() {
-        overlay.classList.add('active');
-        input.value = '';
-        results.innerHTML = '';
-        activeIdx = -1;
-        lastQuery = '';
-        spinner.classList.remove('active');
-        setTimeout(() => input.focus(), 30);
-      }
-
-      function close() {
-        overlay.classList.remove('active');
-        input.blur();
-      }
-
-      function toggle() {
-        overlay.classList.contains('active') ? close() : open();
-      }
-
-      // Ctrl+Shift+F global hotkey
-      document.addEventListener('keydown', function (e) {
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
-          e.preventDefault();
-          toggle();
-          return;
+        function open() {
+          overlay.classList.add("active");
+          input.value = "";
+          results.innerHTML = "";
+          activeIdx = -1;
+          lastQuery = "";
+          spinner.classList.remove("active");
+          setTimeout(() => input.focus(), 30);
         }
-        if (!overlay.classList.contains('active')) return;
-        if (e.key === 'Escape') { e.preventDefault(); close(); return; }
-        if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); return; }
-        if (e.key === 'ArrowUp')   { e.preventDefault(); moveFocus(-1); return; }
-        if (e.key === 'Enter')     { e.preventDefault(); activateSelected(); return; }
-      });
 
-      // Click outside closes
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) close();
-      });
-
-      input.addEventListener('input', function () {
-        const q = input.value.trim();
-        clearTimeout(debounceTimer);
-        activeIdx = -1;
-        if (!q) {
-          results.innerHTML = '';
-          spinner.classList.remove('active');
-          lastQuery = '';
-          return;
+        function close() {
+          overlay.classList.remove("active");
+          input.blur();
         }
-        spinner.classList.add('active');
-        debounceTimer = setTimeout(() => fetchTenants(q), 280);
-      });
 
-      async function fetchTenants(query) {
-        if (query === lastQuery) { spinner.classList.remove('active'); return; }
-        lastQuery = query;
-        try {
-          const endpoint = API_CONFIG.ENDPOINTS.TENANTS + '?search=' + encodeURIComponent(query) + '&limit=50';
-          const res = await API.get(endpoint);
-          const data = await res.json();
-          const tenants = data.success ? (data.tenants || data.data || []) : [];
-          renderResults(tenants, query);
-        } catch (err) {
-          results.innerHTML = '<div class="sp-empty-msg">Search error. Please try again.</div>';
-        } finally {
-          spinner.classList.remove('active');
+        function toggle() {
+          overlay.classList.contains("active") ? close() : open();
         }
-      }
 
-      function renderResults(tenants, query) {
-        activeIdx = -1;
-        if (!tenants.length) {
-          results.innerHTML = '<div class="sp-empty-msg">No tenants found for <strong>' + escHtml(query) + '</strong></div>';
-          resultItems = [];
-          return;
+        // Ctrl+Shift+F global hotkey
+        document.addEventListener("keydown", function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "F") {
+            e.preventDefault();
+            toggle();
+            return;
+          }
+          if (!overlay.classList.contains("active")) return;
+          if (e.key === "Escape") {
+            e.preventDefault();
+            close();
+            return;
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            moveFocus(1);
+            return;
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            moveFocus(-1);
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            activateSelected();
+            return;
+          }
+        });
+
+        // Click outside closes
+        overlay.addEventListener("click", function (e) {
+          if (e.target === overlay) close();
+        });
+
+        input.addEventListener("input", function () {
+          const q = input.value.trim();
+          clearTimeout(debounceTimer);
+          activeIdx = -1;
+          if (!q) {
+            results.innerHTML = "";
+            spinner.classList.remove("active");
+            lastQuery = "";
+            return;
+          }
+          spinner.classList.add("active");
+          debounceTimer = setTimeout(() => fetchTenants(q), 280);
+        });
+
+        async function fetchTenants(query) {
+          if (query === lastQuery) {
+            spinner.classList.remove("active");
+            return;
+          }
+          lastQuery = query;
+          try {
+            const endpoint =
+              API_CONFIG.ENDPOINTS.TENANTS +
+              "?search=" +
+              encodeURIComponent(query) +
+              "&limit=50";
+            const res = await API.get(endpoint);
+            const data = await res.json();
+            const tenants = data.success ? data.tenants || data.data || [] : [];
+            renderResults(tenants, query);
+          } catch (err) {
+            results.innerHTML =
+              '<div class="sp-empty-msg">Search error. Please try again.</div>';
+          } finally {
+            spinner.classList.remove("active");
+          }
         }
-        results.innerHTML = tenants.map((t, i) => {
-          const initials = (t.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-          const avatar = t.avatar
-            ? `<img src="${escHtml(t.avatar)}" alt="" onerror="this.parentNode.textContent='${initials}'">`
-            : initials;
-          const metaParts = [];
-          if (t.fin)            metaParts.push('FIN: ' + escHtml(t.fin));
-          if (t.passportNumber) metaParts.push('PP: ' + escHtml(t.passportNumber));
-          if (t.phoneNumber)    metaParts.push(escHtml(t.phoneNumber));
-          const props = Array.isArray(t.properties) ? t.properties : [];
-          const firstPropId = props.length ? props[0].propertyId : '';
-          const propBadges = props.map(p =>
-            `<span class="sp-prop-badge">${escHtml(p.propertyId || '')}</span>`
-          ).join(' ');
-          return `<div class="sp-result-item" data-idx="${i}" data-property-id="${escHtml(firstPropId)}" data-tenant-id="${escHtml(String(t._id||t.id||''))}" tabindex="-1">
+
+        function renderResults(tenants, query) {
+          activeIdx = -1;
+          if (!tenants.length) {
+            results.innerHTML =
+              '<div class="sp-empty-msg">No tenants found for <strong>' +
+              escHtml(query) +
+              "</strong></div>";
+            resultItems = [];
+            return;
+          }
+          results.innerHTML = tenants
+            .map((t, i) => {
+              const initials = (t.name || "?")
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+              const avatar = t.avatar
+                ? `<img src="${escHtml(t.avatar)}" alt="" onerror="this.parentNode.textContent='${initials}'">`
+                : initials;
+              const metaParts = [];
+              if (t.fin) metaParts.push("FIN: " + escHtml(t.fin));
+              if (t.passportNumber)
+                metaParts.push("PP: " + escHtml(t.passportNumber));
+              if (t.phoneNumber) metaParts.push(escHtml(t.phoneNumber));
+              const props = Array.isArray(t.properties) ? t.properties : [];
+              const firstPropId = props.length ? props[0].propertyId : "";
+              const propBadges = props
+                .map(
+                  (p) =>
+                    `<span class="sp-prop-badge">${escHtml(p.propertyId || "")}</span>`,
+                )
+                .join(" ");
+              return `<div class="sp-result-item" data-idx="${i}" data-property-id="${escHtml(firstPropId)}" data-tenant-id="${escHtml(String(t._id || t.id || ""))}" tabindex="-1">
             <div class="sp-avatar">${avatar}</div>
             <div class="sp-info">
-              <div class="sp-name">${escHtml(t.name || 'Unknown')}</div>
-              <div class="sp-meta">${metaParts.join(' · ')}</div>
+              <div class="sp-name">${escHtml(t.name || "Unknown")}</div>
+              <div class="sp-meta">${metaParts.join(" · ")}</div>
             </div>
             <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${propBadges}</div>
           </div>`;
-        }).join('');
+            })
+            .join("");
 
-        resultItems = Array.from(results.querySelectorAll('.sp-result-item'));
-        resultItems.forEach(el => {
-          el.addEventListener('click', function () { navigateToTenant(this); });
-          el.addEventListener('mouseenter', function () {
-            activeIdx = parseInt(this.dataset.idx);
-            highlightActive();
+          resultItems = Array.from(results.querySelectorAll(".sp-result-item"));
+          resultItems.forEach((el) => {
+            el.addEventListener("click", function () {
+              navigateToTenant(this);
+            });
+            el.addEventListener("mouseenter", function () {
+              activeIdx = parseInt(this.dataset.idx);
+              highlightActive();
+            });
           });
-        });
-      }
-
-      function moveFocus(dir) {
-        if (!resultItems.length) return;
-        activeIdx = Math.max(0, Math.min(resultItems.length - 1, activeIdx + dir));
-        highlightActive();
-        resultItems[activeIdx].scrollIntoView({ block: 'nearest' });
-      }
-
-      function highlightActive() {
-        resultItems.forEach((el, i) => el.classList.toggle('sp-active', i === activeIdx));
-      }
-
-      function activateSelected() {
-        if (activeIdx >= 0 && resultItems[activeIdx]) {
-          navigateToTenant(resultItems[activeIdx]);
         }
-      }
 
-      function navigateToTenant(el) {
-        const propertyId = el.dataset.propertyId;
-        close();
-        if (window.dashboardController && typeof window.dashboardController.showSection === 'function') {
-          window.dashboardController.showSection('tenants');
+        function moveFocus(dir) {
+          if (!resultItems.length) return;
+          activeIdx = Math.max(
+            0,
+            Math.min(resultItems.length - 1, activeIdx + dir),
+          );
+          highlightActive();
+          resultItems[activeIdx].scrollIntoView({ block: "nearest" });
         }
-        if (propertyId) {
-          setTimeout(() => {
-            const tm = window.tenantManager;
-            if (tm && typeof tm.selectProperty === 'function') {
-              tm.selectProperty(propertyId);
-            }
-          }, 250);
-        }
-      }
 
-      function escHtml(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      }
-    })();
+        function highlightActive() {
+          resultItems.forEach((el, i) =>
+            el.classList.toggle("sp-active", i === activeIdx),
+          );
+        }
+
+        function activateSelected() {
+          if (activeIdx >= 0 && resultItems[activeIdx]) {
+            navigateToTenant(resultItems[activeIdx]);
+          }
+        }
+
+        function navigateToTenant(el) {
+          const propertyId = el.dataset.propertyId;
+          close();
+          if (
+            window.dashboardController &&
+            typeof window.dashboardController.showSection === "function"
+          ) {
+            window.dashboardController.showSection("tenants");
+          }
+          if (propertyId) {
+            setTimeout(() => {
+              const tm = window.tenantManager;
+              if (tm && typeof tm.selectProperty === "function") {
+                tm.selectProperty(propertyId);
+              }
+            }, 250);
+          }
+        }
+
+        function escHtml(s) {
+          return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+      })();
     </script>
   </body>
 </html>
