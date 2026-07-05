@@ -4,6 +4,7 @@
  * Uses Chart.js for monthly trend charts and backend OCR to parse bill images.
  */
 import i18next from "../i18n.js";
+import { getGroupLinkMeta } from "../utils/social-links.js";
 
 class UtilityBillTrackerComponent {
   constructor() {
@@ -760,8 +761,9 @@ class UtilityBillTrackerComponent {
       return;
     }
     container.style.display = '';
+    const tenantMeta = getGroupLinkMeta(tenantGroup);
     container.innerHTML = [
-      tenantGroup ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : '',
+      tenantGroup ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="border-color:${tenantMeta.color};color:${tenantMeta.color};"><i class="bi ${tenantMeta.icon} me-1"></i>Tenant Group</a>` : '',
       adminGroup  ? `<a href="${escapeHtml(adminGroup)}"  target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success"><i class="bi bi-facebook me-1"></i>Admin Group</a>`  : '',
     ].join('');
   }

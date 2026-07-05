@@ -1,3 +1,5 @@
+import { getGroupLinkMeta } from "../utils/social-links.js";
+
 /**
  * Common Prompt Component
  * A library of commonly used text message prompts for property management
@@ -481,8 +483,8 @@ Please advise on pricing and availability. Thank you! 🙏`;
         : `<div style="width:56px;height:56px;border-radius:8px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted" style="font-size:1.4rem;"></i></div>`;
       const tenantFbHtml = property.tenantFacebookGroup
         ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer"
-             style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:#1877F2;color:#fff;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap;"
-             title="Tenant Facebook Group">
+             style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:${getGroupLinkMeta(property.tenantFacebookGroup).color};color:#fff;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap;"
+             title="Tenant ${getGroupLinkMeta(property.tenantFacebookGroup).brand} Group">
              <i class="bi bi-people-fill"></i> Tenant Group
            </a>`
         : "";
@@ -496,7 +498,7 @@ Please advise on pricing and availability. Thank you! 🙏`;
       const fbLinksHtml =
         tenantFbHtml || adminFbHtml
           ? `<div class="d-flex gap-2 px-3 py-2 align-items-center" style="background:#f0f4ff;border-top:1px solid #dee2e6;">
-             <span style="font-size:11px;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Facebook:</span>
+             <span style="font-size:11px;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Groups:</span>
              ${tenantFbHtml}
              ${adminFbHtml}
            </div>`
@@ -1382,7 +1384,7 @@ Thank you! 🙏`;
 
     const tenantFbHtml = property.tenantFacebookGroup
       ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#1877F2;color:#fff;text-decoration:none;font-size:12px;font-weight:600;">
+           style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:${getGroupLinkMeta(property.tenantFacebookGroup).color};color:#fff;text-decoration:none;font-size:12px;font-weight:600;">
            <i class="bi bi-people-fill"></i> Tenant Group</a>`
       : "";
     const adminFbHtml = property.adminFacebookGroup
@@ -1393,7 +1395,7 @@ Thank you! 🙏`;
     const fbHtml =
       tenantFbHtml || adminFbHtml
         ? `<div class="d-flex gap-2 px-3 py-2 align-items-center" style="background:#f0f4ff;border-top:1px solid #dee2e6;">
-          <span style="font-size:11px;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Facebook:</span>
+          <span style="font-size:11px;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Groups:</span>
           ${tenantFbHtml}${adminFbHtml}
         </div>`
         : "";

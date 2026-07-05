@@ -5,6 +5,25 @@
  */
 
 /**
+ * Detect whether a group URL is a WhatsApp link (chat.whatsapp.com, wa.me, whatsapp.com).
+ */
+export function isWhatsAppGroupUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  return /(?:chat\.)?whatsapp\.com|wa\.me/i.test(url);
+}
+
+/**
+ * Get display metadata (icon class, label, brand color) for a group link that
+ * may be either a Facebook group or a WhatsApp group.
+ */
+export function getGroupLinkMeta(url) {
+  if (isWhatsAppGroupUrl(url)) {
+    return { icon: "bi-whatsapp", brand: "WhatsApp", color: "#25D366" };
+  }
+  return { icon: "bi-facebook", brand: "Facebook", color: "#1877F2" };
+}
+
+/**
  * Convert a Facebook profile URL to a Messenger link.
  * Handles formats:
  *   https://www.facebook.com/username
@@ -55,8 +74,15 @@ export function facebookToMessengerUrl(fbUrl) {
 export function buildWhatsAppSignContractUrl(phoneNumber, tenantName = "") {
   if (!phoneNumber) return null;
 
-  const digits = phoneNumber.replace(/[^0-9]/g, "");
-  if (!digits) return null;
+  const rawDigits = phoneNumber.replace(/[^0-9]/g, "");
+  if (!rawDigits) return null;
+
+  // Local SG mobile numbers are stored without a country code — without it,
+  // wa.me can't resolve the exact contact and silently drops the ?text= param.
+  const digits =
+    rawDigits.length === 8 && /^[893]/.test(rawDigits)
+      ? "65" + rawDigits
+      : rawDigits;
 
   const message = buildSignContractMessage(tenantName);
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;

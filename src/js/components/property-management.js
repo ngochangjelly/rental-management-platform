@@ -1,4 +1,5 @@
 import { ROOM_TYPE_MAP } from '../utils/room-type-mapper.js';
+import { getGroupLinkMeta } from '../utils/social-links.js';
 
 /**
  * Property Management Component
@@ -106,6 +107,75 @@ class PropertyManagementComponent {
       selectedText.textContent = `${selectedRooms.length} rooms selected`;
       selectedText.classList.remove('text-muted');
     }
+
+    this.renderRoomPricesInputs();
+  }
+
+  // Keeps the per-room-type price range inputs in sync with the checked room
+  // types, without wiping out values already typed for rooms that stay checked.
+  renderRoomPricesInputs() {
+    const container = document.getElementById('propertyRoomPricesContainer');
+    const wrap = document.getElementById('propertyRoomPricesWrap');
+    if (!container || !wrap) return;
+
+    const checkedRooms = Array.from(document.querySelectorAll('.property-room-checkbox:checked')).map(cb => cb.value);
+
+    // Drop rows for rooms that got unchecked
+    container.querySelectorAll('.room-price-row').forEach(row => {
+      if (!checkedRooms.includes(row.dataset.room)) row.remove();
+    });
+
+    // Add rows for newly-checked rooms
+    checkedRooms.forEach(room => {
+      if (container.querySelector(`.room-price-row[data-room="${room}"]`)) return;
+      const label = ROOM_TYPE_MAP[room] || room;
+      const row = document.createElement('div');
+      row.className = 'd-flex align-items-center gap-2 mb-2 room-price-row';
+      row.dataset.room = room;
+      row.innerHTML = `
+        <span class="badge bg-secondary text-truncate" style="min-width:120px;max-width:170px;" title="${label}">${label}</span>
+        <div class="input-group input-group-sm" style="max-width:110px;">
+          <span class="input-group-text">$</span>
+          <input type="number" class="form-control room-price-min" min="0" step="10" placeholder="Min">
+        </div>
+        <span class="text-muted small">to</span>
+        <div class="input-group input-group-sm" style="max-width:110px;">
+          <span class="input-group-text">$</span>
+          <input type="number" class="form-control room-price-max" min="0" step="10" placeholder="Max">
+        </div>
+      `;
+      container.appendChild(row);
+    });
+
+    // Keep rows ordered the same way as the room type dropdown
+    const order = Object.keys(ROOM_TYPE_MAP);
+    Array.from(container.children)
+      .sort((a, b) => order.indexOf(a.dataset.room) - order.indexOf(b.dataset.room))
+      .forEach(row => container.appendChild(row));
+
+    wrap.style.display = checkedRooms.length > 0 ? 'block' : 'none';
+  }
+
+  // Fills the price range inputs from a property's saved roomPrices; call after
+  // renderRoomPricesInputs() has created the rows for the property's rooms.
+  populateRoomPricesInputs(roomPrices = []) {
+    roomPrices.forEach(rp => {
+      const row = document.querySelector(`.room-price-row[data-room="${rp.room}"]`);
+      if (!row) return;
+      const minInput = row.querySelector('.room-price-min');
+      const maxInput = row.querySelector('.room-price-max');
+      if (minInput) minInput.value = rp.minPrice || '';
+      if (maxInput) maxInput.value = rp.maxPrice || '';
+    });
+  }
+
+  // Reads the currently-rendered price range rows into a roomPrices payload.
+  getRoomPricesFromInputs() {
+    return Array.from(document.querySelectorAll('#propertyRoomPricesContainer .room-price-row')).map(row => {
+      const minPrice = parseFloat(row.querySelector('.room-price-min')?.value) || 0;
+      const maxPrice = parseFloat(row.querySelector('.room-price-max')?.value) || 0;
+      return { room: row.dataset.room, minPrice, maxPrice };
+    });
   }
 
   async loadAcServiceCompanies() {
@@ -529,6 +599,7 @@ class PropertyManagementComponent {
           </div>`;
       }
 
+      const tenantGroupMeta = getGroupLinkMeta(property.tenantFacebookGroup);
       const isCondo = property.propertyType === 'condo';
       const cardOpacity = isArchived ? 'opacity: 0.6;' : '';
       const cardFilter = isArchived ? 'filter: grayscale(60%);' : '';
@@ -648,7 +719,13 @@ class PropertyManagementComponent {
               <div class="mt-2">
                 <p class="mb-1 small"><strong>Rooms:</strong></p>
                 <div class="d-flex flex-wrap gap-1">
-                  ${property.rooms.map(room => `<span class="badge bg-secondary">${ROOM_TYPE_MAP[room] || room}</span>`).join('')}
+                  ${property.rooms.map(room => {
+                    const rp = (property.roomPrices || []).find(p => p.room === room);
+                    const priceLabel = rp && (rp.minPrice || rp.maxPrice)
+                      ? ` ($${rp.minPrice}${rp.maxPrice && rp.maxPrice !== rp.minPrice ? '–$' + rp.maxPrice : ''})`
+                      : '';
+                    return `<span class="badge bg-secondary">${ROOM_TYPE_MAP[room] || room}${priceLabel}</span>`;
+                  }).join('')}
                 </div>
               </div>
               ` : ''}
@@ -705,7 +782,7 @@ class PropertyManagementComponent {
               ` : ''}
               ${(property.tenantFacebookGroup || property.adminFacebookGroup) ? `
               <div class="mt-2 d-flex flex-wrap gap-1">
-                ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(property.tenantFacebookGroup)}" class="badge bg-primary text-decoration-none" title="Tenant Facebook Group"><i class="bi bi-facebook me-1"></i>Tenant Group</a>` : ''}
+                ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(property.tenantFacebookGroup)}" class="badge text-decoration-none" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenant Group</a>` : ''}
                 ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ''}
               </div>
               ` : ''}
@@ -876,6 +953,9 @@ class PropertyManagementComponent {
     const form = document.getElementById("propertyForm");
     if (form) {
       form.reset();
+      // form.reset() unchecks the room checkboxes but doesn't touch our custom
+      // dropdown label/price rows, so re-sync them before edit-mode repopulates.
+      this.updatePropertyRoomsSelection();
 
       // Store the property being edited (if any)
       form.setAttribute("data-property-id", property?.propertyId || "");
@@ -1092,8 +1172,9 @@ class PropertyManagementComponent {
             }
           });
 
-          // Update the selection display
+          // Update the selection display, then fill in the saved price ranges
           this.updatePropertyRoomsSelection();
+          this.populateRoomPricesInputs(property.roomPrices || []);
         }
 
         // Handle digital lock fields
@@ -1321,6 +1402,7 @@ class PropertyManagementComponent {
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
         subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
         rooms: selectedRooms,
+        roomPrices: this.getRoomPricesFromInputs(),
         agentName: formData.get("agentName")?.trim() || "",
         agentPhone: formData.get("agentPhone")?.trim() || "",
         landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",

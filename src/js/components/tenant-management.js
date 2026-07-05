@@ -3,7 +3,7 @@ import {
   getRoomTypeDisplayName,
   getRoomTypeOptions,
 } from "../utils/room-type-mapper.js";
-import { renderTenantSocialBadges } from "../utils/social-links.js";
+import { renderTenantSocialBadges, getGroupLinkMeta } from "../utils/social-links.js";
 
 /**
  * Returns the effective rent for a tenant derived from their room assignments.
@@ -1261,6 +1261,21 @@ class TenantManagementComponent {
     if (zipBtn) {
       zipBtn.style.display = showDocBtns ? "inline-flex" : "none";
       if (showDocBtns) zipBtn.title = `Download image ZIP for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+    }
+
+    const fbBadgesEl = document.getElementById("tenantFbGroupBadges");
+    if (fbBadgesEl) {
+      const selectedPropertyData =
+        this.selectedProperty && this.selectedProperty !== "UNASSIGNED"
+          ? this.properties.find((p) => p.propertyId === this.selectedProperty)
+          : null;
+      const tenantFacebookGroup = selectedPropertyData?.tenantFacebookGroup;
+      const adminFacebookGroup = selectedPropertyData?.adminFacebookGroup;
+      const tenantGroupMeta = getGroupLinkMeta(tenantFacebookGroup);
+      fbBadgesEl.innerHTML = `
+        ${tenantFacebookGroup ? `<a href="${this.escapeHtml(tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(tenantFacebookGroup)}" class="badge text-decoration-none" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenant Group</a>` : ""}
+        ${adminFacebookGroup ? `<a href="${this.escapeHtml(adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ""}
+      `;
     }
   }
 

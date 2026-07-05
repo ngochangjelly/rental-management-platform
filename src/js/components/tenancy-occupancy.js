@@ -3,6 +3,7 @@ import {
   ROOM_TYPE_MAP,
 } from "../utils/room-type-mapper.js";
 import i18next from "i18next";
+import { getGroupLinkMeta } from "../utils/social-links.js";
 
 /**
  * Tenancy Occupancy Component
@@ -718,6 +719,8 @@ class TenancyOccupancyComponent {
       badgeClass = "bg-success";
     }
 
+    const tenantGroupMeta = getGroupLinkMeta(property.tenantFacebookGroup);
+
     let timelineHtml = "";
     if (tenants.length === 0) {
       timelineHtml = `
@@ -742,7 +745,7 @@ class TenancyOccupancyComponent {
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none fs-6 px-3 py-2" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin</a>` : ""}
-                        ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-decoration-none fs-6 px-3 py-2" title="Tenant Facebook Group"><i class="bi bi-facebook me-1"></i>Tenants</a>` : ""}
+                        ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge text-decoration-none fs-6 px-3 py-2" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenants</a>` : ""}
                         <span class="badge ${badgeClass} fs-6 px-3 py-2" title="${i18next.t("tenancyOccupancy.currentTenants", "Current tenants")}: ${currentTenants}">
                             <i class="bi bi-people-fill me-1"></i>${currentTenants} ${i18next.t("tenancyOccupancy.active", "active")}
                         </span>

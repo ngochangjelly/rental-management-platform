@@ -1,5 +1,6 @@
 // Note: showToast and escapeHtml are expected to be available globally
 import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
+import { getGroupLinkMeta } from "../utils/social-links.js";
 import i18next from "../i18n.js";
 
 /**
@@ -3194,11 +3195,10 @@ class FinancialReportsComponent {
     }
 
     // Add paidTo field only for expense transactions
+    // Always include it (even empty) so clearing the selection removes any
+    // previously saved paidTo instead of leaving the old value untouched.
     if (type === "expense") {
-      const paidTo = formData.get("paidTo");
-      if (paidTo) {
-        itemData.paidTo = paidTo;
-      }
+      itemData.paidTo = formData.get("paidTo") || "";
     }
 
     // Add uploaded bill evidence URLs
@@ -4921,10 +4921,11 @@ class FinancialReportsComponent {
       return;
     }
 
+    const tenantMeta = getGroupLinkMeta(tenantGroup);
     tenantContainer.innerHTML = tenantGroup
       ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer"
-            class="btn btn-sm btn-outline-primary">
-           <i class="bi bi-facebook me-1"></i>Tenant Group
+            class="btn btn-sm" style="border-color:${tenantMeta.color};color:${tenantMeta.color};">
+           <i class="bi ${tenantMeta.icon} me-1"></i>Tenant Group
          </a>`
       : "";
 
