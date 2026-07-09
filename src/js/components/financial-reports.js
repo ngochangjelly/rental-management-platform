@@ -1031,6 +1031,24 @@ class FinancialReportsComponent {
       </div>`;
   }
 
+  /**
+   * Shows/updates the item-count bubble next to the Income/Expenses card
+   * title. Visible whenever a report is loaded and not closed (independent
+   * of the drag-to-reorder toggle — see incomeIsClosed/expenseIsClosed,
+   * which also fold in `!this.isEditMode` and would hide this far more
+   * often than intended).
+   */
+  _updateItemCountBadge(elId, count) {
+    const badge = document.getElementById(elId);
+    if (!badge) return;
+    if (this.currentReport && !this.currentReport.isClosed) {
+      badge.textContent = String(count);
+      badge.style.display = "inline-flex";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
   updateIncomeDisplay() {
     const incomeList = document.getElementById("incomeList");
     const totalIncomeEl = document.getElementById("totalIncome");
@@ -1047,8 +1065,14 @@ class FinancialReportsComponent {
                 </div>
             `;
       if (totalIncomeEl) totalIncomeEl.textContent = "$0.00";
+      this._updateItemCountBadge("incomeItemCountBadge", 0);
       return;
     }
+
+    this._updateItemCountBadge(
+      "incomeItemCountBadge",
+      this.currentReport.income.length,
+    );
 
     let total = 0;
     let totalSGD = 0;
@@ -1080,26 +1104,31 @@ class FinancialReportsComponent {
     // alignment is guaranteed by the grid definition itself rather than
     // native <table> auto/fixed layout (see bill-management.js's
     // _renderDynamicPreview for the reference pattern this follows).
+    // Trimmed from the original (20 32 160 70 60 90 70 110 100) — tighter
+    // Date/Person/Currency/Amount tracks free up room so the table fits
+    // more often without a horizontal scroll, and Actions is a bit wider
+    // (100->112) so its 3 buttons never crowd/overflow into Amount's
+    // right-aligned text.
     const INCOME_GRID_COLUMNS =
-      "20px 32px minmax(160px,2fr) 70px 60px 90px 70px 110px 100px";
+      "18px 26px minmax(140px,2fr) 54px 58px 76px 46px 90px 112px";
     const gridCell = (content, opts = {}) => `
       <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
     let tableHtml = `
       <div class="d-none d-md-block" id="incomeTable" style="overflow-x:auto;">
-        <div style="min-width:900px;">
-          <div style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;background:#d1e7dd;border-radius:4px 4px 0 0;">
+        <div style="min-width:700px;">
+          <div style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:4px;align-items:center;padding:6px 4px;background:#d1e7dd;border-radius:4px 4px 0 0;">
             ${gridCell("")}
             ${gridCell(`<input type="checkbox" class="form-check-input" id="selectAllIncome"
                 onchange="window.financialReports.toggleSelectAll('income', this.checked)"
                 ${incomeSelectedCount === this.currentReport.income.length ? "checked" : ""}>`)}
             ${gridCell("Item", { cls: "small fw-semibold" })}
-            ${gridCell("Date", { cls: "small fw-semibold" })}
-            ${gridCell("Person", { cls: "small fw-semibold" })}
-            ${gridCell("Paid By", { cls: "small fw-semibold" })}
-            ${gridCell("Currency", { cls: "small fw-semibold", align: "center" })}
-            ${gridCell("Amount", { cls: "small fw-semibold", align: "right" })}
-            ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center" })}
+            ${gridCell("Date", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
+            ${gridCell("Person", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
+            ${gridCell("Paid By", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
+            ${gridCell("Curr.", { cls: "small fw-semibold", align: "center", style: "white-space:nowrap;" })}
+            ${gridCell("Amount", { cls: "small fw-semibold", align: "right", style: "white-space:nowrap;" })}
+            ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center", style: "white-space:nowrap;" })}
           </div>
           <div id="incomeTbody">`;
 
@@ -1118,8 +1147,9 @@ class FinancialReportsComponent {
 
     incomeGroups.forEach((group, groupIdx) => {
       if (showIncomeGroupHeaders) {
-        tableHtml += `<div style="grid-column:1/-1;padding:${groupIdx === 0 ? "2px" : "10px"} 4px 4px 4px;${groupIdx > 0 ? "border-top:1px solid #e9ecef;" : ""}font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
-        cardsHtml += `<div class="small text-muted fw-semibold" style="margin:${groupIdx === 0 ? "0" : "8px"} 2px 0 2px;text-transform:uppercase;font-size:10px;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+        const headerColor = group.key === "__pending__" ? "#b45309" : "#6c757d";
+        tableHtml += `<div style="grid-column:1/-1;padding:${groupIdx === 0 ? "2px" : "10px"} 4px 4px 4px;${groupIdx > 0 ? "border-top:1px solid #e9ecef;" : ""}font-size:11px;font-weight:700;color:${headerColor};text-transform:uppercase;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+        cardsHtml += `<div class="small fw-semibold" style="margin:${groupIdx === 0 ? "0" : "8px"} 2px 0 2px;text-transform:uppercase;font-size:10px;letter-spacing:.4px;color:${headerColor};">${group.emoji} ${group.label}</div>`;
       }
       group.entries.forEach(({ item, index }) => {
       // Track currency totals — pending items are excluded from confirmed totals
@@ -1159,11 +1189,30 @@ class FinancialReportsComponent {
       const hasDetails = item.details && item.details.trim() !== "";
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
+      // Note: deliberately using currentReport.isClosed here, not
+      // incomeIsClosed — that variable also folds in `!this.isEditMode`
+      // (the drag-to-reorder toggle, off by default), which would hide
+      // the category picker any time reorder mode happens to be off,
+      // even on a perfectly open/unlocked report.
+      const categoryLocked = !!this.currentReport?.isClosed;
       const categoryBadge = this.renderCategoryQuickPicker(
         "income",
         index,
         item,
-        incomeIsClosed,
+        categoryLocked,
+      );
+      const categoryBtn = this.renderCategoryQuickButton(
+        "income",
+        index,
+        item,
+        categoryLocked,
+      );
+      const categoryBtnMobile = this.renderCategoryQuickButton(
+        "income",
+        index,
+        item,
+        categoryLocked,
+        "#6c757d",
       );
 
       // Shared: investor avatar (both desktop and mobile use slightly different sizes)
@@ -1201,15 +1250,9 @@ class FinancialReportsComponent {
         : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete"><i class="bi bi-trash" style="color:#dc3545;"></i></button>`;
 
       // --- Desktop grid row ---
-      // Replicates the original table's `table-striped` alternating rows
-      // (Bootstrap's --bs-table-striped-bg), since that class is table-scoped.
-      const incomeBaseBg = item.isPending
-        ? "#fffde7"
-        : index % 2 === 1
-          ? "rgba(0,0,0,.05)"
-          : "";
+      const incomeBaseBg = item.isPending ? "#fffde7" : "";
       tableHtml += `
-        <div data-item-key="${itemKey}" data-item-index="${index}" data-base-bg="${incomeBaseBg}" class="${isSelected ? "bulk-selected" : ""}" style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #f1f3f5;cursor:pointer;background:${isSelected ? "#fff3cd" : incomeBaseBg};">
+        <div data-item-key="${itemKey}" data-item-index="${index}" data-base-bg="${incomeBaseBg}" class="${isSelected ? "bulk-selected" : ""}" style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:4px;align-items:center;padding:6px 4px;border-bottom:1px solid #f1f3f5;cursor:pointer;background:${isSelected ? "#fff3cd" : incomeBaseBg};">
           ${incomeIsClosed ? gridCell("") : gridCell("⠿", { cls: "drag-handle", align: "center", style: "cursor:grab;color:#adb5bd;font-size:14px;user-select:none;" })}
           ${gridCell(`<input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
               ${isSelected ? "checked" : ""}
@@ -1232,7 +1275,7 @@ class FinancialReportsComponent {
           ${gridCell(this.renderPaidByAvatar(item.paidBy), { cls: "small" })}
           ${gridCell(this.renderCurrencyFlag(item.currency), { cls: "small", align: "center" })}
           ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};` })}
-          ${gridCell(`<div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
+          ${gridCell(`<div class="fr-action-btns">${evidenceBtn}${categoryBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
         </div>`;
 
       // --- Mobile card (single-row flat layout) ---
@@ -1260,8 +1303,8 @@ class FinancialReportsComponent {
               ${hasEvidence ? `<span style="font-size:0.72rem;color:#0dcaf0;"><i class="bi bi-paperclip"></i>${item.billEvidence.length}</span>` : ""}
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-            ${evidenceBtnMobile}${editBtnMobile}${deleteBtnMobile}
+          <div class="fr-actions-mobile" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+            ${evidenceBtnMobile}${categoryBtnMobile}${editBtnMobile}${deleteBtnMobile}
           </div>
         </div>`;
       });
@@ -1329,8 +1372,14 @@ class FinancialReportsComponent {
                 </div>
             `;
       if (totalExpensesEl) totalExpensesEl.textContent = "$0.00";
+      this._updateItemCountBadge("expenseItemCountBadge", 0);
       return;
     }
+
+    this._updateItemCountBadge(
+      "expenseItemCountBadge",
+      this.currentReport.expenses.length,
+    );
 
     let total = 0;
     let pendingExpenseTotal = 0;
@@ -1356,25 +1405,26 @@ class FinancialReportsComponent {
     const expenseIsClosed = this.currentReport?.isClosed || !this.isEditMode;
 
     // Desktop table — CSS Grid "table", same pattern as updateIncomeDisplay().
+    // Trimmed the same way as INCOME_GRID_COLUMNS (see comment there).
     const EXPENSE_GRID_COLUMNS =
-      "20px 32px minmax(160px,2fr) 70px 60px 90px 110px 100px";
+      "18px 26px minmax(140px,2fr) 54px 58px 76px 90px 112px";
     const gridCell = (content, opts = {}) => `
       <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
     let tableHtml = `
       <div class="d-none d-md-block" id="expenseTable" style="overflow-x:auto;">
-        <div style="min-width:900px;">
-          <div style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;background:#f8d7da;border-radius:4px 4px 0 0;">
+        <div style="min-width:660px;">
+          <div style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:4px;align-items:center;padding:6px 4px;background:#f8d7da;border-radius:4px 4px 0 0;">
             ${gridCell("")}
             ${gridCell(`<input type="checkbox" class="form-check-input" id="selectAllExpenses"
                 onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
                 ${expenseSelectedCount === this.currentReport.expenses.length ? "checked" : ""}>`)}
             ${gridCell("Item", { cls: "small fw-semibold" })}
-            ${gridCell("Date", { cls: "small fw-semibold" })}
-            ${gridCell("Person", { cls: "small fw-semibold" })}
-            ${gridCell("Paid To", { cls: "small fw-semibold", align: "center" })}
-            ${gridCell("Amount", { cls: "small fw-semibold", align: "right" })}
-            ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center" })}
+            ${gridCell("Date", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
+            ${gridCell("Person", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
+            ${gridCell("Paid To", { cls: "small fw-semibold", align: "center", style: "white-space:nowrap;" })}
+            ${gridCell("Amount", { cls: "small fw-semibold", align: "right", style: "white-space:nowrap;" })}
+            ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center", style: "white-space:nowrap;" })}
           </div>
           <div id="expenseTbody">`;
 
@@ -1393,8 +1443,9 @@ class FinancialReportsComponent {
 
     expenseGroups.forEach((group, groupIdx) => {
       if (showExpenseGroupHeaders) {
-        tableHtml += `<div style="grid-column:1/-1;padding:${groupIdx === 0 ? "2px" : "10px"} 4px 4px 4px;${groupIdx > 0 ? "border-top:1px solid #e9ecef;" : ""}font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
-        cardsHtml += `<div class="small text-muted fw-semibold" style="margin:${groupIdx === 0 ? "0" : "8px"} 2px 0 2px;text-transform:uppercase;font-size:10px;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+        const headerColor = group.key === "__pending__" ? "#b45309" : "#6c757d";
+        tableHtml += `<div style="grid-column:1/-1;padding:${groupIdx === 0 ? "2px" : "10px"} 4px 4px 4px;${groupIdx > 0 ? "border-top:1px solid #e9ecef;" : ""}font-size:11px;font-weight:700;color:${headerColor};text-transform:uppercase;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+        cardsHtml += `<div class="small fw-semibold" style="margin:${groupIdx === 0 ? "0" : "8px"} 2px 0 2px;text-transform:uppercase;font-size:10px;letter-spacing:.4px;color:${headerColor};">${group.emoji} ${group.label}</div>`;
       }
       group.entries.forEach(({ item, index }) => {
       if (item.isPending) {
@@ -1427,11 +1478,28 @@ class FinancialReportsComponent {
       const hasDetails = item.details && item.details.trim() !== "";
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
+      // See the matching comment in updateIncomeDisplay() — deliberately
+      // not using expenseIsClosed, since it also folds in the (unrelated)
+      // drag-to-reorder toggle.
+      const categoryLocked = !!this.currentReport?.isClosed;
       const categoryBadge = this.renderCategoryQuickPicker(
         "expense",
         index,
         item,
-        expenseIsClosed,
+        categoryLocked,
+      );
+      const categoryBtn = this.renderCategoryQuickButton(
+        "expense",
+        index,
+        item,
+        categoryLocked,
+      );
+      const categoryBtnMobile = this.renderCategoryQuickButton(
+        "expense",
+        index,
+        item,
+        categoryLocked,
+        "#6c757d",
       );
 
       // Shared: investor avatar
@@ -1484,15 +1552,9 @@ class FinancialReportsComponent {
         : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete"><i class="bi bi-trash" style="color:#dc3545;"></i></button>`;
 
       // --- Desktop grid row ---
-      // Replicates the original table's `table-striped` alternating rows
-      // (Bootstrap's --bs-table-striped-bg), since that class is table-scoped.
-      const expenseBaseBg = item.isPending
-        ? "#fffde7"
-        : index % 2 === 1
-          ? "rgba(0,0,0,.05)"
-          : "";
+      const expenseBaseBg = item.isPending ? "#fffde7" : "";
       tableHtml += `
-        <div data-item-key="${itemKey}" data-item-index="${index}" data-base-bg="${expenseBaseBg}" class="${isSelected ? "bulk-selected" : ""}" style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #f1f3f5;cursor:pointer;background:${isSelected ? "#fff3cd" : expenseBaseBg};">
+        <div data-item-key="${itemKey}" data-item-index="${index}" data-base-bg="${expenseBaseBg}" class="${isSelected ? "bulk-selected" : ""}" style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:4px;align-items:center;padding:6px 4px;border-bottom:1px solid #f1f3f5;cursor:pointer;background:${isSelected ? "#fff3cd" : expenseBaseBg};">
           ${expenseIsClosed ? gridCell("") : gridCell("⠿", { cls: "drag-handle", align: "center", style: "cursor:grab;color:#adb5bd;font-size:14px;user-select:none;" })}
           ${gridCell(`<input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
               ${isSelected ? "checked" : ""}
@@ -1514,7 +1576,7 @@ class FinancialReportsComponent {
           ${gridCell(`<div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>`)}
           ${gridCell(paidToAvatarHtml, { cls: "small", align: "center" })}
           ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#dc3545"};` })}
-          ${gridCell(`<div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
+          ${gridCell(`<div class="fr-action-btns">${evidenceBtn}${categoryBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
         </div>`;
 
       // --- Mobile card (single-row flat layout) ---
@@ -1540,8 +1602,8 @@ class FinancialReportsComponent {
               ${hasEvidence ? `<span style="font-size:0.72rem;color:#0dcaf0;"><i class="bi bi-paperclip"></i>${item.billEvidence.length}</span>` : ""}
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-            ${evidenceBtnMobile}${editBtnMobile}${deleteBtnMobile}
+          <div class="fr-actions-mobile" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+            ${evidenceBtnMobile}${categoryBtnMobile}${editBtnMobile}${deleteBtnMobile}
           </div>
         </div>`;
       });
@@ -2332,8 +2394,8 @@ class FinancialReportsComponent {
       }
 
       const itemTitle = details
-        ? `⚡ Utility Bill — ${details}`
-        : `⚡ Utility Bill — ${monthName} ${year}`;
+        ? `Utility Bill — ${details}`
+        : `Utility Bill — ${monthName} ${year}`;
       const prefilled = {
         item: itemTitle,
         amount,
@@ -2342,6 +2404,9 @@ class FinancialReportsComponent {
         recipientAccountDetail: "",
         personInCharge: "",
         currency: "SGD",
+        // Tagged as "utility" so the category badge (💡) shows it instead
+        // of a hardcoded emoji baked into the item text.
+        category: "utility",
       };
       await this.showIncomeExpenseModal("expense", prefilled, null);
     } catch (err) {
@@ -3322,8 +3387,17 @@ class FinancialReportsComponent {
 
   /**
    * Renders the small category badge shown next to an income/expense item.
-   * When the report isn't locked, hovering it reveals a chip menu so the
-   * category can be set/changed in one click, without opening the edit modal.
+   * When the report isn't locked, clicking it opens a floating chip menu
+   * (appended to <body>, positioned via getBoundingClientRect) so the
+   * category can be set/changed in one click, without opening the edit
+   * modal. Click rather than hover: hover can't fire on the mobile card
+   * view at all (touch has no hover), and even on desktop it's fragile —
+   * needs the mouse to travel a precise on-screen path with no other
+   * layer stealing it along the way. Click has none of that. The menu is
+   * a JS-driven portal (position:fixed on <body>) rather than an
+   * absolutely-positioned child of the row, because the row sits inside
+   * ancestors with `overflow-x:hidden` (.card) / `overflow-x:auto` (the
+   * table scroll wrapper) — either would clip an in-flow dropdown.
    */
   renderCategoryQuickPicker(type, index, item, isLocked) {
     const categoryEmoji = getCategoryEmoji(type, item.category);
@@ -3331,7 +3405,7 @@ class FinancialReportsComponent {
 
     if (isLocked) {
       return categoryEmoji
-        ? `<span title="${escapeHtml(label)}" style="font-size:13px;flex-shrink:0;">${categoryEmoji}</span>`
+        ? `<span title="${escapeHtml(label)}" style="font-size:18px;flex-shrink:0;">${categoryEmoji}</span>`
         : "";
     }
 
@@ -3339,26 +3413,116 @@ class FinancialReportsComponent {
       ? categoryEmoji
       : `<i class="bi bi-tag"></i>`;
 
-    const chipsHtml = getCategoryList(type)
+    return `<span class="category-quick-picker" style="flex-shrink:0;" data-type="${type}" data-index="${index}" onclick="event.stopPropagation();window.financialReports.toggleCategoryQuickMenu(this)">
+      <span class="category-quick-trigger${categoryEmoji ? " has-category" : ""}" title="${escapeHtml(label || "Set category")}">${triggerContent}</span>
+    </span>`;
+  }
+
+  /**
+   * Renders a dedicated category button for the Actions toolbar, alongside
+   * edit/delete — a more discoverable entry point to the same quick-select
+   * menu as the inline badge next to the item name. Empty when locked
+   * (matches editBtn/deleteBtn visibility).
+   */
+  renderCategoryQuickButton(type, index, item, isLocked, iconColor) {
+    if (isLocked) return "";
+    const hasCategory = !!getCategoryEmoji(type, item.category);
+    const cls = hasCategory ? "btn-outline-success" : "btn-outline-secondary";
+    const style = iconColor
+      ? ` style="color:${hasCategory ? "#198754" : iconColor};"`
+      : "";
+    return `<button class="btn ${cls} btn-sm p-1" data-type="${type}" data-index="${index}" onclick="event.stopPropagation();window.financialReports.toggleCategoryQuickMenu(this)" title="Set category"><i class="bi bi-tag"${style}></i></button>`;
+  }
+
+  /** Opens the menu for this picker, or closes it if it's already open (re-clicking the same trigger). */
+  toggleCategoryQuickMenu(pickerEl) {
+    if (this._activeCategoryPicker === pickerEl) {
+      this.closeCategoryQuickMenu();
+      return;
+    }
+    this.openCategoryQuickMenu(pickerEl);
+  }
+
+  /**
+   * Opens the floating category chip menu for the clicked picker, appended
+   * directly to <body> with `position:fixed` so it can never be clipped by
+   * an ancestor's overflow. Any previously open menu is closed first.
+   */
+  openCategoryQuickMenu(pickerEl) {
+    this.closeCategoryQuickMenu();
+
+    const type = pickerEl.dataset.type;
+    const index = parseInt(pickerEl.dataset.index, 10);
+    const propertyName = type === "expense" ? "expenses" : "income";
+    const item = this.currentReport?.[propertyName]?.[index];
+    if (!item) return;
+
+    const menu = document.createElement("div");
+    menu.className = "category-quick-menu-portal";
+    menu.innerHTML = getCategoryList(type)
       .map((cat) => {
         const isActive = cat.value === item.category;
-        return `<button type="button" class="category-chip category-chip-sm ${type === "income" ? "chip-income" : "chip-expense"}${isActive ? " active" : ""}" data-value="${cat.value}" onclick="event.stopPropagation();window.financialReports.quickSetCategory('${type}', ${index}, '${cat.value}', this)">
+        return `<button type="button" class="category-chip category-chip-sm ${type === "income" ? "chip-income" : "chip-expense"}${isActive ? " active" : ""}" data-value="${cat.value}">
           <span class="category-chip-emoji">${cat.emoji}</span><span class="category-chip-label">${cat.label}</span>
         </button>`;
       })
       .join("");
 
-    return `<span class="category-quick-picker" style="flex-shrink:0;" onclick="event.stopPropagation();">
-      <span class="category-quick-trigger${categoryEmoji ? " has-category" : ""}" title="${escapeHtml(label || "Set category")}">${triggerContent}</span>
-      <span class="category-quick-menu">${chipsHtml}</span>
-    </span>`;
+    menu.addEventListener("click", (e) => e.stopPropagation());
+    menu.querySelectorAll(".category-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.quickSetCategory(type, index, btn.dataset.value);
+        this.closeCategoryQuickMenu();
+      });
+    });
+
+    document.body.appendChild(menu);
+
+    const rect = pickerEl.getBoundingClientRect();
+    menu.style.position = "fixed";
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${rect.left}px`;
+
+    // Keep it on-screen: flip left/up if it would overflow the viewport edge.
+    const menuRect = menu.getBoundingClientRect();
+    if (menuRect.right > window.innerWidth - 8) {
+      menu.style.left = `${Math.max(8, window.innerWidth - menuRect.width - 8)}px`;
+    }
+    if (menuRect.bottom > window.innerHeight - 8) {
+      menu.style.top = `${rect.top - menuRect.height - 4}px`;
+    }
+
+    this._activeCategoryMenu = menu;
+    this._activeCategoryPicker = pickerEl;
+
+    // Close on the next click anywhere outside the menu/trigger. Bound on
+    // the next tick so the click that opened the menu doesn't also close it.
+    setTimeout(() => {
+      document.addEventListener(
+        "click",
+        (this._categoryMenuOutsideHandler = () =>
+          this.closeCategoryQuickMenu()),
+      );
+    }, 0);
+  }
+
+  closeCategoryQuickMenu() {
+    if (this._activeCategoryMenu) {
+      this._activeCategoryMenu.remove();
+      this._activeCategoryMenu = null;
+      this._activeCategoryPicker = null;
+    }
+    if (this._categoryMenuOutsideHandler) {
+      document.removeEventListener("click", this._categoryMenuOutsideHandler);
+      this._categoryMenuOutsideHandler = null;
+    }
   }
 
   /**
    * Quick-sets (or clears, if re-clicking the active chip) an item's category
    * directly from the list view, without opening the full edit modal.
    */
-  async quickSetCategory(type, index, value, btnEl) {
+  async quickSetCategory(type, index, value) {
     if (!this.currentReport || this.currentReport.isClosed) {
       this.showError("Cannot edit items - this month has been closed");
       return;
@@ -3399,9 +3563,6 @@ class FinancialReportsComponent {
 
     if (item.billEvidence) itemData.billEvidence = item.billEvidence;
 
-    const menuEl = btnEl?.closest(".category-quick-picker");
-    if (menuEl) menuEl.style.pointerEvents = "none";
-
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
@@ -3430,7 +3591,6 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error("Error updating category:", error);
       this.showError(error.message || "Failed to update category");
-      if (menuEl) menuEl.style.pointerEvents = "";
     }
   }
 
@@ -6585,6 +6745,20 @@ class FinancialReportsComponent {
     let clipIdx = 0;
     const p = (s) => nodes.push(s);
 
+    // Gradient + soft colored glow for the item-count bubble (premium
+    // badge look — subtle depth instead of a flat fill with a hard ring).
+    defs.push(
+      `<linearGradient id="pillGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f87171"/>
+        <stop offset="100%" stop-color="#dc2626"/>
+      </linearGradient>`,
+    );
+    defs.push(
+      `<filter id="pillGlow" x="-60%" y="-60%" width="220%" height="220%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#dc2626" flood-opacity="0.45"/>
+      </filter>`,
+    );
+
     // Helper: render a circular avatar (photo if available, else fallback colored initial)
     // fallbackColor matches UI: investors → Bootstrap bg-secondary (#6c757d), tenants → bg-info (#0dcaf0-ish → #17a2b8)
     const renderCircleAvatar = (
@@ -6892,14 +7066,21 @@ class FinancialReportsComponent {
     };
 
     // ── 2-column section helper (dynamic row heights) ─────────────
+    // `groups` is the output of groupItemsByCategory() — same category
+    // grouping (and trailing "Pending" section) shown on-screen. Each
+    // non-empty group gets its own group-header bar and its own
+    // newspaper-flow left/right column split, so the exported image
+    // mirrors the live list's grouping and sort order.
     const renderTwoColSection = (
-      items,
-      metas,
+      groups,
       title,
       totalAmt,
       accentColor,
       rowRenderer,
+      rowMetaFn,
     ) => {
+      const totalCount = groups.reduce((n, g) => n + g.entries.length, 0);
+
       p(
         `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`,
       );
@@ -6909,21 +7090,39 @@ class FinancialReportsComponent {
       p(
         `<text x="${M + 8}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" letter-spacing="1">${this._svgEsc(title)}</text>`,
       );
+
+      // Item-count bubble — same visual language as the "N" pill next to
+      // the Income/Expenses card title in the live UI: a red gradient with
+      // a soft colored glow and a faint border, rather than a flat fill
+      // with a hard white ring, for a more refined badge look.
+      const countLabel = `${totalCount}`;
+      const pillH = 20;
+      const pillW = Math.max(24, countLabel.length * 9 + 16);
+      const pillRightX = W - M - 80;
+      const pillX = pillRightX - pillW;
+      const pillY = y + (SEC_H - pillH) / 2;
       p(
-        `<text x="${W - M - 80}" y="${y + 21}" font-size="11" fill="${ITEM_CNT}" text-anchor="end">${items.length} item${items.length !== 1 ? "s" : ""}</text>`,
+        `<text x="${pillX - 6}" y="${y + 21}" font-size="9" fill="${ITEM_CNT}" text-anchor="end" letter-spacing="0.5">ITEMS</text>`,
       );
+      p(
+        `<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="10" fill="url(#pillGrad)" stroke="rgba(255,255,255,0.35)" stroke-width="1" filter="url(#pillGlow)"/>`,
+      );
+      p(
+        `<text x="${pillX + pillW / 2}" y="${pillY + 14}" font-size="12" fill="#ffffff" font-weight="700" text-anchor="middle">${countLabel}</text>`,
+      );
+
       p(
         `<text x="${W - M}" y="${y + 21}" font-size="14" fill="#ffffff" text-anchor="end" font-weight="700">$${totalAmt.toFixed(2)}</text>`,
       );
       y += SEC_H;
 
-      if (items.length === 0) {
+      if (totalCount === 0) {
         p(
           `<text x="${W / 2}" y="${y + 18}" font-size="13" fill="${ITEM_CNT}" text-anchor="middle">No items recorded</text>`,
         );
         y += 28;
       } else {
-        // Column headers
+        // Column headers (once for the whole section)
         p(
           `<rect x="${M}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="${COL_HDR_BG}"/>`,
         );
@@ -6944,47 +7143,68 @@ class FinancialReportsComponent {
         );
         y += THDR_H;
 
-        // Newspaper flow: first half fills left col top-to-bottom, second half fills right col
-        const split = Math.ceil(items.length / 2);
-        const leftItems = items.slice(0, split);
-        const leftMetas = metas.slice(0, split);
-        const rightItems = items.slice(split);
-        const rightMetas = metas.slice(split);
-        const contentStartY = y;
+        const nonEmptyGroups = groups.filter((g) => g.entries.length > 0);
+        const showGroupHeaders = nonEmptyGroups.length > 1;
 
-        let leftY = contentStartY;
-        leftItems.forEach((item, li) => {
-          const meta = leftMetas[li];
-          const itemH = meta.rowH;
-          if (li % 2 === 1)
+        nonEmptyGroups.forEach((group) => {
+          if (showGroupHeaders) {
+            const isPending = group.key === "__pending__";
+            const barBg = isPending ? "#fef3c7" : "#f1f5f9";
+            const barTxt = isPending ? "#b45309" : "#475569";
             p(
-              `<rect x="${M}" y="${leftY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
+              `<rect x="${M}" y="${y}" width="${CW}" height="16" fill="${barBg}"/>`,
             );
-          rowRenderer(item, meta, itemH, M, leftY, COL_W);
-          p(
-            `<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
-          );
-          leftY += itemH;
-        });
-
-        let rightY = contentStartY;
-        rightItems.forEach((item, ri) => {
-          const meta = rightMetas[ri];
-          const itemH = meta.rowH;
-          if (ri % 2 === 1)
             p(
-              `<rect x="${M + COL_W + COL_GAP}" y="${rightY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
+              `<text x="${M + 6}" y="${y + 12}" font-size="9" fill="${barTxt}" font-weight="700" letter-spacing="0.5">${group.emoji} ${this._svgEsc(group.label.toUpperCase())}</text>`,
             );
-          rowRenderer(item, meta, itemH, M + COL_W + COL_GAP, rightY, COL_W);
-          p(
-            `<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
-          );
-          rightY += itemH;
-        });
+            y += 16;
+          }
 
-        y =
-          contentStartY +
-          Math.max(leftY - contentStartY, rightY - contentStartY);
+          // Newspaper flow within this group: first half fills left col
+          // top-to-bottom, second half fills right col.
+          const items = group.entries.map((e) => e.item);
+          const metas = items.map(rowMetaFn);
+          const split = Math.ceil(items.length / 2);
+          const leftItems = items.slice(0, split);
+          const leftMetas = metas.slice(0, split);
+          const rightItems = items.slice(split);
+          const rightMetas = metas.slice(split);
+          const contentStartY = y;
+
+          let leftY = contentStartY;
+          leftItems.forEach((item, li) => {
+            const meta = leftMetas[li];
+            const itemH = meta.rowH;
+            if (li % 2 === 1)
+              p(
+                `<rect x="${M}" y="${leftY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
+              );
+            rowRenderer(item, meta, itemH, M, leftY, COL_W);
+            p(
+              `<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+            );
+            leftY += itemH;
+          });
+
+          let rightY = contentStartY;
+          rightItems.forEach((item, ri) => {
+            const meta = rightMetas[ri];
+            const itemH = meta.rowH;
+            if (ri % 2 === 1)
+              p(
+                `<rect x="${M + COL_W + COL_GAP}" y="${rightY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
+              );
+            rowRenderer(item, meta, itemH, M + COL_W + COL_GAP, rightY, COL_W);
+            p(
+              `<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+            );
+            rightY += itemH;
+          });
+
+          y =
+            contentStartY +
+            Math.max(leftY - contentStartY, rightY - contentStartY);
+        });
       }
       y += SEC_PAD;
       p(
@@ -7054,14 +7274,14 @@ class FinancialReportsComponent {
       }
     };
 
-    const incomeMetas = income.map(makeIncomeMeta);
+    const incomeGroups = groupItemsByCategory(income, "income");
     renderTwoColSection(
-      income,
-      incomeMetas,
+      incomeGroups,
       "INCOME",
       totalIncome,
       "#22c55e",
       renderIncomeRow,
+      makeIncomeMeta,
     );
 
     // ── Expense rows (personInCharge avatar + description + paidTo avatar cluster) ──
@@ -7121,14 +7341,14 @@ class FinancialReportsComponent {
       }
     };
 
-    const expenseMetas = expenses.map(makeExpenseMeta);
+    const expenseGroups = groupItemsByCategory(expenses, "expense");
     renderTwoColSection(
-      expenses,
-      expenseMetas,
+      expenseGroups,
       "EXPENSES",
       totalExpenses,
       "#ef4444",
       renderExpenseRow,
+      makeExpenseMeta,
     );
 
     // ── Summary bar (after expenses, before investor distribution) ─
@@ -7375,60 +7595,92 @@ class FinancialReportsComponent {
         : "";
       let summary = `THU CHI ${currentMonth} - ${currentYear}\n${propertyLine}\n\n`;
 
-      // Income section (THU)
+      // Income section (THU) — grouped/sorted the same way as the on-screen
+      // list and the exported image (category priority order, Pending
+      // pulled into its own trailing section).
       summary += "THU\n";
-      if (this.currentReport.income && this.currentReport.income.length > 0) {
-        this.currentReport.income.forEach((item) => {
-          const amount = item.amount.toFixed(2);
-          const currencyPrefix = item.currency === "VND" ? "🇻🇳$" : "$";
-          const fullName = this.getPersonName(item.personInCharge);
-          const shortName = fullName.split(" ").pop(); // Get last word only
-          let payeeInfo = "";
-          if (item.paidBy) {
-            const payeeName = this.getPersonName(item.paidBy);
-            const roomType = this.getPersonRoomType(item.paidBy);
-            payeeInfo = roomType ? `${payeeName} (${roomType})` : payeeName;
+      const incomeGroups = groupItemsByCategory(
+        this.currentReport.income || [],
+        "income",
+      );
+      const incomeCount = incomeGroups.reduce(
+        (n, g) => n + g.entries.length,
+        0,
+      );
+      if (incomeCount > 0) {
+        const showIncomeGroupHeaders = incomeGroups.length > 1;
+        incomeGroups.forEach((group) => {
+          if (showIncomeGroupHeaders) {
+            summary += `${group.emoji} ${group.label.toUpperCase()}\n`;
           }
-          const categoryPrefix = getCategoryEmoji("income", item.category)
-            ? `${getCategoryEmoji("income", item.category)} `
-            : "";
-          const itemWithPayee = payeeInfo
-            ? `${item.item} (${payeeInfo})`
-            : item.item;
-          const pendingPrefix = item.isPending ? "🟡 " : "";
-          summary += `${pendingPrefix}- ${categoryPrefix}${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          group.entries.forEach(({ item }) => {
+            const amount = item.amount.toFixed(2);
+            const currencyPrefix = item.currency === "VND" ? "🇻🇳$" : "$";
+            const fullName = this.getPersonName(item.personInCharge);
+            const shortName = fullName.split(" ").pop(); // Get last word only
+            let payeeInfo = "";
+            if (item.paidBy) {
+              const payeeName = this.getPersonName(item.paidBy);
+              const roomType = this.getPersonRoomType(item.paidBy);
+              payeeInfo = roomType ? `${payeeName} (${roomType})` : payeeName;
+            }
+            const categoryPrefix = getCategoryEmoji("income", item.category)
+              ? `${getCategoryEmoji("income", item.category)} `
+              : "";
+            const itemWithPayee = payeeInfo
+              ? `${item.item} (${payeeInfo})`
+              : item.item;
+            const pendingPrefix = item.isPending ? "🟡 " : "";
+            summary += `${pendingPrefix}- ${categoryPrefix}${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          });
         });
       } else {
         summary += "- (không có)\n";
       }
 
-      // Expense section (CHI)
+      // Expense section (CHI) — same grouping/sorting treatment.
       summary += "\nCHI\n";
-      if (
-        this.currentReport.expenses &&
-        this.currentReport.expenses.length > 0
-      ) {
-        this.currentReport.expenses.forEach((item) => {
-          const amount = item.amount.toFixed(2);
-          const currencyPrefix = item.currency === "VND" ? "🇻🇳$" : "$";
-          const fullName = this.getPersonName(item.personInCharge);
-          const shortName = fullName.split(" ").pop(); // Get last word only
-          let paidToInfo = "";
-          if (item.paidTo === "unknown") {
-            paidToInfo = "Unknown";
-          } else if (item.paidTo) {
-            const paidToName = this.getPersonName(item.paidTo);
-            const roomType = this.getPersonRoomType(item.paidTo);
-            paidToInfo = roomType ? `${paidToName} (${roomType})` : paidToName;
+      const expenseGroups = groupItemsByCategory(
+        this.currentReport.expenses || [],
+        "expense",
+      );
+      const expenseCount = expenseGroups.reduce(
+        (n, g) => n + g.entries.length,
+        0,
+      );
+      if (expenseCount > 0) {
+        const showExpenseGroupHeaders = expenseGroups.length > 1;
+        expenseGroups.forEach((group) => {
+          if (showExpenseGroupHeaders) {
+            summary += `${group.emoji} ${group.label.toUpperCase()}\n`;
           }
-          const expCategoryPrefix = getCategoryEmoji("expense", item.category)
-            ? `${getCategoryEmoji("expense", item.category)} `
-            : "";
-          const itemWithPaidTo = paidToInfo
-            ? `${item.item} (→${paidToInfo})`
-            : item.item;
-          const expPendingPrefix = item.isPending ? "🟡 " : "";
-          summary += `${expPendingPrefix}- ${expCategoryPrefix}${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          group.entries.forEach(({ item }) => {
+            const amount = item.amount.toFixed(2);
+            const currencyPrefix = item.currency === "VND" ? "🇻🇳$" : "$";
+            const fullName = this.getPersonName(item.personInCharge);
+            const shortName = fullName.split(" ").pop(); // Get last word only
+            let paidToInfo = "";
+            if (item.paidTo === "unknown") {
+              paidToInfo = "Unknown";
+            } else if (item.paidTo) {
+              const paidToName = this.getPersonName(item.paidTo);
+              const roomType = this.getPersonRoomType(item.paidTo);
+              paidToInfo = roomType
+                ? `${paidToName} (${roomType})`
+                : paidToName;
+            }
+            const expCategoryPrefix = getCategoryEmoji(
+              "expense",
+              item.category,
+            )
+              ? `${getCategoryEmoji("expense", item.category)} `
+              : "";
+            const itemWithPaidTo = paidToInfo
+              ? `${item.item} (→${paidToInfo})`
+              : item.item;
+            const expPendingPrefix = item.isPending ? "🟡 " : "";
+            summary += `${expPendingPrefix}- ${expCategoryPrefix}${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          });
         });
       } else {
         summary += "- (không có)\n";

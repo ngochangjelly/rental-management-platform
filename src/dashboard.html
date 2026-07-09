@@ -3603,15 +3603,17 @@
         font-weight: 600;
       }
 
-      /* Hover-to-tag quick picker on income/expense list rows */
+      /* Click-to-tag quick picker on income/expense list rows (click, not
+         hover, so it also works on the mobile card view via touch).
+         The trigger is pure CSS; the dropdown itself is a JS-managed
+         "portal" appended directly to <body> with position:fixed (see
+         openCategoryQuickMenu in financial-reports.js) so it's never
+         clipped by the row's scrolling/rounded-corner ancestors
+         (.card { overflow-x: hidden }, the table's overflow-x: auto
+         wrapper). */
       .category-quick-picker {
         position: relative;
         display: inline-block;
-        /* Extra invisible padding below the trigger closes the gap to the
-           dropdown so the mouse never leaves this element while moving
-           from the trigger down into the menu (which sits at top:100%). */
-        padding-bottom: 6px;
-        margin-bottom: -6px;
       }
       .category-quick-trigger {
         display: inline-flex;
@@ -3629,21 +3631,22 @@
         cursor: pointer;
       }
       .category-quick-trigger.has-category {
-        border-style: solid;
-        border-color: #dee2e6;
+        border: none;
+        background: transparent;
+        font-size: 18px;
+        height: auto;
+        min-width: 0;
+        padding: 0 2px;
       }
-      .category-quick-picker:hover .category-quick-trigger {
+      .category-quick-picker:hover .category-quick-trigger:not(.has-category) {
         background: #e9ecef;
         border-color: #adb5bd;
         color: #495057;
       }
-      .category-quick-menu {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        z-index: 1050;
-        margin-top: 0;
+      .category-quick-menu-portal {
+        display: flex;
+        position: fixed;
+        z-index: 3000;
         background: #fff;
         border: 1px solid #dee2e6;
         border-radius: 8px;
@@ -3655,9 +3658,6 @@
         width: max-content;
         max-width: 260px;
       }
-      .category-quick-picker:hover .category-quick-menu {
-        display: flex;
-      }
       .category-chip-sm {
         padding: 4px 9px;
         font-size: 0.75rem;
@@ -3665,6 +3665,115 @@
       }
       .category-chip-sm .category-chip-emoji {
         font-size: 0.85rem;
+      }
+
+      /* Item-count bubble next to the Income/Expenses card titles.
+         Subtle red gradient + soft colored glow + faint inner highlight,
+         rather than a flat fill with a thick white ring — reads as a
+         refined badge instead of a cartoonish notification dot. */
+      .fr-item-count-bubble {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 26px;
+        height: 26px;
+        padding: 0 8px;
+        margin-left: 8px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        vertical-align: middle;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.2),
+          0 3px 8px rgba(220, 38, 38, 0.4),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      }
+
+      /* Pin the Edit/Delete/Category actions column to the right edge of
+         the horizontally-scrollable income/expense table, so it's never
+         scrolled out of view on narrower desktop windows.
+         background:inherit picks up whatever color the row itself is
+         currently painted (default/striped/pending/selected), since that
+         color is set on the row div, not per-cell. */
+      .actions-column {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        background: inherit;
+        box-shadow: -6px 0 6px -6px rgba(0, 0, 0, 0.25);
+      }
+
+      /* Premium action buttons (Edit/Delete/Category/Evidence) — soft
+         gradient fills, layered shadows and a hover lift, in the same
+         visual language as the item-count bubble, instead of Bootstrap's
+         flat transparent btn-outline-* style. Solid gradient fill also
+         means nothing can show through the icon regardless of any
+         pixel-level overlap with the Amount column next to it. Scoped to
+         .actions-column (desktop) and .fr-actions-mobile (mobile cards)
+         so it doesn't affect outline buttons used elsewhere in the app. */
+      .fr-action-btns {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .actions-column .btn,
+      .fr-actions-mobile .btn {
+        border-radius: 7px;
+        border-width: 1px;
+        box-shadow:
+          0 1px 2px rgba(15, 23, 42, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        transition:
+          transform 0.12s ease,
+          box-shadow 0.12s ease,
+          filter 0.12s ease;
+      }
+      .actions-column .btn:hover,
+      .fr-actions-mobile .btn:hover {
+        transform: translateY(-1px);
+        box-shadow:
+          0 4px 10px rgba(15, 23, 42, 0.14),
+          inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        filter: saturate(1.15);
+      }
+      .actions-column .btn:active,
+      .fr-actions-mobile .btn:active {
+        transform: translateY(0);
+        filter: saturate(1) brightness(0.97);
+      }
+      .actions-column .btn-outline-secondary,
+      .fr-actions-mobile .btn-outline-secondary {
+        background: linear-gradient(180deg, #f8fafc 0%, #eef1f5 100%);
+        border-color: #dbe2ea;
+        color: #55606e;
+      }
+      .actions-column .btn-outline-success,
+      .fr-actions-mobile .btn-outline-success {
+        background: linear-gradient(180deg, #eafaf0 0%, #d3f3df 100%);
+        border-color: #a8e6bd;
+        color: #15803d;
+      }
+      .actions-column .btn-outline-primary,
+      .fr-actions-mobile .btn-outline-primary {
+        background: linear-gradient(180deg, #eef4ff 0%, #dae7fd 100%);
+        border-color: #b9cff8;
+        color: #1d4ed8;
+      }
+      .actions-column .btn-outline-danger,
+      .fr-actions-mobile .btn-outline-danger {
+        background: linear-gradient(180deg, #fef2f2 0%, #fbdfdf 100%);
+        border-color: #f5c2c2;
+        color: #b91c1c;
+      }
+      .actions-column .btn-outline-info,
+      .fr-actions-mobile .btn-outline-info {
+        background: linear-gradient(180deg, #ecfcfd 0%, #cff4f8 100%);
+        border-color: #a2e4ec;
+        color: #0e7490;
       }
     </style>
 
@@ -7678,6 +7787,11 @@
                               style="color: #ffffff !important"
                             ></i
                             >Income
+                            <span
+                              id="incomeItemCountBadge"
+                              class="fr-item-count-bubble"
+                              style="display: none"
+                            ></span>
                           </h5>
                           <div class="d-flex align-items-center gap-2">
                             <button
@@ -7767,6 +7881,11 @@
                               style="color: #ffffff !important"
                             ></i
                             >Expenses
+                            <span
+                              id="expenseItemCountBadge"
+                              class="fr-item-count-bubble"
+                              style="display: none"
+                            ></span>
                           </h5>
                           <button
                             class="btn btn-sm fw-semibold me-1"
