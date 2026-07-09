@@ -2,6 +2,13 @@
 import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
 import { getGroupLinkMeta } from "../utils/social-links.js";
 import i18next from "../i18n.js";
+import {
+  getCategoryEmoji,
+  getCategoryLabel,
+  getCategoryList,
+  renderCategoryChipsHtml,
+  groupItemsByCategory,
+} from "../utils/financial-category-map.js";
 
 /**
  * Financial Reports Component
@@ -293,6 +300,11 @@ class FinancialReportsComponent {
     // Hotkeys: Cmd/Ctrl+K → export image, Cmd/Ctrl+C (no selection) → copy report summary
     document.addEventListener("keydown", (e) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+      // This component stays alive after first load, so without this guard
+      // its hotkeys would keep firing globally even while a different
+      // section (e.g. Bill Management, which also uses Cmd+K/Cmd+C) is active.
+      const section = document.getElementById("financial-section");
+      if (!section || section.style.display === "none") return;
 
       if (e.key === "k") {
         const btn = document.getElementById("captureScreenshotBtn");
@@ -634,9 +646,75 @@ class FinancialReportsComponent {
           border-left-color: #5a67d8 !important;
           border-right-color: #5a67d8 !important;
         }
+        /* Click-to-copy item name (income/expense rows) */
+        .fr-copy-val {
+          border-radius: 4px;
+          padding: 1px 3px;
+          transition: background 0.15s, color 0.15s;
+          cursor: pointer;
+        }
+        .fr-copy-val:hover {
+          background: #e9f0ff;
+          color: #0d6efd;
+        }
+        .fr-copy-val.fr-copy-flash {
+          background: #d1e7dd !important;
+          color: #146c43 !important;
+        }
+        .fr-copy-bubble {
+          position: fixed;
+          z-index: 3000;
+          background: #198754;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 3px 8px;
+          border-radius: 4px;
+          pointer-events: none;
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          opacity: 0;
+          transform: translate(-50%, -100%);
+          transition: opacity 0.15s, transform 0.15s;
+        }
+        .fr-copy-bubble.fr-copy-bubble-show {
+          opacity: 1;
+          transform: translate(-50%, -110%);
+        }
       `;
       document.head.appendChild(style);
     }
+  }
+
+  // Copies an item's name to the clipboard without disturbing the label
+  // text — feedback is a transient "Copied!" bubble + background flash
+  // instead of swapping the text (per UX: don't hide what the user clicked).
+  copyItemValue(el) {
+    const text = el.dataset.copy !== undefined ? el.dataset.copy : el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      el.classList.add("fr-copy-flash");
+      setTimeout(() => el.classList.remove("fr-copy-flash"), 500);
+
+      if (el._frCopyBubble) {
+        el._frCopyBubble.remove();
+        clearTimeout(el._frCopyBubbleTimer);
+      }
+      const bubble = document.createElement("div");
+      bubble.className = "fr-copy-bubble";
+      bubble.textContent = "Copied!";
+      document.body.appendChild(bubble);
+      const rect = el.getBoundingClientRect();
+      bubble.style.left = `${rect.left + rect.width / 2}px`;
+      bubble.style.top = `${rect.top - 4}px`;
+      el._frCopyBubble = bubble;
+      requestAnimationFrame(() => bubble.classList.add("fr-copy-bubble-show"));
+
+      el._frCopyBubbleTimer = setTimeout(() => {
+        bubble.classList.remove("fr-copy-bubble-show");
+        setTimeout(() => bubble.remove(), 200);
+        el._frCopyBubble = null;
+      }, 1000);
+    });
   }
 
   updatePropertyCardSelection() {
@@ -997,28 +1075,33 @@ class FinancialReportsComponent {
 
     const incomeIsClosed = this.currentReport?.isClosed || !this.isEditMode;
 
-    // Desktop table
+    // Desktop table — CSS Grid "table": header and every row are independent
+    // grid containers sharing one grid-template-columns string, so column
+    // alignment is guaranteed by the grid definition itself rather than
+    // native <table> auto/fixed layout (see bill-management.js's
+    // _renderDynamicPreview for the reference pattern this follows).
+    const INCOME_GRID_COLUMNS =
+      "20px 32px minmax(160px,2fr) 70px 60px 90px 70px 110px 100px";
+    const gridCell = (content, opts = {}) => `
+      <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
+
     let tableHtml = `
-      <div class="table-responsive d-none d-md-block">
-        <table class="table table-sm table-striped mb-0" id="incomeTable">
-          <thead>
-            <tr class="table-success">
-              <th class="border-0" style="width:20px;"></th>
-              <th class="border-0 small" style="width:32px;">
-                <input type="checkbox" class="form-check-input" id="selectAllIncome"
-                  onchange="window.financialReports.toggleSelectAll('income', this.checked)"
-                  ${incomeSelectedCount === this.currentReport.income.length ? "checked" : ""}>
-              </th>
-              <th class="border-0 small">Item</th>
-              <th class="border-0 small">Date</th>
-              <th class="border-0 small">Person</th>
-              <th class="border-0 small">Paid By</th>
-              <th class="border-0 small text-center">Currency</th>
-              <th class="border-0 small text-end">Amount</th>
-              <th class="border-0 small text-center actions-column">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="incomeTbody">`;
+      <div class="d-none d-md-block" id="incomeTable" style="overflow-x:auto;">
+        <div style="min-width:900px;">
+          <div style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;background:#d1e7dd;border-radius:4px 4px 0 0;">
+            ${gridCell("")}
+            ${gridCell(`<input type="checkbox" class="form-check-input" id="selectAllIncome"
+                onchange="window.financialReports.toggleSelectAll('income', this.checked)"
+                ${incomeSelectedCount === this.currentReport.income.length ? "checked" : ""}>`)}
+            ${gridCell("Item", { cls: "small fw-semibold" })}
+            ${gridCell("Date", { cls: "small fw-semibold" })}
+            ${gridCell("Person", { cls: "small fw-semibold" })}
+            ${gridCell("Paid By", { cls: "small fw-semibold" })}
+            ${gridCell("Currency", { cls: "small fw-semibold", align: "center" })}
+            ${gridCell("Amount", { cls: "small fw-semibold", align: "right" })}
+            ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center" })}
+          </div>
+          <div id="incomeTbody">`;
 
     // Mobile cards
     let cardsHtml = `
@@ -1030,7 +1113,15 @@ class FinancialReportsComponent {
           <span class="small text-muted">Select all</span>
         </div>`;
 
-    this.currentReport.income.forEach((item, index) => {
+    const incomeGroups = groupItemsByCategory(this.currentReport.income, "income");
+    const showIncomeGroupHeaders = incomeGroups.length > 1;
+
+    incomeGroups.forEach((group, groupIdx) => {
+      if (showIncomeGroupHeaders) {
+        tableHtml += `<div style="grid-column:1/-1;padding:${groupIdx === 0 ? "2px" : "10px"} 4px 4px 4px;${groupIdx > 0 ? "border-top:1px solid #e9ecef;" : ""}font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+        cardsHtml += `<div class="small text-muted fw-semibold" style="margin:${groupIdx === 0 ? "0" : "8px"} 2px 0 2px;text-transform:uppercase;font-size:10px;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+      }
+      group.entries.forEach(({ item, index }) => {
       // Track currency totals — pending items are excluded from confirmed totals
       const currency = item.currency || "SGD";
       if (item.isPending) {
@@ -1068,6 +1159,12 @@ class FinancialReportsComponent {
       const hasDetails = item.details && item.details.trim() !== "";
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
+      const categoryBadge = this.renderCategoryQuickPicker(
+        "income",
+        index,
+        item,
+        incomeIsClosed,
+      );
 
       // Shared: investor avatar (both desktop and mobile use slightly different sizes)
       const investorAvatarDesktop = investorAvatar
@@ -1103,36 +1200,40 @@ class FinancialReportsComponent {
            <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('income', ${index})" title="Cancel"><i class="bi bi-x" style="color:#6c757d;"></i></button>`
         : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('income', ${index})" title="Delete"><i class="bi bi-trash" style="color:#dc3545;"></i></button>`;
 
-      // --- Desktop table row ---
+      // --- Desktop grid row ---
+      // Replicates the original table's `table-striped` alternating rows
+      // (Bootstrap's --bs-table-striped-bg), since that class is table-scoped.
+      const incomeBaseBg = item.isPending
+        ? "#fffde7"
+        : index % 2 === 1
+          ? "rgba(0,0,0,.05)"
+          : "";
       tableHtml += `
-        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;${item.isPending ? "background:#fffde7;" : ""}">
-          ${incomeIsClosed ? '<td class="border-0" style="width:20px;"></td>' : '<td class="border-0 align-middle text-center drag-handle" style="width:20px;cursor:grab;color:#adb5bd;font-size:14px;padding:0 4px;user-select:none;" title="Drag to reorder">⠿</td>'}
-          <td class="border-0 align-middle text-center" style="width:32px;">
-            <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
+        <div data-item-key="${itemKey}" data-item-index="${index}" data-base-bg="${incomeBaseBg}" class="${isSelected ? "bulk-selected" : ""}" style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #f1f3f5;cursor:pointer;background:${isSelected ? "#fff3cd" : incomeBaseBg};">
+          ${incomeIsClosed ? gridCell("") : gridCell("⠿", { cls: "drag-handle", align: "center", style: "cursor:grab;color:#adb5bd;font-size:14px;user-select:none;" })}
+          ${gridCell(`<input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
               ${isSelected ? "checked" : ""}
               onchange="window.financialReports.toggleItemSelection('income', ${index})"
-              onclick="event.stopPropagation()">
-          </td>
-          <td class="small border-0 align-middle ps-3">
-            <div class="d-flex align-items-center gap-1">
-              ${item.isPending ? `<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>` : ""}
-              <span>${escapeHtml(item.item)}</span>
-              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
-            </div>
-            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? "..." : ""}</div>` : ""}
-            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ""}
-          </td>
-          <td class="small border-0 align-middle">${transactionDate}</td>
-          <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>
-          </td>
-          <td class="small border-0 align-middle">${this.renderPaidByAvatar(item.paidBy)}</td>
-          <td class="small border-0 align-middle text-center">${this.renderCurrencyFlag(item.currency)}</td>
-          <td class="small border-0 align-middle text-end fw-bold" style="font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};">$${item.amount.toFixed(2)}</td>
-          <td class="border-0 align-middle text-center actions-column">
-            <div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>
-          </td>
-        </tr>`;
+              onclick="event.stopPropagation()">`, { align: "center" })}
+          ${gridCell(
+            `<div class="small">
+              <div class="d-flex align-items-center gap-1">
+                ${item.isPending ? `<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>` : ""}
+                ${categoryBadge}
+                <span class="fr-copy-val" data-copy="${escapeHtml(item.item)}" title="Click to copy" onclick="event.stopPropagation();window.financialReports.copyItemValue(this)">${escapeHtml(item.item)}</span>
+                ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
+              </div>
+              ${hasDetails ? `<div class="small text-muted mt-1" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? "..." : ""}</div>` : ""}
+              ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ""}
+            </div>`,
+          )}
+          ${gridCell(transactionDate, { cls: "small" })}
+          ${gridCell(`<div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>`)}
+          ${gridCell(this.renderPaidByAvatar(item.paidBy), { cls: "small" })}
+          ${gridCell(this.renderCurrencyFlag(item.currency), { cls: "small", align: "center" })}
+          ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};` })}
+          ${gridCell(`<div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
+        </div>`;
 
       // --- Mobile card (single-row flat layout) ---
       const paidByInline = this._renderPaidByAvatarInline(item.paidBy);
@@ -1147,7 +1248,8 @@ class FinancialReportsComponent {
             <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
               <div style="display:flex;align-items:center;gap:4px;min-width:0;">
                 ${item.isPending ? '<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>' : ""}
-                <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
+                ${categoryBadge}
+                <span class="fr-copy-val" data-copy="${escapeHtml(item.item)}" title="Click to copy" onclick="event.stopPropagation();window.financialReports.copyItemValue(this)" style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
               </div>
               <span style="font-weight:700;color:${item.isPending ? "#b45309" : "#198754"};white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
             </div>
@@ -1162,9 +1264,10 @@ class FinancialReportsComponent {
             ${evidenceBtnMobile}${editBtnMobile}${deleteBtnMobile}
           </div>
         </div>`;
+      });
     });
 
-    tableHtml += `</tbody></table></div>`;
+    tableHtml += `</div></div></div>`;
     cardsHtml += `</div>`;
 
     let html = `${incomeBulkBar}${tableHtml}${cardsHtml}`;
@@ -1252,27 +1355,28 @@ class FinancialReportsComponent {
 
     const expenseIsClosed = this.currentReport?.isClosed || !this.isEditMode;
 
-    // Desktop table
+    // Desktop table — CSS Grid "table", same pattern as updateIncomeDisplay().
+    const EXPENSE_GRID_COLUMNS =
+      "20px 32px minmax(160px,2fr) 70px 60px 90px 110px 100px";
+    const gridCell = (content, opts = {}) => `
+      <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
+
     let tableHtml = `
-      <div class="table-responsive d-none d-md-block">
-        <table class="table table-sm table-striped mb-0" id="expenseTable">
-          <thead>
-            <tr class="table-danger">
-              <th class="border-0" style="width:20px;"></th>
-              <th class="border-0 small" style="width:32px;">
-                <input type="checkbox" class="form-check-input" id="selectAllExpenses"
-                  onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
-                  ${expenseSelectedCount === this.currentReport.expenses.length ? "checked" : ""}>
-              </th>
-              <th class="border-0 small">Item</th>
-              <th class="border-0 small">Date</th>
-              <th class="border-0 small">Person</th>
-              <th class="border-0 small text-center">Paid To</th>
-              <th class="border-0 small text-end">Amount</th>
-              <th class="border-0 small text-center actions-column">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="expenseTbody">`;
+      <div class="d-none d-md-block" id="expenseTable" style="overflow-x:auto;">
+        <div style="min-width:900px;">
+          <div style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;background:#f8d7da;border-radius:4px 4px 0 0;">
+            ${gridCell("")}
+            ${gridCell(`<input type="checkbox" class="form-check-input" id="selectAllExpenses"
+                onchange="window.financialReports.toggleSelectAll('expense', this.checked)"
+                ${expenseSelectedCount === this.currentReport.expenses.length ? "checked" : ""}>`)}
+            ${gridCell("Item", { cls: "small fw-semibold" })}
+            ${gridCell("Date", { cls: "small fw-semibold" })}
+            ${gridCell("Person", { cls: "small fw-semibold" })}
+            ${gridCell("Paid To", { cls: "small fw-semibold", align: "center" })}
+            ${gridCell("Amount", { cls: "small fw-semibold", align: "right" })}
+            ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center" })}
+          </div>
+          <div id="expenseTbody">`;
 
     // Mobile cards
     let cardsHtml = `
@@ -1284,7 +1388,15 @@ class FinancialReportsComponent {
           <span class="small text-muted">Select all</span>
         </div>`;
 
-    this.currentReport.expenses.forEach((item, index) => {
+    const expenseGroups = groupItemsByCategory(this.currentReport.expenses, "expense");
+    const showExpenseGroupHeaders = expenseGroups.length > 1;
+
+    expenseGroups.forEach((group, groupIdx) => {
+      if (showExpenseGroupHeaders) {
+        tableHtml += `<div style="grid-column:1/-1;padding:${groupIdx === 0 ? "2px" : "10px"} 4px 4px 4px;${groupIdx > 0 ? "border-top:1px solid #e9ecef;" : ""}font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+        cardsHtml += `<div class="small text-muted fw-semibold" style="margin:${groupIdx === 0 ? "0" : "8px"} 2px 0 2px;text-transform:uppercase;font-size:10px;letter-spacing:.4px;">${group.emoji} ${group.label}</div>`;
+      }
+      group.entries.forEach(({ item, index }) => {
       if (item.isPending) {
         pendingExpenseTotal += item.amount;
       } else {
@@ -1315,6 +1427,12 @@ class FinancialReportsComponent {
       const hasDetails = item.details && item.details.trim() !== "";
       const hasEvidence = item.billEvidence && item.billEvidence.length > 0;
       const hasAdditionalInfo = hasDetails || hasEvidence;
+      const categoryBadge = this.renderCategoryQuickPicker(
+        "expense",
+        index,
+        item,
+        expenseIsClosed,
+      );
 
       // Shared: investor avatar
       const investorAvatarDesktop = investorAvatar
@@ -1365,35 +1483,39 @@ class FinancialReportsComponent {
            <button class="btn btn-outline-secondary btn-sm p-1" onclick="window.financialReports.cancelDeleteItem('expense', ${index})" title="Cancel"><i class="bi bi-x" style="color:#6c757d;"></i></button>`
         : `<button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.toggleDeleteConfirm('expense', ${index})" title="Delete"><i class="bi bi-trash" style="color:#dc3545;"></i></button>`;
 
-      // --- Desktop table row ---
+      // --- Desktop grid row ---
+      // Replicates the original table's `table-striped` alternating rows
+      // (Bootstrap's --bs-table-striped-bg), since that class is table-scoped.
+      const expenseBaseBg = item.isPending
+        ? "#fffde7"
+        : index % 2 === 1
+          ? "rgba(0,0,0,.05)"
+          : "";
       tableHtml += `
-        <tr data-item-key="${itemKey}" data-item-index="${index}" class="${isSelected ? "table-warning bulk-selected" : ""}" style="cursor:pointer;${item.isPending ? "background:#fffde7;" : ""}">
-          ${expenseIsClosed ? '<td class="border-0" style="width:20px;"></td>' : '<td class="border-0 align-middle text-center drag-handle" style="width:20px;cursor:grab;color:#adb5bd;font-size:14px;padding:0 4px;user-select:none;" title="Drag to reorder">⠿</td>'}
-          <td class="border-0 align-middle text-center" style="width:32px;">
-            <input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
+        <div data-item-key="${itemKey}" data-item-index="${index}" data-base-bg="${expenseBaseBg}" class="${isSelected ? "bulk-selected" : ""}" style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #f1f3f5;cursor:pointer;background:${isSelected ? "#fff3cd" : expenseBaseBg};">
+          ${expenseIsClosed ? gridCell("") : gridCell("⠿", { cls: "drag-handle", align: "center", style: "cursor:grab;color:#adb5bd;font-size:14px;user-select:none;" })}
+          ${gridCell(`<input type="checkbox" class="form-check-input bulk-checkbox" data-item-key="${itemKey}"
               ${isSelected ? "checked" : ""}
               onchange="window.financialReports.toggleItemSelection('expense', ${index})"
-              onclick="event.stopPropagation()">
-          </td>
-          <td class="small border-0 align-middle ps-3">
-            <div class="d-flex align-items-center gap-1">
-              ${item.isPending ? `<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>` : ""}
-              <span>${escapeHtml(item.item)}</span>
-              ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
-            </div>
-            ${hasDetails ? `<div class="small text-muted mt-1" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? "..." : ""}</div>` : ""}
-            ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ""}
-          </td>
-          <td class="small border-0 align-middle">${transactionDate}</td>
-          <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>
-          </td>
-          <td class="small border-0 align-middle text-center">${paidToAvatarHtml}</td>
-          <td class="small border-0 align-middle text-end fw-bold" style="font-size:16px;color:${item.isPending ? "#b45309" : "#dc3545"};">$${item.amount.toFixed(2)}</td>
-          <td class="border-0 align-middle text-center actions-column">
-            <div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>
-          </td>
-        </tr>`;
+              onclick="event.stopPropagation()">`, { align: "center" })}
+          ${gridCell(
+            `<div class="small">
+              <div class="d-flex align-items-center gap-1">
+                ${item.isPending ? `<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>` : ""}
+                ${categoryBadge}
+                <span class="fr-copy-val" data-copy="${escapeHtml(item.item)}" title="Click to copy" onclick="event.stopPropagation();window.financialReports.copyItemValue(this)">${escapeHtml(item.item)}</span>
+                ${hasAdditionalInfo ? `<i class="bi bi-info-circle text-muted" title="Has additional details or evidence" style="font-size:12px;"></i>` : ""}
+              </div>
+              ${hasDetails ? `<div class="small text-muted mt-1" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.details)}">${escapeHtml(item.details.substring(0, 50))}${item.details.length > 50 ? "..." : ""}</div>` : ""}
+              ${hasEvidence ? `<div class="small text-info mt-1"><i class="bi bi-paperclip"></i> ${item.billEvidence.length} file(s)</div>` : ""}
+            </div>`,
+          )}
+          ${gridCell(transactionDate, { cls: "small" })}
+          ${gridCell(`<div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>`)}
+          ${gridCell(paidToAvatarHtml, { cls: "small", align: "center" })}
+          ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#dc3545"};` })}
+          ${gridCell(`<div class="btn-group btn-group-sm">${evidenceBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
+        </div>`;
 
       // --- Mobile card (single-row flat layout) ---
       cardsHtml += `
@@ -1407,7 +1529,8 @@ class FinancialReportsComponent {
             <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
               <div style="display:flex;align-items:center;gap:4px;min-width:0;">
                 ${item.isPending ? '<span style="background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:0.3px;">PENDING</span>' : ""}
-                <span style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
+                ${categoryBadge}
+                <span class="fr-copy-val" data-copy="${escapeHtml(item.item)}" title="Click to copy" onclick="event.stopPropagation();window.financialReports.copyItemValue(this)" style="font-weight:600;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.item)}</span>
               </div>
               <span style="font-weight:700;color:${item.isPending ? "#b45309" : "#dc3545"};white-space:nowrap;font-size:0.9rem;flex-shrink:0;">$${item.amount.toFixed(2)}</span>
             </div>
@@ -1421,9 +1544,10 @@ class FinancialReportsComponent {
             ${evidenceBtnMobile}${editBtnMobile}${deleteBtnMobile}
           </div>
         </div>`;
+      });
     });
 
-    tableHtml += `</tbody></table></div>`;
+    tableHtml += `</div></div></div>`;
     cardsHtml += `</div>`;
 
     let html = `${expenseBulkBar}${tableHtml}${cardsHtml}`;
@@ -1512,22 +1636,14 @@ class FinancialReportsComponent {
         (this.currentReport.totalExpenses || 0)
       : 0;
 
-    // Create compact table format
+    // CSS Grid "table" (see _investorGridColumns/_investorGridRowHtml) — both
+    // this live view and the closed-report snapshot view below render into
+    // the same #investorDistribution container, so they share one column
+    // template rather than each rolling their own.
     let html = `
-      <div class="table-responsive">
-        <table class="table table-sm mb-0">
-          <thead>
-            <tr class="table-info">
-              <th class="border-0 small">Investor</th>
-              <th class="border-0 small text-center">Share %</th>
-              <th class="border-0 small text-end">Profit Share</th>
-              <th class="border-0 small text-end">Paid</th>
-              <th class="border-0 small text-end">Received</th>
-              <th class="border-0 small text-end">Final</th>
-              <th class="border-0 small text-center actions-column">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div style="overflow-x:auto;">
+        <div style="min-width:640px;">
+          ${this._investorGridHeaderHtml(true)}
     `;
 
     this.investors.forEach((investor) => {
@@ -1570,59 +1686,34 @@ class FinancialReportsComponent {
       // Formula: Final = Profit Share + Paid - Received
       const finalAmount = profitShare + paidAmount - receivedAmount;
 
-      html += `
-        <tr>
-          <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center gap-2">
-              ${
-                investor.avatar
-                  ? `<img src="${this.getOptimizedAvatarUrl(
-                      investor.avatar,
-                      "small",
-                    )}" alt="${escapeHtml(
-                      investor.name,
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(
-                      investor.name.charAt(0).toUpperCase(),
-                    )}</div>`
-              }
-              <span class="fw-semibold">${escapeHtml(investor.name)}</span>
-            </div>
-          </td>
-          <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
-          <td class="small border-0 align-middle text-end ${
-            profitShare >= 0 ? "text-primary" : "text-danger"
-          }" style="font-size: 16px;">$${profitShare.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end ${
-            paidAmount > 0 ? "text-warning" : "text-muted"
-          }" style="font-size: 16px;">$${paidAmount.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end ${
-            receivedAmount > 0 ? "text-info" : "text-muted"
-          }" style="font-size: 16px;">$${receivedAmount.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end fw-bold ${
-            finalAmount >= 0 ? "text-success" : "text-danger"
-          }" style="font-size: 16px;">$${finalAmount.toFixed(2)}</td>
-          <td class="border-0 align-middle text-center actions-column">
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${
-                investor.investorId
-              }')" title="Edit">
-                <i class="bi bi-pencil"></i>
-              </button>
-              <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${
-                investor.investorId
-              }')" title="Remove">
-                <i class="bi bi-trash"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
+      const actionsHtml = `
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${
+            investor.investorId
+          }')" title="Edit">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${
+            investor.investorId
+          }')" title="Remove">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>`;
+
+      html += this._investorGridRowHtml({
+        avatar: investor.avatar,
+        name: investor.name,
+        percentage,
+        profitShare,
+        paidAmount,
+        receivedAmount,
+        finalAmount,
+        actionsHtml,
+      });
     });
 
     html += `
-          </tbody>
-        </table>
+        </div>
       </div>
     `;
 
@@ -1630,6 +1721,76 @@ class FinancialReportsComponent {
 
     // Initialize tooltips
     this.initializeTooltips();
+  }
+
+  // CSS Grid "table" for the Investor Distribution section. Header and every
+  // row are independent grid containers sharing one grid-template-columns
+  // string, so column alignment is guaranteed by the grid definition itself
+  // rather than depending on native <table> auto/fixed layout. The live view
+  // (updateInvestorDisplay) and the closed-report snapshot view
+  // (renderInvestorDisplayFromSnapshot) render into the same
+  // #investorDistribution container, so both call these same helpers to stay
+  // visually identical on the columns they share; the live view adds a
+  // trailing Actions column the snapshot view omits.
+  _investorGridColumns(withActions) {
+    const base =
+      "minmax(160px,2fr) 90px minmax(110px,1fr) minmax(100px,1fr) minmax(100px,1fr) minmax(110px,1fr)";
+    return withActions ? `${base} 100px` : base;
+  }
+
+  _investorGridHeaderHtml(withActions) {
+    const cell = (label, opts = {}) => `
+      <div style="${opts.align ? `text-align:${opts.align};` : ""}font-weight:600;font-size:0.8rem;">${label}</div>`;
+    return `
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(withActions)};gap:8px;align-items:center;padding:8px;background:#cff4fc;border-radius:4px 4px 0 0;">
+        ${cell("Investor")}
+        ${cell("Share %", { align: "center" })}
+        ${cell("Profit Share", { align: "right" })}
+        ${cell("Paid", { align: "right" })}
+        ${cell("Received", { align: "right" })}
+        ${cell("Final", { align: "right" })}
+        ${withActions ? cell("Actions", { align: "center" }) : ""}
+      </div>`;
+  }
+
+  _investorGridRowHtml({
+    avatar,
+    name,
+    percentage,
+    profitShare,
+    paidAmount,
+    receivedAmount,
+    finalAmount,
+    actionsHtml,
+  }) {
+    // Bootstrap's text-* utility classes (text-primary, text-danger, etc.)
+    // are NOT table-scoped, so they render identically on a div as they did
+    // on a <td> — reused as-is rather than reimplemented via inline colors,
+    // to guarantee the exact same visual output as before.
+    const cell = (content, opts = {}) => `
+      <div class="small ${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
+
+    const avatarHtml = avatar
+      ? `<img src="${this.getOptimizedAvatarUrl(
+          avatar,
+          "small",
+        )}" alt="${escapeHtml(
+          name,
+        )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">`
+      : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(
+          name.charAt(0).toUpperCase(),
+        )}</div>`;
+
+    return `
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5;">
+        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold">${escapeHtml(name)}</span></div>`)}
+        ${cell(`${percentage}%`, { align: "center", cls: "fw-bold" })}
+        ${cell(`$${profitShare.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: profitShare >= 0 ? "text-primary" : "text-danger" })}
+        ${cell(`$${paidAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: paidAmount > 0 ? "text-warning" : "text-muted" })}
+        ${cell(`$${receivedAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: receivedAmount > 0 ? "text-info" : "text-muted" })}
+        ${cell(`$${finalAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: `fw-bold ${finalAmount >= 0 ? "text-success" : "text-danger"}` })}
+        ${actionsHtml ? cell(actionsHtml, { align: "center" }) : ""}
+      </div>`;
   }
 
   // Render investor display using frozen snapshot data (for closed reports)
@@ -1650,21 +1811,13 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Create compact table format - same layout but with frozen data and no action buttons
+    // Same CSS Grid "table" as updateInvestorDisplay() (see
+    // _investorGridHeaderHtml/_investorGridRowHtml) — frozen data, no action
+    // buttons, so the trailing Actions column is simply omitted.
     let html = `
-      <div class="table-responsive">
-        <table class="table table-sm mb-0">
-          <thead>
-            <tr class="table-info">
-              <th class="border-0 small">Investor</th>
-              <th class="border-0 small text-center">Share %</th>
-              <th class="border-0 small text-end">Profit Share</th>
-              <th class="border-0 small text-end">Paid</th>
-              <th class="border-0 small text-end">Received</th>
-              <th class="border-0 small text-end">Final</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div style="overflow-x:auto;">
+        <div style="min-width:640px;">
+          ${this._investorGridHeaderHtml(false)}
     `;
 
     snapshot.forEach((investorData) => {
@@ -1678,45 +1831,19 @@ class FinancialReportsComponent {
         finalAmount,
       } = investorData;
 
-      html += `
-        <tr>
-          <td class="small border-0 align-middle">
-            <div class="d-flex align-items-center gap-2">
-              ${
-                avatar
-                  ? `<img src="${this.getOptimizedAvatarUrl(
-                      avatar,
-                      "small",
-                    )}" alt="${escapeHtml(
-                      name,
-                    )}" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover;">`
-                  : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 15px;">${escapeHtml(
-                      name.charAt(0).toUpperCase(),
-                    )}</div>`
-              }
-              <span class="fw-semibold">${escapeHtml(name)}</span>
-            </div>
-          </td>
-          <td class="small border-0 align-middle text-center fw-bold">${percentage}%</td>
-          <td class="small border-0 align-middle text-end ${
-            profitShare >= 0 ? "text-primary" : "text-danger"
-          }" style="font-size: 16px;">$${profitShare.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end ${
-            paidAmount > 0 ? "text-warning" : "text-muted"
-          }" style="font-size: 16px;">$${paidAmount.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end ${
-            receivedAmount > 0 ? "text-info" : "text-muted"
-          }" style="font-size: 16px;">$${receivedAmount.toFixed(2)}</td>
-          <td class="small border-0 align-middle text-end fw-bold ${
-            finalAmount >= 0 ? "text-success" : "text-danger"
-          }" style="font-size: 16px;">$${finalAmount.toFixed(2)}</td>
-        </tr>
-      `;
+      html += this._investorGridRowHtml({
+        avatar,
+        name,
+        percentage,
+        profitShare,
+        paidAmount,
+        receivedAmount,
+        finalAmount,
+      });
     });
 
     html += `
-          </tbody>
-        </table>
+        </div>
       </div>
     `;
 
@@ -1966,8 +2093,14 @@ class FinancialReportsComponent {
           const phoneNumber = tenant.phoneNumber || "";
           const roomType = this.getRoomTypeDisplayName(tenant.roomType);
           const facebookUrl = tenant.facebookUrl || "";
+          const tenantAvatar = tenant.avatar || "";
           const roommateName = tenant.roommateId?.name || "";
           const roommateAvatar = tenant.roommateId?.avatar || "";
+
+          // Generate tenant avatar HTML
+          const tenantAvatarHtml = tenantAvatar
+            ? `<img src="${this.getOptimizedAvatarUrl(tenantAvatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle flex-shrink-0" style="width: 28px; height: 28px; object-fit: cover;">`
+            : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0" style="width: 28px; height: 28px; font-size: 13px;">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`;
           const hasMovedOut = tenant._moveOutDate && tenant._moveOutDate < now;
           const upcomingMoveIn = tenant._upcomingMoveInDate
             ? tenant._upcomingMoveInDate.toLocaleDateString("en-GB", {
@@ -2029,6 +2162,7 @@ class FinancialReportsComponent {
           html += `
             <li class="mb-2" style="${liStyle}">
               <div class="d-flex align-items-center flex-wrap gap-2">
+                ${tenantAvatarHtml}
                 <strong${hasMovedOut ? ` class="text-muted"` : ""}>${escapeHtml(displayName)}</strong>
                 <span class="text-muted">(${escapeHtml(roomType)})</span>
                 ${movedOutBadge}
@@ -3009,6 +3143,7 @@ class FinancialReportsComponent {
     const isPendingValue = existingItem
       ? existingItem.isPending || false
       : false;
+    const categoryValue = existingItem ? existingItem.category || "" : "";
 
     return `
             <div class="modal fade" id="incomeExpenseModal" tabindex="-1" aria-labelledby="incomeExpenseModalLabel" aria-hidden="true">
@@ -3027,6 +3162,14 @@ class FinancialReportsComponent {
                                 <div class="mb-3">
                                     <label class="form-label">Item Description <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="item" required placeholder="e.g., Rent, Utilities, Repairs" autocomplete="off" value="${itemValue}">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Category <span class="text-muted small fw-normal">(optional)</span></label>
+                                    <input type="hidden" name="category" id="categoryHiddenInput" value="${categoryValue}">
+                                    <div class="d-flex flex-wrap gap-2" id="categoryChipRow">
+                                        ${renderCategoryChipsHtml(type, categoryValue)}
+                                    </div>
+                                    <div class="form-text">Tap to tag this ${type} for later reporting. Tap again to clear.</div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Amount (SGD) <span class="text-danger">*</span></label>
@@ -3159,6 +3302,138 @@ class FinancialReportsComponent {
         `;
   }
 
+  selectCategoryChip(btnEl) {
+    const row = document.getElementById("categoryChipRow");
+    const hiddenInput = document.getElementById("categoryHiddenInput");
+    if (!row || !hiddenInput) return;
+
+    const wasActive = btnEl.classList.contains("active");
+    row
+      .querySelectorAll(".category-chip")
+      .forEach((el) => el.classList.remove("active"));
+
+    if (wasActive) {
+      hiddenInput.value = "";
+    } else {
+      btnEl.classList.add("active");
+      hiddenInput.value = btnEl.dataset.value;
+    }
+  }
+
+  /**
+   * Renders the small category badge shown next to an income/expense item.
+   * When the report isn't locked, hovering it reveals a chip menu so the
+   * category can be set/changed in one click, without opening the edit modal.
+   */
+  renderCategoryQuickPicker(type, index, item, isLocked) {
+    const categoryEmoji = getCategoryEmoji(type, item.category);
+    const label = categoryEmoji ? getCategoryLabel(type, item.category) : "";
+
+    if (isLocked) {
+      return categoryEmoji
+        ? `<span title="${escapeHtml(label)}" style="font-size:13px;flex-shrink:0;">${categoryEmoji}</span>`
+        : "";
+    }
+
+    const triggerContent = categoryEmoji
+      ? categoryEmoji
+      : `<i class="bi bi-tag"></i>`;
+
+    const chipsHtml = getCategoryList(type)
+      .map((cat) => {
+        const isActive = cat.value === item.category;
+        return `<button type="button" class="category-chip category-chip-sm ${type === "income" ? "chip-income" : "chip-expense"}${isActive ? " active" : ""}" data-value="${cat.value}" onclick="event.stopPropagation();window.financialReports.quickSetCategory('${type}', ${index}, '${cat.value}', this)">
+          <span class="category-chip-emoji">${cat.emoji}</span><span class="category-chip-label">${cat.label}</span>
+        </button>`;
+      })
+      .join("");
+
+    return `<span class="category-quick-picker" style="flex-shrink:0;" onclick="event.stopPropagation();">
+      <span class="category-quick-trigger${categoryEmoji ? " has-category" : ""}" title="${escapeHtml(label || "Set category")}">${triggerContent}</span>
+      <span class="category-quick-menu">${chipsHtml}</span>
+    </span>`;
+  }
+
+  /**
+   * Quick-sets (or clears, if re-clicking the active chip) an item's category
+   * directly from the list view, without opening the full edit modal.
+   */
+  async quickSetCategory(type, index, value, btnEl) {
+    if (!this.currentReport || this.currentReport.isClosed) {
+      this.showError("Cannot edit items - this month has been closed");
+      return;
+    }
+
+    const propertyName = type === "expense" ? "expenses" : "income";
+    const items = this.currentReport[propertyName];
+    if (!Array.isArray(items) || !items[index]) {
+      this.showError("Item not found - refreshing data...");
+      await this.loadFinancialReport();
+      await this.updateDisplays();
+      return;
+    }
+
+    const item = items[index];
+    const newCategory = item.category === value ? "" : value;
+
+    const itemData = {
+      item: item.item,
+      amount: item.amount,
+      date: item.date
+        ? new Date(item.date).toISOString().split("T")[0]
+        : item.date,
+      personInCharge: item.personInCharge,
+      recipientAccountDetail: item.recipientAccountDetail || "",
+      details: item.details || "",
+      isPending: !!item.isPending,
+      category: newCategory,
+    };
+
+    if (type === "income") {
+      itemData.paidBy = item.paidBy || [];
+      if (item.currency) itemData.currency = item.currency;
+      if (item.exchangeRate) itemData.exchangeRate = item.exchangeRate;
+    } else {
+      itemData.paidTo = item.paidTo || "";
+    }
+
+    if (item.billEvidence) itemData.billEvidence = item.billEvidence;
+
+    const menuEl = btnEl?.closest(".category-quick-picker");
+    if (menuEl) menuEl.style.pointerEvents = "none";
+
+    try {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth() + 1;
+      const endpoint =
+        (type === "income"
+          ? API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_INCOME(
+              this.selectedProperty,
+              year,
+              month,
+            )
+          : API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_EXPENSES(
+              this.selectedProperty,
+              year,
+              month,
+            )) + `/${index}`;
+
+      const response = await API.put(endpoint, itemData);
+      const result = await response.json();
+
+      if (result.success) {
+        await this.loadFinancialReport();
+        await this.updateDisplays();
+      } else {
+        throw new Error(result.message || "Failed to update category");
+      }
+    } catch (error) {
+      console.error("Error updating category:", error);
+      this.showError(error.message || "Failed to update category");
+      if (menuEl) menuEl.style.pointerEvents = "";
+    }
+  }
+
   async saveIncomeExpenseItem(type, modal) {
     const form = document.getElementById("incomeExpenseForm");
     const formData = new FormData(form);
@@ -3171,6 +3446,8 @@ class FinancialReportsComponent {
       recipientAccountDetail: formData.get("recipientAccountDetail"),
       details: formData.get("details") || "",
       isPending: formData.get("isPending") === "on",
+      // Always include (even empty) so clearing a previously tagged category works
+      category: formData.get("category") || "",
     };
 
     // Add paidBy, currency, exchange rate only for income transactions
@@ -4012,10 +4289,12 @@ class FinancialReportsComponent {
     if (!tbody) return;
 
     const onMouseDown = (e) => {
-      const row = e.target.closest("tr[data-item-key]");
+      // "[data-item-key]" (no tag qualifier) — the desktop row is now a div,
+      // not a <tr>; the attribute itself is unique to these rows either way.
+      const row = e.target.closest("[data-item-key]");
       if (!row) return;
-      // Don't start drag on checkbox/button clicks or drag-reorder handle
-      if (e.target.closest("button, input, a, .drag-handle")) return;
+      // Don't start drag on checkbox/button clicks, drag-reorder handle, or copy-value span
+      if (e.target.closest("button, input, a, .drag-handle, .fr-copy-val")) return;
 
       this._dragSelecting = true;
       const key = row.dataset.itemKey;
@@ -4033,7 +4312,7 @@ class FinancialReportsComponent {
 
     const onMouseOver = (e) => {
       if (!this._dragSelecting) return;
-      const row = e.target.closest("tr[data-item-key]");
+      const row = e.target.closest("[data-item-key]");
       if (!row) return;
       const key = row.dataset.itemKey;
       if (!key.startsWith(`${type}-`)) return;
@@ -4071,11 +4350,14 @@ class FinancialReportsComponent {
     const checkbox = row.querySelector(".bulk-checkbox");
     const isSelected = this.selectedItems.has(key);
     if (checkbox) checkbox.checked = isSelected;
-    if (isSelected) {
-      row.classList.add("table-warning", "bulk-selected");
-    } else {
-      row.classList.remove("table-warning", "bulk-selected");
-    }
+    row.classList.toggle("bulk-selected", isSelected);
+    // Bootstrap's table-warning class only styles table-scoped elements, so
+    // the highlight is applied as an inline style directly — falling back to
+    // the row's own base background (data-base-bg, set at render time for
+    // pending items) when deselected, rather than clearing it outright.
+    row.style.background = isSelected
+      ? "#fff3cd"
+      : row.dataset.baseBg || "";
   }
 
   // ─── Drag-to-reorder ─────────────────────────────────────────────────────
@@ -4141,7 +4423,9 @@ class FinancialReportsComponent {
     };
 
     const tbody = document.getElementById(tbodyId);
-    if (tbody) bindDragEvents(tbody, "tr[data-item-index]");
+    // "[data-item-index]" (no tag qualifier) — the desktop row is now a div,
+    // not a <tr>; matches the mobile-card selector below exactly.
+    if (tbody) bindDragEvents(tbody, "[data-item-index]");
 
     const mobileContainer = document.getElementById(mobileCardsId);
     if (mobileContainer)
@@ -4911,12 +5195,19 @@ class FinancialReportsComponent {
     const groupLinksContainer = document.getElementById("propertyGroupLinks");
     const tenantContainer = document.getElementById("tenantGroupLinkContainer");
     const adminContainer = document.getElementById("adminGroupLinkContainer");
+    const accountantContainer = document.getElementById(
+      "propertyAccountantContainer",
+    );
     if (!groupLinksContainer || !tenantContainer || !adminContainer) return;
 
     const tenantGroup = property && property.tenantFacebookGroup;
     const adminGroup = property && property.adminFacebookGroup;
+    const accountant =
+      property &&
+      property.accountant &&
+      this.allInvestors?.find((i) => i.investorId === property.accountant);
 
-    if (!tenantGroup && !adminGroup) {
+    if (!tenantGroup && !adminGroup && !accountant) {
       groupLinksContainer.style.display = "none";
       return;
     }
@@ -4935,6 +5226,26 @@ class FinancialReportsComponent {
            <i class="bi bi-facebook me-1"></i>Admin Group
          </a>`
       : "";
+
+    if (accountantContainer) {
+      if (accountant) {
+        const initials = (accountant.name || "")
+          .split(" ")
+          .map((w) => w[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+        const avatarHtml = accountant.avatar
+          ? `<img src="${escapeHtml(accountant.avatar)}" style="width:20px;height:20px;object-fit:cover;border-radius:50%;" alt="${escapeHtml(accountant.name)}">`
+          : `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#6f42c1,#9d4edd);color:#fff;font-weight:700;font-size:9px;">${initials}</span>`;
+        accountantContainer.innerHTML = `
+          <span class="d-inline-flex align-items-center gap-1 badge bg-light text-dark border" style="font-weight:500;">
+            <i class="bi bi-calculator" style="color:#6f42c1;"></i>${avatarHtml}${escapeHtml(accountant.name)}
+          </span>`;
+      } else {
+        accountantContainer.innerHTML = "";
+      }
+    }
 
     groupLinksContainer.style.display = "";
   }
@@ -6491,7 +6802,11 @@ class FinancialReportsComponent {
 
     // Build row metadata for income (includes paidBy avatar cluster)
     const makeIncomeMeta = (item) => {
-      const descLines = wrapText(item.item || "", 36);
+      const catEmoji = getCategoryEmoji("income", item.category);
+      const descLines = wrapText(
+        catEmoji ? `${catEmoji} ${item.item || ""}` : item.item || "",
+        36,
+      );
       const noteLines = item.details ? wrapText(item.details, 42) : [];
       const subtitle = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", {
@@ -6528,7 +6843,11 @@ class FinancialReportsComponent {
 
     // Build row metadata for expenses (date + paidTo avatar cluster)
     const makeExpenseMeta = (item) => {
-      const descLines = wrapText(item.item || "", 36);
+      const catEmoji = getCategoryEmoji("expense", item.category);
+      const descLines = wrapText(
+        catEmoji ? `${catEmoji} ${item.item || ""}` : item.item || "",
+        36,
+      );
       const noteLines = item.details ? wrapText(item.details, 42) : [];
       const subtitle = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", {
@@ -7070,11 +7389,14 @@ class FinancialReportsComponent {
             const roomType = this.getPersonRoomType(item.paidBy);
             payeeInfo = roomType ? `${payeeName} (${roomType})` : payeeName;
           }
+          const categoryPrefix = getCategoryEmoji("income", item.category)
+            ? `${getCategoryEmoji("income", item.category)} `
+            : "";
           const itemWithPayee = payeeInfo
             ? `${item.item} (${payeeInfo})`
             : item.item;
           const pendingPrefix = item.isPending ? "🟡 " : "";
-          summary += `${pendingPrefix}- ${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          summary += `${pendingPrefix}- ${categoryPrefix}${itemWithPayee} - ${currencyPrefix}${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";
@@ -7099,11 +7421,14 @@ class FinancialReportsComponent {
             const roomType = this.getPersonRoomType(item.paidTo);
             paidToInfo = roomType ? `${paidToName} (${roomType})` : paidToName;
           }
+          const expCategoryPrefix = getCategoryEmoji("expense", item.category)
+            ? `${getCategoryEmoji("expense", item.category)} `
+            : "";
           const itemWithPaidTo = paidToInfo
             ? `${item.item} (→${paidToInfo})`
             : item.item;
           const expPendingPrefix = item.isPending ? "🟡 " : "";
-          summary += `${expPendingPrefix}- ${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
+          summary += `${expPendingPrefix}- ${expCategoryPrefix}${itemWithPaidTo} - ${currencyPrefix}${amount} - ${shortName}\n`;
         });
       } else {
         summary += "- (không có)\n";
@@ -7913,15 +8238,23 @@ class FinancialReportsComponent {
         </div>
       `;
     } else {
-      html += `<div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-        <thead class="table-light"><tr>
-          <th class="small border-0 ps-3">Property</th>
-          <th class="small border-0">Tenant</th>
-          <th class="small border-0">Room</th>
-          <th class="small border-0">Fees</th>
-          <th class="small border-0 text-end pe-3">Contact</th>
-        </tr></thead>
-        <tbody>`;
+      // CSS Grid "table". The Property cell spans all of a property's tenant
+      // rows (the only rowspan in this file) — CSS Grid has no direct
+      // rowspan equivalent, so each property group is its own grid container
+      // sharing the same column template as the header and every other
+      // group, with every cell explicitly placed via grid-column/grid-row
+      // (not relying on auto-placement to skip the spanning property cell).
+      const UNPAID_GRID_COLUMNS =
+        "minmax(130px,1fr) minmax(140px,1.3fr) 90px minmax(160px,1.6fr) 90px";
+
+      html += `<div style="overflow-x:auto;"><div style="min-width:760px;">
+        <div style="display:grid;grid-template-columns:${UNPAID_GRID_COLUMNS};background:#f8f9fa;border-bottom:2px solid #dee2e6;">
+          <div class="small fw-semibold" style="padding:8px 8px 8px 12px;">Property</div>
+          <div class="small fw-semibold" style="padding:8px;">Tenant</div>
+          <div class="small fw-semibold" style="padding:8px;">Room</div>
+          <div class="small fw-semibold" style="padding:8px;">Fees</div>
+          <div class="small fw-semibold" style="padding:8px 12px 8px 8px;text-align:right;">Contact</div>
+        </div>`;
 
       propertiesWithUnpaid.forEach(({ property, unpaid, totalActive }) => {
         const propertyName = escapeHtml(property.name || property.propertyId);
@@ -7929,6 +8262,17 @@ class FinancialReportsComponent {
         const propertyAddress = property.address
           ? escapeHtml(property.address)
           : null;
+
+        // One grid container per property group — the property cell is
+        // placed once, spanning every tenant row via grid-row: span N
+        // (the CSS Grid equivalent of the original <td rowspan>).
+        html += `<div style="display:grid;grid-template-columns:${UNPAID_GRID_COLUMNS};align-items:start;">
+          <div style="grid-column:1;grid-row:1 / span ${unpaid.length};border-left:3px solid #dc3545;padding:8px 8px 8px 12px;" class="fw-semibold small text-nowrap">
+            <i class="bi bi-building me-1 text-danger"></i>${propertyName}
+            ${propertyUnit ? `<div class="fw-normal" style="font-size:0.78em;">${propertyUnit}</div>` : ""}
+            ${propertyAddress ? `<div class="text-muted fw-normal" style="font-size:0.73em;max-width:120px;white-space:normal;">${propertyAddress}</div>` : ""}
+            <div class="text-muted fw-normal" style="font-size:0.75em;">${unpaid.length}/${totalActive} unpaid</div>
+          </div>`;
 
         unpaid.forEach((tenant, idx) => {
           const displayName = escapeHtml(
@@ -8003,29 +8347,23 @@ class FinancialReportsComponent {
             ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm py-0 px-1" style="font-size:0.75em;" title="Facebook"><i class="bi bi-facebook"></i></a>`
             : "";
 
-          // Show property cell only on first tenant row (rowspan)
-          const propCell =
-            idx === 0
-              ? `<td class="ps-3 border-0 fw-semibold small text-nowrap" rowspan="${unpaid.length}" style="border-left:3px solid #dc3545 !important;vertical-align:top;padding-top:0.5rem;">
-                <i class="bi bi-building me-1 text-danger"></i>${propertyName}
-                ${propertyUnit ? `<div class="fw-normal" style="font-size:0.78em;">${propertyUnit}</div>` : ""}
-                ${propertyAddress ? `<div class="text-muted fw-normal" style="font-size:0.73em;max-width:120px;white-space:normal;">${propertyAddress}</div>` : ""}
-                <div class="text-muted fw-normal" style="font-size:0.75em;">${unpaid.length}/${totalActive} unpaid</div>
-               </td>`
-              : "";
-
+          // Each tenant occupies one grid row (columns 2-5); the property
+          // cell (column 1) was already placed once above, spanning all rows.
+          // No border between rows — the original table had border-0 on
+          // every cell, i.e. no row separators at all.
+          const gridRow = idx + 1;
           const tenantNotes = tenant.notes ? tenant.notes.trim() : "";
-          html += `<tr>
-            ${propCell}
-            <td class="border-0 small">${displayName}${roommateHtml}${tenantNotes ? `<div class="text-muted mt-1" style="font-size:0.78em;"><i class="bi bi-sticky me-1"></i>${escapeHtml(tenantNotes)}</div>` : ""}</td>
-            <td class="border-0 small text-muted text-nowrap">${roomType}</td>
-            <td class="border-0"><div class="d-flex gap-1 flex-wrap">${feeParts.join("")}</div></td>
-            <td class="border-0 text-end pe-3"><div class="d-flex gap-1 justify-content-end">${waLink}${fbLink}</div></td>
-          </tr>`;
+          html += `
+            <div style="grid-column:2;grid-row:${gridRow};padding:8px;" class="small">${displayName}${roommateHtml}${tenantNotes ? `<div class="text-muted mt-1" style="font-size:0.78em;"><i class="bi bi-sticky me-1"></i>${escapeHtml(tenantNotes)}</div>` : ""}</div>
+            <div style="grid-column:3;grid-row:${gridRow};padding:8px;white-space:nowrap;" class="small text-muted">${roomType}</div>
+            <div style="grid-column:4;grid-row:${gridRow};padding:8px;"><div class="d-flex gap-1 flex-wrap">${feeParts.join("")}</div></div>
+            <div style="grid-column:5;grid-row:${gridRow};padding:8px 12px 8px 8px;text-align:right;"><div class="d-flex gap-1 justify-content-end">${waLink}${fbLink}</div></div>`;
         });
+
+        html += `</div>`;
       });
 
-      html += `</tbody></table></div>`;
+      html += `</div></div>`;
 
       // Fully-paid properties as compact footer
       if (propertiesAllPaid.length > 0) {

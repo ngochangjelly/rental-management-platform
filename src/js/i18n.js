@@ -342,6 +342,7 @@ i18next.init({
           statusPending: "Pending",
           statusUploaded: "Uploaded",
           statusVerified: "Verified",
+          generatedBillTitle: "Generated Bill",
           // Bill summary
           billSummary: "Bill Summary",
           totalTenants: "Total Tenants",
@@ -466,6 +467,23 @@ i18next.init({
           html2canvasNotLoaded:
             "html2canvas not loaded – please screenshot manually",
           failedToLoadBill: "Failed to load bill",
+          // Dynamic payable preview (before bill is generated)
+          dynamicPreviewTitle: "Estimated Payable Amount (live preview)",
+          daysStayed: "Days Stayed",
+          estimatedTotal: "Estimated Total",
+          pubNotAddedYetNote: "Add the SP Group bill above to include utility charges.",
+          noTenantsForPreview: "No tenants with a room assigned this month.",
+          billCyclesTitle: "SP Group Bill Cycles",
+          billCyclesHint: "Pick the current bill plus any earlier cycles that overlap this month — amounts below update instantly.",
+          noCyclesFound: "No SP Group bills recorded for this month or the 2 months before it yet.",
+          subsidisedSaved: "Subsidised — saved {{amount}}",
+          landlordAbsorbsShort: "Landlord absorbs {{amount}} in subsidies.",
+          // Per-tenant bill export (download image / copy text)
+          billDownloadSuccess: "Downloaded {{count}} bill(s)",
+          billDownloadPartial: "Downloaded {{succeeded}} of {{total}} bill(s) — some failed, check console",
+          billDownloadFailed: "Failed to download bill(s)",
+          billCopySuccess: "Copied {{count}} bill breakdown(s) to clipboard",
+          billCopyFailed: "Failed to copy bill breakdown",
         },
         financialReport: {
           exportCopied: "Report copied to clipboard!",
@@ -942,6 +960,7 @@ i18next.init({
           statusPending: "Chờ thanh toán",
           statusUploaded: "Đã nộp",
           statusVerified: "Đã xác nhận",
+          generatedBillTitle: "Hóa đơn đã tạo",
           // Bill summary
           billSummary: "Tóm tắt hóa đơn",
           totalTenants: "Tổng người thuê",
@@ -1066,6 +1085,23 @@ i18next.init({
           html2canvasNotLoaded:
             "html2canvas chưa tải – vui lòng chụp màn hình thủ công",
           failedToLoadBill: "Lỗi tải hóa đơn",
+          // Dynamic payable preview (before bill is generated)
+          dynamicPreviewTitle: "Ước tính tiền phải trả (tự động cập nhật)",
+          daysStayed: "Số ngày ở",
+          estimatedTotal: "Tổng ước tính",
+          pubNotAddedYetNote: "Thêm hóa đơn SP Group ở trên để tính luôn tiền điện nước.",
+          noTenantsForPreview: "Chưa có người thuê nào có phòng trong tháng này.",
+          billCyclesTitle: "Kỳ hóa đơn SP Group",
+          billCyclesHint: "Chọn hóa đơn tháng này cùng các kỳ trước đó có liên quan — số tiền bên dưới sẽ tự cập nhật.",
+          noCyclesFound: "Chưa có hóa đơn SP Group nào được ghi cho tháng này hoặc 2 tháng trước đó.",
+          subsidisedSaved: "Được hỗ trợ — tiết kiệm {{amount}}",
+          landlordAbsorbsShort: "Chủ nhà chịu {{amount}} tiền hỗ trợ.",
+          // Per-tenant bill export (download image / copy text)
+          billDownloadSuccess: "Đã tải {{count}} hóa đơn",
+          billDownloadPartial: "Đã tải {{succeeded}}/{{total}} hóa đơn — một số bị lỗi, xem console",
+          billDownloadFailed: "Lỗi tải hóa đơn",
+          billCopySuccess: "Đã sao chép {{count}} hóa đơn vào clipboard",
+          billCopyFailed: "Lỗi sao chép hóa đơn",
         },
         financialReport: {
           exportCopied: "Đã sao chép báo cáo vào clipboard!",

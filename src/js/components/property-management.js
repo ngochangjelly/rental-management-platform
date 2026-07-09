@@ -512,6 +512,7 @@ class PropertyManagementComponent {
           });
         }
         this.renderPropertiesTable();
+        this.updatePropertiesCountBadge();
 
         // Update sidebar badges
         if (window.updateSidebarBadges) {
@@ -520,11 +521,21 @@ class PropertyManagementComponent {
       } else {
         this.properties = [];
         this.showEmptyState();
+        this.updatePropertiesCountBadge();
       }
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showEmptyState("Error loading properties. Please try again.");
     }
+  }
+
+  updatePropertiesCountBadge() {
+    const badge = document.getElementById("propertiesTotalCountBadge");
+    if (!badge) return;
+
+    const total = this.properties.length;
+    badge.textContent = total;
+    badge.style.display = total > 0 ? "" : "none";
   }
 
   async filterPropertiesByInvestor() {

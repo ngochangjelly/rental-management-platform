@@ -848,6 +848,7 @@ class TenantManagementComponent {
                                 <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
                                 <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === "number" ? `<span class="prop-copy-val" data-copy="${rentAmount}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${rentAmount.toFixed(2)}</span>` : rentAmount}</div>
                                 <div class="mb-2"><strong>Cleaning Fee:</strong> ${typeof tenant.cleaningFee === "number" ? `<span class="prop-copy-val" data-copy="${tenant.cleaningFee}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${tenant.cleaningFee.toFixed(2)}</span>` : "N/A"}</div>
+                                ${tenant.cleaningFee === 0 ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-brush me-1"></i>Subsidized Cleaning</span></div>' : ""}
                                 ${tenant.isUtilitySubsidized ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>' : ""}
                                 ${tenant.isHouseCleaner ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>' : ""}
                                 <div class="mb-2"><strong>Move-in:</strong> ${moveInDate !== "N/A" ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(moveInDate)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(moveInDate)}</span>` : moveInDate}</div>
@@ -1592,9 +1593,10 @@ class TenantManagementComponent {
           tenant.facebookUrl || "";
 
         // Populate financial fields (except depositReceiver which is populated after investors are loaded)
-        document.getElementById("tenantDeposit").value = tenant.deposit || "";
+        document.getElementById("tenantDeposit").value = tenant.deposit ?? "";
         document.getElementById("tenantCleaningFee").value =
-          tenant.cleaningFee || "";
+          tenant.cleaningFee ?? "";
+        this.updateCleaningFeeSubsidizedBadge();
         document.getElementById("tenantIsUtilitySubsidized").checked =
           tenant.isUtilitySubsidized || false;
         document.getElementById("tenantIsHouseCleaner").checked =
@@ -3426,6 +3428,15 @@ class TenantManagementComponent {
     console.log("🗑️ Avatar removed");
   }
 
+  updateCleaningFeeSubsidizedBadge() {
+    const input = document.getElementById("tenantCleaningFee");
+    const badge = document.getElementById("tenantCleaningFeeSubsidizedBadge");
+    if (!input || !badge) return;
+
+    const isSubsidized = input.value !== "" && parseFloat(input.value) === 0;
+    badge.style.display = isSubsidized ? "" : "none";
+  }
+
   updateAvatarPreview() {
     const preview = document.getElementById("avatarPreview");
     const hiddenInput = document.getElementById("tenantAvatar");
@@ -3762,6 +3773,10 @@ class TenantManagementComponent {
         field.addEventListener("input", () => this.checkForChanges());
       }
     });
+
+    document.getElementById("tenantCleaningFee")?.addEventListener("input", () =>
+      this.updateCleaningFeeSubsidizedBadge(),
+    );
 
     // Also listen for registration status changes
     const registrationButtons = form.querySelectorAll(

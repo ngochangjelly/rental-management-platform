@@ -111,7 +111,6 @@
         transition: opacity 0.15s;
       }
 
-      tr:hover .drag-handle,
       [data-item-index]:hover > .drag-handle {
         opacity: 0.7;
       }
@@ -155,9 +154,13 @@
           top: 0;
           left: 0;
           width: 280px;
+          height: 100vh;
+          height: 100dvh;
           z-index: 1000;
           transform: translateX(-100%);
           box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         .sidebar.show {
@@ -3559,6 +3562,112 @@
       }
     </style>
 
+    <!-- Financial Report Category Chip Styles -->
+    <style>
+      .category-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1.5px solid #dee2e6;
+        background: #fff;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #495057;
+        cursor: pointer;
+        line-height: 1.2;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease,
+          color 0.15s ease;
+      }
+      .category-chip:hover {
+        border-color: #adb5bd;
+        background: #f8f9fa;
+      }
+      .category-chip .category-chip-emoji {
+        font-size: 1rem;
+        line-height: 1;
+      }
+      .category-chip.chip-income.active {
+        border-color: #198754;
+        background: #d1e7dd;
+        color: #146c43;
+        font-weight: 600;
+      }
+      .category-chip.chip-expense.active {
+        border-color: #dc3545;
+        background: #f8d7da;
+        color: #b02a37;
+        font-weight: 600;
+      }
+
+      /* Hover-to-tag quick picker on income/expense list rows */
+      .category-quick-picker {
+        position: relative;
+        display: inline-block;
+        /* Extra invisible padding below the trigger closes the gap to the
+           dropdown so the mouse never leaves this element while moving
+           from the trigger down into the menu (which sits at top:100%). */
+        padding-bottom: 6px;
+        margin-bottom: -6px;
+      }
+      .category-quick-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-width: 22px;
+        height: 20px;
+        padding: 0 5px;
+        border-radius: 5px;
+        border: 1px dashed #ced4da;
+        background: #f8f9fa;
+        font-size: 12px;
+        color: #868e96;
+        cursor: pointer;
+      }
+      .category-quick-trigger.has-category {
+        border-style: solid;
+        border-color: #dee2e6;
+      }
+      .category-quick-picker:hover .category-quick-trigger {
+        background: #e9ecef;
+        border-color: #adb5bd;
+        color: #495057;
+      }
+      .category-quick-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: 1050;
+        margin-top: 0;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        padding: 6px;
+        gap: 4px;
+        flex-wrap: wrap;
+        white-space: normal;
+        width: max-content;
+        max-width: 260px;
+      }
+      .category-quick-picker:hover .category-quick-menu {
+        display: flex;
+      }
+      .category-chip-sm {
+        padding: 4px 9px;
+        font-size: 0.75rem;
+        gap: 4px;
+      }
+      .category-chip-sm .category-chip-emoji {
+        font-size: 0.85rem;
+      }
+    </style>
+
     <!-- Spotlight Search Overlay Styles -->
     <style>
       #spotlightOverlay {
@@ -4788,7 +4897,15 @@
                 <div
                   class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3"
                 >
-                  <h5 class="mb-0">Properties</h5>
+                  <h5 class="mb-0 d-flex align-items-center gap-2">
+                    Properties
+                    <span
+                      id="propertiesTotalCountBadge"
+                      class="badge bg-secondary rounded-pill"
+                      style="display: none"
+                      >0</span
+                    >
+                  </h5>
                   <div class="d-flex align-items-center gap-2 flex-nowrap">
                     <div class="input-group" style="max-width: 300px">
                       <input
@@ -7510,6 +7627,7 @@
                           >
                           <span id="tenantGroupLinkContainer"></span>
                           <span id="adminGroupLinkContainer"></span>
+                          <span id="propertyAccountantContainer"></span>
                         </div>
                       </div>
                       <!-- Last Updated Info -->
@@ -7986,58 +8104,82 @@
                 <!-- Month Navigation -->
                 <div class="card mb-4">
                   <div class="card-body">
-                    <div class="row align-items-center">
-                      <div class="col-md-6">
-                        <div class="d-flex align-items-center">
-                          <button
-                            id="billPrevMonth"
-                            class="btn btn-outline-primary btn-sm me-2"
-                          >
-                            <i class="bi bi-chevron-left"></i>
-                          </button>
-                          <h4 id="currentMonthYear" class="mb-0 mx-3">
-                            January 2024
-                          </h4>
-                          <button
-                            id="billNextMonth"
-                            class="btn btn-outline-primary btn-sm ms-2"
-                          >
-                            <i class="bi bi-chevron-right"></i>
-                          </button>
-                        </div>
-                      </div>
-                      <div class="col-md-6 text-end">
-                        <button
-                          id="generateBillBtn"
-                          class="btn btn-primary me-2"
-                        >
-                          <i class="bi bi-plus-circle me-1"></i>Generate Bill
-                        </button>
-                        <button
-                          id="updateFeesBtn"
-                          class="btn btn-outline-primary me-2"
-                        >
-                          <i class="bi bi-pencil me-1"></i>Update Fees
-                        </button>
-                        <button
-                          id="bulkDeleteUploadsBtn"
-                          class="btn btn-outline-warning"
-                          disabled
-                        >
-                          <i class="bi bi-arrow-counterclockwise me-1"></i>Bulk
-                          Reset
-                        </button>
-                      </div>
+                    <div class="d-flex align-items-center justify-content-center">
+                      <button
+                        id="billPrevMonth"
+                        class="btn btn-outline-primary btn-sm me-2"
+                      >
+                        <i class="bi bi-chevron-left"></i>
+                      </button>
+                      <h4 id="currentMonthYear" class="mb-0 mx-3">
+                        January 2024
+                      </h4>
+                      <button
+                        id="billNextMonth"
+                        class="btn btn-outline-primary btn-sm ms-2"
+                      >
+                        <i class="bi bi-chevron-right"></i>
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <!-- Bill Table -->
+                <!-- Bill Table (contains the SP Group utility drop zone, plus the
+                     dynamic preview or generated bill table) -->
                 <div id="billTableContainer">
                   <div class="text-center text-muted py-5">
                     <i class="bi bi-info-circle fs-1 d-block mb-3"></i>
                     <p>Please select a property to view bills</p>
                   </div>
+                </div>
+
+                <!-- Action Toolbar — JS relocates this node into whichever header is
+                     currently showing (dynamic preview card or generated bill table),
+                     so it stays a single element with its listeners/tooltips intact. -->
+                <div class="d-flex flex-wrap gap-2" id="billActionToolbar">
+                  <button
+                    id="generateBillBtn"
+                    class="btn btn-sm btn-primary"
+                    data-bs-toggle="tooltip"
+                    data-bs-title="Create the official bill for this month, locking in amounts and enabling payment tracking/upload links"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i>Generate Bill
+                  </button>
+                  <button
+                    id="updateFeesBtn"
+                    class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="tooltip"
+                    data-bs-title="Bulk-update the utility/cleaning fee for every tenant on the current bill"
+                  >
+                    <i class="bi bi-pencil me-1"></i>Update Fees
+                  </button>
+                  <button
+                    id="billDownloadSelectedBtn"
+                    class="btn btn-sm btn-outline-success"
+                    disabled
+                    data-bs-toggle="tooltip"
+                    data-bs-title="Download bill image(s) for the selected tenant(s)"
+                  >
+                    <i class="bi bi-download me-1"></i>Download Bill
+                  </button>
+                  <button
+                    id="billCopySelectedBtn"
+                    class="btn btn-sm btn-outline-secondary"
+                    disabled
+                    data-bs-toggle="tooltip"
+                    data-bs-title="Copy the bill breakdown as text for the selected tenant(s)"
+                  >
+                    <i class="bi bi-clipboard me-1"></i>Copy Breakdown
+                  </button>
+                  <button
+                    id="bulkDeleteUploadsBtn"
+                    class="btn btn-sm btn-outline-warning"
+                    disabled
+                    data-bs-toggle="tooltip"
+                    data-bs-title="Reset the selected tenant(s) back to Pending and delete their uploaded payment screenshots"
+                  >
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Bulk Reset
+                  </button>
                 </div>
               </div>
             </div>
@@ -14576,6 +14718,16 @@
                       />
                     </div>
                     <div class="form-text">One-time cleaning fee in SGD</div>
+                    <div
+                      id="tenantCleaningFeeSubsidizedBadge"
+                      class="mt-1"
+                      style="display: none"
+                    >
+                      <span class="badge bg-warning text-dark"
+                        ><i class="bi bi-brush me-1"></i>Subsidized
+                        Cleaning</span
+                      >
+                    </div>
                   </div>
                 </div>
                 <div class="row">
