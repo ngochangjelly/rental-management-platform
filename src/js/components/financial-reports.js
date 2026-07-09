@@ -62,6 +62,7 @@ class FinancialReportsComponent {
     this.bindEvents();
     this._propertiesPromise = this.loadProperties();
     if (window.isAdmin && window.isAdmin()) this.loadAllInvestors();
+    this.addInvestorPanelStyles();
 
     // Initial cleanup to ensure no leftover modals from previous sessions
     this.forceCleanupModalBackdrops();
@@ -588,6 +589,42 @@ class FinancialReportsComponent {
       `;
       document.head.appendChild(style);
     }
+  }
+
+  // Styles for the retheme dark "Investor Calculations" card (header icon
+  // buttons + Net Profit colour) — companion to the profit/loss haze applied
+  // inline by _applyInvestorPanelTheme().
+  addInvestorPanelStyles() {
+    if (document.getElementById("investor-panel-styles")) return;
+    const style = document.createElement("style");
+    style.id = "investor-panel-styles";
+    style.textContent = `
+      .fr-header-icon-btn {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
+        color: #e2e8f0 !important;
+        font-weight: 600;
+        padding: 6px 12px;
+        min-width: 44px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      .fr-header-icon-btn i { color: inherit; }
+      .fr-header-icon-btn:hover {
+        background: rgba(255,255,255,0.14) !important;
+        border-color: rgba(255,255,255,0.28) !important;
+        color: #ffffff !important;
+      }
+      .fr-profit-pos {
+        color: #4ade80 !important;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+      }
+      .fr-profit-neg {
+        color: #fca5a5 !important;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   setPropertyFilter(filter) {
@@ -1648,8 +1685,9 @@ class FinancialReportsComponent {
       // No report loaded - show $0.00
       if (netProfitEl) {
         netProfitEl.textContent = "$0.00";
-        netProfitEl.className = "text-success mb-0";
+        netProfitEl.className = "fr-profit-pos mb-0";
       }
+      this._applyInvestorPanelTheme(0);
       return;
     }
 
@@ -1660,8 +1698,32 @@ class FinancialReportsComponent {
     if (netProfitEl) {
       netProfitEl.textContent = `$${netProfit.toFixed(2)}`;
       netProfitEl.className =
-        netProfit >= 0 ? "text-success mb-0" : "text-danger mb-0";
+        netProfit >= 0 ? "fr-profit-pos mb-0" : "fr-profit-neg mb-0";
     }
+    this._applyInvestorPanelTheme(netProfit);
+  }
+
+  // Retheme the "Investor Calculations" card (header + body panel) to a
+  // dark background with a soft haze of the mode colour — green while the
+  // month is profitable, red at a loss. Mirrors the exported report image's
+  // theme so the live edit view and the export look like one system.
+  _applyInvestorPanelTheme(netProfit) {
+    const header = document.getElementById("investorCardHeader");
+    const card = document.getElementById("investorCard");
+    if (!header || !card) return;
+
+    const isProfit = netProfit >= 0;
+    const haze = isProfit
+      ? "rgba(34,197,94,0.16)"
+      : "rgba(239,68,68,0.16)";
+    const base = isProfit ? "#0e1f16" : "#20100f";
+    const bodyBase = isProfit ? "#0a120d" : "#140a0a";
+    const gradient = `radial-gradient(140% 160% at 100% 0%, ${haze} 0%, transparent 60%), ${base}`;
+    const bodyGradient = `radial-gradient(120% 140% at 100% 0%, ${haze} 0%, transparent 55%), ${bodyBase}`;
+
+    header.style.background = gradient;
+    const body = card.querySelector(".card-body");
+    if (body) body.style.background = bodyGradient;
   }
 
   updateInvestorDisplay() {
@@ -1685,7 +1747,7 @@ class FinancialReportsComponent {
     // For open reports or reports without snapshot, calculate dynamically
     if (!this.investors || this.investors.length === 0) {
       investorDistribution.innerHTML = `
-                <div class="text-center text-muted py-3">
+                <div class="text-center py-3" style="color:#94a3b8;">
                     <i class="bi bi-person-lines-fill fs-1"></i>
                     <p class="mt-2">No investors configured for this property</p>
                 </div>
@@ -1705,7 +1767,7 @@ class FinancialReportsComponent {
     let html = `
       <div style="overflow-x:auto;">
         <div style="min-width:640px;">
-          ${this._investorGridHeaderHtml(true)}
+          ${this._investorGridHeaderHtml(true, netProfit)}
     `;
 
     this.investors.forEach((investor) => {
@@ -1771,6 +1833,7 @@ class FinancialReportsComponent {
         receivedAmount,
         finalAmount,
         actionsHtml,
+        netProfit,
       });
     });
 
@@ -1800,11 +1863,14 @@ class FinancialReportsComponent {
     return withActions ? `${base} 100px` : base;
   }
 
-  _investorGridHeaderHtml(withActions) {
+  _investorGridHeaderHtml(withActions, netProfit = 0) {
+    const isProfit = netProfit >= 0;
+    const headerBg = isProfit ? "#132a1d" : "#2c1414";
+    const headerTxt = isProfit ? "#86efac" : "#fca5a5";
     const cell = (label, opts = {}) => `
-      <div style="${opts.align ? `text-align:${opts.align};` : ""}font-weight:600;font-size:0.8rem;">${label}</div>`;
+      <div style="${opts.align ? `text-align:${opts.align};` : ""}font-weight:600;font-size:0.8rem;color:${headerTxt};">${label}</div>`;
     return `
-      <div style="display:grid;grid-template-columns:${this._investorGridColumns(withActions)};gap:8px;align-items:center;padding:8px;background:#cff4fc;border-radius:4px 4px 0 0;">
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(withActions)};gap:8px;align-items:center;padding:8px;background:${headerBg};border-radius:4px 4px 0 0;">
         ${cell("Investor")}
         ${cell("Share %", { align: "center" })}
         ${cell("Profit Share", { align: "right" })}
@@ -1824,11 +1890,13 @@ class FinancialReportsComponent {
     receivedAmount,
     finalAmount,
     actionsHtml,
+    netProfit = 0,
   }) {
-    // Bootstrap's text-* utility classes (text-primary, text-danger, etc.)
-    // are NOT table-scoped, so they render identically on a div as they did
-    // on a <td> — reused as-is rather than reimplemented via inline colors,
-    // to guarantee the exact same visual output as before.
+    // Dark-theme row colours (brightened for legibility on a near-black
+    // panel) — same semantic mapping as before (positive/negative,
+    // paid/received present or not), just recoloured for the new theme.
+    const rowDiv =
+      netProfit >= 0 ? "rgba(134,239,172,0.14)" : "rgba(252,165,165,0.14)";
     const cell = (content, opts = {}) => `
       <div class="small ${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
@@ -1844,13 +1912,13 @@ class FinancialReportsComponent {
         )}</div>`;
 
     return `
-      <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5;">
-        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold">${escapeHtml(name)}</span></div>`)}
-        ${cell(`${percentage}%`, { align: "center", cls: "fw-bold" })}
-        ${cell(`$${profitShare.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: profitShare >= 0 ? "text-primary" : "text-danger" })}
-        ${cell(`$${paidAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: paidAmount > 0 ? "text-warning" : "text-muted" })}
-        ${cell(`$${receivedAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: receivedAmount > 0 ? "text-info" : "text-muted" })}
-        ${cell(`$${finalAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: `fw-bold ${finalAmount >= 0 ? "text-success" : "text-danger"}` })}
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid ${rowDiv};">
+        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold" style="color:#e2e8f0;">${escapeHtml(name)}</span></div>`)}
+        ${cell(`${percentage}%`, { align: "center", cls: "fw-bold", style: "color:#e2e8f0;" })}
+        ${cell(`$${profitShare.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${profitShare >= 0 ? "#60a5fa" : "#f87171"};` })}
+        ${cell(`$${paidAmount.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${paidAmount > 0 ? "#fbbf24" : "#64748b"};` })}
+        ${cell(`$${receivedAmount.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${receivedAmount > 0 ? "#22d3ee" : "#64748b"};` })}
+        ${cell(`$${finalAmount.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${finalAmount >= 0 ? "#4ade80" : "#f87171"};`, cls: "fw-bold" })}
         ${actionsHtml ? cell(actionsHtml, { align: "center" }) : ""}
       </div>`;
   }
@@ -1865,7 +1933,7 @@ class FinancialReportsComponent {
 
     if (!snapshot || snapshot.length === 0) {
       investorDistribution.innerHTML = `
-                <div class="text-center text-muted py-3">
+                <div class="text-center py-3" style="color:#94a3b8;">
                     <i class="bi bi-person-lines-fill fs-1"></i>
                     <p class="mt-2">No investor data available for this closed report</p>
                 </div>
@@ -1876,10 +1944,13 @@ class FinancialReportsComponent {
     // Same CSS Grid "table" as updateInvestorDisplay() (see
     // _investorGridHeaderHtml/_investorGridRowHtml) — frozen data, no action
     // buttons, so the trailing Actions column is simply omitted.
+    const netProfit =
+      (this.currentReport.totalIncome || 0) -
+      (this.currentReport.totalExpenses || 0);
     let html = `
       <div style="overflow-x:auto;">
         <div style="min-width:640px;">
-          ${this._investorGridHeaderHtml(false)}
+          ${this._investorGridHeaderHtml(false, netProfit)}
     `;
 
     snapshot.forEach((investorData) => {
@@ -1901,6 +1972,7 @@ class FinancialReportsComponent {
         paidAmount,
         receivedAmount,
         finalAmount,
+        netProfit,
       });
     });
 
@@ -6725,6 +6797,34 @@ class FinancialReportsComponent {
     const totalExpenses = report.totalExpenses || 0;
     const netProfit = totalIncome - totalExpenses;
 
+    // ── Colour palette ────────────────────────────────────────────
+    // Dark "profit vs loss" theme: near-black base with a soft haze of the
+    // mode colour (green when in profit, red when at a loss) — same visual
+    // language across the exported image and the live edit-mode panel.
+    const isProfit = netProfit >= 0;
+    const MODE_CLR = isProfit ? "#22c55e" : "#ef4444"; // primary mode accent
+    const MODE_CLR_SOFT = isProfit ? "#4ade80" : "#f87171"; // lighter accent (glows, gradients)
+    const BASE_BG = isProfit ? "#0a120d" : "#140a0a"; // whole-image base background
+    const BRAND = "#2dd4bf"; // teal (logo underline) — brightened for dark bg
+    const PANEL_BG = isProfit ? "#0e1f16" : "#20100f"; // header / section-bar backgrounds
+    const COL_HDR_BG = isProfit ? "#132a1d" : "#2c1414"; // column header row bg
+    const COL_HDR_TXT = isProfit ? "#86efac" : "#fca5a5"; // column header text
+    const ROW_DIV = isProfit
+      ? "rgba(134,239,172,0.16)"
+      : "rgba(252,165,165,0.16)"; // row / section separator lines
+    const ROW_DIV_FADE = "url(#rowDivGrad)"; // item-row dividers: soft edge-to-edge fade instead of a flat line
+    const SUMMARY_BG = isProfit ? "#0f2419" : "#241010"; // summary bar bg
+    const FOOTER_BG = isProfit ? "#0a1a12" : "#1c0d0d"; // footer bg
+    const ITEM_CNT = isProfit ? "#86efac" : "#fca5a5"; // item-count text in section header
+    const LABEL_CLR = "#94a3b8"; // small caption labels (TOTAL INCOME, etc.)
+    const META_TXT = "#94a3b8"; // subtitle / date / currency
+    const TEXT_PRIMARY = "#e2e8f0"; // main row text (descriptions, names) on dark bg
+    const INCOME_CLR = "#4ade80"; // brightened for legibility on dark bg
+    const EXPENSE_CLR = "#f87171"; // brightened for legibility on dark bg
+    const PENDING_AMOUNT_CLR = "#fbbf24"; // pending $ amounts (brightened amber)
+    const BADGE_BG = "rgba(148,163,184,0.16)"; // neutral chip bg (room-type badge)
+    const BADGE_TXT = "#cbd5e1"; // neutral chip text
+
     // Layout constants
     const W = 800;
     const M = 24;
@@ -6732,11 +6832,11 @@ class FinancialReportsComponent {
     const COL_GAP = 8;
     const COL_W = (CW - COL_GAP) / 2; // 372
 
-    const HEADER_H = 90;
-    const SUMMARY_H = 58;
-    const SEC_H = 32;
-    const THDR_H = 22;
-    const INV_ROW_H = 40; // fixed height for investor rows
+    const HEADER_H = 96;
+    const SUMMARY_H = 66;
+    const SEC_H = 36;
+    const THDR_H = 26;
+    const INV_ROW_H = 46; // fixed height for investor rows
     const SEC_PAD = 10;
 
     const nodes = [];
@@ -6749,14 +6849,35 @@ class FinancialReportsComponent {
     // badge look — subtle depth instead of a flat fill with a hard ring).
     defs.push(
       `<linearGradient id="pillGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#f87171"/>
-        <stop offset="100%" stop-color="#dc2626"/>
+        <stop offset="0%" stop-color="${MODE_CLR_SOFT}"/>
+        <stop offset="100%" stop-color="${MODE_CLR}"/>
       </linearGradient>`,
     );
     defs.push(
       `<filter id="pillGlow" x="-60%" y="-60%" width="220%" height="220%">
-        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#dc2626" flood-opacity="0.45"/>
+        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="${MODE_CLR}" flood-opacity="0.45"/>
       </filter>`,
+    );
+    // Full-bleed background haze — soft radial glow of the mode colour
+    // bleeding in from the top, over the near-black base (matches the
+    // reference dark-dashboard look).
+    defs.push(
+      `<radialGradient id="bgHaze" cx="50%" cy="0%" r="90%">
+        <stop offset="0%" stop-color="${MODE_CLR}" stop-opacity="0.22"/>
+        <stop offset="45%" stop-color="${MODE_CLR}" stop-opacity="0.08"/>
+        <stop offset="100%" stop-color="${MODE_CLR}" stop-opacity="0"/>
+      </radialGradient>`,
+    );
+    // Item-row divider — fades out at both edges instead of a flat
+    // full-width line, so rows read as one continuous panel (no
+    // table-style odd/even banding) with just a subtle premium seam
+    // between entries.
+    defs.push(
+      `<linearGradient id="rowDivGrad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="${MODE_CLR_SOFT}" stop-opacity="0"/>
+        <stop offset="50%" stop-color="${MODE_CLR_SOFT}" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="${MODE_CLR_SOFT}" stop-opacity="0"/>
+      </linearGradient>`,
     );
 
     // Helper: render a circular avatar (photo if available, else fallback colored initial)
@@ -6789,13 +6910,13 @@ class FinancialReportsComponent {
     // Render a compact cluster of person avatars + short name + optional room badge
     // Used for paidBy (income) and paidTo (expense) rows in the exported image
     const renderPersonCluster = (persons, colX, rowY) => {
-      const R = 9;
+      const R = 10;
       const STEP = R * 2 - 3; // 3px overlap between avatars
       const startX = colX + 34;
 
       // Small arrow indicator
       p(
-        `<text x="${startX}" y="${rowY + R + 3}" font-size="9" fill="#94a3b8" font-weight="600">→</text>`,
+        `<text x="${startX}" y="${rowY + R + 3}" font-size="11" fill="#94a3b8" font-weight="600">→</text>`,
       );
 
       const avatarStartX = startX + 13;
@@ -6805,7 +6926,7 @@ class FinancialReportsComponent {
         if (person.isUnknown) {
           p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="#f59e0b"/>`);
           p(
-            `<text x="${cx}" y="${cy + 4}" font-size="9" fill="#fff" font-weight="700" text-anchor="middle">?</text>`,
+            `<text x="${cx}" y="${cy + 4}" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">?</text>`,
           );
         } else {
           const fallback = person.isTenant ? "#0ea5e9" : "#6c757d";
@@ -6836,47 +6957,33 @@ class FinancialReportsComponent {
         })
         .join(", ");
       p(
-        `<text x="${textX}" y="${rowY + R + 4}" font-size="10" fill="${META_TXT}">${this._svgEsc(nameStr)}</text>`,
+        `<text x="${textX}" y="${rowY + R + 4}" font-size="12" fill="${META_TXT}">${this._svgEsc(nameStr)}</text>`,
       );
 
       // Room type badge (first person that has one)
       const withRoom = persons.find((q) => q?.roomType);
       if (withRoom) {
-        const approxNameW = nameStr.length * 5.8;
+        const approxNameW = nameStr.length * 6.2;
         const badgeX = textX + approxNameW + 4;
         const badgeText = this._svgEsc(
           this.getRoomTypeDisplayName(withRoom.roomType),
         );
-        const badgeW = badgeText.length * 5.5 + 8;
+        const badgeW = badgeText.length * 6 + 10;
         p(
-          `<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="#dbeafe"/>`,
+          `<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="${BADGE_BG}"/>`,
         );
         p(
-          `<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="8" fill="${COL_HDR_TXT}" text-anchor="middle" font-weight="600">${badgeText}</text>`,
+          `<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="10" fill="${BADGE_TXT}" text-anchor="middle" font-weight="600">${badgeText}</text>`,
         );
       }
     };
-
-    // ── Colour palette ────────────────────────────────────────────
-    const BRAND = "#2aabb5"; // teal (header bg, logo)
-    const DEEP_BLUE = "#1548a1"; // section headers, column labels
-    const COL_HDR_BG = "#dbeafe"; // column header row bg
-    const COL_HDR_TXT = "#1548a1"; // column header text
-    const ROW_ALT_BG = "#f0f7ff"; // alternating row tint
-    const ROW_DIV = "#bfdbfe"; // row / section separator lines
-    const SUMMARY_BG = "#f0f7ff"; // summary bar bg
-    const FOOTER_BG = "#f0f7ff"; // footer bg
-    const ITEM_CNT = "#93c5fd"; // item-count text in section header
-    const META_TXT = "#64748b"; // subtitle / date / currency
-    const INCOME_CLR = "#16a34a";
-    const EXPENSE_CLR = "#dc2626";
 
     // ── Header ────────────────────────────────────────────────────
     const LOGO_SIZE = 52;
     const LOGO_X = M;
     const LOGO_Y = Math.round((HEADER_H - LOGO_SIZE) / 2);
     p(
-      `<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="${DEEP_BLUE}"/>`,
+      `<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="${PANEL_BG}"/>`,
     );
     // Brand logo
     if (logoDataUri) {
@@ -6887,23 +6994,23 @@ class FinancialReportsComponent {
     // Header text (offset right of logo)
     const TX = LOGO_X + (logoDataUri ? LOGO_SIZE + 10 : 0);
     p(
-      `<text x="${TX}" y="24" font-size="11" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">FINANCIAL REPORT</text>`,
+      `<text x="${TX}" y="26" font-size="13" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">FINANCIAL REPORT</text>`,
     );
     p(
-      `<text x="${W - M}" y="26" font-size="17" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`,
+      `<text x="${W - M}" y="28" font-size="19" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc(monthYear)}</text>`,
     );
     p(
-      `<text x="${TX}" y="62" font-size="20" fill="#ffffff" font-weight="700">${this._svgEsc(propTitle)}</text>`,
+      `<text x="${TX}" y="66" font-size="22" fill="#ffffff" font-weight="700">${this._svgEsc(propTitle)}</text>`,
     );
     p(
-      `<text x="${W - M}" y="80" font-size="12" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
+      `<text x="${W - M}" y="86" font-size="14" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
     );
     if (report.isClosed) {
       p(
-        `<rect x="${W - M - 66}" y="6" width="62" height="16" rx="8" fill="#dc2626"/>`,
+        `<rect x="${W - M - 74}" y="6" width="70" height="18" rx="9" fill="#dc2626"/>`,
       );
       p(
-        `<text x="${W - M - 35}" y="18" font-size="10" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`,
+        `<text x="${W - M - 39}" y="19" font-size="12" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`,
       );
     }
     y = HEADER_H;
@@ -6911,7 +7018,7 @@ class FinancialReportsComponent {
     // ── PUB overage strip (only when utility bill exceeds subsidizedPub) ──────
     const _ovBill = this._findOverlappingUtilityBill();
     if (_ovBill) {
-      const OVPUB_H = 30;
+      const OVPUB_H = 34;
       const _excess = (_ovBill.totalAmount || 0) - this.propertySubsidy;
       const _fmtD = (v) =>
         v
@@ -6928,29 +7035,29 @@ class FinancialReportsComponent {
         `${_period}  ·  Bill $${(_ovBill.totalAmount || 0).toFixed(2)}  ·  Max $${this.propertySubsidy.toFixed(2)}`,
       );
       const _badgeTxt = this._svgEsc(`+$${_excess.toFixed(2)}`);
-      const _badgeW = _excess.toFixed(2).length * 7 + 28;
+      const _badgeW = _excess.toFixed(2).length * 8 + 32;
       // Strip background + left accent
       p(
-        `<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="#fff1f0"/>`,
+        `<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="rgba(239,68,68,0.12)"/>`,
       );
-      p(`<rect x="0" y="${y}" width="5" height="${OVPUB_H}" fill="#dc2626"/>`);
+      p(`<rect x="0" y="${y}" width="5" height="${OVPUB_H}" fill="#ef4444"/>`);
       p(
-        `<line x1="0" y1="${y + OVPUB_H}" x2="${W}" y2="${y + OVPUB_H}" stroke="#fca5a5" stroke-width="1"/>`,
+        `<line x1="0" y1="${y + OVPUB_H}" x2="${W}" y2="${y + OVPUB_H}" stroke="rgba(239,68,68,0.3)" stroke-width="1"/>`,
       );
       // Label
       p(
-        `<text x="14" y="${y + 19}" font-size="11" fill="#991b1b" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`,
+        `<text x="14" y="${y + 21}" font-size="13" fill="#fca5a5" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`,
       );
       // Detail
       p(
-        `<text x="110" y="${y + 19}" font-size="11" fill="#7f1d1d">${_detail}</text>`,
+        `<text x="122" y="${y + 21}" font-size="13" fill="#fecaca">${_detail}</text>`,
       );
       // Badge pill
       p(
-        `<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="18" rx="9" fill="#dc2626"/>`,
+        `<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="22" rx="11" fill="#dc2626"/>`,
       );
       p(
-        `<text x="${W - M - _badgeW / 2}" y="${y + 19}" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">${_badgeTxt}</text>`,
+        `<text x="${W - M - _badgeW / 2}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" text-anchor="middle">${_badgeTxt}</text>`,
       );
       y += OVPUB_H;
     }
@@ -6979,9 +7086,9 @@ class FinancialReportsComponent {
       const catEmoji = getCategoryEmoji("income", item.category);
       const descLines = wrapText(
         catEmoji ? `${catEmoji} ${item.item || ""}` : item.item || "",
-        36,
+        32,
       );
-      const noteLines = item.details ? wrapText(item.details, 42) : [];
+      const noteLines = item.details ? wrapText(item.details, 36) : [];
       const subtitle = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", {
             day: "2-digit",
@@ -7004,12 +7111,12 @@ class FinancialReportsComponent {
         })
         .filter(Boolean);
       const rowH = Math.max(
-        40,
+        46,
         4 +
-          descLines.length * 16 +
-          noteLines.length * 14 +
-          (subtitle ? 15 : 0) +
-          (paidByPersons.length > 0 ? 22 : 0) +
+          descLines.length * 18 +
+          noteLines.length * 16 +
+          (subtitle ? 17 : 0) +
+          (paidByPersons.length > 0 ? 24 : 0) +
           4,
       );
       return { descLines, noteLines, subtitle, paidByPersons, rowH };
@@ -7020,9 +7127,9 @@ class FinancialReportsComponent {
       const catEmoji = getCategoryEmoji("expense", item.category);
       const descLines = wrapText(
         catEmoji ? `${catEmoji} ${item.item || ""}` : item.item || "",
-        36,
+        32,
       );
-      const noteLines = item.details ? wrapText(item.details, 42) : [];
+      const noteLines = item.details ? wrapText(item.details, 36) : [];
       const subtitle = item.date
         ? new Date(item.date).toLocaleDateString("en-SG", {
             day: "2-digit",
@@ -7054,12 +7161,12 @@ class FinancialReportsComponent {
         }
       }
       const rowH = Math.max(
-        40,
+        46,
         4 +
-          descLines.length * 16 +
-          noteLines.length * 14 +
-          (subtitle ? 15 : 0) +
-          (paidToPersons.length > 0 ? 22 : 0) +
+          descLines.length * 18 +
+          noteLines.length * 16 +
+          (subtitle ? 17 : 0) +
+          (paidToPersons.length > 0 ? 24 : 0) +
           4,
       );
       return { descLines, noteLines, subtitle, paidToPersons, rowH };
@@ -7082,13 +7189,13 @@ class FinancialReportsComponent {
       const totalCount = groups.reduce((n, g) => n + g.entries.length, 0);
 
       p(
-        `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`,
+        `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${PANEL_BG}"/>`,
       );
       p(
         `<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${accentColor}"/>`,
       );
       p(
-        `<text x="${M + 8}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" letter-spacing="1">${this._svgEsc(title)}</text>`,
+        `<text x="${M + 8}" y="${y + 23}" font-size="15" fill="#ffffff" font-weight="700" letter-spacing="1">${this._svgEsc(title)}</text>`,
       );
 
       // Item-count bubble — same visual language as the "N" pill next to
@@ -7096,31 +7203,31 @@ class FinancialReportsComponent {
       // a soft colored glow and a faint border, rather than a flat fill
       // with a hard white ring, for a more refined badge look.
       const countLabel = `${totalCount}`;
-      const pillH = 20;
-      const pillW = Math.max(24, countLabel.length * 9 + 16);
-      const pillRightX = W - M - 80;
+      const pillH = 22;
+      const pillW = Math.max(26, countLabel.length * 10 + 18);
+      const pillRightX = W - M - 86;
       const pillX = pillRightX - pillW;
       const pillY = y + (SEC_H - pillH) / 2;
       p(
-        `<text x="${pillX - 6}" y="${y + 21}" font-size="9" fill="${ITEM_CNT}" text-anchor="end" letter-spacing="0.5">ITEMS</text>`,
+        `<text x="${pillX - 6}" y="${y + 23}" font-size="11" fill="${ITEM_CNT}" text-anchor="end" letter-spacing="0.5">ITEMS</text>`,
       );
       p(
-        `<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="10" fill="url(#pillGrad)" stroke="rgba(255,255,255,0.35)" stroke-width="1" filter="url(#pillGlow)"/>`,
+        `<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="11" fill="url(#pillGrad)" stroke="rgba(255,255,255,0.35)" stroke-width="1" filter="url(#pillGlow)"/>`,
       );
       p(
-        `<text x="${pillX + pillW / 2}" y="${pillY + 14}" font-size="12" fill="#ffffff" font-weight="700" text-anchor="middle">${countLabel}</text>`,
+        `<text x="${pillX + pillW / 2}" y="${pillY + 15}" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">${countLabel}</text>`,
       );
 
       p(
-        `<text x="${W - M}" y="${y + 21}" font-size="14" fill="#ffffff" text-anchor="end" font-weight="700">$${totalAmt.toFixed(2)}</text>`,
+        `<text x="${W - M}" y="${y + 23}" font-size="16" fill="#ffffff" text-anchor="end" font-weight="700">$${totalAmt.toFixed(2)}</text>`,
       );
       y += SEC_H;
 
       if (totalCount === 0) {
         p(
-          `<text x="${W / 2}" y="${y + 18}" font-size="13" fill="${ITEM_CNT}" text-anchor="middle">No items recorded</text>`,
+          `<text x="${W / 2}" y="${y + 20}" font-size="15" fill="${ITEM_CNT}" text-anchor="middle">No items recorded</text>`,
         );
-        y += 28;
+        y += 32;
       } else {
         // Column headers (once for the whole section)
         p(
@@ -7130,16 +7237,16 @@ class FinancialReportsComponent {
           `<rect x="${M + COL_W + COL_GAP}" y="${y}" width="${COL_W}" height="${THDR_H}" fill="${COL_HDR_BG}"/>`,
         );
         p(
-          `<text x="${M + 26}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`,
+          `<text x="${M + 26}" y="${y + 17}" font-size="12" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`,
         );
         p(
-          `<text x="${M + COL_W - 4}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" text-anchor="end">AMOUNT</text>`,
+          `<text x="${M + COL_W - 4}" y="${y + 17}" font-size="12" fill="${COL_HDR_TXT}" font-weight="700" text-anchor="end">AMOUNT</text>`,
         );
         p(
-          `<text x="${M + COL_W + COL_GAP + 26}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`,
+          `<text x="${M + COL_W + COL_GAP + 26}" y="${y + 17}" font-size="12" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5">DESCRIPTION</text>`,
         );
         p(
-          `<text x="${M + CW - 4}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" text-anchor="end">AMOUNT</text>`,
+          `<text x="${M + CW - 4}" y="${y + 17}" font-size="12" fill="${COL_HDR_TXT}" font-weight="700" text-anchor="end">AMOUNT</text>`,
         );
         y += THDR_H;
 
@@ -7149,39 +7256,51 @@ class FinancialReportsComponent {
         nonEmptyGroups.forEach((group) => {
           if (showGroupHeaders) {
             const isPending = group.key === "__pending__";
-            const barBg = isPending ? "#fef3c7" : "#f1f5f9";
-            const barTxt = isPending ? "#b45309" : "#475569";
+            const barBg = isPending ? "rgba(245,158,11,0.14)" : "rgba(148,163,184,0.10)";
+            const barTxt = isPending ? "#fbbf24" : "#cbd5e1";
             p(
-              `<rect x="${M}" y="${y}" width="${CW}" height="16" fill="${barBg}"/>`,
+              `<rect x="${M}" y="${y}" width="${CW}" height="18" fill="${barBg}"/>`,
             );
             p(
-              `<text x="${M + 6}" y="${y + 12}" font-size="9" fill="${barTxt}" font-weight="700" letter-spacing="0.5">${group.emoji} ${this._svgEsc(group.label.toUpperCase())}</text>`,
+              `<text x="${M + 6}" y="${y + 13}" font-size="11" fill="${barTxt}" font-weight="700" letter-spacing="0.5">${group.emoji} ${this._svgEsc(group.label.toUpperCase())}</text>`,
             );
-            y += 16;
+            y += 18;
           }
 
-          // Newspaper flow within this group: first half fills left col
-          // top-to-bottom, second half fills right col.
+          // Balance the two columns by cumulative height rather than a
+          // strict first-half/second-half count split, so a short right
+          // column doesn't leave a block of dead space under it — each
+          // item goes to whichever column is currently shorter, still in
+          // original (top-to-bottom) order.
           const items = group.entries.map((e) => e.item);
           const metas = items.map(rowMetaFn);
-          const split = Math.ceil(items.length / 2);
-          const leftItems = items.slice(0, split);
-          const leftMetas = metas.slice(0, split);
-          const rightItems = items.slice(split);
-          const rightMetas = metas.slice(split);
+          const leftItems = [];
+          const leftMetas = [];
+          const rightItems = [];
+          const rightMetas = [];
+          let leftTally = 0;
+          let rightTally = 0;
+          items.forEach((item, idx) => {
+            const meta = metas[idx];
+            if (leftTally <= rightTally) {
+              leftItems.push(item);
+              leftMetas.push(meta);
+              leftTally += meta.rowH;
+            } else {
+              rightItems.push(item);
+              rightMetas.push(meta);
+              rightTally += meta.rowH;
+            }
+          });
           const contentStartY = y;
 
           let leftY = contentStartY;
           leftItems.forEach((item, li) => {
             const meta = leftMetas[li];
             const itemH = meta.rowH;
-            if (li % 2 === 1)
-              p(
-                `<rect x="${M}" y="${leftY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
-              );
             rowRenderer(item, meta, itemH, M, leftY, COL_W);
             p(
-              `<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+              `<line x1="${M}" y1="${leftY + itemH}" x2="${M + COL_W}" y2="${leftY + itemH}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
             );
             leftY += itemH;
           });
@@ -7190,13 +7309,9 @@ class FinancialReportsComponent {
           rightItems.forEach((item, ri) => {
             const meta = rightMetas[ri];
             const itemH = meta.rowH;
-            if (ri % 2 === 1)
-              p(
-                `<rect x="${M + COL_W + COL_GAP}" y="${rightY}" width="${COL_W}" height="${itemH}" fill="${ROW_ALT_BG}"/>`,
-              );
             rowRenderer(item, meta, itemH, M + COL_W + COL_GAP, rightY, COL_W);
             p(
-              `<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+              `<line x1="${M + COL_W + COL_GAP}" y1="${rightY + itemH}" x2="${M + CW}" y2="${rightY + itemH}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
             );
             rightY += itemH;
           });
@@ -7216,7 +7331,7 @@ class FinancialReportsComponent {
     const renderIncomeRow = (item, meta, pairH, colX, rowY, colW) => {
       if (item.isPending) {
         p(
-          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="#fffde7"/>`,
+          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="rgba(245,158,11,0.09)"/>`,
         );
       }
       const investor = this.investors.find(
@@ -7228,48 +7343,48 @@ class FinancialReportsComponent {
       renderCircleAvatar(investor?.avatar || null, name, cx, cy);
       meta.descLines.forEach((line, li) => {
         p(
-          `<text x="${colX + 34}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
+          `<text x="${colX + 34}" y="${rowY + 18 + li * 18}" font-size="15" fill="${TEXT_PRIMARY}">${this._svgEsc(line)}</text>`,
         );
       });
       if (meta.noteLines.length > 0) {
-        const noteStartY = rowY + 16 + meta.descLines.length * 16 + 2;
+        const noteStartY = rowY + 18 + meta.descLines.length * 18 + 2;
         meta.noteLines.forEach((line, li) => {
           p(
-            `<text x="${colX + 34}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
+            `<text x="${colX + 34}" y="${noteStartY + li * 16}" font-size="13" fill="${META_TXT}" font-style="italic">${this._svgEsc(line)}</text>`,
           );
         });
       }
       const metaBaseY =
-        rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
+        rowY + 18 + meta.descLines.length * 18 + meta.noteLines.length * 16 + 2;
       if (meta.subtitle) {
         p(
-          `<text x="${colX + 34}" y="${metaBaseY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+          `<text x="${colX + 34}" y="${metaBaseY}" font-size="12" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
       }
       if (meta.paidByPersons && meta.paidByPersons.length > 0) {
         renderPersonCluster(
           meta.paidByPersons,
           colX,
-          metaBaseY + (meta.subtitle ? 1 : -14),
+          metaBaseY + (meta.subtitle ? 2 : -16),
         );
       }
-      const amountColor = item.isPending ? "#b45309" : "#16a34a";
+      const amountColor = item.isPending ? PENDING_AMOUNT_CLR : INCOME_CLR;
       p(
-        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="${amountColor}" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
+        `<text x="${colX + colW - 4}" y="${rowY + 18}" font-size="15" fill="${amountColor}" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
       );
       if (item.isPending) {
-        const bW = 52;
+        const bW = 58;
         const bX = colX + colW - 4 - bW;
         p(
-          `<rect x="${bX}" y="${rowY + 21}" width="${bW}" height="13" rx="6" fill="#f59e0b"/>`,
+          `<rect x="${bX}" y="${rowY + 24}" width="${bW}" height="15" rx="7" fill="#f59e0b"/>`,
         );
         p(
-          `<text x="${bX + bW / 2}" y="${rowY + 31}" font-size="8" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
+          `<text x="${bX + bW / 2}" y="${rowY + 35}" font-size="10" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
         );
       } else {
         const curr = item.currency || "SGD";
         p(
-          `<text x="${colX + colW - 4}" y="${rowY + 30}" font-size="10" fill="${META_TXT}" text-anchor="end">${curr}</text>`,
+          `<text x="${colX + colW - 4}" y="${rowY + 34}" font-size="12" fill="${META_TXT}" text-anchor="end">${curr}</text>`,
         );
       }
     };
@@ -7288,7 +7403,7 @@ class FinancialReportsComponent {
     const renderExpenseRow = (item, meta, pairH, colX, rowY, colW) => {
       if (item.isPending) {
         p(
-          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="#fffde7"/>`,
+          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="rgba(245,158,11,0.09)"/>`,
         );
       }
       const investor = this.investors.find(
@@ -7300,43 +7415,43 @@ class FinancialReportsComponent {
       renderCircleAvatar(investor?.avatar || null, name, cx, cy);
       meta.descLines.forEach((line, li) => {
         p(
-          `<text x="${colX + 34}" y="${rowY + 16 + li * 16}" font-size="13" fill="#0f172a">${this._svgEsc(line)}</text>`,
+          `<text x="${colX + 34}" y="${rowY + 18 + li * 18}" font-size="15" fill="${TEXT_PRIMARY}">${this._svgEsc(line)}</text>`,
         );
       });
       if (meta.noteLines.length > 0) {
-        const noteStartY = rowY + 16 + meta.descLines.length * 16 + 2;
+        const noteStartY = rowY + 18 + meta.descLines.length * 18 + 2;
         meta.noteLines.forEach((line, li) => {
           p(
-            `<text x="${colX + 34}" y="${noteStartY + li * 14}" font-size="11" fill="#64748b" font-style="italic">${this._svgEsc(line)}</text>`,
+            `<text x="${colX + 34}" y="${noteStartY + li * 16}" font-size="13" fill="${META_TXT}" font-style="italic">${this._svgEsc(line)}</text>`,
           );
         });
       }
       const metaBaseY =
-        rowY + 16 + meta.descLines.length * 16 + meta.noteLines.length * 14 + 2;
+        rowY + 18 + meta.descLines.length * 18 + meta.noteLines.length * 16 + 2;
       if (meta.subtitle) {
         p(
-          `<text x="${colX + 34}" y="${metaBaseY}" font-size="10" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
+          `<text x="${colX + 34}" y="${metaBaseY}" font-size="12" fill="${META_TXT}">${this._svgEsc(meta.subtitle)}</text>`,
         );
       }
       if (meta.paidToPersons && meta.paidToPersons.length > 0) {
         renderPersonCluster(
           meta.paidToPersons,
           colX,
-          metaBaseY + (meta.subtitle ? 1 : -14),
+          metaBaseY + (meta.subtitle ? 2 : -16),
         );
       }
-      const expAmountColor = item.isPending ? "#b45309" : "#dc2626";
+      const expAmountColor = item.isPending ? PENDING_AMOUNT_CLR : EXPENSE_CLR;
       p(
-        `<text x="${colX + colW - 4}" y="${rowY + 16}" font-size="13" fill="${expAmountColor}" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
+        `<text x="${colX + colW - 4}" y="${rowY + 18}" font-size="15" fill="${expAmountColor}" font-weight="700" text-anchor="end">$${(item.amount || 0).toFixed(2)}</text>`,
       );
       if (item.isPending) {
-        const bW = 52;
+        const bW = 58;
         const bX = colX + colW - 4 - bW;
         p(
-          `<rect x="${bX}" y="${rowY + 21}" width="${bW}" height="13" rx="6" fill="#f59e0b"/>`,
+          `<rect x="${bX}" y="${rowY + 24}" width="${bW}" height="15" rx="7" fill="#f59e0b"/>`,
         );
         p(
-          `<text x="${bX + bW / 2}" y="${rowY + 31}" font-size="8" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
+          `<text x="${bX + bW / 2}" y="${rowY + 35}" font-size="10" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
         );
       }
     };
@@ -7361,28 +7476,28 @@ class FinancialReportsComponent {
       `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ROW_DIV}" stroke-width="1"/>`,
     );
     p(
-      `<text x="${cell * 0 + cell / 2}" y="${y + 16}" font-size="10" fill="${DEEP_BLUE}" text-anchor="middle" font-weight="700" letter-spacing="1.5">TOTAL INCOME</text>`,
+      `<text x="${cell * 0 + cell / 2}" y="${y + 20}" font-size="12" fill="${LABEL_CLR}" text-anchor="middle" font-weight="700" letter-spacing="1.5">TOTAL INCOME</text>`,
     );
     p(
-      `<text x="${cell * 0 + cell / 2}" y="${y + 44}" font-size="20" fill="${INCOME_CLR}" text-anchor="middle" font-weight="700">$${totalIncome.toFixed(2)}</text>`,
+      `<text x="${cell * 0 + cell / 2}" y="${y + 50}" font-size="22" fill="${INCOME_CLR}" text-anchor="middle" font-weight="700">$${totalIncome.toFixed(2)}</text>`,
     );
     p(
       `<line x1="${cell}" y1="${y + 8}" x2="${cell}" y2="${y + SUMMARY_H - 8}" stroke="${ROW_DIV}" stroke-width="1"/>`,
     );
     p(
-      `<text x="${cell * 1 + cell / 2}" y="${y + 16}" font-size="10" fill="${DEEP_BLUE}" text-anchor="middle" font-weight="700" letter-spacing="1.5">TOTAL EXPENSES</text>`,
+      `<text x="${cell * 1 + cell / 2}" y="${y + 20}" font-size="12" fill="${LABEL_CLR}" text-anchor="middle" font-weight="700" letter-spacing="1.5">TOTAL EXPENSES</text>`,
     );
     p(
-      `<text x="${cell * 1 + cell / 2}" y="${y + 44}" font-size="20" fill="${EXPENSE_CLR}" text-anchor="middle" font-weight="700">$${totalExpenses.toFixed(2)}</text>`,
+      `<text x="${cell * 1 + cell / 2}" y="${y + 50}" font-size="22" fill="${EXPENSE_CLR}" text-anchor="middle" font-weight="700">$${totalExpenses.toFixed(2)}</text>`,
     );
     p(
       `<line x1="${cell * 2}" y1="${y + 8}" x2="${cell * 2}" y2="${y + SUMMARY_H - 8}" stroke="${ROW_DIV}" stroke-width="1"/>`,
     );
     p(
-      `<text x="${cell * 2 + cell / 2}" y="${y + 16}" font-size="10" fill="${DEEP_BLUE}" text-anchor="middle" font-weight="700" letter-spacing="1.5">NET PROFIT</text>`,
+      `<text x="${cell * 2 + cell / 2}" y="${y + 20}" font-size="12" fill="${LABEL_CLR}" text-anchor="middle" font-weight="700" letter-spacing="1.5">NET PROFIT</text>`,
     );
     p(
-      `<text x="${cell * 2 + cell / 2}" y="${y + 44}" font-size="20" fill="${netColor}" text-anchor="middle" font-weight="700">$${netProfit.toFixed(2)}</text>`,
+      `<text x="${cell * 2 + cell / 2}" y="${y + 50}" font-size="22" fill="${netColor}" text-anchor="middle" font-weight="700">$${netProfit.toFixed(2)}</text>`,
     );
     p(
       `<line x1="0" y1="${y + SUMMARY_H}" x2="${W}" y2="${y + SUMMARY_H}" stroke="${ROW_DIV}" stroke-width="1"/>`,
@@ -7391,19 +7506,19 @@ class FinancialReportsComponent {
 
     // ── Investor distribution ─────────────────────────────────────
     p(
-      `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${DEEP_BLUE}"/>`,
+      `<rect x="0" y="${y}" width="${W}" height="${SEC_H}" fill="${PANEL_BG}"/>`,
     );
     p(`<rect x="0" y="${y}" width="4" height="${SEC_H}" fill="${BRAND}"/>`);
     p(
-      `<text x="${M + 8}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" letter-spacing="1">INVESTOR DISTRIBUTION</text>`,
+      `<text x="${M + 8}" y="${y + 23}" font-size="15" fill="#ffffff" font-weight="700" letter-spacing="1">INVESTOR DISTRIBUTION</text>`,
     );
     y += SEC_H;
 
     if (investorData.length === 0) {
       p(
-        `<text x="${W / 2}" y="${y + 18}" font-size="13" fill="${ITEM_CNT}" text-anchor="middle">No investor data configured</text>`,
+        `<text x="${W / 2}" y="${y + 20}" font-size="15" fill="${ITEM_CNT}" text-anchor="middle">No investor data configured</text>`,
       );
-      y += 28;
+      y += 32;
     } else {
       const IC = {
         name: { x: M + 34, anchor: "start" },
@@ -7425,42 +7540,37 @@ class FinancialReportsComponent {
         ["FINAL", IC.final.x, IC.final.anchor],
       ].forEach(([label, x, anchor]) => {
         p(
-          `<text x="${x}" y="${y + 15}" font-size="10" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5" text-anchor="${anchor}">${label}</text>`,
+          `<text x="${x}" y="${y + 18}" font-size="12" fill="${COL_HDR_TXT}" font-weight="700" letter-spacing="0.5" text-anchor="${anchor}">${label}</text>`,
         );
       });
       y += THDR_H;
 
-      investorData.forEach((inv, ri) => {
+      investorData.forEach((inv) => {
         const rowY = y;
-        if (ri % 2 === 1) {
-          p(
-            `<rect x="${M}" y="${rowY}" width="${CW}" height="${INV_ROW_H}" fill="${ROW_ALT_BG}"/>`,
-          );
-        }
         const cx = M + 16;
         const cy = rowY + Math.floor(INV_ROW_H / 2);
         renderCircleAvatar(inv.avatar || null, inv.name, cx, cy);
         p(
-          `<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" font-weight="600">${this._svgEsc(this._svgTrunc(inv.name, 22))}</text>`,
+          `<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" font-weight="600">${this._svgEsc(this._svgTrunc(inv.name, 22))}</text>`,
         );
         p(
-          `<text x="${IC.share.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="middle">${inv.percentage}%</text>`,
+          `<text x="${IC.share.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" text-anchor="middle">${inv.percentage}%</text>`,
         );
         p(
-          `<text x="${IC.profit.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="end">$${inv.profitShare.toFixed(2)}</text>`,
+          `<text x="${IC.profit.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" text-anchor="end">$${inv.profitShare.toFixed(2)}</text>`,
         );
         p(
-          `<text x="${IC.paid.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="end">$${inv.paidAmount.toFixed(2)}</text>`,
+          `<text x="${IC.paid.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" text-anchor="end">$${inv.paidAmount.toFixed(2)}</text>`,
         );
         p(
-          `<text x="${IC.recv.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="13" fill="#0f172a" text-anchor="end">$${inv.receivedAmount.toFixed(2)}</text>`,
+          `<text x="${IC.recv.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" text-anchor="end">$${inv.receivedAmount.toFixed(2)}</text>`,
         );
         const finC = inv.finalAmount >= 0 ? INCOME_CLR : EXPENSE_CLR;
         p(
-          `<text x="${IC.final.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="14" fill="${finC}" font-weight="700" text-anchor="end">$${inv.finalAmount.toFixed(2)}</text>`,
+          `<text x="${IC.final.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="16" fill="${finC}" font-weight="700" text-anchor="end">$${inv.finalAmount.toFixed(2)}</text>`,
         );
         p(
-          `<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="${ROW_DIV}" stroke-width="1"/>`,
+          `<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
         );
         y += INV_ROW_H;
       });
@@ -7473,18 +7583,19 @@ class FinancialReportsComponent {
       `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ROW_DIV}" stroke-width="1"/>`,
     );
     y += 1;
-    p(`<rect x="0" y="${y}" width="${W}" height="24" fill="${FOOTER_BG}"/>`);
+    p(`<rect x="0" y="${y}" width="${W}" height="28" fill="${FOOTER_BG}"/>`);
     p(
-      `<text x="${W / 2}" y="${y + 16}" font-size="10" fill="${META_TXT}" text-anchor="middle">All amounts in SGD unless noted otherwise  ·  Auto-generated report</text>`,
+      `<text x="${W / 2}" y="${y + 19}" font-size="12" fill="${META_TXT}" text-anchor="middle">All amounts in SGD unless noted otherwise  ·  Auto-generated report</text>`,
     );
-    y += 24;
+    y += 28;
 
     const totalH = y + 4;
     const defsBlock = `<defs>${fontFaceStyle}${defs.join("")}</defs>`;
     return (
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Noto Serif,serif" font-size="13">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" font-family="Noto Serif,serif" font-size="15">` +
       defsBlock +
-      `<rect width="${W}" height="${totalH}" fill="#ffffff"/>` +
+      `<rect width="${W}" height="${totalH}" fill="${BASE_BG}"/>` +
+      `<rect width="${W}" height="${totalH}" fill="url(#bgHaze)"/>` +
       nodes.join("") +
       `</svg>`
     );
