@@ -9,6 +9,13 @@ import {
   renderCategoryChipsHtml,
   groupItemsByCategory,
 } from "../utils/financial-category-map.js";
+import {
+  getModeTokens,
+  getNeutralTokens,
+  getPendingTokens,
+  getBadgeTokens,
+  getBannerTokens,
+} from "../utils/financial-report-theme.js";
 
 /**
  * Financial Reports Component
@@ -62,7 +69,6 @@ class FinancialReportsComponent {
     this.bindEvents();
     this._propertiesPromise = this.loadProperties();
     if (window.isAdmin && window.isAdmin()) this.loadAllInvestors();
-    this.addInvestorPanelStyles();
 
     // Initial cleanup to ensure no leftover modals from previous sessions
     this.forceCleanupModalBackdrops();
@@ -589,42 +595,6 @@ class FinancialReportsComponent {
       `;
       document.head.appendChild(style);
     }
-  }
-
-  // Styles for the retheme dark "Investor Calculations" card (header icon
-  // buttons + Net Profit colour) — companion to the profit/loss haze applied
-  // inline by _applyInvestorPanelTheme().
-  addInvestorPanelStyles() {
-    if (document.getElementById("investor-panel-styles")) return;
-    const style = document.createElement("style");
-    style.id = "investor-panel-styles";
-    style.textContent = `
-      .fr-header-icon-btn {
-        background: rgba(255,255,255,0.06) !important;
-        border: 1px solid rgba(255,255,255,0.14) !important;
-        color: #e2e8f0 !important;
-        font-weight: 600;
-        padding: 6px 12px;
-        min-width: 44px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        transition: background 0.15s ease, border-color 0.15s ease;
-      }
-      .fr-header-icon-btn i { color: inherit; }
-      .fr-header-icon-btn:hover {
-        background: rgba(255,255,255,0.14) !important;
-        border-color: rgba(255,255,255,0.28) !important;
-        color: #ffffff !important;
-      }
-      .fr-profit-pos {
-        color: #4ade80 !important;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.85);
-      }
-      .fr-profit-neg {
-        color: #fca5a5 !important;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.85);
-      }
-    `;
-    document.head.appendChild(style);
   }
 
   setPropertyFilter(filter) {
@@ -1685,9 +1655,8 @@ class FinancialReportsComponent {
       // No report loaded - show $0.00
       if (netProfitEl) {
         netProfitEl.textContent = "$0.00";
-        netProfitEl.className = "fr-profit-pos mb-0";
+        netProfitEl.className = "text-success mb-0";
       }
-      this._applyInvestorPanelTheme(0);
       return;
     }
 
@@ -1698,32 +1667,8 @@ class FinancialReportsComponent {
     if (netProfitEl) {
       netProfitEl.textContent = `$${netProfit.toFixed(2)}`;
       netProfitEl.className =
-        netProfit >= 0 ? "fr-profit-pos mb-0" : "fr-profit-neg mb-0";
+        netProfit >= 0 ? "text-success mb-0" : "text-danger mb-0";
     }
-    this._applyInvestorPanelTheme(netProfit);
-  }
-
-  // Retheme the "Investor Calculations" card (header + body panel) to a
-  // dark background with a soft haze of the mode colour — green while the
-  // month is profitable, red at a loss. Mirrors the exported report image's
-  // theme so the live edit view and the export look like one system.
-  _applyInvestorPanelTheme(netProfit) {
-    const header = document.getElementById("investorCardHeader");
-    const card = document.getElementById("investorCard");
-    if (!header || !card) return;
-
-    const isProfit = netProfit >= 0;
-    const haze = isProfit
-      ? "rgba(34,197,94,0.16)"
-      : "rgba(239,68,68,0.16)";
-    const base = isProfit ? "#0e1f16" : "#20100f";
-    const bodyBase = isProfit ? "#0a120d" : "#140a0a";
-    const gradient = `radial-gradient(140% 160% at 100% 0%, ${haze} 0%, transparent 60%), ${base}`;
-    const bodyGradient = `radial-gradient(120% 140% at 100% 0%, ${haze} 0%, transparent 55%), ${bodyBase}`;
-
-    header.style.background = gradient;
-    const body = card.querySelector(".card-body");
-    if (body) body.style.background = bodyGradient;
   }
 
   updateInvestorDisplay() {
@@ -1747,7 +1692,7 @@ class FinancialReportsComponent {
     // For open reports or reports without snapshot, calculate dynamically
     if (!this.investors || this.investors.length === 0) {
       investorDistribution.innerHTML = `
-                <div class="text-center py-3" style="color:#94a3b8;">
+                <div class="text-center text-muted py-3">
                     <i class="bi bi-person-lines-fill fs-1"></i>
                     <p class="mt-2">No investors configured for this property</p>
                 </div>
@@ -1767,7 +1712,7 @@ class FinancialReportsComponent {
     let html = `
       <div style="overflow-x:auto;">
         <div style="min-width:640px;">
-          ${this._investorGridHeaderHtml(true, netProfit)}
+          ${this._investorGridHeaderHtml(true)}
     `;
 
     this.investors.forEach((investor) => {
@@ -1833,7 +1778,6 @@ class FinancialReportsComponent {
         receivedAmount,
         finalAmount,
         actionsHtml,
-        netProfit,
       });
     });
 
@@ -1863,14 +1807,11 @@ class FinancialReportsComponent {
     return withActions ? `${base} 100px` : base;
   }
 
-  _investorGridHeaderHtml(withActions, netProfit = 0) {
-    const isProfit = netProfit >= 0;
-    const headerBg = isProfit ? "#132a1d" : "#2c1414";
-    const headerTxt = isProfit ? "#86efac" : "#fca5a5";
+  _investorGridHeaderHtml(withActions) {
     const cell = (label, opts = {}) => `
-      <div style="${opts.align ? `text-align:${opts.align};` : ""}font-weight:600;font-size:0.8rem;color:${headerTxt};">${label}</div>`;
+      <div style="${opts.align ? `text-align:${opts.align};` : ""}font-weight:600;font-size:0.8rem;">${label}</div>`;
     return `
-      <div style="display:grid;grid-template-columns:${this._investorGridColumns(withActions)};gap:8px;align-items:center;padding:8px;background:${headerBg};border-radius:4px 4px 0 0;">
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(withActions)};gap:8px;align-items:center;padding:8px;background:#cff4fc;border-radius:4px 4px 0 0;">
         ${cell("Investor")}
         ${cell("Share %", { align: "center" })}
         ${cell("Profit Share", { align: "right" })}
@@ -1890,13 +1831,11 @@ class FinancialReportsComponent {
     receivedAmount,
     finalAmount,
     actionsHtml,
-    netProfit = 0,
   }) {
-    // Dark-theme row colours (brightened for legibility on a near-black
-    // panel) — same semantic mapping as before (positive/negative,
-    // paid/received present or not), just recoloured for the new theme.
-    const rowDiv =
-      netProfit >= 0 ? "rgba(134,239,172,0.14)" : "rgba(252,165,165,0.14)";
+    // Bootstrap's text-* utility classes (text-primary, text-danger, etc.)
+    // are NOT table-scoped, so they render identically on a div as they did
+    // on a <td> — reused as-is rather than reimplemented via inline colors,
+    // to guarantee the exact same visual output as before.
     const cell = (content, opts = {}) => `
       <div class="small ${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
@@ -1912,13 +1851,13 @@ class FinancialReportsComponent {
         )}</div>`;
 
     return `
-      <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid ${rowDiv};">
-        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold" style="color:#e2e8f0;">${escapeHtml(name)}</span></div>`)}
-        ${cell(`${percentage}%`, { align: "center", cls: "fw-bold", style: "color:#e2e8f0;" })}
-        ${cell(`$${profitShare.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${profitShare >= 0 ? "#60a5fa" : "#f87171"};` })}
-        ${cell(`$${paidAmount.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${paidAmount > 0 ? "#fbbf24" : "#64748b"};` })}
-        ${cell(`$${receivedAmount.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${receivedAmount > 0 ? "#22d3ee" : "#64748b"};` })}
-        ${cell(`$${finalAmount.toFixed(2)}`, { align: "right", style: `font-size:16px;color:${finalAmount >= 0 ? "#4ade80" : "#f87171"};`, cls: "fw-bold" })}
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5;">
+        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold">${escapeHtml(name)}</span></div>`)}
+        ${cell(`${percentage}%`, { align: "center", cls: "fw-bold" })}
+        ${cell(`$${profitShare.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: profitShare >= 0 ? "text-primary" : "text-danger" })}
+        ${cell(`$${paidAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: paidAmount > 0 ? "text-warning" : "text-muted" })}
+        ${cell(`$${receivedAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: receivedAmount > 0 ? "text-info" : "text-muted" })}
+        ${cell(`$${finalAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: `fw-bold ${finalAmount >= 0 ? "text-success" : "text-danger"}` })}
         ${actionsHtml ? cell(actionsHtml, { align: "center" }) : ""}
       </div>`;
   }
@@ -1933,7 +1872,7 @@ class FinancialReportsComponent {
 
     if (!snapshot || snapshot.length === 0) {
       investorDistribution.innerHTML = `
-                <div class="text-center py-3" style="color:#94a3b8;">
+                <div class="text-center text-muted py-3">
                     <i class="bi bi-person-lines-fill fs-1"></i>
                     <p class="mt-2">No investor data available for this closed report</p>
                 </div>
@@ -1944,13 +1883,10 @@ class FinancialReportsComponent {
     // Same CSS Grid "table" as updateInvestorDisplay() (see
     // _investorGridHeaderHtml/_investorGridRowHtml) — frozen data, no action
     // buttons, so the trailing Actions column is simply omitted.
-    const netProfit =
-      (this.currentReport.totalIncome || 0) -
-      (this.currentReport.totalExpenses || 0);
     let html = `
       <div style="overflow-x:auto;">
         <div style="min-width:640px;">
-          ${this._investorGridHeaderHtml(false, netProfit)}
+          ${this._investorGridHeaderHtml(false)}
     `;
 
     snapshot.forEach((investorData) => {
@@ -1972,7 +1908,6 @@ class FinancialReportsComponent {
         paidAmount,
         receivedAmount,
         finalAmount,
-        netProfit,
       });
     });
 
@@ -6801,29 +6736,38 @@ class FinancialReportsComponent {
     // Dark "profit vs loss" theme: near-black base with a soft haze of the
     // mode colour (green when in profit, red when at a loss) — same visual
     // language across the exported image and the live edit-mode panel.
+    // Every value below is read from the shared financial-report-theme
+    // module (not hand-typed here) so the export image and the live UI
+    // can never drift out of sync again — see that file to retheme both
+    // at once, or to add a second palette for a future theme switcher.
     const isProfit = netProfit >= 0;
-    const MODE_CLR = isProfit ? "#22c55e" : "#ef4444"; // primary mode accent
-    const MODE_CLR_SOFT = isProfit ? "#4ade80" : "#f87171"; // lighter accent (glows, gradients)
-    const BASE_BG = isProfit ? "#0a120d" : "#140a0a"; // whole-image base background
-    const BRAND = "#2dd4bf"; // teal (logo underline) — brightened for dark bg
-    const PANEL_BG = isProfit ? "#0e1f16" : "#20100f"; // header / section-bar backgrounds
-    const COL_HDR_BG = isProfit ? "#132a1d" : "#2c1414"; // column header row bg
-    const COL_HDR_TXT = isProfit ? "#86efac" : "#fca5a5"; // column header text
-    const ROW_DIV = isProfit
-      ? "rgba(134,239,172,0.16)"
-      : "rgba(252,165,165,0.16)"; // row / section separator lines
+    const mode = getModeTokens(isProfit);
+    const neutralTokens = getNeutralTokens();
+    const pendingTokensSvg = getPendingTokens();
+    const badgeTokensSvg = getBadgeTokens();
+    const MODE_CLR = mode.accent; // primary mode accent
+    const MODE_CLR_SOFT = mode.accentSoft; // lighter accent (glows, gradients)
+    const BASE_BG = mode.base; // whole-image base background
+    const BRAND = neutralTokens.brand; // teal (logo underline)
+    const PANEL_BG = mode.panel; // header / section-bar backgrounds
+    const COL_HDR_BG = mode.colHeaderBg; // column header row bg
+    const COL_HDR_TXT = mode.colHeaderText; // column header text
+    const ROW_DIV = mode.rowDivider; // row / section separator lines
     const ROW_DIV_FADE = "url(#rowDivGrad)"; // item-row dividers: soft edge-to-edge fade instead of a flat line
-    const SUMMARY_BG = isProfit ? "#0f2419" : "#241010"; // summary bar bg
-    const FOOTER_BG = isProfit ? "#0a1a12" : "#1c0d0d"; // footer bg
-    const ITEM_CNT = isProfit ? "#86efac" : "#fca5a5"; // item-count text in section header
-    const LABEL_CLR = "#94a3b8"; // small caption labels (TOTAL INCOME, etc.)
-    const META_TXT = "#94a3b8"; // subtitle / date / currency
-    const TEXT_PRIMARY = "#e2e8f0"; // main row text (descriptions, names) on dark bg
-    const INCOME_CLR = "#4ade80"; // brightened for legibility on dark bg
-    const EXPENSE_CLR = "#f87171"; // brightened for legibility on dark bg
-    const PENDING_AMOUNT_CLR = "#fbbf24"; // pending $ amounts (brightened amber)
-    const BADGE_BG = "rgba(148,163,184,0.16)"; // neutral chip bg (room-type badge)
-    const BADGE_TXT = "#cbd5e1"; // neutral chip text
+    const SUMMARY_BG = mode.summaryBg; // summary bar bg
+    const FOOTER_BG = mode.footerBg; // footer bg
+    const ITEM_CNT = mode.colHeaderText; // item-count text in section header
+    const LABEL_CLR = neutralTokens.textMuted; // small caption labels (TOTAL INCOME, etc.)
+    const META_TXT = neutralTokens.textMuted; // subtitle / date / currency
+    const TEXT_PRIMARY = neutralTokens.textPrimary; // main row text (descriptions, names) on dark bg
+    // Income/Expenses rows keep their fixed green/red identity regardless
+    // of the overall profit/loss mode above.
+    const INCOME_CLR = getModeTokens(true).accentSoft;
+    const EXPENSE_CLR = getModeTokens(false).accentSoft;
+    const PENDING_AMOUNT_CLR = pendingTokensSvg.text; // pending $ amounts
+    const BADGE_BG = badgeTokensSvg.bg; // neutral chip bg (room-type badge)
+    const BADGE_TXT = badgeTokensSvg.text; // neutral chip text
+    const bannerTokensSvg = getBannerTokens(); // fixed alert colors (CLOSED badge, PUB overage) — not mode-dependent
 
     // Layout constants
     const W = 800;
@@ -6916,7 +6860,7 @@ class FinancialReportsComponent {
 
       // Small arrow indicator
       p(
-        `<text x="${startX}" y="${rowY + R + 3}" font-size="11" fill="#94a3b8" font-weight="600">→</text>`,
+        `<text x="${startX}" y="${rowY + R + 3}" font-size="11" fill="${META_TXT}" font-weight="600">→</text>`,
       );
 
       const avatarStartX = startX + 13;
@@ -6924,7 +6868,7 @@ class FinancialReportsComponent {
         const cx = avatarStartX + R + idx * STEP;
         const cy = rowY + R;
         if (person.isUnknown) {
-          p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="#f59e0b"/>`);
+          p(`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${pendingTokensSvg.badgeBg}"/>`);
           p(
             `<text x="${cx}" y="${cy + 4}" font-size="11" fill="#fff" font-weight="700" text-anchor="middle">?</text>`,
           );
@@ -7007,7 +6951,7 @@ class FinancialReportsComponent {
     );
     if (report.isClosed) {
       p(
-        `<rect x="${W - M - 74}" y="6" width="70" height="18" rx="9" fill="#dc2626"/>`,
+        `<rect x="${W - M - 74}" y="6" width="70" height="18" rx="9" fill="${bannerTokensSvg.danger.border}"/>`,
       );
       p(
         `<text x="${W - M - 39}" y="19" font-size="12" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">CLOSED</text>`,
@@ -7038,23 +6982,23 @@ class FinancialReportsComponent {
       const _badgeW = _excess.toFixed(2).length * 8 + 32;
       // Strip background + left accent
       p(
-        `<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="rgba(239,68,68,0.12)"/>`,
+        `<rect x="0" y="${y}" width="${W}" height="${OVPUB_H}" fill="${bannerTokensSvg.danger.bg}"/>`,
       );
-      p(`<rect x="0" y="${y}" width="5" height="${OVPUB_H}" fill="#ef4444"/>`);
+      p(`<rect x="0" y="${y}" width="5" height="${OVPUB_H}" fill="${bannerTokensSvg.danger.border}"/>`);
       p(
         `<line x1="0" y1="${y + OVPUB_H}" x2="${W}" y2="${y + OVPUB_H}" stroke="rgba(239,68,68,0.3)" stroke-width="1"/>`,
       );
       // Label
       p(
-        `<text x="14" y="${y + 21}" font-size="13" fill="#fca5a5" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`,
+        `<text x="14" y="${y + 21}" font-size="13" fill="${bannerTokensSvg.danger.text}" font-weight="700" letter-spacing="0.5">PUB OVERAGE</text>`,
       );
       // Detail
       p(
-        `<text x="122" y="${y + 21}" font-size="13" fill="#fecaca">${_detail}</text>`,
+        `<text x="122" y="${y + 21}" font-size="13" fill="${bannerTokensSvg.danger.text}">${_detail}</text>`,
       );
       // Badge pill
       p(
-        `<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="22" rx="11" fill="#dc2626"/>`,
+        `<rect x="${W - M - _badgeW}" y="${y + 6}" width="${_badgeW}" height="22" rx="11" fill="${bannerTokensSvg.danger.border}"/>`,
       );
       p(
         `<text x="${W - M - _badgeW / 2}" y="${y + 21}" font-size="13" fill="#ffffff" font-weight="700" text-anchor="middle">${_badgeTxt}</text>`,
@@ -7256,8 +7200,8 @@ class FinancialReportsComponent {
         nonEmptyGroups.forEach((group) => {
           if (showGroupHeaders) {
             const isPending = group.key === "__pending__";
-            const barBg = isPending ? "rgba(245,158,11,0.14)" : "rgba(148,163,184,0.10)";
-            const barTxt = isPending ? "#fbbf24" : "#cbd5e1";
+            const barBg = isPending ? pendingTokensSvg.bgStrong : badgeTokensSvg.bg;
+            const barTxt = isPending ? pendingTokensSvg.text : badgeTokensSvg.text;
             p(
               `<rect x="${M}" y="${y}" width="${CW}" height="18" fill="${barBg}"/>`,
             );
@@ -7331,7 +7275,7 @@ class FinancialReportsComponent {
     const renderIncomeRow = (item, meta, pairH, colX, rowY, colW) => {
       if (item.isPending) {
         p(
-          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="rgba(245,158,11,0.09)"/>`,
+          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="${pendingTokensSvg.bg}"/>`,
         );
       }
       const investor = this.investors.find(
@@ -7376,10 +7320,10 @@ class FinancialReportsComponent {
         const bW = 58;
         const bX = colX + colW - 4 - bW;
         p(
-          `<rect x="${bX}" y="${rowY + 24}" width="${bW}" height="15" rx="7" fill="#f59e0b"/>`,
+          `<rect x="${bX}" y="${rowY + 24}" width="${bW}" height="15" rx="7" fill="${pendingTokensSvg.badgeBg}"/>`,
         );
         p(
-          `<text x="${bX + bW / 2}" y="${rowY + 35}" font-size="10" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
+          `<text x="${bX + bW / 2}" y="${rowY + 35}" font-size="10" fill="${pendingTokensSvg.badgeText}" font-weight="700" text-anchor="middle">PENDING</text>`,
         );
       } else {
         const curr = item.currency || "SGD";
@@ -7403,7 +7347,7 @@ class FinancialReportsComponent {
     const renderExpenseRow = (item, meta, pairH, colX, rowY, colW) => {
       if (item.isPending) {
         p(
-          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="rgba(245,158,11,0.09)"/>`,
+          `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="${pendingTokensSvg.bg}"/>`,
         );
       }
       const investor = this.investors.find(
@@ -7448,10 +7392,10 @@ class FinancialReportsComponent {
         const bW = 58;
         const bX = colX + colW - 4 - bW;
         p(
-          `<rect x="${bX}" y="${rowY + 24}" width="${bW}" height="15" rx="7" fill="#f59e0b"/>`,
+          `<rect x="${bX}" y="${rowY + 24}" width="${bW}" height="15" rx="7" fill="${pendingTokensSvg.badgeBg}"/>`,
         );
         p(
-          `<text x="${bX + bW / 2}" y="${rowY + 35}" font-size="10" fill="#7c2d12" font-weight="700" text-anchor="middle">PENDING</text>`,
+          `<text x="${bX + bW / 2}" y="${rowY + 35}" font-size="10" fill="${pendingTokensSvg.badgeText}" font-weight="700" text-anchor="middle">PENDING</text>`,
         );
       }
     };

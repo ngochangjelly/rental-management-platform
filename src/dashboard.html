@@ -1179,10 +1179,8 @@
         color: #212529 !important;
       }
 
-      /* Color is governed by .fr-profit-pos / .fr-profit-neg (see
-         financial-reports.js) so it reflects profit vs. loss — only
-         fix the size here. */
       #netProfit {
+        color: #212529 !important;
         font-size: 1.75rem !important;
       }
 
@@ -7955,20 +7953,18 @@
                   <!-- Investor Calculations Section -->
                   <div class="row">
                     <div class="col-lg-12 mb-4">
-                      <div class="card" id="investorCard">
+                      <div class="card">
                         <div
-                          id="investorCardHeader"
-                          class="card-header d-flex justify-content-between align-items-center"
+                          class="card-header bg-info text-white d-flex justify-content-between align-items-center"
                           style="
-                            background: #0e1f16;
-                            color: #e2e8f0 !important;
-                            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                            background-color: #0dcaf0 !important;
+                            color: #000 !important;
                           "
                         >
-                          <h6 class="mb-0" style="color: #e2e8f0 !important">
+                          <h6 class="mb-0" style="color: #000 !important">
                             <i
                               class="bi bi-person-lines-fill me-2"
-                              style="color: #e2e8f0 !important"
+                              style="color: #000 !important"
                             ></i
                             >Investor Calculations
                           </h6>
@@ -7976,17 +7972,10 @@
                             class="d-flex align-items-center"
                             style="gap: 16px"
                           >
-                            <div
-                              class="text-center"
-                              style="
-                                background: rgba(0, 0, 0, 0.32);
-                                border-radius: 8px;
-                                padding: 4px 14px;
-                              "
-                            >
+                            <div class="text-center">
                               <div
-                                class="fw-semibold small mb-0"
-                                style="font-size: 0.75rem; color: #94a3b8"
+                                class="text-dark fw-semibold small mb-0"
+                                style="font-size: 0.75rem"
                               >
                                 Net Profit
                               </div>
@@ -8000,36 +7989,84 @@
                             </div>
                             <div class="d-flex" style="gap: 6px">
                               <button
-                                class="btn btn-sm fr-header-icon-btn"
+                                class="btn btn-sm btn-light text-primary"
                                 id="exportFinancialReportBtn"
                                 title="Export Financial Report as PDF"
+                                style="
+                                  background-color: #ffffff !important;
+                                  border: 2px solid #dee2e6 !important;
+                                  color: #0d6efd !important;
+                                  font-weight: 600;
+                                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+                                  padding: 6px 12px;
+                                  min-width: 44px;
+                                "
                               >
-                                <i class="bi bi-file-pdf"></i>
+                                <i
+                                  class="bi bi-file-pdf"
+                                  style="color: #0d6efd !important"
+                                ></i>
                               </button>
                               <button
-                                class="btn btn-sm fr-header-icon-btn"
+                                class="btn btn-sm btn-light"
                                 id="printFinancialReportBtn"
                                 title="Print Financial Report"
+                                style="
+                                  background-color: #ffffff !important;
+                                  border: 2px solid #dee2e6 !important;
+                                  color: #0d6efd !important;
+                                  font-weight: 600;
+                                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+                                  padding: 6px 12px;
+                                  min-width: 44px;
+                                "
                               >
-                                <i class="bi bi-printer"></i>
+                                <i
+                                  class="bi bi-printer"
+                                  style="color: #0d6efd !important"
+                                ></i>
                               </button>
                               <button
-                                class="btn btn-sm fr-header-icon-btn"
+                                class="btn btn-sm btn-light"
                                 id="captureScreenshotBtn"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="bottom"
                                 data-bs-title="Export report as image (⌘K / Ctrl+K)"
+                                style="
+                                  background-color: #ffffff !important;
+                                  border: 2px solid #dee2e6 !important;
+                                  color: #0d6efd !important;
+                                  font-weight: 600;
+                                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+                                  padding: 6px 12px;
+                                  min-width: 44px;
+                                "
                               >
-                                <i class="bi bi-camera"></i>
+                                <i
+                                  class="bi bi-camera"
+                                  style="color: #0d6efd !important"
+                                ></i>
                               </button>
                               <button
-                                class="btn btn-sm fr-header-icon-btn"
+                                class="btn btn-sm btn-light"
                                 id="copyReportSummaryBtn"
                                 data-bs-toggle="tooltip"
                                 data-bs-placement="bottom"
                                 data-bs-title="Copy report summary to clipboard (⌘C / Ctrl+C)"
+                                style="
+                                  background-color: #ffffff !important;
+                                  border: 2px solid #dee2e6 !important;
+                                  color: #0d6efd !important;
+                                  font-weight: 600;
+                                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+                                  padding: 6px 12px;
+                                  min-width: 44px;
+                                "
                               >
-                                <i class="bi bi-clipboard"></i>
+                                <i
+                                  class="bi bi-clipboard"
+                                  style="color: #0d6efd !important"
+                                ></i>
                               </button>
                               <button
                                 class="btn btn-sm btn-warning"
@@ -8123,9 +8160,8 @@
                         <div class="card-body">
                           <div id="investorDistribution">
                             <div
-                              class="text-center py-3"
+                              class="text-center text-muted py-3"
                               id="noInvestorsMessage"
-                              style="color: #94a3b8"
                             >
                               <i class="bi bi-person-lines-fill fs-1"></i>
                               <p class="mt-2">
