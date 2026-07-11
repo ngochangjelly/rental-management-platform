@@ -781,6 +781,10 @@ class FinancialReportsComponent {
     // Show the correct month/year immediately — no network call needed
     this.updateMonthDisplay();
 
+    // Property title + move-in/move-out — this.properties is already
+    // loaded (loadProperties() runs once on init), so this is instant.
+    this._updatePropertyTitleHeader();
+
     // Load investors, tenants, property details, and utility bills in parallel
     await Promise.all([
       this.loadInvestors(propertyId),
@@ -803,6 +807,49 @@ class FinancialReportsComponent {
       ? window.SlugUtils.propertySlug(_propData)
       : this.selectedProperty;
     window.appRouter?.replace(`/financial/${_slug}/${_y}/${_m}`);
+  }
+
+  /**
+   * Shows the selected property's full address as a title above the month
+   * navigation, with its move-in/move-out dates as a small muted subtitle.
+   * Not critical info, so deliberately kept quiet (small + muted) rather
+   * than styled like the address itself.
+   */
+  _updatePropertyTitleHeader() {
+    const header = document.getElementById("propertyTitleHeader");
+    const addressEl = document.getElementById("propertyTitleAddress");
+    const datesEl = document.getElementById("propertyTitleMoveDates");
+    if (!header || !addressEl || !datesEl) return;
+
+    const property = this.properties?.find(
+      (p) => p.propertyId === this.selectedProperty,
+    );
+    if (!property) {
+      header.style.display = "none";
+      return;
+    }
+
+    const addrParts = [property.unit, property.address].filter(Boolean);
+    if (property.postcode && !property.address?.includes(property.postcode)) {
+      addrParts.push(property.postcode);
+    }
+    addressEl.textContent = addrParts.join(" · ") || property.propertyId;
+
+    const fmt = (v) =>
+      v
+        ? new Date(v).toLocaleDateString("en-SG", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : null;
+    const moveIn = fmt(property.moveInDate);
+    const moveOut = fmt(property.moveOutDate);
+    datesEl.textContent = moveIn
+      ? `Move-in: ${moveIn}${moveOut ? `  ·  Move-out: ${moveOut}` : ""}`
+      : "";
+
+    header.style.display = "";
   }
 
   async loadInvestors(propertyId) {
@@ -6489,18 +6536,34 @@ class FinancialReportsComponent {
     modal.show();
   }
 
-  /** Convert an SVG string to a high-resolution PNG Blob (2× scale) */
+  /**
+   * Convert an SVG string to a high-resolution PNG Blob (3× scale, so the
+   * PNG stays crisp when pinch-zoomed after being shared/saved — 2× looked
+   * soft/pixelated once viewers zoomed in). Scale is capped by a safe
+   * total-pixel budget for very long reports (lots of income/expense rows
+   * push the SVG height way up), since some mobile browsers refuse to
+   * rasterize oversized canvases.
+   */
   _svgToPngBlob(svgStr) {
     return new Promise((resolve, reject) => {
       const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
-        const scale = 2;
+        const TARGET_SCALE = 3;
+        const MAX_CANVAS_PIXELS = 24_000_000; // safe headroom under common mobile canvas limits
+        const scale = Math.min(
+          TARGET_SCALE,
+          Math.sqrt(
+            MAX_CANVAS_PIXELS / (img.naturalWidth * img.naturalHeight),
+          ),
+        );
         const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth * scale;
-        canvas.height = img.naturalHeight * scale;
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
         const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
         ctx.scale(scale, scale);
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
@@ -6616,7 +6679,12 @@ class FinancialReportsComponent {
     await Promise.all(
       [...urls].map(async (url) => {
         try {
-          const optimized = this.getOptimizedAvatarUrl(url, "small");
+          // "medium" (160x160) rather than the live UI's "small" (80x80) —
+          // this cache only feeds the exported image, which is rendered at
+          // a higher canvas scale (see _svgToPngBlob) and gets pinch-zoomed,
+          // so avatars need real resolution to stay crisp, not just look
+          // right at 1x on screen.
+          const optimized = this.getOptimizedAvatarUrl(url, "medium");
           const resp = await fetch(optimized);
           if (!resp.ok) return;
           const blob = await resp.blob();
@@ -6704,6 +6772,22 @@ class FinancialReportsComponent {
           );
         })()
       : this.selectedProperty;
+
+    // Move-in/move-out — secondary info, not critical, so it's just a
+    // small muted line under the property title rather than styled like it.
+    const _fmtMoveDate = (v) =>
+      v
+        ? new Date(v).toLocaleDateString("en-SG", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : null;
+    const moveInLabel = property ? _fmtMoveDate(property.moveInDate) : null;
+    const moveOutLabel = property ? _fmtMoveDate(property.moveOutDate) : null;
+    const moveDatesLine = moveInLabel
+      ? `Move-in: ${moveInLabel}${moveOutLabel ? `   ·   Move-out: ${moveOutLabel}` : ""}`
+      : null;
 
     // Date labels
     const MONTH_NAMES = [
@@ -6946,6 +7030,11 @@ class FinancialReportsComponent {
     p(
       `<text x="${TX}" y="66" font-size="22" fill="#ffffff" font-weight="700">${this._svgEsc(propTitle)}</text>`,
     );
+    if (moveDatesLine) {
+      p(
+        `<text x="${TX}" y="86" font-size="12" fill="#ffffff" opacity="0.55">${this._svgEsc(moveDatesLine)}</text>`,
+      );
+    }
     p(
       `<text x="${W - M}" y="86" font-size="14" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
     );
