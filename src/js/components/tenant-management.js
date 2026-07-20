@@ -4,6 +4,10 @@ import {
   getRoomTypeOptions,
 } from "../utils/room-type-mapper.js";
 import { renderTenantSocialBadges, getGroupLinkMeta } from "../utils/social-links.js";
+import {
+  fetchInvestorsForAvatarStack,
+  renderPropertyImageAvatarBadge,
+} from "../utils/investor-avatar-stack.js";
 
 /**
  * Returns the effective rent for a tenant derived from their room assignments.
@@ -54,6 +58,7 @@ class TenantManagementComponent {
     this.signature = ""; // Signature image URL
     this.originalTenantData = null; // Store original tenant data for change detection
     this.todos = []; // Array of todo items
+    this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
 
     this.init();
   }
@@ -63,6 +68,10 @@ class TenantManagementComponent {
     this.setupAdminControls();
     // Load properties to display property cards
     this.loadProperties();
+    fetchInvestorsForAvatarStack().then((investors) => {
+      this._avatarInvestors = investors;
+      this.renderPropertyCards(this.properties);
+    });
   }
 
   // Call this when section becomes visible to ensure listeners are attached
@@ -228,6 +237,7 @@ class TenantManagementComponent {
                      onclick="tenantManager.selectProperty('${property.propertyId}')">
                     ${property.propertyImage
           ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                            ${renderPropertyImageAvatarBadge(this._avatarInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
                             <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                           </div>`
           : ""
@@ -871,6 +881,10 @@ class TenantManagementComponent {
       }')">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Copy tenant details" onclick="event.stopPropagation();tenantManager.copyTenantDetails('${tenant._id
+      }', this)">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
                                 <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant._id
       }')">
                                     <i class="bi bi-trash"></i> Delete
@@ -914,6 +928,17 @@ class TenantManagementComponent {
                 }
                 .tenant-outdated:hover {
                     opacity: 0.7;
+                }
+                @keyframes tenantCopyPulse {
+                    0% { transform: scale(1); }
+                    35% { transform: scale(1.08); }
+                    100% { transform: scale(1); }
+                }
+                .tenant-copy-btn-success {
+                    animation: tenantCopyPulse 0.35s ease;
+                    color: #fff !important;
+                    background-color: #198754 !important;
+                    border-color: #198754 !important;
                 }
                 .roommate-group-container {
                     background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
@@ -2877,6 +2902,52 @@ class TenantManagementComponent {
     }
   }
 
+  // Copy a single tenant's key details (name, nickname, DOB, gender, phone,
+  // Facebook, FIN, passport, pass type, industry) to the clipboard as text.
+  copyTenantDetails(tenantId, btnEl = null) {
+    const tenant = this.tenants.find((t) => t._id === tenantId);
+    if (!tenant) {
+      alert("Tenant not found");
+      return;
+    }
+
+    const isMainTenant = this.hasMainTenantProperty(tenant);
+    const title = isMainTenant ? "Main Tenant" : "Tenant";
+
+    let copyText = `${title}: ${tenant.name}\n`;
+    if (tenant.nickname) copyText += `Nickname: ${tenant.nickname}\n`;
+    if (tenant.dateOfBirth) copyText += `DOB: ${this.formatDate(tenant.dateOfBirth)}\n`;
+    if (tenant.gender) copyText += `Gender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}\n`;
+    if (tenant.phoneNumber) copyText += `Phone: ${tenant.phoneNumber}\n`;
+    if (tenant.facebookUrl) copyText += `Facebook: ${tenant.facebookUrl}\n`;
+    copyText += `FIN: ${tenant.fin || "N/A"}\n`;
+    copyText += `Passport: ${tenant.passportNumber || "N/A"}\n`;
+    if (tenant.passType) copyText += `Pass Type: ${tenant.passType}\n`;
+    if (tenant.industry) copyText += `Industry: ${tenant.industry}\n`;
+
+    navigator.clipboard
+      .writeText(copyText)
+      .then(() => {
+        this.showCopySuccessMessage(1, `Copied ${tenant.name}'s details to clipboard!`);
+
+        if (btnEl) {
+          const originalHTML = btnEl.innerHTML;
+          btnEl.disabled = true;
+          btnEl.classList.add("tenant-copy-btn-success");
+          btnEl.innerHTML = '<i class="bi bi-check-lg"></i> Copied';
+          setTimeout(() => {
+            btnEl.classList.remove("tenant-copy-btn-success");
+            btnEl.innerHTML = originalHTML;
+            btnEl.disabled = false;
+          }, 1500);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to copy tenant details:", err);
+        alert("Copy failed. Here's the text to copy manually:\n\n" + copyText);
+      });
+  }
+
   // Method to assign tenant to property
   async assignToProperty(fin, propertyId) {
     try {
@@ -4800,11 +4871,33 @@ class TenantManagementComponent {
     }
   }
 
-  showCopySuccessMessage(tenantCount) {
+  showCopySuccessMessage(tenantCount, customMessage = null) {
+    if (!document.getElementById("tenant-copy-toast-styles")) {
+      const style = document.createElement("style");
+      style.id = "tenant-copy-toast-styles";
+      style.textContent = `
+                @keyframes tenantToastSlideIn {
+                    from { transform: translateX(120%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes tenantToastSlideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(120%); opacity: 0; }
+                }
+                .tenant-copy-toast {
+                    animation: tenantToastSlideIn 0.3s ease-out;
+                }
+                .tenant-copy-toast.tenant-copy-toast-hide {
+                    animation: tenantToastSlideOut 0.25s ease-in forwards;
+                }
+            `;
+      document.head.appendChild(style);
+    }
+
     // Create a temporary success message
     const messageDiv = document.createElement("div");
     messageDiv.className =
-      "alert alert-success alert-dismissible fade show position-fixed";
+      "alert alert-success alert-dismissible fade show position-fixed tenant-copy-toast";
     messageDiv.style.cssText = `
             top: 20px;
             right: 20px;
@@ -4812,21 +4905,25 @@ class TenantManagementComponent {
             min-width: 300px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;
+    const text =
+      customMessage ||
+      `Copied ${tenantCount} tenant${tenantCount !== 1 ? "s" : ""} to clipboard!`;
     messageDiv.innerHTML = `
             <i class="bi bi-check-circle me-2"></i>
-            Copied ${tenantCount} tenant${tenantCount !== 1 ? "s" : ""
-      } to clipboard!
+            ${text}
             <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
 
     document.body.appendChild(messageDiv);
 
+    const dismiss = () => {
+      if (!messageDiv.parentNode) return;
+      messageDiv.classList.add("tenant-copy-toast-hide");
+      setTimeout(() => messageDiv.remove(), 250);
+    };
+
     // Auto-remove after 3 seconds
-    setTimeout(() => {
-      if (messageDiv.parentNode) {
-        messageDiv.remove();
-      }
-    }, 3000);
+    setTimeout(dismiss, 3000);
   }
 
   // Pagination removed - now using property-based navigation

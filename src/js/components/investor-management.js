@@ -1364,18 +1364,21 @@ class InvestorManagementComponent {
       const svg = this._generateInvestorReportSVG(avatarMap, {}, targetInvestors);
       const blob = await this._invSvgToPngBlob(svg);
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
       const dateStr = new Date().toLocaleDateString('en-SG').replace(/\//g, '-');
       const namePart = isSingle
         ? (targetInvestors[0]?.name || investorId).replace(/\s+/g, '_')
         : 'All';
-      a.download = `Investor_Portfolio_${namePart}_${dateStr}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const fileName = `Investor_Portfolio_${namePart}_${dateStr}.png`;
 
-      if (typeof showToast === 'function') showToast('Portfolio report downloaded!', 'success');
+      this._showInvImagePreview(blob, fileName);
+
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+        if (typeof showToast === 'function') showToast(`Copied to clipboard — paste with ${isMac ? '⌘ Cmd+V' : 'Ctrl+V'}`, 'success', 5000);
+      } catch (_clipErr) {
+        // Clipboard copy is optional — preview modal is the primary deliverable
+      }
     } catch (err) {
       console.error('Export investor report error:', err);
       if (typeof showToast === 'function') showToast('Failed to export report', 'error');
@@ -1592,19 +1595,67 @@ class InvestorManagementComponent {
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
-        const scale = 2;
+        const scale = 3;
         const canvas = document.createElement('canvas');
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.scale(scale, scale);
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
-        canvas.toBlob(resolve, 'image/png');
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas toBlob failed')), 'image/png', 1.0);
       };
-      img.onerror = reject;
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to render SVG')); };
       img.src = url;
     });
+  }
+
+  _showInvImagePreview(blob, fileName) {
+    const objectUrl = URL.createObjectURL(blob);
+
+    document.getElementById('invImagePreviewModal')?.remove();
+
+    const modalHtml = `
+      <div class="modal fade" id="invImagePreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle bg-white d-flex align-items-center justify-content-center" style="width:32px;height:32px;flex-shrink:0;">
+                  <i class="bi bi-image text-primary" style="font-size:1rem;"></i>
+                </div>
+                <h6 class="modal-title text-white fw-bold mb-0">Investor Portfolio Export</h6>
+              </div>
+              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-dark" style="min-height:200px;">
+              <img src="${objectUrl}" alt="Investor Portfolio" style="max-width:100%;display:block;margin:0 auto;"/>
+            </div>
+            <div class="modal-footer border-0 justify-content-between" style="background:#f8f9fa;">
+              <div class="text-muted" style="font-size:0.78rem;"><i class="bi bi-keyboard me-1"></i>Press <kbd>Esc</kbd> to close</div>
+              <div class="d-flex gap-2">
+                <a href="${objectUrl}" download="${fileName}" class="btn btn-primary btn-sm">
+                  <i class="bi bi-download me-1"></i>Download PNG
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                  <i class="bi bi-x-lg me-1"></i>Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modalEl = document.getElementById('invImagePreviewModal');
+    const modal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+    modalEl.addEventListener('hidden.bs.modal', () => { URL.revokeObjectURL(objectUrl); modalEl.remove(); }, { once: true });
+    const onKey = e => { if (e.key === 'Escape') modal.hide(); };
+    document.addEventListener('keydown', onKey);
+    modalEl.addEventListener('hidden.bs.modal', () => document.removeEventListener('keydown', onKey), { once: true });
+    modal.show();
   }
 
   showPasteMessage(fieldId, message, type) {

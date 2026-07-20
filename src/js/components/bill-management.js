@@ -4,6 +4,10 @@ import {
   facebookToMessengerUrl,
   buildWhatsAppSignContractUrl,
 } from "../utils/social-links.js";
+import {
+  fetchInvestorsForAvatarStack,
+  renderPropertyImageAvatarBadge,
+} from "../utils/investor-avatar-stack.js";
 import i18next from "i18next";
 
 const t = (key, opts) => i18next.t(`billManagement.${key}`, opts);
@@ -59,6 +63,7 @@ class BillManagementComponent {
     this._allUtilityBills = [];
     this._utilityBillsAll = []; // all tracked utility bills for the selected property (for cycle picker)
     this._selectedCycleIds = null; // Set of utility-bill _id's chosen for the dynamic preview; null = not yet defaulted
+    this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     this.init();
   }
 
@@ -66,6 +71,10 @@ class BillManagementComponent {
     this.updateMonthDisplay();
     this.bindEvents();
     this.loadProperties();
+    fetchInvestorsForAvatarStack().then((investors) => {
+      this._avatarInvestors = investors;
+      this.renderPropertyCards(this.properties);
+    });
   }
 
   bindEvents() {
@@ -236,6 +245,7 @@ class BillManagementComponent {
           ${
             property.propertyImage
               ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                ${renderPropertyImageAvatarBadge(this._avatarInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
                 <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
               </div>`
               : ""
@@ -1008,7 +1018,7 @@ class BillManagementComponent {
     const rowsHtml = preview.rows
       .map(
         (r) => `
-      <div class="tenant-row" data-tenant-id="${r.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:start;padding:10px 8px;border-bottom:1px solid #f1f3f5;">
+      <div class="bill-tenant-row" data-tenant-id="${r.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:start;padding:10px 8px;border-bottom:1px solid #f1f3f5;">
         ${gridCell(`<input type="checkbox" class="form-check-input tenant-checkbox" data-tenant-id="${r.tenantId}" ${this.selectedTenants.has(r.tenantId) ? "checked" : ""}>`, { style: "padding-top:2px;" })}
         ${gridCell(`
           <div style="display:flex;align-items:flex-start;gap:10px;">
@@ -1099,6 +1109,16 @@ class BillManagementComponent {
 
     const tenantBills = this.currentBill.tenantBills || [];
 
+    // Same CSS Grid "table" as _renderDynamicPreview: header and every row
+    // are independent grid containers sharing one GRID_COLUMNS template, so
+    // column alignment comes from the grid definition itself rather than
+    // native <table> auto layout. ".bill-tenant-row"/".tenant-checkbox" are
+    // plain classes either way, so bindCheckboxEvents() etc. don't care.
+    const GRID_COLUMNS =
+      "32px minmax(160px,2fr) minmax(90px,1fr) 90px 90px 90px 100px minmax(130px,1.2fr) 150px minmax(150px,1fr)";
+    const gridCell = (content, opts = {}) => `
+      <div style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
+
     let html = `
       <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -1106,25 +1126,20 @@ class BillManagementComponent {
           <div id="billActionToolbarSlot"></div>
         </div>
       </div>
-      <div class="table-responsive">
-        <table class="table table-hover">
-          <thead class="table-light">
-            <tr>
-              <th>
-                <input type="checkbox" id="selectAllTenants" class="form-check-input">
-              </th>
-              <th>${t("tenant")}</th>
-              <th>${t("room")}</th>
-              <th>${t("baseRental")}</th>
-              <th>${t("utilityFee")}</th>
-              <th>${t("cleaningFee")}</th>
-              <th>${t("total")}</th>
-              <th>${t("status")}</th>
-              <th>${t("uploadLink")}</th>
-              <th>${t("actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div style="overflow-x:auto;">
+        <div style="min-width:950px;">
+          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:8px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-weight:600;font-size:0.85rem;">
+            ${gridCell(`<input type="checkbox" id="selectAllTenants" class="form-check-input">`)}
+            ${gridCell(t("tenant"))}
+            ${gridCell(t("room"))}
+            ${gridCell(t("baseRental"), { align: "right" })}
+            ${gridCell(t("utilityFee"), { align: "right" })}
+            ${gridCell(t("cleaningFee"), { align: "right" })}
+            ${gridCell(t("total"), { align: "right" })}
+            ${gridCell(t("status"))}
+            ${gridCell(t("uploadLink"))}
+            ${gridCell(t("actions"))}
+          </div>
     `;
 
     tenantBills.forEach((tenantBill) => {
@@ -1134,30 +1149,20 @@ class BillManagementComponent {
         : "";
 
       html += `
-        <tr class="tenant-row" data-tenant-id="${tenantBill.tenantId}">
-          <td>
-            <input type="checkbox" class="form-check-input tenant-checkbox"
-                   data-tenant-id="${tenantBill.tenantId}">
-          </td>
-          <td>
-            <strong>${escapeHtml(tenantBill.tenantName)}</strong><br>
-            <small class="text-muted">${escapeHtml(tenantBill.tenantId)}</small>
-          </td>
-          <td>${escapeHtml(tenantBill.room ? getRoomTypeDisplayName(tenantBill.room) : "-")}</td>
-          <td>$${tenantBill.baseRental.toFixed(2)}</td>
-          <td>$${tenantBill.utilityFee.toFixed(2)}</td>
-          <td>$${tenantBill.cleaningFee.toFixed(2)}</td>
-          <td><strong>$${tenantBill.totalAmount.toFixed(2)}</strong></td>
-          <td>
-            ${statusBadge}
-            ${uploadInfo}
-          </td>
-          <td>
+        <div class="bill-tenant-row" data-tenant-id="${tenantBill.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #f1f3f5;">
+          ${gridCell(`<input type="checkbox" class="form-check-input tenant-checkbox" data-tenant-id="${tenantBill.tenantId}">`)}
+          ${gridCell(`<strong>${escapeHtml(tenantBill.tenantName)}</strong><br><small class="text-muted">${escapeHtml(tenantBill.tenantId)}</small>`)}
+          ${gridCell(escapeHtml(tenantBill.room ? getRoomTypeDisplayName(tenantBill.room) : "-"))}
+          ${gridCell(`$${tenantBill.baseRental.toFixed(2)}`, { align: "right" })}
+          ${gridCell(`$${tenantBill.utilityFee.toFixed(2)}`, { align: "right" })}
+          ${gridCell(`$${tenantBill.cleaningFee.toFixed(2)}`, { align: "right" })}
+          ${gridCell(`<strong>$${tenantBill.totalAmount.toFixed(2)}</strong>`, { align: "right" })}
+          ${gridCell(`${statusBadge}${uploadInfo}`)}
+          ${gridCell(`
             <button class="btn btn-sm btn-outline-secondary" onclick="billManager.copyUploadLink('${tenantBill.uploadLink}')">
               <i class="bi bi-clipboard"></i> ${t("copyLink")}
-            </button>
-          </td>
-          <td>
+            </button>`)}
+          ${gridCell(`
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary" onclick="billManager.editTenantBill('${tenantBill.tenantId}')">
                 <i class="bi bi-pencil"></i>
@@ -1174,15 +1179,13 @@ class BillManagementComponent {
               `
                   : ""
               }
-            </div>
-          </td>
-        </tr>
+            </div>`)}
+        </div>
       `;
     });
 
     html += `
-          </tbody>
-        </table>
+        </div>
       </div>
 
       <div class="card mt-3">
@@ -1667,10 +1670,9 @@ class BillManagementComponent {
     // is a small target that's fiddly on mobile. Clicks on actual controls
     // inside the row (links, buttons, the checkbox itself) still work normally.
     // Styling is applied inline via JS (not a CSS rule) so it can't interact
-    // with either table's layout in any way. ".tenant-row" (no tag qualifier)
-    // matches both the generated-bill <tr> rows and the dynamic-preview grid
-    // <div> rows.
-    document.querySelectorAll(".tenant-row").forEach((row) => {
+    // with either grid's layout in any way. ".bill-tenant-row" matches both
+    // the generated-bill and dynamic-preview grid rows (both plain <div>s).
+    document.querySelectorAll(".bill-tenant-row").forEach((row) => {
       row.style.cursor = "pointer";
       row.addEventListener("mouseenter", () => {
         if (!row.querySelector(".tenant-checkbox")?.checked) row.style.background = "rgba(0,0,0,0.03)";
@@ -1689,7 +1691,7 @@ class BillManagementComponent {
   // Highlights a tenant row based on its checkbox's checked state, applied
   // as an inline style directly on the row rather than a CSS rule.
   _syncTenantRowHighlight(checkbox) {
-    const row = checkbox.closest(".tenant-row");
+    const row = checkbox.closest(".bill-tenant-row");
     if (row) row.style.background = checkbox.checked ? "rgba(13,110,253,0.08)" : "";
   }
 
@@ -3087,6 +3089,17 @@ class BillManagementComponent {
       (a.room || "").localeCompare(b.room || ""),
     );
 
+    // CSS Grid "table": header, every row, and the totals row all share one
+    // GRID_COLUMNS template (7 tracks normally, 4 when there's no billing
+    // period and the Period/Away/Present Days columns are dropped), so
+    // column alignment comes from the grid definition itself rather than
+    // native <table> layout.
+    const GRID_COLUMNS = noPeriod
+      ? "minmax(160px,2fr) minmax(100px,1fr) minmax(120px,1fr) minmax(110px,1fr)"
+      : "minmax(160px,2fr) minmax(100px,1fr) 70px 70px 70px minmax(120px,1fr) minmax(110px,1fr)";
+    const gridCell = (content, opts = {}) => `
+      <div style="padding:7px 10px;${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
+
     const tableRows = sortedRows
       .map((r, i) => {
         const shareTypeLines = hasTypeBreakdown
@@ -3109,12 +3122,16 @@ class BillManagementComponent {
                 ? `<br><span style="font-size:0.68rem;color:#868e96;">${shareTypeLines.join(" · ")}</span>`
                 : ""
             }`;
-        const daysCells = noPeriod
+        const daysCellsHtml = noPeriod
           ? ""
-          : `
-        <td style="padding:7px 10px;text-align:center;">${r.tenantPeriodDays}</td>
-        <td style="padding:7px 10px;text-align:center;">${r.awayDays > 0 ? `<span style="color:#dc3545;">−${r.awayDays}</span>` : "0"}</td>
-        <td style="padding:7px 10px;text-align:center;font-weight:600;">${r.presentDays}</td>`;
+          : gridCell(r.tenantPeriodDays, { align: "center" }) +
+            gridCell(
+              r.awayDays > 0
+                ? `<span style="color:#dc3545;">−${r.awayDays}</span>`
+                : "0",
+              { align: "center" },
+            ) +
+            gridCell(r.presentDays, { align: "center", style: "font-weight:600;" });
         const subsidyBadge = r.isSubsidized
           ? `<span style="background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t("subsidisedBadge")}</span>`
           : "";
@@ -3130,29 +3147,20 @@ class BillManagementComponent {
           ? `<br><span style="font-size:0.7rem;color:#6c757d;">${escapeHtml(r.note)}</span>`
           : "";
 
-        return `<tr style="border-bottom:1px solid #dee2e6;${r.notBilled ? "opacity:0.8;" : ""}">
-        <td style="padding:7px 10px;font-weight:600;">${i + 1}. ${escapeHtml(r.tenantName)}${noteCell}</td>
-        <td style="padding:7px 10px;">${escapeHtml(getRoomLabel(r.room))}</td>
-        ${daysCells}
-        <td style="padding:7px 10px;text-align:right;">${shareCell}</td>
-        <td style="padding:7px 10px;text-align:right;">
-          <span style="${chargedStyle}">${r.notBilled ? fmtAmt(r.utilityShare) : fmtAmt(r.chargedAmount)}</span>
+        return `<div style="display:grid;grid-template-columns:${GRID_COLUMNS};align-items:center;border-bottom:1px solid #dee2e6;${r.notBilled ? "opacity:0.8;" : ""}">
+        ${gridCell(`${i + 1}. ${escapeHtml(r.tenantName)}${noteCell}`, { style: "font-weight:600;" })}
+        ${gridCell(escapeHtml(getRoomLabel(r.room)))}
+        ${daysCellsHtml}
+        ${gridCell(shareCell, { align: "right" })}
+        ${gridCell(
+          `<span style="${chargedStyle}">${r.notBilled ? fmtAmt(r.utilityShare) : fmtAmt(r.chargedAmount)}</span>
           ${r.isSubsidized ? "<br>" + subsidyBadge : ""}
-          ${r.notBilled ? "<br>" + notBilledBadge : ""}
-        </td>
-      </tr>`;
+          ${r.notBilled ? "<br>" + notBilledBadge : ""}`,
+          { align: "right" },
+        )}
+      </div>`;
       })
       .join("");
-
-    const dayHeaders = noPeriod
-      ? ""
-      : `
-      <th style="${thStyle}text-align:center;">Period<br>Days</th>
-      <th style="${thStyle}text-align:center;">Away<br>Days</th>
-      <th style="${thStyle}text-align:center;">Present<br>Days</th>`;
-
-    const thStyle =
-      "padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;";
 
     const subsidizedCount = rows.filter((r) => r.isSubsidized).length;
     const awayCount = rows.filter((r) => r.awayDays > 0).length;
@@ -3167,10 +3175,6 @@ class BillManagementComponent {
          ${landlordSubsidy > 0 ? `<p style="margin:4px 0;">${t("landlordSubsidyNote", { amount: fmtAmt(landlordSubsidy) })}</p>` : ""}
          ${subsidizedCount > 0 ? `<p style="margin:4px 0;">${t("subsidisedTenantsNote", { count: subsidizedCount, amount: fmtAmt(businessAbsorbs) })}</p>` : ""}
          ${awayCount > 0 ? `<p style="margin:4px 0;">${t("awayNote")}</p>` : ""}`;
-
-    // Re-declare thStyle for the actual table header
-    const th = (s) =>
-      `<th style="padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.82rem;${s || ""}">${s === undefined ? "" : ""}</th>`;
 
     // Settlement info section (included in print area / export)
     const sgd = propInfo?.settlementSgd;
@@ -3246,41 +3250,35 @@ class BillManagementComponent {
         </div>
 
         <!-- Table -->
-        <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
-          <thead>
-            <tr>
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;">${t("tenant")}</th>
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;">${t("room")}</th>
-              ${
-                noPeriod
-                  ? ""
-                  : `
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:center;">${t("periodDaysHeader").replace("\n", "<br>")}</th>
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:center;">${t("awayDaysHeader").replace("\n", "<br>")}</th>
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:center;">${t("presentDaysHeader").replace("\n", "<br>")}</th>`
-              }
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:right;">${t("calcShare")}</th>
-              <th style="padding:7px 10px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;text-align:right;">${t("charged")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-            <!-- Totals row -->
-            <tr style="background:#f8f9fa;border-top:2px solid #dee2e6;">
-              <td style="padding:7px 10px;font-weight:700;" colspan="2">${t("totalRow")}</td>
-              ${
-                noPeriod
-                  ? ""
-                  : `
-              <td style="padding:7px 10px;text-align:center;font-weight:700;">—</td>
-              <td style="padding:7px 10px;text-align:center;font-weight:700;">—</td>
-              <td style="padding:7px 10px;text-align:center;font-weight:700;">${totalPersonDays}d</td>`
-              }
-              <td style="padding:7px 10px;text-align:right;font-weight:700;">${fmtAmt(netUtility)}</td>
-              <td style="padding:7px 10px;text-align:right;font-weight:700;color:#0d6efd;">${fmtAmt(totalCharged)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div style="font-size:0.95rem;">
+          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;">
+            ${gridCell(t("tenant"))}
+            ${gridCell(t("room"))}
+            ${
+              noPeriod
+                ? ""
+                : gridCell(t("periodDaysHeader").replace("\n", "<br>"), { align: "center" }) +
+                  gridCell(t("awayDaysHeader").replace("\n", "<br>"), { align: "center" }) +
+                  gridCell(t("presentDaysHeader").replace("\n", "<br>"), { align: "center" })
+            }
+            ${gridCell(t("calcShare"), { align: "right" })}
+            ${gridCell(t("charged"), { align: "right" })}
+          </div>
+          ${tableRows}
+          <!-- Totals row -->
+          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};align-items:center;background:#f8f9fa;border-top:2px solid #dee2e6;">
+            ${gridCell(t("totalRow"), { style: "font-weight:700;grid-column:span 2;" })}
+            ${
+              noPeriod
+                ? ""
+                : gridCell("—", { align: "center", style: "font-weight:700;" }) +
+                  gridCell("—", { align: "center", style: "font-weight:700;" }) +
+                  gridCell(`${totalPersonDays}d`, { align: "center", style: "font-weight:700;" })
+            }
+            ${gridCell(fmtAmt(netUtility), { align: "right", style: "font-weight:700;" })}
+            ${gridCell(fmtAmt(totalCharged), { align: "right", style: "font-weight:700;color:#0d6efd;" })}
+          </div>
+        </div>
 
         <!-- Footer summary -->
         <div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:0.92rem;">

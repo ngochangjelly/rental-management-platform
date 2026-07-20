@@ -5,6 +5,10 @@
  */
 import i18next from "../i18n.js";
 import { getGroupLinkMeta } from "../utils/social-links.js";
+import {
+  fetchInvestorsForAvatarStack,
+  renderPropertyImageAvatarBadge,
+} from "../utils/investor-avatar-stack.js";
 
 class UtilityBillTrackerComponent {
   constructor() {
@@ -24,12 +28,17 @@ class UtilityBillTrackerComponent {
     this.summaryMonth = now.getMonth() + 1;
     this.calendarYear = now.getFullYear();
     this.calendarMonth = now.getMonth() + 1;
+    this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     this._init();
   }
 
   _init() {
     this._bindEvents();
     this._loadProperties();
+    fetchInvestorsForAvatarStack().then((investors) => {
+      this._avatarInvestors = investors;
+      this._renderPropertyCards();
+    });
   }
 
   _bindEvents() {
@@ -665,6 +674,7 @@ class UtilityBillTrackerComponent {
              onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
           ${p.propertyImage
             ? `<div data-role="property-image" style="height:55px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;position:relative;">
+                ${renderPropertyImageAvatarBadge(this._avatarInvestors, p.propertyId, { size: 22, overlap: 9, max: 3 })}
                 <div data-role="selected-overlay" style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:${sel ? 'flex' : 'none'};align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>
                </div>`
             : ''}
@@ -743,6 +753,7 @@ class UtilityBillTrackerComponent {
       : {};
     this.propertySubsidy = prop.subsidizedPub || 0;
     this._renderFbGroups(prop);
+    this._renderSpAccount(prop);
     this._renderChart();
     this._renderBillsTable();
     this._showAddForm(false);
@@ -766,6 +777,66 @@ class UtilityBillTrackerComponent {
       tenantGroup ? `<a href="${escapeHtml(tenantGroup)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="border-color:${tenantMeta.color};color:${tenantMeta.color};"><i class="bi ${tenantMeta.icon} me-1"></i>Tenant Group</a>` : '',
       adminGroup  ? `<a href="${escapeHtml(adminGroup)}"  target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success"><i class="bi bi-facebook me-1"></i>Admin Group</a>`  : '',
     ].join('');
+  }
+
+  // ── SP Utility Account ───────────────────────────────────────────────────────
+
+  _renderSpAccount(property) {
+    const container = document.getElementById('utilitySpAccount');
+    if (!container) return;
+    const username = property?.spAccountUsername;
+    const password = property?.spAccountPassword;
+    if (!username && !password) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    const admin = !!(window.isAdmin && window.isAdmin());
+    const copyEl = (value, label) => `<span class="sp-copy-val font-monospace fw-semibold" data-copy="${escapeHtml(value)}" title="Click to copy ${label}" onclick="event.stopPropagation();utilityBillTracker.copySpValue(this)">${escapeHtml(value)}<i class="bi bi-copy"></i></span>`;
+    container.style.display = '';
+    container.innerHTML = `
+      <div class="d-flex align-items-center gap-2 small p-2 rounded" style="background:#f0f4ff;border:1px solid #d7e0fb;">
+        <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:16px;width:auto;flex-shrink:0;">
+        <span class="text-muted">SP Account:</span>
+        ${username ? copyEl(username, 'username') : ''}
+        ${username && password ? `<span class="text-muted">/</span>` : ''}
+        ${password
+          ? (admin
+              ? copyEl(password, 'password')
+              : `<span class="text-muted" title="Admins only"><i class="bi bi-lock-fill me-1"></i>••••••••</span>`)
+          : ''}
+      </div>`;
+  }
+
+  // Copies the SP account value without disturbing the visible text —
+  // feedback is a transient "Copied!" bubble + background flash instead
+  // of swapping the content (so the credential stays visible/selectable).
+  copySpValue(el) {
+    const text = el.dataset.copy !== undefined ? el.dataset.copy : el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      el.classList.add('sp-copy-flash');
+      setTimeout(() => el.classList.remove('sp-copy-flash'), 500);
+
+      if (el._spCopyBubble) {
+        el._spCopyBubble.remove();
+        clearTimeout(el._spCopyBubbleTimer);
+      }
+      const bubble = document.createElement('div');
+      bubble.className = 'sp-copy-bubble';
+      bubble.textContent = 'Copied!';
+      document.body.appendChild(bubble);
+      const rect = el.getBoundingClientRect();
+      bubble.style.left = `${rect.left + rect.width / 2}px`;
+      bubble.style.top = `${rect.top - 4}px`;
+      el._spCopyBubble = bubble;
+      requestAnimationFrame(() => bubble.classList.add('sp-copy-bubble-show'));
+
+      el._spCopyBubbleTimer = setTimeout(() => {
+        bubble.classList.remove('sp-copy-bubble-show');
+        setTimeout(() => bubble.remove(), 200);
+        el._spCopyBubble = null;
+      }, 1000);
+    });
   }
 
   // ── Chart ──────────────────────────────────────────────────────────────────

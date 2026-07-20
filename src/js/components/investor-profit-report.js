@@ -1,4 +1,5 @@
 import i18next from "i18next";
+import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 
 /**
  * Investor Profit Report Component
@@ -921,7 +922,7 @@ class investorProfitChartComponent {
               <div class="col-12 col-md-6">
                 <div class="ipr-prop-card card h-100">
                   <div class="row g-0">
-                    <div class="col-4">
+                    <div class="col-4 position-relative">
                       ${
                         imageUrl
                           ? `<img src="${imageUrl}" class="img-fluid rounded-start h-100" style="object-fit: cover; min-height: 120px;" alt="${this.escapeHtml(prop.propertyId)}">`
@@ -929,6 +930,7 @@ class investorProfitChartComponent {
                             <i class="bi bi-building fs-1 text-muted"></i>
                           </div>`
                       }
+                      ${renderPropertyImageAvatarBadge(this.investors, prop.propertyId, { size: 24, overlap: 9, max: 3 })}
                     </div>
                     <div class="col-8">
                       <div class="card-body py-2 px-3">

@@ -1,5 +1,6 @@
 import { ROOM_TYPE_MAP } from '../utils/room-type-mapper.js';
 import { getGroupLinkMeta } from '../utils/social-links.js';
+import { renderInvestorAvatarStack } from '../utils/investor-avatar-stack.js';
 
 /**
  * Property Management Component
@@ -14,6 +15,7 @@ class PropertyManagementComponent {
     this.editingProperty = null; // Store reference to property being edited
     this.currentAcContactNumbers = []; // Store AC service contact numbers
     this.allInvestors = []; // Store all investors for management fee payee dropdown
+    this._exportSelectedIds = null; // Set of propertyIds chosen for portfolio export (null until first customized)
     this.init();
   }
 
@@ -320,6 +322,59 @@ class PropertyManagementComponent {
     }
   }
 
+  populateManagerDropdown() {
+    const dropdown = document.getElementById("manager");
+    if (!dropdown) return;
+
+    dropdown.innerHTML = '<option value="">-- Select Manager --</option>';
+
+    this.allInvestors.forEach(investor => {
+      const option = document.createElement('option');
+      option.value = investor.investorId;
+      option.textContent = `${investor.name} (${investor.investorId})`;
+      dropdown.appendChild(option);
+    });
+
+    // Force reset to placeholder — browsers may restore a prior selection
+    // when a matching option is appended back into the dropdown
+    dropdown.selectedIndex = 0;
+  }
+
+  updateManagerAvatarPreview(investorId) {
+    const preview = document.getElementById("managerAvatarPreview");
+    const circle = document.getElementById("managerAvatarCircle");
+    const nameEl = document.getElementById("managerAvatarName");
+    const idEl = document.getElementById("managerAvatarId");
+
+    if (!investorId) {
+      if (preview) preview.style.display = "none";
+      return;
+    }
+
+    const investor = this.allInvestors.find(i => i.investorId === investorId);
+    if (!investor) {
+      if (preview) preview.style.display = "none";
+      return;
+    }
+
+    if (preview) preview.style.display = "flex";
+    if (nameEl) nameEl.textContent = investor.name;
+    if (idEl) idEl.textContent = investor.investorId;
+
+    if (circle) {
+      if (investor.avatar) {
+        circle.innerHTML = `<img src="${investor.avatar}" style="width:100%;height:100%;object-fit:cover;" alt="${this.escapeHtml(investor.name)}">`;
+      } else {
+        const initials = investor.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        circle.style.background = 'linear-gradient(135deg,#6f42c1,#9d4edd)';
+        circle.style.display = 'flex';
+        circle.style.alignItems = 'center';
+        circle.style.justifyContent = 'center';
+        circle.innerHTML = `<span style="color:#fff;font-weight:700;font-size:16px;">${initials}</span>`;
+      }
+    }
+  }
+
   populateAcServiceCompanyDropdown() {
     const dropdown = document.getElementById("acServiceCompanyId");
     if (!dropdown) return;
@@ -390,6 +445,14 @@ class PropertyManagementComponent {
     if (accountantDropdown) {
       accountantDropdown.addEventListener("change", (e) => {
         this.updateAccountantAvatarPreview(e.target.value);
+      });
+    }
+
+    // Manager dropdown - update avatar preview on change
+    const managerDropdown = document.getElementById("manager");
+    if (managerDropdown) {
+      managerDropdown.addEventListener("change", (e) => {
+        this.updateManagerAvatarPreview(e.target.value);
       });
     }
 
@@ -498,6 +561,7 @@ class PropertyManagementComponent {
         this.properties.forEach(p => {
           console.log(`🔍 DEBUG - Property ${p.propertyId} rent from API:`, p.rent, 'type:', typeof p.rent);
           if (p.accountant) console.log(`🧾 Property ${p.propertyId} accountant:`, p.accountant);
+          if (p.manager) console.log(`🧑‍💼 Property ${p.propertyId} manager:`, p.manager);
         });
 
         // Filter properties if current user is an investor
@@ -659,6 +723,15 @@ class PropertyManagementComponent {
           </div>`;
       }
 
+      // Top-right overlay: investor avatar stack + digital lock badge, stacked so they never collide
+      const investorAvatarBadgeHtml = renderInvestorAvatarStack(this.allInvestors, property.propertyId, { size: 26, overlap: 10, max: 3 });
+      const lockBadgeHtml = property.digitalLockEnabled
+        ? `<span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>`
+        : '';
+      const topEndOverlayHtml = (investorAvatarBadgeHtml || lockBadgeHtml)
+        ? `<div class="position-absolute top-0 end-0 p-2 d-flex flex-column align-items-end gap-1" style="z-index:3;">${investorAvatarBadgeHtml}${lockBadgeHtml}</div>`
+        : '';
+
       const cardHtml = `
         <div style="width: 100%;">
           <div class="card property-management-card h-100 overflow-hidden ${cardExtraClass}"
@@ -669,7 +742,7 @@ class PropertyManagementComponent {
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-primary" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
               </div>
-              ${property.digitalLockEnabled ? `<div class="position-absolute top-0 end-0 p-2"><span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span></div>` : ''}
+              ${topEndOverlayHtml}
               ${moveOutOverlayHtml}
             </div>
             ` : `
@@ -677,7 +750,7 @@ class PropertyManagementComponent {
               <div class="position-absolute top-0 start-0 p-2">
                 <span class="badge bg-white ${typeIdBadgeClass}" style="font-size: 0.75rem;${typeIdBadgeStyle}">${this.escapeHtml(property.propertyId)}</span>
               </div>
-              ${property.digitalLockEnabled ? `<div class="position-absolute top-0 end-0 p-2"><span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span></div>` : ''}
+              ${topEndOverlayHtml}
               <div class="position-absolute top-50 start-50 translate-middle">
                 <i class="bi ${isArchived ? 'bi-archive' : typeIcon} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
               </div>
@@ -763,6 +836,24 @@ class PropertyManagementComponent {
                   <div>
                     <div style="font-size:0.7rem;color:#6f42c1;font-weight:600;line-height:1;"><i class="bi bi-calculator me-1"></i>Accountant</div>
                     <div class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(acc.name)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)" style="line-height:1.3;">${this.escapeHtml(acc.name)}</div>
+                  </div>
+                </div>`;
+              })()}
+              ${(() => {
+                if (!property.manager) return '';
+                const mgr = this.allInvestors.find(i => i.investorId === property.manager);
+                if (!mgr) { console.warn(`⚠️ Manager investor not found: ${property.manager}, allInvestors count: ${this.allInvestors.length}`); return ''; }
+                const initials = mgr.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                const avatarHtml = mgr.avatar
+                  ? `<img src="${mgr.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="${this.escapeHtml(mgr.name)}">`
+                  : `<span style="color:#fff;font-weight:700;font-size:11px;">${initials}</span>`;
+                const circleBg = mgr.avatar ? '' : 'background:linear-gradient(135deg,#0d6efd,#6ea8fe);';
+                return `
+                <div class="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
+                  <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;${circleBg}">${avatarHtml}</div>
+                  <div>
+                    <div style="font-size:0.7rem;color:#0d6efd;font-weight:600;line-height:1;"><i class="bi bi-person-badge me-1"></i>Manager</div>
+                    <div class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(mgr.name)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)" style="line-height:1.3;">${this.escapeHtml(mgr.name)}</div>
                   </div>
                 </div>`;
               })()}
@@ -1137,6 +1228,15 @@ class PropertyManagementComponent {
         }
         this.updateAccountantAvatarPreview(property.accountant || "");
 
+        // Handle Manager field
+        this.populateManagerDropdown();
+        if (property.manager) {
+          document.getElementById("manager").value = property.manager;
+        } else {
+          document.getElementById("manager").value = "";
+        }
+        this.updateManagerAvatarPreview(property.manager || "");
+
         if (property.managementFeeStart) {
           const feeDate = new Date(property.managementFeeStart);
           document.getElementById("managementFeeStart").value = feeDate
@@ -1255,6 +1355,11 @@ class PropertyManagementComponent {
         this.populateAccountantDropdown();
         document.getElementById("accountant").value = "";
         this.updateAccountantAvatarPreview("");
+
+        // Reset Manager field for add mode
+        this.populateManagerDropdown();
+        document.getElementById("manager").value = "";
+        this.updateManagerAvatarPreview("");
 
         // Reset settlement bank dropdowns for add mode
         const sgdBankText = document.getElementById("settlementSgdBankText");
@@ -1444,6 +1549,7 @@ class PropertyManagementComponent {
         managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
         managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
         accountant: formData.get("accountant")?.trim() || "",
+        manager: formData.get("manager")?.trim() || "",
         digitalLockEnabled: formData.get("digitalLockEnabled") === "true",
         digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
         spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
@@ -2279,7 +2385,7 @@ class PropertyManagementComponent {
     }
   }
 
-  async copyPropertiesAsText() {
+  async copyPropertiesAsText(selectedIds = null) {
     const btn = document.getElementById('copyPropertiesTextBtn');
     const origHtml = btn?.innerHTML;
     try {
@@ -2287,11 +2393,13 @@ class PropertyManagementComponent {
 
       const active = this.properties
         .filter(p => !p.isArchived)
-        .sort((a, b) => {
-          const nameA = this.allInvestors.find(i => i.investorId === a.accountant)?.name || '';
-          const nameB = this.allInvestors.find(i => i.investorId === b.accountant)?.name || '';
-          return nameA.localeCompare(nameB);
-        });
+        .filter(p => !selectedIds || selectedIds.has(p.propertyId))
+        .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
+
+      if (active.length === 0) {
+        showToast('No properties selected to export', 'warning');
+        return;
+      }
 
       const fmtDate = d => d ? new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
       const calcLease = (moveIn, moveOut) => {
@@ -2304,9 +2412,10 @@ class PropertyManagementComponent {
         return yrs === 1 ? '1 year' : `${yrs} years`;
       };
 
-      const headers = ['#', 'Address', 'Unit', 'Rent (S$)', 'Lease', 'Move-in', 'Move-out', 'Accountant'];
+      const headers = ['#', 'Address', 'Unit', 'Rent (S$)', 'Lease', 'Move-in', 'Move-out', 'Accountant', 'Manager'];
       const rows = active.map((p, i) => {
         const acc = this.allInvestors.find(inv => inv.investorId === p.accountant);
+        const mgr = this.allInvestors.find(inv => inv.investorId === p.manager);
         return [
           i + 1,
           p.address || '',
@@ -2316,6 +2425,7 @@ class PropertyManagementComponent {
           fmtDate(p.moveInDate),
           fmtDate(p.moveOutDate),
           acc ? acc.name : '',
+          mgr ? mgr.name : '',
         ];
       });
 
@@ -2354,23 +2464,26 @@ class PropertyManagementComponent {
     } catch { return null; }
   }
 
-  async exportPropertiesAsImage() {
+  async exportPropertiesAsImage(selectedIds = null) {
     const btn = document.getElementById('exportPropertiesBtn');
     const origHtml = btn?.innerHTML;
     try {
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting...'; }
       const active = this.properties
         .filter(p => !p.isArchived)
-        .sort((a, b) => {
-          const nameA = this.allInvestors.find(i => i.investorId === a.accountant)?.name || '';
-          const nameB = this.allInvestors.find(i => i.investorId === b.accountant)?.name || '';
-          return nameA.localeCompare(nameB);
-        });
+        .filter(p => !selectedIds || selectedIds.has(p.propertyId))
+        .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
+
+      if (active.length === 0) {
+        showToast('No properties selected to export', 'warning');
+        return;
+      }
 
       // Pre-fetch avatars as base64 so they can be embedded in the SVG
+      // (keyed by investor ID — shared cache covers both accountant and manager roles)
       const avatarMap = {};
-      const uniqueAccountants = [...new Set(active.map(p => p.accountant).filter(Boolean))];
-      await Promise.all(uniqueAccountants.map(async id => {
+      const uniqueInvestorIds = [...new Set(active.flatMap(p => [p.accountant, p.manager]).filter(Boolean))];
+      await Promise.all(uniqueInvestorIds.map(async id => {
         const inv = this.allInvestors.find(i => i.investorId === id);
         if (inv?.avatar) avatarMap[id] = await this._fetchAvatarDataUrl(inv.avatar);
       }));
@@ -2393,139 +2506,130 @@ class PropertyManagementComponent {
     }
   }
 
+  /**
+   * Mobile-first portrait card list (one property per compact card, stacked vertically) —
+   * scrolls naturally and reads at full size on a phone screen, unlike a wide desktop table.
+   */
   _buildPropertiesTableSVG(rows, activeCount, avatarMap = {}) {
-    const TITLE_H = 56;
-    const COL_H = 36;
-    const ROW_H = 44;
-    const PAD = 24;
-    const FOOTER_H = 32;
-
-    const COLS = [
-      { label: '#',          w: 40,  align: 'middle' },
-      { label: 'Address',    w: 330, align: 'start'  },
-      { label: 'Rent (S$)',  w: 95,  align: 'end'    },
-      { label: 'Lease',      w: 90,  align: 'middle' },
-      { label: 'Move-in',    w: 110, align: 'middle' },
-      { label: 'Move-out',   w: 110, align: 'middle' },
-      { label: 'Accountant', w: 207, align: 'start'  },
-    ];
-
-    const tableW = COLS.reduce((s, c) => s + c.w, 0);
-    const SVG_W = tableW + 2 * PAD;
-    const SVG_H = TITLE_H + COL_H + rows.length * ROW_H + FOOTER_H;
-
-    const colX = [];
-    let cx = PAD;
-    COLS.forEach(col => { colX.push(cx); cx += col.w; });
+    const SVG_W = 420;
+    const PAD = 12;
+    const cardW = SVG_W - 2 * PAD;
+    const CARD_PAD = 12;
+    const CARD_GAP = 7;
+    const HEADER_H = 62;
+    const FOOTER_H = 30;
+    const AVATAR_R = 12;
 
     const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const trunc = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
     const calcLease = (moveIn, moveOut) => {
       if (!moveIn || !moveOut) return '—';
       const ms = new Date(moveOut) - new Date(moveIn);
       if (ms <= 0) return '—';
       const months = Math.round(ms / (1000 * 60 * 60 * 24 * 30.44));
-      if (months < 12) return `${months} mo`;
+      if (months < 12) return `${months}mo`;
       const yrs = Math.round(months / 12 * 2) / 2;
-      return yrs === 1 ? '1 year' : `${yrs} years`;
+      return yrs === 1 ? '1y' : `${yrs}y`;
     };
 
     const parts = [];
     const avatarClipDefs = [];
 
-    parts.push(`<rect width="${SVG_W}" height="${SVG_H}" fill="#f8f9fa"/>`);
-
-    parts.push(`<rect x="0" y="0" width="${SVG_W}" height="${TITLE_H}" fill="url(#pmTitleGrad)"/>`);
-    parts.push(`<text x="${PAD + 8}" y="${TITLE_H / 2 + 7}" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="white">Property Portfolio Overview</text>`);
+    // Header
+    parts.push(`<rect x="0" y="0" width="${SVG_W}" height="${HEADER_H}" fill="url(#pmTitleGrad)"/>`);
+    parts.push(`<text x="${PAD}" y="26" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="white">Property Portfolio</text>`);
     const dateStr = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
-    parts.push(`<text x="${SVG_W - PAD - 8}" y="${TITLE_H / 2 + 7}" font-family="Arial,sans-serif" font-size="12" fill="rgba(255,255,255,0.8)" text-anchor="end">${esc(dateStr)}</text>`);
+    parts.push(`<text x="${PAD}" y="45" font-family="Arial,sans-serif" font-size="11" fill="rgba(255,255,255,0.85)">${esc(dateStr)} · ${activeCount} propert${activeCount === 1 ? 'y' : 'ies'}</text>`);
 
-    parts.push(`<rect x="${PAD}" y="${TITLE_H}" width="${tableW}" height="${COL_H}" fill="#2d3748"/>`);
-    COLS.forEach((col, i) => {
-      const tx = col.align === 'end' ? colX[i] + col.w - 8 : col.align === 'middle' ? colX[i] + col.w / 2 : colX[i] + 8;
-      const anchor = col.align === 'end' ? 'end' : col.align === 'middle' ? 'middle' : 'start';
-      parts.push(`<text x="${tx}" y="${TITLE_H + COL_H / 2 + 5}" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#e2e8f0" text-anchor="${anchor}">${esc(col.label)}</text>`);
-    });
+    // Cards — height is computed per-card so there's no wasted space
+    let cursorY = HEADER_H + 10;
+    const halfW = (cardW - 2 * CARD_PAD - 10) / 2;
 
-    let archivedSepDrawn = false;
     rows.forEach((prop, idx) => {
-      const rowY = TITLE_H + COL_H + idx * ROW_H;
       const isArchived = !!prop.isArchived;
-
-      if (isArchived && !archivedSepDrawn) {
-        archivedSepDrawn = true;
-        parts.push(`<rect x="${PAD}" y="${rowY}" width="${tableW}" height="2" fill="#cbd5e0"/>`);
-      }
-
-      const rowBg = isArchived ? '#f0f0f0' : idx % 2 === 0 ? '#ffffff' : '#f8faff';
-      const textFill = isArchived ? '#9ca3af' : '#1a202c';
-      parts.push(`<rect x="${PAD}" y="${rowY}" width="${tableW}" height="${ROW_H}" fill="${rowBg}"/>`);
-      parts.push(`<line x1="${PAD}" y1="${rowY + ROW_H}" x2="${PAD + tableW}" y2="${rowY + ROW_H}" stroke="#e2e8f0" stroke-width="0.5"/>`);
-
-      const textY = rowY + ROW_H / 2 + 5;
       const acc = this.allInvestors.find(i => i.investorId === prop.accountant);
+      const mgr = this.allInvestors.find(i => i.investorId === prop.manager);
 
-      const cells = [
-        { v: String(idx + 1),                                    align: 'middle', colIdx: 0 },
-        { v: prop.rent ? `$${prop.rent.toLocaleString()}` : '—', align: 'end',    colIdx: 2 },
-        { v: calcLease(prop.moveInDate, prop.moveOutDate),       align: 'middle', colIdx: 3 },
-        { v: fmtDate(prop.moveInDate),                           align: 'middle', colIdx: 4 },
-        { v: fmtDate(prop.moveOutDate),                          align: 'middle', colIdx: 5 },
-      ];
-      // Render non-address, non-accountant cells
-      cells.forEach(({ v, align, colIdx }) => {
-        const col = COLS[colIdx];
-        const tx = align === 'end' ? colX[colIdx] + col.w - 8 : align === 'middle' ? colX[colIdx] + col.w / 2 : colX[colIdx] + 8;
-        const anchor = align === 'end' ? 'end' : align === 'middle' ? 'middle' : 'start';
-        parts.push(`<text x="${tx}" y="${textY}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}" text-anchor="${anchor}">${esc(v)}</text>`);
-      });
+      const cardX = PAD;
+      const cardTop = cursorY;
 
-      // Accountant cell: avatar circle + name
-      const AVATAR_R = 13;
-      const avatarCX = colX[6] + 8 + AVATAR_R;
-      const avatarCY = rowY + ROW_H / 2;
-      if (acc) {
-        const dataUrl = avatarMap[prop.accountant];
-        if (dataUrl) {
-          const clipId = `accClip_${idx}`;
-          avatarClipDefs.push(`<clipPath id="${clipId}"><circle cx="${avatarCX}" cy="${avatarCY}" r="${AVATAR_R}"/></clipPath>`);
-          parts.push(`<circle cx="${avatarCX}" cy="${avatarCY}" r="${AVATAR_R}" fill="#e9ecef"/>`);
-          parts.push(`<image href="${dataUrl}" x="${avatarCX - AVATAR_R}" y="${avatarCY - AVATAR_R}" width="${AVATAR_R * 2}" height="${AVATAR_R * 2}" clip-path="url(#accClip_${idx})" preserveAspectRatio="xMidYMid slice"/>`);
-        } else {
-          const initials = acc.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-          parts.push(`<circle cx="${avatarCX}" cy="${avatarCY}" r="${AVATAR_R}" fill="url(#pmAccGrad)"/>`);
-          parts.push(`<text x="${avatarCX}" y="${avatarCY + 4}" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle">${esc(initials)}</text>`);
+      const addrBaselineY = cardTop + CARD_PAD + 12;
+      const subBaselineY = addrBaselineY + 16;
+      const infoBaselineY = subBaselineY + 18;
+      const peopleTopY = infoBaselineY + 11;
+      const peopleCenterY = peopleTopY + AVATAR_R;
+      const peopleTextBaselineY = peopleCenterY + 4;
+      const cardBottom = peopleTopY + AVATAR_R * 2 + CARD_PAD;
+      const cardH = cardBottom - cardTop;
+
+      const bg = isArchived ? '#eef0f2' : (idx % 2 === 0 ? '#ffffff' : '#f8faff');
+      const textFill = isArchived ? '#9aa1ab' : '#1a2233';
+      const mutedFill = isArchived ? '#b7bdc6' : '#6b7280';
+
+      parts.push(`<rect x="${cardX}" y="${cardTop}" width="${cardW}" height="${cardH}" rx="10" fill="${bg}" stroke="#e5e7eb" stroke-width="1"/>`);
+
+      // Index badge
+      const badgeR = 10;
+      const badgeCX = cardX + CARD_PAD + badgeR;
+      const badgeCY = addrBaselineY - 7;
+      parts.push(`<circle cx="${badgeCX}" cy="${badgeCY}" r="${badgeR}" fill="${isArchived ? '#c3c9d1' : '#667eea'}"/>`);
+      parts.push(`<text x="${badgeCX}" y="${badgeCY + 4}" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="white" text-anchor="middle">${idx + 1}</text>`);
+
+      // Address (bold, larger)
+      const addrX = badgeCX + badgeR + 8;
+      parts.push(`<text x="${addrX}" y="${addrBaselineY}" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="${textFill}">${esc(trunc(prop.address || prop.propertyId, 32))}</text>`);
+      if (isArchived) {
+        parts.push(`<text x="${cardX + cardW - CARD_PAD}" y="${addrBaselineY}" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#9aa1ab" text-anchor="end">ARCHIVED</text>`);
+      }
+
+      // Unit / ID line
+      const subText = [prop.unit, `ID ${prop.propertyId}`].filter(Boolean).join('   ·   ');
+      parts.push(`<text x="${addrX}" y="${subBaselineY}" font-family="Arial,sans-serif" font-size="11" fill="${mutedFill}">${esc(subText)}</text>`);
+
+      // Rent · Lease · Move-in → Move-out
+      const infoText = `${prop.rent ? 'S$' + prop.rent.toLocaleString() : '—'}   ·   ${calcLease(prop.moveInDate, prop.moveOutDate)}   ·   ${fmtDate(prop.moveInDate)} → ${fmtDate(prop.moveOutDate)}`;
+      parts.push(`<text x="${cardX + CARD_PAD}" y="${infoBaselineY}" font-family="Arial,sans-serif" font-size="12" font-weight="600" fill="${textFill}">${esc(infoText)}</text>`);
+
+      // People row — Accountant (left) / Manager (right)
+      const drawPerson = (investor, roleId, colX, gradId) => {
+        const cx = colX + AVATAR_R;
+        if (!investor) {
+          parts.push(`<circle cx="${cx}" cy="${peopleCenterY}" r="${AVATAR_R}" fill="#e9ecef"/>`);
+          parts.push(`<text x="${cx + AVATAR_R + 5}" y="${peopleTextBaselineY}" font-family="Arial,sans-serif" font-size="11" fill="${mutedFill}">—</text>`);
+          return;
         }
-        const nameX = avatarCX + AVATAR_R + 5;
-        parts.push(`<text x="${nameX}" y="${textY}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}">${esc(trunc(acc.name, 22))}</text>`);
-      } else {
-        parts.push(`<text x="${colX[6] + 8}" y="${textY}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}">—</text>`);
-      }
+        const dataUrl = avatarMap[investor.investorId];
+        if (dataUrl) {
+          const clipId = `${roleId}Clip_${idx}`;
+          avatarClipDefs.push(`<clipPath id="${clipId}"><circle cx="${cx}" cy="${peopleCenterY}" r="${AVATAR_R}"/></clipPath>`);
+          parts.push(`<circle cx="${cx}" cy="${peopleCenterY}" r="${AVATAR_R}" fill="#e9ecef"/>`);
+          parts.push(`<image href="${dataUrl}" x="${cx - AVATAR_R}" y="${peopleCenterY - AVATAR_R}" width="${AVATAR_R * 2}" height="${AVATAR_R * 2}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`);
+        } else {
+          const initials = investor.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+          parts.push(`<circle cx="${cx}" cy="${peopleCenterY}" r="${AVATAR_R}" fill="url(#${gradId})"/>`);
+          parts.push(`<text x="${cx}" y="${peopleCenterY + 4}" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="white" text-anchor="middle">${esc(initials)}</text>`);
+        }
+        parts.push(`<text x="${cx + AVATAR_R + 5}" y="${peopleTextBaselineY}" font-family="Arial,sans-serif" font-size="11" fill="${textFill}">${esc(trunc(investor.name, 16))}</text>`);
+      };
 
-      // Address: two lines (address line 1, unit line 2) — no truncation
-      const addrX = colX[1] + 8;
-      const addrLine1Y = rowY + 16;
-      const addrLine2Y = rowY + 31;
-      parts.push(`<text x="${addrX}" y="${addrLine1Y}" font-family="Arial,sans-serif" font-size="12" fill="${textFill}">${esc(prop.address || '—')}</text>`);
-      if (prop.unit) {
-        parts.push(`<text x="${addrX}" y="${addrLine2Y}" font-family="Arial,sans-serif" font-size="11" fill="${isArchived ? '#b0b8c4' : '#6b7280'}">${esc(prop.unit)}</text>`);
-      }
+      const leftColX = cardX + CARD_PAD;
+      const rightColX = leftColX + halfW + 10;
+      drawPerson(acc, 'acc', leftColX, 'pmAccGrad');
+      drawPerson(mgr, 'mgr', rightColX, 'pmMgrGrad');
 
-      COLS.forEach((_, i) => {
-        if (i > 0) parts.push(`<line x1="${colX[i]}" y1="${rowY}" x2="${colX[i]}" y2="${rowY + ROW_H}" stroke="#e2e8f0" stroke-width="0.5"/>`);
-      });
+      cursorY = cardBottom + CARD_GAP;
     });
 
-    parts.push(`<rect x="${PAD}" y="${TITLE_H}" width="${tableW}" height="${COL_H + rows.length * ROW_H}" fill="none" stroke="#cbd5e0" stroke-width="1"/>`);
-
-    const footerY = TITLE_H + COL_H + rows.length * ROW_H + 10;
+    const footerY = cursorY + FOOTER_H / 2;
     const archivedCount = rows.length - activeCount;
     const footerText = `${activeCount} active propert${activeCount === 1 ? 'y' : 'ies'}${archivedCount > 0 ? ` · ${archivedCount} archived` : ''}`;
-    parts.push(`<text x="${SVG_W / 2}" y="${footerY + 12}" font-family="Arial,sans-serif" font-size="11" fill="#6b7280" text-anchor="middle">${esc(footerText)}</text>`);
+    parts.push(`<text x="${SVG_W / 2}" y="${footerY}" font-family="Arial,sans-serif" font-size="11" fill="#6b7280" text-anchor="middle">${esc(footerText)}</text>`);
 
-    const defs = `<defs><linearGradient id="pmTitleGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient><linearGradient id="pmAccGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6f42c1"/><stop offset="100%" stop-color="#9d4edd"/></linearGradient>${avatarClipDefs.join('')}</defs>`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}">${defs}${parts.join('')}</svg>`;
+    const SVG_H = cursorY + FOOTER_H;
+
+    const defs = `<defs><linearGradient id="pmTitleGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient><linearGradient id="pmAccGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6f42c1"/><stop offset="100%" stop-color="#9d4edd"/></linearGradient><linearGradient id="pmMgrGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0d6efd"/><stop offset="100%" stop-color="#6ea8fe"/></linearGradient>${avatarClipDefs.join('')}</defs>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}"><rect width="${SVG_W}" height="${SVG_H}" fill="#f4f5f7"/>${defs}${parts.join('')}</svg>`;
   }
 
   _propSvgToPngBlob(svgStr) {
@@ -2596,6 +2700,155 @@ class PropertyManagementComponent {
     modal.show();
   }
 
+  /**
+   * Open a checklist modal so the user can pick which active properties to include
+   * in the next export, then run the requested export (image or Excel/text) on confirm.
+   * Selection persists across openings within the session — defaults to "everything".
+   */
+  openExportSelectionModal(mode) {
+    const active = this.properties
+      .filter(p => !p.isArchived)
+      .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
+
+    if (active.length === 0) {
+      showToast('No properties to export', 'warning');
+      return;
+    }
+
+    const activeIds = new Set(active.map(p => p.propertyId));
+    if (!this._exportSelectedIds) {
+      // First time opening — default to everything selected
+      this._exportSelectedIds = new Set(activeIds);
+    } else {
+      // Drop stale ids (archived/deleted since the last time this was opened)
+      this._exportSelectedIds = new Set(
+        [...this._exportSelectedIds].filter(id => activeIds.has(id))
+      );
+    }
+
+    document.getElementById('pmExportSelectModal')?.remove();
+
+    const modeConfig = mode === 'image'
+      ? { label: 'Export as Image', icon: 'bi-image', btnClass: 'btn-success' }
+      : { label: 'Copy as Excel', icon: 'bi-table', btnClass: 'btn-primary' };
+
+    const modalHtml = `
+      <div class="modal fade" id="pmExportSelectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-0" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle bg-white d-flex align-items-center justify-content-center" style="width:32px;height:32px;flex-shrink:0;">
+                  <i class="bi bi-check2-square text-primary" style="font-size:1rem;"></i>
+                </div>
+                <h6 class="modal-title text-white fw-bold mb-0">Select Properties to Export</h6>
+              </div>
+              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+              <div class="p-3 border-bottom bg-light">
+                <input type="text" id="pmExportSearchInput" class="form-control form-control-sm mb-2" placeholder="Search by address or unit...">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pmExportSelectAllBtn">Select All</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pmExportDeselectAllBtn">Deselect All</button>
+                  </div>
+                  <span class="small fw-semibold text-muted" id="pmExportSelectedCount"></span>
+                </div>
+              </div>
+              <div id="pmExportPropertyList" style="max-height:360px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer border-0" style="background:#f8f9fa;">
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn ${modeConfig.btnClass} btn-sm" id="pmExportConfirmBtn">
+                <i class="bi ${modeConfig.icon} me-1"></i>${modeConfig.label}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    this._renderExportSelectionList(active);
+    this._updateExportSelectionCount(active.length);
+
+    document.getElementById('pmExportSearchInput').addEventListener('input', (e) => {
+      this._renderExportSelectionList(active, e.target.value);
+    });
+    document.getElementById('pmExportSelectAllBtn').addEventListener('click', () => {
+      active.forEach(p => this._exportSelectedIds.add(p.propertyId));
+      this._renderExportSelectionList(active, document.getElementById('pmExportSearchInput').value);
+      this._updateExportSelectionCount(active.length);
+    });
+    document.getElementById('pmExportDeselectAllBtn').addEventListener('click', () => {
+      this._exportSelectedIds.clear();
+      this._renderExportSelectionList(active, document.getElementById('pmExportSearchInput').value);
+      this._updateExportSelectionCount(active.length);
+    });
+
+    const modalEl = document.getElementById('pmExportSelectModal');
+    const modal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+    modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+
+    document.getElementById('pmExportConfirmBtn').addEventListener('click', () => {
+      const selectedIds = new Set(this._exportSelectedIds);
+      modal.hide();
+      if (mode === 'image') this.exportPropertiesAsImage(selectedIds);
+      else this.copyPropertiesAsText(selectedIds);
+    });
+
+    modal.show();
+  }
+
+  _renderExportSelectionList(active, searchTerm = '') {
+    const container = document.getElementById('pmExportPropertyList');
+    if (!container) return;
+
+    const term = searchTerm.trim().toLowerCase();
+    const filtered = term
+      ? active.filter(p =>
+          (p.address || '').toLowerCase().includes(term) ||
+          (p.unit || '').toLowerCase().includes(term) ||
+          String(p.propertyId).toLowerCase().includes(term))
+      : active;
+
+    container.innerHTML = filtered.length
+      ? filtered.map(p => {
+          const checked = this._exportSelectedIds.has(p.propertyId);
+          return `
+            <label class="d-flex align-items-center gap-2 px-3 py-2 border-bottom mb-0" style="cursor:pointer;">
+              <input type="checkbox" class="form-check-input pm-export-checkbox" data-property-id="${this.escapeHtml(p.propertyId)}" ${checked ? 'checked' : ''} style="flex-shrink:0;">
+              <div class="flex-grow-1" style="min-width:0;">
+                <div class="small fw-semibold text-truncate">${this.escapeHtml(p.address || p.propertyId)}</div>
+                <div class="text-muted text-truncate" style="font-size:0.75rem;">${[p.unit, p.propertyId].filter(Boolean).map(v => this.escapeHtml(v)).join(' · ')}</div>
+              </div>
+              ${this._renderInvestorAvatarStack(p.propertyId)}
+            </label>`;
+        }).join('')
+      : `<div class="text-center text-muted py-4"><i class="bi bi-search me-1"></i>No matching properties</div>`;
+
+    container.querySelectorAll('.pm-export-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const id = e.target.dataset.propertyId;
+        if (e.target.checked) this._exportSelectedIds.add(id);
+        else this._exportSelectedIds.delete(id);
+        this._updateExportSelectionCount(active.length);
+      });
+    });
+  }
+
+  /** Overlapping avatar stack of the investors tied to a property, for quick visual ID in a list row. */
+  _renderInvestorAvatarStack(propertyId, max = 4) {
+    return renderInvestorAvatarStack(this.allInvestors, propertyId, { max });
+  }
+
+  _updateExportSelectionCount(totalCount) {
+    const countEl = document.getElementById('pmExportSelectedCount');
+    if (countEl) countEl.textContent = `${this._exportSelectedIds.size} of ${totalCount} selected`;
+    const confirmBtn = document.getElementById('pmExportConfirmBtn');
+    if (confirmBtn) confirmBtn.disabled = this._exportSelectedIds.size === 0;
+  }
 
 }
 

@@ -4,6 +4,10 @@ import {
 } from "../utils/room-type-mapper.js";
 import i18next from "i18next";
 import { getGroupLinkMeta } from "../utils/social-links.js";
+import {
+  fetchInvestorsForAvatarStack,
+  renderPropertyImageAvatarBadge,
+} from "../utils/investor-avatar-stack.js";
 
 /**
  * Tenancy Occupancy Component
@@ -21,6 +25,7 @@ class TenancyOccupancyComponent {
     this.activeOnly = false;
     this.selectedProperties = new Set(); // Use Set for better performance
     this.lastClickedIndex = -1; // Track last clicked card for shift selection
+    this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     this.init();
   }
 
@@ -32,6 +37,10 @@ class TenancyOccupancyComponent {
     this.bindEvents();
     // Initialize year display
     this.updateYearDisplay();
+    fetchInvestorsForAvatarStack().then((investors) => {
+      this._avatarInvestors = investors;
+      this.renderPropertyCards();
+    });
   }
 
   /**
@@ -143,6 +152,7 @@ class TenancyOccupancyComponent {
            style="cursor: pointer; transition: all 0.2s ease;">
         ${property.propertyImage
           ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              ${renderPropertyImageAvatarBadge(this._avatarInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
               <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
             </div>`
           : ""

@@ -16,6 +16,7 @@ import {
   getBadgeTokens,
   getBannerTokens,
 } from "../utils/financial-report-theme.js";
+import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 
 /**
  * Financial Reports Component
@@ -84,6 +85,10 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error("Error loading all investors:", error);
       this.allInvestors = [];
+    }
+    // Re-render cards in case properties loaded before investors (race condition)
+    if (this.properties && this.properties.length > 0) {
+      this.renderPropertyCards(this.properties);
     }
   }
 
@@ -527,22 +532,31 @@ class FinancialReportsComponent {
              onclick="window.financialReports.selectProperty('${property.propertyId}')">
           ${
             property.propertyImage
-              ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              ? `<div data-role="property-image" style="height: 62px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
                  ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
+                 ${renderPropertyImageAvatarBadge(this.allInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
                  ${isReportSettled ? `<div style="position: absolute; inset: 0; background: rgba(13,148,136,0.42); display: ${isSelected ? "none" : "flex"}; align-items: center; justify-content: center;"><i class="bi bi-cash-coin text-white" style="font-size: 1.3rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i></div>` : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
+                 <div class="text-center text-white" style="position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 4px 2px; line-height: 1.2; background: linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0));">
+                   <div class="fw-semibold text-truncate" style="font-size: 9px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
+                   <div class="text-truncate" style="font-size: 9px; opacity: 0.85;">${escapeHtml(property.unit)}</div>
+                 </div>
                </div>`
               : ""
           }
           <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : isReportSettled ? "rgba(13,148,136,0.07)" : "#fff"};">
             <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
                  style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${cardStatusColor || "#0d6efd"};">
-              ${isReportSettled ? '<i class="bi bi-cash-coin" style="font-size: 10px;"></i>' : isReportClosed ? '<i class="bi bi-lock-fill" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
+              ${isReportSettled ? '<i class="bi bi-cash-coin" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
             </div>
-            <div class="text-center" style="line-height: 1.2; width: 100%;">
-              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
-              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
-            </div>
+            ${
+              !property.propertyImage
+                ? `<div class="text-center" style="line-height: 1.2; width: 100%;">
+                     <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
+                     <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
+                   </div>`
+                : ""
+            }
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
             ${!property.propertyImage && isReportSettled && !isSelected ? `<span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin me-1"></i>Settled</span>` : ""}
             ${!property.propertyImage && isReportClosed && !isReportSettled && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
@@ -781,10 +795,6 @@ class FinancialReportsComponent {
     // Show the correct month/year immediately — no network call needed
     this.updateMonthDisplay();
 
-    // Property title + move-in/move-out — this.properties is already
-    // loaded (loadProperties() runs once on init), so this is instant.
-    this._updatePropertyTitleHeader();
-
     // Load investors, tenants, property details, and utility bills in parallel
     await Promise.all([
       this.loadInvestors(propertyId),
@@ -807,49 +817,6 @@ class FinancialReportsComponent {
       ? window.SlugUtils.propertySlug(_propData)
       : this.selectedProperty;
     window.appRouter?.replace(`/financial/${_slug}/${_y}/${_m}`);
-  }
-
-  /**
-   * Shows the selected property's full address as a title above the month
-   * navigation, with its move-in/move-out dates as a small muted subtitle.
-   * Not critical info, so deliberately kept quiet (small + muted) rather
-   * than styled like the address itself.
-   */
-  _updatePropertyTitleHeader() {
-    const header = document.getElementById("propertyTitleHeader");
-    const addressEl = document.getElementById("propertyTitleAddress");
-    const datesEl = document.getElementById("propertyTitleMoveDates");
-    if (!header || !addressEl || !datesEl) return;
-
-    const property = this.properties?.find(
-      (p) => p.propertyId === this.selectedProperty,
-    );
-    if (!property) {
-      header.style.display = "none";
-      return;
-    }
-
-    const addrParts = [property.unit, property.address].filter(Boolean);
-    if (property.postcode && !property.address?.includes(property.postcode)) {
-      addrParts.push(property.postcode);
-    }
-    addressEl.textContent = addrParts.join(" · ") || property.propertyId;
-
-    const fmt = (v) =>
-      v
-        ? new Date(v).toLocaleDateString("en-SG", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })
-        : null;
-    const moveIn = fmt(property.moveInDate);
-    const moveOut = fmt(property.moveOutDate);
-    datesEl.textContent = moveIn
-      ? `Move-in: ${moveIn}${moveOut ? `  ·  Move-out: ${moveOut}` : ""}`
-      : "";
-
-    header.style.display = "";
   }
 
   async loadInvestors(propertyId) {
@@ -1163,8 +1130,11 @@ class FinancialReportsComponent {
     // more often without a horizontal scroll, and Actions is a bit wider
     // (100->112) so its 3 buttons never crowd/overflow into Amount's
     // right-aligned text.
+    // Drop the dedicated "Curr." column and fold the currency code into a
+    // small subtext line under the Amount value instead (same treatment as
+    // the exported report image) — frees up a column's worth of width.
     const INCOME_GRID_COLUMNS =
-      "18px 26px minmax(140px,2fr) 54px 58px 76px 46px 90px 112px";
+      "18px 26px minmax(140px,2fr) 54px 58px 76px 90px 112px";
     const gridCell = (content, opts = {}) => `
       <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
@@ -1180,7 +1150,6 @@ class FinancialReportsComponent {
             ${gridCell("Date", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
             ${gridCell("Person", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
             ${gridCell("Paid By", { cls: "small fw-semibold", style: "white-space:nowrap;" })}
-            ${gridCell("Curr.", { cls: "small fw-semibold", align: "center", style: "white-space:nowrap;" })}
             ${gridCell("Amount", { cls: "small fw-semibold", align: "right", style: "white-space:nowrap;" })}
             ${gridCell("Actions", { cls: "small fw-semibold actions-column", align: "center", style: "white-space:nowrap;" })}
           </div>
@@ -1196,8 +1165,21 @@ class FinancialReportsComponent {
           <span class="small text-muted">Select all</span>
         </div>`;
 
-    const incomeGroups = groupItemsByCategory(this.currentReport.income, "income");
-    const showIncomeGroupHeaders = incomeGroups.length > 1;
+    // In edit/reorder mode, skip the category+payee auto-grouping and show
+    // items in raw array order — otherwise groupItemsByCategory() overrides
+    // wherever the user just dragged an item to, since it always re-sorts
+    // by category/payee on every render regardless of array order.
+    const incomeGroups = incomeIsClosed
+      ? groupItemsByCategory(this.currentReport.income, "income")
+      : [
+          {
+            key: "__all__",
+            label: "",
+            emoji: "",
+            entries: this.currentReport.income.map((item, index) => ({ item, index })),
+          },
+        ];
+    const showIncomeGroupHeaders = incomeIsClosed && incomeGroups.length > 1;
 
     incomeGroups.forEach((group, groupIdx) => {
       if (showIncomeGroupHeaders) {
@@ -1327,8 +1309,10 @@ class FinancialReportsComponent {
           ${gridCell(transactionDate, { cls: "small" })}
           ${gridCell(`<div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>`)}
           ${gridCell(this.renderPaidByAvatar(item.paidBy), { cls: "small" })}
-          ${gridCell(this.renderCurrencyFlag(item.currency), { cls: "small", align: "center" })}
-          ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};` })}
+          ${gridCell(
+            `$${item.amount.toFixed(2)}<div style="font-size:10px;font-weight:600;color:#6c757d;letter-spacing:.3px;">${item.currency || "SGD"}</div>`,
+            { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};` },
+          )}
           ${gridCell(`<div class="fr-action-btns">${evidenceBtn}${categoryBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
         </div>`;
 
@@ -1492,8 +1476,19 @@ class FinancialReportsComponent {
           <span class="small text-muted">Select all</span>
         </div>`;
 
-    const expenseGroups = groupItemsByCategory(this.currentReport.expenses, "expense");
-    const showExpenseGroupHeaders = expenseGroups.length > 1;
+    // See matching comment in updateIncomeDisplay() — skip auto-grouping
+    // while in edit/reorder mode so drag positions map 1:1 to array indices.
+    const expenseGroups = expenseIsClosed
+      ? groupItemsByCategory(this.currentReport.expenses, "expense")
+      : [
+          {
+            key: "__all__",
+            label: "",
+            emoji: "",
+            entries: this.currentReport.expenses.map((item, index) => ({ item, index })),
+          },
+        ];
+    const showExpenseGroupHeaders = expenseIsClosed && expenseGroups.length > 1;
 
     expenseGroups.forEach((group, groupIdx) => {
       if (showExpenseGroupHeaders) {
@@ -2064,7 +2059,8 @@ class FinancialReportsComponent {
           tenant._moveInDateForDisplay = null;
         }
 
-        // Store move-out date for CSS differentiation in unpaid reminder
+        // Store move-in/move-out dates for display in unpaid reminder
+        tenant._moveInDate = moveInDate;
         tenant._moveOutDate = moveOutDate;
 
         return true; // Tenant was/is in property during this month
@@ -2249,24 +2245,32 @@ class FinancialReportsComponent {
             ? `<span class="badge bg-info text-dark" title="Tenant pays PUB utility bill">PUB</span>`
             : "";
 
-          const moveInBadge = upcomingMoveIn
-            ? `<span class="badge bg-warning text-dark" title="Upcoming move-in date"><i class="bi bi-calendar-event me-1"></i>Moving in: ${escapeHtml(upcomingMoveIn)}</span>`
-            : "";
+          const fmt = (d) =>
+            d.toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            });
 
           let periodBadge = "";
           if (tenant._moveOutDateThisMonth) {
-            const fmt = (d) =>
-              d.toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              });
             const from = tenant._moveInDateForDisplay
               ? fmt(tenant._moveInDateForDisplay)
               : "—";
             const to = fmt(tenant._moveOutDateThisMonth);
             periodBadge = `<span class="badge bg-secondary" title="Rental period this month"><i class="bi bi-calendar-range me-1"></i>${escapeHtml(from)} – ${escapeHtml(to)}</span>`;
           }
+
+          const moveInBadge = upcomingMoveIn
+            ? `<span class="badge bg-warning text-dark" title="Upcoming move-in date"><i class="bi bi-calendar-event me-1"></i>Moving in: ${escapeHtml(upcomingMoveIn)}</span>`
+            : !periodBadge && tenant._moveInDate
+              ? `<span class="badge bg-secondary" title="Move-in date"><i class="bi bi-calendar-event me-1"></i>Move-in: ${escapeHtml(fmt(tenant._moveInDate))}</span>`
+              : "";
+
+          const moveOutBadge =
+            !periodBadge && tenant._moveOutDate
+              ? `<span class="badge bg-secondary" title="Move-out date"><i class="bi bi-calendar-x me-1"></i>Move-out: ${escapeHtml(fmt(tenant._moveOutDate))}</span>`
+              : "";
 
           const tenantNotes = tenant.notes ? tenant.notes.trim() : "";
           const movedOutBadge = hasMovedOut
@@ -2283,6 +2287,7 @@ class FinancialReportsComponent {
                 <span class="text-muted">(${escapeHtml(roomType)})</span>
                 ${movedOutBadge}
                 ${moveInBadge}
+                ${moveOutBadge}
                 ${periodBadge}
                 ${rentBadge}
                 ${cleaningBadge}
@@ -3094,14 +3099,20 @@ class FinancialReportsComponent {
       : "";
     const wrap = (inner) =>
       contactUrl ? `<a ${linkAttrs}>${inner}</a>` : inner;
+    // No saved Facebook URL or phone number to message them on — dim the
+    // avatar so it doesn't look clickable, and say why in the tooltip.
+    const dimStyle = contactUrl ? "" : "opacity:0.55;";
+    const tooltip = contactUrl
+      ? displayName
+      : `${displayName} (no contact info saved)`;
 
     if (avatar) {
       return wrap(
-        `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">`,
+        `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;${dimStyle}" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}">`,
       );
     }
     return wrap(
-      `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(displayName)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`,
+      `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;${dimStyle}" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`,
     );
   }
 
@@ -4699,9 +4710,32 @@ class FinancialReportsComponent {
     }
   }
 
+  // Rewrites currentReport.income/expenses into the exact order they're
+  // currently rendered in (category groups, then payee clusters) so that
+  // switching to the flat, un-grouped edit-mode view — see the comment in
+  // updateIncomeDisplay() — doesn't visibly jump the list around. Without
+  // this, entering edit mode would swap the grouped view for raw storage
+  // order, which usually looks nothing alike.
+  _snapshotDisplayOrder(type) {
+    const items =
+      type === "income" ? this.currentReport.income : this.currentReport.expenses;
+    const flatItems = groupItemsByCategory(items, type).flatMap((group) =>
+      group.entries.map(({ item }) => item),
+    );
+    if (type === "income") {
+      this.currentReport.income = flatItems;
+    } else {
+      this.currentReport.expenses = flatItems;
+    }
+  }
+
   toggleEditMode() {
     if (this.currentReport?.isClosed) return;
     this.isEditMode = !this.isEditMode;
+    if (this.isEditMode && this.currentReport) {
+      this._snapshotDisplayOrder("income");
+      this._snapshotDisplayOrder("expense");
+    }
     // Re-render both sections to show/hide drag handles
     this.updateIncomeDisplay();
     this.updateExpenseDisplay();
@@ -5328,10 +5362,26 @@ class FinancialReportsComponent {
       }
 
       const statusIcon = isSettled ? " 🤝" : isClosed ? " 🔒" : "";
+
+      const fmtMoveDate = (v) =>
+        v
+          ? new Date(v).toLocaleDateString("en-SG", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : null;
+      const moveIn = property ? fmtMoveDate(property.moveInDate) : null;
+      const moveOut = property ? fmtMoveDate(property.moveOutDate) : null;
+      const moveDatesInfo = moveIn
+        ? `Move-in: ${moveIn}${moveOut ? `  ·  Move-out: ${moveOut}` : ""}`
+        : "";
+
       currentMonthEl.innerHTML = `
         <div class="d-flex flex-column align-items-center">
           <div class="fw-bold">${month} ${year}${statusIcon}</div>
           ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}</div>` : ""}
+          ${moveDatesInfo ? `<div class="text-muted" style="font-size: 0.78rem; opacity: 0.85;">${moveDatesInfo}</div>` : ""}
         </div>
       `;
 
@@ -7300,31 +7350,29 @@ class FinancialReportsComponent {
             y += 18;
           }
 
-          // Balance the two columns by cumulative height rather than a
-          // strict first-half/second-half count split, so a short right
-          // column doesn't leave a block of dead space under it — each
-          // item goes to whichever column is currently shorter, still in
-          // original (top-to-bottom) order.
+          // Natural reading order: the left column fills first (top to
+          // bottom, in original order), then the remainder continues at the
+          // top of the right column — a single fixed split point, not a
+          // per-item dynamic switch, so the flow never zigzags back and
+          // forth between columns. The split point is chosen by cumulative
+          // height (not a strict item-count half) purely so the right
+          // column isn't left towering over a short left column.
           const items = group.entries.map((e) => e.item);
           const metas = items.map(rowMetaFn);
-          const leftItems = [];
-          const leftMetas = [];
-          const rightItems = [];
-          const rightMetas = [];
-          let leftTally = 0;
-          let rightTally = 0;
-          items.forEach((item, idx) => {
-            const meta = metas[idx];
-            if (leftTally <= rightTally) {
-              leftItems.push(item);
-              leftMetas.push(meta);
-              leftTally += meta.rowH;
-            } else {
-              rightItems.push(item);
-              rightMetas.push(meta);
-              rightTally += meta.rowH;
+          const totalH = metas.reduce((sum, m) => sum + m.rowH, 0);
+          let splitIdx = items.length;
+          let cumH = 0;
+          for (let i = 0; i < items.length; i++) {
+            cumH += metas[i].rowH;
+            if (cumH >= totalH / 2) {
+              splitIdx = i + 1;
+              break;
             }
-          });
+          }
+          const leftItems = items.slice(0, splitIdx);
+          const leftMetas = metas.slice(0, splitIdx);
+          const rightItems = items.slice(splitIdx);
+          const rightMetas = metas.slice(splitIdx);
           const contentStartY = y;
 
           let leftY = contentStartY;

@@ -82,31 +82,49 @@ export function renderCategoryChipsHtml(type, selectedValue = "") {
  * @returns {Array<{key:string,label:string,emoji:string,entries:Array<{item:object,index:number}>}>}
  */
 /**
- * Stable-clusters entries so that items sharing the same personInCharge sit
- * next to each other, ordered by that payee's first appearance in the list.
- * No visible sub-header — this only affects ordering within a category.
+ * Stable-clusters entries so that items sharing the same cluster key (see
+ * keyFn) sit next to each other, ordered by that key's first appearance in
+ * the list. No visible sub-header — this only affects ordering within a
+ * category.
  */
-function clusterByPayee(entries) {
+function clusterByPayee(entries, keyFn) {
   const firstSeenOrder = [];
   entries.forEach(({ item }) => {
-    if (!firstSeenOrder.includes(item.personInCharge)) {
-      firstSeenOrder.push(item.personInCharge);
+    const key = keyFn(item);
+    if (!firstSeenOrder.includes(key)) {
+      firstSeenOrder.push(key);
     }
   });
   return entries
     .map((entry, originalIndex) => ({ entry, originalIndex }))
     .sort((a, b) => {
       const rankDiff =
-        firstSeenOrder.indexOf(a.entry.item.personInCharge) -
-        firstSeenOrder.indexOf(b.entry.item.personInCharge);
+        firstSeenOrder.indexOf(keyFn(a.entry.item)) -
+        firstSeenOrder.indexOf(keyFn(b.entry.item));
       return rankDiff !== 0 ? rankDiff : a.originalIndex - b.originalIndex;
     })
     .map(({ entry }) => entry);
 }
 
+// Income has no single "person in charge" payer field — a payment can be
+// split across multiple tenants (item.paidBy is an array) — so the cluster
+// key normalizes that into one comparable string per item.
+function paidByKey(item) {
+  const paidBy = item.paidBy;
+  if (!paidBy) return "";
+  return Array.isArray(paidBy) ? [...paidBy].sort().join(",") : paidBy;
+}
+
 export function groupItemsByCategory(items, type) {
   const categories = getCategoryList(type);
   const withIndex = items.map((item, index) => ({ item, index }));
+
+  // Income clusters by who actually paid (item.paidBy); expenses cluster by
+  // the person in charge of that expense — there's no "paid by" equivalent
+  // on the expense side.
+  const clusterKeyFn =
+    type === "income" ? paidByKey : (item) => item.personInCharge;
+  const cluster = (entries) => clusterByPayee(entries, clusterKeyFn);
 
   const categoryRank = (item) => {
     const rank = categories.findIndex((cat) => cat.value === item.category);
@@ -120,7 +138,7 @@ export function groupItemsByCategory(items, type) {
     key: cat.value,
     label: cat.label,
     emoji: cat.emoji,
-    entries: clusterByPayee(
+    entries: cluster(
       regularEntries.filter(({ item }) => item.category === cat.value),
     ),
   }));
@@ -128,19 +146,19 @@ export function groupItemsByCategory(items, type) {
   const otherEntries = regularEntries.filter(
     ({ item }) => !categories.some((cat) => cat.value === item.category),
   );
-  groups.push({ ...OTHER_GROUP, entries: clusterByPayee(otherEntries) });
+  groups.push({ ...OTHER_GROUP, entries: cluster(otherEntries) });
 
   const pendingByCategoryRank = [...pendingEntries].sort(
     (a, b) => categoryRank(a.item) - categoryRank(b.item),
   );
   const pendingGrouped = categories
     .map((cat) =>
-      clusterByPayee(
+      cluster(
         pendingByCategoryRank.filter(({ item }) => item.category === cat.value),
       ),
     )
     .flat();
-  const pendingOther = clusterByPayee(
+  const pendingOther = cluster(
     pendingByCategoryRank.filter(
       ({ item }) => !categories.some((cat) => cat.value === item.category),
     ),

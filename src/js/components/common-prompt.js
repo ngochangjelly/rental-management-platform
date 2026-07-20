@@ -100,7 +100,8 @@ class CommonPromptComponent {
       {
         id: "portable-aircon-order",
         name: "Order Portable Aircon",
-        description: "Đặt mua portable aircon, dây hose và remote controller từ Lyn",
+        description:
+          "Đặt mua portable aircon, dây hose và remote controller từ Lyn",
         icon: "bi-wind",
         requiresProperty: true,
         template: this.getPortableAirconTemplate.bind(this),
@@ -216,27 +217,39 @@ Address
 ${addressLines}
 
 Order
-${qty} ${sets} of Tapo TC71 + 64GB memory card
+- ${qty} ${sets} of Tapo TC71
+- ${qty} ${sets} of 64GB memory card
 
 Please leave at the doorstep.`;
   }
 
   getAirconOrder(propertyId) {
     if (!this.airconOrders[propertyId]) {
-      this.airconOrders[propertyId] = { airconQty: 0, hose2m: 0, hose3m: 0, remotes: 0, bringInside: false };
+      this.airconOrders[propertyId] = {
+        airconQty: 0,
+        hose2m: 0,
+        hose3m: 0,
+        remotes: 0,
+        bringInside: false,
+      };
     }
     return this.airconOrders[propertyId];
   }
 
   buildAirconPropertyBlock(label, order, bringInside, digitalLockPin) {
     const itemLines = [];
-    if (order.airconQty > 0) itemLines.push(`• Portable Aircon: ${order.airconQty} unit(s)`);
+    if (order.airconQty > 0)
+      itemLines.push(`• Portable Aircon: ${order.airconQty} unit(s)`);
     if (order.hose2m > 0) itemLines.push(`• Hose 2m: ${order.hose2m} unit(s)`);
     if (order.hose3m > 0) itemLines.push(`• Hose 3m: ${order.hose3m} unit(s)`);
-    if (order.remotes > 0) itemLines.push(`• Remote Controller: ${order.remotes} unit(s)`);
+    if (order.remotes > 0)
+      itemLines.push(`• Remote Controller: ${order.remotes} unit(s)`);
     if (itemLines.length === 0) return `📍 ${label}\n(No items selected)`;
     const deliveryLines = bringInside
-      ? [`🏠 Please bring items inside the unit`, ...(digitalLockPin ? [`🔓 Door access PIN: ${digitalLockPin}`] : [])]
+      ? [
+          `🏠 Please bring items inside the unit`,
+          ...(digitalLockPin ? [`🔓 Door access PIN: ${digitalLockPin}`] : []),
+        ]
       : [`📦 Please leave at doorstep`];
     return `📍 ${label}\n${[...itemLines, ...deliveryLines].join("\n")}`;
   }
@@ -260,10 +273,12 @@ Please leave at the doorstep.`;
       { airconQty: 0, hose2m: 0, hose3m: 0, remotes: 0 },
     );
     const lines = [];
-    if (totals.airconQty > 0) lines.push(`• Portable Aircon: ${totals.airconQty} unit(s)`);
+    if (totals.airconQty > 0)
+      lines.push(`• Portable Aircon: ${totals.airconQty} unit(s)`);
     if (totals.hose2m > 0) lines.push(`• Hose 2m: ${totals.hose2m} unit(s)`);
     if (totals.hose3m > 0) lines.push(`• Hose 3m: ${totals.hose3m} unit(s)`);
-    if (totals.remotes > 0) lines.push(`• Remote Controller: ${totals.remotes} unit(s)`);
+    if (totals.remotes > 0)
+      lines.push(`• Remote Controller: ${totals.remotes} unit(s)`);
     return lines.length > 0 ? lines.join("\n") : "(No items selected)";
   }
 
@@ -273,7 +288,9 @@ Please leave at the doorstep.`;
     );
     const activeProperties = sortedProperties.filter((p) => {
       const o = this.airconOrders[p.propertyId];
-      return o && (o.airconQty > 0 || o.hose2m > 0 || o.hose3m > 0 || o.remotes > 0);
+      return (
+        o && (o.airconQty > 0 || o.hose2m > 0 || o.hose3m > 0 || o.remotes > 0)
+      );
     });
     if (activeProperties.length === 0) {
       return "No items ordered yet. Please set quantities for at least one property above.";
@@ -281,10 +298,18 @@ Please leave at the doorstep.`;
     const blocks = activeProperties.map((p) => {
       const order = this.airconOrders[p.propertyId];
       const unit = p.unit ? `#${p.unit} ` : "";
-      const pin = order.bringInside && p.digitalLockEnabled ? p.digitalLockPin : null;
-      return this.buildAirconPropertyBlock(`${unit}${p.address || ""}`, order, order.bringInside, pin);
+      const pin =
+        order.bringInside && p.digitalLockEnabled ? p.digitalLockPin : null;
+      return this.buildAirconPropertyBlock(
+        `${unit}${p.address || ""}`,
+        order,
+        order.bringInside,
+        pin,
+      );
     });
-    const allOrders = activeProperties.map((p) => this.airconOrders[p.propertyId]);
+    const allOrders = activeProperties.map(
+      (p) => this.airconOrders[p.propertyId],
+    );
     const unitWord = activeProperties.length === 1 ? "unit" : "units";
     return `Hi Lyn (+6580159026) 😊
 
@@ -307,7 +332,10 @@ Please advise on pricing and availability. Thank you! 🙏`;
     const order = this.getAirconOrder(property.propertyId);
     const unit = property.unit ? `#${property.unit} ` : "";
     const label = `${unit}${property.address || "[address]"}`;
-    const pin = order.bringInside && property.digitalLockEnabled ? property.digitalLockPin : null;
+    const pin =
+      order.bringInside && property.digitalLockEnabled
+        ? property.digitalLockPin
+        : null;
     return `Hi Lyn (+6580159026) 😊
 
 I would like to order portable aircon items for the following unit:
@@ -372,7 +400,10 @@ Please advise on pricing and availability. Thank you! 🙏`;
         const previewSection = document.getElementById("promptPreviewSection");
         if (!previewSection || previewSection.style.display === "none") return;
         e.preventDefault();
-        if (this.activePromptId === "portable-aircon-order" && this.mode === "all") {
+        if (
+          this.activePromptId === "portable-aircon-order" &&
+          this.mode === "all"
+        ) {
           this.copyCombinedAirconMessage();
         } else {
           this.copyPromptToClipboard();
@@ -380,10 +411,12 @@ Please advise on pricing and availability. Thank you! 🙏`;
       });
 
       // Patch copy button title to show hotkey hint
-      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
+      const isMac =
+        /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
         navigator.userAgentData?.platform === "macOS";
       const mod = isMac ? "⌘" : "Ctrl+";
-      document.getElementById("copyPromptBtn")
+      document
+        .getElementById("copyPromptBtn")
         ?.setAttribute("title", `Copy to clipboard (${mod}⇧C)`);
     }
 
@@ -790,7 +823,9 @@ Please advise on pricing and availability. Thank you! 🙏`;
     );
     if (controlsContainer) {
       controlsContainer.style.display =
-        prompt.id === "ac-clean-booking" || prompt.id === "camera-order" || prompt.id === "portable-aircon-order"
+        prompt.id === "ac-clean-booking" ||
+        prompt.id === "camera-order" ||
+        prompt.id === "portable-aircon-order"
           ? "block"
           : "none";
     }
@@ -1025,7 +1060,8 @@ Please advise on pricing and availability. Thank you! 🙏`;
   }
 
   resolveContact(contactId, tenants, investors) {
-    if (!contactId) return tenants.find((t) => t.isMainTenant) || tenants[0] || null;
+    if (!contactId)
+      return tenants.find((t) => t.isMainTenant) || tenants[0] || null;
     if (contactId.startsWith("investor:")) {
       const investorId = contactId.slice("investor:".length);
       const inv = (investors || []).find((i) => i._id === investorId);
@@ -1034,7 +1070,14 @@ Please advise on pricing and availability. Thank you! 🙏`;
     return tenants.find((t) => t._id === contactId) || null;
   }
 
-  getAcCleanBookingTemplateFor(property, tenants, contactTenantId, date, time, investors) {
+  getAcCleanBookingTemplateFor(
+    property,
+    tenants,
+    contactTenantId,
+    date,
+    time,
+    investors,
+  ) {
     date = this.formatDate(date) || "[date]";
     time = time || "[time]";
 
@@ -1045,7 +1088,11 @@ Please advise on pricing and availability. Thank you! 🙏`;
     const acUnits = property.airconUnits || 0;
     const bill = acUnits * 20;
 
-    const contact = this.resolveContact(contactTenantId, tenants, investors || []);
+    const contact = this.resolveContact(
+      contactTenantId,
+      tenants,
+      investors || [],
+    );
     const contactPhone = contact?.phoneNumber || "[sđt liên hệ]";
 
     return `hello
@@ -1123,8 +1170,10 @@ ${contactPhone}`;
               API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(property.propertyId),
             );
             const result = await res.json();
-            if (result.success && Array.isArray(result.data)) investors = result.data;
-            else if (result.success && Array.isArray(result.investors)) investors = result.investors;
+            if (result.success && Array.isArray(result.data))
+              investors = result.data;
+            else if (result.success && Array.isArray(result.investors))
+              investors = result.investors;
             else if (Array.isArray(result)) investors = result;
           } catch (e) {
             /* no investors */
@@ -1158,10 +1207,15 @@ ${contactPhone}`;
     scheduled.forEach((p) => {
       const data = this.acScheduledData[p.propertyId];
       const company = data?.company;
-      const key = company ? (company._id || company.name || "unknown") : "__none__";
+      const key = company
+        ? company._id || company.name || "unknown"
+        : "__none__";
       if (groupKeyMap[key] === undefined) {
         groupKeyMap[key] = this.acContractorGroupList.length;
-        this.acContractorGroupList.push({ company: company || null, propertyIds: [] });
+        this.acContractorGroupList.push({
+          company: company || null,
+          propertyIds: [],
+        });
       }
       const groupIdx = groupKeyMap[key];
       this.acContractorGroupList[groupIdx].propertyIds.push(p.propertyId);
@@ -1196,7 +1250,8 @@ ${contactPhone}`;
       let waPhone = "";
       if (company?.phone) {
         const digits = company.phone.replace(/[^0-9]/g, "");
-        waPhone = digits.length === 8 && /^[893]/.test(digits) ? "65" + digits : digits;
+        waPhone =
+          digits.length === 8 && /^[893]/.test(digits) ? "65" + digits : digits;
       }
 
       if (company) {
@@ -1208,10 +1263,14 @@ ${contactPhone}`;
               ${company.phone ? `<span class="text-muted small">${this.escapeHtml(company.phone)}</span>` : ""}
               <span class="badge bg-success">${groupProperties.length} căn hộ</span>
             </div>
-            ${isMultiple ? `<div class="d-flex gap-2">
+            ${
+              isMultiple
+                ? `<div class="d-flex gap-2">
               ${waPhone ? `<button class="btn btn-sm btn-success" onclick="commonPromptComponent.sendContractorGroupWhatsApp(${groupIdx}, '${waPhone}')"><i class="bi bi-whatsapp me-1"></i>WhatsApp tất cả</button>` : ""}
               <button class="btn btn-sm btn-outline-success" id="copyContractorBtn-${groupIdx}" onclick="commonPromptComponent.copyContractorMessage(${groupIdx})"><i class="bi bi-clipboard me-1"></i>Copy tất cả</button>
-            </div>` : ""}
+            </div>`
+                : ""
+            }
           </div>
           <div class="row g-3 p-3" style="background:#f8f9fa;border:2px solid #a3d7b4;border-top:0;">`;
       } else {
@@ -1225,7 +1284,9 @@ ${contactPhone}`;
       }
 
       groupProperties.forEach((p) => {
-        const globalIdx = scheduled.findIndex((sp) => sp.propertyId === p.propertyId);
+        const globalIdx = scheduled.findIndex(
+          (sp) => sp.propertyId === p.propertyId,
+        );
         const imgHtml = p.propertyImage
           ? `<img src="${this.escapeHtml(p.propertyImage)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">`
           : `<div style="width:40px;height:40px;border-radius:6px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted"></i></div>`;
@@ -1278,13 +1339,19 @@ ${contactPhone}`;
 
     const blocks = group.propertyIds
       .map((propertyId) => {
-        const property = this.properties.find((p) => p.propertyId === propertyId);
+        const property = this.properties.find(
+          (p) => p.propertyId === propertyId,
+        );
         const data = this.acScheduledData[propertyId];
         if (!property || !data) return null;
 
         const { tenants, investors = [], contactTenantId, date, time } = data;
         const mainTenant = tenants.find((t) => t.isMainTenant) || tenants[0];
-        const contact = this.resolveContact(contactTenantId, tenants, investors);
+        const contact = this.resolveContact(
+          contactTenantId,
+          tenants,
+          investors,
+        );
 
         const acUnits = property.airconUnits || 0;
         const bill = acUnits * 20;
@@ -1316,7 +1383,9 @@ Thank you! 🙏`;
     const groupIdx = data.groupIndex;
     const group = this.acContractorGroupList[groupIdx];
     if (!group || group.propertyIds.length <= 1) return;
-    const textarea = document.getElementById(`contractorCombinedMsg-${groupIdx}`);
+    const textarea = document.getElementById(
+      `contractorCombinedMsg-${groupIdx}`,
+    );
     if (textarea) {
       textarea.value = this.buildCombinedAcContractorMessage(groupIdx);
     }
@@ -1333,7 +1402,14 @@ Thank you! 🙏`;
       date: this.acBookingDate,
       time: this.acBookingTime,
     };
-    const { tenants, investors = [], company, contactTenantId, date, time } = data;
+    const {
+      tenants,
+      investors = [],
+      company,
+      contactTenantId,
+      date,
+      time,
+    } = data;
     const message = this.getAcCleanBookingTemplateFor(
       property,
       tenants,
@@ -1346,17 +1422,22 @@ Thank you! 🙏`;
     let contactOptions = "";
     if (tenants.length > 0) {
       contactOptions += `<optgroup label="Tenants">`;
-      contactOptions += tenants.map((t) =>
-        `<option value="${t._id}" ${t._id === contactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`
-      ).join("");
+      contactOptions += tenants
+        .map(
+          (t) =>
+            `<option value="${t._id}" ${t._id === contactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`,
+        )
+        .join("");
       contactOptions += `</optgroup>`;
     }
     if (investors.length > 0) {
       contactOptions += `<optgroup label="Investors">`;
-      contactOptions += investors.map((inv) => {
-        const val = `investor:${inv._id}`;
-        return `<option value="${val}" ${val === contactTenantId ? "selected" : ""}>${this.escapeHtml(inv.name)} (${inv.phone || "no phone"})</option>`;
-      }).join("");
+      contactOptions += investors
+        .map((inv) => {
+          const val = `investor:${inv._id}`;
+          return `<option value="${val}" ${val === contactTenantId ? "selected" : ""}>${this.escapeHtml(inv.name)} (${inv.phone || "no phone"})</option>`;
+        })
+        .join("");
       contactOptions += `</optgroup>`;
     }
 
@@ -1519,9 +1600,12 @@ Thank you! 🙏`;
   }
 
   async copyContractorMessage(groupIdx) {
-    const textarea = document.getElementById(`contractorCombinedMsg-${groupIdx}`);
+    const textarea = document.getElementById(
+      `contractorCombinedMsg-${groupIdx}`,
+    );
     if (!textarea) return;
-    const btn = document.getElementById(`copyContractorMsgBtn-${groupIdx}`) ||
+    const btn =
+      document.getElementById(`copyContractorMsgBtn-${groupIdx}`) ||
       document.getElementById(`copyContractorBtn-${groupIdx}`);
     try {
       await navigator.clipboard.writeText(textarea.value);
@@ -1541,7 +1625,9 @@ Thank you! 🙏`;
   }
 
   sendContractorGroupWhatsApp(groupIdx, phone) {
-    const textarea = document.getElementById(`contractorCombinedMsg-${groupIdx}`);
+    const textarea = document.getElementById(
+      `contractorCombinedMsg-${groupIdx}`,
+    );
     if (!textarea || !phone) return;
     window.open(
       `https://wa.me/${phone}?text=${encodeURIComponent(textarea.value)}`,
@@ -1575,7 +1661,8 @@ Thank you! 🙏`;
       const imgHtml = property.propertyImage
         ? `<img src="${this.escapeHtml(property.propertyImage)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
         : `<div style="width:48px;height:48px;border-radius:8px;background:#e9ecef;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-building text-muted" style="font-size:1.2rem;"></i></div>`;
-      const hasPinAccess = property.digitalLockEnabled && property.digitalLockPin;
+      const hasPinAccess =
+        property.digitalLockEnabled && property.digitalLockPin;
       const pinHtml = hasPinAccess
         ? `<div id="airconPin-${this.escapeHtml(property.propertyId)}"
               style="display:${order.bringInside ? "flex" : "none"};align-items:center;gap:6px;margin-top:6px;padding:6px 10px;border-radius:6px;background:linear-gradient(135deg,#6f42c1,#9d4edd);color:#fff;font-size:12px;">
@@ -1664,7 +1751,9 @@ Thank you! 🙏`;
     } else {
       order[field] = Math.max(0, parseInt(value) || 0);
     }
-    const combinedTextarea = document.getElementById("portableAirconCombinedMsg");
+    const combinedTextarea = document.getElementById(
+      "portableAirconCombinedMsg",
+    );
     if (combinedTextarea) {
       combinedTextarea.value = this.buildCombinedAirconOrderMessage();
     }
@@ -1707,17 +1796,22 @@ Thank you! 🙏`;
       let contactOptions = "";
       if (this.propertyTenants.length > 0) {
         contactOptions += `<optgroup label="Tenants">`;
-        contactOptions += this.propertyTenants.map((t) =>
-          `<option value="${t._id}" ${t._id === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`
-        ).join("");
+        contactOptions += this.propertyTenants
+          .map(
+            (t) =>
+              `<option value="${t._id}" ${t._id === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(t.name)} (${t.phoneNumber || "no phone"})</option>`,
+          )
+          .join("");
         contactOptions += `</optgroup>`;
       }
       if (this.propertyInvestors.length > 0) {
         contactOptions += `<optgroup label="Investors">`;
-        contactOptions += this.propertyInvestors.map((inv) => {
-          const val = `investor:${inv._id}`;
-          return `<option value="${val}" ${val === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(inv.name)} (${inv.phone || "no phone"})</option>`;
-        }).join("");
+        contactOptions += this.propertyInvestors
+          .map((inv) => {
+            const val = `investor:${inv._id}`;
+            return `<option value="${val}" ${val === this.selectedContactTenantId ? "selected" : ""}>${this.escapeHtml(inv.name)} (${inv.phone || "no phone"})</option>`;
+          })
+          .join("");
         contactOptions += `</optgroup>`;
       }
 
@@ -1811,11 +1905,16 @@ Thank you! 🙏`;
       this.activePromptId === "portable-aircon-order" &&
       this.selectedPropertyId
     ) {
-      const controlsContainer = document.getElementById("promptControlsContainer");
+      const controlsContainer = document.getElementById(
+        "promptControlsContainer",
+      );
       if (controlsContainer) controlsContainer.style.display = "block";
       const order = this.getAirconOrder(this.selectedPropertyId);
-      const property = this.properties.find((p) => p.propertyId === this.selectedPropertyId);
-      const hasPinAccess = property?.digitalLockEnabled && property?.digitalLockPin;
+      const property = this.properties.find(
+        (p) => p.propertyId === this.selectedPropertyId,
+      );
+      const hasPinAccess =
+        property?.digitalLockEnabled && property?.digitalLockPin;
       container.innerHTML = `
         <div class="row g-3">
           <div class="col-md-3 col-6">
@@ -1839,12 +1938,16 @@ Thank you! 🙏`;
               <input class="form-check-input" type="checkbox" id="bringInsideSingleInput" ${order.bringInside ? "checked" : ""}>
               <label class="form-check-label fw-bold small" for="bringInsideSingleInput">🏠 Bring inside house</label>
             </div>
-            ${hasPinAccess ? `
+            ${
+              hasPinAccess
+                ? `
               <div id="airconPin-single" style="display:${order.bringInside ? "flex" : "none"};align-items:center;gap:6px;margin-top:6px;padding:6px 10px;border-radius:6px;background:linear-gradient(135deg,#6f42c1,#9d4edd);color:#fff;font-size:13px;width:fit-content;">
                 <i class="bi bi-shield-lock-fill"></i>
                 <span>Door access PIN: <strong>${this.escapeHtml(property.digitalLockPin)}</strong></span>
               </div>
-            ` : ""}
+            `
+                : ""
+            }
           </div>
         </div>
       `;
@@ -1855,16 +1958,26 @@ Thank you! 🙏`;
         ["remotesInput", "remotes"],
       ].forEach(([id, field]) => {
         document.getElementById(id)?.addEventListener("input", (e) => {
-          this.updateAirconOrder(this.selectedPropertyId, field, e.target.value);
+          this.updateAirconOrder(
+            this.selectedPropertyId,
+            field,
+            e.target.value,
+          );
           this.updateActivePromptPreview();
         });
       });
-      document.getElementById("bringInsideSingleInput")?.addEventListener("change", (e) => {
-        this.updateAirconOrder(this.selectedPropertyId, "bringInside", e.target.checked);
-        const pinEl = document.getElementById("airconPin-single");
-        if (pinEl) pinEl.style.display = e.target.checked ? "flex" : "none";
-        this.updateActivePromptPreview();
-      });
+      document
+        .getElementById("bringInsideSingleInput")
+        ?.addEventListener("change", (e) => {
+          this.updateAirconOrder(
+            this.selectedPropertyId,
+            "bringInside",
+            e.target.checked,
+          );
+          const pinEl = document.getElementById("airconPin-single");
+          if (pinEl) pinEl.style.display = e.target.checked ? "flex" : "none";
+          this.updateActivePromptPreview();
+        });
     } else {
       container.innerHTML =
         '<div class="text-center text-muted py-2">Vui lòng chọn căn hộ để hiển thị tùy chọn.</div>';

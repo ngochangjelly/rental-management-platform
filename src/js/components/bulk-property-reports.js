@@ -3,11 +3,17 @@
  * Allows users to select multiple properties and view profit results for a specific month
  */
 
+import {
+  fetchInvestorsForAvatarStack,
+  renderPropertyImageAvatarBadge,
+} from "../utils/investor-avatar-stack.js";
+
 class BulkPropertyReportsComponent {
   constructor() {
     this.properties = [];
     this.selectedProperties = new Set();
     this.lastClickedIndex = -1; // Track last clicked card for shift selection
+    this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     this.init();
   }
 
@@ -17,6 +23,10 @@ class BulkPropertyReportsComponent {
     this.loadProperties().then(() => this.loadAllInvestors());
     this.setDefaultDate();
     this.syncExtractionDefaults();
+    fetchInvestorsForAvatarStack().then((investors) => {
+      this._avatarInvestors = investors;
+      this.renderPropertyList();
+    });
   }
 
   bindEvents() {
@@ -147,15 +157,23 @@ class BulkPropertyReportsComponent {
            style="cursor: pointer; transition: all 0.2s ease;">
         ${property.propertyImage
           ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                   style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;">
+                ${escapeHtml(property.propertyId.toString().substring(0, 3))}
+              </div>
+              ${renderPropertyImageAvatarBadge(this._avatarInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
               <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
             </div>`
           : ""
         }
         <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
-          <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
-               style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
-            ${escapeHtml(property.propertyId.toString().substring(0, 3))}
-          </div>
+          ${!property.propertyImage
+            ? `<div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                   style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
+                ${escapeHtml(property.propertyId.toString().substring(0, 3))}
+              </div>`
+            : ""
+          }
           <div class="text-center" style="line-height: 1.2; width: 100%;">
             <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || "")}">${escapeHtml(property.address || property.propertyId)}</div>
             <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
@@ -332,11 +350,13 @@ class BulkPropertyReportsComponent {
                           : 0;
 
                         // Calculate expenses paid by this investor on behalf of the group
+                        // (excluding pending items, to match the single-property report)
                         let expensesPaidByInvestor = 0;
                         if (report.expenses && Array.isArray(report.expenses)) {
                           expensesPaidByInvestor = report.expenses
                             .filter(
                               (exp) =>
+                                !exp.isPending &&
                                 exp.personInCharge === investor.investorId
                             )
                             .reduce(
@@ -346,11 +366,13 @@ class BulkPropertyReportsComponent {
                         }
 
                         // Calculate income received by this investor on behalf of the group
+                        // (excluding pending items, to match the single-property report)
                         let incomeReceivedByInvestor = 0;
                         if (report.income && Array.isArray(report.income)) {
                           incomeReceivedByInvestor = report.income
                             .filter(
                               (inc) =>
+                                !inc.isPending &&
                                 inc.personInCharge === investor.investorId
                             )
                             .reduce(
@@ -531,8 +553,9 @@ class BulkPropertyReportsComponent {
       settlement.investorTotalsMap = investorTotals;
     });
 
-    // Save settlements for image export
+    // Save settlements + reports for image export
     this.lastSettlements = settlements;
+    this.lastReports = reports;
 
     // Create investor summary HTML
     let investorSummaryHtml = "";
@@ -723,7 +746,7 @@ class BulkPropertyReportsComponent {
                           )}</strong>
                         </div>
                         <div>
-                          <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                          <span class="badge settlement-total-badge fs-6 px-3 py-2" style="background: linear-gradient(135deg, #dc3545, #198754); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
                             ${settlement.currency === 'VND'
                               ? `₫${settlement.amount.toLocaleString('vi-VN', {maximumFractionDigits: 0})}`
                               : `$${settlement.amount.toFixed(2)}`
@@ -754,18 +777,18 @@ class BulkPropertyReportsComponent {
                               <small class="badge ${
                                 isNegative ? "bg-success" : isPositive ? "bg-danger" : "bg-secondary"
                               } d-flex align-items-center gap-1">
-                                ${isNegative ? '<i class="bi bi-dash-circle-fill"></i> -' : isPositive ? '<i class="bi bi-plus-circle-fill"></i> +' : ''}$${displayAmount.toFixed(2)}
+                                ${isNegative ? '<i class="bi bi-plus-circle-fill"></i> +' : isPositive ? '<i class="bi bi-dash-circle-fill"></i> -' : ''}$${displayAmount.toFixed(2)}
                               </small>
                             </div>
                           `;
                             })
                             .join("")}
-                          <div class="d-flex justify-content-between align-items-center pt-2 mt-1 border-top border-2">
+                          <div class="d-flex justify-content-between align-items-center pt-2 mt-2 border-top border-2" style="background: linear-gradient(135deg, rgba(220,53,69,0.08), rgba(25,135,84,0.08)); border-radius: 6px; padding: 6px 8px;">
                             <small class="fw-bold text-dark">
                               <i class="bi bi-calculator me-1"></i>
                               Net Amount to Transfer
                             </small>
-                            <small class="badge bg-warning text-dark">$${settlement.amount.toFixed(2)}</small>
+                            <span class="fw-bold text-dark" style="font-size: 0.95rem;">$${settlement.amount.toFixed(2)}</span>
                           </div>
                         </div>
                       `
@@ -1010,7 +1033,7 @@ class BulkPropertyReportsComponent {
                                     <strong class="text-success">${escapeHtml(
                                       settlement.toName
                                     )}</strong>
-                                    <span class="badge bg-warning text-dark ms-2">$${settlement.amount.toFixed(2)}</span>
+                                    <span class="badge ms-2" style="background: linear-gradient(135deg, #dc3545, #198754); color: #fff;">$${settlement.amount.toFixed(2)}</span>
                                   </small>
                                 </div>
                               `
@@ -1068,7 +1091,7 @@ class BulkPropertyReportsComponent {
       settlementItems.forEach((item, index) => {
         const fromElement = item.querySelector(".text-danger");
         const toElement = item.querySelector(".text-success");
-        const amountElement = item.querySelector(".badge.bg-warning");
+        const amountElement = item.querySelector(".badge.settlement-total-badge");
 
         const fromName = fromElement ? fromElement.textContent.trim() : "";
         const toName = toElement ? toElement.textContent.trim() : "";
@@ -1414,9 +1437,12 @@ class BulkPropertyReportsComponent {
               toAvatar: settlement.fromAvatar,
               amount: Math.abs(netAmount),
               currency: currency,
+              // finalBreakdown amounts are in the "fromId(orig)->toId(orig)" direction;
+              // flip the direction here too, so negate (not abs) each property's
+              // contribution to preserve which properties add to vs. offset the debt.
               propertyBreakdown: finalBreakdown.map((p) => ({
                 ...p,
-                amount: Math.abs(p.amount),
+                amount: -p.amount,
               })),
             });
           }
@@ -1430,6 +1456,17 @@ class BulkPropertyReportsComponent {
         processed.add(key);
       }
     }
+
+    // Sort each transaction's step-by-step breakdown by property ID (ascending)
+    // so a given property always sits in the same relative position across
+    // every investor-pair card, making it easy to track at a glance.
+    nettedSettlements.forEach((s) => {
+      if (Array.isArray(s.propertyBreakdown)) {
+        s.propertyBreakdown.sort(
+          (a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0),
+        );
+      }
+    });
 
     // Convert to array and sort by amount (largest first)
     return nettedSettlements
@@ -2331,16 +2368,31 @@ class BulkPropertyReportsComponent {
     try {
       const svgStr = await this._generateExtractionSVG(data);
       const blob   = await this._svgToPngBlob(svgStr);
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+
+      // Show preview modal first (non-blocking)
+      const payerName = data.payerInvestor?.name || "Payer";
+      const payeeName = data.payeeInvestor?.name || "Payee";
+      const monthYear = [data.month, data.year].filter(Boolean).join("/");
+      this._showImagePreview(blob, {
+        fileName: `Settlement_Extraction_${payerName}_to_${payeeName}_${monthYear}.png`.replace(/\s+/g, "_"),
+        title: "Extraction Preview",
+        subtitle: `${payerName} → ${payeeName}${monthYear ? " · " + monthYear : ""}`,
+      });
+
+      // Also copy to clipboard (best-effort)
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        if (typeof showToast === "function") {
+          const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+          showToast(`Image copied! Paste with ${isMac ? "⌘ Cmd+V" : "Ctrl+V"}`, "success", 4000);
+        }
+      } catch (_clipErr) {
+        // Clipboard copy is optional — preview modal is the primary deliverable
+      }
 
       btn.innerHTML = '<i class="bi bi-check-circle"></i>';
       btn.classList.remove("btn-light");
       btn.classList.add("btn-success");
-
-      if (typeof showToast === "function") {
-        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
-        showToast(`Image copied! Paste with ${isMac ? "⌘ Cmd+V" : "Ctrl+V"}`, "success", 4000);
-      }
 
       setTimeout(() => {
         btn.innerHTML = originalHTML;
@@ -2607,23 +2659,42 @@ class BulkPropertyReportsComponent {
       return;
     }
 
+    // Properties that actually fed into this calculation (report successfully loaded)
+    const properties = (this.lastReports || [])
+      .filter((r) => r.report && r.propertyData)
+      .map((r) => r.propertyData);
+
     const originalHTML = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     btn.disabled = true;
 
     try {
-      const svgStr = await this._generateSettlementSVG(settlements);
+      const svgStr = await this._generateSettlementSVG(settlements, properties);
       const blob = await this._svgToPngBlob(svgStr);
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+
+      // Show preview modal first (non-blocking)
+      const monthLabel = document.getElementById("bulkReportMonth")?.selectedOptions?.[0]?.textContent?.trim() || "";
+      const year = document.getElementById("bulkReportYear")?.value || "";
+      this._showImagePreview(blob, {
+        fileName: `Settlement_Transfers_${(monthLabel + "_" + year).replace(/\s+/g, "_") || "export"}.png`,
+        title: "Settlement Preview",
+        subtitle: [monthLabel, year].filter(Boolean).join(" "),
+      });
+
+      // Also copy to clipboard (best-effort)
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        if (typeof showToast === "function") {
+          const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+          showToast(`Image copied! Paste with ${isMac ? "⌘ Cmd+V" : "Ctrl+V"}`, "success", 4000);
+        }
+      } catch (_clipErr) {
+        // Clipboard copy is optional — preview modal is the primary deliverable
+      }
 
       btn.innerHTML = '<i class="bi bi-check-circle"></i>';
       btn.classList.remove("btn-light");
       btn.classList.add("btn-success");
-
-      if (typeof showToast === "function") {
-        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
-        showToast(`Image copied! Paste with ${isMac ? "⌘ Cmd+V" : "Ctrl+V"}`, "success", 4000);
-      }
 
       setTimeout(() => {
         btn.innerHTML = originalHTML;
@@ -2651,7 +2722,11 @@ class BulkPropertyReportsComponent {
     await Promise.all(
       [...urls].map(async (url) => {
         try {
-          const optimized = this.getOptimizedAvatarUrl(url, "small");
+          // "medium" (160x160) rather than "small" (80x80) — this cache only
+          // feeds the exported image, which renders at up to 3× canvas scale
+          // (see _svgToPngBlob) and gets pinch-zoomed, so avatars need real
+          // resolution to stay crisp, not just look right at 1x on screen.
+          const optimized = this.getOptimizedAvatarUrl(url, "medium");
           const resp = await fetch(optimized);
           if (!resp.ok) return;
           const blob = await resp.blob();
@@ -2664,6 +2739,62 @@ class BulkPropertyReportsComponent {
           // fall back to initials circle
         }
       }),
+    );
+    return cache;
+  }
+
+  /**
+   * Build a Cloudinary transform URL sized to the actual thumbnail box
+   * (unlike getOptimizedAvatarUrl's fixed 80×80 square preset, which — when
+   * sliced into a wide/short landscape box — upscales a tiny square crop and
+   * produces a badly pixelated, "broken"-looking image).
+   */
+  _getPropertyThumbnailUrl(url, boxW, boxH, scale = 3) {
+    if (!url) return url;
+    const baseUrl = ImageUtils.normalizeImageUrl(url);
+
+    if (baseUrl.includes("/api/upload/image-proxy/")) {
+      // Cloudinary via our proxy — safe to fetch directly, apply a sized transform.
+      const w = Math.max(1, Math.round(boxW * scale));
+      const h = Math.max(1, Math.round(boxH * scale));
+      const transformation = `w_${w},h_${h},c_fill,f_auto,q_auto`;
+      return baseUrl.replace(
+        "/api/upload/image-proxy/",
+        `/api/upload/image-proxy/${transformation}/`,
+      );
+    }
+
+    // Full external URL. Cloudinary's own delivery domain sends CORS headers
+    // and can be fetched directly; anything else (e.g. property photos
+    // imported from a third-party listing source on their own S3 bucket)
+    // usually doesn't, so route it through our backend proxy — otherwise
+    // the export's fetch() fails with a CORS error and the photo can't load.
+    if (/^https?:\/\/res\.cloudinary\.com\//i.test(baseUrl)) {
+      return baseUrl;
+    }
+    return `/api/upload/external-image-proxy?url=${encodeURIComponent(baseUrl)}`;
+  }
+
+  async _fetchPropertyImagesAsBase64(properties, boxW, boxH) {
+    const cache = {};
+    await Promise.all(
+      properties
+        .filter((p) => p.propertyImage)
+        .map(async (p) => {
+          try {
+            const optimized = this._getPropertyThumbnailUrl(p.propertyImage, boxW, boxH);
+            const resp = await fetch(optimized);
+            if (!resp.ok) return;
+            const blob = await resp.blob();
+            cache[p.propertyImage] = await new Promise((res) => {
+              const reader = new FileReader();
+              reader.onload = () => res(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          } catch {
+            // fall back to a plain color tile
+          }
+        }),
     );
     return cache;
   }
@@ -2736,17 +2867,27 @@ class BulkPropertyReportsComponent {
   }
 
   /** Convert SVG string to high-res PNG Blob at 2× scale */
+  /** Convert SVG string to a high-res PNG Blob. Renders at up to 3× so text
+   * and embedded photos stay crisp when the exported image is pinch-zoomed
+   * (matches financial-reports.js's _svgToPngBlob). */
   _svgToPngBlob(svgStr) {
     return new Promise((resolve, reject) => {
       const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
-        const scale = 2;
+        const TARGET_SCALE = 3;
+        const MAX_CANVAS_PIXELS = 24_000_000; // safe headroom under common mobile canvas limits
+        const scale = Math.min(
+          TARGET_SCALE,
+          Math.sqrt(MAX_CANVAS_PIXELS / (img.naturalWidth * img.naturalHeight)),
+        );
         const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth * scale;
-        canvas.height = img.naturalHeight * scale;
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
         const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
         ctx.scale(scale, scale);
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
@@ -2763,41 +2904,151 @@ class BulkPropertyReportsComponent {
     });
   }
 
+  /** Show an exported PNG blob in a Bootstrap preview modal (mirrors financial-reports.js pattern) */
+  _showImagePreview(blob, { fileName = "export.png", title = "Image Preview", subtitle = "" } = {}) {
+    const objectUrl = URL.createObjectURL(blob);
+
+    // Remove any stale preview modal
+    document.getElementById("bulkImagePreviewModal")?.remove();
+
+    const modalHtml = `
+      <div class="modal fade" id="bulkImagePreviewModal" tabindex="-1"
+           aria-labelledby="bulkImagePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+              <div class="d-flex align-items-center gap-2">
+                <div class="rounded-circle bg-white d-flex align-items-center justify-content-center"
+                     style="width:32px;height:32px;flex-shrink:0;">
+                  <i class="bi bi-image text-primary" style="font-size:1rem;"></i>
+                </div>
+                <h6 class="modal-title text-white fw-bold mb-0" id="bulkImagePreviewModalLabel">
+                  ${escapeHtml(title)}
+                  ${subtitle ? `<small class="fw-normal opacity-75 ms-2" style="font-size:0.75rem;">${escapeHtml(subtitle)}</small>` : ""}
+                </h6>
+              </div>
+              <button type="button" class="btn-close btn-close-white ms-auto"
+                      data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-dark" style="min-height:200px;">
+              <img id="bulkPreviewImg" src="${objectUrl}" alt="${escapeHtml(title)}"
+                   style="max-width:100%;display:block;margin:0 auto;" />
+            </div>
+            <div class="modal-footer border-0 justify-content-between"
+                 style="background:#f8f9fa;">
+              <div class="text-muted" style="font-size:0.78rem;">
+                <i class="bi bi-keyboard me-1"></i>Press <kbd>Esc</kbd> to close
+              </div>
+              <div class="d-flex gap-2">
+                <a href="${objectUrl}" download="${escapeHtml(fileName)}"
+                   class="btn btn-primary btn-sm">
+                  <i class="bi bi-download me-1"></i>Download PNG
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        data-bs-dismiss="modal">
+                  <i class="bi bi-x-lg me-1"></i>Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    const modalEl = document.getElementById("bulkImagePreviewModal");
+    const modal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+
+    // Revoke object URL when the modal is fully hidden to free memory
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      URL.revokeObjectURL(objectUrl);
+      modalEl.remove();
+    }, { once: true });
+
+    // Explicit Escape handler — dynamically created modals can miss Bootstrap's built-in keyboard trap
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        modal.hide();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      document.removeEventListener("keydown", onKeyDown);
+    }, { once: true });
+
+    modal.show();
+  }
+
   /**
    * Generate a mobile-optimized settlement SVG (portrait, iPhone 14 Pro/Max).
    * Width = 390px. Height is dynamic based on settlement count and breakdown depth.
    */
-  async _generateSettlementSVG(settlements) {
+  async _generateSettlementSVG(settlements, properties = []) {
     // ── Layout constants ──────────────────────────────────────────────────
-    const W       = 430;   // iPhone 14 Pro Max logical width (fits Pro too)
-    const M       = 16;    // page margin
+    // Two columns, each keeping the original single-column card geometry;
+    // content fills the left column up to its target height, then flows
+    // into the right column (like CSS `column-fill: auto`).
+    const COL_W   = 430;   // iPhone 14 Pro Max logical width — per column
+    const COL_GAP = 10;    // gap between the two columns
+    const TOTAL_W = COL_W * 2 + COL_GAP;
+    const M       = 12;    // page margin
     const CARD_MX = 4;     // extra horizontal inset per card
-    const cardX   = M + CARD_MX;            // 20
-    const cardW   = W - 2 * (M + CARD_MX); // 350
-    const INNER_L = cardX + 12;             // 32  — inner left edge
-    const INNER_R = cardX + cardW - 12;     // 358 — inner right edge
+    const cardW   = COL_W - 2 * (M + CARD_MX); // 398 — same card width in both columns
+
+    // Property preview grid (matches the "Select Properties" picker card style:
+    // rounded photo, ID badge overlaid top-left, address + unit below)
+    const PROP_COLS   = 6;
+    const PROP_GAP    = 10;
+    const PROP_THUMB_H = 52;
+    const PROP_LABEL_H = 22; // address line + unit line
+    const propCardW   = (TOTAL_W - 2 * M - (PROP_COLS - 1) * PROP_GAP) / PROP_COLS;
+    const propCardH   = PROP_THUMB_H + 4 + PROP_LABEL_H;
 
     // Row heights within each card
     const CARD_PAD_TOP    = 14;
     const CARD_PAD_BOT    = 14;
-    const NAME_ROW_H      = 34; // avatar + name row
+    const SUB_ROW_H       = 26; // "from" / "to" sub-row (stacked, so long names don't get cut off)
+    const SUB_ROW_GAP     = 6;
+    const NAME_ROW_H      = SUB_ROW_H * 2 + SUB_ROW_GAP; // stacked from/to rows
     const AMT_ROW_H       = 30; // transfer amount badge row
     const LABEL_ROW_H     = 20; // "step-by-step" label
     const PROP_ROW_H      = 22; // each property line
     const SEP_H           = 8;  // separator before net total
-    const NET_ROW_H       = 30; // net total row
+    const NET_ROW_H       = 34; // net total row (plain text, bigger figure)
     const CARD_GAP        = 10; // gap between cards
+
+    // ── Dark purple premium palette ──────────────────────────────────────
+    const PAGE_BG    = "#0b0912"; // near-black with a purple tint
+    const CARD_BG    = "#181322"; // card surface
+    const CARD_BG_2  = "#1d1830"; // slightly raised surface (info box, thumbnails w/o photo)
+    const BORDER     = "#2c2440"; // subtle card border
+    const DIVIDER    = "#2c2440";
+    const TEXT_HI    = "#f6f3ff"; // primary text (near-white, purple-tinted)
+    const TEXT_MED   = "#b6adcf"; // secondary text
+    const TEXT_LOW   = "#7d7398"; // muted / labels
+    const ACCENT_PURPLE    = "#8b5cf6"; // primary purple accent
+    const ACCENT_GREEN     = "#2fbf71"; // credit / positive — deep emerald (premium, not neon) for text/icons on the dark card
+    const ACCENT_RED       = "#ff6b81"; // debit / payment (coral) — for text/icons directly on the dark card
+    const ACCENT_GREEN_FILL = "#2f8f5b"; // muted deep green for filled pill badges — blends into the dark theme instead of popping
+    const ACCENT_RED_FILL   = "#b3394a"; // muted deep red for filled pill badges — blends into the dark theme instead of popping
 
     const nodes  = [];
     const defs   = [];
-    let   y      = 0;
     let   clipIdx = 0;
     const p = (s) => nodes.push(s);
 
     const fontFaceStyle = await this._loadFontFaceStyle();
 
-    // Avatar cache
+    // Coral (payer) → lime (payee) gradient for the rare no-breakdown
+    // fallback amount badge.
+    defs.push(`<linearGradient id="netAmountGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${ACCENT_RED_FILL}"/><stop offset="100%" stop-color="${ACCENT_GREEN_FILL}"/></linearGradient>`);
+
+    // Header background — deep, muted purple-black.
+    defs.push(`<linearGradient id="headerGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3a2266"/><stop offset="100%" stop-color="#120b1f"/></linearGradient>`);
+
+    // Avatar + property thumbnail caches
     const avatarCache = await this._fetchSettlementAvatarsAsBase64(settlements);
+    const propImageCache = await this._fetchPropertyImagesAsBase64(properties, propCardW, PROP_THUMB_H);
 
     const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 13, fallbackColor = "#6c757d") => {
       const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
@@ -2814,88 +3065,181 @@ class BulkPropertyReportsComponent {
 
     const genDate = new Date().toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 
-    // ── Header ───────────────────────────────────────────────────────────
-    const HDR_H = 76;
-    p(`<rect x="0" y="0" width="${W}" height="${HDR_H}" fill="#155724"/>`);
-    p(`<text x="${M}" y="22" font-size="8" fill="#a3d9b1" font-weight="600" letter-spacing="2.5">SETTLEMENT INSTRUCTIONS</text>`);
-    p(`<text x="${M}" y="48" font-size="18" fill="#ffffff" font-weight="700">How to Transfer Money</text>`);
-    p(`<text x="${W - M}" y="48" font-size="22" fill="#a3d9b1" text-anchor="end">&#x21C4;</text>`);
-    p(`<text x="${W - M}" y="66" font-size="9" fill="#a3d9b1" text-anchor="end">Generated ${this._svgEsc(genDate)}</text>`);
-    y = HDR_H;
+    // ── Header (full width) — deep purple-black premium bar ─────────────
+    const HDR_H = 52;
+    p(`<rect x="0" y="0" width="${TOTAL_W}" height="${HDR_H}" fill="url(#headerGradient)"/>`);
+    p(`<rect x="0" y="0" width="${TOTAL_W}" height="1" fill="#ffffff" opacity="0.08"/>`);
+    p(`<rect x="0" y="${HDR_H - 1}" width="${TOTAL_W}" height="1" fill="#000000" opacity="0.35"/>`);
+    const titleStr = "SETTLEMENT INSTRUCTIONS";
+    const titleY   = Math.round(HDR_H / 2) + 5;
+    p(`<text x="${M}" y="${titleY}" font-size="16" fill="${TEXT_HI}" font-weight="700" letter-spacing="0.5">${titleStr}</text>`);
 
-    // ── Info box ─────────────────────────────────────────────────────────
+    // Prominent bubble showing total properties involved in this calculation
+    const titleW   = titleStr.length * 9.5;
+    const countStr = String(properties.length);
+    const bubbleR  = 13;
+    const bubbleCx = M + titleW + 16 + bubbleR;
+    const bubbleCy = Math.round(HDR_H / 2);
+    p(`<circle cx="${bubbleCx}" cy="${bubbleCy}" r="${bubbleR}" fill="${ACCENT_PURPLE}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1.5"/>`);
+    p(`<text x="${bubbleCx}" y="${bubbleCy + 4}" font-size="12" fill="#ffffff" font-weight="800" text-anchor="middle">${this._svgEsc(countStr)}</text>`);
+
+    p(`<text x="${TOTAL_W - M}" y="21" font-size="18" fill="${ACCENT_PURPLE}" text-anchor="end">&#x21C4;</text>`);
+    p(`<text x="${TOTAL_W - M}" y="38" font-size="9" fill="${TEXT_MED}" text-anchor="end">Generated ${this._svgEsc(genDate)}</text>`);
+    let y = HDR_H;
+
+    // ── Info box (full width) ───────────────────────────────────────────
     const txCount = settlements.length;
     const infoText = `Follow these ${txCount} transaction${txCount !== 1 ? "s" : ""} to settle all debts between investors. Transactions are netted across all properties.`;
-    const infoLines = this._svgWrapText(infoText, 52);
+    const infoWrapChars = Math.floor(52 * (TOTAL_W / COL_W));
+    const infoLines = this._svgWrapText(infoText, infoWrapChars);
     const INFO_H = 14 + infoLines.length * 14 + 10;
-    p(`<rect x="0" y="${y}" width="${W}" height="${INFO_H}" fill="#e8f4fd"/>`);
-    p(`<rect x="0" y="${y}" width="4" height="${INFO_H}" fill="#0d6efd"/>`);
+    p(`<rect x="0" y="${y}" width="${TOTAL_W}" height="${INFO_H}" fill="${CARD_BG_2}"/>`);
+    p(`<rect x="0" y="${y}" width="4" height="${INFO_H}" fill="${ACCENT_PURPLE}"/>`);
     infoLines.forEach((line, i) => {
-      p(`<text x="${M + 8}" y="${y + 20 + i * 14}" font-size="10.5" fill="#084298">${this._svgEsc(line)}</text>`);
+      p(`<text x="${M + 8}" y="${y + 20 + i * 14}" font-size="10.5" fill="${TEXT_MED}">${this._svgEsc(line)}</text>`);
     });
     y += INFO_H + 12;
 
-    // ── Settlement cards ─────────────────────────────────────────────────
-    settlements.forEach((settlement, index) => {
+    // ── Selected properties (full width) — mirrors the "Select Properties"
+    // picker card: photo with a numbered ID badge overlaid top-left, then
+    // the full address and unit underneath. ────────────────────────────
+    if (properties.length > 0) {
+      const propsSorted = [...properties].sort(
+        (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
+      );
+      const propRows = Math.ceil(propsSorted.length / PROP_COLS);
+      const addrMaxChars = Math.max(8, Math.floor(propCardW / 4.6));
+      const unitMaxChars = Math.max(6, Math.floor(propCardW / 4.6));
+
+      p(`<text x="${M}" y="${y + 12}" font-size="10" fill="${TEXT_LOW}" font-weight="700" letter-spacing="0.5">PROPERTIES IN THIS CALCULATION (${propsSorted.length})</text>`);
+      y += 22;
+      const gridTop = y;
+
+      propsSorted.forEach((prop, i) => {
+        const col = i % PROP_COLS;
+        const row = Math.floor(i / PROP_COLS);
+        const px  = M + col * (propCardW + PROP_GAP);
+        const py  = gridTop + row * (propCardH + PROP_GAP);
+
+        // Card shell
+        p(`<rect x="${px}" y="${py}" width="${propCardW}" height="${propCardH}" rx="8" fill="${CARD_BG}" stroke="${BORDER}" stroke-width="1"/>`);
+
+        // Thumbnail photo
+        const dataUri = prop.propertyImage ? propImageCache[prop.propertyImage] : null;
+        if (dataUri) {
+          const clipId = `pc${clipIdx++}`;
+          defs.push(`<clipPath id="${clipId}"><rect x="${px}" y="${py}" width="${propCardW}" height="${PROP_THUMB_H}" rx="8"/></clipPath>`);
+          p(`<image href="${dataUri}" x="${px}" y="${py}" width="${propCardW}" height="${PROP_THUMB_H}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`);
+        } else {
+          const fc = this._getAvatarColor(prop.address || prop.propertyId || "?");
+          p(`<rect x="${px}" y="${py}" width="${propCardW}" height="${PROP_THUMB_H}" rx="8" fill="${fc}"/>`);
+          const initial = (prop.unit || prop.propertyId || "?").toString().charAt(0).toUpperCase();
+          p(`<text x="${px + propCardW / 2}" y="${py + PROP_THUMB_H / 2 + 4}" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc(initial)}</text>`);
+        }
+        p(`<line x1="${px}" y1="${py + PROP_THUMB_H}" x2="${px + propCardW}" y2="${py + PROP_THUMB_H}" stroke="${DIVIDER}" stroke-width="1"/>`);
+
+        // Property ID, overlaid top-left — plain white number, no badge/pill.
+        // This is an internal reference only, so it's kept small and quiet
+        // rather than drawing attention like the picker card's ID bubble.
+        const idStr = this._svgTrunc((prop.propertyId || "").toString(), 3);
+        const idX   = px + 8;
+        const idY   = py + 16;
+        p(`<text x="${idX + 1}" y="${idY + 1}" font-size="11" fill="#000000" fill-opacity="0.55" font-weight="700">${this._svgEsc(idStr)}</text>`);
+        p(`<text x="${idX}" y="${idY}" font-size="11" fill="#ffffff" font-weight="700">${this._svgEsc(idStr)}</text>`);
+
+        // Address + unit, below the photo
+        const addrStr = this._svgTrunc(prop.address || prop.propertyId || "", addrMaxChars);
+        p(`<text x="${px + propCardW / 2}" y="${py + PROP_THUMB_H + 13}" font-size="8.5" fill="${TEXT_HI}" font-weight="700" text-anchor="middle">${this._svgEsc(addrStr)}</text>`);
+        if (prop.unit) {
+          const unitStr = this._svgTrunc(prop.unit, unitMaxChars);
+          p(`<text x="${px + propCardW / 2}" y="${py + PROP_THUMB_H + 24}" font-size="8" fill="${TEXT_MED}" text-anchor="middle">${this._svgEsc(unitStr)}</text>`);
+        }
+      });
+
+      y = gridTop + propRows * propCardH + (propRows - 1) * PROP_GAP + 14;
+    }
+
+    const colTop = y;
+
+    // ── Card height + renderer (parameterized by column x-offset) ───────
+    const cardHeightOf = (settlement) => {
       const hasBreakdown = Array.isArray(settlement.propertyBreakdown) && settlement.propertyBreakdown.length > 0;
       const numProps     = hasBreakdown ? settlement.propertyBreakdown.length : 0;
-
-      // Card height
-      let innerH = NAME_ROW_H + AMT_ROW_H;
+      // The top amount badge is skipped when there's a breakdown — the dark
+      // "Net Amount to Transfer" band at the bottom already shows this same
+      // figure, so showing both was a confusing, duplicated red/green badge.
+      let innerH = NAME_ROW_H + (hasBreakdown ? 0 : AMT_ROW_H);
       if (hasBreakdown) innerH += LABEL_ROW_H + numProps * PROP_ROW_H + SEP_H + NET_ROW_H;
-      const cardH = CARD_PAD_TOP + innerH + CARD_PAD_BOT;
+      return CARD_PAD_TOP + innerH + CARD_PAD_BOT;
+    };
+
+    const renderCard = (settlement, index, xOffset, yTop) => {
+      const cardX   = xOffset + M + CARD_MX;
+      const INNER_L = cardX + 12;
+      const INNER_R = cardX + cardW - 12;
+      const hasBreakdown = Array.isArray(settlement.propertyBreakdown) && settlement.propertyBreakdown.length > 0;
+      const cardH   = cardHeightOf(settlement);
+      const cardY   = yTop;
 
       // Card shell
-      p(`<rect x="${cardX}" y="${y}" width="${cardW}" height="${cardH}" rx="8" fill="#ffffff" stroke="#dee2e6" stroke-width="1.5"/>`);
+      p(`<rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="10" fill="${CARD_BG}" stroke="${BORDER}" stroke-width="1.5"/>`);
 
-      // ── Row 1: number badge + from → to ──
-      const y_name = y + CARD_PAD_TOP + Math.floor(NAME_ROW_H / 2);
+      // ── Row 1: number badge + from (top line) / to (bottom line) ──────
+      // Stacked instead of side-by-side so long investor names get the
+      // full card width instead of being squeezed and cut off.
+      const CHARS_PER_PX = 1 / 7; // matches this file's existing text-width estimate
 
-      // Number badge
+      // From person (top line): number badge + avatar + name
+      const y_from  = cardY + CARD_PAD_TOP + Math.floor(SUB_ROW_H / 2);
       const BADGE_R = 11;
-      const badgeCx = INNER_L + BADGE_R; // 43
-      p(`<circle cx="${badgeCx}" cy="${y_name}" r="${BADGE_R}" fill="#0d6efd"/>`);
-      p(`<text x="${badgeCx}" y="${y_name + 4}" font-size="${index < 9 ? 11 : 9}" fill="#fff" font-weight="700" text-anchor="middle">${index + 1}</text>`);
+      const badgeCx = INNER_L + BADGE_R;
+      p(`<circle cx="${badgeCx}" cy="${y_from}" r="${BADGE_R}" fill="${ACCENT_PURPLE}"/>`);
+      p(`<text x="${badgeCx}" y="${y_from + 4}" font-size="${index < 9 ? 11 : 9}" fill="#fff" font-weight="700" text-anchor="middle">${index + 1}</text>`);
 
-      // From person (avatar + name)
       const FROM_R    = 12;
-      const fromCx    = badgeCx + BADGE_R + 6 + FROM_R;            // 43+11+6+12 = 72
-      renderCircleAvatar(settlement.fromAvatar, settlement.fromName, fromCx, y_name, FROM_R, "#dc3545");
+      const fromCx    = badgeCx + BADGE_R + 6 + FROM_R;
+      renderCircleAvatar(settlement.fromAvatar, settlement.fromName, fromCx, y_from, FROM_R, ACCENT_RED_FILL);
 
-      const fromNameX   = fromCx + FROM_R + 5;                      // 89
-      const fromNameStr = this._svgTrunc(settlement.fromName, 17);
-      p(`<text x="${fromNameX}" y="${y_name + 5}" font-size="12" fill="#dc3545" font-weight="700">${this._svgEsc(fromNameStr)}</text>`);
+      const fromNameX     = fromCx + FROM_R + 5;
+      const fromMaxChars  = Math.max(10, Math.floor((INNER_R - fromNameX) * CHARS_PER_PX));
+      const fromNameStr   = this._svgTrunc(settlement.fromName, fromMaxChars);
+      p(`<text x="${fromNameX}" y="${y_from + 5}" font-size="12" fill="${ACCENT_RED}" font-weight="700">${this._svgEsc(fromNameStr)}</text>`);
 
-      // Arrow
-      const arrowX = fromNameX + fromNameStr.length * 7 + 5;
-      p(`<text x="${arrowX}" y="${y_name + 5}" font-size="14" fill="#6c757d">&#x2192;</text>`);
+      // To person (bottom line): down-arrow + avatar + name, indented under the badge
+      const y_to = y_from + SUB_ROW_H + SUB_ROW_GAP;
+      p(`<text x="${badgeCx}" y="${y_to + 5}" font-size="13" fill="${TEXT_LOW}" text-anchor="middle">&#x21B3;</text>`);
 
-      // To person (avatar + name)
-      const TO_R   = 12;
-      const toCx   = arrowX + 16 + 5 + TO_R;
-      renderCircleAvatar(settlement.toAvatar, settlement.toName, toCx, y_name, TO_R, "#198754");
+      const TO_R = 12;
+      const toCx = fromCx; // align under the from-avatar
+      renderCircleAvatar(settlement.toAvatar, settlement.toName, toCx, y_to, TO_R, ACCENT_GREEN_FILL);
 
-      const toNameX   = toCx + TO_R + 5;
-      const toNameStr = this._svgTrunc(settlement.toName, 17);
-      p(`<text x="${toNameX}" y="${y_name + 5}" font-size="12" fill="#198754" font-weight="700">${this._svgEsc(toNameStr)}</text>`);
+      const toNameX    = fromNameX; // align under the from-name
+      const toMaxChars = Math.max(10, Math.floor((INNER_R - toNameX) * CHARS_PER_PX));
+      const toNameStr  = this._svgTrunc(settlement.toName, toMaxChars);
+      p(`<text x="${toNameX}" y="${y_to + 5}" font-size="12" fill="${ACCENT_GREEN}" font-weight="700">${this._svgEsc(toNameStr)}</text>`);
 
-      // ── Row 2: transfer amount badge (right-aligned) ──
-      const y_amt      = y + CARD_PAD_TOP + NAME_ROW_H + Math.floor(AMT_ROW_H / 2);
-      const amtStr     = settlement.currency === "VND"
-        ? `\u20ab${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
-        : `$${settlement.amount.toFixed(2)}`;
-      const amtBadgeW  = Math.max(78, amtStr.length * 8 + 16);
-      const amtBadgeX  = INNER_R - amtBadgeW;
-      const amtBadgeH  = 24;
-      p(`<rect x="${amtBadgeX}" y="${y_amt - Math.floor(amtBadgeH / 2)}" width="${amtBadgeW}" height="${amtBadgeH}" rx="6" fill="#ffc107"/>`);
-      p(`<text x="${amtBadgeX + amtBadgeW / 2}" y="${y_amt + 5}" font-size="13" fill="#212529" font-weight="700" text-anchor="middle">${this._svgEsc(amtStr)}</text>`);
+      // ── Row 2: transfer amount badge (right-aligned) — only when there's
+      // no breakdown to show it in; otherwise the dark "Net Amount to
+      // Transfer" band below already shows this same figure, so showing
+      // both was a confusing, duplicated red/green badge. ──
+      if (!hasBreakdown) {
+        const y_amt      = cardY + CARD_PAD_TOP + NAME_ROW_H + Math.floor(AMT_ROW_H / 2);
+        const amtStr     = settlement.currency === "VND"
+          ? `\u20ab${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
+          : `$${settlement.amount.toFixed(2)}`;
+        const amtBadgeW  = Math.max(78, amtStr.length * 8 + 16);
+        const amtBadgeX  = INNER_R - amtBadgeW;
+        const amtBadgeH  = 26;
+        p(`<rect x="${amtBadgeX}" y="${y_amt - Math.floor(amtBadgeH / 2)}" width="${amtBadgeW}" height="${amtBadgeH}" rx="7" fill="url(#netAmountGradient)"/>`);
+        p(`<text x="${amtBadgeX + amtBadgeW / 2}" y="${y_amt + 5}" font-size="14" fill="#ffffff" font-weight="800" text-anchor="middle">${this._svgEsc(amtStr)}</text>`);
+      }
 
       // ── Property breakdown ────────────────────────────────────────────
       if (hasBreakdown) {
-        let yi = y + CARD_PAD_TOP + NAME_ROW_H + AMT_ROW_H;
+        let yi = cardY + CARD_PAD_TOP + NAME_ROW_H;
 
         // "Step-by-step calculation:" label
-        p(`<text x="${INNER_L}" y="${yi + LABEL_ROW_H - 6}" font-size="8.5" fill="#6c757d" font-weight="600" letter-spacing="0.5">STEP-BY-STEP CALCULATION</text>`);
+        p(`<text x="${INNER_L}" y="${yi + LABEL_ROW_H - 6}" font-size="8.5" fill="${TEXT_LOW}" font-weight="600" letter-spacing="0.5">STEP-BY-STEP CALCULATION</text>`);
         yi += LABEL_ROW_H;
 
         // Property rows
@@ -2903,14 +3247,14 @@ class BulkPropertyReportsComponent {
           const rowY       = yi;
           yi              += PROP_ROW_H;
           const propName   = this._svgTrunc(prop.propertyName || prop.propertyId, 50);
-          p(`<text x="${INNER_L + 2}" y="${rowY + 15}" font-size="9.5" fill="#495057">${this._svgEsc(propName)}</text>`);
+          p(`<text x="${INNER_L + 2}" y="${rowY + 15}" font-size="9.5" fill="${TEXT_MED}">${this._svgEsc(propName)}</text>`);
 
           const isNeg       = prop.amount < 0;
           const dispAmt     = Math.abs(prop.amount);
-          const propAmtStr  = `${isNeg ? "-" : "+"}$${dispAmt.toFixed(2)}`;
-          // Match UI: solid bg-success (green) for credit, solid bg-danger (red) for payment out
-          const propBg      = isNeg ? "#198754" : "#dc3545";
-          const iconChar    = isNeg ? "\u2212" : "+";
+          const propAmtStr  = `${isNeg ? "+" : "-"}$${dispAmt.toFixed(2)}`;
+          // Match UI: solid green for credit, solid red for payment out
+          const propBg      = isNeg ? ACCENT_GREEN_FILL : ACCENT_RED_FILL;
+          const iconChar    = isNeg ? "+" : "\u2212";
           const propBadgeH  = 20;
           const propBadgeW  = Math.max(76, propAmtStr.length * 7 + 28);
           const propBadgeX  = INNER_R - propBadgeW;
@@ -2927,49 +3271,90 @@ class BulkPropertyReportsComponent {
         });
 
         // Separator
-        p(`<line x1="${INNER_L}" y1="${yi + 2}" x2="${INNER_R}" y2="${yi + 2}" stroke="#dee2e6" stroke-width="1"/>`);
+        p(`<line x1="${INNER_L}" y1="${yi + 2}" x2="${INNER_R}" y2="${yi + 2}" stroke="${DIVIDER}" stroke-width="1"/>`);
         yi += SEP_H;
 
-        // Net total row
-        p(`<text x="${INNER_L}" y="${yi + NET_ROW_H - 8}" font-size="10.5" fill="#1e293b" font-weight="700">Net Amount to Transfer</text>`);
+        // Net total row \u2014 plain text, no filled badge/band. The separator
+        // line above is the only divider; the figure itself is just larger
+        // and bolder so it still reads as the final answer.
+        p(`<text x="${INNER_L + 2}" y="${yi + NET_ROW_H - 10}" font-size="12" fill="${TEXT_HI}" font-weight="700">Net Amount to Transfer</text>`);
         const netAmtStr  = settlement.currency === "VND"
           ? `\u20ab${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
           : `$${settlement.amount.toFixed(2)}`;
-        const netBadgeW  = Math.max(82, netAmtStr.length * 8.5 + 16);
-        const netBadgeX  = INNER_R - netBadgeW;
-        p(`<rect x="${netBadgeX}" y="${yi + 4}" width="${netBadgeW}" height="22" rx="6" fill="#ffc107"/>`);
-        p(`<text x="${netBadgeX + netBadgeW / 2}" y="${yi + 19}" font-size="11" fill="#212529" font-weight="700" text-anchor="middle">${this._svgEsc(netAmtStr)}</text>`);
+        p(`<text x="${INNER_R - 2}" y="${yi + NET_ROW_H - 10}" font-size="21" fill="${TEXT_HI}" font-weight="800" text-anchor="end">${this._svgEsc(netAmtStr)}</text>`);
       }
 
-      y += cardH + CARD_GAP;
+      return cardY + cardH + CARD_GAP;
+    };
+
+    // ── Split settlements across 2 columns: fill the left column up to its
+    // target (balanced) height first, then flow the remainder to the right —
+    // same idea as CSS `column-fill: auto`. ───────────────────────────────
+    const heights = settlements.map(cardHeightOf);
+    const totalContentH = heights.reduce((sum, h) => sum + h + CARD_GAP, 0);
+    const targetColH = totalContentH / 2;
+
+    const leftCol = [];
+    const rightCol = [];
+    let leftAccum = 0;
+    let leftFull = false;
+    settlements.forEach((settlement, index) => {
+      const h = heights[index];
+      if (!leftFull) {
+        const prospective = leftAccum + h + CARD_GAP;
+        if (leftCol.length === 0 || prospective <= targetColH) {
+          leftCol.push({ settlement, index });
+          leftAccum = prospective;
+          return;
+        }
+        leftFull = true;
+      }
+      rightCol.push({ settlement, index });
     });
 
-    // ── Summary (only when multiple settlements) ──────────────────────────
+    // ── Render both columns ─────────────────────────────────────────────
+    let leftY = colTop;
+    leftCol.forEach(({ settlement, index }) => {
+      leftY = renderCard(settlement, index, 0, leftY);
+    });
+
+    let rightY = colTop;
+    rightCol.forEach(({ settlement, index }) => {
+      rightY = renderCard(settlement, index, COL_W + COL_GAP, rightY);
+    });
+
+    y = rightCol.length > 0 ? Math.max(leftY, rightY) : leftY;
+
+    // ── Summary (full width, only when multiple settlements) ────────────
+    const fullCardX  = M + CARD_MX;
+    const fullCardW  = TOTAL_W - 2 * (M + CARD_MX);
+    const fullInnerL = fullCardX + 12;
+    const fullInnerR = fullCardX + fullCardW - 12;
     if (settlements.length > 1) {
       const totalSGD  = settlements
         .filter((s) => s.currency !== "VND")
         .reduce((sum, s) => sum + s.amount, 0);
       const sumH      = 56;
-      p(`<rect x="${cardX}" y="${y}" width="${cardW}" height="${sumH}" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>`);
-      p(`<text x="${INNER_L}" y="${y + 22}" font-size="10" fill="#6c757d" font-weight="600">Total Transactions:</text>`);
-      p(`<text x="${INNER_R}" y="${y + 22}" font-size="10" fill="#212529" font-weight="700" text-anchor="end">${settlements.length}</text>`);
-      p(`<line x1="${INNER_L}" y1="${y + 30}" x2="${INNER_R}" y2="${y + 30}" stroke="#dee2e6" stroke-width="0.5"/>`);
-      p(`<text x="${INNER_L}" y="${y + 46}" font-size="10" fill="#6c757d" font-weight="600">Total Amount (SGD):</text>`);
-      p(`<text x="${INNER_R}" y="${y + 46}" font-size="12" fill="#212529" font-weight="700" text-anchor="end">$${totalSGD.toFixed(2)}</text>`);
+      p(`<rect x="${fullCardX}" y="${y}" width="${fullCardW}" height="${sumH}" rx="8" fill="${CARD_BG_2}" stroke="${BORDER}" stroke-width="1"/>`);
+      p(`<text x="${fullInnerL}" y="${y + 22}" font-size="10" fill="${TEXT_MED}" font-weight="600">Total Transactions:</text>`);
+      p(`<text x="${fullInnerR}" y="${y + 22}" font-size="10" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${settlements.length}</text>`);
+      p(`<line x1="${fullInnerL}" y1="${y + 30}" x2="${fullInnerR}" y2="${y + 30}" stroke="${DIVIDER}" stroke-width="0.5"/>`);
+      p(`<text x="${fullInnerL}" y="${y + 46}" font-size="10" fill="${TEXT_MED}" font-weight="600">Total Amount (SGD):</text>`);
+      p(`<text x="${fullInnerR}" y="${y + 46}" font-size="12" fill="${ACCENT_GREEN}" font-weight="700" text-anchor="end">$${totalSGD.toFixed(2)}</text>`);
       y += sumH + 10;
     }
 
-    // ── Footer ───────────────────────────────────────────────────────────
+    // ── Footer (full width) ──────────────────────────────────────────────
     y += 8;
-    p(`<text x="${W / 2}" y="${y + 12}" font-size="8.5" fill="#94a3b8" text-anchor="middle">Netted across all properties &#xB7; Amounts in SGD</text>`);
+    p(`<text x="${TOTAL_W / 2}" y="${y + 12}" font-size="8.5" fill="${TEXT_LOW}" text-anchor="middle">Netted across all properties &#xB7; Amounts in SGD</text>`);
     y += 28;
 
     // ── Compose SVG ──────────────────────────────────────────────────────
     const H = y;
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Noto Serif,serif">`,
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${TOTAL_W}" height="${H}" viewBox="0 0 ${TOTAL_W} ${H}" font-family="Noto Serif,serif">`,
       `<defs>${fontFaceStyle}${defs.join("")}</defs>`,
-      `<rect x="0" y="0" width="${W}" height="${H}" fill="#f1f5f9"/>`,
+      `<rect x="0" y="0" width="${TOTAL_W}" height="${H}" fill="${PAGE_BG}"/>`,
       ...nodes,
       `</svg>`,
     ].join("");

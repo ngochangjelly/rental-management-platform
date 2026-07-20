@@ -1749,6 +1749,49 @@
       .utility-prop-card.selected {
         border-width: 2px !important;
       }
+      /* SP utility account — hover-to-copy affordance */
+      .sp-copy-val {
+        cursor: pointer;
+        border-radius: 4px;
+        padding: 1px 4px;
+        margin: -1px -4px;
+        transition: background-color 0.15s ease;
+      }
+      .sp-copy-val:hover {
+        background-color: rgba(13, 110, 253, 0.12);
+      }
+      .sp-copy-val .bi-copy {
+        opacity: 0;
+        font-size: 0.7rem;
+        margin-left: 3px;
+        transition: opacity 0.15s ease;
+      }
+      .sp-copy-val:hover .bi-copy {
+        opacity: 0.7;
+      }
+      .sp-copy-val.sp-copy-flash {
+        background-color: rgba(25, 135, 84, 0.18) !important;
+      }
+      .sp-copy-bubble {
+        position: fixed;
+        z-index: 3000;
+        background: #198754;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+        pointer-events: none;
+        white-space: nowrap;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        transform: translate(-50%, -100%);
+        transition: opacity 0.15s, transform 0.15s;
+      }
+      .sp-copy-bubble.sp-copy-bubble-show {
+        opacity: 1;
+        transform: translate(-50%, -110%);
+      }
       /* iOS-style toggle for utility select-all */
       #utilitySelectAllToggle {
         width: 2.75em !important;
@@ -4903,14 +4946,14 @@
                   <button
                     class="btn btn-outline-success"
                     id="exportPropertiesBtn"
-                    onclick="propertyManager.exportPropertiesAsImage()"
+                    onclick="propertyManager.openExportSelectionModal('image')"
                   >
                     <i class="bi bi-image me-1"></i>Export Property Porfolio
                   </button>
                   <button
                     class="btn btn-outline-primary"
                     id="copyPropertiesTextBtn"
-                    onclick="propertyManager.copyPropertiesAsText()"
+                    onclick="propertyManager.openExportSelectionModal('text')"
                   >
                     <i class="bi bi-table me-1"></i>Copy as Excel
                   </button>
@@ -7688,19 +7731,6 @@
                   <!-- Month Navigation -->
                   <div class="card mb-4 month-navigation-section">
                     <div class="card-body">
-                      <!-- Property Title -->
-                      <div
-                        id="propertyTitleHeader"
-                        class="mb-3 pb-2 border-bottom"
-                        style="display: none"
-                      >
-                        <h5 class="mb-1" id="propertyTitleAddress"></h5>
-                        <small
-                          class="text-muted"
-                          id="propertyTitleMoveDates"
-                          style="font-size: 0.78rem; opacity: 0.85"
-                        ></small>
-                      </div>
                       <div class="row align-items-center">
                         <div class="col-md-6">
                           <div class="d-flex align-items-center">
@@ -8513,6 +8543,9 @@
                   class="d-flex gap-2 mb-3"
                   style="display: none !important"
                 ></div>
+
+                <!-- SP Utility Account -->
+                <div id="utilitySpAccount" class="mb-3" style="display: none"></div>
 
                 <!-- Quick PDF Drop Zone -->
                 <div id="utilityQuickDropZone" class="mb-3">
@@ -12771,7 +12804,7 @@
                   </h6>
                 </div>
                 <div class="row">
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="managementFeeStart" class="form-label">
                       Management Fee Start Date
                       <i
@@ -12791,7 +12824,7 @@
                       this date
                     </div>
                   </div>
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="managementFeePayee" class="form-label">
                       Management Fee Payee
                       <i
@@ -12813,7 +12846,7 @@
                       each month
                     </div>
                   </div>
-                  <div class="col-md-4 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="accountant" class="form-label">
                       Accountant
                       <i
@@ -12856,6 +12889,54 @@
                         ></div>
                         <div
                           id="accountantAvatarId"
+                          class="text-muted"
+                          style="font-size: 0.75rem"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-3 mb-3">
+                    <label for="manager" class="form-label">
+                      Manager
+                      <i
+                        class="bi bi-info-circle text-muted"
+                        data-bs-toggle="tooltip"
+                        title="Select the investor who manages this property"
+                      ></i>
+                    </label>
+                    <select
+                      class="form-select"
+                      id="manager"
+                      name="manager"
+                      autocomplete="off"
+                    >
+                      <option value="">-- Select Manager --</option>
+                    </select>
+                    <div class="form-text">
+                      The investor responsible for managing this property.
+                    </div>
+                    <div
+                      id="managerAvatarPreview"
+                      style="display: none"
+                      class="d-flex align-items-center gap-2 mt-2 p-2 bg-light rounded"
+                    >
+                      <div
+                        id="managerAvatarCircle"
+                        style="
+                          width: 36px;
+                          height: 36px;
+                          border-radius: 50%;
+                          overflow: hidden;
+                          flex-shrink: 0;
+                        "
+                      ></div>
+                      <div>
+                        <div
+                          id="managerAvatarName"
+                          class="fw-semibold small"
+                        ></div>
+                        <div
+                          id="managerAvatarId"
                           class="text-muted"
                           style="font-size: 0.75rem"
                         ></div>

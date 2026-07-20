@@ -5,6 +5,7 @@
 import i18next from "i18next";
 import { renderTenantSocialBadges } from "../utils/social-links.js";
 import { getSection1BaseClauseTexts } from "./contract-clauses.js";
+import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 
 class ContractManagementComponent {
   constructor() {
@@ -1235,6 +1236,7 @@ class ContractManagementComponent {
           ${
             property.propertyImage
               ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                ${renderPropertyImageAvatarBadge(this.investors, id, { size: 22, overlap: 9, max: 3 })}
                 <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
               </div>`
               : ""

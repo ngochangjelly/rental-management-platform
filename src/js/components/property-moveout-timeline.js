@@ -1,4 +1,8 @@
 import i18next from "i18next";
+import {
+  fetchInvestorsForAvatarStack,
+  renderPropertyImageAvatarBadge,
+} from "../utils/investor-avatar-stack.js";
 
 const NAME_COL_WIDTH = 200; // px — sticky left column
 const DAY_PX = 3;           // px per day; 1 year ≈ 1095 px (fits most screens)
@@ -13,6 +17,8 @@ class PropertyMoveoutTimeline {
     this._scrollEl = null;
     // Cleanup refs for drag listeners
     this._dragCleanup = null;
+    this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
+    this._avatarInvestorsLoaded = false;
   }
 
   init() {
@@ -61,6 +67,14 @@ class PropertyMoveoutTimeline {
         const ids = await getInvestorPropertyIds();
         if (ids) all = all.filter((p) => ids.includes(p.propertyId));
       } catch (_) {}
+
+      if (!this._avatarInvestorsLoaded) {
+        this._avatarInvestorsLoaded = true;
+        fetchInvestorsForAvatarStack().then((investors) => {
+          this._avatarInvestors = investors;
+          this._renderPropertyCards();
+        });
+      }
 
       this.properties = all.filter((p) => !p.isArchived);
       this.selectedProperties = new Set(this.properties.map((p) => p.propertyId));
@@ -234,6 +248,7 @@ class PropertyMoveoutTimeline {
           ${p.propertyImage
             ? `<div style="height:42px;background-image:url('${p.propertyImage}');
                           background-size:cover;background-position:center;position:relative;">
+                ${renderPropertyImageAvatarBadge(this._avatarInvestors, p.propertyId, { size: 18, overlap: 7, max: 2 })}
                 ${isSelected
                   ? `<div style="position:absolute;inset:0;background:rgba(13,110,253,0.4);
                                 display:flex;align-items:center;justify-content:center;">
