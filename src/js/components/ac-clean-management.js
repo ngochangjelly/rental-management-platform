@@ -3,6 +3,8 @@
  * Handles AC service scheduling and tracking with monthly calendar view
  * Includes AC Service Company management as a submodule
  */
+import { getGroupLinkMeta } from "../utils/social-links.js";
+
 class AcCleanManagementComponent {
   constructor() {
     this.properties = [];
@@ -132,6 +134,7 @@ class AcCleanManagementComponent {
               <th>Move-in Date</th>
               <th>AC Service Provider</th>
               <th>Contact Numbers</th>
+              <th>FB Groups</th>
             </tr>
           </thead>
           <tbody>
@@ -170,6 +173,7 @@ class AcCleanManagementComponent {
                       : '<span class="text-muted">N/A</span>'
                   }
                 </td>
+                <td>${this.renderFbGroupBadges(property)}</td>
               </tr>
             `
               )
@@ -312,6 +316,16 @@ class AcCleanManagementComponent {
                   service.moveInDate
                 ).toLocaleDateString()}</div>
               </div>
+
+              ${
+                service.tenantFacebookGroup || service.adminFacebookGroup
+                  ? `
+                <div class="mb-2">
+                  <div class="ms-4">${this.renderFbGroupBadges(service)}</div>
+                </div>
+              `
+                  : ""
+              }
             </div>
 
             ${
@@ -939,6 +953,38 @@ class AcCleanManagementComponent {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Render tenant/admin Facebook (or WhatsApp) group badges for a property
+  renderFbGroupBadges(property) {
+    if (!property.tenantFacebookGroup && !property.adminFacebookGroup) {
+      return '<span class="text-muted">N/A</span>';
+    }
+
+    const tenantMeta = getGroupLinkMeta(property.tenantFacebookGroup);
+
+    return `
+      ${
+        property.tenantFacebookGroup
+          ? `<a href="${this.escapeHtml(
+              property.tenantFacebookGroup
+            )}" target="_blank" rel="noopener noreferrer" class="badge text-decoration-none me-1" style="background-color:${
+              tenantMeta.color
+            };color:#fff;" title="Tenant ${tenantMeta.brand} Group">
+              <i class="bi ${tenantMeta.icon} me-1"></i>Tenant Group
+            </a>`
+          : ""
+      }
+      ${
+        property.adminFacebookGroup
+          ? `<a href="${this.escapeHtml(
+              property.adminFacebookGroup
+            )}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group">
+              <i class="bi bi-facebook me-1"></i>Admin Group
+            </a>`
+          : ""
+      }
+    `;
   }
 
   // ==================== AC SERVICE COMPANY MANAGEMENT ====================
