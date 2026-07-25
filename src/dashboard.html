@@ -14626,7 +14626,7 @@
                   </div>
                 </div>
                 <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-3 mb-3">
                     <label for="tenantFin" class="form-label">FIN/NRIC</label>
                     <input
                       type="text"
@@ -14642,7 +14642,19 @@
                       characters)
                     </div>
                   </div>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-3 mb-3">
+                    <label for="tenantPassIssueDate" class="form-label"
+                      >Pass Issue Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="tenantPassIssueDate"
+                      name="passIssueDate"
+                    />
+                    <div class="form-text">Optional</div>
+                  </div>
+                  <div class="col-md-3 mb-3">
                     <label for="tenantPassport" class="form-label"
                       >Passport Number</label
                     >
@@ -14659,6 +14671,18 @@
                     <div class="form-text">
                       Optional, 6-15 characters (will be converted to uppercase)
                     </div>
+                  </div>
+                  <div class="col-md-3 mb-3">
+                    <label for="tenantVisaIssueDate" class="form-label"
+                      >Visa Issue Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="tenantVisaIssueDate"
+                      name="visaIssueDate"
+                    />
+                    <div class="form-text">Optional</div>
                   </div>
                 </div>
                 <div class="row">
@@ -14813,7 +14837,7 @@
                   </div>
                 </div>
                 <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
                     <label for="tenantPhoneNumber" class="form-label"
                       >Phone Number</label
                     >
@@ -14828,7 +14852,20 @@
                     />
                     <div class="form-text">8-20 characters (optional)</div>
                   </div>
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
+                    <label for="tenantEmail" class="form-label">
+                      <i class="bi bi-envelope me-1"></i>Email
+                    </label>
+                    <input
+                      type="email"
+                      class="form-control"
+                      id="tenantEmail"
+                      name="email"
+                      placeholder="Enter email (optional)"
+                    />
+                    <div class="form-text">Optional</div>
+                  </div>
+                  <div class="col-md-4 mb-3">
                     <label for="tenantFacebookUrl" class="form-label">
                       <i class="bi bi-facebook me-1"></i>Facebook URL
                     </label>

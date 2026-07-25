@@ -390,6 +390,7 @@ async function generatePDF(state) {
     const suffix = `, ${unit}`;
     if (cleanAddr.endsWith(suffix)) cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
   }
+  if (state.postcode?.trim()) cleanAddr = `${cleanAddr}, Singapore ${state.postcode.trim()}`;
   const propertyAddr = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
 
   const tenantAInfo = {
@@ -1306,6 +1307,7 @@ class PublicContractCreator {
     const unit = state.unit || "";
     let cleanAddr = state.address || "[Property Address]";
     if (unit && cleanAddr.endsWith(`, ${unit}`)) cleanAddr = cleanAddr.slice(0, -`, ${unit}`.length).trim();
+    if (state.postcode?.trim()) cleanAddr = `${cleanAddr}, Singapore ${state.postcode.trim()}`;
     const propertyAddr = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
 
     const tA = {

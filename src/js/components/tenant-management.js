@@ -845,6 +845,10 @@ class TenantManagementComponent {
                                         </div>
                                     </div>
                                     <p class="text-muted mb-0${tenant.phoneNumber ? ' prop-copy-val' : ''}" ${tenant.phoneNumber ? `data-copy="${this.escapeHtml(tenant.phoneNumber)}" title="Click to copy phone" onclick="event.stopPropagation();copyToClipboardInline(this)"` : ''}>${this.escapeHtml(tenant.phoneNumber || "No phone")}</p>
+                                    ${tenant.email
+        ? `<p class="text-muted mb-0 prop-copy-val" data-copy="${this.escapeHtml(tenant.email)}" title="Click to copy email" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-envelope me-1"></i>${this.escapeHtml(tenant.email)}</p>`
+        : ""
+      }
                                 </div>
                             </div>
                             <div class="small mb-3">
@@ -1559,13 +1563,16 @@ class TenantManagementComponent {
           name: tenant.name || "",
           nickname: tenant.nickname || "",
           fin: tenant.fin || "",
+          passIssueDate: tenant.passIssueDate || null,
           passportNumber: tenant.passportNumber || "",
+          visaIssueDate: tenant.visaIssueDate || null,
           dateOfBirth: tenant.dateOfBirth || null,
           gender: tenant.gender || "",
           passType: tenant.passType || "",
           industry: tenant.industry || "",
           university: tenant.university || "",
           phoneNumber: tenant.phoneNumber || "",
+          email: tenant.email || "",
           facebookUrl: tenant.facebookUrl || "",
           registrationStatus:
             tenant.registrationStatus ||
@@ -1604,8 +1611,12 @@ class TenantManagementComponent {
         document.getElementById("tenantName").value = tenant.name || "";
         document.getElementById("tenantNickname").value = tenant.nickname || "";
         document.getElementById("tenantFin").value = tenant.fin || "";
+        document.getElementById("tenantPassIssueDate").value =
+          tenant.passIssueDate ? new Date(tenant.passIssueDate).toISOString().split("T")[0] : "";
         document.getElementById("tenantPassport").value =
           tenant.passportNumber || "";
+        document.getElementById("tenantVisaIssueDate").value =
+          tenant.visaIssueDate ? new Date(tenant.visaIssueDate).toISOString().split("T")[0] : "";
         document.getElementById("tenantDateOfBirth").value =
           tenant.dateOfBirth ? new Date(tenant.dateOfBirth).toISOString().split("T")[0] : "";
         document.getElementById("tenantGender").value = tenant.gender || "";
@@ -1614,6 +1625,7 @@ class TenantManagementComponent {
         document.getElementById("tenantUniversity").value = tenant.university || "";
         document.getElementById("tenantPhoneNumber").value =
           tenant.phoneNumber || "";
+        document.getElementById("tenantEmail").value = tenant.email || "";
         document.getElementById("tenantFacebookUrl").value =
           tenant.facebookUrl || "";
 
@@ -2538,13 +2550,16 @@ class TenantManagementComponent {
         name: formData.get("name").trim(),
         nickname: formData.get("nickname")?.trim() || null,
         fin: formData.get("fin").trim().toUpperCase() || null,
+        passIssueDate: formData.get("passIssueDate") || null,
         passportNumber: formData.get("passportNumber").trim().toUpperCase(),
+        visaIssueDate: formData.get("visaIssueDate") || null,
         dateOfBirth: formData.get("dateOfBirth") || null,
         gender: formData.get("gender")?.trim() || null,
         passType: formData.get("passType")?.trim() || null,
         industry: formData.get("industry")?.trim() || null,
         university: formData.get("university")?.trim() || null,
         phoneNumber: formData.get("phoneNumber").trim() || null,
+        email: formData.get("email")?.trim() || null,
         facebookUrl: formData.get("facebookUrl")?.trim() || null,
         registrationStatus:
           document.getElementById("tenantRegistrationStatusHidden").value ||
@@ -2639,6 +2654,15 @@ class TenantManagementComponent {
           tenantData.phoneNumber.length > 20)
       ) {
         alert("Phone number must be between 8 and 20 characters");
+        return;
+      }
+
+      // Validate email format (only if provided)
+      if (
+        tenantData.email &&
+        !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(tenantData.email)
+      ) {
+        alert("Please enter a valid email address");
         return;
       }
 
@@ -2919,8 +2943,10 @@ class TenantManagementComponent {
     if (tenant.dateOfBirth) copyText += `DOB: ${this.formatDate(tenant.dateOfBirth)}\n`;
     if (tenant.gender) copyText += `Gender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}\n`;
     if (tenant.phoneNumber) copyText += `Phone: ${tenant.phoneNumber}\n`;
+    if (tenant.email) copyText += `Email: ${tenant.email}\n`;
     if (tenant.facebookUrl) copyText += `Facebook: ${tenant.facebookUrl}\n`;
     copyText += `FIN: ${tenant.fin || "N/A"}\n`;
+    if (tenant.passIssueDate) copyText += `Pass Issue Date: ${this.formatDate(tenant.passIssueDate)}\n`;
     copyText += `Passport: ${tenant.passportNumber || "N/A"}\n`;
     if (tenant.passType) copyText += `Pass Type: ${tenant.passType}\n`;
     if (tenant.industry) copyText += `Industry: ${tenant.industry}\n`;
@@ -3826,11 +3852,14 @@ class TenantManagementComponent {
       "tenantName",
       "tenantNickname",
       "tenantFin",
+      "tenantPassIssueDate",
       "tenantPassport",
+      "tenantVisaIssueDate",
       "tenantDateOfBirth",
       "tenantIndustry",
       "tenantUniversity",
       "tenantPhoneNumber",
+      "tenantEmail",
       "tenantFacebookUrl",
       "tenantDeposit",
       "tenantDepositReceiver",
@@ -3955,9 +3984,11 @@ class TenantManagementComponent {
       name: (document.getElementById("tenantName")?.value || "").trim(),
       nickname: (document.getElementById("tenantNickname")?.value || "").trim(),
       fin: (document.getElementById("tenantFin")?.value || "").trim(),
+      passIssueDate: document.getElementById("tenantPassIssueDate")?.value || null,
       passportNumber: (
         document.getElementById("tenantPassport")?.value || ""
       ).trim(),
+      visaIssueDate: document.getElementById("tenantVisaIssueDate")?.value || null,
       dateOfBirth: document.getElementById("tenantDateOfBirth")?.value || null,
       gender: (document.getElementById("tenantGender")?.value || "").trim(),
       passType: (document.getElementById("tenantPassType")?.value || "").trim(),
@@ -3965,6 +3996,9 @@ class TenantManagementComponent {
       university: (document.getElementById("tenantUniversity")?.value || "").trim(),
       phoneNumber: (
         document.getElementById("tenantPhoneNumber")?.value || ""
+      ).trim(),
+      email: (
+        document.getElementById("tenantEmail")?.value || ""
       ).trim(),
       facebookUrl: (
         document.getElementById("tenantFacebookUrl")?.value || ""
@@ -4013,13 +4047,16 @@ class TenantManagementComponent {
       "name",
       "nickname",
       "fin",
+      "passIssueDate",
       "passportNumber",
+      "visaIssueDate",
       "dateOfBirth",
       "gender",
       "passType",
       "industry",
       "university",
       "phoneNumber",
+      "email",
       "facebookUrl",
       "registrationStatus",
       "avatar",
