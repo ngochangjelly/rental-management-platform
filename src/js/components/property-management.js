@@ -1,6 +1,13 @@
-import { ROOM_TYPE_MAP } from '../utils/room-type-mapper.js';
+import { ROOM_TYPE_MAP, getRoomTypeBadgeStyle } from '../utils/room-type-mapper.js';
 import { getGroupLinkMeta } from '../utils/social-links.js';
-import { renderInvestorAvatarStack } from '../utils/investor-avatar-stack.js';
+import { renderInvestorAvatarStack, renderInvestorAvatarCircle, getInvestorShortName } from '../utils/investor-avatar-stack.js';
+import {
+  createDefaultPropertyFilters,
+  applyPropertyFilters,
+  getActivePropertyFilterCount,
+  loadPropertyFilters,
+  savePropertyFilters,
+} from '../utils/property-filters.js';
 
 /**
  * Property Management Component
@@ -16,6 +23,8 @@ class PropertyManagementComponent {
     this.currentAcContactNumbers = []; // Store AC service contact numbers
     this.allInvestors = []; // Store all investors for management fee payee dropdown
     this._exportSelectedIds = null; // Set of propertyIds chosen for portfolio export (null until first customized)
+    this._searchTerm = ''; // Current quick-search text (separate from the filter panel below)
+    this.filters = loadPropertyFilters(); // Persisted filter-panel state (investor, and later more criteria)
     this.init();
   }
 
@@ -25,6 +34,7 @@ class PropertyManagementComponent {
     this.loadAcServiceCompanies();
     this.loadAllInvestors();
     this.populateRoomTypesDropdown();
+    this.updateFilterSummaryUI();
   }
 
   populateRoomTypesDropdown() {
@@ -135,7 +145,7 @@ class PropertyManagementComponent {
       row.className = 'd-flex align-items-center gap-2 mb-2 room-price-row';
       row.dataset.room = room;
       row.innerHTML = `
-        <span class="badge bg-secondary text-truncate" style="min-width:120px;max-width:170px;" title="${label}">${label}</span>
+        <span class="badge text-truncate" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
         <div class="input-group input-group-sm" style="max-width:110px;">
           <span class="input-group-text">$</span>
           <input type="number" class="form-control room-price-min" min="0" step="10" placeholder="Min">
@@ -207,6 +217,7 @@ class PropertyManagementComponent {
       if (result.success) {
         this.allInvestors = result.data || result.investors || [];
         console.log(`📋 Loaded ${this.allInvestors.length} investors for management fee dropdown`);
+        this.renderInvestorFilterMenu();
         // Re-render cards in case properties loaded before investors (race condition)
         if (this.properties && this.properties.length > 0) {
           this.renderPropertiesTable();
@@ -431,6 +442,14 @@ class PropertyManagementComponent {
       });
     }
 
+    // Filter panel - reset button
+    const filterResetBtn = document.getElementById("propertyFilterResetBtn");
+    if (filterResetBtn) {
+      filterResetBtn.addEventListener("click", () => {
+        this.resetPropertyFilters();
+      });
+    }
+
     // OneMap API - Fetch address from postcode
     const fetchAddressBtn = document.getElementById("fetchAddressBtn");
     if (fetchAddressBtn) {
@@ -639,6 +658,12 @@ class PropertyManagementComponent {
       return;
     }
 
+    const visibleProperties = this.getVisibleProperties();
+    if (visibleProperties.length === 0) {
+      this.showEmptyState(this.buildFilteredEmptyStateMessage());
+      return;
+    }
+
     // Clear container and set up CSS Grid layout
     container.innerHTML = '<div id="propertiesCardGrid"></div>';
     const gridContainer = document.getElementById("propertiesCardGrid");
@@ -651,8 +676,8 @@ class PropertyManagementComponent {
     gridContainer.style.maxWidth = "100%";
 
     const byNewest = (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    const activeProperties = this.properties.filter(p => !p.isArchived).sort(byNewest);
-    const archivedProperties = this.properties.filter(p => p.isArchived).sort(byNewest);
+    const activeProperties = visibleProperties.filter(p => !p.isArchived).sort(byNewest);
+    const archivedProperties = visibleProperties.filter(p => p.isArchived).sort(byNewest);
     const sortedProperties = [...activeProperties, ...archivedProperties];
 
     let cardsHtml = "";
@@ -808,7 +833,7 @@ class PropertyManagementComponent {
                     const priceLabel = rp && (rp.minPrice || rp.maxPrice)
                       ? ` ($${rp.minPrice}${rp.maxPrice && rp.maxPrice !== rp.minPrice ? '–$' + rp.maxPrice : ''})`
                       : '';
-                    return `<span class="badge bg-secondary">${ROOM_TYPE_MAP[room] || room}${priceLabel}</span>`;
+                    return `<span class="badge" style="${getRoomTypeBadgeStyle(room)}">${ROOM_TYPE_MAP[room] || room}${priceLabel}</span>`;
                   }).join('')}
                 </div>
               </div>
@@ -1009,28 +1034,98 @@ class PropertyManagementComponent {
   }
 
   filterProperties(searchTerm) {
-    if (!searchTerm.trim()) {
-      this.renderPropertiesTable();
-      return;
-    }
-
-    const filteredProperties = this.properties.filter(
-      (property) =>
-        property.propertyId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.unit.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (filteredProperties.length === 0) {
-      this.showEmptyState(`No properties match "${searchTerm}"`);
-      return;
-    }
-
-    // Temporarily store current properties and render filtered results
-    const originalProperties = this.properties;
-    this.properties = filteredProperties;
+    this._searchTerm = searchTerm || '';
     this.renderPropertiesTable();
-    this.properties = originalProperties;
+  }
+
+  // ─── Filter panel (investor, and later more criteria) ──────────────────────
+  // this.filters is the single source of truth for the panel's state; the
+  // quick-search box above is tracked separately in this._searchTerm since it
+  // isn't a "filter criterion" the user picks from the panel. Both narrow the
+  // same list, applied together in getVisibleProperties().
+
+  /** Properties currently visible in the grid, after the quick search and the filter panel are both applied. */
+  getVisibleProperties() {
+    let list = this.properties;
+
+    const term = this._searchTerm.trim().toLowerCase();
+    if (term) {
+      list = list.filter(
+        (property) =>
+          property.propertyId.toLowerCase().includes(term) ||
+          property.address.toLowerCase().includes(term) ||
+          property.unit.toLowerCase().includes(term)
+      );
+    }
+
+    return applyPropertyFilters(list, this.filters, { allInvestors: this.allInvestors });
+  }
+
+  /** Empty-state copy that reflects *why* the grid is empty (no data vs. no match), or undefined for the default message. */
+  buildFilteredEmptyStateMessage() {
+    const term = this._searchTerm.trim();
+    if (term) return `No properties match "${term}"`;
+    if (getActivePropertyFilterCount(this.filters) > 0) return "No properties match the selected filters";
+    return undefined;
+  }
+
+  renderInvestorFilterMenu() {
+    const menu = document.getElementById("propertyInvestorFilterMenu");
+    if (!menu) return;
+
+    const investors = [...this.allInvestors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const selected = new Set(this.filters.investorIds);
+
+    menu.innerHTML = investors.length
+      ? investors.map((investor) => `
+          <label class="dropdown-item d-flex align-items-center gap-2" style="cursor:pointer;">
+            <input type="checkbox" class="form-check-input property-investor-filter-checkbox m-0" value="${investor.investorId}" ${selected.has(investor.investorId) ? 'checked' : ''}>
+            ${renderInvestorAvatarCircle(investor, 22)}
+            <span class="small text-truncate" title="${this.escapeHtml(investor.name || '')}">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
+          </label>
+        `).join('')
+      : '<div class="text-muted small px-3 py-1">No investors found</div>';
+
+    menu.querySelectorAll('.property-investor-filter-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => this.handleInvestorFilterChange());
+    });
+  }
+
+  handleInvestorFilterChange() {
+    const checked = Array.from(
+      document.querySelectorAll('.property-investor-filter-checkbox:checked')
+    ).map((checkbox) => checkbox.value);
+    this.filters = { ...this.filters, investorIds: checked };
+    this.onFiltersChanged();
+  }
+
+  resetPropertyFilters() {
+    this.filters = createDefaultPropertyFilters();
+    this.renderInvestorFilterMenu();
+    this.onFiltersChanged();
+  }
+
+  onFiltersChanged() {
+    savePropertyFilters(this.filters);
+    this.updateFilterSummaryUI();
+    this.renderPropertiesTable();
+  }
+
+  updateFilterSummaryUI() {
+    const investorCount = this.filters.investorIds.length;
+    const investorBadge = document.getElementById("propertyInvestorFilterCount");
+    if (investorBadge) {
+      investorBadge.textContent = investorCount;
+      investorBadge.style.display = investorCount > 0 ? '' : 'none';
+    }
+
+    const activeCount = getActivePropertyFilterCount(this.filters);
+    const summary = document.getElementById("propertyFilterSummary");
+    const summaryText = document.getElementById("propertyFilterSummaryText");
+    if (summary && summaryText) {
+      summary.style.display = activeCount > 0 ? '' : 'none';
+      summaryText.textContent = `${activeCount} filter${activeCount === 1 ? '' : 's'} applied`;
+    }
   }
 
   showAddPropertyModal() {

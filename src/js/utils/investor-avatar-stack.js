@@ -86,6 +86,25 @@ export function renderInvestorAvatarStack(investors, propertyId, { size = 26, ov
   return `<div class="d-flex align-items-center" style="flex-shrink:0;" title="${owners.length} investor${owners.length === 1 ? "" : "s"}">${circles}${overflowBadge}</div>`;
 }
 
+/** Compact display label for an investor: last word of their full name (e.g. "Tan Wei Ming" -> "Ming"). */
+export function getInvestorShortName(fullName) {
+  const trimmed = String(fullName || "").trim();
+  if (!trimmed) return "?";
+  const words = trimmed.split(/\s+/);
+  return words[words.length - 1];
+}
+
+/** Single circular avatar for an investor: photo if set, otherwise initials on their deterministic gradient. */
+export function renderInvestorAvatarCircle(investor, size = 22) {
+  const fontSize = Math.max(9, Math.round(size * 0.4));
+  const initials = (investor.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const inner = investor.avatar
+    ? `<img src="${investor.avatar}" style="width:100%;height:100%;object-fit:cover;" alt="${escapeHtml(investor.name)}">`
+    : `<span style="color:#fff;font-weight:700;font-size:${fontSize}px;">${initials}</span>`;
+  const bg = investor.avatar ? "" : `background:linear-gradient(135deg,${avatarGradientColors(investor.investorId)});`;
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;${bg}">${inner}</div>`;
+}
+
 /** Absolute-positioned badge wrapper for the top-right corner of a property image overlay. */
 export function renderPropertyImageAvatarBadge(investors, propertyId, opts = {}) {
   const stack = renderInvestorAvatarStack(investors, propertyId, opts);
