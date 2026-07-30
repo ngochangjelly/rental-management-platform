@@ -5270,6 +5270,18 @@
                   <h5 class="mb-0">
                     Tenants
                     <span
+                      id="totalTenantsBadge"
+                      class="badge bg-secondary ms-2"
+                      style="font-size: 0.75rem; vertical-align: middle"
+                      >0 total</span
+                    >
+                    <span
+                      id="activeTenantsBadge"
+                      class="badge bg-primary ms-2"
+                      style="font-size: 0.75rem; vertical-align: middle"
+                      >0 active</span
+                    >
+                    <span
                       id="registeredTenantsBadge"
                       class="badge bg-success ms-2"
                       style="font-size: 0.75rem; vertical-align: middle"
@@ -5280,6 +5292,20 @@
                       class="ms-2"
                       style="vertical-align: middle"
                     ></span>
+                    <span
+                      id="tenantSelectionBar"
+                      class="badge bg-primary ms-2 d-inline-flex align-items-center gap-2"
+                      style="display: none; font-size: 0.75rem; vertical-align: middle"
+                    >
+                      <span id="tenantSelectionCount">0 selected</span>
+                      <button
+                        type="button"
+                        class="btn-close btn-close-white"
+                        style="font-size: 0.55rem"
+                        title="Clear selection"
+                        onclick="tenantManager.clearTenantSelection()"
+                      ></button>
+                    </span>
                   </h5>
                   <div class="d-flex flex-wrap gap-2">
                     <div class="dropdown">

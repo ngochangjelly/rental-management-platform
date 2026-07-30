@@ -59,6 +59,7 @@ class TenantManagementComponent {
     this.originalTenantData = null; // Store original tenant data for change detection
     this.todos = []; // Array of todo items
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
+    this.selectedTenantIds = new Set(); // Tenant IDs currently checked for PDF/ZIP export
 
     this.init();
   }
@@ -355,6 +356,9 @@ class TenantManagementComponent {
     try {
       console.log(`🔄 Loading tenants for property: ${propertyId}`);
 
+      // Selection is scoped to the currently displayed property list
+      this.selectedTenantIds.clear();
+
       // Show loading skeleton while fetching data
       this.showLoadingSkeleton();
 
@@ -405,6 +409,9 @@ class TenantManagementComponent {
   async loadUnassignedTenants() {
     try {
       console.log("🔄 Loading unassigned tenants...");
+
+      // Selection is scoped to the currently displayed property list
+      this.selectedTenantIds.clear();
 
       // Show loading skeleton while fetching data
       this.showLoadingSkeleton();
@@ -806,10 +813,19 @@ class TenantManagementComponent {
       }
     }
 
+    const isExportEligible =
+      registrationStatus === "registered" || registrationStatus === "pending";
+    const isSelected = this.selectedTenantIds.has(tenant._id);
+
     return `
                 <div style="max-width: 260px; width: 100%; justify-self: center;">
                     <div class="card h-100 tenant-detail-card shadow-sm ${isOutdated ? "tenant-outdated" : ""
-      }">
+      }${isSelected ? " tenant-card-selected" : ""}" data-tenant-id="${tenant._id}">
+                        <div class="tenant-select-check${isExportEligible ? "" : " disabled"}${isSelected ? " checked" : ""}"
+                            title="${isExportEligible ? "Select for PDF/ZIP export" : "Not eligible for export (unregistered)"}"
+                            onclick="event.stopPropagation();${isExportEligible ? ` tenantManager.toggleTenantSelection('${tenant._id}', this.closest('.tenant-detail-card'));` : ""}">
+                            <i class="bi bi-check-lg"></i>
+                        </div>
                         <div class="card-body">
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="flex-shrink-0">
@@ -932,6 +948,58 @@ class TenantManagementComponent {
                 }
                 .tenant-outdated:hover {
                     opacity: 0.7;
+                }
+                .tenant-select-check {
+                    position: absolute;
+                    top: 8px;
+                    left: 8px;
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 50%;
+                    background: rgba(255,255,255,0.92);
+                    border: 2px solid #adb5bd;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    z-index: 5;
+                    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+                }
+                .tenant-select-check i {
+                    font-size: 0.8rem;
+                    color: transparent;
+                    transition: color 0.15s ease;
+                }
+                .tenant-select-check:hover {
+                    border-color: #0d6efd;
+                    transform: scale(1.18);
+                    box-shadow: 0 2px 6px rgba(13,110,253,0.35);
+                }
+                .tenant-select-check.checked {
+                    background: #0d6efd;
+                    border-color: #0d6efd;
+                    transform: scale(1.05);
+                }
+                .tenant-select-check.checked i {
+                    color: #fff;
+                }
+                .tenant-select-check.disabled {
+                    opacity: 0.35;
+                    cursor: not-allowed;
+                    pointer-events: none;
+                }
+                .tenant-detail-card.tenant-card-selected {
+                    border: 2px solid #0d6efd !important;
+                    box-shadow: 0 0 0 4px rgba(13,110,253,0.15), 0 8px 16px rgba(13,110,253,0.25) !important;
+                    background: linear-gradient(180deg, rgba(13,110,253,0.06) 0%, rgba(255,255,255,1) 55%);
+                }
+                @keyframes tenantCardPop {
+                    0% { transform: scale(1); }
+                    40% { transform: scale(1.045); }
+                    100% { transform: scale(1); }
+                }
+                .tenant-card-pop {
+                    animation: tenantCardPop 0.28s ease;
                 }
                 @keyframes tenantCopyPulse {
                     0% { transform: scale(1); }
@@ -1275,6 +1343,18 @@ class TenantManagementComponent {
     // Update badge text
     badge.textContent = `${registeredCount} registered`;
 
+    // Total + active (not past their move-out date) tenant counts
+    const totalCount = this.tenants.length;
+    const activeCount = this.tenants.filter(
+      (tenant) => !this.isTenantOutdated(tenant, this.selectedProperty),
+    ).length;
+
+    const totalBadge = document.getElementById("totalTenantsBadge");
+    if (totalBadge) totalBadge.textContent = `${totalCount} total`;
+
+    const activeBadge = document.getElementById("activeTenantsBadge");
+    if (activeBadge) activeBadge.textContent = `${activeCount} active`;
+
     // Show/hide PDF + ZIP buttons: only when a real property is selected and eligible tenants exist
     const eligibleCount = this.tenants.filter((t) => {
       const s = t.registrationStatus || (t.isRegistered ? "registered" : "unregistered");
@@ -1307,6 +1387,75 @@ class TenantManagementComponent {
         ${adminFacebookGroup ? `<a href="${this.escapeHtml(adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ""}
       `;
     }
+
+    this.updateTenantSelectionBar();
+  }
+
+  // Toggle a single tenant card's checked/export-selected state, with a small pop animation
+  toggleTenantSelection(tenantId, cardEl) {
+    const wasSelected = this.selectedTenantIds.has(tenantId);
+    if (wasSelected) {
+      this.selectedTenantIds.delete(tenantId);
+    } else {
+      this.selectedTenantIds.add(tenantId);
+    }
+
+    if (cardEl) {
+      const nowSelected = !wasSelected;
+      cardEl.classList.toggle("tenant-card-selected", nowSelected);
+      const check = cardEl.querySelector(".tenant-select-check");
+      if (check) check.classList.toggle("checked", nowSelected);
+
+      if (nowSelected) {
+        cardEl.classList.remove("tenant-card-pop");
+        void cardEl.offsetWidth; // restart animation
+        cardEl.classList.add("tenant-card-pop");
+        setTimeout(() => cardEl.classList.remove("tenant-card-pop"), 300);
+      }
+    }
+
+    this.updateTenantSelectionBar();
+  }
+
+  clearTenantSelection() {
+    this.selectedTenantIds.clear();
+    document.querySelectorAll(".tenant-detail-card.tenant-card-selected").forEach((el) => {
+      el.classList.remove("tenant-card-selected");
+      const check = el.querySelector(".tenant-select-check");
+      if (check) check.classList.remove("checked");
+    });
+    this.updateTenantSelectionBar();
+  }
+
+  // Reflects the current selection count in the toolbar badge and PDF/ZIP button labels.
+  // With 0 selected, PDF/ZIP export ALL eligible tenants (previous behavior); with 1+, only the selection.
+  updateTenantSelectionBar() {
+    const count = this.selectedTenantIds.size;
+
+    const bar = document.getElementById("tenantSelectionBar");
+    if (bar) bar.style.display = count > 0 ? "inline-flex" : "none";
+    const countEl = document.getElementById("tenantSelectionCount");
+    if (countEl) countEl.textContent = `${count} selected`;
+
+    const pdfBtn = document.getElementById("generateTenantPdfBtn");
+    if (pdfBtn && pdfBtn.style.display !== "none") {
+      pdfBtn.innerHTML = count > 0
+        ? `<i class="bi bi-file-earmark-pdf me-1"></i> PDF (${count})`
+        : `<i class="bi bi-file-earmark-pdf me-1"></i> PDF`;
+      pdfBtn.title = count > 0
+        ? `Generate PDF for ${count} selected tenant${count !== 1 ? "s" : ""}`
+        : "Generate PDF tenant list (registered & pending only) for landlord submission";
+    }
+
+    const zipBtn = document.getElementById("generateTenantZipBtn");
+    if (zipBtn && zipBtn.style.display !== "none") {
+      zipBtn.innerHTML = count > 0
+        ? `<i class="bi bi-file-earmark-zip me-1"></i> ZIP (${count})`
+        : `<i class="bi bi-file-earmark-zip me-1"></i> ZIP`;
+      zipBtn.title = count > 0
+        ? `Download image ZIP for ${count} selected tenant${count !== 1 ? "s" : ""}`
+        : "Download all tenant document images as a ZIP (registered & pending only)";
+    }
   }
 
   async generateTenantListZIP() {
@@ -1322,10 +1471,15 @@ class TenantManagementComponent {
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
     }
 
+    const selectedTenantIds = Array.from(this.selectedTenantIds);
+
     try {
       const response = await API.post(
         `${API_CONFIG.ENDPOINTS.TENANTS}/generate-zip`,
-        { propertyId: this.selectedProperty },
+        {
+          propertyId: this.selectedProperty,
+          ...(selectedTenantIds.length > 0 ? { tenantIds: selectedTenantIds } : {}),
+        },
       );
 
       if (!response.ok) {
@@ -1371,9 +1525,23 @@ class TenantManagementComponent {
 
     // Build default header from property info
     const propertyInfo = this.getPropertyInfo(this.selectedProperty);
-    const defaultHeader = propertyInfo
+    const addressLine = propertyInfo
       ? `${propertyInfo.unit ? propertyInfo.unit + ", " : ""}${propertyInfo.address}${propertyInfo.postcode ? ", Singapore " + propertyInfo.postcode : ""}`
       : this.selectedProperty;
+
+    // Pax count must mirror the backend's eligibility filter (registered/pending),
+    // narrowed to the current selection when tenants are checked, so the prompt
+    // shows exactly what will be printed on every page.
+    const eligibleTenantIds = this.tenants
+      .filter((t) => {
+        const s = t.registrationStatus || (t.isRegistered ? "registered" : "unregistered");
+        return s === "registered" || s === "pending";
+      })
+      .map((t) => t._id);
+    const paxCount = this.selectedTenantIds.size > 0
+      ? eligibleTenantIds.filter((id) => this.selectedTenantIds.has(id)).length
+      : eligibleTenantIds.length;
+    const defaultHeader = `${addressLine} - ${paxCount} pax`;
 
     const customHeader = window.prompt("PDF header (shown on every page):", defaultHeader);
     if (customHeader === null) return; // user cancelled
@@ -1385,10 +1553,16 @@ class TenantManagementComponent {
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
     }
 
+    const selectedTenantIds = Array.from(this.selectedTenantIds);
+
     try {
       const response = await API.post(
         `${API_CONFIG.ENDPOINTS.TENANTS}/generate-pdf`,
-        { propertyId: this.selectedProperty, customHeader: customHeader.trim() || defaultHeader },
+        {
+          propertyId: this.selectedProperty,
+          customHeader: customHeader.trim() || defaultHeader,
+          ...(selectedTenantIds.length > 0 ? { tenantIds: selectedTenantIds } : {}),
+        },
       );
 
       if (!response.ok) {
@@ -5087,7 +5261,7 @@ class TenantManagementComponent {
           ? "Unassigned"
           : this.selectedProperty.replace(/[^a-zA-Z0-9]/g, "_");
       const dateStr = new Date().toISOString().split("T")[0];
-      const filename = `Tenants_${propertyName}_${dateStr}.xlsx`;
+      const filename = `${tenants.length} pax - Tenants_${propertyName}_${dateStr}.xlsx`;
 
       // Download file
       XLSX.writeFile(wb, filename);

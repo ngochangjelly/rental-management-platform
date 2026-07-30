@@ -274,13 +274,19 @@ class AcCleanManagementComponent {
             </div>
 
             <div class="mb-3">
-              <div class="mb-2">
-                <i class="bi bi-tools me-2 text-primary"></i>
-                <strong>Service Provider:</strong>
-                <div class="ms-4">${this.escapeHtml(
-                  service.acServiceName
-                )}</div>
-              </div>
+              ${
+                service.acServiceName && service.acServiceName !== "N/A"
+                  ? `
+                <div class="mb-2">
+                  <i class="bi bi-tools me-2 text-primary"></i>
+                  <strong>Service Provider:</strong>
+                  <div class="ms-4">${this.escapeHtml(
+                    service.acServiceName
+                  )}</div>
+                </div>
+              `
+                  : ""
+              }
 
               ${
                 service.acServiceContactNumbers &&
@@ -1034,7 +1040,6 @@ class AcCleanManagementComponent {
         <table class="table table-hover">
           <thead>
             <tr>
-              <th>Company ID</th>
               <th>Name</th>
               <th>Phone</th>
               <th>Website</th>
@@ -1048,7 +1053,6 @@ class AcCleanManagementComponent {
               .map(
                 (company) => `
               <tr>
-                <td><strong>${this.escapeHtml(company.companyId)}</strong></td>
                 <td>${this.escapeHtml(company.name)}</td>
                 <td>
                   <a href="tel:${this.escapeHtml(
