@@ -6,6 +6,8 @@
  * To change any clause text, edit only this file — both flows update automatically.
  */
 
+import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
 export function formatDate(dateString) {
@@ -39,22 +41,11 @@ export function formatPaymentMethod(method) {
 
 export function formatRoomType(roomType) {
   if (!roomType) return "[Room Type]";
+  const standardized = getRoomTypeDisplayName(roomType);
+  if (standardized !== roomType) return standardized;
+
+  // Legacy/unrelated unit types not covered by the standardized room families.
   const labels = {
-    COMMON1: "Common 1",
-    COMMON2: "Common 2",
-    MASTER: "Master",
-    COMPARTMENT1: "Compartment 1",
-    COMPARTMENT2: "Compartment 2",
-    STORE: "Store",
-    COMMON_1_PAX: "Common 1 Pax",
-    COMMON_2_PAX: "Common 2 Pax",
-    COMMON_3_PAX: "Common 3 Pax",
-    SMALL_SINGLE_1_PAX: "Small Single 1 Pax",
-    SMALL_SINGLE_2_PAX: "Small Single 2 Pax",
-    BIG_SINGLE_1_PAX: "Big Single 1 Pax",
-    BIG_SINGLE_2_PAX: "Big Single 2 Pax",
-    SINGLE_1_PAX_NO_AIRCON: "Single 1 Pax No Aircon",
-    SINGLE_2_PAX_NO_AIRCON: "Single 2 Pax No Aircon",
     MEDIUM_SINGLE_1_PAX: "Medium Single Room (1 Pax)",
     LARGE_SINGLE_1_PAX: "Large Single Room (1 Pax)",
     SMALL_SHARED_2_PAX: "Small Shared Room (2 Pax)",

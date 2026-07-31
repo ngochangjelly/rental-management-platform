@@ -1,4 +1,9 @@
 import { getGroupLinkMeta } from "../utils/social-links.js";
+import {
+  fetchInvestorsForAvatarStack,
+  renderInvestorAvatarStack,
+  renderInvestorAvatarCircle,
+} from "../utils/investor-avatar-stack.js";
 
 /**
  * Common Prompt Component
@@ -14,6 +19,8 @@ class CommonPromptComponent {
     // AC Booking dynamic state
     this.acBookingDate = new Date().toISOString().split("T")[0];
     this.acBookingTime = "10:00";
+    this.acBillDate = new Date().toISOString().split("T")[0];
+    this.acMessageLang = "en"; // 'en' | 'vi'
     this.propertyTenants = [];
     this.propertyInvestors = [];
     this.selectedContactTenantId = null;
@@ -28,6 +35,9 @@ class CommonPromptComponent {
     // Portable Aircon Order state
     this.airconOrders = {}; // propertyId -> { airconQty, hose2m, hose3m, remotes }
 
+    // Investors (with linked properties) for accountant/owner badges
+    this.allInvestors = [];
+
     this.prompts = this.initializePrompts();
     this.eventsBound = false;
     this.init();
@@ -36,6 +46,7 @@ class CommonPromptComponent {
   init() {
     this.bindEvents();
     this.loadProperties();
+    this.loadInvestors();
     this.renderPromptLibrary();
     this.loadCurrentExchangeRate();
     // Also update if rate changes while page is open
@@ -157,11 +168,41 @@ Sau khi chuyển khoản, mọi người vui lòng gửi hóa đơn qua tin nh�
 ${sgdBlock}${vndBlock}`;
   }
 
+  buildAcCleanMessageVi({
+    unit,
+    address,
+    postcode,
+    date,
+    time,
+    billDate,
+    digitalLockPin,
+    contactName,
+    contactPhone,
+    acUnits,
+  }) {
+    const addressLine = `#${unit || ""} - ${address || ""} - ${postcode || ""}`;
+    const digitalLockLine = digitalLockPin
+      ? `\nAnh bấm ${digitalLockPin} để mở cửa vào nha anh`
+      : "";
+    return `Dạ em chào anh
+
+Tháng này tới tháng vệ sinh nhà ${addressLine}
+
+Anh cho em đặt lịch vệ sinh điều hoà lúc ${date} - ${time}${digitalLockLine}
+
+Có gì anh cứ liên hệ whatsapp - ${contactName} / ${contactPhone}
+
+Thông tin ghi trên hoá đơn
+${billDate || date}
+Số lượng máy: ${acUnits}`;
+  }
+
   getAcCleanBookingTemplate(property) {
     if (!property) return "Vui lòng chọn căn hộ để xem trước tin nhắn.";
 
     const date = this.formatDate(this.acBookingDate) || "[date]";
     const time = this.acBookingTime || "[time]";
+    const billDate = this.formatDate(this.acBillDate) || date;
 
     // Find main tenant
     const mainTenant =
@@ -181,6 +222,23 @@ ${sgdBlock}${vndBlock}`;
       this.propertyInvestors,
     );
     const contactPhone = contact?.phoneNumber || "[sđt liên hệ]";
+    const contactName = contact?.name || "[tên liên hệ]";
+    const hasPinAccess = property.digitalLockEnabled && property.digitalLockPin;
+
+    if (this.acMessageLang === "vi") {
+      return this.buildAcCleanMessageVi({
+        unit: property.unit,
+        address: property.address,
+        postcode: property.postcode,
+        date,
+        time,
+        billDate,
+        digitalLockPin: hasPinAccess ? property.digitalLockPin : null,
+        contactName,
+        contactPhone,
+        acUnits,
+      });
+    }
 
     return `hello
 
@@ -196,7 +254,7 @@ phone: ${mainTenantPhone}
 AC units: ${acUnits}
 bill: ${bill}$
 
-when u arrive the property, pls call this whatssap number to help open door 
+when u arrive the property, pls call this whatssap number to help open door
 ${contactPhone}`;
   }
 
@@ -536,6 +594,10 @@ Please advise on pricing and availability. Thank you! 🙏`;
              ${adminFbHtml}
            </div>`
           : "";
+      const ownershipHtml =
+        this.activePromptId === "rent-collection"
+          ? this.renderPropertyOwnershipHtml(property)
+          : "";
       html += `
         <div class="col-12 col-md-6">
           <div class="border rounded overflow-hidden h-100 d-flex flex-column">
@@ -553,6 +615,7 @@ Please advise on pricing and availability. Thank you! 🙏`;
               </button>
             </div>
             ${fbLinksHtml}
+            ${ownershipHtml}
             <textarea
               class="form-control border-0 rounded-0 flex-grow-1"
               rows="14"
@@ -660,6 +723,64 @@ Please advise on pricing and availability. Thank you! 🙏`;
       console.error("[CommonPrompt] Error loading properties:", error);
       this.properties = [];
     }
+  }
+
+  async loadInvestors() {
+    try {
+      this.allInvestors = await fetchInvestorsForAvatarStack();
+      if (this.mode === "all") this.renderBulkMessages();
+      else this.updateActivePromptPreview();
+    } catch (error) {
+      console.error("[CommonPrompt] Error loading investors:", error);
+      this.allInvestors = [];
+    }
+  }
+
+  getPropertyAccountant(property) {
+    if (!property?.accountant) return null;
+    return (
+      this.allInvestors.find((i) => i.investorId === property.accountant) ||
+      null
+    );
+  }
+
+  renderPropertyOwnershipHtml(property, standalone = false) {
+    const accountant = this.getPropertyAccountant(property);
+    const investorStackHtml = renderInvestorAvatarStack(
+      this.allInvestors,
+      property.propertyId,
+      { size: 24, overlap: 8, max: 4 },
+    );
+
+    if (!accountant && !investorStackHtml) return "";
+
+    const accountantHtml = accountant
+      ? `<div class="d-flex align-items-center gap-2">
+           ${renderInvestorAvatarCircle(accountant, 24)}
+           <div>
+             <div style="font-size:10px;color:#6f42c1;font-weight:600;line-height:1;"><i class="bi bi-calculator me-1"></i>Accountant</div>
+             <div class="small fw-semibold" style="line-height:1.3;">${this.escapeHtml(accountant.name)}${accountant.phone ? ` · ${this.escapeHtml(accountant.phone)}` : ""}</div>
+           </div>
+         </div>`
+      : "";
+
+    const investorsHtml = investorStackHtml
+      ? `<div class="d-flex align-items-center gap-2">
+           ${investorStackHtml}
+           <span style="font-size:11px;color:#6c757d;font-weight:600;">Investors</span>
+         </div>`
+      : "";
+
+    const wrapperClass = standalone
+      ? "d-flex flex-wrap gap-3 px-3 py-2 align-items-center rounded mb-3"
+      : "d-flex flex-wrap gap-3 px-3 py-2 align-items-center";
+    const wrapperStyle = standalone
+      ? "background:#f8f6ff;border:1px solid #dee2e6;"
+      : "background:#f8f6ff;border-top:1px solid #dee2e6;";
+    return `<div class="${wrapperClass}" style="${wrapperStyle}">
+             ${accountantHtml}
+             ${investorsHtml}
+           </div>`;
   }
 
   isAcScheduledThisMonth(property) {
@@ -904,6 +1025,18 @@ Please advise on pricing and availability. Thank you! 🙏`;
     previewSection?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  setAcMessageLang(lang) {
+    this.acMessageLang = lang;
+    if (this.mode === "all" && this.activePromptId === "ac-clean-booking") {
+      const scheduled = this.properties.filter((p) =>
+        this.isAcScheduledThisMonth(p),
+      );
+      this.renderAcScheduledGroups(scheduled);
+    } else {
+      this.updateActivePromptPreview();
+    }
+  }
+
   async updateActivePromptPreview() {
     const prompt = this.prompts.find((p) => p.id === this.activePromptId);
     if (!prompt) return;
@@ -949,6 +1082,15 @@ Please advise on pricing and availability. Thank you! 🙏`;
     // Generate prompt text
     const promptText = prompt.template(property);
     previewTextarea.value = promptText;
+
+    // Show accountant/investors info for rent collection
+    const ownershipInfo = document.getElementById("promptOwnershipInfo");
+    if (ownershipInfo) {
+      ownershipInfo.innerHTML =
+        prompt.id === "rent-collection" && property
+          ? this.renderPropertyOwnershipHtml(property, true)
+          : "";
+    }
 
     // Update prompt title
     const promptTitle = document.getElementById("activePromptTitle");
@@ -1077,9 +1219,11 @@ Please advise on pricing and availability. Thank you! 🙏`;
     date,
     time,
     investors,
+    billDate,
   ) {
     date = this.formatDate(date) || "[date]";
     time = time || "[time]";
+    billDate = this.formatDate(billDate) || date;
 
     const mainTenant = tenants.find((t) => t.isMainTenant) || tenants[0];
     const mainTenantName = mainTenant ? mainTenant.name : "[tên]";
@@ -1094,6 +1238,23 @@ Please advise on pricing and availability. Thank you! 🙏`;
       investors || [],
     );
     const contactPhone = contact?.phoneNumber || "[sđt liên hệ]";
+    const contactName = contact?.name || "[tên liên hệ]";
+    const hasPinAccess = property.digitalLockEnabled && property.digitalLockPin;
+
+    if (this.acMessageLang === "vi") {
+      return this.buildAcCleanMessageVi({
+        unit: property.unit,
+        address: property.address,
+        postcode: property.postcode,
+        date,
+        time,
+        billDate,
+        digitalLockPin: hasPinAccess ? property.digitalLockPin : null,
+        contactName,
+        contactPhone,
+        acUnits,
+      });
+    }
 
     return `hello
 
@@ -1187,6 +1348,7 @@ ${contactPhone}`;
             contactTenantId: mainTenant?._id || null,
             date: this.acBookingDate,
             time: this.acBookingTime,
+            billDate: this.acBillDate,
           };
         } catch (e) {
           this.acScheduledData[property.propertyId] = {
@@ -1196,6 +1358,7 @@ ${contactPhone}`;
             contactTenantId: null,
             date: this.acBookingDate,
             time: this.acBookingTime,
+            billDate: this.acBillDate,
           };
         }
       }),
@@ -1345,7 +1508,14 @@ ${contactPhone}`;
         const data = this.acScheduledData[propertyId];
         if (!property || !data) return null;
 
-        const { tenants, investors = [], contactTenantId, date, time } = data;
+        const {
+          tenants,
+          investors = [],
+          contactTenantId,
+          date,
+          time,
+          billDate,
+        } = data;
         const mainTenant = tenants.find((t) => t.isMainTenant) || tenants[0];
         const contact = this.resolveContact(
           contactTenantId,
@@ -1356,6 +1526,19 @@ ${contactPhone}`;
         const acUnits = property.airconUnits || 0;
         const bill = acUnits * 20;
         const formattedDate = this.formatDate(date) || "[date]";
+        const formattedBillDate = this.formatDate(billDate) || formattedDate;
+        const hasPinAccess =
+          property.digitalLockEnabled && property.digitalLockPin;
+
+        if (this.acMessageLang === "vi") {
+          const digitalLockLine = hasPinAccess
+            ? `\nAnh bấm ${property.digitalLockPin} để mở cửa vào nha anh`
+            : "";
+          return `📍 #${property.unit || ""} - ${property.address || ""} - ${property.postcode || ""}
+Lịch vệ sinh: ${formattedDate} - ${time || "[time]"}${digitalLockLine}
+Liên hệ: ${contact?.name || "[tên liên hệ]"} / ${contact?.phoneNumber || "[sđt liên hệ]"}
+Ghi hoá đơn: ${formattedBillDate} - ${acUnits} máy`;
+        }
 
         return `📍 #${property.unit || ""} ${property.address || ""}
 DATE: ${formattedDate} ${time || "[time]"}
@@ -1366,6 +1549,16 @@ bill: ${bill}$
 contact to open door: ${contact?.phoneNumber || "[sđt liên hệ]"}`;
       })
       .filter(Boolean);
+
+    if (this.acMessageLang === "vi") {
+      return `Dạ em chào anh
+
+Tháng này tới tháng vệ sinh nhà cho các căn hộ sau:
+
+${blocks.join("\n\n")}
+
+Anh giúp em nha, em cảm ơn anh nhiều!`;
+    }
 
     return `hello
 
@@ -1401,6 +1594,7 @@ Thank you! 🙏`;
       contactTenantId: null,
       date: this.acBookingDate,
       time: this.acBookingTime,
+      billDate: this.acBillDate,
     };
     const {
       tenants,
@@ -1409,6 +1603,7 @@ Thank you! 🙏`;
       contactTenantId,
       date,
       time,
+      billDate,
     } = data;
     const message = this.getAcCleanBookingTemplateFor(
       property,
@@ -1417,6 +1612,7 @@ Thank you! 🙏`;
       date,
       time,
       investors,
+      billDate,
     );
 
     let contactOptions = "";
@@ -1487,7 +1683,11 @@ Thank you! 🙏`;
           ${imgHtml}
           <strong style="font-size:12px;word-break:break-word;">${this.escapeHtml(property.propertyId)} - ${this.escapeHtml(property.address || "")}</strong>
         </div>
-        <div class="d-flex gap-1 flex-shrink-0">
+        <div class="d-flex gap-1 flex-shrink-0 align-items-center">
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn ${this.acMessageLang === "en" ? "btn-success" : "btn-outline-success"} px-2" onclick="commonPromptComponent.setAcMessageLang('en')" title="English">EN</button>
+            <button type="button" class="btn ${this.acMessageLang === "vi" ? "btn-success" : "btn-outline-success"} px-2" onclick="commonPromptComponent.setAcMessageLang('vi')" title="Tiếng Việt">VN</button>
+          </div>
           ${waPhone ? `<button class="btn btn-sm btn-outline-success px-2" onclick="commonPromptComponent.sendAcWhatsApp(${index}, '${waPhone}')"><i class="bi bi-whatsapp"></i></button>` : ""}
           <button class="btn btn-sm btn-outline-primary px-2" onclick="commonPromptComponent.copyAcCard(${index})"><i class="bi bi-clipboard"></i></button>
         </div>
@@ -1504,6 +1704,11 @@ Thank you! 🙏`;
             <label class="form-label small fw-bold mb-1" style="font-size:11px;">Time</label>
             <input type="time" class="form-control form-control-sm" id="acCardTime-${index}" value="${time}"
               onchange="commonPromptComponent.updateAcCardDateTime('${property.propertyId}', ${index}, 'time', this.value)">
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold mb-1" style="font-size:11px;">Ngày ghi hoá đơn (Bill Date)</label>
+            <input type="date" class="form-control form-control-sm" id="acCardBillDate-${index}" value="${billDate || date}"
+              onchange="commonPromptComponent.updateAcCardBillDate('${property.propertyId}', ${index}, this.value)">
           </div>
         </div>
         ${companyHtml}
@@ -1542,6 +1747,28 @@ Thank you! 🙏`;
         data.date,
         data.time,
         data.investors,
+        data.billDate,
+      );
+    }
+    this.refreshContractorGroupMessage(propertyId);
+  }
+
+  updateAcCardBillDate(propertyId, index, value) {
+    const data = this.acScheduledData[propertyId];
+    if (!data) return;
+    data.billDate = value;
+    const property = this.properties.find((p) => p.propertyId === propertyId);
+    if (!property) return;
+    const textarea = document.getElementById(`acCardMsg-${index}`);
+    if (textarea) {
+      textarea.value = this.getAcCleanBookingTemplateFor(
+        property,
+        data.tenants,
+        data.contactTenantId,
+        data.date,
+        data.time,
+        data.investors,
+        data.billDate,
       );
     }
     this.refreshContractorGroupMessage(propertyId);
@@ -1562,6 +1789,7 @@ Thank you! 🙏`;
         data.date,
         data.time,
         data.investors,
+        data.billDate,
       );
     }
     this.refreshContractorGroupMessage(propertyId);
@@ -1817,6 +2045,15 @@ Thank you! 🙏`;
 
       container.innerHTML = `
         <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-bold small">Ngôn ngữ tin nhắn (Message Language)</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="acMessageLang" id="acMessageLangEn" ${this.acMessageLang === "en" ? "checked" : ""} onchange="commonPromptComponent.setAcMessageLang('en')">
+              <label class="btn btn-outline-success" for="acMessageLangEn">🇬🇧 English</label>
+              <input type="radio" class="btn-check" name="acMessageLang" id="acMessageLangVi" ${this.acMessageLang === "vi" ? "checked" : ""} onchange="commonPromptComponent.setAcMessageLang('vi')">
+              <label class="btn btn-outline-success" for="acMessageLangVi">🇻🇳 Tiếng Việt</label>
+            </div>
+          </div>
           <div class="col-md-6">
             <label class="form-label fw-bold small">Ngày hẹn (Date)</label>
             <input type="date" id="acBookingDateInput" class="form-control" value="${this.acBookingDate}">
@@ -1824,6 +2061,11 @@ Thank you! 🙏`;
           <div class="col-md-6">
             <label class="form-label fw-bold small">Giờ hẹn (Time)</label>
             <input type="time" id="acBookingTimeInput" class="form-control" value="${this.acBookingTime}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold small">Ngày ghi hoá đơn (Bill Date)</label>
+            <input type="date" id="acBillDateInput" class="form-control" value="${this.acBillDate}">
+            <small class="text-muted mt-1 d-block">Có thể khác ngày hẹn vệ sinh</small>
           </div>
           <div class="col-12">
             <label class="form-label fw-bold small">Người liên hệ mở cửa (Contact Person)</label>
@@ -1871,6 +2113,12 @@ Thank you! 🙏`;
         .getElementById("acBookingTimeInput")
         .addEventListener("change", (e) => {
           this.acBookingTime = e.target.value;
+          this.updateActivePromptPreview();
+        });
+      document
+        .getElementById("acBillDateInput")
+        .addEventListener("change", (e) => {
+          this.acBillDate = e.target.value;
           this.updateActivePromptPreview();
         });
       document

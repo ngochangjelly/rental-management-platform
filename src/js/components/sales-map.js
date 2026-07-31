@@ -1,4 +1,4 @@
-import { ROOM_TYPE_MAP } from '../utils/room-type-mapper.js';
+import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
 import i18next from '../i18n.js';
 
 /**
@@ -422,7 +422,7 @@ class SalesMapComponent {
   }
 
   _roomLabel(roomType) {
-    return ROOM_TYPE_MAP[roomType] || roomType;
+    return getRoomTypeDisplayName(roomType);
   }
 
   // ─── Geocoding ────────────────────────────────────────────────────────────────

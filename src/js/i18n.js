@@ -637,7 +637,7 @@ i18next.init({
           billManagement: "Tính tiền tenant",
           utilityBillTracker: "Theo dõi điện nước",
           bulkPropertyReports: "Báo cáo nhiều nhà",
-          acCleanManagement: "Vệ sinh máy lạnh",
+          acCleanManagement: "Vệ sinh điều hoà",
           investors: "Nhà đầu tư",
           investorProfitChart: "Báo cáo lợi nhuận",
           users: "Người dùng",

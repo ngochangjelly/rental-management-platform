@@ -1,4 +1,11 @@
-import { ROOM_TYPE_MAP, getRoomTypeBadgeStyle } from '../utils/room-type-mapper.js';
+import {
+  ROOM_FAMILY_LABELS,
+  DEFAULT_ROOM_TYPES,
+  getRoomTypeBadgeStyle,
+  getRoomTypeDisplayName,
+  parseRoomType,
+  compareRoomTypes,
+} from '../utils/room-type-mapper.js';
 import { getGroupLinkMeta } from '../utils/social-links.js';
 import { renderInvestorAvatarStack, renderInvestorAvatarCircle, getInvestorShortName } from '../utils/investor-avatar-stack.js';
 import {
@@ -37,56 +44,118 @@ class PropertyManagementComponent {
     this.updateFilterSummaryUI();
   }
 
+  // Renders the room picker as 5 family groups (Master, Common, Big Single,
+  // Small Single, Store). Master is a single fixed checkbox; the others
+  // start with DEFAULT_ROOM_TYPES' members and offer a "+ Add" control to
+  // append the next numbered room in that family.
   populateRoomTypesDropdown() {
     const dropdownMenu = document.getElementById("propertyRoomsDropdownMenu");
     const hiddenSelect = document.getElementById("propertyRooms");
 
     if (!dropdownMenu || !hiddenSelect) return;
 
-    // Clear existing content
     dropdownMenu.innerHTML = '';
     hiddenSelect.innerHTML = '';
 
-    // Populate hidden select options
-    Object.entries(ROOM_TYPE_MAP).forEach(([value, label]) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = label;
-      hiddenSelect.appendChild(option);
+    const families = [
+      { key: 'MASTER', label: 'Master', numbered: false },
+      { key: 'COMMON', label: ROOM_FAMILY_LABELS.COMMON, numbered: true },
+      { key: 'BIG_SINGLE', label: ROOM_FAMILY_LABELS.BIG_SINGLE, numbered: true },
+      { key: 'SMALL_SINGLE', label: ROOM_FAMILY_LABELS.SMALL_SINGLE, numbered: true },
+      { key: 'STORE', label: ROOM_FAMILY_LABELS.STORE, numbered: true },
+    ];
+
+    families.forEach(({ key, label, numbered }) => {
+      const group = document.createElement('div');
+      group.className = 'room-family-group border-bottom';
+      group.dataset.family = key;
+      dropdownMenu.appendChild(group);
+
+      if (numbered) {
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn btn-sm btn-link text-decoration-none room-family-add-btn';
+        addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Add ${label}`;
+        addBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.handleAddRoomFamily(key);
+        });
+        group.appendChild(addBtn);
+      }
     });
 
-    // Add checkboxes to dropdown menu
-    Object.entries(ROOM_TYPE_MAP).forEach(([value, label]) => {
-      dropdownMenu.innerHTML += `
-        <div class="form-check px-3 py-2" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
-          <input class="form-check-input property-room-checkbox" type="checkbox" value="${value}" id="room_${value}" style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
-          <label class="form-check-label" for="room_${value}" style="cursor: pointer; flex: 1; margin: 0;">
-            ${label}
-          </label>
-        </div>
-      `;
-    });
-
-    // Setup event listeners for checkboxes
-    this.setupPropertyRoomsCheckboxListeners();
+    DEFAULT_ROOM_TYPES.forEach((roomType) => this.addRoomTypeCheckbox(roomType, { checked: false }));
 
     // Prevent dropdown from closing when clicking inside
-    const dropdownMenuElement = document.getElementById('propertyRoomsDropdownMenu');
-    if (dropdownMenuElement) {
-      dropdownMenuElement.addEventListener('click', (e) => {
-        e.stopPropagation();
-      });
-    }
+    dropdownMenu.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
   }
 
-  setupPropertyRoomsCheckboxListeners() {
-    const checkboxes = document.querySelectorAll('.property-room-checkbox');
+  // Idempotently adds a checkbox for roomType into its family's group (kept
+  // before that group's "+ Add" button so the button stays at the bottom),
+  // plus a matching hidden <select> option. No-ops if it already exists.
+  addRoomTypeCheckbox(roomType, { checked = false } = {}) {
+    if (document.getElementById(`room_${roomType}`)) return;
 
-    checkboxes.forEach(checkbox => {
-      checkbox.addEventListener('change', () => {
-        this.updatePropertyRoomsSelection();
-      });
+    const dropdownMenu = document.getElementById("propertyRoomsDropdownMenu");
+    const hiddenSelect = document.getElementById("propertyRooms");
+    if (!dropdownMenu || !hiddenSelect) return;
+
+    const { family } = parseRoomType(roomType);
+    if (!family) return;
+
+    const group = dropdownMenu.querySelector(`.room-family-group[data-family="${family}"]`);
+    if (!group) return;
+
+    const label = getRoomTypeDisplayName(roomType);
+
+    const row = document.createElement('div');
+    row.className = 'form-check px-3 py-2';
+    row.style.cssText = 'display: flex; align-items: center; gap: 12px; cursor: pointer;';
+    row.addEventListener('mouseover', () => { row.style.backgroundColor = '#f8f9fa'; });
+    row.addEventListener('mouseout', () => { row.style.backgroundColor = ''; });
+    row.innerHTML = `
+      <input class="form-check-input property-room-checkbox" type="checkbox" value="${roomType}" id="room_${roomType}"${checked ? ' checked' : ''} style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
+      <label class="form-check-label" for="room_${roomType}" style="cursor: pointer; flex: 1; margin: 0;">
+        ${label}
+      </label>
+    `;
+
+    const addBtn = group.querySelector('.room-family-add-btn');
+    if (addBtn) {
+      group.insertBefore(row, addBtn);
+    } else {
+      group.appendChild(row);
+    }
+
+    row.querySelector('.property-room-checkbox').addEventListener('change', () => {
+      this.updatePropertyRoomsSelection();
     });
+
+    const option = document.createElement('option');
+    option.value = roomType;
+    option.textContent = label;
+    hiddenSelect.appendChild(option);
+  }
+
+  // "+ Add {family}" handler: appends the next numbered room in that family,
+  // checked by default since the user just asked for it.
+  handleAddRoomFamily(family) {
+    const existingNumbers = Array.from(document.querySelectorAll('.property-room-checkbox'))
+      .map(cb => parseRoomType(cb.value))
+      .filter(p => p.family === family)
+      .map(p => p.number || 0);
+    const nextNumber = existingNumbers.length ? Math.max(...existingNumbers) + 1 : 1;
+    this.addRoomTypeCheckbox(`${family}_${nextNumber}`, { checked: true });
+    this.updatePropertyRoomsSelection();
+  }
+
+  // Makes sure every room in `rooms` has a checkbox, adding any that go
+  // beyond the default set (e.g. a property with a 3rd Common) so it isn't
+  // silently dropped when the form is next saved.
+  ensureRoomOptionsExist(rooms = []) {
+    rooms.forEach((room) => this.addRoomTypeCheckbox(room, { checked: false }));
   }
 
   updatePropertyRoomsSelection() {
@@ -140,7 +209,7 @@ class PropertyManagementComponent {
     // Add rows for newly-checked rooms
     checkedRooms.forEach(room => {
       if (container.querySelector(`.room-price-row[data-room="${room}"]`)) return;
-      const label = ROOM_TYPE_MAP[room] || room;
+      const label = getRoomTypeDisplayName(room);
       const row = document.createElement('div');
       row.className = 'd-flex align-items-center gap-2 mb-2 room-price-row';
       row.dataset.room = room;
@@ -159,10 +228,9 @@ class PropertyManagementComponent {
       container.appendChild(row);
     });
 
-    // Keep rows ordered the same way as the room type dropdown
-    const order = Object.keys(ROOM_TYPE_MAP);
+    // Keep rows ordered by family, then number
     Array.from(container.children)
-      .sort((a, b) => order.indexOf(a.dataset.room) - order.indexOf(b.dataset.room))
+      .sort((a, b) => compareRoomTypes(a.dataset.room, b.dataset.room))
       .forEach(row => container.appendChild(row));
 
     wrap.style.display = checkedRooms.length > 0 ? 'block' : 'none';
@@ -765,7 +833,7 @@ class PropertyManagementComponent {
             <div class="card-img-top position-relative" style="height: 130px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
               ${imgOverlay}
               <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-primary" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
+                <span class="badge bg-primary prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy property ID" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
               </div>
               ${topEndOverlayHtml}
               ${moveOutOverlayHtml}
@@ -773,7 +841,7 @@ class PropertyManagementComponent {
             ` : `
             <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${typeGradient};">
               <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-white ${typeIdBadgeClass}" style="font-size: 0.75rem;${typeIdBadgeStyle}">${this.escapeHtml(property.propertyId)}</span>
+                <span class="badge bg-white ${typeIdBadgeClass} prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy property ID" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size: 0.75rem;${typeIdBadgeStyle}">${this.escapeHtml(property.propertyId)}</span>
               </div>
               ${topEndOverlayHtml}
               <div class="position-absolute top-50 start-50 translate-middle">
@@ -833,7 +901,7 @@ class PropertyManagementComponent {
                     const priceLabel = rp && (rp.minPrice || rp.maxPrice)
                       ? ` ($${rp.minPrice}${rp.maxPrice && rp.maxPrice !== rp.minPrice ? '–$' + rp.maxPrice : ''})`
                       : '';
-                    return `<span class="badge" style="${getRoomTypeBadgeStyle(room)}">${ROOM_TYPE_MAP[room] || room}${priceLabel}</span>`;
+                    return `<span class="badge" style="${getRoomTypeBadgeStyle(room)}">${getRoomTypeDisplayName(room)}${priceLabel}</span>`;
                   }).join('')}
                 </div>
               </div>
@@ -1150,6 +1218,9 @@ class PropertyManagementComponent {
     const form = document.getElementById("propertyForm");
     if (form) {
       form.reset();
+      // Rebuild the room picker back to its default set - otherwise "+ Add"
+      // rows from a previously edited property would linger across opens.
+      this.populateRoomTypesDropdown();
       // form.reset() unchecks the room checkboxes but doesn't touch our custom
       // dropdown label/price rows, so re-sync them before edit-mode repopulates.
       this.updatePropertyRoomsSelection();
@@ -1364,6 +1435,10 @@ class PropertyManagementComponent {
 
         // Handle property rooms selection
         if (property.rooms && Array.isArray(property.rooms)) {
+          // Make sure rooms beyond the default set (e.g. a 3rd Common) have
+          // a checkbox to check, so they aren't silently dropped on save.
+          this.ensureRoomOptionsExist(property.rooms);
+
           // Clear all checkboxes first
           const checkboxes = document.querySelectorAll('.property-room-checkbox');
           checkboxes.forEach(checkbox => {
