@@ -178,7 +178,10 @@ class InvestorManagementComponent {
                   `}
                 </div>
                 <div>
-                  <h6 class="mb-0">${escapeHtml(investor.name)}</h6>
+                  <h6 class="mb-0 d-flex align-items-center gap-1">
+                    ${escapeHtml(investor.name)}
+                    ${investor.facebookUrl ? `<a href="${escapeHtml(investor.facebookUrl)}" target="_blank" rel="noopener noreferrer" title="View Facebook Profile" onclick="event.stopPropagation()"><i class="bi bi-facebook text-primary"></i></a>` : ''}
+                  </h6>
                   <small class="text-muted">ID: ${investor.investorId}</small>
                 </div>
               </div>
@@ -340,7 +343,16 @@ class InvestorManagementComponent {
                     </div>
                   </div>
                 </div>
-                
+
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label"><i class="bi bi-facebook me-1"></i>Facebook URL</label>
+                      <input type="url" class="form-control" name="facebookUrl" placeholder="https://facebook.com/...">
+                    </div>
+                  </div>
+                </div>
+
                 <hr>
                 <h6><i class="bi bi-person-circle me-2"></i>Avatar</h6>
                 <div class="row">
@@ -440,6 +452,7 @@ class InvestorManagementComponent {
     form.querySelector('[name="phone"]').value = investor.phone || '';
     form.querySelector('[name="fin"]').value = investor.fin || '';
     form.querySelector('[name="passport"]').value = investor.passport || '';
+    form.querySelector('[name="facebookUrl"]').value = investor.facebookUrl || '';
 
     // Handle avatar
     this.avatar = investor.avatar || '';
@@ -654,6 +667,7 @@ class InvestorManagementComponent {
         phone: formData.get('phone'),
         fin: formData.get('fin'),
         passport: formData.get('passport'),
+        facebookUrl: formData.get('facebookUrl')?.trim() || null,
         avatar: this.avatar || null,
         properties: []
       };
@@ -1304,6 +1318,10 @@ class InvestorManagementComponent {
       `👤 ${investor.name}`,
       divider,
     ];
+
+    if (investor.facebookUrl) {
+      lines.push(`Facebook: ${investor.facebookUrl}`);
+    }
 
     if (activeProps.length === 0) {
       lines.push('No active property investments.');
