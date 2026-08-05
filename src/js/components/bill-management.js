@@ -434,6 +434,7 @@ class BillManagementComponent {
   showGenerateBillPrompt() {
     const container = document.getElementById("billTableContainer");
     if (!container) return;
+    this._detachActionToolbar();
 
     const mn = monthName(this.currentDate.getMonth());
     const year = this.currentDate.getFullYear();
@@ -1086,6 +1087,7 @@ class BillManagementComponent {
   showEmptyState(message) {
     const container = document.getElementById("billTableContainer");
     if (!container) return;
+    this._detachActionToolbar();
 
     container.innerHTML = `
       <div class="text-center text-muted py-5">
@@ -1103,6 +1105,7 @@ class BillManagementComponent {
 
     const container = document.getElementById("billTableContainer");
     if (!container) return;
+    this._detachActionToolbar();
 
     this.selectedTenants.clear();
     this.updateSelectionButtons();
@@ -1311,6 +1314,22 @@ class BillManagementComponent {
     const slot = document.getElementById("billActionToolbarSlot");
     if (toolbar && slot && toolbar.parentElement !== slot) {
       slot.appendChild(toolbar);
+    }
+  }
+
+  // Once relocated, the toolbar lives *inside* #billTableContainer (as a
+  // child of whichever slot it was moved into). Every render path that
+  // does `billTableContainer.innerHTML = ...` must call this first, or that
+  // reset destroys the toolbar's actual DOM node along with everything
+  // else — after which _relocateActionToolbar() can never find it again and
+  // the Download/Copy/Reset buttons disappear for the rest of the session.
+  // This pulls it back out to its original static position (a sibling right
+  // after the container) before the wipe.
+  _detachActionToolbar() {
+    const toolbar = document.getElementById("billActionToolbar");
+    const container = document.getElementById("billTableContainer");
+    if (toolbar && container && container.contains(toolbar)) {
+      container.parentElement.insertBefore(toolbar, container.nextSibling);
     }
   }
 
@@ -2490,6 +2509,30 @@ class BillManagementComponent {
     return lines.filter((l) => l !== undefined).join("\n");
   }
 
+  // Builds the download filename for a tenant's exported bill image, e.g.
+  // "#08-144 - 56 Havelock Rd S161056 - Ho_Van_Trung - 8-2026.png". Leads
+  // with the property's unit/address (not the room) so files sort/identify
+  // by property when an admin has many downloads across properties mixed
+  // together, with the tenant name kept to avoid collisions within a batch.
+  _billFileName(tenantBill, ctx) {
+    const sanitize = (s) =>
+      (s || "")
+        .normalize("NFC")
+        .replace(/[\\/:*?"<>|]/g, "")
+        .trim();
+    const unitAddr = ctx.property
+      ? [ctx.property.unit, ctx.property.address]
+          .filter(Boolean)
+          .map(sanitize)
+          .join(" - ")
+      : "";
+    const safeName = sanitize(tenantBill.tenantName || tenantBill.tenantId)
+      .replace(/[^\p{L}\p{N} _-]/gu, "")
+      .replace(/\s+/g, "_");
+    const monthLabel = ctx.monthLabel.replace("/", "-");
+    return `${unitAddr ? `#${unitAddr} - ` : ""}${safeName} - ${monthLabel}.png`;
+  }
+
   // Rasterizes a card's HTML off-screen into a PNG blob via html2canvas.
   async _renderCardToBlob(cardHtml) {
     if (typeof html2canvas === "undefined")
@@ -2573,12 +2616,7 @@ class BillManagementComponent {
 
           const cardHtml = this._buildBillCardHtml(tb, tenantCtx);
           const blob = await this._renderCardToBlob(cardHtml);
-          const safeName = (tb.tenantName || tb.tenantId)
-            .normalize("NFC")
-            .replace(/[^\p{L}\p{N} _-]/gu, "")
-            .trim()
-            .replace(/\s+/g, "_");
-          const fileName = `Bill_${safeName}_${ctx.monthLabel.replace("/", "-")}.png`;
+          const fileName = this._billFileName(tb, ctx);
           return { tb, blob, fileName };
         }),
       );

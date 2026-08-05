@@ -895,21 +895,25 @@ class PropertyManagementComponent {
     }
     const moveDatesHtml = moveBadges.length ? `<div class="d-flex flex-wrap gap-1 mt-1">${moveBadges.join('')}</div>` : '';
 
-    // Accountant / Manager — small avatar + short name, same colors the old
-    // card's detail blocks used (purple for accountant, blue for manager).
-    const personBadge = (investorId, label, color) => {
+    // Accountant / Manager — labeled role chip (icon + role caption + name)
+    // so each person's responsibility is unambiguous at a glance, not just
+    // color-coded. Purple for accountant, blue for manager, same as before.
+    const personBadge = (investorId, label, color, icon) => {
       if (!investorId) return '';
       const investor = this.allInvestors.find((i) => i.investorId === investorId);
       if (!investor) return '';
-      return `<div class="d-flex align-items-center gap-1">
-        ${renderInvestorAvatarCircle(investor, 20)}
-        <span class="small text-truncate prop-copy-val" data-copy="${this.escapeHtml(investor.name)}" title="Click to copy ${label} name" onclick="event.stopPropagation();copyToClipboardInline(this)" style="max-width: 90px; color: ${color}; font-weight: 600;">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
+      return `<div class="d-flex align-items-center gap-1 pm-person-chip" style="background:${color}14; border:1px solid ${color}33;">
+        ${renderInvestorAvatarCircle(investor, 22)}
+        <div class="d-flex flex-column" style="min-width: 0; line-height: 1.15;">
+          <span class="pm-person-role" style="color:${color};"><i class="bi ${icon}"></i>${label}</span>
+          <span class="small text-truncate prop-copy-val" data-copy="${this.escapeHtml(investor.name)}" title="Click to copy ${label} name" onclick="event.stopPropagation();copyToClipboardInline(this)" style="max-width: 100px; color: #212529; font-weight: 600;">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
+        </div>
       </div>`;
     };
-    const accountantHtml = personBadge(property.accountant, 'Accountant', '#6f42c1');
-    const managerHtml = personBadge(property.manager, 'Manager', '#0d6efd');
+    const accountantHtml = personBadge(property.accountant, 'Accountant', '#6f42c1', 'bi-calculator');
+    const managerHtml = personBadge(property.manager, 'Manager', '#0d6efd', 'bi-person-badge');
     const peopleRowHtml = (accountantHtml || managerHtml)
-      ? `<div class="d-flex align-items-center gap-3 mt-1">${accountantHtml}${managerHtml}</div>`
+      ? `<div class="d-flex align-items-center gap-2 flex-wrap mt-2">${accountantHtml}${managerHtml}</div>`
       : '';
 
     // SP utility account — same click-to-copy affordance the old card used;
@@ -963,11 +967,11 @@ class PropertyManagementComponent {
           position: relative;
           display: flex;
           align-items: flex-start;
-          gap: 10px;
+          gap: 12px;
           cursor: pointer;
           border-radius: 10px;
-          padding: 10px;
-          margin-bottom: 6px;
+          padding: 12px;
+          margin-bottom: 8px;
           border: 1px solid transparent;
           background: white;
           transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
@@ -977,13 +981,27 @@ class PropertyManagementComponent {
           flex-shrink: 0;
         }
         .pm-row-thumb {
-          width: 56px;
-          height: 56px;
+          width: 68px;
+          height: 68px;
           border-radius: 8px;
           flex-shrink: 0;
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
+        }
+        .pm-person-chip {
+          border-radius: 6px;
+          padding: 2px 6px;
+        }
+        .pm-person-role {
+          font-size: 0.55rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+        .pm-person-role i {
+          font-size: 0.55rem;
+          margin-right: 3px;
         }
         .pm-list-fade-in {
           animation: pm-list-fadein 0.25s ease;
