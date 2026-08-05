@@ -6,8 +6,8 @@ import {
   parseRoomType,
   compareRoomTypes,
 } from '../utils/room-type-mapper.js';
-import { getGroupLinkMeta } from '../utils/social-links.js';
 import { renderInvestorAvatarStack, renderInvestorAvatarCircle, getInvestorShortName } from '../utils/investor-avatar-stack.js';
+import { getGroupLinkMeta } from '../utils/social-links.js';
 import {
   createDefaultPropertyFilters,
   applyPropertyFilters,
@@ -32,6 +32,9 @@ class PropertyManagementComponent {
     this._exportSelectedIds = null; // Set of propertyIds chosen for portfolio export (null until first customized)
     this._searchTerm = ''; // Current quick-search text (separate from the filter panel below)
     this.filters = loadPropertyFilters(); // Persisted filter-panel state (investor, and later more criteria)
+    this.selectedPropertyId = null; // Property currently loaded in the right-hand detail panel (null = add-mode)
+    this._hasAutoSelected = false; // Guards the auto-select-first-property-on-load behavior to fire once
+    this._lastSelectedPropertyId = null; // Most recent real (non-add-mode) selection, so Cancel from add-mode can return to it
     this.init();
   }
 
@@ -475,8 +478,23 @@ class PropertyManagementComponent {
     const addPropertyBtn = document.getElementById("addPropertyBtn");
     if (addPropertyBtn) {
       addPropertyBtn.addEventListener("click", () => {
-        this.showAddPropertyModal();
+        this.showAddPropertyPanel();
       });
+    }
+
+    // Detail panel cancel affordances (header X + footer Cancel) — both discard
+    // in-progress edits and return the panel to whatever was selected before
+    ['propertyPanelCancelBtn', 'propertyPanelCancelBtn2'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', () => this.handlePanelCancel());
+      }
+    });
+
+    // Mobile "back to list" button (only visible <768px, see dashboard.html media query)
+    const backBtn = document.getElementById('pmBackToListBtn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => this.exitMobileDetailView());
     }
 
     // Property form submission (add/edit)
@@ -553,6 +571,14 @@ class PropertyManagementComponent {
         }
       });
     }
+
+    // Live-update the Tenant/Admin group badges as the URL is typed/pasted
+    ['tenantFacebookGroup', 'adminFacebookGroup'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) {
+        input.addEventListener('input', () => this.updateFbGroupBadges());
+      }
+    });
   }
 
   async fetchAddressFromPostcode(postcode) {
@@ -614,6 +640,13 @@ class PropertyManagementComponent {
   }
 
   async loadProperties() {
+    // Only show the shimmer when there's nothing on screen yet (first load,
+    // or the list is currently empty) — background refreshes (Reload button,
+    // the internal re-fetch after a save) keep the existing rows visible
+    // until the fresh data replaces them, instead of flashing the whole list.
+    if (this.properties.length === 0) {
+      this.showLoadingSkeleton();
+    }
     try {
       // Fetch all properties with pagination
       let allProperties = [];
@@ -664,6 +697,7 @@ class PropertyManagementComponent {
         }
         this.renderPropertiesTable();
         this.updatePropertiesCountBadge();
+        this.autoSelectFirstPropertyOnce();
 
         // Update sidebar badges
         if (window.updateSidebarBadges) {
@@ -677,6 +711,22 @@ class PropertyManagementComponent {
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showEmptyState("Error loading properties. Please try again.");
+    }
+  }
+
+  // Fires once per page session: pre-loads the right-hand detail panel with
+  // the first visible property (same active/archived, createdAt-desc order
+  // as the list) so the panel is never empty on first load. Guarded so it
+  // never fights a user's manual row click or a post-save re-selection on
+  // later loadProperties() calls (e.g. from the Reload button).
+  autoSelectFirstPropertyOnce() {
+    if (this._hasAutoSelected || this.selectedPropertyId) return;
+    this._hasAutoSelected = true;
+
+    const visible = this.getVisibleProperties();
+    const sorted = this.sortPropertiesForDisplay(visible);
+    if (sorted.length > 0) {
+      this.showPropertyPanel(sorted[0]);
     }
   }
 
@@ -732,335 +782,232 @@ class PropertyManagementComponent {
       return;
     }
 
-    // Clear container and set up CSS Grid layout
-    container.innerHTML = '<div id="propertiesCardGrid"></div>';
-    const gridContainer = document.getElementById("propertiesCardGrid");
+    const sortedProperties = this.sortPropertiesForDisplay(visibleProperties);
 
-    // Set CSS Grid with auto-fill and max-width 280px
-    gridContainer.style.display = "grid";
-    gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(260px, 280px))";
-    gridContainer.style.gap = "1rem";
-    gridContainer.style.justifyContent = "center";
-    gridContainer.style.maxWidth = "100%";
-
-    const byNewest = (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    const activeProperties = visibleProperties.filter(p => !p.isArchived).sort(byNewest);
-    const archivedProperties = visibleProperties.filter(p => p.isArchived).sort(byNewest);
-    const sortedProperties = [...activeProperties, ...archivedProperties];
-
-    let cardsHtml = "";
+    let rowsHtml = "";
     let archivedDividerInserted = false;
 
     sortedProperties.forEach((property) => {
       const isArchived = !!property.isArchived;
 
-      // Insert section divider before first archived card
+      // Insert section divider before first archived row
       if (isArchived && !archivedDividerInserted) {
         archivedDividerInserted = true;
-        cardsHtml += `
-          <div style="grid-column: 1 / -1; margin-top: 1.5rem; margin-bottom: 0.25rem;">
-            <div class="d-flex align-items-center gap-2">
-              <i class="bi bi-archive text-secondary"></i>
-              <span class="text-secondary fw-semibold small">Archived Properties (${archivedProperties.length})</span>
-              <hr class="flex-grow-1 my-0" style="border-color: #adb5bd;">
-            </div>
+        const archivedCount = sortedProperties.filter((p) => p.isArchived).length;
+        rowsHtml += `
+          <div class="d-flex align-items-center gap-2" style="margin: 10px 6px 6px;">
+            <i class="bi bi-archive text-secondary" style="font-size: 0.75rem;"></i>
+            <span class="text-secondary fw-semibold" style="font-size: 0.7rem;">Archived (${archivedCount})</span>
+            <hr class="flex-grow-1 my-0" style="border-color: #adb5bd;">
           </div>`;
       }
 
-      const tenantGroupMeta = getGroupLinkMeta(property.tenantFacebookGroup);
-      const isCondo = property.propertyType === 'condo';
-      const cardOpacity = isArchived ? 'opacity: 0.6;' : '';
-      const cardFilter = isArchived ? 'filter: grayscale(60%);' : '';
-      const imgOverlay = isArchived ? `<div class="position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.35);"></div>` : '';
-      const archivedBadge = isArchived ? `<span class="badge bg-secondary ms-1" style="font-size: 0.65rem; vertical-align: middle;"><i class="bi bi-archive me-1"></i>Archived</span>` : '';
-      const cardBorder = isArchived ? 'border: 1.5px dashed #adb5bd !important;' : '';
-
-      // Type-specific styling
-      const typeGradient = isArchived
-        ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)'
-        : isCondo
-          ? 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-      const typeIcon = isCondo ? 'bi-buildings' : 'bi-building';
-      const typeAvatarBg = isArchived ? 'bg-secondary' : isCondo ? '' : 'bg-primary';
-      const typeAvatarStyle = isArchived
-        ? ''
-        : isCondo
-          ? 'background:linear-gradient(135deg,#f6d365,#fda085);'
-          : '';
-      const typeIdBadgeClass = isCondo ? '' : isArchived ? 'text-secondary' : 'text-primary';
-      const typeIdBadgeStyle = isCondo
-        ? 'background:rgba(0,0,0,0.45);color:white;'
-        : isArchived
-          ? ''
-          : '';
-      const typeBadge = isCondo
-        ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#f6d365,#fda085);color:#7c2d12;font-size:0.6rem;vertical-align:middle;" title="Condominium"><i class="bi bi-buildings me-1"></i>Condo</span>`
-        : `<span class="badge bg-primary ms-1" style="font-size:0.6rem;vertical-align:middle;" title="HDB"><i class="bi bi-building me-1"></i>HDB</span>`;
-      const cardExtraClass = isCondo ? 'pm-card-condo' : '';
-
-      // Move-out overlay badge
-      let moveOutOverlayHtml = '';
-      if (property.moveOutDate) {
-        const moveOut = new Date(property.moveOutDate);
-        const diffDays = (moveOut - new Date()) / (1000 * 60 * 60 * 24);
-        let badgeBg;
-        if (diffDays < 0) badgeBg = 'rgba(220,53,69,0.92)';         // overdue — red
-        else if (diffDays <= 30) badgeBg = 'rgba(220,53,69,0.92)';  // ≤1 month — red
-        else if (diffDays <= 90) badgeBg = 'rgba(255,140,0,0.92)';  // ≤3 months — orange
-        else badgeBg = 'rgba(25,135,84,0.85)';                      // > 3 months — green
-        const moveOutFormatted = moveOut.toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
-        moveOutOverlayHtml = `
-          <div class="position-absolute bottom-0 start-0 end-0 px-2 pb-1" style="background: linear-gradient(transparent, rgba(0,0,0,0.45)); pointer-events: none;">
-            <span class="badge" style="background:${badgeBg}; font-size: 0.6rem;"><i class="bi bi-calendar-x me-1"></i>Out: ${moveOutFormatted}</span>
-          </div>`;
-      }
-
-      // Top-right overlay: investor avatar stack + digital lock badge, stacked so they never collide
-      const investorAvatarBadgeHtml = renderInvestorAvatarStack(this.allInvestors, property.propertyId, { size: 26, overlap: 10, max: 3 });
-      const lockBadgeHtml = property.digitalLockEnabled
-        ? `<span class="badge" style="background:rgba(111,66,193,0.85);font-size:0.65rem;"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>`
-        : '';
-      const topEndOverlayHtml = (investorAvatarBadgeHtml || lockBadgeHtml)
-        ? `<div class="position-absolute top-0 end-0 p-2 d-flex flex-column align-items-end gap-1" style="z-index:3;">${investorAvatarBadgeHtml}${lockBadgeHtml}</div>`
-        : '';
-
-      const cardHtml = `
-        <div style="width: 100%;">
-          <div class="card property-management-card h-100 overflow-hidden ${cardExtraClass}"
-               style="transition: all 0.2s ease; ${cardOpacity} ${cardFilter} ${cardBorder}">
-            ${property.propertyImage ? `
-            <div class="card-img-top position-relative" style="height: 130px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
-              ${imgOverlay}
-              <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-primary prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy property ID" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size: 0.75rem;">${this.escapeHtml(property.propertyId)}</span>
-              </div>
-              ${topEndOverlayHtml}
-              ${moveOutOverlayHtml}
-            </div>
-            ` : `
-            <div class="card-img-top position-relative bg-gradient" style="height: 130px; background: ${typeGradient};">
-              <div class="position-absolute top-0 start-0 p-2">
-                <span class="badge bg-white ${typeIdBadgeClass} prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy property ID" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size: 0.75rem;${typeIdBadgeStyle}">${this.escapeHtml(property.propertyId)}</span>
-              </div>
-              ${topEndOverlayHtml}
-              <div class="position-absolute top-50 start-50 translate-middle">
-                <i class="bi ${isArchived ? 'bi-archive' : typeIcon} text-white" style="font-size: 3rem; opacity: 0.7;"></i>
-              </div>
-              ${moveOutOverlayHtml}
-            </div>
-            `}
-            <div class="card-header bg-white border-0 pb-0">
-              <div class="d-flex align-items-center">
-                <div class="me-3">
-                  <div class="rounded-circle ${typeAvatarBg} d-flex align-items-center justify-content-center text-white"
-                       style="width: 40px; height: 40px; font-size: 14px; font-weight: bold; ${typeAvatarStyle}">
-                    ${this.escapeHtml(property.propertyId.substring(0, 2).toUpperCase())}
-                  </div>
-                </div>
-                <div class="flex-grow-1">
-                  <h6 class="mb-0 fw-bold"><span class="prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>${archivedBadge}${!isArchived ? typeBadge : ''}${property.digitalLockEnabled ? `<span class="badge ms-1" style="background:linear-gradient(135deg,#6f42c1,#9d4edd);font-size:0.6rem;vertical-align:middle;" title="Digital Lock Installed"><i class="bi bi-shield-lock-fill me-1"></i>Lock</span>` : ''}</h6>
-                  <small class="text-muted">Property ID</small>
-                </div>
-              </div>
-            </div>
-            <div class="card-body pt-2">
-              <p class="mb-2 small d-flex align-items-start gap-1">
-                <i class="bi bi-geo-alt text-muted me-1 mt-1" style="flex-shrink:0;"></i>
-                <span class="flex-grow-1 prop-copy-val" data-copy="${this.escapeHtml(property.address)}" title="Click to copy address" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.address)}</span>
-              </p>
-              <div class="row">
-                <div class="col-6">
-                  <p class="mb-1 small"><strong>Unit:</strong> <span class="prop-copy-val" data-copy="${this.escapeHtml(property.unit)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.unit)}</span></p>
-                  <p class="mb-1 small"><strong>Max Pax:</strong> <span class="prop-copy-val" data-copy="${property.maxPax}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${property.maxPax}</span></p>
-                </div>
-                <div class="col-6">
-                  <p class="mb-1 small"><strong>Rent:</strong></p>
-                  <h6 class="text-success mb-0 prop-copy-val" data-copy="${property.rent || 0}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${(property.rent || 0).toLocaleString()}</h6>
-                </div>
-              </div>
-              <div class="mt-2">
-                <p class="mb-1 small"><strong>Payment Date:</strong> ${property.rentPaymentDate ? `<span class="prop-copy-val" data-copy="${property.rentPaymentDate}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">Day ${property.rentPaymentDate}</span>` : 'Not set'}</p>
-                <p class="mb-1 small"><strong>Move-in:</strong> ${property.moveInDate ? `<span class="prop-copy-val" data-copy="${new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${new Date(property.moveInDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span>` : 'Not set'}</p>
-                <p class="mb-1 small"><strong>Move-out:</strong> ${property.moveOutDate ? `<span class="prop-copy-val" data-copy="${new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${new Date(property.moveOutDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span>` : 'Not set'}</p>
-                <p class="mb-1 small"><strong>PUB Subsidy:</strong> $<span class="prop-copy-val" data-copy="${property.subsidizedPub || 0}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${(property.subsidizedPub || 0).toLocaleString()}</span></p>
-                ${(property.spAccountUsername || property.spAccountPassword) ? `
-                <div class="mb-1 small d-flex align-items-center gap-1 flex-wrap">
-                  <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:14px;width:auto;flex-shrink:0;">
-                  ${property.spAccountUsername ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountUsername)}" title="Click to copy username" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountUsername)}</span>` : ''}
-                  ${property.spAccountUsername && property.spAccountPassword ? `<span class="text-muted">/</span>` : ''}
-                  ${property.spAccountPassword ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountPassword)}" title="Click to copy password" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountPassword)}</span>` : ''}
-                </div>` : ''}
-              </div>
-              ${property.rooms && property.rooms.length > 0 ? `
-              <div class="mt-2">
-                <p class="mb-1 small"><strong>Rooms:</strong></p>
-                <div class="d-flex flex-wrap gap-1">
-                  ${property.rooms.map(room => {
-                    const rp = (property.roomPrices || []).find(p => p.room === room);
-                    const priceLabel = rp && (rp.minPrice || rp.maxPrice)
-                      ? ` ($${rp.minPrice}${rp.maxPrice && rp.maxPrice !== rp.minPrice ? '–$' + rp.maxPrice : ''})`
-                      : '';
-                    return `<span class="badge" style="${getRoomTypeBadgeStyle(room)}">${getRoomTypeDisplayName(room)}${priceLabel}</span>`;
-                  }).join('')}
-                </div>
-              </div>
-              ` : ''}
-              ${property.landlordBankName || property.landlordAccountName ? `
-              <div class="mt-2 p-2 bg-light rounded">
-                <p class="mb-1 small fw-bold"><i class="bi bi-bank me-1"></i>Landlord Bank</p>
-                ${property.landlordBankName ? `<p class="mb-0 small prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.landlordBankName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.landlordBankName)}</p>` : ''}
-                ${property.landlordAccountName ? `<p class="mb-0 small text-muted prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.landlordAccountName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.landlordAccountName)}</p>` : ''}
-                ${property.landlordBankAccount ? `<p class="mb-0 small font-monospace prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.landlordBankAccount)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.landlordBankAccount)}</p>` : ''}
-              </div>
-              ` : ''}
-              ${(() => {
-                if (!property.accountant) return '';
-                const acc = this.allInvestors.find(i => i.investorId === property.accountant);
-                if (!acc) { console.warn(`⚠️ Accountant investor not found: ${property.accountant}, allInvestors count: ${this.allInvestors.length}`); return ''; }
-                const initials = acc.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-                const avatarHtml = acc.avatar
-                  ? `<img src="${acc.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="${this.escapeHtml(acc.name)}">`
-                  : `<span style="color:#fff;font-weight:700;font-size:11px;">${initials}</span>`;
-                const circleBg = acc.avatar ? '' : 'background:linear-gradient(135deg,#6f42c1,#9d4edd);';
-                return `
-                <div class="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
-                  <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;${circleBg}">${avatarHtml}</div>
-                  <div>
-                    <div style="font-size:0.7rem;color:#6f42c1;font-weight:600;line-height:1;"><i class="bi bi-calculator me-1"></i>Accountant</div>
-                    <div class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(acc.name)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)" style="line-height:1.3;">${this.escapeHtml(acc.name)}</div>
-                  </div>
-                </div>`;
-              })()}
-              ${(() => {
-                if (!property.manager) return '';
-                const mgr = this.allInvestors.find(i => i.investorId === property.manager);
-                if (!mgr) { console.warn(`⚠️ Manager investor not found: ${property.manager}, allInvestors count: ${this.allInvestors.length}`); return ''; }
-                const initials = mgr.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-                const avatarHtml = mgr.avatar
-                  ? `<img src="${mgr.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="${this.escapeHtml(mgr.name)}">`
-                  : `<span style="color:#fff;font-weight:700;font-size:11px;">${initials}</span>`;
-                const circleBg = mgr.avatar ? '' : 'background:linear-gradient(135deg,#0d6efd,#6ea8fe);';
-                return `
-                <div class="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
-                  <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;${circleBg}">${avatarHtml}</div>
-                  <div>
-                    <div style="font-size:0.7rem;color:#0d6efd;font-weight:600;line-height:1;"><i class="bi bi-person-badge me-1"></i>Manager</div>
-                    <div class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(mgr.name)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)" style="line-height:1.3;">${this.escapeHtml(mgr.name)}</div>
-                  </div>
-                </div>`;
-              })()}
-              ${(property.settlementSgd?.bankName || property.settlementVnd?.bankName) ? `
-              <div class="mt-2 p-2 bg-light rounded">
-                <p class="mb-1 small fw-bold"><i class="bi bi-cash-stack me-1"></i>Settlement</p>
-                ${property.settlementSgd?.bankName ? `
-                <div class="mb-2">
-                  <div class="d-flex align-items-center gap-1 mb-1">
-                    <span class="badge bg-success">SGD</span>
-                    <span class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(property.settlementSgd.bankName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementSgd.bankName)}</span>
-                  </div>
-                  ${property.settlementSgd.accountHolderName ? `<p class="mb-0 small prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementSgd.accountHolderName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementSgd.accountHolderName)}</p>` : ''}
-                  ${property.settlementSgd.accountNumber ? `<p class="mb-0 small font-monospace prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementSgd.accountNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementSgd.accountNumber)}</p>` : ''}
-                </div>
-                ` : ''}
-                ${property.settlementVnd?.bankName ? `
-                <div>
-                  <div class="d-flex align-items-center gap-1 mb-1">
-                    <span class="badge bg-warning text-dark">VND</span>
-                    <span class="small fw-semibold prop-copy-val" data-copy="${this.escapeHtml(property.settlementVnd.bankName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementVnd.bankName)}</span>
-                  </div>
-                  ${property.settlementVnd.accountHolderName ? `<p class="mb-0 small prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementVnd.accountHolderName)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementVnd.accountHolderName)}</p>` : ''}
-                  ${property.settlementVnd.accountNumber ? `<p class="mb-0 small font-monospace prop-copy-val text-truncate" data-copy="${this.escapeHtml(property.settlementVnd.accountNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.settlementVnd.accountNumber)}</p>` : ''}
-                </div>
-                ` : ''}
-              </div>
-              ` : ''}
-              ${(property.tenantFacebookGroup || property.adminFacebookGroup) ? `
-              <div class="mt-2 d-flex flex-wrap gap-1">
-                ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(property.tenantFacebookGroup)}" class="badge text-decoration-none" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenant Group</a>` : ''}
-                ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ''}
-              </div>
-              ` : ''}
-            </div>
-            <div class="card-footer bg-white border-0 pt-0">
-              <div class="d-flex gap-2">
-                ${!isArchived ? `
-                <button class="btn btn-outline-primary btn-sm flex-fill" onclick="propertyManager.editProperty('${property.propertyId}')">
-                  <i class="bi bi-pencil"></i> Edit
-                </button>
-                <button class="btn btn-outline-warning btn-sm flex-fill" onclick="propertyManager.archiveProperty('${property.propertyId}')">
-                  <i class="bi bi-archive"></i> Archive
-                </button>
-                ` : `
-                <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="propertyManager.unarchiveProperty('${property.propertyId}')">
-                  <i class="bi bi-arrow-counterclockwise"></i> Unarchive
-                </button>
-                `}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      cardsHtml += cardHtml;
+      rowsHtml += this.renderPropertyRow(property, isArchived);
     });
 
-    gridContainer.innerHTML = cardsHtml;
+    container.innerHTML = rowsHtml;
 
-    // Add card styles
-    this.addPropertyCardStyles();
+    // Add row styles
+    this.addPropertyRowStyles();
+
+    // Restart the fade-in each render (skeleton -> real rows, and any
+    // subsequent refresh) for a smooth transition instead of a hard swap.
+    container.classList.remove('pm-list-fade-in');
+    void container.offsetWidth; // force reflow so the animation restarts
+    container.classList.add('pm-list-fade-in');
   }
 
-  addPropertyCardStyles() {
-    // Add hover styles if not already added
-    if (!document.getElementById("property-management-card-styles")) {
+  // Shared active/archived, createdAt-desc sort used both here and by the
+  // auto-select-first-property hook in loadProperties(), so they always agree
+  // on what "first property" means.
+  sortPropertiesForDisplay(list) {
+    const byNewest = (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    const active = list.filter((p) => !p.isArchived).sort(byNewest);
+    const archived = list.filter((p) => p.isArchived).sort(byNewest);
+    return [...active, ...archived];
+  }
+
+  // Compact list-row for the master-detail left panel. Full property detail
+  // (rooms, banking, settlement accounts, FB groups, SP credentials, etc.) is
+  // intentionally NOT duplicated here — it's the same property object and
+  // shows up in the right-hand form once the row is selected.
+  renderPropertyRow(property, isArchived) {
+    const isCondo = property.propertyType === 'condo';
+    const isSelected = property.propertyId === this.selectedPropertyId;
+
+    const typeGradient = isArchived
+      ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)'
+      : isCondo
+        ? 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)'
+        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    const typeIcon = isCondo ? 'bi-buildings' : 'bi-building';
+
+    // Preview thumbnail: property photo if set, otherwise the same
+    // type-gradient + icon placeholder the old cards used.
+    const thumbHtml = property.propertyImage
+      ? `<div class="pm-row-thumb" style="background-image:url('${property.propertyImage}');"></div>`
+      : `<div class="pm-row-thumb d-flex align-items-center justify-content-center" style="background:${typeGradient};">
+           <i class="bi ${isArchived ? 'bi-archive' : typeIcon} text-white" style="font-size:1.4rem;opacity:0.85;"></i>
+         </div>`;
+
+    const archivedBadge = isArchived
+      ? `<span class="badge bg-secondary" style="font-size:0.6rem;" title="Archived"><i class="bi bi-archive"></i></span>`
+      : '';
+    const condoBadge = (!isArchived && isCondo)
+      ? `<span class="badge" style="background:linear-gradient(135deg,#f6d365,#fda085);color:#7c2d12;font-size:0.6rem;" title="Condominium"><i class="bi bi-buildings"></i></span>`
+      : '';
+    const lockBadge = property.digitalLockEnabled
+      ? `<i class="bi bi-shield-lock-fill" style="color:#6f42c1;font-size:0.75rem;" title="Digital Lock Installed"></i>`
+      : '';
+
+    const investorAvatarHtml = renderInvestorAvatarStack(this.allInvestors, property.propertyId, { size: 28, overlap: 10, max: 3 });
+
+    // Room badges — up to 3, then a "+N" overflow badge
+    const rooms = property.rooms || [];
+    const visibleRooms = rooms.slice(0, 3);
+    const extraRoomsCount = rooms.length - visibleRooms.length;
+    const roomBadgesHtml = rooms.length > 0
+      ? `<div class="d-flex flex-wrap gap-1 mt-1">
+          ${visibleRooms.map((room) => `<span class="badge" style="font-size:0.6rem;${getRoomTypeBadgeStyle(room)}">${getRoomTypeDisplayName(room)}</span>`).join('')}
+          ${extraRoomsCount > 0 ? `<span class="badge bg-light text-muted border" style="font-size:0.6rem;">+${extraRoomsCount}</span>` : ''}
+        </div>`
+      : '';
+
+    // Move-in badge (neutral) + move-out badge, color-coded red/orange/green
+    // by urgency — same thresholds the old cards used.
+    const fmtDate = (d) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+    const moveBadges = [];
+    if (property.moveInDate) {
+      const moveInFormatted = fmtDate(property.moveInDate);
+      moveBadges.push(`<span class="badge bg-light text-dark border prop-copy-val" data-copy="${moveInFormatted}" title="Click to copy move-in date" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size:0.6rem;"><i class="bi bi-box-arrow-in-right me-1"></i>In: ${moveInFormatted}</span>`);
+    }
+    if (property.moveOutDate) {
+      const moveOut = new Date(property.moveOutDate);
+      const diffDays = (moveOut - new Date()) / (1000 * 60 * 60 * 24);
+      const badgeBg = diffDays <= 30 ? '#dc3545' : diffDays <= 90 ? '#ff8c00' : '#198754';
+      const moveOutFormatted = fmtDate(property.moveOutDate);
+      moveBadges.push(`<span class="badge prop-copy-val" data-copy="${moveOutFormatted}" title="Click to copy move-out date" onclick="event.stopPropagation();copyToClipboardInline(this)" style="background:${badgeBg};color:#fff;font-size:0.6rem;"><i class="bi bi-box-arrow-right me-1"></i>Out: ${moveOutFormatted}</span>`);
+    }
+    const moveDatesHtml = moveBadges.length ? `<div class="d-flex flex-wrap gap-1 mt-1">${moveBadges.join('')}</div>` : '';
+
+    // Accountant / Manager — small avatar + short name, same colors the old
+    // card's detail blocks used (purple for accountant, blue for manager).
+    const personBadge = (investorId, label, color) => {
+      if (!investorId) return '';
+      const investor = this.allInvestors.find((i) => i.investorId === investorId);
+      if (!investor) return '';
+      return `<div class="d-flex align-items-center gap-1">
+        ${renderInvestorAvatarCircle(investor, 20)}
+        <span class="small text-truncate prop-copy-val" data-copy="${this.escapeHtml(investor.name)}" title="Click to copy ${label} name" onclick="event.stopPropagation();copyToClipboardInline(this)" style="max-width: 90px; color: ${color}; font-weight: 600;">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
+      </div>`;
+    };
+    const accountantHtml = personBadge(property.accountant, 'Accountant', '#6f42c1');
+    const managerHtml = personBadge(property.manager, 'Manager', '#0d6efd');
+    const peopleRowHtml = (accountantHtml || managerHtml)
+      ? `<div class="d-flex align-items-center gap-3 mt-1">${accountantHtml}${managerHtml}</div>`
+      : '';
+
+    // SP utility account — same click-to-copy affordance the old card used;
+    // stopPropagation so copying doesn't also select the row.
+    const spAccountHtml = (property.spAccountUsername || property.spAccountPassword)
+      ? `<div class="small d-flex align-items-center gap-1 flex-wrap mt-1">
+          <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:12px;width:auto;flex-shrink:0;">
+          ${property.spAccountUsername ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountUsername)}" title="Click to copy username" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountUsername)}</span>` : ''}
+          ${property.spAccountUsername && property.spAccountPassword ? `<span class="text-muted">/</span>` : ''}
+          ${property.spAccountPassword ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountPassword)}" title="Click to copy password" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountPassword)}</span>` : ''}
+        </div>`
+      : '';
+
+    const archiveActionHtml = !isArchived
+      ? `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="Archive" onclick="event.stopPropagation(); propertyManager.archiveProperty('${property.propertyId}')"><i class="bi bi-archive"></i></button>`
+      : `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="Unarchive" onclick="event.stopPropagation(); propertyManager.unarchiveProperty('${property.propertyId}')"><i class="bi bi-arrow-counterclockwise"></i></button>`;
+
+    return `
+      <div class="pm-row${isSelected ? ' pm-row-selected' : ''}${isArchived ? ' pm-row-archived' : ''}" data-property-id="${this.escapeHtml(property.propertyId)}" onclick="propertyManager.selectProperty('${property.propertyId}')">
+        ${thumbHtml}
+        <div class="flex-grow-1" style="min-width: 0;">
+          <div class="d-flex align-items-center justify-content-between gap-1">
+            <div class="d-flex align-items-center gap-1" style="min-width: 0;">
+              <span class="fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy Property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
+              ${archivedBadge}${condoBadge}${lockBadge}
+            </div>
+            ${investorAvatarHtml}
+          </div>
+          <div class="small text-muted text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.address)}, ${this.escapeHtml(property.unit)}" title="Click to copy address" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.address)}, ${this.escapeHtml(property.unit)}</div>
+          <div class="d-flex align-items-center justify-content-between mt-1">
+            <span class="small text-success fw-semibold prop-copy-val" data-copy="${property.rent || 0}" title="Click to copy rent" onclick="event.stopPropagation();copyToClipboardInline(this)">$${(property.rent || 0).toLocaleString()}</span>
+            <span class="small text-muted prop-copy-val" data-copy="${property.maxPax || 1}" title="Click to copy max occupancy" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-people me-1"></i>${property.maxPax || 1}</span>
+            <span class="small text-muted prop-copy-val" data-copy="${property.rentPaymentDate || 1}" title="Click to copy payment date" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-calendar-event me-1"></i>Day ${property.rentPaymentDate || 1}</span>
+          </div>
+          ${moveDatesHtml}
+          ${spAccountHtml}
+          ${roomBadgesHtml}
+          ${peopleRowHtml}
+        </div>
+        <div class="pm-row-actions flex-shrink-0">${archiveActionHtml}</div>
+      </div>`;
+  }
+
+  addPropertyRowStyles() {
+    // Add hover/selection styles if not already added
+    if (!document.getElementById("property-management-row-styles")) {
       const style = document.createElement("style");
-      style.id = "property-management-card-styles";
+      style.id = "property-management-row-styles";
       style.textContent = `
-        .property-management-card {
+        .pm-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
           cursor: pointer;
-          border: 1px solid #e3e6f0;
-          border-radius: 12px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          border-radius: 10px;
+          padding: 10px;
+          margin-bottom: 6px;
+          border: 1px solid transparent;
+          background: white;
+          transition: background 0.15s, border-color 0.15s;
         }
-        .property-management-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-          border-color: #007bff;
+        .pm-row-thumb {
+          width: 56px;
+          height: 56px;
+          border-radius: 8px;
+          flex-shrink: 0;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
         }
-        .property-management-card .card-img-top {
-          border-radius: 12px 12px 0 0;
+        .pm-list-fade-in {
+          animation: pm-list-fadein 0.25s ease;
         }
-        .property-management-card .badge {
-          font-size: 0.8rem;
-          padding: 0.5rem 0.75rem;
+        @keyframes pm-list-fadein {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        .property-management-card .card-footer {
-          background: linear-gradient(90deg, #f8f9fa 0%, #ffffff 100%);
+        .pm-row:hover {
+          background: #eef1ff;
         }
-        .property-management-card .card-body {
-          padding: 0.75rem 0.5rem;
+        .pm-row-selected {
+          background: #e0e7ff;
+          border-color: #667eea;
         }
-        .property-management-card .card-header {
-          padding: 0.75rem 0.5rem;
+        .pm-row-archived {
+          opacity: 0.65;
         }
-        .property-management-card .card-footer {
-          padding: 0.75rem 0.5rem;
+        .pm-row-archive-btn {
+          opacity: 0;
+          transition: opacity 0.15s;
+          font-size: 0.9rem;
         }
-        /* Condo card — warm gold accent */
-        .pm-card-condo {
-          border-color: #fde68a !important;
+        .pm-row:hover .pm-row-archive-btn,
+        .pm-row-archive-btn:focus {
+          opacity: 1;
         }
-        .pm-card-condo:hover {
-          border-color: #f59e0b !important;
-          box-shadow: 0 8px 25px rgba(245,158,11,0.22) !important;
-        }
-        /* Form toggle — condo checked state */
+        /* Form toggle — condo checked state (detail panel's Property Type picker) */
         #propertyTypeCondo:checked + label {
           background: linear-gradient(135deg,#f6d365,#fda085) !important;
           color: #7c2d12 !important;
           border-color: #fda085 !important;
         }
-        /* Click-to-copy value fields */
+        /* Click-to-copy value fields (still used inside the detail form) */
         .prop-copy-val {
           border-radius: 4px;
           padding: 1px 3px;
@@ -1071,9 +1018,39 @@ class PropertyManagementComponent {
           background: #e9f0ff;
           color: #0d6efd;
         }
+        /* Badges (move-in/move-out) set their own background/color inline,
+           which already wins over the rules above — this just swaps the
+           hover cue for a brightness dip instead of stacking another
+           background on top of the badge's own color. */
+        .prop-copy-val.badge:hover {
+          filter: brightness(0.92);
+        }
       `;
       document.head.appendChild(style);
     }
+  }
+
+  // Shimmering placeholder rows shown while loadProperties() is fetching.
+  // Reuses .pm-row/.pm-row-thumb's own box (see addPropertyRowStyles() and
+  // the matching duplicate rules in dashboard.html's inline <style>) so
+  // swapping to real rows once data arrives doesn't jump the scroll area —
+  // only the shimmer bars are replaced by actual content.
+  showLoadingSkeleton(count = 6) {
+    const container = document.getElementById("propertiesContainer");
+    if (!container) return;
+
+    const row = `
+      <div class="pm-row pm-row-skeleton">
+        <div class="pm-row-thumb pm-skeleton"></div>
+        <div class="flex-grow-1" style="min-width: 0;">
+          <div class="pm-skeleton-bar" style="width: 55%; height: 13px; margin-bottom: 8px;"></div>
+          <div class="pm-skeleton-bar" style="width: 85%; height: 11px; margin-bottom: 8px;"></div>
+          <div class="pm-skeleton-bar" style="width: 35%; height: 11px;"></div>
+        </div>
+      </div>`;
+
+    container.innerHTML = row.repeat(count);
+    this.addPropertyRowStyles();
   }
 
   showEmptyState(message = "No properties found") {
@@ -1196,20 +1173,30 @@ class PropertyManagementComponent {
     }
   }
 
-  showAddPropertyModal() {
-    this.showPropertyModal();
+  showAddPropertyPanel() {
+    this.selectedPropertyId = null;
+    this.showPropertyPanel();
+    this.enterMobileDetailView();
   }
 
-  showPropertyModal(property = null) {
+  // Populates the always-mounted right-hand form with `property`'s data (or
+  // resets it to add-mode when called with no argument), and updates the
+  // list-panel selection/highlight to match. This used to open a Bootstrap
+  // modal; now the form panel is always in the DOM, so this just repopulates
+  // it in place.
+  showPropertyPanel(property = null) {
     // Store reference to property being edited
     this.editingProperty = property;
+    this.selectedPropertyId = property?.propertyId || null;
+    if (property) this._lastSelectedPropertyId = property.propertyId;
 
-    // Update modal title and button text
+    // Update panel title and button text
     const isEdit = !!property;
     document.getElementById("propertyModalTitle").textContent = isEdit
       ? "Edit Property"
       : "Add New Property";
     const submitBtn = document.getElementById("propertySubmitBtn");
+    submitBtn.disabled = false;
     submitBtn.innerHTML = isEdit
       ? '<i class="bi bi-pencil-square me-1"></i><span id="propertySubmitText">Update Property</span>'
       : '<i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">Add Property</span>';
@@ -1574,51 +1561,85 @@ class PropertyManagementComponent {
       }
     }
 
-    // Show modal
-    const modalEl = document.getElementById("propertyModal");
-    const modal = new bootstrap.Modal(modalEl);
+    // Reflect the (now-populated, or cleared for add-mode) group URLs as
+    // clickable badges next to their inputs.
+    this.updateFbGroupBadges();
 
-    // Move focus out before Bootstrap sets aria-hidden="true" on close
-    modalEl.addEventListener(
-      "hide.bs.modal",
-      () => {
-        if (document.activeElement && modalEl.contains(document.activeElement)) {
-          document.activeElement.blur();
-        }
-      },
-      { once: true }
-    );
+    // Highlight the matching row in the list panel and reset the detail
+    // panel's scroll position so switching properties starts at the top.
+    this.highlightSelectedRow();
+    const detailBody = document.querySelector('.pm-detail-body');
+    if (detailBody) detailBody.scrollTop = 0;
 
-    modalEl.addEventListener(
-      "hidden.bs.modal",
-      () => {
-        this.cleanupModal();
-      },
-      { once: true }
-    );
-
-    modal.show();
-
-    // Set up clipboard paste listeners after modal is shown
-    modalEl.addEventListener('shown.bs.modal', () => {
-      this.setupPropertyImageClipboardListener();
-    }, { once: true });
+    // Set up the image clipboard-paste listener. The form is always mounted
+    // now (no modal to gate on), and the listener is idempotent (guarded by
+    // its own data-paste-listener-added flag), so it's safe to call every time.
+    this.setupPropertyImageClipboardListener();
   }
 
-  cleanupModal() {
-    // Remove any remaining backdrop
-    const backdrops = document.querySelectorAll(".modal-backdrop");
-    backdrops.forEach((backdrop) => backdrop.remove());
+  // Renders a small clickable badge next to the Tenant/Admin group inputs,
+  // reflecting whatever URL is currently in each field — same badge styling
+  // the old property cards used (tenant: blue/green per getGroupLinkMeta
+  // depending on Facebook vs WhatsApp; admin: black). Called after the form
+  // is populated (add/edit) and live on every keystroke in those fields.
+  updateFbGroupBadges() {
+    const tenantInput = document.getElementById('tenantFacebookGroup');
+    const tenantBadge = document.getElementById('tenantFacebookGroupBadge');
+    if (tenantBadge) {
+      const url = tenantInput?.value?.trim();
+      if (url) {
+        const meta = getGroupLinkMeta(url);
+        tenantBadge.innerHTML = `<a href="${this.escapeHtml(url)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(url)}" class="badge text-decoration-none" style="background-color:${meta.color};color:#fff;" title="Tenant ${meta.brand} Group"><i class="bi ${meta.icon} me-1"></i>Tenant Group</a>`;
+      } else {
+        tenantBadge.innerHTML = '';
+      }
+    }
 
-    // Remove modal classes from body
-    document.body.classList.remove("modal-open");
-    document.body.style.paddingRight = "";
-    document.body.style.overflow = "";
+    const adminInput = document.getElementById('adminFacebookGroup');
+    const adminBadge = document.getElementById('adminFacebookGroupBadge');
+    if (adminBadge) {
+      const url = adminInput?.value?.trim();
+      adminBadge.innerHTML = url
+        ? `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>`
+        : '';
+    }
+  }
 
-    // Clear editing property reference and original image
-    // Note: These are cleared AFTER the form has been submitted, so they don't affect the save
+  // Applies/removes the .pm-row-selected highlight across the rendered list
+  // rows to match this.selectedPropertyId, without a full list re-render.
+  highlightSelectedRow() {
+    document.querySelectorAll('.pm-row').forEach((row) => {
+      row.classList.toggle('pm-row-selected', row.dataset.propertyId === this.selectedPropertyId);
+    });
+  }
+
+  // Swaps the mobile stacked layout (see the #pmLayout media query in
+  // dashboard.html) from list-view to detail-view. No-op visually at desktop
+  // widths, where both columns are always shown side by side.
+  enterMobileDetailView() {
+    document.getElementById('pmLayout')?.classList.add('pm-mobile-detail-active');
+  }
+
+  exitMobileDetailView() {
+    document.getElementById('pmLayout')?.classList.remove('pm-mobile-detail-active');
+  }
+
+  // Cancel button handler (header X + footer Cancel). Discards any
+  // in-progress edit and reloads the panel back to whatever was selected
+  // before — mirrors the old modal's behavior where clicking outside it
+  // silently discarded edits. When editing an existing property, that's the
+  // same property (reverting unsaved field changes); when in add-mode
+  // (selectedPropertyId is already null there), it falls back to the last
+  // real property that was open before "Add Property" was clicked.
+  handlePanelCancel() {
+    const targetId = this.selectedPropertyId || this._lastSelectedPropertyId;
+    const targetProperty = targetId
+      ? this.properties.find((p) => p.propertyId === targetId)
+      : null;
     this.editingProperty = null;
     this.originalPropertyImage = '';
+    this.showPropertyPanel(targetProperty || null);
+    this.exitMobileDetailView();
   }
 
   getPropertyDataFromUser(existingProperty = null) {
@@ -1767,9 +1788,10 @@ class PropertyManagementComponent {
         return;
       }
 
-      // Show loading state
-      const submitBtn = event.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn.innerHTML;
+      // Show loading state. The submit button now lives in a footer that's a
+      // sibling of <form id="propertyForm"> (linked via form="propertyForm"),
+      // not a descendant of it, so it can't be found via event.target.querySelector.
+      const submitBtn = document.getElementById("propertySubmitBtn");
       submitBtn.disabled = true;
       submitBtn.innerHTML = isEdit
         ? '<i class="bi bi-hourglass-split me-1"></i>Updating Property...'
@@ -1782,27 +1804,18 @@ class PropertyManagementComponent {
         await this.addProperty(propertyData);
       }
 
-      // Close modal on success
-      const modal = bootstrap.Modal.getInstance(
-        document.getElementById("propertyModal")
-      );
-      if (modal) {
-        modal.hide();
+      // Stay open on the saved property: updateProperty()/addProperty() already
+      // awaited loadProperties() internally, so this.properties is fresh —
+      // re-select the saved id and repopulate the form with the server-confirmed
+      // copy, keeping its row highlighted in the list panel.
+      this.selectedPropertyId = propertyData.propertyId;
+      const savedProperty = this.properties.find((p) => p.propertyId === propertyData.propertyId);
+      if (savedProperty) {
+        this.showPropertyPanel(savedProperty); // also re-enables submitBtn
+      } else {
+        this.highlightSelectedRow();
+        submitBtn.disabled = false;
       }
-
-      // Ensure backdrop is removed
-      setTimeout(() => {
-        const backdrop = document.querySelector(".modal-backdrop");
-        if (backdrop) {
-          backdrop.remove();
-        }
-        document.body.classList.remove("modal-open");
-        document.body.style.paddingRight = "";
-      }, 300);
-
-      // Reset button state
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
     } catch (error) {
       console.error("Error in handlePropertySubmit:", error);
       const isEdit = event.target.getAttribute("data-mode") === "edit";
@@ -1812,7 +1825,7 @@ class PropertyManagementComponent {
       );
 
       // Reset button state
-      const submitBtn = event.target.querySelector('button[type="submit"]');
+      const submitBtn = document.getElementById("propertySubmitBtn");
       if (submitBtn) {
         submitBtn.disabled = false;
         const isEdit = event.target.getAttribute("data-mode") === "edit";
@@ -1850,8 +1863,16 @@ class PropertyManagementComponent {
       return;
     }
 
-    // Show the modal with property data
-    this.showPropertyModal(property);
+    // Load it into the detail panel
+    this.showPropertyPanel(property);
+  }
+
+  // Row-click entry point from the list panel: loads the property into the
+  // detail panel (same lookup as editProperty) and, on mobile, switches the
+  // stacked layout from list-view to detail-view.
+  async selectProperty(propertyId) {
+    await this.editProperty(propertyId);
+    this.enterMobileDetailView();
   }
 
   async updateProperty(propertyId, propertyData) {
@@ -3037,12 +3058,21 @@ window.copyPropertyAddress = copyPropertyAddress;
 function copyToClipboardInline(el) {
   const text = el.dataset.copy !== undefined ? el.dataset.copy : el.textContent;
   navigator.clipboard.writeText(text).then(() => {
-    const orig = el.innerHTML;
-    el.innerHTML = '✓ Copied';
-    el.style.color = '#198754';
-    setTimeout(() => {
-      el.innerHTML = orig;
-      el.style.color = '';
+    // Keep the original text in place — just drop a temporary checkmark
+    // next to it, rather than replacing the value while confirming.
+    const existingIcon = el.querySelector(':scope > .copy-check-icon');
+    if (existingIcon) {
+      clearTimeout(existingIcon._removeTimeout);
+    } else {
+      const icon = document.createElement('i');
+      icon.className = 'bi bi-check-circle-fill copy-check-icon';
+      icon.style.color = '#198754';
+      icon.style.marginLeft = '4px';
+      el.appendChild(icon);
+    }
+    const iconEl = el.querySelector(':scope > .copy-check-icon');
+    iconEl._removeTimeout = setTimeout(() => {
+      iconEl.remove();
     }, 1500);
   });
 }

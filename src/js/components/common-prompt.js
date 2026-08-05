@@ -157,13 +157,11 @@ class CommonPromptComponent {
 • Tên: ${vndAccountHolder}`
       : "";
 
-    return `Hi mọi người 🌸
+    return `Rent tháng ${currentMonth}, mọi người chuyển khoản giúp em vào các tài khoản bên dưới nhé.
 
-Rent tháng ${currentMonth}, mọi người chuyển khoản giúp mình/em vào các tài khoản bên dưới nhé.
+💱 Ai đóng bằng VND thì tỷ giá: ${rate} nhé. Vài hôm nữa có bill pub thì em sẽ báo lại sau ạ
 
-💱 Ai đóng bằng VND thì áp dụng theo tỷ giá: ${rate} nhé. Vài hôm nữa có bill pub thì em sẽ báo lại sau ạ
-
-Sau khi chuyển khoản, mọi người vui lòng gửi hóa đơn qua tin nhắn riêng giúp mình/em để đảm bảo quyền riêng tư nhé.
+Gửi ảnh chụp chuyển khoản qua tin nhắn riêng giúp em.
 
 ${sgdBlock}${vndBlock}`;
   }
@@ -1863,12 +1861,73 @@ Thank you! 🙏`;
     );
   }
 
+  addAirconSplitStyles() {
+    if (document.getElementById("aircon-split-layout-styles")) return;
+    const style = document.createElement("style");
+    style.id = "aircon-split-layout-styles";
+    style.textContent = `
+      .aircon-split-layout {
+        display: flex;
+        align-items: stretch;
+        gap: 16px;
+        height: calc(100vh - 230px);
+        min-height: 420px;
+        overflow: hidden;
+      }
+      .aircon-split-list {
+        flex: 1 1 0;
+        min-width: 0;
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+      .aircon-split-summary {
+        width: 400px;
+        min-width: 320px;
+        max-width: 400px;
+        flex-shrink: 0;
+        height: 100%;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+      .aircon-split-summary > div {
+        height: 100%;
+      }
+      @media (max-width: 991.98px) {
+        .aircon-split-layout {
+          flex-direction: column;
+          height: auto;
+          min-height: 0;
+          overflow: visible;
+        }
+        .aircon-split-list,
+        .aircon-split-summary {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          height: auto;
+          overflow: visible;
+        }
+        .aircon-split-summary > div {
+          height: 380px;
+        }
+        .aircon-split-summary {
+          order: -1;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   renderPortableAirconBulk() {
     const container = document.getElementById("bulkMessagesContainer");
     const countBadge = document.getElementById("bulkPropertyCount");
     if (!container) return;
 
     if (countBadge) countBadge.textContent = `${this.properties.length} căn hộ`;
+
+    this.addAirconSplitStyles();
 
     const sortedProperties = [...this.properties].sort(
       (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
@@ -1883,7 +1942,7 @@ Thank you! 🙏`;
       </div>
     `;
 
-    let cardsHtml = '<div class="row g-3 mb-4">';
+    let cardsHtml = '<div class="row g-3">';
     sortedProperties.forEach((property) => {
       const order = this.getAirconOrder(property.propertyId);
       const imgHtml = property.propertyImage
@@ -1949,8 +2008,8 @@ Thank you! 🙏`;
 
     const combinedMessage = this.buildCombinedAirconOrderMessage();
     const combinedHtml = `
-      <div class="border rounded overflow-hidden">
-        <div class="d-flex justify-content-between align-items-center px-3 py-2 gap-3" style="background:linear-gradient(135deg,#667eea22,#764ba222);">
+      <div class="border rounded overflow-hidden d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 gap-3 flex-shrink-0" style="background:linear-gradient(135deg,#667eea22,#764ba222);">
           <div class="d-flex align-items-center gap-2">
             <i class="bi bi-chat-text-fill text-primary"></i>
             <strong>Combined Order Message</strong>
@@ -1960,14 +2019,24 @@ Thank you! 🙏`;
             <i class="bi bi-clipboard me-1"></i>Copy
           </button>
         </div>
-        <textarea id="portableAirconCombinedMsg" class="form-control border-0 rounded-0"
+        <textarea id="portableAirconCombinedMsg" class="form-control border-0 rounded-0 flex-grow-1"
           rows="20" readonly
-          style="font-family:'Noto Serif',serif;font-size:13px;line-height:1.6;background:#fafafa;resize:none;"
+          style="font-family:'Noto Serif',serif;font-size:13px;line-height:1.6;background:#fafafa;resize:none;min-height:0;"
         >${this.escapeHtml(combinedMessage)}</textarea>
       </div>
     `;
 
-    container.innerHTML = headerHtml + cardsHtml + combinedHtml;
+    container.innerHTML = `
+      <div class="aircon-split-layout">
+        <div class="aircon-split-list">
+          ${headerHtml}
+          ${cardsHtml}
+        </div>
+        <div class="aircon-split-summary">
+          ${combinedHtml}
+        </div>
+      </div>
+    `;
   }
 
   updateAirconOrder(propertyId, field, value) {

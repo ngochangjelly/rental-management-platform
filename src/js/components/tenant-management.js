@@ -867,6 +867,10 @@ class TenantManagementComponent {
       }
                                 </div>
                             </div>
+                            <div class="d-flex gap-2 mb-3 tenant-doc-thumbs">
+                                ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport")}
+                                ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass")}
+                            </div>
                             <div class="small mb-3">
                                 <div class="mb-2"><strong>FIN:</strong> ${tenant.fin ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.fin)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.fin)}</span>` : "-"}</div>
                                 <div class="mb-2"><strong>Passport:</strong> ${tenant.passportNumber ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.passportNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.passportNumber)}</span>` : "-"}</div>
@@ -886,6 +890,7 @@ class TenantManagementComponent {
                                 ${tenant.notes ? `<div class="mt-2 pt-2 border-top text-muted" style="font-size:0.82em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>` : ""}
                             </div>
                             <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
+                                ${isOutdated ? '<span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>Moved Out</span>' : ""}
                                 ${this.getRegistrationStatusBadge(
         registrationStatus,
       )}
@@ -916,6 +921,26 @@ class TenantManagementComponent {
             `;
   }
 
+  renderDocThumb(pics, type, icon, label) {
+    const hasPics = Array.isArray(pics) && pics.length > 0;
+    const count = hasPics ? pics.length : 0;
+    const url = hasPics ? this.normalizeImageUrl(pics[0]) : null;
+
+    return `
+                <div class="tenant-doc-thumb${hasPics ? "" : " tenant-doc-thumb-empty"}"
+                    title="${hasPics ? `${label}: ${count} image${count > 1 ? "s" : ""} uploaded (click to view)` : `${label}: not uploaded yet`}"
+                    ${hasPics ? `onclick="event.stopPropagation();window.open('${url}', '_blank')"` : ""}>
+                    ${hasPics
+        ? `<img src="${url}" alt="${label}" loading="lazy" onerror="this.closest('.tenant-doc-thumb').classList.add('tenant-doc-thumb-broken')">`
+        : `<i class="bi ${icon}"></i>`
+      }
+                    ${hasPics && count > 1 ? `<span class="tenant-doc-thumb-count">${count}</span>` : ""}
+                    <span class="tenant-doc-thumb-label">
+                        <i class="bi ${hasPics ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger"}"></i> ${label}
+                    </span>
+                </div>`;
+  }
+
   addTenantDetailCardStyles() {
     if (!document.getElementById("tenant-detail-card-styles")) {
       const style = document.createElement("style");
@@ -943,11 +968,11 @@ class TenantManagementComponent {
                     box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
                 }
                 .tenant-outdated {
-                    opacity: 0.5;
                     background-color: #f8f9fa;
+                    border-color: #ced4da;
                 }
-                .tenant-outdated:hover {
-                    opacity: 0.7;
+                .tenant-outdated .card-body > *:not(.btn-group) {
+                    opacity: 0.6;
                 }
                 .tenant-select-check {
                     position: absolute;
@@ -1135,6 +1160,69 @@ class TenantManagementComponent {
                     color: #6c757d;
                     margin-top: 0.25rem;
                     font-style: italic;
+                }
+                .tenant-doc-thumbs {
+                    width: 100%;
+                }
+                .tenant-doc-thumb {
+                    position: relative;
+                    flex: 1 1 0;
+                    height: 64px;
+                    border-radius: 6px;
+                    border: 1px solid #dee2e6;
+                    overflow: hidden;
+                    cursor: pointer;
+                    background: #f8f9fa;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: transform 0.15s ease, box-shadow 0.15s ease;
+                }
+                .tenant-doc-thumb:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                }
+                .tenant-doc-thumb img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                .tenant-doc-thumb-broken img {
+                    display: none;
+                }
+                .tenant-doc-thumb-empty {
+                    cursor: default;
+                    border-style: dashed;
+                    color: #ced4da;
+                    font-size: 1.4rem;
+                }
+                .tenant-doc-thumb-empty:hover {
+                    transform: none;
+                    box-shadow: none;
+                }
+                .tenant-doc-thumb-count {
+                    position: absolute;
+                    top: 3px;
+                    right: 3px;
+                    background: #0d6efd;
+                    color: #fff;
+                    font-size: 0.6rem;
+                    line-height: 1;
+                    border-radius: 8px;
+                    padding: 2px 5px;
+                }
+                .tenant-doc-thumb-label {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    font-size: 0.6rem;
+                    text-align: center;
+                    padding: 1px 0;
+                    background: rgba(255,255,255,0.9);
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
             `;
       document.head.appendChild(style);
@@ -4590,6 +4678,27 @@ class TenantManagementComponent {
     return null;
   }
 
+  // Helper function to get move-out date for a tenant's specific property
+  getTenantMoveOutDate(tenant, propertyId) {
+    if (!tenant.properties || !Array.isArray(tenant.properties)) {
+      return null;
+    }
+
+    const property = tenant.properties.find(
+      (prop) => typeof prop === "object" && prop.propertyId === propertyId,
+    );
+
+    if (property && property.moveoutDate) {
+      const date = new Date(property.moveoutDate);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    return null;
+  }
+
   copyTenantList(propertyId) {
     try {
       // Find tenants for this property
@@ -4760,21 +4869,20 @@ class TenantManagementComponent {
         return;
       }
 
-      // Filter for only registered and non-outdated tenants
+      // Filter for all registered tenants, regardless of active/outdated status
       const registeredTenants = this.tenants.filter((tenant) => {
         const registrationStatus =
           tenant.registrationStatus ||
           (tenant.isRegistered ? "registered" : "unregistered");
-        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
-        return registrationStatus === "registered" && !isOutdated;
+        return registrationStatus === "registered";
       });
 
       // Check if there are any registered tenants
       if (registeredTenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No registered active unassigned tenants to copy"
-            : "No registered active tenants found for this property";
+            ? "No registered unassigned tenants to copy"
+            : "No registered tenants found for this property";
         alert(message);
         return;
       }
@@ -4799,7 +4907,7 @@ class TenantManagementComponent {
 
       // Format tenant list with all requested fields
       let copyText = `Property: ${propertyDisplay}\n`;
-      copyText += `Registered Active Tenants Only: ${sortedRegisteredTenants.length}\n`;
+      copyText += `Registered Tenants (All): ${sortedRegisteredTenants.length}\n`;
       copyText += `Generated on: ${new Date().toLocaleString()}\n`;
       copyText += `${"=".repeat(80)}\n\n`;
 
@@ -4823,6 +4931,112 @@ class TenantManagementComponent {
         if (moveinDate) {
           copyText += `   Move-in Date: ${moveinDate}\n`;
         }
+        copyText += `\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          // Show success message
+          this.showCopySuccessMessage(registeredTenants.length);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          // Fallback: show the text in an alert
+          alert(
+            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
+          );
+        });
+    } catch (error) {
+      console.error("Error copying registered tenant list:", error);
+      alert("Error copying registered tenant list. Please try again.");
+    }
+  }
+
+  copyRegisteredTenantsWithDates() {
+    try {
+      // Check if a property is selected
+      if (!this.selectedProperty) {
+        alert("Please select a property first");
+        return;
+      }
+
+      // Check if there are tenants to copy
+      if (!this.tenants || this.tenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No unassigned tenants to copy"
+            : "No tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Filter for all registered tenants, regardless of active/outdated status
+      const registeredTenants = this.tenants.filter((tenant) => {
+        const registrationStatus =
+          tenant.registrationStatus ||
+          (tenant.isRegistered ? "registered" : "unregistered");
+        return registrationStatus === "registered";
+      });
+
+      // Check if there are any registered tenants
+      if (registeredTenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No registered unassigned tenants to copy"
+            : "No registered tenants found for this property";
+        alert(message);
+        return;
+      }
+
+      // Get property info for display
+      let propertyDisplay = "";
+      if (this.selectedProperty === "UNASSIGNED") {
+        propertyDisplay = "Unassigned Tenants";
+      } else {
+        const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+        propertyDisplay = propertyInfo
+          ? `${propertyInfo.address}, ${propertyInfo.unit} (${this.selectedProperty})`
+          : this.selectedProperty;
+      }
+
+      // Sort: main tenant first
+      const sortedRegisteredTenants = [...registeredTenants].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
+      // Format tenant list with move-in and move-out dates
+      let copyText = `Property: ${propertyDisplay}\n`;
+      copyText += `Registered Tenants (All) with Move-in/Move-out: ${sortedRegisteredTenants.length}\n`;
+      copyText += `Generated on: ${new Date().toLocaleString()}\n`;
+      copyText += `${"=".repeat(80)}\n\n`;
+
+      sortedRegisteredTenants.forEach((tenant, index) => {
+        const ordinalNumber = index + 1;
+        const isMainTenant = this.hasMainTenantProperty(tenant);
+        const mainTenantIndicator = isMainTenant ? " ✅ (Main Tenant)" : "";
+        const moveinDate = this.getTenantMoveInDate(
+          tenant,
+          this.selectedProperty,
+        );
+        const moveoutDate = this.getTenantMoveOutDate(
+          tenant,
+          this.selectedProperty,
+        );
+
+        copyText += `${ordinalNumber}. ${tenant.name}${mainTenantIndicator}\n`;
+        copyText += `   FIN: ${tenant.fin || "N/A"}\n`;
+        copyText += `   Passport: ${tenant.passportNumber || "N/A"}\n`;
+        copyText += `   Move-in Date: ${moveinDate || "N/A"}\n`;
+        copyText += `   Move-out Date: ${moveoutDate || "N/A"}\n`;
+        if (tenant.dateOfBirth) copyText += `   DOB: ${this.formatDate(tenant.dateOfBirth)}\n`;
+        if (tenant.gender) copyText += `   Gender: ${tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)}\n`;
+        if (tenant.passType) copyText += `   Pass Type: ${tenant.passType}\n`;
+        if (tenant.industry) copyText += `   Industry: ${tenant.industry}\n`;
+        if (tenant.university) copyText += `   University: ${tenant.university}\n`;
         copyText += `\n`;
       });
 
