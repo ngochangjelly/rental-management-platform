@@ -648,10 +648,11 @@ class PropertyManagementComponent {
       this.showLoadingSkeleton();
     }
     try {
-      // Fetch all properties with pagination
+      // Fetch all properties in one page; loop only kicks in if the total
+      // ever exceeds this page size.
       let allProperties = [];
       let currentPage = 1;
-      const itemsPerPage = 50;
+      const itemsPerPage = 500;
       let hasMorePages = true;
 
       while (hasMorePages) {
@@ -849,6 +850,10 @@ class PropertyManagementComponent {
       : `<div class="pm-row-thumb d-flex align-items-center justify-content-center" style="background:${typeGradient};">
            <i class="bi ${isArchived ? 'bi-archive' : typeIcon} text-white" style="font-size:1.4rem;opacity:0.85;"></i>
          </div>`;
+    // Selection badge — pure CSS visibility (driven by the ancestor .pm-row-selected
+    // class), so it's always in sync with actual selection state and never a
+    // timed/fading effect.
+    const thumbWrapHtml = `<div class="pm-row-thumb-wrap">${thumbHtml}<div class="pm-row-check-badge"><i class="bi bi-check-lg"></i></div></div>`;
 
     const archivedBadge = isArchived
       ? `<span class="badge bg-secondary" style="font-size:0.6rem;" title="Archived"><i class="bi bi-archive"></i></span>`
@@ -924,11 +929,11 @@ class PropertyManagementComponent {
 
     return `
       <div class="pm-row${isSelected ? ' pm-row-selected' : ''}${isArchived ? ' pm-row-archived' : ''}" data-property-id="${this.escapeHtml(property.propertyId)}" onclick="propertyManager.selectProperty('${property.propertyId}')">
-        ${thumbHtml}
+        ${thumbWrapHtml}
         <div class="flex-grow-1" style="min-width: 0;">
           <div class="d-flex align-items-center justify-content-between gap-1">
             <div class="d-flex align-items-center gap-1" style="min-width: 0;">
-              <span class="fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy Property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
+              <span class="pm-row-id fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy Property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
               ${archivedBadge}${condoBadge}${lockBadge}
             </div>
             ${investorAvatarHtml}
@@ -955,6 +960,7 @@ class PropertyManagementComponent {
       style.id = "property-management-row-styles";
       style.textContent = `
         .pm-row {
+          position: relative;
           display: flex;
           align-items: flex-start;
           gap: 10px;
@@ -964,7 +970,11 @@ class PropertyManagementComponent {
           margin-bottom: 6px;
           border: 1px solid transparent;
           background: white;
-          transition: background 0.15s, border-color 0.15s;
+          transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+        .pm-row-thumb-wrap {
+          position: relative;
+          flex-shrink: 0;
         }
         .pm-row-thumb {
           width: 56px;
@@ -985,9 +995,50 @@ class PropertyManagementComponent {
         .pm-row:hover {
           background: #eef1ff;
         }
+        /* Selected state: left accent bar + tinted background + soft ring glow,
+           all tied directly to the .pm-row-selected class — no timers, so it
+           stays visible for exactly as long as the row is actually selected. */
         .pm-row-selected {
-          background: #e0e7ff;
+          background: #eef1ff;
           border-color: #667eea;
+          box-shadow: 0 0 0 1px #667eea, 0 4px 14px rgba(102, 126, 234, 0.22);
+        }
+        .pm-row-selected::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 6px;
+          bottom: 6px;
+          width: 4px;
+          border-radius: 4px;
+          background: #667eea;
+        }
+        .pm-row-selected .pm-row-id {
+          color: #4338ca;
+        }
+        .pm-row-check-badge {
+          position: absolute;
+          top: -6px;
+          right: -6px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #667eea;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.65rem;
+          line-height: 1;
+          box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(0, 0, 0, 0.2);
+          opacity: 0;
+          transform: scale(0.4);
+          transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+          pointer-events: none;
+        }
+        .pm-row-selected .pm-row-check-badge {
+          opacity: 1;
+          transform: scale(1);
         }
         .pm-row-archived {
           opacity: 0.65;

@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import {
   getRoomTypeDisplayName,
   getRoomTypeOptions,
+  getRoomTypeBadgeStyle,
 } from "../utils/room-type-mapper.js";
 import { renderTenantSocialBadges, getGroupLinkMeta } from "../utils/social-links.js";
 import {
@@ -60,6 +61,7 @@ class TenantManagementComponent {
     this.todos = []; // Array of todo items
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     this.selectedTenantIds = new Set(); // Tenant IDs currently checked for PDF/ZIP export
+    this.selectedTenantId = null; // Tenant currently shown in the right-hand detail panel
 
     this.init();
   }
@@ -514,13 +516,12 @@ class TenantManagementComponent {
     // Set up change detection for edit mode
     this.setupChangeDetection();
 
-    // Listen for window resize to update table colspan
-    window.addEventListener("resize", () => {
-      // Re-render the table when window size changes
-      if (this.tenants && this.tenants.length > 0) {
-        this.renderTenantsTable();
-      }
-    });
+    // Mobile "back to list" button (only visible <768px, see dashboard.html media query)
+    const backBtn = document.getElementById("tmBackToListBtn");
+    if (backBtn && !backBtn._tenantListenerAttached) {
+      backBtn.addEventListener("click", () => this.exitMobileTenantDetailView());
+      backBtn._tenantListenerAttached = true;
+    }
   }
 
   // Legacy method - now redirects to property-based loading
@@ -531,9 +532,9 @@ class TenantManagementComponent {
       await this.loadTenantsForProperty(this.selectedProperty);
     } else {
       // Show message to select a property
-      const tbody = document.getElementById("tenantsTableBody");
-      if (tbody) {
-        tbody.innerHTML = `
+      const container = document.getElementById("tenantsContainer");
+      if (container) {
+        container.innerHTML = `
                     <div class="text-center text-muted py-5">
                         <i class="bi bi-building fs-1 d-block mb-3"></i>
                         <p class="fs-5">Please select a property to view tenants</p>
@@ -544,8 +545,8 @@ class TenantManagementComponent {
   }
 
   showLoadingSkeleton() {
-    const tbody = document.getElementById("tenantsTableBody");
-    if (!tbody) return;
+    const container = document.getElementById("tenantsContainer");
+    if (!container) return;
 
     // Add shimmer animation styles if not already present
     if (!document.getElementById("tenant-skeleton-styles")) {
@@ -562,76 +563,43 @@ class TenantManagementComponent {
           animation: shimmer 1.5s infinite;
           border-radius: 4px;
         }
-        .skeleton-card {
-          background: #fff;
-          border: 1px solid #dee2e6;
-          border-radius: 0.375rem;
-          overflow: hidden;
+        .tm-row-skeleton {
+          cursor: default;
+          background: white;
         }
       `;
       document.head.appendChild(style);
     }
 
-    // Create skeleton cards matching the tenant card layout
-    const skeletonCount = 6; // Show 6 skeleton cards
-    let html =
-      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 280px)); gap: 0.125rem; max-width: 100%;">';
-
-    for (let i = 0; i < skeletonCount; i++) {
-      html += `
-        <div style="max-width: 260px; width: 100%; justify-self: center;">
-          <div class="skeleton-card">
-            <!-- Header skeleton -->
-            <div class="d-flex align-items-center p-3 border-bottom" style="background: #f8f9fa;">
-              <div class="skeleton-shimmer rounded-circle me-3" style="width: 50px; height: 50px; flex-shrink: 0;"></div>
-              <div class="flex-grow-1">
-                <div class="skeleton-shimmer mb-2" style="height: 16px; width: 70%;"></div>
-                <div class="skeleton-shimmer" style="height: 12px; width: 50%;"></div>
-              </div>
-            </div>
-            <!-- Body skeleton -->
-            <div class="p-3">
-              <div class="d-flex justify-content-between mb-2">
-                <div class="skeleton-shimmer" style="height: 14px; width: 40%;"></div>
-                <div class="skeleton-shimmer" style="height: 14px; width: 30%;"></div>
-              </div>
-              <div class="d-flex justify-content-between mb-2">
-                <div class="skeleton-shimmer" style="height: 14px; width: 35%;"></div>
-                <div class="skeleton-shimmer" style="height: 14px; width: 45%;"></div>
-              </div>
-              <div class="d-flex justify-content-between mb-3">
-                <div class="skeleton-shimmer" style="height: 14px; width: 45%;"></div>
-                <div class="skeleton-shimmer" style="height: 14px; width: 25%;"></div>
-              </div>
-              <!-- Badge skeleton -->
-              <div class="d-flex gap-2">
-                <div class="skeleton-shimmer" style="height: 22px; width: 60px; border-radius: 12px;"></div>
-                <div class="skeleton-shimmer" style="height: 22px; width: 80px; border-radius: 12px;"></div>
-              </div>
-            </div>
-          </div>
+    // Create skeleton rows matching the compact tenant row layout
+    const row = `
+      <div class="tm-row tm-row-skeleton">
+        <div class="tm-row-thumb skeleton-shimmer"></div>
+        <div class="flex-grow-1" style="min-width: 0;">
+          <div class="skeleton-shimmer" style="width: 55%; height: 13px; margin-bottom: 8px;"></div>
+          <div class="skeleton-shimmer" style="width: 40%; height: 11px; margin-bottom: 8px;"></div>
+          <div class="skeleton-shimmer" style="width: 70%; height: 11px;"></div>
         </div>
-      `;
-    }
+      </div>`;
 
-    html += "</div>";
-    tbody.innerHTML = html;
+    container.innerHTML = row.repeat(6);
   }
 
   async renderTenantsTable() {
-    const tbody = document.getElementById("tenantsTableBody");
-    if (!tbody) {
-      console.error("tenantsTableBody element not found!");
+    const container = document.getElementById("tenantsContainer");
+    if (!container) {
+      console.error("tenantsContainer element not found!");
       return;
     }
 
     if (!this.selectedProperty && !this._globalSearchActive) {
-      tbody.innerHTML = `
+      container.innerHTML = `
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-building fs-1 d-block mb-3"></i>
                     <p class="fs-5">Please select a property to view tenants</p>
                 </div>
             `;
+      this.showTenantDetailPanel(null);
       return;
     }
 
@@ -670,32 +638,32 @@ class TenantManagementComponent {
     // Group tenants by roommate relationships
     const tenantGroups = this.groupTenantsByRoommates(sortedTenants);
 
-    // Create CSS Grid layout for single property with max-width 260px per card
-    let html =
-      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 280px)); gap: 0.125rem; max-width: 100%;">';
-
+    let html = "";
     tenantGroups.forEach((group) => {
       if (group.length > 1) {
-        // Render roommate group with special styling
-        html += this.renderRoommateGroup(group);
+        // Render roommate pair grouped together in the list
+        html += this.renderRoommateRowGroup(group);
       } else {
-        // Render single tenant
-        const tenant = group[0];
-        html += this.renderSingleTenant(tenant);
+        html += this.renderTenantRow(group[0]);
       }
     });
 
-    html += "</div>";
-    tbody.innerHTML = html;
+    container.innerHTML = html;
 
     // Update registered tenants badge
     this.updateRegisteredTenantsBadge();
 
-    // Add card styles if not already present
-    this.addTenantDetailCardStyles();
+    // Add row/detail panel styles if not already present
+    this.addTenantRowStyles();
 
     // Setup todo badge hover listeners
     this.setupTodoBadgeListeners();
+
+    // Keep whichever tenant is currently open in the detail panel selected
+    // (e.g. after an edit/save refresh); fall back to the first tenant in
+    // the list so the panel is never left showing stale/removed data.
+    const stillPresent = sortedTenants.find((t) => t._id === this.selectedTenantId);
+    this.showTenantDetailPanel(stillPresent || sortedTenants[0]);
   }
 
   groupTenantsByRoommates(tenants) {
@@ -724,60 +692,15 @@ class TenantManagementComponent {
     return groups;
   }
 
-  renderRoommateGroup(group) {
-    const isOutdated = group.every((t) =>
-      this.isTenantOutdated(t, this.selectedProperty),
-    );
-
-    // Calculate width based on number of roommates (each card is 260px + 0.125rem gap)
-    const groupWidth =
-      group.length === 2
-        ? "520px"
-        : group.length === 3
-          ? "780px"
-          : group.length === 4
-            ? "1040px"
-            : "100%";
-
-    // Span columns based on group size
-    const gridColumnSpan = `span ${group.length}`;
-
-    let html = `
-      <div style="max-width: ${groupWidth}; width: fit-content; grid-column: ${gridColumnSpan};">
-        <div class="roommate-group-container ${isOutdated ? "group-outdated" : ""}">
-          <div class="roommate-group-header">
-            <i class="bi bi-people-fill me-2"></i>
-            <strong>Roommates in Same Room</strong>
-            <span class="badge bg-success ms-2">${group.length} tenants</span>
-          </div>
-          <div style="display: flex; gap: 0.125rem;">
-    `;
-
-    group.forEach((tenant) => {
-      html += this.renderSingleTenant(tenant, true);
-    });
-
-    html += `
-          </div>
-        </div>
-      </div>
-    `;
-
-    return html;
-  }
-
-  renderSingleTenant(tenant, isInGroup = false) {
-    const registrationStatus =
-      tenant.registrationStatus ||
-      (tenant.isRegistered ? "registered" : "unregistered");
-    const isMainTenant = this.hasMainTenantProperty(tenant);
-    const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
-
-    // Find room info for this tenant in the selected property
+  // Resolves room/move-in/move-out/rent for `tenant` within the selected
+  // property. Shared by the compact row and the detail panel so the two
+  // views can never disagree on what "room info" means.
+  computeTenantDisplayInfo(tenant) {
     let roomInfo = "No property";
+    let roomRaw = "";
     let moveInDate = "N/A";
     let moveOutDate = "N/A";
-    let rentAmount = this.getEffectiveRent(tenant) || "N/A";
+    const rentAmount = this.getEffectiveRent(tenant) || "N/A";
 
     if (this.selectedProperty !== "UNASSIGNED") {
       const propertyInfo = tenant.properties?.find((prop) => {
@@ -789,6 +712,7 @@ class TenantManagementComponent {
         if (propertyInfo.roomAssignments?.length > 0) {
           this.syncLegacyFieldsFromRoomAssignments(propertyInfo);
         }
+        roomRaw = propertyInfo.room || "";
         roomInfo = propertyInfo.room
           ? getRoomTypeDisplayName(propertyInfo.room)
           : "No room";
@@ -813,112 +737,240 @@ class TenantManagementComponent {
       }
     }
 
+    return { roomInfo, roomRaw, moveInDate, moveOutDate, rentAmount };
+  }
+
+  // Compact list row for the master-detail left panel. Full tenant detail
+  // (doc thumbnails, FIN/passport/DOB/etc., notes) is intentionally NOT
+  // duplicated here — same tenant object, shown in the right-hand detail
+  // panel once the row is selected (see renderTenantDetailContent()).
+  renderTenantRow(tenant) {
+    const registrationStatus =
+      tenant.registrationStatus ||
+      (tenant.isRegistered ? "registered" : "unregistered");
+    const isMainTenant = this.hasMainTenantProperty(tenant);
+    const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+    const isSelected = tenant._id === this.selectedTenantId;
+    const isExportChecked = this.selectedTenantIds.has(tenant._id);
     const isExportEligible =
       registrationStatus === "registered" || registrationStatus === "pending";
-    const isSelected = this.selectedTenantIds.has(tenant._id);
+    const { roomInfo, roomRaw } = this.computeTenantDisplayInfo(tenant);
+
+    const hasPassport = Array.isArray(tenant.passportPics) && tenant.passportPics.length > 0;
+    const hasPass = Array.isArray(tenant.visaPics) && tenant.visaPics.length > 0;
+
+    let propertyChip = "";
+    if (this._globalSearchActive) {
+      const firstProp = (tenant.properties || [])[0];
+      const propId = typeof firstProp === "object" ? firstProp?.propertyId : firstProp;
+      if (propId) {
+        propertyChip = `<span class="badge bg-light text-dark border" style="font-size:0.6rem;">${this.escapeHtml(propId)}</span>`;
+      }
+    }
+
+    const avatarHtml = tenant.avatar
+      ? `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, "small")}" alt="${this.escapeHtml(tenant.name)}" class="tm-row-thumb" style="object-fit: cover;">`
+      : `<div class="tm-row-thumb bg-secondary d-flex align-items-center justify-content-center text-white fw-bold">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`;
 
     return `
-                <div style="max-width: 260px; width: 100%; justify-self: center;">
-                    <div class="card h-100 tenant-detail-card shadow-sm ${isOutdated ? "tenant-outdated" : ""
-      }${isSelected ? " tenant-card-selected" : ""}" data-tenant-id="${tenant._id}">
-                        <div class="tenant-select-check${isExportEligible ? "" : " disabled"}${isSelected ? " checked" : ""}"
-                            title="${isExportEligible ? "Select for PDF/ZIP export" : "Not eligible for export (unregistered)"}"
-                            onclick="event.stopPropagation();${isExportEligible ? ` tenantManager.toggleTenantSelection('${tenant._id}', this.closest('.tenant-detail-card'));` : ""}">
-                            <i class="bi bi-check-lg"></i>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex align-items-start gap-3 mb-3">
-                                <div class="flex-shrink-0">
-                                    ${tenant.avatar
-        ? `<img src="${this.getOptimizedAvatarUrl(
-          tenant.avatar,
-          "small",
-        )}" alt="${this.escapeHtml(
-          tenant.name,
-        )}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width: 60px; height: 60px; font-size: 24px;">${this.escapeHtml(
-          tenant.name.charAt(0).toUpperCase(),
-        )}</div>`
+      <div class="tm-row tenant-detail-card${isSelected ? " tm-row-selected" : ""}${isOutdated ? " tm-row-outdated" : ""}${isExportChecked ? " tenant-card-selected" : ""}"
+           data-tenant-id="${tenant._id}"
+           onclick="tenantManager.selectTenantForDetail('${tenant._id}')">
+        <div class="tenant-select-check${isExportEligible ? "" : " disabled"}${isExportChecked ? " checked" : ""}"
+            title="${isExportEligible ? "Select for PDF/ZIP export" : "Not eligible for export (unregistered)"}"
+            onclick="event.stopPropagation();${isExportEligible ? ` tenantManager.toggleTenantSelection('${tenant._id}', this.closest('.tenant-detail-card'));` : ""}">
+          <i class="bi bi-check-lg"></i>
+        </div>
+        ${avatarHtml}
+        <div class="flex-grow-1" style="min-width: 0;">
+          <div class="d-flex align-items-center justify-content-between gap-1">
+            <div class="d-flex align-items-center gap-1" style="min-width: 0;">
+              <span class="fw-semibold small text-truncate">${this.escapeHtml(tenant.name)}</span>
+              ${tenant.nickname ? `<small class="text-muted text-truncate">（${this.escapeHtml(tenant.nickname)}）</small>` : ""}
+            </div>
+            <div class="d-flex gap-1 align-items-center flex-shrink-0">
+              ${isMainTenant ? '<span class="badge bg-primary" style="font-size:0.6rem;">Main</span>' : ""}
+              ${isOutdated ? '<span class="badge bg-secondary" style="font-size:0.6rem;">Moved Out</span>' : ""}
+            </div>
+          </div>
+          <div class="small text-muted text-truncate">${this.escapeHtml(tenant.phoneNumber || "No phone")}</div>
+          <div class="d-flex flex-wrap gap-1 mt-1 align-items-center">
+            ${this.getRegistrationStatusBadge(registrationStatus)}
+            ${roomRaw ? `<span class="badge" style="font-size:0.6rem;${getRoomTypeBadgeStyle(roomRaw)}">${this.escapeHtml(roomInfo)}</span>` : ""}
+            ${propertyChip}
+            <span title="${hasPassport ? "Passport uploaded" : "Passport missing"}" style="font-size: 0.7rem;">
+              <i class="bi bi-passport ${hasPassport ? "text-success" : "text-danger"}"></i>
+            </span>
+            <span title="${hasPass ? "Pass uploaded" : "Pass missing"}" style="font-size: 0.7rem;">
+              <i class="bi bi-credit-card ${hasPass ? "text-success" : "text-danger"}"></i>
+            </span>
+            ${this.renderTenantTodoBadge(tenant)}
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-link text-secondary p-0 tm-row-edit-btn" title="Edit tenant"
+                onclick="event.stopPropagation(); tenantManager.editTenant('${tenant._id}')">
+          <i class="bi bi-pencil"></i>
+        </button>
+      </div>`;
+  }
+
+  // Wraps a roommate pair's rows in a lightweight grouping container so
+  // they stay visually together in the list.
+  renderRoommateRowGroup(group) {
+    const isOutdated = group.every((t) =>
+      this.isTenantOutdated(t, this.selectedProperty),
+    );
+
+    let html = `
+      <div class="tm-roommate-group${isOutdated ? " tm-roommate-group-outdated" : ""}">
+        <div class="tm-roommate-group-label"><i class="bi bi-people-fill me-1"></i>Roommates</div>
+    `;
+
+    group.forEach((tenant) => {
+      html += this.renderTenantRow(tenant);
+    });
+
+    html += `</div>`;
+
+    return html;
+  }
+
+  // Full rich preview for the right-hand detail panel — same fields/order
+  // the old card showed, reflowed into a 2-column grid to use the wider
+  // space. Panel header (avatar/name/Edit/Copy/Delete) is set separately by
+  // showTenantDetailPanel().
+  renderTenantDetailContent(tenant) {
+    const registrationStatus =
+      tenant.registrationStatus ||
+      (tenant.isRegistered ? "registered" : "unregistered");
+    const isMainTenant = this.hasMainTenantProperty(tenant);
+    const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+    const { roomInfo, moveInDate, moveOutDate, rentAmount } = this.computeTenantDisplayInfo(tenant);
+
+    const roommateId = tenant.roommateId?._id || tenant.roommateId;
+    const roommate = roommateId ? this.tenants.find((t) => t._id === roommateId) : null;
+
+    const field = (label, value, copyVal) => {
+      if (value === undefined || value === null || value === "") {
+        return `<div class="tm-detail-field"><div class="tm-detail-label">${label}</div><div class="tm-detail-value text-muted">-</div></div>`;
       }
-                                </div>
-                                <div class="flex-grow-1 min-w-0">
-                                    <div class="d-flex justify-content-between align-items-start mb-1">
-                                        <div>
-                                            <h5 class="mb-0 prop-copy-val" data-copy="${this.escapeHtml(tenant.name)}" title="Click to copy name" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.name)}</h5>
-                                            ${tenant.nickname
-        ? `<small class="text-muted">（${this.escapeHtml(
-          tenant.nickname,
-        )}）</small>`
-        : ""
+      const copy = copyVal !== undefined ? copyVal : value;
+      return `<div class="tm-detail-field"><div class="tm-detail-label">${label}</div><div class="tm-detail-value prop-copy-val" data-copy="${this.escapeHtml(String(copy))}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${value}</div></div>`;
+    };
+
+    return `
+      <div class="p-4">
+        <p class="text-muted mb-1${tenant.phoneNumber ? " prop-copy-val" : ""}" ${tenant.phoneNumber ? `data-copy="${this.escapeHtml(tenant.phoneNumber)}" title="Click to copy phone" onclick="event.stopPropagation();copyToClipboardInline(this)"` : ""}>${this.escapeHtml(tenant.phoneNumber || "No phone")}</p>
+        ${tenant.email
+        ? `<p class="text-muted mb-3 prop-copy-val" data-copy="${this.escapeHtml(tenant.email)}" title="Click to copy email" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-envelope me-1"></i>${this.escapeHtml(tenant.email)}</p>`
+        : '<div class="mb-3"></div>'
       }
-                                        </div>
-                                        <div class="d-flex gap-2 align-items-center">
-                                            ${this.renderTenantTodoBadge(tenant)}
-                                            ${isMainTenant
-        ? '<span class="badge bg-primary">Main</span>'
-        : ""
+
+        <div class="d-flex gap-2 mb-3 tenant-doc-thumbs" style="max-width: 260px;">
+          ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport")}
+          ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass")}
+        </div>
+
+        <div class="tm-detail-grid mb-3">
+          ${field("FIN", tenant.fin ? this.escapeHtml(tenant.fin) : null)}
+          ${field("Passport", tenant.passportNumber ? this.escapeHtml(tenant.passportNumber) : null)}
+          ${field("DOB", tenant.dateOfBirth ? this.formatDate(tenant.dateOfBirth) : null)}
+          ${field("Gender", tenant.gender ? this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)) : null)}
+          ${field("Pass Type", tenant.passType ? this.escapeHtml(tenant.passType) : null)}
+          ${tenant.industry ? field("Industry", this.escapeHtml(tenant.industry)) : ""}
+          ${tenant.university ? field("University", this.escapeHtml(tenant.university)) : ""}
+          ${field("Room", this.escapeHtml(roomInfo))}
+          ${field("Rent", typeof rentAmount === "number" ? `$${rentAmount.toFixed(2)}` : rentAmount, typeof rentAmount === "number" ? rentAmount : undefined)}
+          ${field("Cleaning Fee", typeof tenant.cleaningFee === "number" ? `$${tenant.cleaningFee.toFixed(2)}` : "N/A", tenant.cleaningFee)}
+          ${field("Move-in", moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
+          ${field("Move-out", moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
+        </div>
+
+        <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
+          ${isMainTenant ? '<span class="badge bg-primary">Main Tenant</span>' : ""}
+          ${isOutdated ? '<span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>Moved Out</span>' : ""}
+          ${this.getRegistrationStatusBadge(registrationStatus)}
+          ${tenant.cleaningFee === 0 ? '<span class="badge bg-warning text-dark"><i class="bi bi-brush me-1"></i>Subsidized Cleaning</span>' : ""}
+          ${tenant.isUtilitySubsidized ? '<span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span>' : ""}
+          ${tenant.isHouseCleaner ? '<span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span>' : ""}
+          ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ""}
+          ${renderTenantSocialBadges(tenant)}
+          ${roommate ? `<button type="button" class="badge bg-light text-dark border" style="cursor:pointer;" onclick="event.stopPropagation();tenantManager.selectTenantForDetail('${roommate._id}')" title="View roommate"><i class="bi bi-arrow-left-right me-1"></i>Roommate: ${this.escapeHtml(roommate.name)}</button>` : ""}
+        </div>
+
+        ${tenant.notes ? `<div class="pt-2 border-top text-muted" style="font-size:0.85em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>` : ""}
+      </div>`;
+  }
+
+  // Populates the always-mounted right-hand detail panel with `tenant`'s
+  // data (or an empty-state placeholder when called with null/undefined),
+  // and syncs the list panel's row highlight to match. Pure render — no
+  // mobile-nav side effects, so CRUD refreshes can call this without
+  // yanking a mobile view that's currently showing the list.
+  showTenantDetailPanel(tenant) {
+    this.selectedTenantId = tenant?._id || null;
+    this.highlightSelectedTenantRow();
+
+    const headerContent = document.getElementById("tenantDetailHeaderContent");
+    const headerActions = document.getElementById("tenantDetailHeaderActions");
+    const body = document.getElementById("tenantDetailBody");
+    if (!body) return;
+
+    if (!tenant) {
+      if (headerContent) {
+        headerContent.innerHTML = `<i class="bi bi-people"></i><h5 class="mb-0 fw-bold text-truncate">Tenants</h5>`;
       }
-                                        </div>
-                                    </div>
-                                    <p class="text-muted mb-0${tenant.phoneNumber ? ' prop-copy-val' : ''}" ${tenant.phoneNumber ? `data-copy="${this.escapeHtml(tenant.phoneNumber)}" title="Click to copy phone" onclick="event.stopPropagation();copyToClipboardInline(this)"` : ''}>${this.escapeHtml(tenant.phoneNumber || "No phone")}</p>
-                                    ${tenant.email
-        ? `<p class="text-muted mb-0 prop-copy-val" data-copy="${this.escapeHtml(tenant.email)}" title="Click to copy email" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-envelope me-1"></i>${this.escapeHtml(tenant.email)}</p>`
-        : ""
-      }
-                                </div>
-                            </div>
-                            <div class="d-flex gap-2 mb-3 tenant-doc-thumbs">
-                                ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport")}
-                                ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass")}
-                            </div>
-                            <div class="small mb-3">
-                                <div class="mb-2"><strong>FIN:</strong> ${tenant.fin ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.fin)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.fin)}</span>` : "-"}</div>
-                                <div class="mb-2"><strong>Passport:</strong> ${tenant.passportNumber ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.passportNumber)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.passportNumber)}</span>` : "-"}</div>
-                                <div class="mb-2"><strong>DOB:</strong> ${tenant.dateOfBirth ? `<span class="prop-copy-val" data-copy="${this.formatDate(tenant.dateOfBirth)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.formatDate(tenant.dateOfBirth)}</span>` : "-"}</div>
-                                <div class="mb-2"><strong>Gender:</strong> ${tenant.gender ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1))}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1))}</span>` : "-"}</div>
-                                <div class="mb-2"><strong>Pass Type:</strong> ${tenant.passType ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.passType)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.passType)}</span>` : "-"}</div>
-                                ${tenant.industry ? `<div class="mb-2"><strong>Industry:</strong> <span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.industry)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.industry)}</span></div>` : ""}
-                                ${tenant.university ? `<div class="mb-2"><strong>University:</strong> <span class="prop-copy-val" data-copy="${this.escapeHtml(tenant.university)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(tenant.university)}</span></div>` : ""}
-                                <div class="mb-2"><strong>Room:</strong> ${this.escapeHtml(roomInfo)}</div>
-                                <div class="mb-2"><strong>Rent:</strong> ${typeof rentAmount === "number" ? `<span class="prop-copy-val" data-copy="${rentAmount}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${rentAmount.toFixed(2)}</span>` : rentAmount}</div>
-                                <div class="mb-2"><strong>Cleaning Fee:</strong> ${typeof tenant.cleaningFee === "number" ? `<span class="prop-copy-val" data-copy="${tenant.cleaningFee}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">$${tenant.cleaningFee.toFixed(2)}</span>` : "N/A"}</div>
-                                ${tenant.cleaningFee === 0 ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-brush me-1"></i>Subsidized Cleaning</span></div>' : ""}
-                                ${tenant.isUtilitySubsidized ? '<div class="mb-2"><span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span></div>' : ""}
-                                ${tenant.isHouseCleaner ? '<div class="mb-2"><span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span></div>' : ""}
-                                <div class="mb-2"><strong>Move-in:</strong> ${moveInDate !== "N/A" ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(moveInDate)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(moveInDate)}</span>` : moveInDate}</div>
-                                <div class="mb-2"><strong>Move-out:</strong> ${moveOutDate !== "N/A" ? `<span class="prop-copy-val" data-copy="${this.escapeHtml(moveOutDate)}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(moveOutDate)}</span>` : moveOutDate}</div>
-                                ${tenant.notes ? `<div class="mt-2 pt-2 border-top text-muted" style="font-size:0.82em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>` : ""}
-                            </div>
-                            <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
-                                ${isOutdated ? '<span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>Moved Out</span>' : ""}
-                                ${this.getRegistrationStatusBadge(
-        registrationStatus,
-      )}
-                                ${tenant.properties &&
-        tenant.properties.length > 1
-        ? `<span class="badge bg-info">${tenant.properties.length} properties</span>`
-        : ""
-      }
-                                ${renderTenantSocialBadges(tenant)}
-                            </div>
-                            <div class="btn-group w-100" role="group">
-                                <button class="btn btn-outline-primary btn-sm" onclick="tenantManager.editTenant('${tenant._id
-      }')">
-                                    <i class="bi bi-pencil"></i> Edit
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" title="Copy tenant details" onclick="event.stopPropagation();tenantManager.copyTenantDetails('${tenant._id
-      }', this)">
-                                    <i class="bi bi-clipboard"></i> Copy
-                                </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="tenantManager.deleteTenant('${tenant._id
-      }')">
-                                    <i class="bi bi-trash"></i> Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+      if (headerActions) headerActions.innerHTML = "";
+      body.innerHTML = `
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-person-lines-fill fs-1 d-block mb-3"></i>
+          <p class="fs-5">No tenants found</p>
+        </div>`;
+      return;
+    }
+
+    if (headerContent) {
+      const avatarHtml = tenant.avatar
+        ? `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, "small")}" alt="${this.escapeHtml(tenant.name)}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; flex-shrink: 0;">`
+        : `<div class="rounded-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 32px; height: 32px; font-size: 14px;">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`;
+      headerContent.innerHTML = `
+        ${avatarHtml}
+        <h5 class="mb-0 fw-bold text-truncate">${this.escapeHtml(tenant.name)}${tenant.nickname ? ` <small class="fw-normal opacity-75">（${this.escapeHtml(tenant.nickname)}）</small>` : ""}</h5>`;
+    }
+    if (headerActions) {
+      headerActions.innerHTML = `
+        <button type="button" class="btn btn-sm btn-light" title="Edit tenant" onclick="tenantManager.editTenant('${tenant._id}')"><i class="bi bi-pencil"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Copy tenant details" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-light" title="Delete tenant" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>`;
+    }
+
+    body.innerHTML = this.renderTenantDetailContent(tenant);
+  }
+
+  // Row-click entry point: selects `tenantId` into the detail panel and, on
+  // mobile, switches the stacked layout from list-view to detail-view.
+  selectTenantForDetail(tenantId) {
+    const tenant = this.tenants.find((t) => t._id === tenantId);
+    if (!tenant) return;
+    this.showTenantDetailPanel(tenant);
+    this.enterMobileTenantDetailView();
+  }
+
+  highlightSelectedTenantRow() {
+    document.querySelectorAll(".tm-row").forEach((row) => {
+      row.classList.toggle("tm-row-selected", row.dataset.tenantId === this.selectedTenantId);
+    });
+  }
+
+  // Swaps the mobile stacked layout (see the #tmLayout media query in
+  // dashboard.html) from list-view to detail-view. No-op visually at desktop
+  // widths, where both columns are always shown side by side.
+  enterMobileTenantDetailView() {
+    document.getElementById("tmLayout")?.classList.add("tm-mobile-detail-active");
+  }
+
+  exitMobileTenantDetailView() {
+    document.getElementById("tmLayout")?.classList.remove("tm-mobile-detail-active");
   }
 
   renderDocThumb(pics, type, icon, label) {
@@ -941,14 +993,93 @@ class TenantManagementComponent {
                 </div>`;
   }
 
-  addTenantDetailCardStyles() {
-    if (!document.getElementById("tenant-detail-card-styles")) {
+  addTenantRowStyles() {
+    if (!document.getElementById("tenant-row-styles")) {
       const style = document.createElement("style");
-      style.id = "tenant-detail-card-styles";
+      style.id = "tenant-row-styles";
       style.textContent = `
-                .tenant-detail-card {
-                    transition: transform 0.2s ease, box-shadow 0.2s ease;
-                    border: 1px solid #dee2e6;
+                .tm-row {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
+                    cursor: pointer;
+                    border-radius: 10px;
+                    padding: 10px;
+                    margin-bottom: 6px;
+                    border: 1px solid transparent;
+                    background: white;
+                    transition: background 0.15s, border-color 0.15s;
+                }
+                .tm-row-thumb {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    flex-shrink: 0;
+                }
+                .tm-row:hover {
+                    background: #eef1ff;
+                }
+                .tm-row-selected {
+                    background: #e0e7ff;
+                    border-color: #667eea;
+                }
+                .tm-row.tenant-card-selected {
+                    border: 2px solid #0d6efd !important;
+                    box-shadow: 0 0 0 3px rgba(13,110,253,0.15);
+                }
+                .tm-row-outdated > *:not(.tenant-select-check):not(.tm-row-edit-btn) {
+                    opacity: 0.55;
+                }
+                .tm-row-edit-btn {
+                    opacity: 0;
+                    transition: opacity 0.15s;
+                    align-self: center;
+                }
+                .tm-row:hover .tm-row-edit-btn,
+                .tm-row-edit-btn:focus {
+                    opacity: 1;
+                }
+                .tm-roommate-group {
+                    border-left: 3px solid #9C27B0;
+                    background: rgba(156, 39, 176, 0.05);
+                    border-radius: 8px;
+                    padding: 6px 6px 0 8px;
+                    margin-bottom: 6px;
+                }
+                .tm-roommate-group-label {
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    color: #9C27B0;
+                    text-transform: uppercase;
+                    letter-spacing: 0.03em;
+                    margin-bottom: 4px;
+                    padding-left: 2px;
+                }
+                .tm-roommate-group .tm-row {
+                    background: white;
+                }
+                .tm-roommate-group-outdated {
+                    border-left-color: #9e9e9e;
+                    background: rgba(158,158,158,0.06);
+                }
+                .tm-roommate-group-outdated .tm-roommate-group-label {
+                    color: #757575;
+                }
+                .tm-detail-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                    gap: 0.75rem 1.5rem;
+                }
+                .tm-detail-label {
+                    font-size: 0.72rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.03em;
+                    color: #6c757d;
+                    font-weight: 600;
+                    margin-bottom: 2px;
+                }
+                .tm-detail-value {
+                    font-size: 0.95rem;
                 }
                 .prop-copy-val {
                     border-radius: 4px;
@@ -959,20 +1090,6 @@ class TenantManagementComponent {
                 .prop-copy-val:hover {
                     background: #e9f0ff;
                     color: #0d6efd;
-                }
-                .tenant-detail-card .card-body {
-                    padding: 0.75rem 0.5rem;
-                }
-                .tenant-detail-card:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 8px 16px rgba(0,0,0,0.15) !important;
-                }
-                .tenant-outdated {
-                    background-color: #f8f9fa;
-                    border-color: #ced4da;
-                }
-                .tenant-outdated .card-body > *:not(.btn-group) {
-                    opacity: 0.6;
                 }
                 .tenant-select-check {
                     position: absolute;
@@ -1013,11 +1130,6 @@ class TenantManagementComponent {
                     cursor: not-allowed;
                     pointer-events: none;
                 }
-                .tenant-detail-card.tenant-card-selected {
-                    border: 2px solid #0d6efd !important;
-                    box-shadow: 0 0 0 4px rgba(13,110,253,0.15), 0 8px 16px rgba(13,110,253,0.25) !important;
-                    background: linear-gradient(180deg, rgba(13,110,253,0.06) 0%, rgba(255,255,255,1) 55%);
-                }
                 @keyframes tenantCardPop {
                     0% { transform: scale(1); }
                     40% { transform: scale(1.045); }
@@ -1036,63 +1148,6 @@ class TenantManagementComponent {
                     color: #fff !important;
                     background-color: #198754 !important;
                     border-color: #198754 !important;
-                }
-                .roommate-group-container {
-                    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
-                    border: 3px solid #2196F3;
-                    border-radius: 16px;
-                    padding: 20px;
-                    margin-bottom: 10px;
-                    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
-                    position: relative;
-                }
-                .roommate-group-container::before {
-                    content: "";
-                    position: absolute;
-                    top: -2px;
-                    left: -2px;
-                    right: -2px;
-                    bottom: -2px;
-                    background: linear-gradient(45deg, #2196F3, #9C27B0, #2196F3);
-                    border-radius: 16px;
-                    z-index: -1;
-                    opacity: 0;
-                    transition: opacity 0.3s ease;
-                }
-                .roommate-group-container:hover::before {
-                    opacity: 1;
-                    animation: borderGlow 3s linear infinite;
-                }
-                @keyframes borderGlow {
-                    0%, 100% {
-                        background: linear-gradient(45deg, #2196F3, #9C27B0, #2196F3);
-                    }
-                    50% {
-                        background: linear-gradient(45deg, #9C27B0, #2196F3, #9C27B0);
-                    }
-                }
-                .roommate-group-container.group-outdated {
-                    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-                    border-color: #9e9e9e;
-                    opacity: 0.7;
-                }
-                .roommate-group-header {
-                    background: white;
-                    padding: 12px 20px;
-                    border-radius: 10px;
-                    margin-bottom: 15px;
-                    font-size: 1.1rem;
-                    color: #1976D2;
-                    display: flex;
-                    align-items: center;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                }
-                .roommate-group-header i {
-                    font-size: 1.3rem;
-                }
-                .roommate-group-container .tenant-detail-card {
-                    border: 2px solid #ffffff;
-                    background: white;
                 }
                 .tenant-todo-badge {
                     position: relative;
@@ -1690,15 +1745,16 @@ class TenantManagementComponent {
   }
 
   showEmptyState(message = "No tenants found") {
-    const tbody = document.getElementById("tenantsTableBody");
-    if (!tbody) return;
+    const container = document.getElementById("tenantsContainer");
+    if (!container) return;
 
-    tbody.innerHTML = `
+    container.innerHTML = `
             <div class="text-center text-muted py-5">
                 <i class="bi bi-people fs-1 d-block mb-3"></i>
                 <p class="fs-5">${message}</p>
             </div>
         `;
+    this.showTenantDetailPanel(null);
 
     // Update badge to show 0 when empty
     this.updateRegisteredTenantsBadge();
@@ -1729,9 +1785,9 @@ class TenantManagementComponent {
 
     // Global backend search across all tenants
     this._globalSearchActive = true;
-    const tbody = document.getElementById("tenantsTableBody");
-    if (tbody) {
-      tbody.innerHTML = `
+    const container = document.getElementById("tenantsContainer");
+    if (container) {
+      container.innerHTML = `
         <div class="d-flex align-items-center justify-content-center py-5 gap-2 text-muted">
           <span class="spinner-border spinner-border-sm"></span>
           <span>Searching all tenants…</span>
@@ -1751,17 +1807,17 @@ class TenantManagementComponent {
         return;
       }
 
-      // Render results — each card shows property badges
-      const savedTenants = this.tenants;
-      const savedProperty = this.selectedProperty;
+      // Render results — each row shows a property chip. Deliberately keep
+      // this.tenants pointed at the search results (rather than restoring
+      // the previous property's list) so Edit/Copy/Delete/select on a
+      // result keep working against the tenant actually shown; the next
+      // property switch or cleared search reloads the real list anyway.
       this.tenants = found;
       this._globalSearchActive = true; // keep flag for renderTenantsTable
       await this.renderTenantsTable();
-      this.tenants = savedTenants;
-      // Don't restore selectedProperty — banner already shows context
     } catch (err) {
       console.error("Global tenant search error:", err);
-      if (tbody) tbody.innerHTML = `<div class="text-center text-danger py-4">Search failed. Please try again.</div>`;
+      if (container) container.innerHTML = `<div class="text-center text-danger py-4">Search failed. Please try again.</div>`;
     }
   }
 
@@ -1771,8 +1827,8 @@ class TenantManagementComponent {
       banner = document.createElement("div");
       banner.id = "tenantSearchBanner";
       banner.style.cssText = "padding:6px 16px 0;";
-      const tbody = document.getElementById("tenantsTableBody");
-      tbody?.parentElement?.insertBefore(banner, tbody);
+      const container = document.getElementById("tenantsContainer");
+      container?.parentElement?.insertBefore(banner, container);
     }
     banner.innerHTML = `
       <div class="alert alert-info py-2 px-3 mb-2 d-flex align-items-center gap-2" style="font-size:13px;">
@@ -3030,6 +3086,10 @@ class TenantManagementComponent {
         // Notify other modules that tenant data has changed
         if (window.dashboardController) {
           window.dashboardController.markTenantDataChanged();
+        }
+        // Show the newly created tenant in the detail panel once the list reloads
+        if (result.tenant?._id) {
+          this.selectedTenantId = result.tenant._id;
         }
         // Reload the list
         if (this.selectedProperty === "UNASSIGNED") {

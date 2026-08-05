@@ -1,6 +1,9 @@
 // Note: showToast and escapeHtml are expected to be available globally
 import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
-import { getGroupLinkMeta } from "../utils/social-links.js";
+import {
+  getGroupLinkMeta,
+  facebookToMessengerUrl,
+} from "../utils/social-links.js";
 import i18next from "../i18n.js";
 import {
   getCategoryEmoji,
@@ -27,6 +30,9 @@ class FinancialReportsComponent {
     this.selectedProperty = null;
     this.currentDate = new Date();
     this.currentReport = null;
+    this.isLoadingFinancialData = false; // true while a report reload is in flight — swaps income/expense/investor lists to shimmer skeletons instead of flashing stale/empty content
+    this._lastIncomeCount = null; // last rendered income row count, reused so the next skeleton matches the real row height/count as closely as possible
+    this._lastExpenseCount = null;
     this.investors = [];
     this.allInvestors = []; // All investors in the app (for Paid To dropdown)
     this.tenants = []; // Store tenants for selected property
@@ -785,6 +791,7 @@ class FinancialReportsComponent {
 
     this.selectedProperty = propertyId;
     this.currentReport = null; // clear stale report so month display is immediately correct
+    this.investors = []; // clear so the skeleton below doesn't show the previous property's investors
     this.propertySubsidy = 0;
     this._utilityBills = [];
     document.getElementById("financialReportContent").style.display = "block";
@@ -794,6 +801,15 @@ class FinancialReportsComponent {
 
     // Show the correct month/year immediately — no network call needed
     this.updateMonthDisplay();
+
+    // Switching property means at least 3 requests before there's anything
+    // real to show, so show the shimmer skeleton right away rather than
+    // leaving the previous property's items on screen in the meantime.
+    this.isLoadingFinancialData = true;
+    this.updateIncomeDisplay();
+    this.updateExpenseDisplay();
+    this.updateSummaryDisplay();
+    this.updateInvestorDisplay();
 
     // Load investors, tenants, property details, and utility bills in parallel
     await Promise.all([
@@ -878,6 +894,21 @@ class FinancialReportsComponent {
       editBtn.style.background = "rgba(255,255,255,0.2)";
     }
 
+    // Don't flash a shimmer skeleton for near-instant responses (e.g. after
+    // saving a single item) — only switch to it once the fetch has actually
+    // taken a moment, so fast reloads swap straight to the real content
+    // with zero flicker. Callers that already know the wait will be
+    // noticeable (selectProperty/changeMonth switching context) set the
+    // skeleton themselves before calling this, so it's already showing by
+    // the time this timer would fire.
+    const skeletonDelay = setTimeout(() => {
+      this.isLoadingFinancialData = true;
+      this.updateIncomeDisplay();
+      this.updateExpenseDisplay();
+      this.updateSummaryDisplay();
+      this.updateInvestorDisplay();
+    }, 150);
+
     try {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
@@ -919,7 +950,6 @@ class FinancialReportsComponent {
         `loadFinancialReport: Calling updateDisplays with:`,
         this.currentReport,
       );
-      await this.updateDisplays();
     } catch (error) {
       console.error("Error loading financial report:", error);
       // Don't show error alert - just log it and continue with empty report
@@ -934,6 +964,9 @@ class FinancialReportsComponent {
         totalExpenses: 0,
         netProfit: 0,
       };
+    } finally {
+      clearTimeout(skeletonDelay);
+      this.isLoadingFinancialData = false;
       await this.updateDisplays();
     }
   }
@@ -1070,15 +1103,199 @@ class FinancialReportsComponent {
     }
   }
 
+  // ─── Shimmer skeleton loading state ────────────────────────────────────────
+  // While a report reload is in flight (this.isLoadingFinancialData), the
+  // income/expense/investor sections render shimmer placeholders instead of
+  // either leaving stale data on screen or flashing an empty-state message.
+  // Two tricks keep the swap from ever visibly shifting the page:
+  //  1. Skeleton rows are sized to match the real row's height/paddings, and
+  //     income/expense default to the last known item count (_lastIncomeCount
+  //     /_lastExpenseCount) so the placeholder list is the same length as
+  //     what's about to replace it in the common case (switching between
+  //     months/properties with a similar number of items).
+  //  2. The investor table doesn't need to guess at all — investor identity
+  //     (avatar/name/%) and the edit/remove buttons are already known before
+  //     the report finishes loading, so only the 4 money columns that
+  //     actually depend on the report (Profit Share/Paid/Received/Final)
+  //     shimmer; row count and every other pixel stay identical.
+  _ensureSkeletonStyles() {
+    if (document.getElementById("fr-skeleton-styles")) return;
+    const style = document.createElement("style");
+    style.id = "fr-skeleton-styles";
+    style.textContent = `
+      @keyframes fr-shimmer {
+        0% { background-position: -420px 0; }
+        100% { background-position: 420px 0; }
+      }
+      .fr-skel {
+        display: inline-block;
+        vertical-align: middle;
+        border-radius: 5px;
+        background: linear-gradient(90deg, #eceff1 25%, #f8f9fa 37%, #eceff1 63%);
+        background-size: 420px 100%;
+        animation: fr-shimmer 1.4s ease-in-out infinite;
+      }
+      .fr-skel-circle { border-radius: 50%; flex-shrink: 0; }
+      @keyframes fr-fadein { from { opacity: 0; } to { opacity: 1; } }
+      .fr-fade-in { animation: fr-fadein .22s ease both; }
+      @keyframes fr-valuepulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+      .fr-value-pulse { animation: fr-valuepulse 1.3s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .fr-skel { animation: none; }
+        .fr-value-pulse { animation: none; opacity: .6; }
+        .fr-fade-in { animation: none; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  _skelBar(width, height = 12, extraStyle = "") {
+    return `<span class="fr-skel" style="width:${width};height:${height}px;${extraStyle}"></span>`;
+  }
+
+  _skelCircle(size) {
+    return `<span class="fr-skel fr-skel-circle" style="width:${size}px;height:${size}px;"></span>`;
+  }
+
+  // Shared desktop-table + mobile-card skeleton for the income/expense
+  // sections. `kind` picks the accent color and header background so it
+  // still reads as "Income" (green) vs "Expense" (red) while loading.
+  _renderItemListSkeleton(kind) {
+    const isIncome = kind === "income";
+    const headerBg = isIncome ? "#d1e7dd" : "#f8d7da";
+    const accent = isIncome ? "#198754" : "#dc3545";
+    const lastCount = isIncome ? this._lastIncomeCount : this._lastExpenseCount;
+    const count = Math.min(Math.max(lastCount || 3, 2), 10);
+    const GRID = "18px 26px minmax(140px,2fr) 54px 58px 76px 90px 112px";
+    const cell = (content, opts = {}) => `
+      <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}">${content}</div>`;
+
+    let rows = "";
+    for (let i = 0; i < count; i++) {
+      // Vary the item-name bar width a little per row so the skeleton
+      // doesn't look like a mechanically repeated stamp.
+      const nameWidth = `${58 + ((i * 13) % 28)}%`;
+      rows += `
+        <div style="display:grid;grid-template-columns:${GRID};gap:4px;align-items:center;padding:7px 4px;border-bottom:1px solid #f1f3f5;">
+          ${cell("")}
+          ${cell("")}
+          ${cell(this._skelBar(nameWidth, 13))}
+          ${cell(this._skelBar("32px", 11))}
+          ${cell(`<div class="d-flex justify-content-center">${this._skelCircle(30)}</div>`)}
+          ${cell(this._skelBar("30px", 11), { align: "center" })}
+          ${cell(this._skelBar("50px", 15), { align: "right" })}
+          ${cell(`<div class="d-flex justify-content-center gap-1">${this._skelCircle(22)}${this._skelCircle(22)}</div>`, { align: "center" })}
+        </div>`;
+    }
+
+    let cards = "";
+    for (let i = 0; i < count; i++) {
+      const nameWidth = `${45 + ((i * 11) % 25)}%`;
+      cards += `
+        <div style="display:flex;align-items:center;gap:8px;padding:12px;background:#fff;border-radius:10px;border:1px solid #e9ecef;border-left:3px solid ${accent}33;">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              ${this._skelBar(nameWidth, 13)}
+              ${this._skelBar("46px", 13)}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${this._skelBar("38px", 10)}
+              ${this._skelCircle(20)}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="d-none d-md-block" style="overflow-x:auto;">
+        <div style="min-width:700px;">
+          <div style="display:grid;grid-template-columns:${GRID};gap:4px;align-items:center;padding:6px 4px;background:${headerBg};border-radius:4px 4px 0 0;">
+            ${cell("")}${cell("")}
+            ${cell("Item", { cls: "small fw-semibold" })}
+            ${cell("Date", { cls: "small fw-semibold" })}
+            ${cell("Person", { cls: "small fw-semibold" })}
+            ${cell(isIncome ? "Paid By" : "Paid To", { cls: "small fw-semibold" })}
+            ${cell("Amount", { cls: "small fw-semibold", align: "right" })}
+            ${cell("Actions", { cls: "small fw-semibold", align: "center" })}
+          </div>
+          ${rows}
+        </div>
+      </div>
+      <div class="d-md-none d-flex flex-column gap-2">${cards}</div>
+    `;
+  }
+
+  // Investor row skeleton where identity (avatar/name/%) and the actions
+  // column are already known — only the 4 report-derived money columns
+  // shimmer, so this exactly matches the real row's layout and height.
+  _investorGridRowSkeletonHtml({ avatar, name, percentage, actionsHtml }) {
+    const cell = (content, opts = {}) => `
+      <div class="small ${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}">${content}</div>`;
+    const avatarHtml = avatar
+      ? `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(name)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;">`
+      : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
+
+    return `
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5;">
+        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold">${escapeHtml(name)}</span></div>`)}
+        ${cell(`${percentage}%`, { align: "center", cls: "fw-bold" })}
+        ${cell(this._skelBar("56px", 15), { align: "right" })}
+        ${cell(this._skelBar("48px", 15), { align: "right" })}
+        ${cell(this._skelBar("52px", 15), { align: "right" })}
+        ${cell(this._skelBar("58px", 15), { align: "right" })}
+        ${actionsHtml ? cell(actionsHtml, { align: "center" }) : ""}
+      </div>`;
+  }
+
+  // Fallback for when investors aren't known yet either (e.g. right after
+  // switching property, before loadInvestors() resolves) — fully generic.
+  _renderInvestorRowsSkeleton(count = 2) {
+    let rows = "";
+    for (let i = 0; i < count; i++) {
+      const cell = (content, opts = {}) => `
+        <div style="${opts.align ? `text-align:${opts.align};` : ""}">${content}</div>`;
+      rows += `
+        <div style="display:grid;grid-template-columns:${this._investorGridColumns(true)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5;">
+          ${cell(`<div class="d-flex align-items-center gap-2">${this._skelCircle(36)}${this._skelBar("42%", 13)}</div>`)}
+          ${cell(this._skelBar("26px", 13), { align: "center" })}
+          ${cell(this._skelBar("56px", 15), { align: "right" })}
+          ${cell(this._skelBar("48px", 15), { align: "right" })}
+          ${cell(this._skelBar("52px", 15), { align: "right" })}
+          ${cell(this._skelBar("58px", 15), { align: "right" })}
+          ${cell("")}
+        </div>`;
+    }
+    return `
+      <div style="overflow-x:auto;">
+        <div style="min-width:640px;">
+          ${this._investorGridHeaderHtml(true)}
+          ${rows}
+        </div>
+      </div>`;
+  }
+
   updateIncomeDisplay() {
     const incomeList = document.getElementById("incomeList");
     const totalIncomeEl = document.getElementById("totalIncome");
+
+    if (this.isLoadingFinancialData) {
+      this._ensureSkeletonStyles();
+      incomeList.innerHTML = `<div class="fr-fade-in">${this._renderItemListSkeleton("income")}</div>`;
+      this._updateItemCountBadge("incomeItemCountBadge", 0);
+      // Keep showing the last known total, just dimmed/pulsing — resetting
+      // it to $0.00 while loading is exactly the kind of flash-then-jump
+      // this skeleton exists to avoid.
+      if (totalIncomeEl) totalIncomeEl.classList.add("fr-value-pulse");
+      return;
+    }
+    if (totalIncomeEl) totalIncomeEl.classList.remove("fr-value-pulse");
 
     if (
       !this.currentReport ||
       !this.currentReport.income ||
       this.currentReport.income.length === 0
     ) {
+      this._lastIncomeCount = 0;
       incomeList.innerHTML = `
                 <div class="text-center text-muted py-2" id="noIncomeMessage">
                     <i class="bi bi-plus-circle fs-4"></i>
@@ -1090,6 +1307,7 @@ class FinancialReportsComponent {
       return;
     }
 
+    this._lastIncomeCount = this.currentReport.income.length;
     this._updateItemCountBadge(
       "incomeItemCountBadge",
       this.currentReport.income.length,
@@ -1353,7 +1571,7 @@ class FinancialReportsComponent {
 
     let html = `${incomeBulkBar}${tableHtml}${cardsHtml}`;
 
-    incomeList.innerHTML = html;
+    incomeList.innerHTML = `<div class="fr-fade-in">${html}</div>`;
     if (totalIncomeEl) {
       totalIncomeEl.textContent = `$${total.toFixed(2)}`;
 
@@ -1398,11 +1616,21 @@ class FinancialReportsComponent {
     const expenseList = document.getElementById("expenseList");
     const totalExpensesEl = document.getElementById("totalExpenses");
 
+    if (this.isLoadingFinancialData) {
+      this._ensureSkeletonStyles();
+      expenseList.innerHTML = `<div class="fr-fade-in">${this._renderItemListSkeleton("expense")}</div>`;
+      this._updateItemCountBadge("expenseItemCountBadge", 0);
+      if (totalExpensesEl) totalExpensesEl.classList.add("fr-value-pulse");
+      return;
+    }
+    if (totalExpensesEl) totalExpensesEl.classList.remove("fr-value-pulse");
+
     if (
       !this.currentReport ||
       !this.currentReport.expenses ||
       this.currentReport.expenses.length === 0
     ) {
+      this._lastExpenseCount = 0;
       expenseList.innerHTML = `
                 <div class="text-center text-muted py-2">
                     <i class="bi bi-dash-circle fs-4"></i>
@@ -1414,6 +1642,7 @@ class FinancialReportsComponent {
       return;
     }
 
+    this._lastExpenseCount = this.currentReport.expenses.length;
     this._updateItemCountBadge(
       "expenseItemCountBadge",
       this.currentReport.expenses.length,
@@ -1662,7 +1891,7 @@ class FinancialReportsComponent {
     cardsHtml += `</div>`;
 
     let html = `${expenseBulkBar}${tableHtml}${cardsHtml}`;
-    expenseList.innerHTML = html;
+    expenseList.innerHTML = `<div class="fr-fade-in">${html}</div>`;
     if (totalExpensesEl) {
       totalExpensesEl.textContent = `$${total.toFixed(2)}`;
 
@@ -1693,6 +1922,14 @@ class FinancialReportsComponent {
   updateSummaryDisplay() {
     const netProfitEl = document.getElementById("netProfit");
 
+    if (this.isLoadingFinancialData) {
+      // Leave the last known figure on screen (just pulsing) instead of
+      // dropping to $0.00 while the new report loads.
+      this._ensureSkeletonStyles();
+      if (netProfitEl) netProfitEl.classList.add("fr-value-pulse");
+      return;
+    }
+
     if (!this.currentReport) {
       // No report loaded - show $0.00
       if (netProfitEl) {
@@ -1717,6 +1954,33 @@ class FinancialReportsComponent {
     const investorDistribution = document.getElementById(
       "investorDistribution",
     );
+
+    if (this.isLoadingFinancialData) {
+      this._ensureSkeletonStyles();
+      // Investor identity (avatar/name/%) doesn't come from the report that's
+      // reloading — it's already known — so show it for real and only
+      // shimmer the 4 money columns that do depend on the report. When
+      // investors themselves aren't loaded yet either (e.g. right after
+      // switching property), fall back to a fully generic skeleton.
+      const html =
+        this.investors && this.investors.length > 0
+          ? `<div style="overflow-x:auto;"><div style="min-width:640px;">${this._investorGridHeaderHtml(true)}${this.investors
+              .map((investor) => {
+                const propertyData = investor.properties.find(
+                  (p) => p.propertyId === this.selectedProperty,
+                );
+                return this._investorGridRowSkeletonHtml({
+                  avatar: investor.avatar,
+                  name: investor.name,
+                  percentage: propertyData ? propertyData.percentage : 0,
+                  actionsHtml: this._investorActionsHtml(investor.investorId),
+                });
+              })
+              .join("")}</div></div>`
+          : this._renderInvestorRowsSkeleton(2);
+      investorDistribution.innerHTML = `<div class="fr-fade-in">${html}</div>`;
+      return;
+    }
 
     // Check if report is closed and has snapshot data - use frozen snapshot instead of recalculating
     const isClosed = this.currentReport && this.currentReport.isClosed;
@@ -1797,19 +2061,7 @@ class FinancialReportsComponent {
       // Formula: Final = Profit Share + Paid - Received
       const finalAmount = profitShare + paidAmount - receivedAmount;
 
-      const actionsHtml = `
-        <div class="btn-group btn-group-sm">
-          <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${
-            investor.investorId
-          }')" title="Edit">
-            <i class="bi bi-pencil"></i>
-          </button>
-          <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${
-            investor.investorId
-          }')" title="Remove">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>`;
+      const actionsHtml = this._investorActionsHtml(investor.investorId);
 
       html += this._investorGridRowHtml({
         avatar: investor.avatar,
@@ -1843,6 +2095,18 @@ class FinancialReportsComponent {
   // #investorDistribution container, so both call these same helpers to stay
   // visually identical on the columns they share; the live view adds a
   // trailing Actions column the snapshot view omits.
+  _investorActionsHtml(investorId) {
+    return `
+      <div class="btn-group btn-group-sm">
+        <button class="btn btn-outline-primary btn-sm p-1" onclick="window.financialReports.editInvestor('${investorId}')" title="Edit">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm p-1" onclick="window.financialReports.removeInvestor('${investorId}')" title="Remove">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>`;
+  }
+
   _investorGridColumns(withActions) {
     const base =
       "minmax(160px,2fr) 90px minmax(110px,1fr) minmax(100px,1fr) minmax(100px,1fr) minmax(110px,1fr)";
@@ -2205,6 +2469,9 @@ class FinancialReportsComponent {
           const phoneNumber = tenant.phoneNumber || "";
           const roomType = this.getRoomTypeDisplayName(tenant.roomType);
           const facebookUrl = tenant.facebookUrl || "";
+          const messengerUrl = facebookUrl
+            ? facebookToMessengerUrl(facebookUrl)
+            : null;
           const tenantAvatar = tenant.avatar || "";
           const roommateName = tenant.roommateId?.name || "";
           const roommateAvatar = tenant.roommateId?.avatar || "";
@@ -2292,7 +2559,13 @@ class FinancialReportsComponent {
                 ${rentBadge}
                 ${cleaningBadge}
                 ${pubBadge}
-                ${phoneNumber ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>` : ""}
+                ${
+                  messengerUrl
+                    ? `<a href="${escapeHtml(messengerUrl)}" target="_blank" rel="noopener noreferrer" class="badge text-white text-decoration-none" style="background:#0084ff;" title="Message on Messenger"><i class="bi bi-messenger me-1"></i>Messenger</a>`
+                    : phoneNumber
+                      ? `<a href="https://wa.me/${escapeHtml(phoneNumber.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener noreferrer" class="badge bg-success text-white text-decoration-none" title="Chat on WhatsApp"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>`
+                      : ""
+                }
                 ${facebookUrl ? `<a href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-white text-decoration-none" title="View Facebook Profile"><i class="bi bi-facebook me-1"></i>Facebook</a>` : ""}
                 ${roommateAvatarHtml}
               </div>
@@ -2356,7 +2629,11 @@ class FinancialReportsComponent {
     // Reset any pending close state when changing months
     this.pendingClose = false;
 
-    // Clear displays immediately to show loading state
+    // Show the shimmer skeleton immediately instead of the old "No income
+    // items added" flash — investors are unchanged for the new month, so
+    // updateInvestorDisplay() renders known avatar/name/% instantly and
+    // only shimmers the money columns that actually depend on the report.
+    this.isLoadingFinancialData = true;
     this.updateIncomeDisplay();
     this.updateExpenseDisplay();
     this.updateSummaryDisplay();
