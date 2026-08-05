@@ -498,6 +498,17 @@ i18next.init({
           addBill: "Add Bill",
           back: "Back",
           quickDropHint: "Drop PDF bill here or click to upload",
+          quickDropSub: "PDF · JPG · PNG — auto OCR",
+          quickDropHintNoProperty: "Drop a bill — we'll find the property",
+          quickDropSubNoProperty:
+            "Reads the account number & month from the filename",
+          noAccountNumberDetected:
+            "Couldn't read an account number from the filename — select a property first.",
+          noPropertyMatchedAccount:
+            "No property matches account #{{accountNumber}} — select one below or add it to a property.",
+          propertyAutoMatched: "Matched property from filename: {{label}}",
+          propertyReselected:
+            "Switched to {{label}} — filename's account number belongs to this property",
           selectProperty: "Select Property",
           loadingProperties: "Loading properties…",
           addNewBill: "Add New Bill",
@@ -572,6 +583,7 @@ i18next.init({
             "OCR could not parse the bill automatically. Please fill in the fields manually.",
           ocrComplete:
             "OCR Complete — values filled below. Please verify before saving.",
+          ocrProperty: "Property",
           ocrAccountNo: "Account No.",
           ocrBillingPeriod: "Billing Period",
           ocrBillDate: "Bill Date",
@@ -1116,6 +1128,17 @@ i18next.init({
           addBill: "Thêm hóa đơn",
           back: "Quay lại",
           quickDropHint: "Thả hóa đơn PDF vào đây hoặc click để tải lên",
+          quickDropSub: "PDF · JPG · PNG — OCR tự động",
+          quickDropHintNoProperty: "Thả hóa đơn vào đây — tự tìm nhà phù hợp",
+          quickDropSubNoProperty:
+            "Đọc số tài khoản & tháng từ tên file",
+          noAccountNumberDetected:
+            "Không đọc được số tài khoản từ tên file — vui lòng chọn nhà trước.",
+          noPropertyMatchedAccount:
+            "Không có nhà nào khớp với số tài khoản #{{accountNumber}} — chọn nhà bên dưới hoặc thêm số này vào một nhà.",
+          propertyAutoMatched: "Đã khớp nhà từ tên file: {{label}}",
+          propertyReselected:
+            "Đã chuyển sang {{label}} — số tài khoản trong tên file thuộc về nhà này",
           selectProperty: "Chọn nhà",
           loadingProperties: "Đang tải danh sách nhà…",
           addNewBill: "Thêm hóa đơn mới",
@@ -1187,6 +1210,7 @@ i18next.init({
           ocrFailed: "OCR không đọc được hóa đơn. Vui lòng nhập tay.",
           ocrComplete:
             "OCR xong — đã điền thông tin bên dưới. Vui lòng kiểm tra trước khi lưu.",
+          ocrProperty: "Nhà",
           ocrAccountNo: "Số tài khoản",
           ocrBillingPeriod: "Kỳ tính tiền",
           ocrBillDate: "Ngày hóa đơn",

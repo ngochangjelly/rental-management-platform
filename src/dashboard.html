@@ -7084,6 +7084,27 @@
                     >
                       <div class="mb-3">
                         <label
+                          for="spAccountNumber"
+                          class="form-label fw-semibold"
+                        >
+                          <i class="bi bi-hash me-1 text-info"></i>SP Account
+                          Number
+                        </label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="spAccountNumber"
+                          name="spAccountNumber"
+                          placeholder="e.g. 8955488633"
+                          autocomplete="off"
+                        />
+                        <div class="form-text">
+                          Used to auto-match uploaded bill PDFs to this
+                          property.
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                        <label
                           for="spAccountUsername"
                           class="form-label fw-semibold"
                         >
@@ -11039,6 +11060,88 @@
                 </div>
               </div>
 
+              <!-- Quick PDF Drop Zone — always visible, even with no property
+                   selected: filename is scanned for an SP account number and
+                   billing month, which auto-selects the matching property. -->
+              <div id="utilityQuickDropZone" class="mb-3">
+                <!-- IDLE -->
+                <div class="qdz-state" id="utilityQdzIdle">
+                  <i class="bi bi-cloud-upload qdz-cloud-icon"></i>
+                  <div
+                    class="qdz-title"
+                    id="utilityQdzIdleTitle"
+                    data-i18n="utilityBillTracker.quickDropHint"
+                  >
+                    Drop PDF bill here or click to upload
+                  </div>
+                  <div class="qdz-sub" id="utilityQdzIdleSub">
+                    PDF · JPG · PNG &nbsp;—&nbsp; auto OCR
+                  </div>
+                </div>
+
+                <!-- UPLOADING -->
+                <div class="qdz-state" id="utilityQdzUploading" hidden>
+                  <div class="qdz-ring-wrap">
+                    <svg
+                      class="qdz-ring"
+                      width="80"
+                      height="80"
+                      viewBox="0 0 80 80"
+                    >
+                      <circle class="qdz-ring-bg" cx="40" cy="40" r="35" />
+                      <circle
+                        class="qdz-ring-fg"
+                        id="utilityQdzRingFg"
+                        cx="40"
+                        cy="40"
+                        r="35"
+                      />
+                    </svg>
+                    <span class="qdz-pct" id="utilityQdzPct">0%</span>
+                  </div>
+                  <div class="qdz-title" id="utilityQdzFileName">
+                    Analyzing bill…
+                  </div>
+                  <div class="qdz-sub" id="utilityQdzSubtext">
+                    Reading with OCR…
+                  </div>
+                </div>
+
+                <!-- SUCCESS -->
+                <div class="qdz-state" id="utilityQdzSuccess" hidden>
+                  <div class="qdz-check-wrap">
+                    <svg
+                      viewBox="0 0 72 72"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <circle
+                        class="qdz-check-circle"
+                        cx="36"
+                        cy="36"
+                        r="36"
+                      />
+                      <path class="qdz-check-mark" d="M19 36l13 13 21-22" />
+                    </svg>
+                  </div>
+                  <div class="qdz-title qdz-success-title" id="utilityQdzSuccessTitle">Bill parsed!</div>
+                  <div class="qdz-sub" id="utilityQdzSuccessSub">Opening form…</div>
+                </div>
+
+                <!-- ERROR -->
+                <div class="qdz-state" id="utilityQdzError" hidden>
+                  <i class="bi bi-exclamation-circle qdz-error-icon"></i>
+                  <div class="qdz-title qdz-error-title" id="utilityQdzErrorTitle">Parse failed</div>
+                  <div class="qdz-sub" id="utilityQdzErrorSub">Form opened — fill in manually</div>
+                </div>
+
+                <input
+                  type="file"
+                  id="utilityQuickDropInput"
+                  accept="image/jpeg,image/png,image/heic,image/heif,application/pdf,.pdf"
+                  class="d-none"
+                />
+              </div>
+
               <!-- Content (shown after property selected) -->
               <div id="utilityBillContent" hidden>
                 <!-- FB Group Links -->
@@ -11050,85 +11153,6 @@
 
                 <!-- SP Utility Account -->
                 <div id="utilitySpAccount" class="mb-3" style="display: none"></div>
-
-                <!-- Quick PDF Drop Zone -->
-                <div id="utilityQuickDropZone" class="mb-3">
-                  <!-- IDLE -->
-                  <div class="qdz-state" id="utilityQdzIdle">
-                    <i class="bi bi-cloud-upload qdz-cloud-icon"></i>
-                    <div
-                      class="qdz-title"
-                      data-i18n="utilityBillTracker.quickDropHint"
-                    >
-                      Drop PDF bill here or click to upload
-                    </div>
-                    <div class="qdz-sub">
-                      PDF · JPG · PNG &nbsp;—&nbsp; auto OCR
-                    </div>
-                  </div>
-
-                  <!-- UPLOADING -->
-                  <div class="qdz-state" id="utilityQdzUploading" hidden>
-                    <div class="qdz-ring-wrap">
-                      <svg
-                        class="qdz-ring"
-                        width="80"
-                        height="80"
-                        viewBox="0 0 80 80"
-                      >
-                        <circle class="qdz-ring-bg" cx="40" cy="40" r="35" />
-                        <circle
-                          class="qdz-ring-fg"
-                          id="utilityQdzRingFg"
-                          cx="40"
-                          cy="40"
-                          r="35"
-                        />
-                      </svg>
-                      <span class="qdz-pct" id="utilityQdzPct">0%</span>
-                    </div>
-                    <div class="qdz-title" id="utilityQdzFileName">
-                      Analyzing bill…
-                    </div>
-                    <div class="qdz-sub" id="utilityQdzSubtext">
-                      Reading with OCR…
-                    </div>
-                  </div>
-
-                  <!-- SUCCESS -->
-                  <div class="qdz-state" id="utilityQdzSuccess" hidden>
-                    <div class="qdz-check-wrap">
-                      <svg
-                        viewBox="0 0 72 72"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <circle
-                          class="qdz-check-circle"
-                          cx="36"
-                          cy="36"
-                          r="36"
-                        />
-                        <path class="qdz-check-mark" d="M19 36l13 13 21-22" />
-                      </svg>
-                    </div>
-                    <div class="qdz-title qdz-success-title">Bill parsed!</div>
-                    <div class="qdz-sub">Opening form…</div>
-                  </div>
-
-                  <!-- ERROR -->
-                  <div class="qdz-state" id="utilityQdzError" hidden>
-                    <i class="bi bi-exclamation-circle qdz-error-icon"></i>
-                    <div class="qdz-title qdz-error-title">Parse failed</div>
-                    <div class="qdz-sub">Form opened — fill in manually</div>
-                  </div>
-
-                  <input
-                    type="file"
-                    id="utilityQuickDropInput"
-                    accept="image/jpeg,image/png,image/heic,image/heif,application/pdf,.pdf"
-                    class="d-none"
-                  />
-                </div>
 
                 <!-- Upload / OCR Form Panel -->
                 <div

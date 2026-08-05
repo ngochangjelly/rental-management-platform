@@ -98,7 +98,33 @@ class UtilityBillTrackerComponent {
   }
 
   async _handleQuickDrop(file) {
-    if (!this.selectedProperty) return;
+    const hints = this._parseBillFilenameHints(file.name);
+    const match = this._findPropertyByAccountNumber(hints.accountNumber);
+
+    if (!this.selectedProperty) {
+      // No property picked yet — try to resolve one from the filename's
+      // account number before we can OCR/save anything.
+      if (!match) {
+        this._qdzShowError(
+          hints.accountNumber
+            ? i18next.t('utilityBillTracker.noPropertyMatchedAccount', { accountNumber: hints.accountNumber })
+            : i18next.t('utilityBillTracker.noAccountNumberDetected'),
+        );
+        await new Promise(r => setTimeout(r, 2600));
+        this._qdzSetState('idle');
+        return;
+      }
+      await this.selectProperty(match.propertyId);
+      this._showToast(i18next.t('utilityBillTracker.propertyAutoMatched', { label: match.address || match.propertyId }), 'success');
+    } else if (match && match.propertyId !== this.selectedProperty) {
+      // Guard: a property is already selected, but the filename's account
+      // number belongs to a *different* property — reselect that one so the
+      // bill doesn't land under the wrong property. If the account number
+      // can't be matched to anyone, we deliberately fall through and keep
+      // uploading to the currently selected property.
+      await this.selectProperty(match.propertyId);
+      this._showToast(i18next.t('utilityBillTracker.propertyReselected', { label: match.address || match.propertyId }), 'info');
+    }
 
     this.editingBillId = null;
     this._resetForm();
@@ -143,6 +169,9 @@ class UtilityBillTrackerComponent {
       document.getElementById('utilityOcrSection')?.removeAttribute('hidden');
       this._showOcrResult(data.data, data.rawText);
       this._fillFormFromOcr(data.data);
+      // Filename-derived year/month/account fill in only what OCR missed —
+      // OCR reads the actual bill content, so it stays authoritative.
+      this._applyFilenameFallback(hints);
 
       // Mirror file in the form's drop zone
       const formDZ = document.getElementById('utilityBillDropZone');
@@ -163,12 +192,81 @@ class UtilityBillTrackerComponent {
     } catch (err) {
       console.error('[UtilityBillTracker] Quick drop OCR error:', err);
       stopSim();
+      const subEl = document.getElementById('utilityQdzErrorSub');
+      if (subEl) subEl.textContent = 'Form opened — fill in manually';
       this._qdzSetState('error');
       await new Promise(r => setTimeout(r, 1800));
       this._qdzSetState('idle');
       this._showAddForm(true);
+      // Filename hints still apply even when OCR itself failed.
+      this._applyFilenameFallback(hints);
       document.getElementById('utilityBillFormPanel')?.scrollIntoView({ behavior: 'smooth' });
     }
+  }
+
+  // ── Filename-based smart detection ──────────────────────────────────────────
+  // Bill filenames from SP Group / uploaders commonly look like
+  // "8955488633-Aug_2026.pdf" — a long digit run is the account number, and
+  // a month-name + year pair is the billing period.
+
+  _parseBillFilenameHints(filename) {
+    const base = (filename || '').replace(/\.[^./\\]+$/, '');
+    const monthAbbr = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+    // SP account numbers run ~10 digits — requiring 6+ digits reliably
+    // excludes a bare 4-digit year appearing elsewhere in the filename.
+    const digitRuns = base.match(/\d{6,}/g) || [];
+    const accountNumber = [...digitRuns].sort((a, b) => b.length - a.length)[0] || null;
+
+    const monthMatch = base.match(/([A-Za-z]{3,9})[\s_-]+(\d{4})/);
+    let month = null;
+    let year = null;
+    if (monthMatch) {
+      const key = monthMatch[1].slice(0, 3).toLowerCase();
+      if (monthAbbr[key]) {
+        month = monthAbbr[key];
+        year = parseInt(monthMatch[2], 10);
+      }
+    }
+    return { accountNumber, month, year };
+  }
+
+  _findPropertyByAccountNumber(accountNumber) {
+    if (!accountNumber) return null;
+    return this.properties.find((p) => p.spAccountNumber && p.spAccountNumber === accountNumber) || null;
+  }
+
+  _applyFilenameFallback(hints) {
+    if (!hints) return;
+    const setIfEmpty = (id, val) => {
+      if (val == null) return;
+      const el = document.getElementById(id);
+      if (el && !el.value) el.value = val;
+    };
+    setIfEmpty('utilityBillYear', hints.year);
+    setIfEmpty('utilityBillMonth', hints.month);
+    setIfEmpty('utilityBillAccountNo', hints.accountNumber);
+  }
+
+  // Idle-state copy changes depending on whether a property is already
+  // selected, so the drop zone explains what it can do either way.
+  _updateQdzHint() {
+    const title = document.getElementById('utilityQdzIdleTitle');
+    const sub = document.getElementById('utilityQdzIdleSub');
+    if (!title || !sub) return;
+    if (this.selectedProperty) {
+      title.textContent = i18next.t('utilityBillTracker.quickDropHint');
+      sub.textContent = i18next.t('utilityBillTracker.quickDropSub');
+    } else {
+      title.textContent = i18next.t('utilityBillTracker.quickDropHintNoProperty');
+      sub.textContent = i18next.t('utilityBillTracker.quickDropSubNoProperty');
+    }
+  }
+
+  _qdzShowError(message) {
+    const subEl = document.getElementById('utilityQdzErrorSub');
+    if (subEl) subEl.textContent = message;
+    this._qdzSetState('error');
   }
 
   _qdzSetState(state) {
@@ -221,6 +319,7 @@ class UtilityBillTrackerComponent {
       this._renderPropertyCards();
       this._renderBillingCalendar();
       this._loadMonthlyBillStatus(this.summaryYear, this.summaryMonth);
+      this._updateQdzHint();
     } catch (err) {
       console.error('[UtilityBillTracker] load properties error:', err);
       this._renderPropertyCards();
@@ -286,6 +385,7 @@ class UtilityBillTrackerComponent {
       document.getElementById('utilityChartCard')?.removeAttribute('hidden');
       document.getElementById('utilityBillContent')?.setAttribute('hidden', '');
       window.appRouter?.replace('/utility-bills');
+      this._updateQdzHint();
       return;
     }
     document.getElementById('utilityBillContent')?.removeAttribute('hidden');
@@ -294,6 +394,7 @@ class UtilityBillTrackerComponent {
     document.getElementById('utilityChartCard')?.setAttribute('hidden', '');
     window.appRouter?.replace('/utility-bills');
     this._loadAllPropertyCharts();
+    this._updateQdzHint();
   }
 
   _destroyAllCharts() {
@@ -615,8 +716,7 @@ class UtilityBillTrackerComponent {
     if (allDone) {
       badge.innerHTML = `<span class="badge rounded-pill" style="background:rgba(255,255,255,0.25);font-size:0.65rem;font-weight:500;letter-spacing:0.02em;padding:3px 7px;"><i class="bi bi-check-lg me-1" style="font-size:0.6rem;"></i>${filled}/${total}</span>`;
     } else {
-      const missing = total - filled;
-      badge.innerHTML = `<span class="badge rounded-pill" style="background:rgba(255,193,7,0.85);color:#1a1a1a;font-size:0.65rem;font-weight:600;padding:3px 7px;">${missing}/${total} missing</span>`;
+      badge.innerHTML = `<span class="badge rounded-pill" style="background:rgba(255,193,7,0.85);color:#1a1a1a;font-size:0.65rem;font-weight:600;padding:3px 7px;">${filled}/${total}</span>`;
     }
   }
 
@@ -702,6 +802,7 @@ class UtilityBillTrackerComponent {
       this._syncSelectAllToggle(false);
       document.getElementById('utilityBillContent')?.setAttribute('hidden', '');
       window.appRouter?.replace('/utility-bills');
+      this._updateQdzHint();
       return;
     }
 
@@ -711,6 +812,7 @@ class UtilityBillTrackerComponent {
 
     const alreadySelected = this.selectedProperty === propertyId;
     this.selectedProperty = propertyId;
+    this._updateQdzHint();
     // Restore per-property panels (may have been hidden by select-all)
     this._destroyAllCharts();
     document.getElementById('utilityAllChartsContainer')?.setAttribute('hidden', '');
@@ -784,20 +886,23 @@ class UtilityBillTrackerComponent {
   _renderSpAccount(property) {
     const container = document.getElementById('utilitySpAccount');
     if (!container) return;
+    const number = property?.spAccountNumber;
     const username = property?.spAccountUsername;
     const password = property?.spAccountPassword;
-    if (!username && !password) {
+    if (!number && !username && !password) {
       container.style.display = 'none';
       container.innerHTML = '';
       return;
     }
     const admin = !!(window.isAdmin && window.isAdmin());
-    const copyEl = (value, label) => `<span class="sp-copy-val font-monospace fw-semibold" data-copy="${escapeHtml(value)}" title="Click to copy ${label}" onclick="event.stopPropagation();utilityBillTracker.copySpValue(this)">${escapeHtml(value)}<i class="bi bi-copy"></i></span>`;
+    const copyEl = (value, label, display = value) => `<span class="sp-copy-val font-monospace fw-semibold" data-copy="${escapeHtml(value)}" title="Click to copy ${label}" onclick="event.stopPropagation();utilityBillTracker.copySpValue(this)">${escapeHtml(display)}<i class="bi bi-copy"></i></span>`;
     container.style.display = '';
     container.innerHTML = `
-      <div class="d-flex align-items-center gap-2 small p-2 rounded" style="background:#f0f4ff;border:1px solid #d7e0fb;">
+      <div class="d-flex align-items-center gap-2 small p-2 rounded flex-wrap" style="background:#f0f4ff;border:1px solid #d7e0fb;">
         <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:16px;width:auto;flex-shrink:0;">
         <span class="text-muted">SP Account:</span>
+        ${number ? copyEl(number, 'account number', `#${number}`) : ''}
+        ${number && (username || password) ? `<span class="text-muted">·</span>` : ''}
         ${username ? copyEl(username, 'username') : ''}
         ${username && password ? `<span class="text-muted">/</span>` : ''}
         ${password
@@ -1230,12 +1335,18 @@ class UtilityBillTrackerComponent {
       </div>`;
     };
 
+    const prop = this.properties.find((p) => p.propertyId === this.selectedProperty);
+    const propertyLabel = prop
+      ? `${prop.address || prop.propertyId}${prop.unit ? `, ${prop.unit}` : ''}`
+      : null;
+
     box.innerHTML = `
       <div class="alert alert-success py-2 mb-2">
         <i class="bi bi-check-circle me-1"></i>${i18next.t('utilityBillTracker.ocrComplete')}
         ${parsed.validationNote ? `<br><small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>${escapeHtml(parsed.validationNote)}</small>` : ''}
       </div>
       <div class="border rounded p-2 bg-light mb-2" style="font-size:0.85rem;">
+        ${row(i18next.t('utilityBillTracker.ocrProperty'), propertyLabel)}
         ${row(i18next.t('utilityBillTracker.ocrAccountNo'), parsed.accountNumber)}
         ${row(i18next.t('utilityBillTracker.ocrBillingPeriod'), parsed.billingPeriodStart ? `${parsed.billingPeriodStart}${parsed.billingPeriodEnd ? ' – ' + parsed.billingPeriodEnd : ''}` : null)}
         ${row(i18next.t('utilityBillTracker.ocrBillDate'), parsed.billDate)}

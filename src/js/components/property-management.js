@@ -918,9 +918,11 @@ class PropertyManagementComponent {
 
     // SP utility account — same click-to-copy affordance the old card used;
     // stopPropagation so copying doesn't also select the row.
-    const spAccountHtml = (property.spAccountUsername || property.spAccountPassword)
+    const spAccountHtml = (property.spAccountNumber || property.spAccountUsername || property.spAccountPassword)
       ? `<div class="small d-flex align-items-center gap-1 flex-wrap mt-1">
           <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:12px;width:auto;flex-shrink:0;">
+          ${property.spAccountNumber ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountNumber)}" title="Click to copy account number" onclick="event.stopPropagation();copyToClipboardInline(this)">#${this.escapeHtml(property.spAccountNumber)}</span>` : ''}
+          ${property.spAccountNumber && (property.spAccountUsername || property.spAccountPassword) ? `<span class="text-muted">·</span>` : ''}
           ${property.spAccountUsername ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountUsername)}" title="Click to copy username" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountUsername)}</span>` : ''}
           ${property.spAccountUsername && property.spAccountPassword ? `<span class="text-muted">/</span>` : ''}
           ${property.spAccountPassword ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountPassword)}" title="Click to copy password" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountPassword)}</span>` : ''}
@@ -1534,6 +1536,8 @@ class PropertyManagementComponent {
         if (propTypeRadio) propTypeRadio.checked = true;
 
         // SP utility account
+        const spNumberInput = document.getElementById("spAccountNumber");
+        if (spNumberInput) spNumberInput.value = property.spAccountNumber || "";
         const spUsernameInput = document.getElementById("spAccountUsername");
         if (spUsernameInput) spUsernameInput.value = property.spAccountUsername || "";
         const spPasswordInput = document.getElementById("spAccountPassword");
@@ -1613,6 +1617,8 @@ class PropertyManagementComponent {
         if (hdbRadioReset) hdbRadioReset.checked = true;
 
         // Reset SP account for add mode
+        const spNumberReset = document.getElementById("spAccountNumber");
+        if (spNumberReset) spNumberReset.value = "";
         const spUsernameReset = document.getElementById("spAccountUsername");
         if (spUsernameReset) spUsernameReset.value = "";
         const spPasswordReset = document.getElementById("spAccountPassword");
@@ -1812,6 +1818,7 @@ class PropertyManagementComponent {
         manager: formData.get("manager")?.trim() || "",
         digitalLockEnabled: formData.get("digitalLockEnabled") === "true",
         digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
+        spAccountNumber: formData.get("spAccountNumber")?.trim() || "",
         spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
         spAccountPassword: formData.get("spAccountPassword")?.trim() || "",
         propertyType: formData.get("propertyType") || 'hdb',

@@ -1881,12 +1881,23 @@ class BillManagementComponent {
         }
       }
 
+      const tenantUtilityShares = await this._computeTenantUtilityShares(
+        totalUtilityFee,
+        billingPeriod,
+        year,
+        month,
+      );
+
       const formData = new FormData();
       formData.append("propertyId", this.selectedProperty);
       formData.append("year", year);
       formData.append("month", month);
       formData.append("totalUtilityFee", totalUtilityFee);
       formData.append("billingPeriod", billingPeriod);
+      formData.append(
+        "tenantUtilityShares",
+        JSON.stringify(tenantUtilityShares),
+      );
 
       const response = await API.postFormData(
         API_CONFIG.ENDPOINTS.BILL_GENERATE,
@@ -1907,6 +1918,81 @@ class BillManagementComponent {
     } catch (error) {
       console.error("Error generating bill:", error);
       showToast(t("billGenerateFailed"), "error");
+    }
+  }
+
+  // Precomputes each tenant's utility share using the exact same person-day
+  // weighted proration as the utility breakdown modal (_calcUtilityBreakdown):
+  // nets out the landlord subsidy, excludes personally-subsidized tenants,
+  // and prorates by presence days + per-utility-type usage flags. Sent along
+  // with the generate request so the persisted bill can't drift from what
+  // "Xem chi tiết điện nước" shows — the backend used to reimplement this as
+  // a flat totalUtility / tenantCount split, which over-collected because it
+  // divided by ALL tenants (not just paying ones) and never applied the
+  // landlord subsidy at all.
+  async _computeTenantUtilityShares(totalUtilityFee, billingPeriod, year, month) {
+    try {
+      const res = await API.get(
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
+      );
+      const data = await res.json();
+      if (!data.success) return {};
+      const fullTenants = data.tenants || [];
+
+      const billingMonthStart = new Date(year, month - 1, 1);
+      billingMonthStart.setHours(0, 0, 0, 0);
+      const billingMonthEnd = new Date(year, month, 0);
+      billingMonthEnd.setHours(0, 0, 0, 0);
+
+      // Mirrors the backend's tenant-eligibility filter for bill generation
+      // (has room, moved in by month end, not moved out before month start)
+      // — the same set of tenants that will actually receive a tenantBills row.
+      const eligible = [];
+      for (const tenant of fullTenants) {
+        const propAssoc = (tenant.properties || []).find(
+          (p) =>
+            p.propertyId?.toUpperCase() ===
+            this.selectedProperty?.toUpperCase(),
+        );
+        if (!propAssoc || !propAssoc.room) continue;
+        if (propAssoc.moveinDate) {
+          const movein = new Date(propAssoc.moveinDate);
+          movein.setHours(0, 0, 0, 0);
+          if (movein > billingMonthEnd) continue;
+        }
+        if (propAssoc.moveoutDate) {
+          const moveout = new Date(propAssoc.moveoutDate);
+          moveout.setHours(0, 0, 0, 0);
+          if (moveout < billingMonthStart) continue;
+        }
+        eligible.push({
+          tenantId: tenant._id?.toString().toUpperCase(),
+          tenantName: tenant.name,
+          room: propAssoc.room,
+        });
+      }
+
+      const { periodStart, periodEnd, periodDays } =
+        this._resolveBillingPeriod(billingPeriod);
+
+      const breakdown = this._calcUtilityBreakdown(
+        fullTenants,
+        eligible,
+        totalUtilityFee,
+        this.propertySubsidy,
+        periodStart,
+        periodEnd,
+        periodDays,
+      );
+
+      const shares = {};
+      breakdown.rows.forEach((r) => {
+        shares[r.tenantId] = Math.round(r.chargedAmount * 100) / 100;
+      });
+      return shares;
+    } catch (err) {
+      console.error("[BillManagement] tenant utility share calc error:", err);
+      return {};
     }
   }
 
@@ -2753,7 +2839,7 @@ class BillManagementComponent {
     }
   }
 
-  _resolveBillingPeriod() {
+  _resolveBillingPeriod(billingPeriodOverride) {
     // Priority 1: utility bill tracker dates
     const ub = this.currentUtilityBill;
     if (ub?.billingPeriodStart && ub?.billingPeriodEnd) {
@@ -2765,7 +2851,9 @@ class BillManagementComponent {
       return { periodStart: s, periodEnd: e, periodDays: d };
     }
     // Priority 2: parse billingPeriod string e.g. "03 Mar 2026 - 02 Apr 2026"
-    const bp = this.currentBill?.billingPeriod;
+    // (an explicit override — e.g. the Generate Bill form field, read before the
+    // bill exists — takes precedence over the persisted currentBill's value)
+    const bp = billingPeriodOverride ?? this.currentBill?.billingPeriod;
     if (bp) {
       const parts = bp.split(/\s*[-–—]\s*/);
       if (parts.length === 2) {
