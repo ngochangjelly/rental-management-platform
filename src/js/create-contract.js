@@ -1118,6 +1118,7 @@ class PublicContractCreator {
       remainingDepositDate: document.getElementById("ccRemainingDepositDate")?.value || "",
       // Options
       airconFreeOfCharge: document.getElementById("ccAirconFree")?.checked || false,
+      forfeitAcCleanFee: document.getElementById("ccForfeitAcClean")?.checked || false,
       // Tenant A
       tenantA: {
         name: document.getElementById("ccTenantAName")?.value || "",
@@ -1189,6 +1190,7 @@ class PublicContractCreator {
     set("ccElecFree", s.electricityFree);
     set("ccCleaningFee", s.cleaningFee ?? "20");
     set("ccAirconFree", s.airconFreeOfCharge);
+    set("ccForfeitAcClean", s.forfeitAcCleanFee);
     set("ccTenantAName", s.tenantA?.name);
     set("ccTenantAFin", s.tenantA?.fin);
     set("ccTenantAPassport", s.tenantA?.passport);
@@ -1268,7 +1270,7 @@ class PublicContractCreator {
     clear("ccVndBank"); clear("ccVndHolder"); clear("ccVndAccNo");
 
     // Uncheck all toggles and hide conditional sections
-    ["ccElecFree","ccAirconFree","ccShowSettlement","ccPartialDeposit"].forEach(uncheck);
+    ["ccElecFree","ccAirconFree","ccForfeitAcClean","ccShowSettlement","ccPartialDeposit"].forEach(uncheck);
     const settlementWrap = document.getElementById("ccSettlementWrap");
     if (settlementWrap) settlementWrap.style.display = "none";
     clear("ccPartialDepositAmount");

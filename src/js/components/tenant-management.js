@@ -574,11 +574,25 @@ class TenantManagementComponent {
     // Create skeleton rows matching the compact tenant row layout
     const row = `
       <div class="tm-row tm-row-skeleton">
-        <div class="tm-row-thumb skeleton-shimmer"></div>
-        <div class="flex-grow-1" style="min-width: 0;">
-          <div class="skeleton-shimmer" style="width: 55%; height: 13px; margin-bottom: 8px;"></div>
-          <div class="skeleton-shimmer" style="width: 40%; height: 11px; margin-bottom: 8px;"></div>
-          <div class="skeleton-shimmer" style="width: 70%; height: 11px;"></div>
+        <div class="tm-row-top">
+          <div class="tm-row-thumb skeleton-shimmer"></div>
+          <div class="flex-grow-1" style="min-width: 0;">
+            <div class="skeleton-shimmer" style="width: 55%; height: 13px; margin-bottom: 8px;"></div>
+            <div class="skeleton-shimmer" style="width: 40%; height: 11px;"></div>
+          </div>
+        </div>
+        <div class="d-flex gap-1" style="margin-top: 8px;">
+          <div class="skeleton-shimmer" style="width: 64px; height: 16px;"></div>
+          <div class="skeleton-shimmer" style="width: 56px; height: 16px;"></div>
+        </div>
+        <div class="d-flex gap-2" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #edf0f3;">
+          <div class="skeleton-shimmer" style="flex: 1; height: 24px;"></div>
+          <div class="skeleton-shimmer" style="flex: 1; height: 24px;"></div>
+          <div class="skeleton-shimmer" style="flex: 1; height: 24px;"></div>
+        </div>
+        <div class="d-flex gap-1" style="margin-top: 8px;">
+          <div class="skeleton-shimmer" style="flex: 1; height: 52px;"></div>
+          <div class="skeleton-shimmer" style="flex: 1; height: 52px;"></div>
         </div>
       </div>`;
 
@@ -663,7 +677,13 @@ class TenantManagementComponent {
     // (e.g. after an edit/save refresh); fall back to the first tenant in
     // the list so the panel is never left showing stale/removed data.
     const stillPresent = sortedTenants.find((t) => t._id === this.selectedTenantId);
-    this.showTenantDetailPanel(stillPresent || sortedTenants[0]);
+    const tenantToShow = stillPresent || sortedTenants[0];
+    this.showTenantDetailPanel(tenantToShow);
+    // Keep the URL in sync with whichever tenant actually ends up shown —
+    // otherwise a fresh property selection (or a /tenants/<property-slug>
+    // deep-link with no tenant segment) leaves the address bar pointing at
+    // the property root even though a specific tenant is visible on screen.
+    if (tenantToShow) this.syncTenantUrl(tenantToShow);
   }
 
   groupTenantsByRoommates(tenants) {
@@ -754,10 +774,8 @@ class TenantManagementComponent {
     const isExportChecked = this.selectedTenantIds.has(tenant._id);
     const isExportEligible =
       registrationStatus === "registered" || registrationStatus === "pending";
-    const { roomInfo, roomRaw } = this.computeTenantDisplayInfo(tenant);
-
-    const hasPassport = Array.isArray(tenant.passportPics) && tenant.passportPics.length > 0;
-    const hasPass = Array.isArray(tenant.visaPics) && tenant.visaPics.length > 0;
+    const { roomInfo, roomRaw, moveInDate, moveOutDate, rentAmount } =
+      this.computeTenantDisplayInfo(tenant);
 
     let propertyChip = "";
     if (this._globalSearchActive) {
@@ -772,6 +790,27 @@ class TenantManagementComponent {
       ? `<img src="${this.getOptimizedAvatarUrl(tenant.avatar, "small")}" alt="${this.escapeHtml(tenant.name)}" class="tm-row-thumb" style="object-fit: cover;">`
       : `<div class="tm-row-thumb bg-secondary d-flex align-items-center justify-content-center text-white fw-bold">${this.escapeHtml(tenant.name.charAt(0).toUpperCase())}</div>`;
 
+    // Compact "label over value" cell used for Rent / Move-in / Move-out.
+    // Always rendered, even with no data, so every card keeps the same
+    // shape — missing data shows a muted dash instead of hiding the field.
+    const statCell = (label, value) => `
+              <div class="tm-row-stat">
+                <div class="tm-row-stat-label">${label}</div>
+                <div class="tm-row-stat-value${value ? "" : " tm-row-stat-empty"}">${value ? value : "–"}</div>
+              </div>`;
+
+    // Same idea for the two subsidy flags: always show both fields, with an
+    // explicit "Standard" state rather than omitting the field when unset.
+    const subsidyCell = (icon, label, active) => `
+              <div class="tm-row-stat">
+                <div class="tm-row-stat-label"><i class="bi ${icon}"></i> ${label}</div>
+                <div class="tm-row-stat-value${active ? " tm-row-stat-positive" : " tm-row-stat-empty"}">${active ? "Subsidized" : "Standard"}</div>
+              </div>`;
+
+    const rentDisplay = typeof rentAmount === "number" ? `$${rentAmount.toFixed(2)}` : null;
+    const isCleaningSubsidized = tenant.cleaningFee === 0;
+    const isUtilitySubsidized = !!tenant.isUtilitySubsidized;
+
     return `
       <div class="tm-row tenant-detail-card${isSelected ? " tm-row-selected" : ""}${isOutdated ? " tm-row-outdated" : ""}${isExportChecked ? " tenant-card-selected" : ""}"
            data-tenant-id="${tenant._id}"
@@ -781,36 +820,49 @@ class TenantManagementComponent {
             onclick="event.stopPropagation();${isExportEligible ? ` tenantManager.toggleTenantSelection('${tenant._id}', this.closest('.tenant-detail-card'));` : ""}">
           <i class="bi bi-check-lg"></i>
         </div>
-        ${avatarHtml}
-        <div class="flex-grow-1" style="min-width: 0;">
-          <div class="d-flex align-items-center justify-content-between gap-1">
-            <div class="d-flex align-items-center gap-1" style="min-width: 0;">
-              <span class="fw-semibold small text-truncate">${this.escapeHtml(tenant.name)}</span>
-              ${tenant.nickname ? `<small class="text-muted text-truncate">（${this.escapeHtml(tenant.nickname)}）</small>` : ""}
+
+        <div class="tm-row-top">
+          ${avatarHtml}
+          <div class="flex-grow-1" style="min-width: 0;">
+            <div class="d-flex align-items-center justify-content-between gap-1">
+              <div class="d-flex align-items-center gap-1" style="min-width: 0;">
+                <span class="fw-semibold small text-truncate">${this.escapeHtml(tenant.name)}</span>
+                ${tenant.nickname ? `<small class="text-muted text-truncate">（${this.escapeHtml(tenant.nickname)}）</small>` : ""}
+              </div>
+              <div class="d-flex gap-1 align-items-center flex-shrink-0">
+                ${isMainTenant ? '<span class="badge bg-primary" style="font-size:0.6rem;">Main</span>' : ""}
+                ${isOutdated ? '<span class="badge bg-secondary" style="font-size:0.6rem;">Moved Out</span>' : ""}
+              </div>
             </div>
-            <div class="d-flex gap-1 align-items-center flex-shrink-0">
-              ${isMainTenant ? '<span class="badge bg-primary" style="font-size:0.6rem;">Main</span>' : ""}
-              ${isOutdated ? '<span class="badge bg-secondary" style="font-size:0.6rem;">Moved Out</span>' : ""}
-            </div>
+            <div class="small text-muted text-truncate">${this.escapeHtml(tenant.phoneNumber || "No phone")}</div>
           </div>
-          <div class="small text-muted text-truncate">${this.escapeHtml(tenant.phoneNumber || "No phone")}</div>
-          <div class="d-flex flex-wrap gap-1 mt-1 align-items-center">
-            ${this.getRegistrationStatusBadge(registrationStatus)}
-            ${roomRaw ? `<span class="badge" style="font-size:0.6rem;${getRoomTypeBadgeStyle(roomRaw)}">${this.escapeHtml(roomInfo)}</span>` : ""}
-            ${propertyChip}
-            <span title="${hasPassport ? "Passport uploaded" : "Passport missing"}" style="font-size: 0.7rem;">
-              <i class="bi bi-passport ${hasPassport ? "text-success" : "text-danger"}"></i>
-            </span>
-            <span title="${hasPass ? "Pass uploaded" : "Pass missing"}" style="font-size: 0.7rem;">
-              <i class="bi bi-credit-card ${hasPass ? "text-success" : "text-danger"}"></i>
-            </span>
-            ${this.renderTenantTodoBadge(tenant)}
-          </div>
+          <button type="button" class="btn btn-sm btn-link text-secondary p-0 tm-row-edit-btn" title="Edit tenant"
+                  onclick="event.stopPropagation(); tenantManager.editTenant('${tenant._id}')">
+            <i class="bi bi-pencil"></i>
+          </button>
         </div>
-        <button type="button" class="btn btn-sm btn-link text-secondary p-0 tm-row-edit-btn" title="Edit tenant"
-                onclick="event.stopPropagation(); tenantManager.editTenant('${tenant._id}')">
-          <i class="bi bi-pencil"></i>
-        </button>
+
+        <div class="d-flex flex-wrap gap-1 align-items-center tm-row-badges">
+          ${this.getRegistrationStatusBadge(registrationStatus)}
+          ${roomRaw ? `<span class="badge" style="font-size:0.6rem;${getRoomTypeBadgeStyle(roomRaw)}">${this.escapeHtml(roomInfo)}</span>` : ""}
+          ${propertyChip}
+          ${this.renderTenantTodoBadge(tenant)}
+        </div>
+
+        <div class="tm-row-stats">
+          ${statCell("Rent", rentDisplay)}
+          ${statCell("Move-in", moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
+          ${statCell("Move-out", moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
+        </div>
+        <div class="tm-row-stats tm-row-stats-2">
+          ${subsidyCell("bi-brush", "Cleaning", isCleaningSubsidized)}
+          ${subsidyCell("bi-lightning-charge", "Utility", isUtilitySubsidized)}
+        </div>
+
+        <div class="d-flex gap-1 tm-row-docs">
+          ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport", "sm")}
+          ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass", "sm")}
+        </div>
       </div>`;
   }
 
@@ -952,6 +1004,7 @@ class TenantManagementComponent {
   selectTenantForDetail(tenantId) {
     const tenant = this.tenants.find((t) => t._id === tenantId);
     if (!tenant) return;
+    this.syncTenantUrl(tenant);
     this.showTenantDetailPanel(tenant);
     this.enterMobileTenantDetailView();
   }
@@ -973,13 +1026,14 @@ class TenantManagementComponent {
     document.getElementById("tmLayout")?.classList.remove("tm-mobile-detail-active");
   }
 
-  renderDocThumb(pics, type, icon, label) {
+  renderDocThumb(pics, type, icon, label, size) {
     const hasPics = Array.isArray(pics) && pics.length > 0;
     const count = hasPics ? pics.length : 0;
     const url = hasPics ? this.normalizeImageUrl(pics[0]) : null;
+    const sizeClass = size === "sm" ? " tenant-doc-thumb-sm" : "";
 
     return `
-                <div class="tenant-doc-thumb${hasPics ? "" : " tenant-doc-thumb-empty"}"
+                <div class="tenant-doc-thumb${sizeClass}${hasPics ? "" : " tenant-doc-thumb-empty"}"
                     title="${hasPics ? `${label}: ${count} image${count > 1 ? "s" : ""} uploaded (click to view)` : `${label}: not uploaded yet`}"
                     ${hasPics ? `onclick="event.stopPropagation();window.open('${url}', '_blank')"` : ""}>
                     ${hasPics
@@ -1000,8 +1054,8 @@ class TenantManagementComponent {
       style.textContent = `
                 .tm-row {
                     display: flex;
-                    align-items: flex-start;
-                    gap: 10px;
+                    flex-direction: column;
+                    position: relative;
                     cursor: pointer;
                     border-radius: 10px;
                     padding: 10px;
@@ -1009,6 +1063,11 @@ class TenantManagementComponent {
                     border: 1px solid transparent;
                     background: white;
                     transition: background 0.15s, border-color 0.15s;
+                }
+                .tm-row-top {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
                 }
                 .tm-row-thumb {
                     width: 44px;
@@ -1019,6 +1078,74 @@ class TenantManagementComponent {
                 .tm-row:hover {
                     background: #eef1ff;
                 }
+                .tm-row-badges {
+                    margin-top: 8px;
+                    min-height: 22px;
+                    flex-wrap: nowrap;
+                    overflow-x: auto;
+                    scrollbar-width: none;
+                }
+                .tm-row-badges::-webkit-scrollbar {
+                    display: none;
+                }
+                .tm-row-badges > * {
+                    flex-shrink: 0;
+                }
+                .tm-row-stats {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 2px 6px;
+                    margin-top: 8px;
+                    padding-top: 8px;
+                    border-top: 1px dashed #edf0f3;
+                }
+                .tm-row-stats-2 {
+                    grid-template-columns: repeat(2, 1fr);
+                    border-top: none;
+                    padding-top: 0;
+                    margin-top: 6px;
+                }
+                .tm-row-stat-label {
+                    font-size: 0.58rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.02em;
+                    color: #9aa0a6;
+                    font-weight: 600;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .tm-row-stat-value {
+                    font-size: 0.74rem;
+                    font-weight: 600;
+                    color: #212529;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .tm-row-stat-empty {
+                    color: #ced4da;
+                    font-weight: 400;
+                }
+                .tm-row-stat-positive {
+                    color: #a86b00;
+                }
+                .tm-row-docs {
+                    margin-top: 8px;
+                }
+                .tenant-doc-thumb-sm {
+                    height: 52px;
+                }
+                .tenant-doc-thumb-sm.tenant-doc-thumb-empty {
+                    font-size: 1.05rem;
+                }
+                .tenant-doc-thumb-sm .tenant-doc-thumb-label {
+                    font-size: 0.55rem;
+                }
+                .tenant-doc-thumb-sm .tenant-doc-thumb-count {
+                    font-size: 0.55rem;
+                    padding: 1px 4px;
+                }
                 .tm-row-selected {
                     background: #e0e7ff;
                     border-color: #667eea;
@@ -1027,8 +1154,12 @@ class TenantManagementComponent {
                     border: 2px solid #0d6efd !important;
                     box-shadow: 0 0 0 3px rgba(13,110,253,0.15);
                 }
-                .tm-row-outdated > *:not(.tenant-select-check):not(.tm-row-edit-btn) {
+                .tm-row-outdated > *:not(.tenant-select-check),
+                .tm-row-outdated .tm-row-top > *:not(.tm-row-edit-btn) {
                     opacity: 0.55;
+                }
+                .tm-row-outdated .tm-row-top {
+                    opacity: 1;
                 }
                 .tm-row-edit-btn {
                     opacity: 0;
@@ -1510,6 +1641,11 @@ class TenantManagementComponent {
       pdfBtn.style.display = showDocBtns ? "inline-flex" : "none";
       if (showDocBtns) pdfBtn.title = `Generate PDF for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
     }
+    const pdfNoBriefingBtn = document.getElementById("generateTenantPdfNoBriefingBtn");
+    if (pdfNoBriefingBtn) {
+      pdfNoBriefingBtn.style.display = showDocBtns ? "inline-flex" : "none";
+      if (showDocBtns) pdfNoBriefingBtn.title = `Generate PDF (no briefing page) for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+    }
     const zipBtn = document.getElementById("generateTenantZipBtn");
     if (zipBtn) {
       zipBtn.style.display = showDocBtns ? "inline-flex" : "none";
@@ -1590,6 +1726,16 @@ class TenantManagementComponent {
         : "Generate PDF tenant list (registered & pending only) for landlord submission";
     }
 
+    const pdfNoBriefingBtn = document.getElementById("generateTenantPdfNoBriefingBtn");
+    if (pdfNoBriefingBtn && pdfNoBriefingBtn.style.display !== "none") {
+      pdfNoBriefingBtn.innerHTML = count > 0
+        ? `<i class="bi bi-file-earmark-pdf me-1"></i> PDF no cover (${count})`
+        : `<i class="bi bi-file-earmark-pdf me-1"></i> PDF no cover`;
+      pdfNoBriefingBtn.title = count > 0
+        ? `Generate PDF (no briefing page) for ${count} selected tenant${count !== 1 ? "s" : ""}`
+        : "Generate PDF tenant list without the briefing page (registered & pending only)";
+    }
+
     const zipBtn = document.getElementById("generateTenantZipBtn");
     if (zipBtn && zipBtn.style.display !== "none") {
       zipBtn.innerHTML = count > 0
@@ -1660,6 +1806,89 @@ class TenantManagementComponent {
     }
   }
 
+  // One-time <style> injection for the full-screen PDF export overlay — the toolbar
+  // button's spinner alone is too small/easy to miss during the several-second
+  // image-fetching + PDF-render round trip, so a blocking overlay makes it obvious.
+  addPdfExportOverlayStyles() {
+    if (document.getElementById("pdf-export-overlay-styles")) return;
+    const style = document.createElement("style");
+    style.id = "pdf-export-overlay-styles";
+    style.textContent = `
+      .pdf-export-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        align-items: center;
+        justify-content: center;
+      }
+      .pdf-export-overlay.active {
+        display: flex;
+      }
+      .pdf-export-overlay-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 28px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+        min-width: 260px;
+        text-align: center;
+        animation: pdf-export-pop 0.18s ease-out;
+      }
+      .pdf-export-overlay-card .spinner-border {
+        width: 2.75rem;
+        height: 2.75rem;
+        color: #dc3545;
+      }
+      .pdf-export-overlay-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #212529;
+      }
+      .pdf-export-overlay-sub {
+        font-size: 0.8rem;
+        color: #6c757d;
+      }
+      @keyframes pdf-export-pop {
+        from { transform: scale(0.92); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  showPdfExportOverlay(message = "Generating PDF…") {
+    this.addPdfExportOverlayStyles();
+    let overlay = document.getElementById("pdfExportOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "pdfExportOverlay";
+      overlay.className = "pdf-export-overlay";
+      overlay.innerHTML = `
+        <div class="pdf-export-overlay-card">
+          <div class="spinner-border" role="status"></div>
+          <div class="pdf-export-overlay-title" data-role="pdf-export-title"></div>
+          <div class="pdf-export-overlay-sub">Please wait, this can take a moment for many tenants…</div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    const title = overlay.querySelector('[data-role="pdf-export-title"]');
+    if (title) title.textContent = message;
+    overlay.classList.add("active");
+  }
+
+  hidePdfExportOverlay() {
+    const overlay = document.getElementById("pdfExportOverlay");
+    if (overlay) overlay.classList.remove("active");
+  }
+
   async generateTenantListPDF() {
     if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
       alert("Please select a property first.");
@@ -1695,6 +1924,7 @@ class TenantManagementComponent {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
     }
+    this.showPdfExportOverlay("Generating PDF…");
 
     const selectedTenantIds = Array.from(this.selectedTenantIds);
 
@@ -1741,6 +1971,96 @@ class TenantManagementComponent {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
       }
+      this.hidePdfExportOverlay();
+    }
+  }
+
+  // Clone of generateTenantListPDF(), but tells the backend to omit the leading
+  // briefing/summary page — everything else (header, sorting, selection) is identical.
+  async generateTenantListPDFNoBriefing() {
+    if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
+      alert("Please select a property first.");
+      return;
+    }
+
+    // Build default header from property info
+    const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+    const addressLine = propertyInfo
+      ? `${propertyInfo.unit ? propertyInfo.unit + ", " : ""}${propertyInfo.address}${propertyInfo.postcode ? ", Singapore " + propertyInfo.postcode : ""}`
+      : this.selectedProperty;
+
+    // Pax count must mirror the backend's eligibility filter (registered/pending),
+    // narrowed to the current selection when tenants are checked, so the prompt
+    // shows exactly what will be printed on every page.
+    const eligibleTenantIds = this.tenants
+      .filter((t) => {
+        const s = t.registrationStatus || (t.isRegistered ? "registered" : "unregistered");
+        return s === "registered" || s === "pending";
+      })
+      .map((t) => t._id);
+    const paxCount = this.selectedTenantIds.size > 0
+      ? eligibleTenantIds.filter((id) => this.selectedTenantIds.has(id)).length
+      : eligibleTenantIds.length;
+    const defaultHeader = `${addressLine} - ${paxCount} pax`;
+
+    const customHeader = window.prompt("PDF header (shown on every page):", defaultHeader);
+    if (customHeader === null) return; // user cancelled
+
+    const btn = document.getElementById("generateTenantPdfNoBriefingBtn");
+    const originalHtml = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+    }
+    this.showPdfExportOverlay("Generating PDF…");
+
+    const selectedTenantIds = Array.from(this.selectedTenantIds);
+
+    try {
+      const response = await API.post(
+        `${API_CONFIG.ENDPOINTS.TENANTS}/generate-pdf`,
+        {
+          propertyId: this.selectedProperty,
+          customHeader: customHeader.trim() || defaultHeader,
+          skipBriefingPage: true,
+          ...(selectedTenantIds.length > 0 ? { tenantIds: selectedTenantIds } : {}),
+        },
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+      }
+
+      // Get filename from header or fall back to a default
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const xFilename = response.headers.get("X-PDF-Filename");
+      let filename = "tenant-list.pdf";
+      if (xFilename) {
+        filename = decodeURIComponent(xFilename);
+      } else {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert(`Failed to generate PDF: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+      this.hidePdfExportOverlay();
     }
   }
 
@@ -1762,6 +2082,8 @@ class TenantManagementComponent {
     // Hide PDF + ZIP buttons when no tenants
     const pdfBtn = document.getElementById("generateTenantPdfBtn");
     if (pdfBtn) pdfBtn.style.display = "none";
+    const pdfNoBriefingBtn = document.getElementById("generateTenantPdfNoBriefingBtn");
+    if (pdfNoBriefingBtn) pdfNoBriefingBtn.style.display = "none";
     const zipBtn = document.getElementById("generateTenantZipBtn");
     if (zipBtn) zipBtn.style.display = "none";
   }
@@ -3108,16 +3430,11 @@ class TenantManagementComponent {
     }
   }
 
-  async editTenant(tenantId) {
-    // Find the tenant to edit by ID
-    const tenant = this.tenants.find((t) => t._id === tenantId);
-    if (!tenant) {
-      alert("Tenant not found");
-      return;
-    }
-
-    // Sync URL to reflect the specific tenant being viewed:
-    // /tenants/<property-slug>/<tenant-name-slug>
+  // Sync URL to reflect the specific tenant being viewed, following the
+  // same scheme the router dispatches on: /tenants/<property-slug>/<tenant-name-slug>
+  // (see router.js's _goTenant / SlugUtils). Silent — uses replace() so it
+  // doesn't push a history entry per row click.
+  syncTenantUrl(tenant) {
     const property = this.properties.find(
       (p) => p.propertyId === this.selectedProperty,
     );
@@ -3126,6 +3443,17 @@ class TenantManagementComponent {
       const nameSlug = window.SlugUtils.toSlug(tenant.name || "");
       window.appRouter?.replace(`/tenants/${propSlug}/${nameSlug}`);
     }
+  }
+
+  async editTenant(tenantId) {
+    // Find the tenant to edit by ID
+    const tenant = this.tenants.find((t) => t._id === tenantId);
+    if (!tenant) {
+      alert("Tenant not found");
+      return;
+    }
+
+    this.syncTenantUrl(tenant);
 
     // Show the modal with tenant data
     this.showTenantModal(tenant);

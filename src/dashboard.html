@@ -7735,6 +7735,15 @@
                       <i class="bi bi-file-earmark-pdf me-1"></i> PDF
                     </button>
                     <button
+                      class="btn btn-outline-danger btn-sm"
+                      id="generateTenantPdfNoBriefingBtn"
+                      onclick="tenantManager.generateTenantListPDFNoBriefing()"
+                      title="Generate PDF tenant list without the briefing page (registered &amp; pending only)"
+                      style="display: none"
+                    >
+                      <i class="bi bi-file-earmark-pdf me-1"></i> PDF no cover
+                    </button>
+                    <button
                       class="btn btn-outline-dark btn-sm"
                       id="generateTenantZipBtn"
                       onclick="tenantManager.generateTenantListZIP()"
@@ -7801,7 +7810,7 @@
                   <div
                     class="tm-list-col"
                     id="tmListCol"
-                    style="width: 420px; min-width: 360px; max-width: 420px; border-right: 1px solid #e5e5e7; display: flex; flex-direction: column; overflow: hidden; background: #f8f9fa; flex-shrink: 0;"
+                    style="width: 520px; min-width: 440px; max-width: 520px; border-right: 1px solid #e5e5e7; display: flex; flex-direction: column; overflow: hidden; background: #f8f9fa; flex-shrink: 0;"
                   >
                     <div
                       class="tm-list-body"

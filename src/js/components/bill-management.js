@@ -1112,6 +1112,36 @@ class BillManagementComponent {
 
     const tenantBills = this.currentBill.tenantBills || [];
 
+    // Group roommates (same room) adjacent to each other, preserving each
+    // room's first-seen position — avoids a full re-sort of the list.
+    const roomOrder = [];
+    const roomGroups = {};
+    tenantBills.forEach((tb) => {
+      const key = tb.room || "";
+      if (!roomGroups[key]) {
+        roomGroups[key] = [];
+        roomOrder.push(key);
+      }
+      roomGroups[key].push(tb);
+    });
+    const orderedTenantBills = roomOrder.flatMap((key) => roomGroups[key]);
+
+    // Rooms shared by 2+ tenants get a colored left accent bar (cycling
+    // through a small palette) so roommates are visually grouped in the list.
+    // Uses border-left rather than background: bindCheckboxEvents()'s
+    // selection/hover highlight also drives `row.style.background` (see
+    // _syncTenantRowHighlight), which would otherwise clobber a background tint.
+    const ROOMMATE_COLORS = ["#4dabf7", "#f59f00", "#40c057", "#e64980"];
+    const roommateColor = {};
+    let roommateColorIdx = 0;
+    roomOrder.forEach((key) => {
+      if (key && roomGroups[key].length > 1) {
+        roommateColor[key] =
+          ROOMMATE_COLORS[roommateColorIdx % ROOMMATE_COLORS.length];
+        roommateColorIdx++;
+      }
+    });
+
     // Same CSS Grid "table" as _renderDynamicPreview: header and every row
     // are independent grid containers sharing one GRID_COLUMNS template, so
     // column alignment comes from the grid definition itself rather than
@@ -1131,7 +1161,7 @@ class BillManagementComponent {
       </div>
       <div style="overflow-x:auto;">
         <div style="min-width:950px;">
-          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:8px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-weight:600;font-size:0.85rem;">
+          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:8px;background:#f8f9fa;border-bottom:2px solid #dee2e6;border-left:4px solid transparent;font-weight:600;font-size:0.85rem;">
             ${gridCell(`<input type="checkbox" id="selectAllTenants" class="form-check-input">`)}
             ${gridCell(t("tenant"))}
             ${gridCell(t("room"))}
@@ -1145,19 +1175,32 @@ class BillManagementComponent {
           </div>
     `;
 
-    tenantBills.forEach((tenantBill) => {
+    orderedTenantBills.forEach((tenantBill) => {
       const statusBadge = this.getStatusBadge(tenantBill.paymentStatus);
       const uploadInfo = tenantBill.latestUpload
         ? `<small class="text-muted">${t("uploadedOn", { date: new Date(tenantBill.latestUpload.uploadDate).toLocaleString() })}</small>`
         : "";
+      const roommateBorder = roommateColor[tenantBill.room || ""] || "transparent";
+
+      // Same $0-fee heuristic already used for the "Utility Subsidized" summary
+      // count below — no dedicated flag is stored on tenantBills, so a $0 fee
+      // is read as subsidized, matching the badges shown on the tenant profile.
+      const utilitySubsidyBadge =
+        tenantBill.utilityFee === 0
+          ? `<span class="badge bg-warning text-dark ms-1" style="font-size:0.62rem;" title="${t("utilitySubsidized")}"><i class="bi bi-lightning-charge"></i></span>`
+          : "";
+      const cleaningSubsidyBadge =
+        tenantBill.cleaningFee === 0
+          ? `<span class="badge bg-warning text-dark ms-1" style="font-size:0.62rem;" title="${t("cleaningSubsidized")}"><i class="bi bi-brush"></i></span>`
+          : "";
 
       html += `
-        <div class="bill-tenant-row" data-tenant-id="${tenantBill.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #f1f3f5;">
+        <div class="bill-tenant-row" data-tenant-id="${tenantBill.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #f1f3f5;border-left:4px solid ${roommateBorder};">
           ${gridCell(`<input type="checkbox" class="form-check-input tenant-checkbox" data-tenant-id="${tenantBill.tenantId}">`)}
-          ${gridCell(`<strong>${escapeHtml(tenantBill.tenantName)}</strong><br><small class="text-muted">${escapeHtml(tenantBill.tenantId)}</small>`)}
+          ${gridCell(`<strong>${escapeHtml(tenantBill.tenantName)}</strong>${cleaningSubsidyBadge}<br><small class="text-muted">${escapeHtml(tenantBill.tenantId)}</small>`)}
           ${gridCell(escapeHtml(tenantBill.room ? getRoomTypeDisplayName(tenantBill.room) : "-"))}
           ${gridCell(`$${tenantBill.baseRental.toFixed(2)}`, { align: "right" })}
-          ${gridCell(`$${tenantBill.utilityFee.toFixed(2)}`, { align: "right" })}
+          ${gridCell(`$${tenantBill.utilityFee.toFixed(2)}${utilitySubsidyBadge}`, { align: "right" })}
           ${gridCell(`$${tenantBill.cleaningFee.toFixed(2)}`, { align: "right" })}
           ${gridCell(`<strong>$${tenantBill.totalAmount.toFixed(2)}</strong>`, { align: "right" })}
           ${gridCell(`${statusBadge}${uploadInfo}`)}
