@@ -239,9 +239,7 @@ export function buildSection2Clauses(contractData) {
   clauses.push(
     `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
   );
-  if (!cd.forfeitAcCleanFee) {
-    clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax`);
-  }
+  clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax`);
 
   return clauses;
 }
