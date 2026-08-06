@@ -177,7 +177,7 @@ export function getSection1BaseClauseTexts(contractData) {
     "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
     "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
     "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
-    `For a 6-month agreement, SGD$${cd.forfeitAcCleanFee ? "0" : "100"} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${cd.forfeitAcCleanFee ? "0" : "200"} will be deducted. This applies only to rooms with an air-conditioner.${cd.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}${cd.forfeitAcCleanFee ? " (AC cleaning fee forfeited: $0 deduction applies for this term.)" : ""}`,
+    `For a 6-month agreement, SGD$100 will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$200 will be deducted. This applies only to rooms with an air-conditioner.${cd.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}`,
     "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
     "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
     "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
@@ -239,7 +239,9 @@ export function buildSection2Clauses(contractData) {
   clauses.push(
     `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
   );
-  clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.forfeitAcCleanFee ? "0" : (cd.cleaningFee || "")} / 1pax`);
+  if (!cd.forfeitAcCleanFee) {
+    clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax`);
+  }
 
   return clauses;
 }

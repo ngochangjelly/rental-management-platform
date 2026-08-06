@@ -3200,17 +3200,17 @@ class ContractManagementComponent {
                         })</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
 
                         ${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? `<p><strong>${
                                 this.contractData.fullPaymentReceived
                                   ? "n"
                                   : "p"
-                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"}. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}${this.contractData.forfeitAcCleanFee ? " <em>(AC cleaning fee forfeited: $0 deduction applies for this term.)</em>" : ""}</p>`
+                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>`
                             : ""
                         }
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "o"
                               : "q"
@@ -3220,7 +3220,7 @@ class ContractManagementComponent {
                         })</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "p"
                               : "r"
@@ -3230,7 +3230,7 @@ class ContractManagementComponent {
                         })</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "q"
                               : "s"
@@ -3240,7 +3240,7 @@ class ContractManagementComponent {
                         })</strong> Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "r"
                               : "t"
@@ -3250,7 +3250,7 @@ class ContractManagementComponent {
                         })</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "s"
                               : "u"
@@ -3260,7 +3260,7 @@ class ContractManagementComponent {
                         })</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "t"
                               : "v"
@@ -3270,7 +3270,7 @@ class ContractManagementComponent {
                         })</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "u"
                               : "w"
@@ -3280,7 +3280,7 @@ class ContractManagementComponent {
                         })</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "v"
                               : "x"
@@ -3290,7 +3290,7 @@ class ContractManagementComponent {
                         })</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "w"
                               : "y"
@@ -3300,7 +3300,7 @@ class ContractManagementComponent {
                         })</strong> Early Termination And Notice Period: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
 
                         <p><strong>${
-                          this.hasAircon()
+                          this.acClauseVisible()
                             ? this.contractData.fullPaymentReceived
                               ? "x"
                               : "z"
@@ -3312,7 +3312,7 @@ class ContractManagementComponent {
                         ${
                           this.contractData.pestControlClause
                             ? `<p><strong>${
-                                this.hasAircon()
+                                this.acClauseVisible()
                                   ? this.contractData.fullPaymentReceived
                                     ? "y"
                                     : "aa"
@@ -3365,11 +3365,13 @@ class ContractManagementComponent {
                           this.contractData.fullPaymentReceived ? "d" : "e"
                         })</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                         
-                        <p><strong>${
-                          this.contractData.fullPaymentReceived ? "e" : "f"
-                        })</strong> Cleaning fee: SGD$${
-                          this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "")
-                        } / 1pax</p>
+                        ${
+                          this.contractData.forfeitAcCleanFee
+                            ? ""
+                            : `<p><strong>${
+                                this.contractData.fullPaymentReceived ? "e" : "f"
+                              })</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax</p>`
+                        }
                     </div>
                 </div>
 
@@ -3556,6 +3558,12 @@ class ContractManagementComponent {
     // Check if room type includes "NO_AIRCON"
     const roomType = this.contractData.room || "";
     return !roomType.includes("NO_AIRCON");
+  }
+
+  // Whether the AC deduction clause should appear at all: room has an
+  // aircon AND the tenant hasn't had it (and the cleaning fee) forfeited.
+  acClauseVisible() {
+    return this.hasAircon() && !this.contractData.forfeitAcCleanFee;
   }
 
   calculateLeasePeriod(moveInDate, moveOutDate) {
@@ -4163,7 +4171,7 @@ class ContractManagementComponent {
       let clauseOffset = 0;
       baseClauseTexts.forEach((clauseText, index) => {
         const isAirconClause = clauseText.includes("air-conditioner servicing");
-        if (isAirconClause && !this.hasAircon()) {
+        if (isAirconClause && !this.acClauseVisible()) {
           clauseOffset = 1;
           return;
         }
@@ -4223,8 +4231,12 @@ class ContractManagementComponent {
       const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
       section2Clauses.push(
         `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "")} / 1pax`,
       );
+      if (!this.contractData.forfeitAcCleanFee) {
+        section2Clauses.push(
+          `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax`,
+        );
+      }
       section2Clauses.forEach((clause) =>
         children.push(para(clause, { indent: true, spacing: 5 })),
       );
@@ -4962,8 +4974,8 @@ class ContractManagementComponent {
         // Check if this is the air-conditioner clause
         const isAirconClause = clauseText.includes("air-conditioner servicing");
 
-        // Skip air-conditioner clause if room has no aircon
-        if (isAirconClause && !this.hasAircon()) {
+        // Skip air-conditioner clause if room has no aircon, or if forfeited
+        if (isAirconClause && !this.acClauseVisible()) {
           clauseOffset = 1; // Adjust offset for subsequent clauses
           return;
         }
@@ -5037,8 +5049,12 @@ class ContractManagementComponent {
 
       section2Clauses.push(
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningClauseLetter}) Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "")} / 1pax`,
       );
+      if (!this.contractData.forfeitAcCleanFee) {
+        section2Clauses.push(
+          `${cleaningClauseLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax`,
+        );
+      }
 
       section2Clauses.forEach((clause) => {
         addText(clause, { indent: true, spacing: 5 });
@@ -5510,31 +5526,31 @@ class ContractManagementComponent {
 
                         <p style="margin-bottom: 15px;"><strong>o)</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
 
-                        ${this.hasAircon() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$${this.contractData.forfeitAcCleanFee ? "0" : "100"} for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$${this.contractData.forfeitAcCleanFee ? "0" : "200"}. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}${this.contractData.forfeitAcCleanFee ? " <em>(AC cleaning fee forfeited: $0 deduction applies for this term.)</em>" : ""}</p>` : ""}
+                        ${this.acClauseVisible() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>` : ""}
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "q" : "p"})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "q" : "p"})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "r" : "q"})</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "r" : "q"})</strong> No smoking, vaping in the house (the first time violated will get a warning; the next time violated will lead to the contract's termination). Vaping is now illegal in Singapore, and being caught can lead to a jail sentence.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "s" : "r"})</strong> Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "s" : "r"})</strong> Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "t" : "s"})</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "t" : "s"})</strong> No gathering (with/without alcoholic consumption) without permission from Tenant A.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "u" : "t"})</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "u" : "t"})</strong> Strictly keep silent after 10:00 pm (the tenant will receive a warning for the first two times; the third time violation will lead to the contract's termination).</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "v" : "u"})</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "v" : "u"})</strong> Tenant B shall provide written notice to Tenant A at least thirty (30) days before the expiration of the lease term, indicating whether Tenant B intends to renew the tenancy or vacate the premises upon the lease's conclusion.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "w" : "v"})</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "w" : "v"})</strong> Strictly NO DRUGS or drug-related activities in the premises. Drug possession, consumption, or trafficking is illegal in Singapore and carries severe penalties including imprisonment, caning, and even death penalty for serious drug offenses. Any violation will result in immediate termination of this Agreement and forfeiture of all deposits.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "x" : "w"})</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "x" : "w"})</strong> No electricity reconnection, rewiring, or electrical modifications without prior written consent from Tenant A. Unauthorized electrical work can cause fires, leading to significant property damage and personal injury. Any unauthorized electrical modifications will result in immediate termination of this Agreement and Tenant B will be liable for all damages.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "y" : "x"})</strong> EARLY TERMINATION AND NOTICE PERIOD: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "y" : "x"})</strong> EARLY TERMINATION AND NOTICE PERIOD: Should Tenant B wish to terminate this Agreement prior to the expiration of the lease term, Tenant B shall give to Tenant A not less than thirty (30) calendar days' prior written notice of such intention to quit and surrender the premises. Upon compliance with this notice requirement and subject to Tenant B fulfilling all obligations under this Agreement including but not limited to payment of all outstanding rent, utilities, and restoration of the premises to its original condition (fair wear and tear excepted), the security deposit shall be refunded in full within seven (7) days of the termination date. However, should Tenant B fail to provide the requisite thirty (30) days' written notice, or terminate this Agreement without such notice, Tenant B shall forfeit the entire security deposit as liquidated damages for breach of this covenant, and such forfeiture shall be in addition to any other remedies available to Tenant A at law or in equity.</p>
 
-                        <p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "z" : "y"})</strong> The landlord has agreed for the main tenant to share the house with friends/authorized occupants.</p>
+                        <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "z" : "y"})</strong> The landlord has agreed for the main tenant to share the house with friends/authorized occupants.</p>
 
                         ${
                           this.contractData.pestControlClause
-                            ? `<p style="margin-bottom: 15px;"><strong>${this.hasAircon() ? "aa" : "z"})</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
+                            ? `<p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "aa" : "z"})</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
                             : ""
                         }
 
@@ -5574,7 +5590,11 @@ class ContractManagementComponent {
                             
                             <p style="margin-bottom: 15px;"><strong>e)</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                             
-                            <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.forfeitAcCleanFee ? "0" : (this.contractData.cleaningFee || "")} / 1pax</p>
+                            ${
+                              this.contractData.forfeitAcCleanFee
+                                ? ""
+                                : `<p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax</p>`
+                            }
                         </div>
                     </div>
 

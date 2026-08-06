@@ -510,7 +510,7 @@ async function generatePDF(state) {
   let clauseOffset = 0;
   baseClauseTexts.forEach((text, idx) => {
     const isAircon = text.includes("air-conditioner servicing");
-    if (isAircon && !hasAircon(state.room)) { clauseOffset = 1; return; }
+    if (isAircon && (!hasAircon(state.room) || state.forfeitAcCleanFee)) { clauseOffset = 1; return; }
     const li = state.fullPaymentReceived ? idx - clauseOffset : idx + 2 - clauseOffset;
     section1Clauses.push(`${clauseLetter(li)}) ${text}`);
   });
@@ -1343,7 +1343,7 @@ class PublicContractCreator {
     let clauseOffset = 0;
     baseClauseTexts.forEach((text, idx) => {
       const isAircon = text.includes("air-conditioner servicing");
-      if (isAircon && !hasAircon(state.room)) { clauseOffset = 1; return; }
+      if (isAircon && (!hasAircon(state.room) || state.forfeitAcCleanFee)) { clauseOffset = 1; return; }
       const li = state.fullPaymentReceived ? idx - clauseOffset : idx + 2 - clauseOffset;
       section1Parts.push(`${clauseLetter(li)}) ${text}`);
     });
