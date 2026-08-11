@@ -11,6 +11,7 @@ export const INCOME_CATEGORIES = [
   { value: "deposit", label: "Deposit", emoji: "💵" },
   { value: "rent", label: "Rent", emoji: "💰" },
   { value: "topup_pub", label: "Topup PUB", emoji: "⚡" },
+  { value: "furniture_sale", label: "Furniture Sale", emoji: "🛋️" },
 ];
 
 export const EXPENSE_CATEGORIES = [

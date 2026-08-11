@@ -1,7 +1,9 @@
 /**
  * AC Clean Management Component
- * Handles AC service scheduling and tracking with monthly calendar view
- * Includes AC Service Company management as a submodule
+ * Single unified grid: one card per property showing its AC service provider
+ * and this month's completion status side by side. Provider CRUD (add/edit/
+ * delete AC service companies) lives in a slide-out panel ("Manage Providers")
+ * so the primary grid never has to duplicate itself across tabs.
  */
 import { getGroupLinkMeta } from "../utils/social-links.js";
 
@@ -14,19 +16,16 @@ class AcCleanManagementComponent {
     this.acServices = [];
     this.companies = [];
     this.editingCompany = null;
+    this.searchQuery = "";
     this.init();
   }
 
   init() {
     console.log("🚀 AC Clean Management Component initializing...");
 
-    // Debug: Check if tabs exist
-    const tabs = document.getElementById("acManagementTabs");
-    const scheduleTab = document.getElementById("ac-schedule-tab");
-    const companiesTab = document.getElementById("ac-companies-tab");
-    if (!tabs) {
+    if (!document.getElementById("acGridContainer")) {
       console.error(
-        "❌ ERROR: Tabs container not found! The HTML might not be updated."
+        "❌ ERROR: acGridContainer not found! The HTML might not be updated."
       );
     }
 
@@ -61,6 +60,15 @@ class AcCleanManagementComponent {
         this.goToToday();
       });
     }
+
+    // Search filter
+    const searchInput = document.getElementById("acSearchInput");
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        this.searchQuery = e.target.value;
+        this.renderGrid();
+      });
+    }
   }
 
   async loadProperties() {
@@ -75,7 +83,6 @@ class AcCleanManagementComponent {
         console.log(
           `📋 Loaded ${this.properties.length} properties for AC service`
         );
-        this.renderPropertiesList();
         this.loadCalendarData();
       } else {
         console.error("Failed to load properties:", result.error);
@@ -98,7 +105,7 @@ class AcCleanManagementComponent {
         console.log(
           `📅 Loaded ${this.acServices.length} AC services for ${this.currentYear}-${this.currentMonth}`
         );
-        this.renderCalendar();
+        this.renderGrid();
       } else {
         console.error("Failed to load calendar data:", result.error);
         this.showEmptyState("Failed to load calendar data");
@@ -109,93 +116,17 @@ class AcCleanManagementComponent {
     }
   }
 
-  renderPropertiesList() {
-    const container = document.getElementById("acPropertiesList");
-    if (!container) return;
+  // ==================== UNIFIED GRID ====================
+  // One card per property, merging this month's schedule status with the
+  // assigned AC service provider's full profile.
 
-    if (this.properties.length === 0) {
-      container.innerHTML = `
-        <div class="alert alert-info">
-          <i class="bi bi-info-circle me-2"></i>
-          No properties found. Add properties in the Property Management section.
-        </div>
-      `;
-      return;
-    }
-
-    const html = `
-      <div class="table-responsive">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Property ID</th>
-              <th>Address</th>
-              <th>Unit</th>
-              <th>Move-in Date</th>
-              <th>AC Service Provider</th>
-              <th>Contact Numbers</th>
-              <th>FB Groups</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.properties
-              .map(
-                (property) => `
-              <tr>
-                <td><strong>${this.escapeHtml(
-                  property.propertyId
-                )}</strong></td>
-                <td>${this.escapeHtml(property.address)}</td>
-                <td>${this.escapeHtml(property.unit)}</td>
-                <td>${
-                  property.moveInDate
-                    ? new Date(property.moveInDate).toLocaleDateString()
-                    : "N/A"
-                }</td>
-                <td>${this.escapeHtml(property.acServiceName || "N/A")}</td>
-                <td>
-                  ${
-                    property.acServiceContactNumbers &&
-                    property.acServiceContactNumbers.length > 0
-                      ? property.acServiceContactNumbers
-                          .map(
-                            (num) => `
-                        <a href="tel:${this.escapeHtml(
-                          num
-                        )}" class="badge bg-primary me-1">
-                          <i class="bi bi-telephone me-1"></i>${this.escapeHtml(
-                            num
-                          )}
-                        </a>
-                      `
-                          )
-                          .join("")
-                      : '<span class="text-muted">N/A</span>'
-                  }
-                </td>
-                <td>${this.renderFbGroupBadges(property)}</td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    container.innerHTML = html;
-  }
-
-  renderCalendar() {
-    const calendarContainer = document.getElementById("acCalendarContainer");
+  updateMonthYearDisplay() {
     const monthYearDisplay = document.getElementById("acMonthYear");
     const currentMonthDisplay = document.getElementById(
       "acCurrentMonthDisplay"
     );
+    if (!monthYearDisplay) return;
 
-    if (!calendarContainer || !monthYearDisplay) return;
-
-    // Update month/year display
     const monthNames = [
       "January",
       "February",
@@ -215,13 +146,41 @@ class AcCleanManagementComponent {
     }`;
     monthYearDisplay.textContent = monthYearText;
 
-    // Update navigation button display
     if (currentMonthDisplay) {
       currentMonthDisplay.textContent = monthYearText;
     }
+  }
 
+  // Resolve the AC service company for a property, preferring the linked
+  // acServiceCompanyId (authoritative) and falling back to a name match for
+  // properties that only have legacy free-text provider info.
+  getCompanyForProperty(property, companyMap) {
+    if (
+      property.acServiceCompanyId &&
+      companyMap.has(property.acServiceCompanyId)
+    ) {
+      return companyMap.get(property.acServiceCompanyId);
+    }
+    if (property.acServiceName) {
+      return (
+        this.companies.find((c) => c.name === property.acServiceName) || null
+      );
+    }
+    return null;
+  }
+
+  renderGrid() {
+    const container = document.getElementById("acGridContainer");
+    if (!container) return;
+
+    this.updateMonthYearDisplay();
+
+    // Only properties actually due for AC service this month get a row —
+    // that's the entire point of the month navigator. (The full property
+    // roster is still used elsewhere, e.g. to count a provider's assigned
+    // properties in the "Manage Providers" panel.)
     if (this.acServices.length === 0) {
-      calendarContainer.innerHTML = `
+      container.innerHTML = `
         <div class="alert alert-info">
           <i class="bi bi-info-circle me-2"></i>
           No AC services scheduled for this month. AC services are scheduled every 3 months after move-in date.
@@ -230,192 +189,278 @@ class AcCleanManagementComponent {
       return;
     }
 
-    // Render calendar grid
-    const html = `
-      <div class="ac-calendar-grid">
-        ${this.acServices
-          .map((service) => this.renderServiceCard(service))
-          .join("")}
+    const companyMap = new Map(
+      this.companies.map((company) => [company.companyId, company])
+    );
+
+    let entries = this.acServices.map((service) => ({
+      service,
+      company: this.getCompanyForProperty(service, companyMap),
+    }));
+
+    const query = this.searchQuery.trim().toLowerCase();
+    if (query) {
+      entries = entries.filter(({ service, company }) => {
+        return (
+          (service.propertyId || "").toLowerCase().includes(query) ||
+          (service.address || "").toLowerCase().includes(query) ||
+          (service.unit || "").toLowerCase().includes(query) ||
+          (service.acServiceName || "").toLowerCase().includes(query) ||
+          (company?.name || "").toLowerCase().includes(query)
+        );
+      });
+    }
+
+    if (entries.length === 0) {
+      container.innerHTML = `
+        <div class="alert alert-warning">
+          <i class="bi bi-search me-2"></i>
+          No properties due this month match "${this.escapeHtml(
+            this.searchQuery
+          )}".
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-hover align-middle ac-service-table mb-0">
+          <thead>
+            <tr>
+              <th style="min-width: 240px;">Property</th>
+              <th style="min-width: 110px;">Move-in</th>
+              <th style="min-width: 120px;">Status</th>
+              <th style="min-width: 280px;">Service Provider</th>
+              <th style="min-width: 170px;">FB Groups</th>
+              <th style="min-width: 220px;">Completion Evidence</th>
+              <th style="min-width: 170px;" class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${entries.map((entry) => this.renderServiceRow(entry)).join("")}
+          </tbody>
+        </table>
       </div>
     `;
 
-    calendarContainer.innerHTML = html;
-
-    // Bind checkbox events
     this.bindCheckboxEvents();
   }
 
-  renderServiceCard(service) {
-    const statusClass = service.isCompleted ? "completed" : "pending";
+  // One row per property due this month. Wide, uncrowded columns — same
+  // table/table-hover convention the rest of the dashboard uses for data
+  // listings — so every field (thumbnail, provider profile, evidence) stays
+  // fully readable instead of being squeezed into a card.
+  renderServiceRow({ service, company }) {
+    const statusBadge = service.isCompleted ? "bg-success" : "bg-warning";
     const statusIcon = service.isCompleted ? "check-circle-fill" : "clock";
     const statusText = service.isCompleted ? "Completed" : "Pending";
-    const statusBadge = service.isCompleted ? "bg-success" : "bg-warning";
 
     return `
-      <div class="ac-service-card ${statusClass}">
-        <div class="card h-100">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-              <div>
-                <h6 class="card-title mb-1">
-                  <i class="bi bi-building me-2"></i>${this.escapeHtml(
-                    service.propertyId
-                  )}
-                </h6>
-                <small class="text-muted">
-                  ${this.escapeHtml(service.address)}, ${this.escapeHtml(
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            ${this.renderPropertyThumb(service)}
+            <div>
+              <div class="fw-semibold">
+                <i class="bi bi-building me-1"></i>${this.escapeHtml(
+                  service.propertyId
+                )}
+              </div>
+              <div class="text-muted small">
+                ${this.escapeHtml(service.address)}, ${this.escapeHtml(
       service.unit
     )}
-                </small>
               </div>
-              <span class="badge ${statusBadge}">
-                <i class="bi bi-${statusIcon} me-1"></i>${statusText}
-              </span>
-            </div>
-
-            <div class="mb-3">
-              ${
-                service.acServiceName && service.acServiceName !== "N/A"
-                  ? `
-                <div class="mb-2">
-                  <i class="bi bi-tools me-2 text-primary"></i>
-                  <strong>Service Provider:</strong>
-                  <div class="ms-4">${this.escapeHtml(
-                    service.acServiceName
-                  )}</div>
-                </div>
-              `
-                  : ""
-              }
-
-              ${
-                service.acServiceContactNumbers &&
-                service.acServiceContactNumbers.length > 0
-                  ? `
-                <div class="mb-2">
-                  <i class="bi bi-telephone me-2 text-primary"></i>
-                  <strong>Contact:</strong>
-                  <div class="ms-4">
-                    ${service.acServiceContactNumbers
-                      .map(
-                        (num) => `
-                      <a href="tel:${this.escapeHtml(
-                        num
-                      )}" class="badge bg-primary me-1 text-decoration-none">
-                        <i class="bi bi-telephone-fill me-1"></i>${this.escapeHtml(
-                          num
-                        )}
-                      </a>
-                    `
-                      )
-                      .join("")}
-                  </div>
-                </div>
-              `
-                  : ""
-              }
-
-              <div class="mb-2">
-                <i class="bi bi-calendar-event me-2 text-primary"></i>
-                <strong>Move-in Date:</strong>
-                <div class="ms-4">${new Date(
-                  service.moveInDate
-                ).toLocaleDateString()}</div>
-              </div>
-
-              ${
-                service.tenantFacebookGroup || service.adminFacebookGroup
-                  ? `
-                <div class="mb-2">
-                  <div class="ms-4">${this.renderFbGroupBadges(service)}</div>
-                </div>
-              `
-                  : ""
-              }
-            </div>
-
-            ${
-              service.isCompleted && service.completedAt
-                ? `
-              <div class="alert alert-success py-2 mb-3">
-                <div class="d-flex justify-content-between align-items-start">
-                  <small>
-                    <i class="bi bi-check-circle me-1"></i>
-                    Completed on ${new Date(
-                      service.completedAt
-                    ).toLocaleDateString()}
-                    ${
-                      service.completedBy
-                        ? ` by ${this.escapeHtml(service.completedBy)}`
-                        : ""
-                    }
-                  </small>
-                  ${
-                    service.completionImage
-                      ? `
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-primary py-0 px-2"
-                      onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(
-                        service.completionImage
-                      )}', '${this.escapeHtml(
-                          service.propertyId
-                        )}', '${this.escapeHtml(
-                          service.address
-                        )}', '${this.escapeHtml(service.unit)}')"
-                      title="View evidence">
-                      <i class="bi bi-eye"></i>
-                    </button>
-                  `
-                      : ""
-                  }
-                </div>
-                ${
-                  service.completionImage
-                    ? `
-                  <div class="mt-2">
-                    <img src="${this.escapeHtml(service.completionImage)}"
-                         alt="Completion Receipt"
-                         onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(
-                           service.completionImage
-                         )}', '${this.escapeHtml(
-                        service.propertyId
-                      )}', '${this.escapeHtml(
-                        service.address
-                      )}', '${this.escapeHtml(service.unit)}')"
-                         style="max-width: 100%; max-height: 150px; border-radius: 4px; cursor: pointer; object-fit: cover; transition: transform 0.2s;"
-                         onmouseover="this.style.transform='scale(1.05)'"
-                         onmouseout="this.style.transform='scale(1)'" />
-                    <div class="mt-1">
-                      <small class="text-muted">
-                        <i class="bi bi-zoom-in me-1"></i>Click to view full image
-                      </small>
-                    </div>
-                  </div>
-                `
-                    : ""
-                }
-              </div>
-            `
-                : ""
-            }
-
-            <div class="form-check form-switch">
-              <input
-                class="form-check-input ac-service-checkbox"
-                type="checkbox"
-                id="ac-${this.escapeHtml(service.propertyId)}"
-                data-property-id="${this.escapeHtml(service.propertyId)}"
-                ${service.isCompleted ? "checked" : ""}
-              >
-              <label class="form-check-label" for="ac-${this.escapeHtml(
-                service.propertyId
-              )}">
-                ${service.isCompleted ? "Mark as Pending" : "Mark as Completed"}
-              </label>
             </div>
           </div>
+        </td>
+        <td>
+          ${
+            service.moveInDate
+              ? new Date(service.moveInDate).toLocaleDateString()
+              : "N/A"
+          }
+        </td>
+        <td>
+          <span class="badge ${statusBadge}">
+            <i class="bi bi-${statusIcon} me-1"></i>${statusText}
+          </span>
+        </td>
+        <td>${this.renderProviderBox(service, company)}</td>
+        <td>${this.renderFbGroupBadges(service)}</td>
+        <td>${this.renderCompletionCell(service)}</td>
+        <td class="text-end">${this.renderActionCell(service)}</td>
+      </tr>
+    `;
+  }
+
+  // Small square thumbnail for the Property column: property photo when set,
+  // otherwise a neutral placeholder icon (same 68px-tile convention the
+  // Property Management row list uses).
+  renderPropertyThumb(service) {
+    if (service.propertyImage) {
+      return `<div class="ac-row-thumb" style="background-image:url('${this.escapeHtml(
+        service.propertyImage
+      )}');"></div>`;
+    }
+    return `
+      <div class="ac-row-thumb d-flex align-items-center justify-content-center">
+        <i class="bi bi-building text-white" style="font-size: 1.4rem; opacity: 0.85;"></i>
+      </div>
+    `;
+  }
+
+  // Provider info panel inside the Service Provider cell: shows the full
+  // provider profile when a company is linked, falls back to legacy
+  // property-level provider text, or flags that nothing is assigned.
+  // Nothing is ever hidden.
+  renderProviderBox(property, company) {
+    if (company) {
+      return `
+        <div class="ac-provider-box mb-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-tools me-1 text-primary"></i>${this.escapeHtml(
+              company.name
+            )}</strong>
+            <span class="badge ${
+              company.isActive ? "bg-success" : "bg-secondary"
+            }">${company.isActive ? "Active" : "Inactive"}</span>
+          </div>
+          <div class="mt-1">
+            <a href="tel:${this.escapeHtml(
+              company.phone
+            )}" class="badge bg-primary me-1 text-decoration-none">
+              <i class="bi bi-telephone-fill me-1"></i>${this.escapeHtml(
+                company.phone
+              )}
+            </a>
+            ${
+              company.website
+                ? `<a href="${this.escapeHtml(
+                    company.website
+                  )}" target="_blank" rel="noopener noreferrer" class="badge bg-white text-dark border text-decoration-none">
+                    <i class="bi bi-globe me-1"></i>Website
+                  </a>`
+                : ""
+            }
+          </div>
+          ${
+            company.notes
+              ? `<div class="small text-muted mt-1">${this.escapeHtml(
+                  company.notes
+                )}</div>`
+              : ""
+          }
+          <button
+            type="button"
+            class="btn btn-sm btn-link p-0 mt-1"
+            onclick="window.acCleanManagementComponent.showEditCompanyModal('${this.escapeHtml(
+              company.companyId
+            )}')"
+          >
+            <i class="bi bi-pencil-square me-1"></i>Edit provider
+          </button>
         </div>
+      `;
+    }
+
+    if (property.acServiceName && property.acServiceName !== "N/A") {
+      // Legacy free-text provider info stored directly on the property,
+      // not (yet) linked to a registered AC service company.
+      return `
+        <div class="ac-provider-box unassigned mb-2">
+          <div>
+            <i class="bi bi-tools me-1 text-warning"></i>
+            <strong>${this.escapeHtml(property.acServiceName)}</strong>
+          </div>
+          ${
+            property.acServiceContactNumbers &&
+            property.acServiceContactNumbers.length > 0
+              ? `<div class="mt-1">
+                  ${property.acServiceContactNumbers
+                    .map(
+                      (num) => `
+                    <a href="tel:${this.escapeHtml(
+                      num
+                    )}" class="badge bg-primary me-1 text-decoration-none">
+                      <i class="bi bi-telephone-fill me-1"></i>${this.escapeHtml(
+                        num
+                      )}
+                    </a>
+                  `
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
+        </div>
+      `;
+    }
+
+    return `
+      <div class="ac-provider-box unassigned mb-2 text-muted">
+        <i class="bi bi-exclamation-circle me-1"></i>No provider assigned
+      </div>
+    `;
+  }
+
+  // Completion Evidence cell: completed-on date/by + a clickable thumbnail
+  // of the evidence photo, or a muted dash when nothing's logged yet.
+  renderCompletionCell(service) {
+    if (!service.isCompleted || !service.completedAt) {
+      return `<span class="text-muted small">&mdash;</span>`;
+    }
+
+    return `
+      <div class="d-flex align-items-center gap-2">
+        ${
+          service.completionImage
+            ? `<img src="${this.escapeHtml(service.completionImage)}"
+                 alt="Completion Receipt"
+                 onclick="window.acCleanManagementComponent.showCompletionImageModal('${this.escapeHtml(
+                   service.completionImage
+                 )}', '${this.escapeHtml(
+                   service.propertyId
+                 )}', '${this.escapeHtml(
+                   service.address
+                 )}', '${this.escapeHtml(service.unit)}')"
+                 class="ac-evidence-thumb"
+                 title="Click to view full image" />`
+            : `<i class="bi bi-check-circle text-success" style="font-size: 1.25rem;"></i>`
+        }
+        <div class="small">
+          <div class="text-success fw-semibold">
+            ${new Date(service.completedAt).toLocaleDateString()}
+          </div>
+          ${
+            service.completedBy
+              ? `<div class="text-muted">by ${this.escapeHtml(
+                  service.completedBy
+                )}</div>`
+              : ""
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  // Action cell: the completed/pending toggle switch.
+  renderActionCell(service) {
+    return `
+      <div class="form-check form-switch mb-0 d-inline-flex justify-content-end">
+        <input
+          class="form-check-input ac-service-checkbox"
+          type="checkbox"
+          id="ac-${this.escapeHtml(service.propertyId)}"
+          data-property-id="${this.escapeHtml(service.propertyId)}"
+          ${service.isCompleted ? "checked" : ""}
+        >
+        <label class="form-check-label small ms-2" for="ac-${this.escapeHtml(
+          service.propertyId
+        )}">
+          ${service.isCompleted ? "Mark Pending" : "Mark Completed"}
+        </label>
       </div>
     `;
   }
@@ -943,9 +988,9 @@ class AcCleanManagementComponent {
   }
 
   showEmptyState(message = "No data available") {
-    const calendarContainer = document.getElementById("acCalendarContainer");
-    if (calendarContainer) {
-      calendarContainer.innerHTML = `
+    const container = document.getElementById("acGridContainer");
+    if (container) {
+      container.innerHTML = `
         <div class="alert alert-warning">
           <i class="bi bi-exclamation-triangle me-2"></i>
           ${this.escapeHtml(message)}
@@ -994,7 +1039,9 @@ class AcCleanManagementComponent {
   }
 
   // ==================== AC SERVICE COMPANY MANAGEMENT ====================
-  // Methods for managing AC service companies (submodule)
+  // Methods for managing AC service companies (shown in the "Manage
+  // Providers" offcanvas, kept separate from the grid since companies are a
+  // standalone roster independent of any single property/month).
 
   async loadCompanies() {
     try {
@@ -1004,7 +1051,9 @@ class AcCleanManagementComponent {
       if (result.success) {
         this.companies = result.companies;
         console.log(`📋 Loaded ${this.companies.length} AC service companies`);
-        this.renderCompaniesTable();
+        this.renderCompaniesList();
+        // Company info is joined into the grid cards, so refresh it too.
+        this.renderGrid();
       } else {
         console.error("Failed to load companies:", result.error);
         this.showCompaniesEmptyState("Failed to load AC service companies");
@@ -1017,7 +1066,18 @@ class AcCleanManagementComponent {
     }
   }
 
-  renderCompaniesTable() {
+  // Properties currently linked to a given company (by companyId, falling
+  // back to a legacy name match for properties without a linked id).
+  _getPropertiesForCompany(company) {
+    return this.properties.filter((p) => {
+      if (p.acServiceCompanyId) {
+        return p.acServiceCompanyId === company.companyId;
+      }
+      return p.acServiceName && p.acServiceName === company.name;
+    });
+  }
+
+  renderCompaniesList() {
     const container = document.getElementById("acCompaniesContainer");
     if (!container) return;
 
@@ -1027,34 +1087,23 @@ class AcCleanManagementComponent {
     }
 
     const html = `
-      <div class="d-flex justify-content-end mb-2">
-        <button
-          class="btn btn-outline-secondary btn-sm"
-          onclick="window.acCleanManagementComponent.copyAllCompaniesInfo(this)"
-          title="Copy all contractors with their assigned properties"
-        >
-          <i class="bi bi-clipboard me-1"></i>Copy All
-        </button>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Website</th>
-              <th>Notes</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.companies
-              .map(
-                (company) => `
-              <tr>
-                <td>${this.escapeHtml(company.name)}</td>
-                <td>
+      <div class="list-group">
+        ${this.companies
+          .map((company) => {
+            const assignedCount = this._getPropertiesForCompany(company).length;
+            return `
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="flex-grow-1 me-2">
+                <div class="fw-semibold">
+                  ${this.escapeHtml(company.name)}
+                  <span class="badge ${
+                    company.isActive ? "bg-success" : "bg-secondary"
+                  } ms-1">
+                    ${company.isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+                <div class="small text-muted mt-1">
                   <a href="tel:${this.escapeHtml(
                     company.phone
                   )}" class="text-decoration-none">
@@ -1062,59 +1111,63 @@ class AcCleanManagementComponent {
                       company.phone
                     )}
                   </a>
-                </td>
-                <td>
                   ${
                     company.website
-                      ? `<a href="${this.escapeHtml(
+                      ? ` &middot; <a href="${this.escapeHtml(
                           company.website
                         )}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
-                        <i class="bi bi-globe me-1"></i>Website
-                       </a>`
-                      : '<span class="text-muted">-</span>'
+                          <i class="bi bi-globe me-1"></i>Website
+                        </a>`
+                      : ""
                   }
-                </td>
-                <td>${this.escapeHtml(company.notes || "-")}</td>
-                <td>
-                  <span class="badge ${
-                    company.isActive ? "bg-success" : "bg-secondary"
-                  }">
-                    ${company.isActive ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td>
-                  <button
-                    class="btn btn-sm btn-outline-secondary me-1"
-                    onclick="window.acCleanManagementComponent.copyCompanyInfo('${this.escapeHtml(
-                      company.companyId
-                    )}', this)"
-                    title="Copy company info with assigned properties"
-                  >
-                    <i class="bi bi-clipboard"></i>
-                  </button>
-                  <button
-                    class="btn btn-sm btn-primary me-1"
-                    onclick="window.acCleanManagementComponent.showEditCompanyModal('${this.escapeHtml(
-                      company.companyId
-                    )}')"
-                  >
-                    <i class="bi bi-pencil"></i>
-                  </button>
-                  <button
-                    class="btn btn-sm btn-danger"
-                    onclick="window.acCleanManagementComponent.deleteCompany('${this.escapeHtml(
-                      company.companyId
-                    )}')"
-                  >
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
+                </div>
+                ${
+                  company.notes
+                    ? `<div class="small text-muted mt-1">${this.escapeHtml(
+                        company.notes
+                      )}</div>`
+                    : ""
+                }
+                <span class="badge bg-light text-dark border mt-2">
+                  <i class="bi bi-building me-1"></i>${assignedCount} propert${
+                    assignedCount === 1 ? "y" : "ies"
+                  }
+                </span>
+              </div>
+              <div class="btn-group-vertical btn-group-sm flex-shrink-0">
+                <button
+                  class="btn btn-outline-secondary"
+                  onclick="window.acCleanManagementComponent.copyCompanyInfo('${this.escapeHtml(
+                    company.companyId
+                  )}', this)"
+                  title="Copy company info with assigned properties"
+                >
+                  <i class="bi bi-clipboard"></i>
+                </button>
+                <button
+                  class="btn btn-outline-primary"
+                  onclick="window.acCleanManagementComponent.showEditCompanyModal('${this.escapeHtml(
+                    company.companyId
+                  )}')"
+                  title="Edit"
+                >
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button
+                  class="btn btn-outline-danger"
+                  onclick="window.acCleanManagementComponent.deleteCompany('${this.escapeHtml(
+                    company.companyId
+                  )}')"
+                  title="Delete"
+                >
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+          })
+          .join("")}
       </div>
     `;
 
@@ -1122,9 +1175,7 @@ class AcCleanManagementComponent {
   }
 
   _buildCompanyClipboardText(company) {
-    const props = this.properties.filter(
-      (p) => p.acServiceName && p.acServiceName === company.name
-    );
+    const props = this._getPropertiesForCompany(company);
     let text = `Company: ${company.name}\n`;
     text += `Phone: ${company.phone}\n`;
     if (company.website) text += `Website: ${company.website}\n`;
@@ -1537,7 +1588,7 @@ class AcCleanManagementComponent {
           ${this.escapeHtml(message)}
         </div>
         <p class="text-center text-muted">
-          Click "Add AC Service Company" to get started.
+          Click "Add Provider" above to get started.
         </p>
       `;
     }

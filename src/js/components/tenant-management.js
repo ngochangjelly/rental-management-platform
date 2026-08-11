@@ -2325,7 +2325,8 @@ class TenantManagementComponent {
                   room: prop.room,
                   moveinDate: prop.moveinDate,
                   moveoutDate: prop.moveoutDate || "",
-                  rent: tenant.rent || null  // Use tenant's rent for legacy migration
+                  rent: tenant.rent || null,  // Use tenant's rent for legacy migration
+                  noAircon: prop.noAircon || false
                 }];
               }
               return {
@@ -2336,6 +2337,7 @@ class TenantManagementComponent {
                 room: prop.room || "",
                 moveinDate: prop.moveinDate || "",
                 moveoutDate: prop.moveoutDate || "",
+                noAircon: prop.noAircon || false,
                 leavePlans: prop.leavePlans || []
               };
             } else {
@@ -2347,6 +2349,7 @@ class TenantManagementComponent {
                 room: "",
                 moveinDate: "",
                 moveoutDate: "",
+                noAircon: false,
                 leavePlans: []
               };
             }
@@ -2787,7 +2790,8 @@ class TenantManagementComponent {
             room: propertyDetails.room,
             moveinDate: propertyDetails.moveinDate,
             moveoutDate: propertyDetails.moveoutDate || "",
-            rent: this.originalTenantData?.rent || null  // Use tenant's rent for legacy migration
+            rent: this.originalTenantData?.rent || null,  // Use tenant's rent for legacy migration
+            noAircon: propertyDetails.noAircon || false
           }];
           // Update the property details to include the migrated roomAssignments
           propertyDetails.roomAssignments = roomAssignments;
@@ -2848,6 +2852,17 @@ class TenantManagementComponent {
                     <input type="date" class="form-control form-control-sm"
                            value="${ra.moveoutDate ? ra.moveoutDate.split('T')[0] : ''}"
                            onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'moveoutDate', this.value)">
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check form-switch mb-0">
+                      <input class="form-check-input" type="checkbox" role="switch"
+                             id="noAircon_${propertyId}_${ra.id}"
+                             ${ra.noAircon ? "checked" : ""}
+                             onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'noAircon', this.checked)">
+                      <label class="form-check-label small" for="noAircon_${propertyId}_${ra.id}">
+                        <i class="bi bi-wind me-1 text-muted"></i>Without AC (no air-conditioning in this room)
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2977,7 +2992,8 @@ class TenantManagementComponent {
           room: propertyDetail.room,
           moveinDate: propertyDetail.moveinDate,
           moveoutDate: propertyDetail.moveoutDate || "",
-          rent: this.originalTenantData?.rent || null  // Use tenant's rent for legacy migration
+          rent: this.originalTenantData?.rent || null,  // Use tenant's rent for legacy migration
+          noAircon: propertyDetail.noAircon || false
         }];
       } else {
         propertyDetail.roomAssignments = [];
@@ -3002,7 +3018,8 @@ class TenantManagementComponent {
       room: "",
       moveinDate: today,
       moveoutDate: "",
-      rent: null  // New room assignment starts with no rent - user should enter it
+      rent: null,  // New room assignment starts with no rent - user should enter it
+      noAircon: false
     });
 
     console.log(`Added new room assignment to property ${propertyId}`);
@@ -3072,7 +3089,7 @@ class TenantManagementComponent {
 
   getEffectiveRent(tenant) { return getEffectiveTenantRent(tenant); }
 
-  // Helper to sync legacy room/moveinDate/moveoutDate fields from roomAssignments
+  // Helper to sync legacy room/moveinDate/moveoutDate/noAircon fields from roomAssignments
   syncLegacyFieldsFromRoomAssignments(propertyDetail) {
     const roomAssignments = propertyDetail.roomAssignments || [];
     if (roomAssignments.length > 0) {
@@ -3085,6 +3102,7 @@ class TenantManagementComponent {
       propertyDetail.room = latestAssignment?.room || propertyDetail.room;
       propertyDetail.moveinDate = firstAssignment?.moveinDate || propertyDetail.moveinDate;
       propertyDetail.moveoutDate = latestAssignment?.moveoutDate || propertyDetail.moveoutDate;
+      propertyDetail.noAircon = latestAssignment?.noAircon ?? propertyDetail.noAircon ?? false;
     }
   }
 
@@ -4822,7 +4840,8 @@ class TenantManagementComponent {
         prop1.isMainTenant === prop2.isMainTenant &&
         (prop1.room || "") === (prop2.room || "") &&
         (prop1.moveinDate || "") === (prop2.moveinDate || "") &&
-        (prop1.moveoutDate || "") === (prop2.moveoutDate || "")
+        (prop1.moveoutDate || "") === (prop2.moveoutDate || "") &&
+        !!prop1.noAircon === !!prop2.noAircon
       );
     });
   }

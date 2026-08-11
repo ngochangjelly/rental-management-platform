@@ -1,5 +1,9 @@
 // Note: showToast and escapeHtml are expected to be available globally
-import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
+import {
+  getRoomTypeDisplayName,
+  getRoomTypeColor,
+  getRoomTypeBadgeStyle,
+} from "../utils/room-type-mapper.js";
 import {
   getGroupLinkMeta,
   facebookToMessengerUrl,
@@ -3424,24 +3428,69 @@ class FinancialReportsComponent {
           <div class="d-flex align-items-center justify-content-center mb-1">
             ${this._renderAvatarCircle(info)}
           </div>
-          ${info.roomType ? `<div class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 6px;">${escapeHtml(this.getRoomTypeDisplayName(info.roomType))}</div>` : ""}
+          ${info.roomType ? `<div class="badge" style="font-size: 0.65rem; padding: 2px 6px;${getRoomTypeBadgeStyle(info.roomType)}">${escapeHtml(this.getRoomTypeDisplayName(info.roomType))}</div>` : ""}
         </div>
       `;
     }
 
-    // Multiple payers: overlapping avatars
+    // Multiple payers.
     const tooltipText = persons
       .map((p) => (p ? p.displayName : "Unknown"))
       .join(", ");
-    const avatarCircles = persons
-      .map((info, i) => {
-        const ml = i > 0 ? "margin-left: -10px;" : "";
-        const zIndex = `z-index: ${persons.length - i};`;
-        return `<div style="position: relative; ${zIndex} ${ml}">${this._renderAvatarCircle(info)}</div>`;
+    const renderRoomBadge = (roomType) =>
+      `<div class="badge" style="font-size: 0.65rem; padding: 2px 6px;${getRoomTypeBadgeStyle(roomType)}">${escapeHtml(this.getRoomTypeDisplayName(roomType))}</div>`;
+    const renderAvatarStack = (group) =>
+      group
+        .map((info, i) => {
+          const ml = i > 0 ? "margin-left: -10px;" : "";
+          const zIndex = `z-index: ${group.length - i};`;
+          return `<div style="position: relative; ${zIndex} ${ml}">${this._renderAvatarCircle(info)}</div>`;
+        })
+        .join("");
+
+    // Group payers by room so roommates share one overlapping avatar stack
+    // and one badge, instead of each payee getting a duplicate badge —
+    // otherwise 3 payees (2 sharing a room) rendered as 3 separate
+    // avatar+badge columns, blowing out the row width and breaking the
+    // table layout. People with no room info fall into a shared "no room"
+    // bucket (no badge, so nothing to collide) rather than getting one
+    // column each.
+    const groupsByKey = new Map();
+    persons.forEach((info) => {
+      const key = info?.roomType || "__none__";
+      if (!groupsByKey.has(key)) groupsByKey.set(key, []);
+      groupsByKey.get(key).push(info);
+    });
+    const groups = [...groupsByKey.values()];
+
+    if (groups.length === 1) {
+      // No room info, or everyone shares the same room (roommates) — keep
+      // the compact overlapping-avatar stack with one shared badge below.
+      const roomType = groups[0][0]?.roomType;
+      const sharedBadge = roomType ? renderRoomBadge(roomType) : "";
+      return `
+        <div class="d-flex flex-column align-items-center justify-content-center" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltipText)}">
+          <div class="d-flex align-items-center justify-content-center${sharedBadge ? " mb-1" : ""}">${renderAvatarStack(groups[0])}</div>
+          ${sharedBadge}
+        </div>
+      `;
+    }
+
+    // Payers span multiple rooms — one column per room (each still an
+    // overlapping avatar stack + single shared badge for its roommates)
+    // instead of one column per person.
+    const columns = groups
+      .map((group) => {
+        const roomType = group[0]?.roomType;
+        return `
+          <div class="d-flex flex-column align-items-center">
+            <div class="d-flex align-items-center justify-content-center mb-1">${renderAvatarStack(group)}</div>
+            ${roomType ? renderRoomBadge(roomType) : ""}
+          </div>
+        `;
       })
       .join("");
-
-    return `<div class="d-flex align-items-center justify-content-center" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltipText)}">${avatarCircles}</div>`;
+    return `<div class="d-flex align-items-start justify-content-center gap-1" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltipText)}">${columns}</div>`;
   }
 
   // Compact inline version for mobile cards — avatars only, room type in tooltip only
@@ -5638,6 +5687,13 @@ class FinancialReportsComponent {
           : `Property ID: ${this.selectedProperty}`;
       }
 
+      // Monthly rent — shown right alongside the property name/address since
+      // it's static property info, not tied to any one report line item.
+      const rentInfo =
+        property?.rent > 0
+          ? `Rent: $${property.rent.toLocaleString()}/mo (Day ${property.rentPaymentDate || 1})`
+          : "";
+
       const statusIcon = isSettled ? " 🤝" : isClosed ? " 🔒" : "";
 
       const fmtMoveDate = (v) =>
@@ -5654,11 +5710,52 @@ class FinancialReportsComponent {
         ? `Move-in: ${moveIn}${moveOut ? `  ·  Move-out: ${moveOut}` : ""}`
         : "";
 
+      // Utility account credentials (PUB/SP, WiFi, ...) — admin-only.
+      // Rendered in this on-screen header only, grouped one chip per
+      // provider so it stays scannable as more account types get added
+      // here, instead of one long undifferentiated line. Never included
+      // in the PDF/PNG/print exports.
+      const showUtilityAccounts = window.isAdmin && window.isAdmin();
+      const renderAcctChip = (label, parts) => {
+        if (!parts.length) return "";
+        return `<span style="display:inline-flex;align-items:center;gap:5px;background:#f1f3f5;border-radius:10px;padding:1px 8px;">
+          <span class="fw-semibold" style="color:#6c757d;">${escapeHtml(label)}</span>
+          <span class="font-monospace">${parts.join(" · ")}</span>
+        </span>`;
+      };
+      let utilityAccountsInfo = "";
+      if (showUtilityAccounts && property) {
+        const spParts = [];
+        if (property.spAccountNumber)
+          spParts.push(`#${escapeHtml(property.spAccountNumber)}`);
+        if (property.spAccountUsername || property.spAccountPassword) {
+          spParts.push(
+            [property.spAccountUsername, property.spAccountPassword]
+              .filter(Boolean)
+              .map(escapeHtml)
+              .join(" / "),
+          );
+        }
+        const wifiParts = [];
+        if (property.wifiAccountNumber)
+          wifiParts.push(`#${escapeHtml(property.wifiAccountNumber)}`);
+        if (property.wifiAccountHolderName)
+          wifiParts.push(escapeHtml(property.wifiAccountHolderName));
+
+        utilityAccountsInfo = [
+          renderAcctChip("PUB", spParts),
+          renderAcctChip("WiFi", wifiParts),
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }
+
       currentMonthEl.innerHTML = `
         <div class="d-flex flex-column align-items-center">
           <div class="fw-bold">${month} ${year}${statusIcon}</div>
-          ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}</div>` : ""}
+          ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}${rentInfo ? ` · ${rentInfo}` : ""}</div>` : ""}
           ${moveDatesInfo ? `<div class="text-muted" style="font-size: 0.78rem; opacity: 0.85;">${moveDatesInfo}</div>` : ""}
+          ${utilityAccountsInfo ? `<div class="d-flex flex-wrap justify-content-center gap-1 mt-1" style="font-size: 0.72rem;">${utilityAccountsInfo}</div>` : ""}
         </div>
       `;
 
@@ -5898,8 +5995,12 @@ class FinancialReportsComponent {
 
       // Get property details
       const property = await this.getPropertyDetails(this.selectedProperty);
+      const rentLine =
+        property?.rent > 0
+          ? `\nRent: $${property.rent.toLocaleString()}/mo (Day ${property.rentPaymentDate || 1})`
+          : "";
       const propertyHeader = property
-        ? `Unit ${property.unit}, ${property.address}\nProperty ID: ${property.propertyId}`
+        ? `Unit ${property.unit}, ${property.address}\nProperty ID: ${property.propertyId}${rentLine}`
         : `Property ID: ${this.selectedProperty}`;
 
       // Create PDF using globally loaded jsPDF
@@ -6219,8 +6320,14 @@ class FinancialReportsComponent {
             yPos = 20;
           }
 
-          // Draw alternating row background
-          if (idx % 2 === 0) {
+          // Draw row background — pending items get a light amber
+          // highlight (same visual language as the edit-mode list and the
+          // exported image) instead of the plain alternating stripe, so
+          // pending rows stay visually distinguishable from confirmed ones.
+          if (item.isPending) {
+            pdf.setFillColor(255, 253, 231);
+            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, "F");
+          } else if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
             pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, "F");
           }
@@ -6274,12 +6381,33 @@ class FinancialReportsComponent {
             pdf.setFontSize(8);
           }
 
-          // Draw amount
-          pdf.setTextColor(0, 128, 0);
+          // Draw amount — amber instead of green while pending, matching
+          // the edit-mode list and the exported image's pending styling.
+          pdf.setTextColor(...(item.isPending ? [180, 83, 9] : [0, 128, 0]));
           pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, {
             align: "right",
           });
           pdf.setTextColor(0, 0, 0);
+
+          // PENDING badge — this item's amount is NOT counted in the
+          // "Total:" line below (totals stay confirmed-only by design),
+          // so flag it the same way the edit-mode list and image export do.
+          if (item.isPending) {
+            const badgeW = 16;
+            const badgeH = 3;
+            const badgeX = colAmount - badgeW;
+            const badgeY = rowStartY + 1.5;
+            pdf.setFillColor(245, 158, 11);
+            pdf.setDrawColor(245, 158, 11);
+            pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 0.5, 0.5, "FD");
+            pdf.setFontSize(5.5);
+            pdf.setTextColor(124, 45, 18);
+            pdf.text("PENDING", badgeX + badgeW / 2, badgeY + 2.2, {
+              align: "center",
+            });
+            pdf.setFontSize(8);
+            pdf.setTextColor(0, 0, 0);
+          }
 
           // Draw details below item if available
           if (detailsLines.length > 0) {
@@ -6399,8 +6527,14 @@ class FinancialReportsComponent {
             yPos = 20;
           }
 
-          // Draw alternating row background
-          if (idx % 2 === 0) {
+          // Draw row background — pending items get a light amber
+          // highlight (same visual language as the edit-mode list and the
+          // exported image) instead of the plain alternating stripe, so
+          // pending rows stay visually distinguishable from confirmed ones.
+          if (item.isPending) {
+            pdf.setFillColor(255, 253, 231);
+            pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, "F");
+          } else if (idx % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
             pdf.rect(margin, yPos - 1, contentWidth, totalRowHeight + 2, "F");
           }
@@ -6452,12 +6586,33 @@ class FinancialReportsComponent {
             }
           }
 
-          // Draw amount
-          pdf.setTextColor(128, 0, 0);
+          // Draw amount — amber instead of red while pending, matching
+          // the edit-mode list and the exported image's pending styling.
+          pdf.setTextColor(...(item.isPending ? [180, 83, 9] : [128, 0, 0]));
           pdf.text(`$${item.amount.toFixed(2)}`, colAmount, rowStartY, {
             align: "right",
           });
           pdf.setTextColor(0, 0, 0);
+
+          // PENDING badge — this item's amount is NOT counted in the
+          // "Total:" line below (totals stay confirmed-only by design),
+          // so flag it the same way the edit-mode list and image export do.
+          if (item.isPending) {
+            const badgeW = 16;
+            const badgeH = 3;
+            const badgeX = colAmount - badgeW;
+            const badgeY = rowStartY + 1.5;
+            pdf.setFillColor(245, 158, 11);
+            pdf.setDrawColor(245, 158, 11);
+            pdf.roundedRect(badgeX, badgeY, badgeW, badgeH, 0.5, 0.5, "FD");
+            pdf.setFontSize(5.5);
+            pdf.setTextColor(124, 45, 18);
+            pdf.text("PENDING", badgeX + badgeW / 2, badgeY + 2.2, {
+              align: "center",
+            });
+            pdf.setFontSize(8);
+            pdf.setTextColor(0, 0, 0);
+          }
 
           // Draw details below item if available
           if (detailsLines.length > 0) {
@@ -6597,13 +6752,19 @@ class FinancialReportsComponent {
 
             expensesPaid = this.currentReport.expenses
               ? this.currentReport.expenses
-                  .filter((e) => e.personInCharge === investor.investorId)
+                  .filter(
+                    (e) =>
+                      !e.isPending && e.personInCharge === investor.investorId,
+                  )
                   .reduce((sum, e) => sum + e.amount, 0)
               : 0;
 
             incomeReceived = this.currentReport.income
               ? this.currentReport.income
-                  .filter((i) => i.personInCharge === investor.investorId)
+                  .filter(
+                    (i) =>
+                      !i.isPending && i.personInCharge === investor.investorId,
+                  )
                   .reduce((sum, i) => sum + i.amount, 0)
               : 0;
 
@@ -6975,10 +7136,14 @@ class FinancialReportsComponent {
       const percentage = tx?.percentage ?? (propData ? propData.percentage : 0);
       const profitShare = (netProfit * percentage) / 100;
       const paidAmount = (this.currentReport?.expenses || [])
-        .filter((e) => e.personInCharge === investor.investorId)
+        .filter(
+          (e) => !e.isPending && e.personInCharge === investor.investorId,
+        )
         .reduce((sum, e) => sum + (e.amount || 0), 0);
       const receivedAmount = (this.currentReport?.income || [])
-        .filter((i) => i.personInCharge === investor.investorId)
+        .filter(
+          (i) => !i.isPending && i.personInCharge === investor.investorId,
+        )
         .reduce((sum, i) => sum + (i.amount || 0), 0);
       return {
         name: investor.name,
@@ -7112,9 +7277,16 @@ class FinancialReportsComponent {
         : null;
     const moveInLabel = property ? _fmtMoveDate(property.moveInDate) : null;
     const moveOutLabel = property ? _fmtMoveDate(property.moveOutDate) : null;
-    const moveDatesLine = moveInLabel
+    const moveDatesText = moveInLabel
       ? `Move-in: ${moveInLabel}${moveOutLabel ? `   ·   Move-out: ${moveOutLabel}` : ""}`
       : null;
+    // Rent shares the same muted metadata line as the move dates, right
+    // under the property title — same spot as the name/address above it.
+    const rentText =
+      property?.rent > 0
+        ? `Rent: $${property.rent.toLocaleString()}/mo (Day ${property.rentPaymentDate || 1})`
+        : null;
+    const moveDatesLine = [rentText, moveDatesText].filter(Boolean).join("   ·   ") || null;
 
     // Date labels
     const MONTH_NAMES = [
@@ -7176,8 +7348,6 @@ class FinancialReportsComponent {
     const INCOME_CLR = getModeTokens(true).accentSoft;
     const EXPENSE_CLR = getModeTokens(false).accentSoft;
     const PENDING_AMOUNT_CLR = pendingTokensSvg.text; // pending $ amounts
-    const BADGE_BG = badgeTokensSvg.bg; // neutral chip bg (room-type badge)
-    const BADGE_TXT = badgeTokensSvg.text; // neutral chip text
     const bannerTokensSvg = getBannerTokens(); // fixed alert colors (CLOSED badge, PUB overage) — not mode-dependent
 
     // Layout constants
@@ -7315,21 +7485,33 @@ class FinancialReportsComponent {
         `<text x="${textX}" y="${rowY + R + 4}" font-size="12" fill="${META_TXT}">${this._svgEsc(nameStr)}</text>`,
       );
 
-      // Room type badge (first person that has one)
-      const withRoom = persons.find((q) => q?.roomType);
-      if (withRoom) {
+      // Room type badge(s) — same per-family/number hue as the property
+      // view's room badges (getRoomTypeColor), so a tenant's room tag reads
+      // consistently across the app and the export. Mirrors renderPaidByAvatar:
+      // one shared badge if every payee with a room shares the same one
+      // (roommates), otherwise one badge per distinct room so a split
+      // between different rooms doesn't silently collapse to just the first.
+      const roomTypes = [
+        ...new Set(persons.filter((q) => q?.roomType).map((q) => q.roomType)),
+      ];
+      if (roomTypes.length > 0) {
         const approxNameW = nameStr.length * 6.2;
-        const badgeX = textX + approxNameW + 4;
-        const badgeText = this._svgEsc(
-          this.getRoomTypeDisplayName(withRoom.roomType),
-        );
-        const badgeW = badgeText.length * 6 + 10;
-        p(
-          `<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="${BADGE_BG}"/>`,
-        );
-        p(
-          `<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="10" fill="${BADGE_TXT}" text-anchor="middle" font-weight="600">${badgeText}</text>`,
-        );
+        let badgeX = textX + approxNameW + 4;
+        roomTypes.forEach((roomType) => {
+          const badgeText = this._svgEsc(this.getRoomTypeDisplayName(roomType));
+          // 7px/char (not 6) to account for the bold serif font this SVG
+          // inherits, plus 16px flat (8px/side) so padding survives on
+          // longer labels too (e.g. "Common 2") instead of just short ones.
+          const badgeW = badgeText.length * 7 + 16;
+          const { hue, saturation, lightness } = getRoomTypeColor(roomType);
+          p(
+            `<rect x="${badgeX}" y="${rowY + 1}" width="${badgeW}" height="${R * 2 - 2}" rx="4" fill="hsl(${hue} ${saturation}% ${lightness}%)"/>`,
+          );
+          p(
+            `<text x="${badgeX + badgeW / 2}" y="${rowY + R + 3}" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="600">${badgeText}</text>`,
+          );
+          badgeX += badgeW + 4;
+        });
       }
     };
 
@@ -8250,7 +8432,11 @@ class FinancialReportsComponent {
         (p) => p.propertyId === this.selectedProperty,
       );
       if (property) {
-        exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}`;
+        const rentSuffix =
+          property.rent > 0
+            ? ` · Rent: $${property.rent.toLocaleString()}/mo (Day ${property.rentPaymentDate || 1})`
+            : "";
+        exportPropertyInfo.textContent = `${property.propertyId} - ${property.address}, ${property.unit}${rentSuffix}`;
       } else {
         exportPropertyInfo.textContent = `Property ID: ${this.selectedProperty}`;
       }

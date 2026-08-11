@@ -1,4 +1,7 @@
-import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
+import {
+  getRoomTypeDisplayName,
+  getRoomTypeBadgeStyle,
+} from "../utils/room-type-mapper.js";
 import {
   getGroupLinkMeta,
   facebookToMessengerUrl,
@@ -299,6 +302,7 @@ class BillManagementComponent {
     this._utilityBillsAll = [];
     this._selectedCycleIds = null;
     this._dynamicPreviewCache = null;
+    this._tenantProfileCache = null;
     this.selectedTenants.clear();
     this.updateSelectionButtons();
     this.propertySubsidy = 0;
@@ -720,6 +724,76 @@ class BillManagementComponent {
     document.head.appendChild(style);
   }
 
+  // Colored room-type badge — reuses the same family-hue color system as
+  // the property management page (getRoomTypeBadgeStyle) so a given room
+  // type reads as the same color everywhere in the app, not just here.
+  _roomTypeBadgeHtml(room) {
+    if (!room) return '<span class="text-muted">-</span>';
+    const label = getRoomTypeDisplayName(room);
+    return `<span class="badge" style="font-size:0.72rem;${getRoomTypeBadgeStyle(room)}">${escapeHtml(label)}</span>`;
+  }
+
+  // Compact Facebook/Messenger/WhatsApp icon chips — only the ones that
+  // actually exist for this tenant. Shared by the dynamic preview and the
+  // generated bill list so both render tenant contact links identically.
+  _tenantSocialIconsHtml(facebookUrl, phoneNumber, tenantName) {
+    const chip = (color, icon, title, href) => `
+      <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="${title}"
+         style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+                border-radius:50%;background:${color}1f;color:${color};font-size:16px;text-decoration:none;">
+        <i class="bi ${icon}"></i>
+      </a>`;
+
+    const icons = [];
+    if (facebookUrl) {
+      icons.push(chip("#1877F2", "bi-facebook", "Facebook", facebookUrl));
+      const msgUrl = facebookToMessengerUrl(facebookUrl);
+      if (msgUrl)
+        icons.push(chip("#0084ff", "bi-messenger", "Messenger", msgUrl));
+    }
+    if (phoneNumber) {
+      const waUrl = buildWhatsAppSignContractUrl(phoneNumber, tenantName);
+      if (waUrl) icons.push(chip("#25D366", "bi-whatsapp", "WhatsApp", waUrl));
+    }
+    return icons.length
+      ? `<div style="display:flex;gap:6px;margin-top:4px;">${icons.join("")}</div>`
+      : "";
+  }
+
+  // Fetches {avatar, facebookUrl, phoneNumber} per tenant for the current
+  // property. The Bill document's tenantBills subdocuments only carry what's
+  // needed to compute/display the bill itself (see backend ITenantBill) —
+  // no avatar/contact fields — so the generated bill list looks them up
+  // separately here. Cached per property since renderBillTable() re-runs on
+  // every edit/upload.
+  async _loadTenantProfileMap() {
+    if (this._tenantProfileCache?.property === this.selectedProperty) {
+      return this._tenantProfileCache.map;
+    }
+    const map = new Map();
+    try {
+      const res = await API.get(
+        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
+      );
+      const data = await res.json();
+      if (data.success) {
+        (data.tenants || []).forEach((tenant) => {
+          const id = tenant._id?.toString().toUpperCase();
+          if (!id) return;
+          map.set(id, {
+            avatar: tenant.avatar || null,
+            facebookUrl: tenant.facebookUrl || null,
+            phoneNumber: tenant.phoneNumber || null,
+          });
+        });
+      }
+    } catch {
+      // Non-critical — the bill list still renders fine without avatars/icons.
+    }
+    this._tenantProfileCache = { property: this.selectedProperty, map };
+    return map;
+  }
+
   // Fixed-size circular avatar (falls back to an initials badge, and swaps to
   // it automatically if the image URL 404s). Shared by the dynamic preview
   // table and the exported bill card so both render tenants identically.
@@ -767,8 +841,42 @@ class BillManagementComponent {
     }
   }
 
+  // Calendar months between two dates (e.g. 15 Jan -> 20 Jul = 6 months; one
+  // day later, 21 Jul, still counts as 6 whole months since the day-of-month
+  // hasn't been reached yet). Mirrors contract-management.js's
+  // calculateLeasePeriod() month arithmetic.
+  _monthsBetween(start, end) {
+    let months =
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth());
+    if (end.getDate() < start.getDate()) months--;
+    return months;
+  }
+
+  // AC servicing/clean fee owed when a tenant checks out of an air-conditioned
+  // room this month — mirrors the contract clause in contract-management.js
+  // (hasAircon()/acClauseVisible()): SGD$100 if they stayed over 6 months in
+  // that room, SGD$200 if over a year. Rooms without aircon (per the room
+  // assignment's own noAircon flag, falling back to the property
+  // association's legacy flag) never owe this.
+  _acCleanFeeForAssignment(ra, propAssoc) {
+    const noAircon =
+      typeof ra.noAircon === "boolean" ? ra.noAircon : !!propAssoc.noAircon;
+    if (noAircon) return 0;
+    if (!ra.moveinDate || !ra.moveoutDate) return 0;
+    const months = this._monthsBetween(
+      new Date(ra.moveinDate),
+      new Date(ra.moveoutDate),
+    );
+    if (months > 12) return 200;
+    if (months > 6) return 100;
+    return 0;
+  }
+
   // Prorates a tenant's rent for the given calendar month using their
-  // roomAssignments (falls back to legacy movein/moveout + tenant.rent).
+  // roomAssignments (falls back to legacy movein/moveout + tenant.rent), by
+  // nights actually stayed rather than flat whole-month rent. Also reports
+  // any one-off AC clean fee owed from an actual checkout during this month.
   _computeProratedRent(
     propAssoc,
     tenantFallbackRent,
@@ -784,12 +892,16 @@ class BillManagementComponent {
           moveinDate: propAssoc.moveinDate,
           moveoutDate: propAssoc.moveoutDate,
           rent: tenantFallbackRent,
+          noAircon: propAssoc.noAircon,
         },
       ];
     }
 
     let amount = 0;
     let daysStayed = 0;
+    let acCleanFee = 0;
+    let monthlyRent = 0; // whole-month rate of whichever assignment was actually present this month (last one wins on a room switch)
+    const periods = []; // the actual calendar date range(s) present this month, e.g. move-in to checkout — for display only, doesn't affect billing math
     for (const ra of assignments) {
       const raStart = ra.moveinDate ? new Date(ra.moveinDate) : monthStart;
       const raEnd = ra.moveoutDate ? new Date(ra.moveoutDate) : monthEnd;
@@ -798,12 +910,89 @@ class BillManagementComponent {
       const os = Math.max(+raStart, +monthStart);
       const oe = Math.min(+raEnd, +monthEnd);
       if (oe < os) continue;
-      const days = Math.round((oe - os) / msDay) + 1;
+
+      // Checking out is a half-day event — the moveout date itself isn't a
+      // billable night (rent per day = monthly rent / days in month, and a
+      // tenant who moves out on the 6th only slept there through the 5th).
+      // Only exclude it when the overlap's end IS the actual checkout date,
+      // not just the calendar month boundary clamping an ongoing stay.
+      const isActualCheckout = !!ra.moveoutDate && oe === +raEnd;
+      const days =
+        Math.round((oe - os) / msDay) + (isActualCheckout ? 0 : 1);
+      if (days <= 0) continue;
+
       const rent = ra.rent != null ? ra.rent : tenantFallbackRent || 0;
       amount += rent * (days / daysInMonth);
       daysStayed += days;
+      monthlyRent = rent;
+      periods.push({ start: new Date(os), end: new Date(oe), days });
+
+      if (isActualCheckout) {
+        acCleanFee += this._acCleanFeeForAssignment(ra, propAssoc);
+      }
     }
-    return { amount, daysStayed: Math.min(daysStayed, daysInMonth) };
+    return {
+      amount,
+      monthlyRent,
+      daysStayed: Math.min(daysStayed, daysInMonth),
+      acCleanFee,
+      periods,
+    };
+  }
+
+  // Compact "D–D" (day-of-month only, no month/year) rendering of the
+  // periods returned by _computeProratedRent — for the dynamic preview
+  // table, which is always scoped to a single already-visible calendar
+  // month, so restating the month/year on every row would be redundant.
+  // A single-day stay renders as just "D". Multiple segments (e.g. a mid-
+  // month room switch that briefly gaps) are joined with ", ".
+  _formatStayPeriodShort(periods) {
+    return (periods || [])
+      .map((p) => {
+        const startDay = p.start.getDate();
+        const endDay = p.end.getDate();
+        return startDay === endDay ? `${startDay}` : `${startDay}–${endDay}`;
+      })
+      .join(", ");
+  }
+
+  // "DD–DD/MM/YYYY" rendering of the periods returned by _computeProratedRent
+  // — used in the tenant-facing bill card/text, which isn't necessarily
+  // viewed alongside a visible month label, so the date range needs to stand
+  // on its own. Only restates the month and/or year on the start date when
+  // the range actually crosses that boundary, e.g. "01–06/08/2026" for a
+  // same-month stay vs. "28/07–03/08/2026" for one spanning two months.
+  _formatStayPeriodFull(periods) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return (periods || [])
+      .map((p) => {
+        const { start: s, end: e } = p;
+        const sameYear = s.getFullYear() === e.getFullYear();
+        const sameMonth = sameYear && s.getMonth() === e.getMonth();
+        const endStr = `${pad(e.getDate())}/${pad(e.getMonth() + 1)}/${e.getFullYear()}`;
+        if (sameMonth) return `${pad(s.getDate())}–${endStr}`;
+        const startStr = sameYear
+          ? `${pad(s.getDate())}/${pad(s.getMonth() + 1)}`
+          : `${pad(s.getDate())}/${pad(s.getMonth() + 1)}/${s.getFullYear()}`;
+        return `${startStr}–${endStr}`;
+      })
+      .join(", ");
+  }
+
+  // Vietnamese sentence describing how much of the billing month a tenant
+  // was actually present, for the bill card/breakdown text sent to tenants.
+  // Full-month stays keep the simple "Ở trọn tháng (N ngày)" phrasing since
+  // the exact dates are just the calendar month and add no information;
+  // partial stays spell out the actual date range so it's clear why the
+  // rent charged is less than the room's usual monthly rate.
+  _buildTenancyNote(daysStayed, daysInMonth, periods) {
+    if (daysStayed >= daysInMonth) {
+      return `Ở trọn tháng (${daysInMonth} ngày)`;
+    }
+    const periodLabel = this._formatStayPeriodFull(periods);
+    return periodLabel
+      ? `Ở ${daysStayed}/${daysInMonth} ngày (${periodLabel})`
+      : `Ở ${daysStayed}/${daysInMonth} ngày trong tháng`;
   }
 
   async _computeDynamicPreview(selectedBills) {
@@ -842,6 +1031,10 @@ class BillManagementComponent {
       );
       if (rentInfo.daysStayed <= 0) continue; // not present this month at all
 
+      // Cleaning is a flat monthly service fee, not prorated — a tenant who
+      // wasn't present the whole month owes nothing towards it.
+      const isFullMonth = rentInfo.daysStayed >= daysInMonth;
+
       entries.push({
         tenantId: tenant._id?.toString().toUpperCase(),
         tenantName:
@@ -849,7 +1042,10 @@ class BillManagementComponent {
         room,
         daysStayed: rentInfo.daysStayed,
         rentAmount: rentInfo.amount,
-        cleaningFee: tenant.cleaningFee || 0,
+        monthlyRent: rentInfo.monthlyRent,
+        periods: rentInfo.periods,
+        cleaningFee: isFullMonth ? tenant.cleaningFee || 0 : 0,
+        acCleanFee: rentInfo.acCleanFee || 0,
         notes: (tenant.notes || "").trim(),
         pendingTodos: (tenant.todos || []).filter((td) => !td.completed),
         avatar: tenant.avatar || null,
@@ -923,7 +1119,7 @@ class BillManagementComponent {
           pubAmount,
           pubShareRaw,
           isSubsidized,
-          total: e.rentAmount + e.cleaningFee + pubAmount,
+          total: e.rentAmount + e.cleaningFee + e.acCleanFee + pubAmount,
         };
       })
       .sort((a, b) => (a.room || "").localeCompare(b.room || ""));
@@ -977,33 +1173,10 @@ class BillManagementComponent {
     const tenantAvatarHtml = (r) =>
       this._avatarHtml(r.tenantName, r.avatar, AVATAR_SIZE);
 
-    // Compact Facebook/Messenger/WhatsApp icon chips — only the ones that
-    // actually exist for this tenant. Sits inline next to the name, not under
-    // the avatar, so a varying icon count never shifts the avatar/name layout.
-    const tenantSocialIcons = (r) => {
-      const chip = (color, icon, title, href) => `
-        <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="${title}"
-           style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
-                  border-radius:50%;background:${color}1f;color:${color};font-size:11px;text-decoration:none;">
-          <i class="bi ${icon}"></i>
-        </a>`;
-
-      const icons = [];
-      if (r.facebookUrl) {
-        icons.push(chip("#1877F2", "bi-facebook", "Facebook", r.facebookUrl));
-        const msgUrl = facebookToMessengerUrl(r.facebookUrl);
-        if (msgUrl)
-          icons.push(chip("#0084ff", "bi-messenger", "Messenger", msgUrl));
-      }
-      if (r.phoneNumber) {
-        const waUrl = buildWhatsAppSignContractUrl(r.phoneNumber, r.tenantName);
-        if (waUrl)
-          icons.push(chip("#25D366", "bi-whatsapp", "WhatsApp", waUrl));
-      }
-      return icons.length
-        ? `<div style="display:flex;gap:4px;margin-top:3px;">${icons.join("")}</div>`
-        : "";
-    };
+    // Sits inline next to the name, not under the avatar, so a varying icon
+    // count never shifts the avatar/name layout.
+    const tenantSocialIcons = (r) =>
+      this._tenantSocialIconsHtml(r.facebookUrl, r.phoneNumber, r.tenantName);
 
     // Built as a CSS Grid "table" rather than a native <table>: the header
     // and every row are independent grid containers, but all share the exact
@@ -1011,7 +1184,7 @@ class BillManagementComponent {
     // grid definition itself — there's no browser column-width algorithm
     // left to misbehave, unlike native <table> auto/fixed layout.
     const GRID_COLUMNS =
-      "32px minmax(170px,2fr) minmax(100px,1fr) 64px 84px 84px minmax(130px,1.3fr) 96px";
+      "32px minmax(170px,2fr) minmax(100px,1fr) 84px 84px 84px 74px minmax(130px,1.3fr) 96px";
 
     const gridCell = (content, opts = {}) => `
       <div style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
@@ -1030,10 +1203,25 @@ class BillManagementComponent {
               ${tenantNotesCell(r)}
             </div>
           </div>`)}
-        ${gridCell(escapeHtml(getRoomTypeDisplayName(r.room)))}
-        ${gridCell(`${r.daysStayed}/${preview.daysInMonth}`, { align: "center" })}
-        ${gridCell(fmt(r.rentAmount), { align: "right" })}
+        ${gridCell(this._roomTypeBadgeHtml(r.room))}
+        ${gridCell(
+          `<div>${r.daysStayed}/${preview.daysInMonth}</div>${
+            r.daysStayed < preview.daysInMonth
+              ? `<div class="text-muted" style="font-size:0.66rem;">${this._formatStayPeriodShort(r.periods)}</div>`
+              : ""
+          }`,
+          { align: "center" },
+        )}
+        ${gridCell(
+          `${fmt(r.rentAmount)}${
+            Math.abs(r.rentAmount - r.monthlyRent) > 0.005
+              ? `<div class="text-muted" style="font-size:0.68rem;">/ ${fmt(r.monthlyRent)} mo</div>`
+              : ""
+          }`,
+          { align: "right" },
+        )}
         ${gridCell(fmt(r.cleaningFee), { align: "right" })}
+        ${gridCell(r.acCleanFee > 0 ? fmt(r.acCleanFee) : '<span class="text-muted">-</span>', { align: "right" })}
         ${gridCell(
           `<div class="fw-semibold${r.isSubsidized ? " text-success" : ""}">${fmt(r.pubAmount)}</div>
           ${cycleLines(r)}
@@ -1068,6 +1256,7 @@ class BillManagementComponent {
             ${gridCell(t("daysStayed"), { align: "center" })}
             ${gridCell(t("baseRental"), { align: "right" })}
             ${gridCell(t("cleaningFee"), { align: "right" })}
+            ${gridCell(t("acCleanFee"), { align: "right" })}
             ${gridCell(t("utilityFee"), { align: "right" })}
             ${gridCell(t("total"), { align: "right" })}
           </div>
@@ -1097,7 +1286,7 @@ class BillManagementComponent {
     `;
   }
 
-  renderBillTable() {
+  async renderBillTable() {
     if (!this.currentBill) {
       this.showGenerateBillPrompt();
       return;
@@ -1105,10 +1294,21 @@ class BillManagementComponent {
 
     const container = document.getElementById("billTableContainer");
     if (!container) return;
-    this._detachActionToolbar();
 
     this.selectedTenants.clear();
     this.updateSelectionButtons();
+
+    // Bill subdocuments don't carry tenant avatar/contact info — fetch it
+    // separately (cached per property) so the list can show an avatar badge
+    // and Facebook/Messenger/WhatsApp chips next to each tenant's name.
+    // NOTE: this await opens a gap before the container is actually wiped
+    // below, so _detachActionToolbar() must NOT run up here — a re-entrant
+    // renderBillTable() (e.g. rapid month/property switching) could relocate
+    // the toolbar into the container *during* this gap, and detaching this
+    // early would miss that, letting the innerHTML wipe below destroy the
+    // toolbar's actual DOM node for the rest of the session. Detach right
+    // before the wipe instead (see comment there).
+    const profileMap = await this._loadTenantProfileMap();
 
     const tenantBills = this.currentBill.tenantBills || [];
 
@@ -1148,7 +1348,7 @@ class BillManagementComponent {
     // native <table> auto layout. ".bill-tenant-row"/".tenant-checkbox" are
     // plain classes either way, so bindCheckboxEvents() etc. don't care.
     const GRID_COLUMNS =
-      "32px minmax(160px,2fr) minmax(90px,1fr) 90px 90px 90px 100px minmax(130px,1.2fr) 150px minmax(150px,1fr)";
+      "32px minmax(160px,2fr) minmax(90px,1fr) 90px 90px 90px 84px 100px minmax(130px,1.2fr) 150px minmax(150px,1fr)";
     const gridCell = (content, opts = {}) => `
       <div style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
@@ -1168,6 +1368,7 @@ class BillManagementComponent {
             ${gridCell(t("baseRental"), { align: "right" })}
             ${gridCell(t("utilityFee"), { align: "right" })}
             ${gridCell(t("cleaningFee"), { align: "right" })}
+            ${gridCell(t("acCleanFee"), { align: "right" })}
             ${gridCell(t("total"), { align: "right" })}
             ${gridCell(t("status"))}
             ${gridCell(t("uploadLink"))}
@@ -1193,15 +1394,50 @@ class BillManagementComponent {
         tenantBill.cleaningFee === 0
           ? `<span class="badge bg-warning text-dark ms-1" style="font-size:0.62rem;" title="${t("cleaningSubsidized")}"><i class="bi bi-brush"></i></span>`
           : "";
+      const profile =
+        profileMap.get(tenantBill.tenantId?.toString().toUpperCase()) || {};
+      const socialIcons = this._tenantSocialIconsHtml(
+        profile.facebookUrl,
+        profile.phoneNumber,
+        tenantBill.tenantName,
+      );
+      const NAME_AVATAR_SIZE = 34;
+      const avatarHtml = this._avatarHtml(
+        tenantBill.tenantName,
+        profile.avatar,
+        NAME_AVATAR_SIZE,
+      );
 
       html += `
         <div class="bill-tenant-row" data-tenant-id="${tenantBill.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #f1f3f5;border-left:4px solid ${roommateBorder};">
           ${gridCell(`<input type="checkbox" class="form-check-input tenant-checkbox" data-tenant-id="${tenantBill.tenantId}">`)}
-          ${gridCell(`<strong>${escapeHtml(tenantBill.tenantName)}</strong>${cleaningSubsidyBadge}<br><small class="text-muted">${escapeHtml(tenantBill.tenantId)}</small>`)}
-          ${gridCell(escapeHtml(tenantBill.room ? getRoomTypeDisplayName(tenantBill.room) : "-"))}
-          ${gridCell(`$${tenantBill.baseRental.toFixed(2)}`, { align: "right" })}
+          ${gridCell(`
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <div style="flex:0 0 ${NAME_AVATAR_SIZE}px;">${avatarHtml}</div>
+              <div style="min-width:0;">
+                <div><strong>${escapeHtml(tenantBill.tenantName)}</strong>${cleaningSubsidyBadge}</div>
+                ${socialIcons}
+                <small class="text-muted d-block">${escapeHtml(tenantBill.tenantId)}</small>
+              </div>
+            </div>`)}
+          ${gridCell(this._roomTypeBadgeHtml(tenantBill.room))}
+          ${gridCell(
+            `$${tenantBill.baseRental.toFixed(2)}${
+              tenantBill.monthlyRent > 0 &&
+              Math.abs(tenantBill.baseRental - tenantBill.monthlyRent) > 0.005
+                ? `<div class="text-muted" style="font-size:0.68rem;">/ $${tenantBill.monthlyRent.toFixed(2)} mo</div>`
+                : ""
+            }`,
+            { align: "right" },
+          )}
           ${gridCell(`$${tenantBill.utilityFee.toFixed(2)}${utilitySubsidyBadge}`, { align: "right" })}
           ${gridCell(`$${tenantBill.cleaningFee.toFixed(2)}`, { align: "right" })}
+          ${gridCell(
+            (tenantBill.acCleanFee || 0) > 0
+              ? `$${tenantBill.acCleanFee.toFixed(2)}`
+              : '<span class="text-muted">-</span>',
+            { align: "right" },
+          )}
           ${gridCell(`<strong>$${tenantBill.totalAmount.toFixed(2)}</strong>`, { align: "right" })}
           ${gridCell(`${statusBadge}${uploadInfo}`)}
           ${gridCell(`
@@ -1340,6 +1576,10 @@ class BillManagementComponent {
       </div>
     `;
 
+    // Detach immediately before the wipe (not earlier — see note above) so
+    // it always reflects the toolbar's actual current position, however it
+    // got there.
+    this._detachActionToolbar();
     container.innerHTML = html;
 
     // Re-bind checkbox events
@@ -2154,6 +2394,10 @@ class BillManagementComponent {
                   <label for="editCleaningFee" class="form-label">${t("cleaningFee")}</label>
                   <input type="number" class="form-control" id="editCleaningFee" name="cleaningFee" min="0" step="0.01" value="${tenantBill.cleaningFee}">
                 </div>
+                <div class="mb-3">
+                  <label for="editAcCleanFee" class="form-label">${t("acCleanFee")}</label>
+                  <input type="number" class="form-control" id="editAcCleanFee" name="acCleanFee" min="0" step="0.01" value="${tenantBill.acCleanFee || 0}">
+                </div>
               </form>
             </div>
             <div class="modal-footer">
@@ -2186,6 +2430,8 @@ class BillManagementComponent {
         parseFloat(document.getElementById("editUtilityFee").value) || 0;
       const cleaningFee =
         parseFloat(document.getElementById("editCleaningFee").value) || 0;
+      const acCleanFee =
+        parseFloat(document.getElementById("editAcCleanFee").value) || 0;
 
       const response = await API.put(
         API_CONFIG.ENDPOINTS.BILL_UPDATE_TENANT(
@@ -2194,7 +2440,7 @@ class BillManagementComponent {
           this.currentDate.getMonth() + 1,
           tenantId,
         ),
-        { baseRental, utilityFee, cleaningFee },
+        { baseRental, utilityFee, cleaningFee, acCleanFee },
       );
 
       const result = await response.json();
@@ -2322,6 +2568,22 @@ class BillManagementComponent {
     }
   }
 
+  // Current SGD→VND rate as of the bill's month (same endpoint the utility
+  // breakdown modal uses). Returns null on failure/no rate on file so callers
+  // simply omit the VND conversion rather than show a stale/wrong figure.
+  async _fetchExchangeRate() {
+    try {
+      const dateStr = this.currentDate.toISOString().split("T")[0];
+      const res = await API.get(
+        API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr),
+      );
+      const data = await res.json().catch(() => null);
+      return data?.success && data?.rate?.rate ? data.rate.rate : null;
+    } catch {
+      return null;
+    }
+  }
+
   // Bill export works whether or not an official bill has been generated:
   // if one exists, use its persisted (actually-charged) tenantBills; otherwise
   // fall back to the live dynamic preview (already computed while the property/
@@ -2333,15 +2595,19 @@ class BillManagementComponent {
     }
 
     const preview = this._dynamicPreviewCache;
-    const property = await this._fetchFullProperty();
+    const [property, exchangeRate] = await Promise.all([
+      this._fetchFullProperty(),
+      this._fetchExchangeRate(),
+    ]);
     const monthLabel = `${this.currentDate.getMonth() + 1}/${this.currentDate.getFullYear()}`;
     const perTenant = {};
     const tenantBills = (preview?.rows || []).map((r) => {
       perTenant[r.tenantId] = {
-        tenancyNote:
-          r.daysStayed >= preview.daysInMonth
-            ? `Ở trọn tháng (${preview.daysInMonth} ngày)`
-            : `Ở ${r.daysStayed}/${preview.daysInMonth} ngày trong tháng`,
+        tenancyNote: this._buildTenancyNote(
+          r.daysStayed,
+          preview.daysInMonth,
+          r.periods,
+        ),
         cycles: r.cycles,
         isSubsidized: r.isSubsidized,
         avatar: r.avatar,
@@ -2351,13 +2617,15 @@ class BillManagementComponent {
         tenantName: r.tenantName,
         room: r.room,
         baseRental: r.rentAmount,
+        monthlyRent: r.monthlyRent,
         utilityFee: r.pubAmount,
         cleaningFee: r.cleaningFee,
+        acCleanFee: r.acCleanFee,
         totalAmount: r.total,
       };
     });
 
-    return { tenantBills, ctx: { property, monthLabel, perTenant } };
+    return { tenantBills, ctx: { property, monthLabel, perTenant, exchangeRate } };
   }
 
   // Gathers everything needed to render bill cards/text for the currently
@@ -2366,7 +2634,6 @@ class BillManagementComponent {
   // bill's billing period (so subsidised tenants can still be shown what
   // their fair share would have been).
   async _computeExportContext() {
-    const property = await this._fetchFullProperty();
     const year = this.currentDate.getFullYear();
     const monthIdx = this.currentDate.getMonth();
     const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
@@ -2375,10 +2642,12 @@ class BillManagementComponent {
     const monthEnd = new Date(year, monthIdx, daysInMonth);
     monthEnd.setHours(0, 0, 0, 0);
 
-    const res = await API.get(
-      API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
-    );
-    const data = await res.json();
+    const [property, tenantsRes, exchangeRate] = await Promise.all([
+      this._fetchFullProperty(),
+      API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)),
+      this._fetchExchangeRate(),
+    ]);
+    const data = await tenantsRes.json();
     const fullTenants = data.success ? data.tenants || [] : [];
     const tenantMap = {};
     fullTenants.forEach((ft) => {
@@ -2421,10 +2690,11 @@ class BillManagementComponent {
           monthEnd,
           daysInMonth,
         );
-        tenancyNote =
-          info.daysStayed >= daysInMonth
-            ? `Ở trọn tháng (${daysInMonth} ngày)`
-            : `Ở ${info.daysStayed}/${daysInMonth} ngày trong tháng`;
+        tenancyNote = this._buildTenancyNote(
+          info.daysStayed,
+          daysInMonth,
+          info.periods,
+        );
       }
       const row = rowByTenant[tb.tenantId];
       const isSubsidized = row ? row.isSubsidized : tb.utilityFee === 0;
@@ -2444,7 +2714,12 @@ class BillManagementComponent {
       };
     });
 
-    return { property, monthLabel: `${monthIdx + 1}/${year}`, perTenant };
+    return {
+      property,
+      monthLabel: `${monthIdx + 1}/${year}`,
+      perTenant,
+      exchangeRate,
+    };
   }
 
   // Renders the payment/settlement block shared by the card and clipboard text.
@@ -2515,25 +2790,54 @@ class BillManagementComponent {
         ${info.isSubsidized ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#2b8a3e;font-style:italic;">Được hỗ trợ 100% — tiết kiệm ${fmt(totalRawShare)}</div>` : ""}
       </div>`;
 
+    // Shows the room's full whole-month rate under the actual charge
+    // whenever they differ — i.e. the tenant was only present part of the
+    // month, so it's clear the lower figure isn't the room's normal rent.
+    const isProratedRent =
+      tenantBill.monthlyRent > 0 &&
+      Math.abs(tenantBill.baseRental - tenantBill.monthlyRent) > 0.005;
+    const rentSection = `
+      <div style="padding:11px 0;border-bottom:1px solid #f1f3f5;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#495057;font-size:14px;">Tiền thuê phòng</span>
+          <span style="font-weight:600;font-size:14px;color:#1a1a1a;">${fmt(tenantBill.baseRental)}</span>
+        </div>
+        ${isProratedRent ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}</div>` : ""}
+      </div>`;
+
     const cleaningSection = tenantBill.cleaningFee
       ? row(labelIcon("🧹", "Tiền vệ sinh"), fmt(tenantBill.cleaningFee))
       : "";
 
+    const acCleanSection = tenantBill.acCleanFee
+      ? row(labelIcon("❄️", "Phí vệ sinh máy lạnh"), fmt(tenantBill.acCleanFee))
+      : "";
+
     // Deliberately understated — bank details are reference info, not the
     // headline of the bill, so this sits small and muted below the total.
+    // Exception: a tenant transferring via the VND account needs the actual
+    // VND figure, not just the bank details, so that line gets called out.
     const settlement = this._billSettlementBlocks(ctx.property);
-    const settlementLine = (label, s) => `
+    const settlementLine = (label, s, extra = "") => `
       <div style="margin-top:3px;">
         <span style="color:#adb5bd;">${label}</span> ·
         ${[s.bankName, s.accountNumber, s.accountHolderName].filter(Boolean).map(escapeHtml).join(" · ")}
+        ${extra}
       </div>`;
+    const vndAmount = ctx.exchangeRate
+      ? Math.round(tenantBill.totalAmount * ctx.exchangeRate)
+      : null;
+    const vndAmountLine = vndAmount
+      ? `<br><span style="color:#2b8a3e;font-weight:700;font-size:13px;">Số tiền cần chuyển: ${vndAmount.toLocaleString("vi-VN")} VND</span>
+         <span style="color:#adb5bd;"> (1 SGD ≈ ${Number(ctx.exchangeRate).toLocaleString("vi-VN")} VND)</span>`
+      : "";
     const paymentSection = settlement
       ? `
       <div style="background:#f8f9fa;padding:12px 24px;border-top:1px solid #f1f3f5;">
         <div style="font-size:10px;letter-spacing:0.5px;color:#adb5bd;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Thông tin thanh toán</div>
         <div style="font-size:12px;color:#868e96;line-height:1.5;">
           ${settlement.sgd?.bankName ? settlementLine("SGD", settlement.sgd) : ""}
-          ${settlement.vnd?.bankName ? settlementLine("VND", settlement.vnd) : ""}
+          ${settlement.vnd?.bankName ? settlementLine("VND", settlement.vnd, vndAmountLine) : ""}
         </div>
       </div>`
       : "";
@@ -2568,9 +2872,10 @@ class BillManagementComponent {
         </div>
 
         <div style="padding:16px 24px 0;">
-          ${row("Tiền thuê phòng", fmt(tenantBill.baseRental))}
+          ${rentSection}
           ${utilitySection}
           ${cleaningSection}
+          ${acCleanSection}
           <div style="margin-top:14px;padding-top:16px;padding-bottom:4px;border-top:3px solid #1a1a1a;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:13px;font-weight:700;color:#868e96;text-transform:uppercase;letter-spacing:0.6px;">Tổng cộng</span>
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">${fmt(tenantBill.totalAmount)}</span>
@@ -2607,8 +2912,14 @@ class BillManagementComponent {
       `Thời gian ở: ${info.tenancyNote || ""}`,
       "",
       `Tiền thuê phòng: ${fmt(tenantBill.baseRental)}`,
-      `Tiền điện nước: ${fmt(tenantBill.utilityFee)}`,
     ];
+    if (
+      tenantBill.monthlyRent > 0 &&
+      Math.abs(tenantBill.baseRental - tenantBill.monthlyRent) > 0.005
+    ) {
+      lines.push(`  Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}`);
+    }
+    lines.push(`Tiền điện nước: ${fmt(tenantBill.utilityFee)}`);
     if (cycles.length > 1) {
       cycles.forEach((c) =>
         lines.push(`  Kỳ ${c.label} (${c.period}): ${fmt(c.share)}`),
@@ -2620,6 +2931,8 @@ class BillManagementComponent {
       lines.push(`  (Được hỗ trợ 100% — tiết kiệm ${fmt(totalRawShare)})`);
     if (tenantBill.cleaningFee)
       lines.push(`Tiền vệ sinh: ${fmt(tenantBill.cleaningFee)}`);
+    if (tenantBill.acCleanFee)
+      lines.push(`Phí vệ sinh máy lạnh: ${fmt(tenantBill.acCleanFee)}`);
     lines.push("", `TỔNG CỘNG: ${fmt(tenantBill.totalAmount)}`);
 
     const settlement = this._billSettlementBlocks(ctx.property);
@@ -2629,8 +2942,17 @@ class BillManagementComponent {
         `${label}: ${[s.bankName, s.accountNumber, s.accountHolderName].filter(Boolean).join(" - ")}`;
       if (settlement.sgd?.bankName)
         lines.push(fmtSettlement("SGD", settlement.sgd));
-      if (settlement.vnd?.bankName)
+      if (settlement.vnd?.bankName) {
         lines.push(fmtSettlement("VND", settlement.vnd));
+        if (ctx.exchangeRate) {
+          const vndAmount = Math.round(
+            tenantBill.totalAmount * ctx.exchangeRate,
+          );
+          lines.push(
+            `  Số tiền cần chuyển: ${vndAmount.toLocaleString("vi-VN")} VND (1 SGD ≈ ${Number(ctx.exchangeRate).toLocaleString("vi-VN")} VND)`,
+          );
+        }
+      }
     }
 
     lines.push("", `📸 ${BillManagementComponent.BILL_FOOTER_NOTE_VI}`);
@@ -3237,12 +3559,6 @@ class BillManagementComponent {
           })
         : "—";
     const fmtAmt = (v) => `$${v.toFixed(2)}`;
-    const getRoomLabel = (room) => {
-      if (!room) return "—";
-      if (typeof getRoomTypeDisplayName === "function")
-        return getRoomTypeDisplayName(room);
-      return room;
-    };
 
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth();
@@ -3258,18 +3574,15 @@ class BillManagementComponent {
       (a.room || "").localeCompare(b.room || ""),
     );
 
-    // CSS Grid "table": header, every row, and the totals row all share one
-    // GRID_COLUMNS template (7 tracks normally, 4 when there's no billing
-    // period and the Period/Away/Present Days columns are dropped), so
-    // column alignment comes from the grid definition itself rather than
-    // native <table> layout.
-    const GRID_COLUMNS = noPeriod
-      ? "minmax(160px,2fr) minmax(100px,1fr) minmax(120px,1fr) minmax(110px,1fr)"
-      : "minmax(160px,2fr) minmax(100px,1fr) 70px 70px 70px minmax(120px,1fr) minmax(110px,1fr)";
-    const gridCell = (content, opts = {}) => `
-      <div style="padding:7px 10px;${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
-
-    const tableRows = sortedRows
+    // Per-tenant "cards" (stacked, not a wide multi-column table) — the whole
+    // point is that this exact markup is what gets rasterised into the
+    // exported/clipboard image, and most recipients open that image on an
+    // iPhone. A rigid grid with several fixed-width columns has to either
+    // overflow a phone-width screen or squeeze every column's text down to
+    // ~11px to fit, which is illegible once the PNG is shrunk further to fit
+    // a chat bubble. Cards reflow at any width and keep each figure at a
+    // readable size instead.
+    const cardsHtml = sortedRows
       .map((r, i) => {
         const shareTypeLines = hasTypeBreakdown
           ? [
@@ -3284,52 +3597,60 @@ class BillManagementComponent {
                 : null,
             ].filter(Boolean)
           : [];
-        const shareCell = noPeriod
-          ? fmtAmt(r.utilityShare)
-          : `${fmtAmt(r.utilityShare)}<br><span style="font-size:0.72rem;color:#6c757d;">${r.presentDays}d × ${fmtAmt(ratePerDay)}/d</span>${
-              shareTypeLines.length
-                ? `<br><span style="font-size:0.68rem;color:#868e96;">${shareTypeLines.join(" · ")}</span>`
-                : ""
-            }`;
-        const daysCellsHtml = noPeriod
-          ? ""
-          : gridCell(r.tenantPeriodDays, { align: "center" }) +
-            gridCell(
-              r.awayDays > 0
-                ? `<span style="color:#dc3545;">−${r.awayDays}</span>`
-                : "0",
-              { align: "center" },
-            ) +
-            gridCell(r.presentDays, { align: "center", style: "font-weight:600;" });
         const subsidyBadge = r.isSubsidized
-          ? `<span style="background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t("subsidisedBadge")}</span>`
+          ? `<span style="background:#fff3cd;color:#856404;border-radius:5px;padding:2px 7px;font-size:0.75rem;font-weight:600;">${t("subsidisedBadge")}</span>`
           : "";
         const notBilledBadge = r.notBilled
-          ? `<span style="background:#f8d7da;color:#842029;border-radius:4px;padding:1px 6px;font-size:0.72rem;">${t("notBilledBadge")}</span>`
+          ? `<span style="background:#f8d7da;color:#842029;border-radius:5px;padding:2px 7px;font-size:0.75rem;font-weight:600;">${t("notBilledBadge")}</span>`
           : "";
         const chargedStyle = r.isSubsidized
           ? "color:#6c757d;text-decoration:line-through;"
           : r.notBilled
             ? "color:#6c757d;font-style:italic;"
-            : "font-weight:700;color:#0d6efd;";
-        const noteCell = r.note
-          ? `<br><span style="font-size:0.7rem;color:#6c757d;">${escapeHtml(r.note)}</span>`
-          : "";
+            : "color:#0d6efd;";
+        const chargedAmt = r.notBilled ? r.utilityShare : r.chargedAmount;
 
-        return `<div style="display:grid;grid-template-columns:${GRID_COLUMNS};align-items:center;border-bottom:1px solid #dee2e6;${r.notBilled ? "opacity:0.8;" : ""}">
-        ${gridCell(`${i + 1}. ${escapeHtml(r.tenantName)}${noteCell}`, { style: "font-weight:600;" })}
-        ${gridCell(escapeHtml(getRoomLabel(r.room)))}
-        ${daysCellsHtml}
-        ${gridCell(shareCell, { align: "right" })}
-        ${gridCell(
-          `<span style="${chargedStyle}">${r.notBilled ? fmtAmt(r.utilityShare) : fmtAmt(r.chargedAmount)}</span>
-          ${r.isSubsidized ? "<br>" + subsidyBadge : ""}
-          ${r.notBilled ? "<br>" + notBilledBadge : ""}`,
-          { align: "right" },
-        )}
-      </div>`;
+        return `
+        <div style="border:1px solid #dee2e6;border-radius:10px;padding:12px 14px;margin-bottom:9px;background:${r.notBilled ? "#f8f9fa" : "#fff"};${r.notBilled ? "opacity:0.85;" : ""}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <div style="font-weight:700;font-size:1rem;">${i + 1}. ${escapeHtml(r.tenantName)}</div>
+            ${this._roomTypeBadgeHtml(r.room)}
+          </div>
+          ${r.note ? `<div style="font-size:0.8rem;color:#6c757d;margin-top:3px;">${escapeHtml(r.note)}</div>` : ""}
+          ${
+            noPeriod
+              ? ""
+              : `<div style="display:flex;justify-content:space-between;font-size:0.86rem;color:#495057;margin-top:9px;">
+                  <span>${t("presentDaysHeader").replace("\n", " ")}</span>
+                  <span><strong>${r.presentDays}d</strong>${r.awayDays > 0 ? ` <span style="color:#dc3545;">(${r.tenantPeriodDays}d − ${r.awayDays}d)</span>` : ""}</span>
+                </div>`
+          }
+          <div style="display:flex;justify-content:space-between;font-size:0.86rem;color:#495057;margin-top:4px;">
+            <span>${t("calcShare")}</span>
+            <span>${fmtAmt(r.utilityShare)}${noPeriod ? "" : ` <span style="color:#adb5bd;">(${r.presentDays}d × ${fmtAmt(ratePerDay)}/d)</span>`}</span>
+          </div>
+          ${shareTypeLines.length ? `<div style="text-align:right;font-size:0.78rem;color:#868e96;margin-top:2px;">${shareTypeLines.join(" · ")}</div>` : ""}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;padding-top:9px;border-top:1px dashed #dee2e6;">
+            <div style="font-size:0.88rem;color:#495057;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              ${t("charged")}${subsidyBadge}${notBilledBadge}
+            </div>
+            <div style="font-size:1.1rem;font-weight:700;${chargedStyle}">${fmtAmt(chargedAmt)}</div>
+          </div>
+        </div>`;
       })
       .join("");
+
+    const totalsCardHtml = `
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#e7f1ff;border:1px solid #b6d4fe;border-radius:10px;padding:12px 14px;">
+        <div style="font-weight:700;font-size:0.95rem;color:#0d6efd;">
+          ${t("totalRow")}
+          ${noPeriod ? "" : `<div style="font-weight:400;color:#6c757d;font-size:0.78rem;margin-top:2px;">${totalPersonDays}d</div>`}
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.78rem;color:#6c757d;">${fmtAmt(netUtility)}</div>
+          <div style="font-size:1.2rem;font-weight:800;color:#0d6efd;">${fmtAmt(totalCharged)}</div>
+        </div>
+      </div>`;
 
     const subsidizedCount = rows.filter((r) => r.isSubsidized).length;
     const awayCount = rows.filter((r) => r.awayDays > 0).length;
@@ -3385,14 +3706,14 @@ class BillManagementComponent {
         : "";
 
     return `
-      <div id="utilityBreakdownPrintArea" style="font-family:'Noto Serif',serif;padding:20px;background:#fff;">
+      <div id="utilityBreakdownPrintArea" style="font-family:'Noto Serif',serif;max-width:460px;margin:0 auto;padding:18px 16px;background:#fff;font-size:15px;line-height:1.5;color:#212529;">
 
         <!-- Header -->
-        <div style="border-bottom:3px solid #0d6efd;padding-bottom:10px;margin-bottom:12px;">
-          <h5 style="margin:0;color:#0d6efd;font-size:1.15rem;">
+        <div style="border-bottom:3px solid #0d6efd;padding-bottom:10px;margin-bottom:14px;">
+          <h5 style="margin:0;color:#0d6efd;font-size:1.05rem;line-height:1.4;">
             ⚡ ${t("breakdownHeading", { month: monthName(month), year })}
           </h5>
-          <div style="color:#495057;font-size:0.95rem;margin-top:4px;">
+          <div style="color:#495057;font-size:0.88rem;margin-top:6px;">
             ${t("property")}: <strong>${escapeHtml(
               propInfo
                 ? [
@@ -3403,78 +3724,61 @@ class BillManagementComponent {
                     .filter(Boolean)
                     .join(", ")
                 : this.selectedProperty,
-            )}</strong> &nbsp;|&nbsp;
+            )}</strong>
+          </div>
+          <div style="color:#495057;font-size:0.88rem;margin-top:2px;">
             ${t("billingPeriod")}: <strong>${periodLabel}</strong>
           </div>
-          <div style="color:#495057;font-size:0.95rem;margin-top:2px;">
+          <div style="color:#495057;font-size:0.9rem;margin-top:5px;">
             ${t("spGroupBill")}: <strong>${fmtAmt(grossUtility)}</strong>
-            ${landlordSubsidy > 0 ? `&nbsp;−&nbsp;${t("landlordSubsidy")}: <strong>${fmtAmt(landlordSubsidy)}</strong>&nbsp;=&nbsp;<strong style="color:#198754;">${fmtAmt(netUtility)} ${t("toDistribute")}</strong>` : ""}
+            ${landlordSubsidy > 0 ? `<br>− ${t("landlordSubsidy")}: <strong>${fmtAmt(landlordSubsidy)}</strong> = <strong style="color:#198754;">${fmtAmt(netUtility)} ${t("toDistribute")}</strong>` : ""}
           </div>
         </div>
 
         <!-- Method note -->
-        <div style="background:#f8f9fa;border-left:4px solid #0d6efd;padding:8px 14px;margin-bottom:12px;font-size:0.92rem;border-radius:0 4px 4px 0;">
+        <div style="background:#f8f9fa;border-left:4px solid #0d6efd;padding:9px 12px;margin-bottom:14px;font-size:0.85rem;line-height:1.6;border-radius:0 4px 4px 0;">
           <strong>${t("howItsCalculated")}</strong><br>
           ${methodNote}
         </div>
 
-        <!-- Table -->
-        <div style="font-size:0.95rem;">
-          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};background:#f8f9fa;border-bottom:2px solid #dee2e6;font-size:0.9rem;">
-            ${gridCell(t("tenant"))}
-            ${gridCell(t("room"))}
-            ${
-              noPeriod
-                ? ""
-                : gridCell(t("periodDaysHeader").replace("\n", "<br>"), { align: "center" }) +
-                  gridCell(t("awayDaysHeader").replace("\n", "<br>"), { align: "center" }) +
-                  gridCell(t("presentDaysHeader").replace("\n", "<br>"), { align: "center" })
-            }
-            ${gridCell(t("calcShare"), { align: "right" })}
-            ${gridCell(t("charged"), { align: "right" })}
-          </div>
-          ${tableRows}
-          <!-- Totals row -->
-          <div style="display:grid;grid-template-columns:${GRID_COLUMNS};align-items:center;background:#f8f9fa;border-top:2px solid #dee2e6;">
-            ${gridCell(t("totalRow"), { style: "font-weight:700;grid-column:span 2;" })}
-            ${
-              noPeriod
-                ? ""
-                : gridCell("—", { align: "center", style: "font-weight:700;" }) +
-                  gridCell("—", { align: "center", style: "font-weight:700;" }) +
-                  gridCell(`${totalPersonDays}d`, { align: "center", style: "font-weight:700;" })
-            }
-            ${gridCell(fmtAmt(netUtility), { align: "right", style: "font-weight:700;" })}
-            ${gridCell(fmtAmt(totalCharged), { align: "right", style: "font-weight:700;color:#0d6efd;" })}
-          </div>
+        <!-- Tenant cards -->
+        <div>
+          ${cardsHtml}
+          ${totalsCardHtml}
         </div>
 
         <!-- Footer summary -->
-        <div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:0.92rem;">
-          <div style="background:#d1ecf1;border-radius:6px;padding:7px 14px;">
-            <strong>${t("totalBilledToTenants")}</strong> ${fmtAmt(totalCharged)}
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;font-size:0.85rem;">
+          <div style="background:#d1ecf1;border-radius:8px;padding:9px 14px;display:flex;justify-content:space-between;gap:10px;">
+            <strong>${t("totalBilledToTenants")}</strong> <span>${fmtAmt(totalCharged)}</span>
           </div>
           ${
             landlordSubsidy > 0 || businessAbsorbs > 0.005
               ? `
-          <div style="background:#fff3cd;border-radius:6px;padding:7px 14px;">
-            <strong>${t("landlordAbsorbs")}</strong> ${fmtAmt(landlordSubsidy + businessAbsorbs)}
-            ${
-              landlordSubsidy > 0 && businessAbsorbs > 0.005
-                ? `<br><span style="font-size:0.82rem;color:#856404;">${t("fixedSubsidy")} ${fmtAmt(landlordSubsidy)} + ${t("subsidisedTenantsShare")} ${fmtAmt(businessAbsorbs)}</span>`
-                : landlordSubsidy > 0
-                  ? `<br><span style="font-size:0.82rem;color:#856404;">${t("fixedSubsidy")} ${fmtAmt(landlordSubsidy)}</span>`
-                  : `<br><span style="font-size:0.82rem;color:#856404;">${t("subsidisedTenantsShare")} ${fmtAmt(businessAbsorbs)}</span>`
-            }
+          <div style="background:#fff3cd;border-radius:8px;padding:9px 14px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;">
+              <strong>${t("landlordAbsorbs")}</strong> <span>${fmtAmt(landlordSubsidy + businessAbsorbs)}</span>
+            </div>
+            <div style="font-size:0.78rem;color:#856404;margin-top:2px;">
+              ${
+                landlordSubsidy > 0 && businessAbsorbs > 0.005
+                  ? `${t("fixedSubsidy")} ${fmtAmt(landlordSubsidy)} + ${t("subsidisedTenantsShare")} ${fmtAmt(businessAbsorbs)}`
+                  : landlordSubsidy > 0
+                    ? `${t("fixedSubsidy")} ${fmtAmt(landlordSubsidy)}`
+                    : `${t("subsidisedTenantsShare")} ${fmtAmt(businessAbsorbs)}`
+              }
+            </div>
           </div>`
               : ""
           }
           ${
             notBilledAbsorbs > 0.005
               ? `
-          <div style="background:#f8d7da;border-radius:6px;padding:7px 14px;">
-            <strong>${t("notBilledBadge")}</strong> ${fmtAmt(notBilledAbsorbs)}
-            <br><span style="font-size:0.82rem;color:#842029;">${t("movedOutNoBill")}</span>
+          <div style="background:#f8d7da;border-radius:8px;padding:9px 14px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;">
+              <strong>${t("notBilledBadge")}</strong> <span>${fmtAmt(notBilledAbsorbs)}</span>
+            </div>
+            <div style="font-size:0.78rem;color:#842029;margin-top:2px;">${t("movedOutNoBill")}</div>
           </div>`
               : ""
           }
@@ -3487,8 +3791,8 @@ class BillManagementComponent {
                 notBilledAbsorbs,
             ) > 0.02
               ? `
-          <div style="background:#f8d7da;border-radius:6px;padding:7px 14px;">
-            <strong>${t("roundingDiff")}</strong> ${fmtAmt(Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs - notBilledAbsorbs))}
+          <div style="background:#f8d7da;border-radius:8px;padding:9px 14px;display:flex;justify-content:space-between;gap:10px;">
+            <strong>${t("roundingDiff")}</strong> <span>${fmtAmt(Math.abs(grossUtility - totalCharged - landlordSubsidy - businessAbsorbs - notBilledAbsorbs))}</span>
           </div>`
               : ""
           }
