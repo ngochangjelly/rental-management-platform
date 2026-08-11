@@ -16,6 +16,15 @@ import {
   numberToWords,
   getSection1BaseClauseTexts,
   buildSection2Clauses,
+  formatDateVi,
+  formatRoomTypeVi,
+  formatPaymentMethodVi,
+  formatMonthsTextVi,
+  formatLeasePeriodVi,
+  formatTenancyPeriodVi,
+  getSection1BaseClauseTextsVi,
+  buildSection2ClausesVi,
+  getAirconClauseIndexInSection1,
 } from "./components/contract-clauses.js";
 import { jsPDF } from "jspdf";
 
@@ -311,6 +320,10 @@ function buildFilename(state) {
   return `${parts.join("-")}.pdf`;
 }
 
+function buildFilenameVietnamese(state) {
+  return buildFilename(state).replace(/\.pdf$/, "-VN.pdf");
+}
+
 // ─── PDF generator ────────────────────────────────────────────────────────────
 
 async function generatePDF(state) {
@@ -545,6 +558,253 @@ async function generatePDF(state) {
   pdf.setFontSize(12);
   pdf.text("Tenant A", 30, y);
   pdf.text("Tenant B", 120, y);
+  y += 10;
+  pdf.setFontSize(10);
+  pdf.text(tenantAInfo.name, 30, y);
+  let tbY = y;
+  tenantBList.forEach((tb) => { pdf.text(tb.name, 120, tbY); tbY += 5; });
+
+  addPageNumbers();
+  return pdf;
+}
+
+// ─── Vietnamese PDF generator ─────────────────────────────────────────────────
+// Professional Vietnamese rendering of the same contract, for Vietnamese-
+// speaking tenants. Wording lives in contract-clauses.js (…Vi exports) —
+// this function only lays the translated text onto the page, mirroring
+// generatePDF's structure/logic exactly so the two stay in sync.
+
+async function generatePDFVietnamese(state) {
+  const pdf = new jsPDF("p", "mm", "a4");
+
+  const loadFont = async (path) => {
+    const buf = await (await fetch(path)).arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let s = "";
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  };
+  const [regB64, boldB64] = await Promise.all([
+    loadFont("/fonts/NotoSerif-Regular.ttf"),
+    loadFont("/fonts/NotoSerif-Bold.ttf"),
+  ]);
+  pdf.addFileToVFS("NotoSerif-Regular.ttf", regB64);
+  pdf.addFont("NotoSerif-Regular.ttf", "NotoSerif", "normal");
+  pdf.addFileToVFS("NotoSerif-Bold.ttf", boldB64);
+  pdf.addFont("NotoSerif-Bold.ttf", "NotoSerif", "bold");
+  pdf.setFont("NotoSerif", "normal");
+
+  const pageW = 210, pageH = 297, margin = 20;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+  const lh = 5;
+
+  const addText = (text, opts = {}) => {
+    if (!text || String(text).trim() === "") {
+      y += opts.spacing || 0;
+      return;
+    }
+    const fs = opts.fontSize || 10;
+    const bold = opts.bold || false;
+    const center = opts.center || false;
+    const leftX = opts.indent ? margin + 10 : margin;
+
+    pdf.setFontSize(fs);
+    pdf.setFont("NotoSerif", bold ? "bold" : "normal");
+
+    if (y > pageH - margin - 20) { pdf.addPage(); y = margin; }
+
+    const maxW = contentW - (opts.indent ? 10 : 0);
+    const lines = pdf.splitTextToSize(String(text), maxW);
+    for (const line of lines) {
+      if (y > pageH - margin - 20) { pdf.addPage(); y = margin; }
+      if (center) {
+        pdf.text(line, (pageW - pdf.getTextWidth(line)) / 2, y);
+      } else {
+        pdf.text(line, leftX, y);
+      }
+      y += lh;
+    }
+    y += opts.spacing || 0;
+  };
+
+  const addPageNumbers = () => {
+    const total = pdf.internal.getNumberOfPages();
+    const fs = pdf.internal.getFontSize();
+    const fnt = pdf.internal.getFont();
+    for (let i = 1; i <= total; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(10);
+      pdf.setFont("NotoSerif", "normal");
+      const txt = String(i);
+      pdf.text(txt, (pageW - pdf.getTextWidth(txt)) / 2, pageH - 10);
+    }
+    pdf.setFontSize(fs);
+    pdf.setFont(fnt.fontName, fnt.fontStyle);
+  };
+
+  // ── Derive display data ────────────────────────────────────────────────────
+  const unit = state.unit || "";
+  let cleanAddr = (state.address || "[Địa chỉ căn hộ]");
+  if (unit) {
+    const suffix = `, ${unit}`;
+    if (cleanAddr.endsWith(suffix)) cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
+  }
+  if (state.postcode?.trim()) cleanAddr = `${cleanAddr}, Singapore ${state.postcode.trim()}`;
+  const propertyAddr = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
+
+  const tenantAInfo = {
+    name: state.tenantA?.name || "[Tên Bên A]",
+    fin: state.tenantA?.fin || "",
+    passport: state.tenantA?.passport || "",
+    email: state.tenantA?.email || "",
+  };
+  const tenantBList = (state.tenantsB || []).length > 0
+    ? state.tenantsB.map((t) => ({ name: t.name || "[Tên Bên B]", fin: t.fin || "", passport: t.passport || "" }))
+    : [{ name: "[Tên Bên B]", fin: "", passport: "" }];
+
+  // ── Header ─────────────────────────────────────────────────────────────────
+  addText("HỢP ĐỒNG THUÊ PHÒNG Ở GHÉP", { fontSize: 16, bold: true, center: true, spacing: 10 });
+  addText(`Địa chỉ đầy đủ: ${propertyAddr}`, { center: true });
+  addText(`Phòng: ${formatRoomTypeVi(state.room)}`, { center: true });
+  addText(`HỢP ĐỒNG NÀY được lập vào ngày: ${formatDateVi(state.agreementDate || new Date().toISOString().split("T")[0])}`, { center: true, spacing: 15 });
+
+  // ── Parties ────────────────────────────────────────────────────────────────
+  addText("GIỮA", { bold: true, spacing: 5 });
+  addText(`Người thuê chính (Bên A): ${tenantAInfo.name}`, { indent: true });
+  if (tenantAInfo.passport) addText(`Số hộ chiếu: ${tenantAInfo.passport}`, { indent: true });
+  if (tenantAInfo.fin) addText(`Số FIN: ${tenantAInfo.fin}`, { indent: true });
+  if (tenantAInfo.email) addText(`Email: ${tenantAInfo.email}`, { indent: true });
+  if (state.showSettlementAccounts) {
+    const sgd = state.settlementSgd || {};
+    const vnd = state.settlementVnd || {};
+    const hasSgd = sgd.bankName || sgd.accountNumber || sgd.accountHolderName;
+    const hasVnd = vnd.bankName || vnd.accountNumber || vnd.accountHolderName;
+    if (hasSgd || hasVnd) {
+      addText("Tài khoản thanh toán:", { indent: true, bold: true });
+      if (hasSgd) {
+        const parts = [sgd.bankName && `Ngân hàng: ${sgd.bankName}`, sgd.accountHolderName && `Chủ tài khoản: ${sgd.accountHolderName}`, sgd.accountNumber && `Số tài khoản: ${sgd.accountNumber}`].filter(Boolean);
+        addText(`SGD — ${parts.join(", ")}`, { indent: true, fontSize: 9 });
+      }
+      if (hasVnd) {
+        const parts = [vnd.bankName && `Ngân hàng: ${vnd.bankName}`, vnd.accountHolderName && `Chủ tài khoản: ${vnd.accountHolderName}`, vnd.accountNumber && `Số tài khoản: ${vnd.accountNumber}`].filter(Boolean);
+        addText(`VND — ${parts.join(", ")}`, { indent: true, fontSize: 9 });
+      }
+    }
+  }
+  addText(
+    "(Sau đây gọi là \"Bên A\"; trong trường hợp ngữ cảnh cho phép, thuật ngữ này bao gồm tất cả những người có quyền lợi hợp pháp thông qua \"Bên A\") là một bên của Hợp đồng này.",
+    { indent: true, spacing: 10 },
+  );
+
+  addText("VÀ", { bold: true, spacing: 5 });
+  for (let i = 0; i < tenantBList.length; i++) {
+    const tb = tenantBList[i];
+    const last = i === tenantBList.length - 1;
+    if (tenantBList.length > 1) addText(`Bên B${i + 1}:`, { indent: true, bold: true, spacing: 2 });
+    addText(`Họ và tên: ${tb.name}`, { indent: true });
+    if (tb.passport) addText(`Số hộ chiếu: ${tb.passport}`, { indent: true });
+    if (tb.fin) addText(`Số FIN: ${tb.fin}`, { indent: true, spacing: last ? 0 : 5 });
+    else if (!last) addText("", { spacing: 5 });
+  }
+  addText(
+    "(Sau đây gọi là \"Bên B\"; trong trường hợp ngữ cảnh cho phép, thuật ngữ này bao gồm tất cả những người có quyền lợi hợp pháp thông qua \"Bên B\") là một bên của Hợp đồng này.",
+    { indent: true, spacing: 10 },
+  );
+
+  addText(`Hình thức thanh toán: ${formatPaymentMethodVi(state.paymentMethod)}`, { spacing: 10 });
+
+  // ── Agreement terms ────────────────────────────────────────────────────────
+  addText("CÁC BÊN NAY THỎA THUẬN NHƯ SAU:", { bold: true, spacing: 8 });
+  addText(`Thời hạn thuê: ${formatLeasePeriodVi(state)}`, { bold: true, spacing: 8 });
+  addText(`Thời gian thuê: ${formatTenancyPeriodVi(state)}`, { bold: true, spacing: 8 });
+  addText("Thời gian nhận/trả phòng: Nhận phòng sau 15:00, trả phòng trước 11:00", { bold: true, spacing: 8 });
+
+  addText(`Tiền thuê hàng tháng: $${state.monthlyRental || "[Tiền thuê hàng tháng]"}`, { bold: true, spacing: 5 });
+  addText("*Mức giá thuê phòng được bảo mật tuyệt đối", { fontSize: 9, indent: true });
+  addText("*Việc gia hạn hợp đồng phải được cả Bên A và Bên B đồng ý", { fontSize: 9, indent: true });
+  addText('*Thanh toán vào ngày 1 hàng tháng cho "Bên A"', {
+    fontSize: 9, indent: true, spacing: state.fullPaymentReceived ? 0 : 8,
+  });
+  if (state.fullPaymentReceived) {
+    addText(
+      `*Bên A xác nhận đã nhận đủ toàn bộ tiền thuê cho toàn bộ thời gian thuê (S$${calculateTotalRental(state).toFixed(2)})`,
+      { fontSize: 12, bold: true, indent: true, spacing: 8 },
+    );
+  }
+
+  const totalDepStr = state.securityDeposit || state.monthlyRental || "[Tiền đặt cọc]";
+  addText(`Tiền đặt cọc: $${totalDepStr}`, { bold: true, spacing: 2 });
+  if (state.partialDepositReceived && state.partialDepositAmount) {
+    const totalDep = parseFloat(totalDepStr);
+    const received = parseFloat(state.partialDepositAmount);
+    const remaining = !isNaN(totalDep) && !isNaN(received) ? (totalDep - received).toFixed(2) : "–";
+    const dueStr = state.remainingDepositDate ? ` – hạn thanh toán ${formatDateVi(state.remainingDepositDate)}` : "";
+    addText(`*Đã nhận cọc ban đầu: $${state.partialDepositAmount} · Số tiền còn lại: $${remaining}${dueStr}`, {
+      fontSize: 9, indent: true, spacing: 3,
+    });
+  }
+  addText("*Khoản tiền đặt cọc này không được dùng để khấu trừ vào tiền thuê nhà phải trả trong suốt thời hạn của Hợp đồng này", {
+    fontSize: 9, indent: true, spacing: 10,
+  });
+  addText("Tiền thuê hàng tháng đã bao gồm Wi-Fi, tiện ích (điện, nước), gas, và việc sử dụng các tiện ích chung của khu chung cư như hồ bơi, khu vực nướng BBQ và phòng sinh hoạt đa năng.", {
+    fontSize: 9, spacing: 10,
+  });
+
+  // ── Section 1 ──────────────────────────────────────────────────────────────
+  addText("1. BÊN B (CÁC BÊN B) CAM KẾT VỚI BÊN A NHƯ SAU:", { bold: true, fontSize: 12, spacing: 10 });
+
+  const section1Clauses = [];
+  if (!state.fullPaymentReceived) {
+    const depText = formatMonthsTextVi(state.depositMonths || 1);
+    const advText = formatMonthsTextVi(state.advanceMonths || 1);
+    const agDate = state.agreementDate ? formatDateVi(state.agreementDate) : "[Ngày ký]";
+    const miDate = state.moveInDate ? formatDateVi(state.moveInDate) : "[Ngày dọn vào]";
+    section1Clauses.push(
+      `a) Thanh toán khoản tiền tương đương ${depText} tiền thuê nhà làm tiền đặt cọc vào ngày ký hợp đồng (${agDate}), và khoản tiền tương đương ${advText} tiền thuê nhà làm tiền tạm ứng vào ngày dọn vào (${miDate}). Khoản tiền đặt cọc này sẽ do Bên A giữ để bảo đảm cho việc Bên B thực hiện đầy đủ và nghiêm túc tất cả các cam kết, điều kiện và điều khoản quy định đối với Bên B trong Hợp đồng này; nếu vi phạm, Bên B sẽ bị mất toàn bộ hoặc một phần khoản tiền đặt cọc nêu trên tương ứng với mức cần thiết để khắc phục hậu quả vi phạm đó.`,
+      "b) Ngoài ra, và không ảnh hưởng đến bất kỳ quyền, thẩm quyền hoặc biện pháp khắc phục nào khác của Bên A, nếu tiền thuê nhà theo Hợp đồng này hoặc bất kỳ phần nào của khoản tiền đó không được thanh toán trong vòng 7 (BẢY) ngày kể từ ngày đến hạn, Bên A có quyền tịch thu tiền đặt cọc và, vào bất kỳ thời điểm nào sau đó, thu hồi lại Phòng và di dời toàn bộ tài sản của Bên B ra khỏi Phòng mà không phải chịu trách nhiệm về bất kỳ tổn thất hoặc thiệt hại nào phát sinh từ việc di dời đó.",
+    );
+  }
+
+  const baseClauseTextsVi = getSection1BaseClauseTextsVi({ ...state, pestControlClause: true });
+  const airconIdx = getAirconClauseIndexInSection1({ ...state, pestControlClause: true });
+  let clauseOffset = 0;
+  baseClauseTextsVi.forEach((text, idx) => {
+    if (idx === airconIdx && (!hasAircon(state.room) || state.forfeitAcCleanFee)) { clauseOffset = 1; return; }
+    const li = state.fullPaymentReceived ? idx - clauseOffset : idx + 2 - clauseOffset;
+    section1Clauses.push(`${clauseLetter(li)}) ${text}`);
+  });
+
+  section1Clauses.forEach((c) => addText(c, { indent: true, spacing: 3 }));
+  y += 15;
+
+  // ── Section 2 ──────────────────────────────────────────────────────────────
+  addText("2) VÀ CÁC BÊN THỎA THUẬN THÊM NHƯ SAU:", { bold: true, fontSize: 12, spacing: 10 });
+  const section2ClausesVi = buildSection2ClausesVi(state);
+  section2ClausesVi.forEach((c) => addText(c, { indent: true, spacing: 5 }));
+
+  y += 20;
+
+  // ── Signature section ──────────────────────────────────────────────────────
+  if (y + 80 > pageH - margin) { pdf.addPage(); y = margin; }
+
+  addText("Bằng việc ký tên dưới đây, cả hai bên đồng ý tuân thủ đầy đủ các điều khoản và điều kiện nêu trên", {
+    bold: true, center: true, spacing: 15,
+  });
+
+  const sigH = 20;
+  try {
+    if (state.signatureA) {
+      await addImgToPDF(pdf, state.signatureA, 30, y, 60, sigH);
+    }
+  } catch (e) {
+    console.warn("Could not add signature to PDF:", e);
+  }
+  y += sigH + 15;
+
+  pdf.setFontSize(12);
+  pdf.text("Bên A", 30, y);
+  pdf.text("Bên B", 120, y);
   y += 10;
   pdf.setFontSize(10);
   pdf.text(tenantAInfo.name, 30, y);
@@ -1014,6 +1274,7 @@ class PublicContractCreator {
     document.getElementById("exportPdfBtn").addEventListener("click", () => this._exportPDF("download"));
     document.getElementById("shareBtn").addEventListener("click", () => this._exportPDF("share"));
     document.getElementById("whatsappBtn").addEventListener("click", () => this._exportPDF("whatsapp"));
+    document.getElementById("exportPdfViBtn")?.addEventListener("click", () => this._exportPDF("download", "vi"));
   }
 
   // ── Drafts panel ─────────────────────────────────────────────────────────────
@@ -1605,15 +1866,17 @@ class PublicContractCreator {
     return true;
   }
 
-  async _exportPDF(mode = "download") {
+  async _exportPDF(mode = "download", lang = "en") {
     if (!this._validateForExport()) return;
     const state = this._collectState();
 
-    const btn = {
-      download: document.getElementById("exportPdfBtn"),
-      share: document.getElementById("shareBtn"),
-      whatsapp: document.getElementById("whatsappBtn"),
-    }[mode];
+    const btn = lang === "vi"
+      ? document.getElementById("exportPdfViBtn")
+      : {
+          download: document.getElementById("exportPdfBtn"),
+          share: document.getElementById("shareBtn"),
+          whatsapp: document.getElementById("whatsappBtn"),
+        }[mode];
 
     const origHTML = btn?.innerHTML;
     if (btn) {
@@ -1630,8 +1893,8 @@ class PublicContractCreator {
 
       saveDraft(state);
 
-      const pdf = await generatePDF(state);
-      const filename = buildFilename(state);
+      const pdf = lang === "vi" ? await generatePDFVietnamese(state) : await generatePDF(state);
+      const filename = lang === "vi" ? buildFilenameVietnamese(state) : buildFilename(state);
 
       if (mode === "share" || mode === "whatsapp") {
         const blob = pdf.output("blob");

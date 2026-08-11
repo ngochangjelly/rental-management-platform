@@ -6,7 +6,7 @@
  * To change any clause text, edit only this file — both flows update automatically.
  */
 
-import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+import { getRoomTypeDisplayName, parseRoomType } from '../utils/room-type-mapper.js';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -240,6 +240,272 @@ export function buildSection2Clauses(contractData) {
     `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
   );
   clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax`);
+
+  return clauses;
+}
+
+/**
+ * Locate the index of the air-conditioner servicing clause within the array
+ * returned by getSection1BaseClauseTexts / getSection1BaseClauseTextsVi (the
+ * two arrays are built in lockstep, clause-for-clause). Callers use this to
+ * skip the clause consistently in either language without string-matching
+ * the (untranslated or translated) clause text directly.
+ */
+export function getAirconClauseIndexInSection1(contractData) {
+  const texts = getSection1BaseClauseTexts(contractData);
+  return texts.findIndex((t) => t.includes("air-conditioner servicing"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── Vietnamese translation layer ──────────────────────────────────────────
+//
+// Professional Vietnamese renderings of the same clauses above, written for
+// a Vietnamese-speaking tenant to understand the real legal meaning of the
+// English contract (not a literal machine translation). Kept in lockstep,
+// clause-for-clause, with the English arrays so getAirconClauseIndexInSection1
+// applies to both. Edit the English clauses above AND their Vietnamese
+// counterpart below together — they are not auto-derived from each other.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function formatDateVi(dateString) {
+  if (!dateString) return "[Ngày]";
+  try {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    return `${day}/${month}/${date.getFullYear()}`;
+  } catch {
+    return dateString;
+  }
+}
+
+export function formatPaymentMethodVi(method) {
+  return { CASH: "Tiền mặt", BANK_TRANSFER: "Chuyển khoản ngân hàng", CHECK: "Séc" }[method] || method || "Tiền mặt";
+}
+
+const ROOM_FAMILY_LABELS_VI = {
+  COMMON: "Phòng chung",
+  BIG_SINGLE: "Phòng đơn lớn",
+  SMALL_SINGLE: "Phòng đơn nhỏ",
+  STORE: "Phòng kho",
+};
+
+const ROOM_TYPE_LABELS_VI = {
+  MEDIUM_SINGLE_1_PAX: "Phòng đơn vừa (1 người)",
+  LARGE_SINGLE_1_PAX: "Phòng đơn lớn (1 người)",
+  SMALL_SHARED_2_PAX: "Phòng ghép nhỏ (2 người)",
+  MEDIUM_SHARED_2_PAX: "Phòng ghép vừa (2 người)",
+  LARGE_SHARED_2_PAX: "Phòng ghép lớn (2 người)",
+  MASTER_BEDROOM: "Phòng chủ (Master Bedroom)",
+  COMMON_ROOM: "Phòng chung (Common Room)",
+  STUDIO: "Căn hộ Studio",
+  ONE_BEDROOM: "Căn hộ 1 phòng ngủ",
+  TWO_BEDROOM: "Căn hộ 2 phòng ngủ",
+  THREE_BEDROOM: "Căn hộ 3 phòng ngủ",
+};
+
+export function formatRoomTypeVi(roomType) {
+  if (!roomType) return "[Loại phòng]";
+  const { family, number } = parseRoomType(roomType);
+  if (family === "MASTER") return "Phòng chủ (Master)";
+  if (family && ROOM_FAMILY_LABELS_VI[family]) return `${ROOM_FAMILY_LABELS_VI[family]} ${number}`;
+  return ROOM_TYPE_LABELS_VI[roomType] || roomType;
+}
+
+/**
+ * Vietnamese number-to-words, following standard reading rules (linh/lẻ,
+ * mươi/mốt/lăm/tư substitutions). Good for the amounts that appear in this
+ * contract (hundreds/thousands, e.g. electricity budgets).
+ */
+export function numberToWordsVi(num) {
+  const ones = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+  const scales = ["", "nghìn", "triệu", "tỷ"];
+
+  if (num === 0) return "không";
+  if (num < 0) return "âm " + numberToWordsVi(-num);
+
+  const readThreeDigits = (n, hasHigherPart) => {
+    const hundred = Math.floor(n / 100);
+    const rem = n % 100;
+    const tens = Math.floor(rem / 10);
+    const unit = rem % 10;
+    const parts = [];
+
+    if (hundred > 0) {
+      parts.push(ones[hundred] + " trăm");
+    } else if (hasHigherPart && rem > 0) {
+      parts.push("không trăm");
+    }
+
+    if (rem > 0) {
+      if (tens === 0) {
+        parts.push((hundred > 0 || hasHigherPart ? "linh " : "") + (unit === 5 && (hundred > 0 || hasHigherPart) ? "năm" : ones[unit]));
+      } else if (tens === 1) {
+        parts.push("mười" + (unit === 0 ? "" : unit === 1 ? " một" : unit === 5 ? " lăm" : " " + ones[unit]));
+      } else {
+        parts.push(
+          ones[tens] +
+            " mươi" +
+            (unit === 0 ? "" : unit === 1 ? " mốt" : unit === 4 ? " tư" : unit === 5 ? " lăm" : " " + ones[unit]),
+        );
+      }
+    }
+
+    return parts.join(" ");
+  };
+
+  const groups = [];
+  let n = Math.floor(num);
+  while (n > 0) {
+    groups.unshift(n % 1000);
+    n = Math.floor(n / 1000);
+  }
+
+  const words = [];
+  groups.forEach((g, i) => {
+    if (g === 0) return;
+    const scaleIdx = groups.length - 1 - i;
+    words.push(readThreeDigits(g, i > 0) + (scales[scaleIdx] ? " " + scales[scaleIdx] : ""));
+  });
+
+  return words.join(" ").trim();
+}
+
+export function formatMonthsTextVi(months) {
+  if (!months || months == 0) return "0 (KHÔNG) tháng";
+  const num = parseFloat(months);
+  const numStr = String(num).replace(".", ",");
+  if (num === 0.5) return "0,5 (NỬA) tháng";
+  if (num % 1 === 0.5) {
+    const word = numberToWordsVi(Math.floor(num)).toUpperCase();
+    return `${numStr} (${word} RƯỠI) tháng`;
+  }
+  const word = numberToWordsVi(num).toUpperCase();
+  return `${numStr} (${word}) tháng`;
+}
+
+// English "month/week/day" unit words -> Vietnamese, used to translate the
+// auto-computed lease-period string (e.g. "6 months, 2 weeks") without
+// re-deriving it from scratch.
+function translateDurationUnitsToVi(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/\byears?\b/gi, "năm")
+    .replace(/\bmonths?\b/gi, "tháng")
+    .replace(/\bweeks?\b/gi, "tuần")
+    .replace(/\bdays?\b/gi, "ngày");
+}
+
+export function calculateLeasePeriodVi(moveInDate, moveOutDate) {
+  if (!moveInDate || !moveOutDate) return null;
+  const calculated = calculateLeasePeriod(moveInDate, moveOutDate);
+  return calculated ? translateDurationUnitsToVi(calculated) : null;
+}
+
+export function formatLeasePeriodVi(contractData) {
+  const cd = contractData || {};
+  if (cd.leasePeriod && cd.leasePeriod.trim()) return translateDurationUnitsToVi(cd.leasePeriod);
+  return calculateLeasePeriodVi(cd.moveInDate, cd.moveOutDate) || "[Thời hạn thuê]";
+}
+
+export function formatTenancyPeriodVi(contractData) {
+  const cd = contractData || {};
+  const i = cd.moveInDate;
+  const o = cd.moveOutDate;
+  if (!i && !o) return "[Thời gian thuê]";
+  if (!i) return `[Ngày dọn vào] - ${formatDateVi(o)}`;
+  if (!o) return `${formatDateVi(i)} - [Ngày dọn ra]`;
+  return `${formatDateVi(i)} - ${formatDateVi(o)}`;
+}
+
+// ─── Section 1 clause content (Vietnamese) ─────────────────────────────────
+
+/**
+ * Vietnamese counterpart of getSection1BaseClauseTexts. Must stay in the
+ * exact same order (and push the pest-control clause under the exact same
+ * condition) as the English version so clause lettering and
+ * getAirconClauseIndexInSection1 line up between the two languages.
+ */
+export function getSection1BaseClauseTextsVi(contractData) {
+  const cd = contractData || {};
+  const clauses = [
+    "Sử dụng và quản lý phòng, căn hộ cùng toàn bộ nội thất bên trong một cách cẩn thận, đồng thời giữ gìn nội thất căn hộ luôn trong tình trạng TỐT, SẠCH SẼ, GỌN GÀNG và CÓ THỂ CHO THUÊ ĐƯỢC, ngoại trừ hao mòn tự nhiên thông thường.",
+    "Không được thực hiện hoặc cho phép thực hiện trong căn hộ hoặc phòng bất kỳ hành vi nào trái pháp luật, trái đạo đức, hoặc gây phiền toái, làm ảnh hưởng đến những người đang cư trú tại (các) phòng liền kề hoặc lân cận.",
+    "Chỉ sử dụng căn hộ cho mục đích để ở riêng tư; không được chuyển nhượng, cho thuê lại, hoặc chuyển giao quyền chiếm hữu căn hộ hay bất kỳ phần nào của căn hộ dưới bất kỳ hình thức nào khi chưa có sự đồng ý bằng văn bản của Bên A.",
+    "Khi hết thời hạn thuê, bàn giao lại phòng cho Bên A một cách ôn hòa, trong tình trạng tương tự như tình trạng phòng đã được bàn giao cho Bên B vào thời điểm bắt đầu Hợp đồng này, ngoại trừ hao mòn tự nhiên thông thường.",
+    "Không được gây phiền toái; không được sử dụng căn hộ hoặc bất kỳ phần nào của căn hộ theo cách có thể gây phiền toái hoặc ảnh hưởng đến Bên A, những người cư trú khác trong căn hộ, tòa nhà, hoặc các hộ lân cận.",
+    "TUYỆT ĐỐI KHÔNG NUÔI THÚ CƯNG trong căn hộ.",
+    "Không được thực hiện các hoạt động trái pháp luật hoặc trái đạo đức; không được thực hiện hoặc để xảy ra trong căn hộ nêu trên hay bất kỳ phần nào của căn hộ bất kỳ hoạt động nào có tính chất trái pháp luật hoặc trái đạo đức.",
+    "Cho phép Bên A tiến hành các biện pháp kiểm tra cần thiết nhằm bảo đảm rằng trong suốt thời hạn của Hợp đồng này, Bên B và/hoặc những người cư trú được phép không phải là người nhập cư trái phép, và tuân thủ đầy đủ các quy định pháp luật liên quan đến Luật Xuất Nhập Cảnh (Immigration Act) và Luật Sử Dụng Lao Động Nước Ngoài (Employment of Foreign Workers Act).",
+    "Xuất trình cho Bên A, khi có yêu cầu, để kiểm tra trực tiếp toàn bộ giấy tờ liên quan đến xuất nhập cảnh và việc làm, bao gồm nhưng không giới hạn ở hộ chiếu của tất cả người cư trú không phải công dân/thường trú nhân Singapore, thẻ Employment Pass và/hoặc Work Permit, cùng các giấy tờ chứng minh việc làm.",
+    "Cho phép Bên A (người thuê chính) và thợ sửa chữa, cùng các trang thiết bị cần thiết, được ra vào căn hộ nêu trên vào những thời điểm hợp lý sau khi đã hẹn trước, nhằm mục đích kiểm tra tình trạng căn hộ hoặc thực hiện các công việc sửa chữa, cải tạo, nâng cấp cần thiết đối với căn hộ hoặc bất kỳ phần nào của tòa nhà mà căn hộ thuộc về hoặc liền kề.",
+    "Bên A (người thuê chính) không được tự ý vào phòng hoặc di dời, chuyển chỗ, tiêu hủy tài sản của Bên B khi chưa có sự đồng ý trước bằng văn bản của Bên B, trừ trường hợp khẩn cấp hoặc được pháp luật cho phép.",
+    "Không được mang vào, cất giữ, hoặc cho phép mang vào, cất giữ trong căn hộ hay bất kỳ phần nào của căn hộ bất kỳ hàng hóa nào có tính chất nguy hiểm, độc hại, dễ cháy nổ hoặc gây nguy hại.",
+    "Khi hết thời hạn thuê được thiết lập theo Hợp đồng này, bàn giao lại phòng một cách ôn hòa, trong tình trạng tương tự như tình trạng phòng đã được bàn giao cho Bên B vào thời điểm bắt đầu thời hạn thuê. Do phòng được bàn giao trong tình trạng sạch sẽ, Bên B có trách nhiệm dọn dẹp toàn bộ đồ đạc cá nhân ra khỏi phòng và căn hộ, đồng thời vệ sinh phòng và khu vực được chỉ định về tình trạng tương tự như khi được bàn giao. Nếu không thực hiện, Bên B sẽ bị trừ tối thiểu SGD$150 từ tiền đặt cọc để trang trải chi phí dọn vệ sinh.",
+    `Đối với hợp đồng thuê 6 tháng, SGD$100 sẽ được trừ từ tiền đặt cọc để bảo trì máy lạnh (điều hòa). Đối với hợp đồng thuê 1 năm, SGD$200 sẽ được trừ. Điều khoản này chỉ áp dụng đối với phòng có trang bị máy lạnh.${cd.airconFreeOfCharge ? " (Theo thỏa thuận đặc biệt, Bên A đồng ý miễn khoản phí này cho Bên B. Bên B được miễn phí khoản này trong thời hạn thuê.)" : ""}`,
+    "Chi phí sửa chữa thiệt hại đối với các tiện ích khu vực chung do Bên A cung cấp sẽ được cả hai bên cùng chia sẻ. Đối với mỗi hóa đơn, SGD$200 đầu tiên sẽ được chia đều cho tất cả những người thuê phòng trong căn hộ. Phần chi phí vượt quá SGD$200 sẽ do Bên A chịu trách nhiệm. Điều khoản này chỉ áp dụng cho hợp đồng thuê từ 6 tháng trở lên.",
+    "Không được hút thuốc lá hoặc hút thuốc lá điện tử (vaping) trong căn hộ (vi phạm lần đầu sẽ bị cảnh cáo; các lần vi phạm tiếp theo sẽ dẫn đến việc chấm dứt Hợp đồng). Hút thuốc lá điện tử là hành vi bất hợp pháp tại Singapore và có thể bị xử lý hình sự, bao gồm cả hình phạt tù.",
+    "Khách có thể được phép ở qua đêm nếu Bên B xin phép và được Bên A đồng ý trước.",
+    "Không được tổ chức tụ họp (có hoặc không sử dụng đồ uống có cồn) khi chưa được sự cho phép của Bên A.",
+    "Tuyệt đối giữ yên tĩnh sau 22:00 (người thuê sẽ bị nhắc nhở/cảnh cáo trong hai lần vi phạm đầu tiên; vi phạm lần thứ ba sẽ dẫn đến việc chấm dứt Hợp đồng).",
+    "Bên B phải thông báo bằng văn bản cho Bên A ít nhất ba mươi (30) ngày trước khi hết thời hạn thuê, nêu rõ Bên B có ý định gia hạn hợp đồng thuê hay sẽ trả phòng khi hợp đồng kết thúc.",
+    "TUYỆT ĐỐI KHÔNG SỬ DỤNG MA TÚY hoặc thực hiện bất kỳ hoạt động nào liên quan đến ma túy trong căn hộ. Việc tàng trữ, sử dụng hoặc buôn bán ma túy là hành vi bất hợp pháp tại Singapore và có thể bị xử phạt nghiêm khắc, bao gồm phạt tù, hình phạt roi (caning), và thậm chí tử hình đối với các tội phạm ma túy nghiêm trọng. Bất kỳ vi phạm nào sẽ dẫn đến việc chấm dứt Hợp đồng ngay lập tức và Bên B sẽ mất toàn bộ tiền đặt cọc.",
+    "Không được tự ý đấu nối lại điện, đi lại dây điện, hoặc thực hiện bất kỳ thay đổi nào về hệ thống điện khi chưa có sự đồng ý trước bằng văn bản của Bên A. Việc tự ý can thiệp vào hệ thống điện có thể gây cháy nổ, dẫn đến thiệt hại nghiêm trọng về tài sản và tính mạng. Bất kỳ hành vi tự ý thay đổi hệ thống điện nào sẽ dẫn đến việc chấm dứt Hợp đồng ngay lập tức và Bên B phải chịu trách nhiệm bồi thường toàn bộ thiệt hại.",
+    "Chấm Dứt Hợp Đồng Trước Hạn Và Thời Gian Báo Trước: Trường hợp Bên B muốn chấm dứt Hợp đồng này trước khi hết thời hạn thuê, Bên B phải thông báo bằng văn bản cho Bên A trước ít nhất ba mươi (30) ngày về ý định chấm dứt hợp đồng và trả lại căn hộ. Sau khi hoàn tất nghĩa vụ báo trước này, và với điều kiện Bên B đã thực hiện đầy đủ mọi nghĩa vụ theo Hợp đồng — bao gồm nhưng không giới hạn ở việc thanh toán toàn bộ tiền thuê, tiện ích còn nợ, và khôi phục căn hộ về tình trạng ban đầu (ngoại trừ hao mòn tự nhiên thông thường) — tiền đặt cọc sẽ được hoàn trả đầy đủ trong vòng bảy (7) ngày kể từ ngày chấm dứt hợp đồng. Tuy nhiên, nếu Bên B không thông báo trước ba mươi (30) ngày theo quy định, hoặc chấm dứt Hợp đồng mà không có thông báo như vậy, Bên B sẽ mất toàn bộ tiền đặt cọc như một khoản bồi thường thiệt hại ấn định (liquidated damages) cho việc vi phạm điều khoản này, và việc mất tiền đặt cọc này không loại trừ các biện pháp khắc phục khác mà Bên A có quyền áp dụng theo pháp luật hoặc theo lẽ công bằng.",
+    "Chủ nhà (landlord) đã đồng ý cho người thuê chính (Bên A) chia sẻ căn hộ với bạn bè/những người cư trú được ủy quyền.",
+  ];
+
+  if (cd.pestControlClause) {
+    clauses.push(
+      "TRÁCH NHIỆM VỀ CÔN TRÙNG GÂY HẠI: Bên B xác nhận rằng căn hộ đã được kiểm tra và bàn giao trong tình trạng không có côn trùng gây hại, bao gồm nhưng không giới hạn ở rệp giường (bedbugs), gián, kiến và các loại côn trùng khác. Bên B có trách nhiệm đảm bảo vệ sinh sạch sẽ đối với toàn bộ đồ đạc cá nhân, chăn ga gối đệm và nội thất trước khi dọn vào căn hộ. Trong trường hợp phát hiện côn trùng gây hại trong căn hộ trong thời gian thuê, Bên B sẽ chịu trách nhiệm về chi phí xử lý côn trùng và thay thế bất kỳ nội thất, thiết bị hoặc đồ đạc bị hư hại, với mức tối đa là SGD$1.000,00. Bên B đồng ý thông báo ngay cho Bên A khi phát hiện bất kỳ dấu hiệu nào của côn trùng gây hại và sẽ hợp tác đầy đủ trong các biện pháp xử lý côn trùng được thực hiện.",
+    );
+  }
+
+  return clauses;
+}
+
+// ─── Section 2 clause content (Vietnamese) ─────────────────────────────────
+
+/**
+ * Vietnamese counterpart of buildSection2Clauses. Letter placement mirrors
+ * the English version exactly (same conditional a/b/c/d/e lettering).
+ */
+export function buildSection2ClausesVi(contractData) {
+  const cd = contractData || {};
+  const clauses = [];
+
+  if (cd.fullPaymentReceived) {
+    clauses.push(
+      "Nếu bất kỳ cam kết, điều kiện hoặc điều khoản nào quy định đối với Bên B trong Hợp đồng này không được thực hiện, hoặc nếu tại bất kỳ thời điểm nào Bên B rơi vào tình trạng phá sản, thì trong bất kỳ trường hợp nào nêu trên, Bên A có quyền hợp pháp, vào bất kỳ thời điểm nào sau đó, tái chiếm hữu phòng và di dời toàn bộ tài sản của Bên B ra khỏi căn hộ mà không phải chịu trách nhiệm về bất kỳ tổn thất hoặc thiệt hại nào phát sinh từ việc di dời đó. Theo đó, Hợp đồng này sẽ chấm dứt hoàn toàn, nhưng không ảnh hưởng đến quyền khởi kiện của Bên A đối với bất kỳ vi phạm nào của Bên B đối với các cam kết nêu trong Hợp đồng này.",
+    );
+  } else {
+    clauses.push(
+      "Nếu tiền thuê nhà theo Hợp đồng này hoặc bất kỳ phần nào của khoản tiền đó không được thanh toán trong vòng 7 (BẢY) ngày kể từ ngày đến hạn (dù đã được yêu cầu chính thức bằng văn bản hay chưa), HOẶC nếu bất kỳ cam kết, điều kiện hoặc điều khoản nào quy định đối với Bên B không được thực hiện, hoặc nếu tại bất kỳ thời điểm nào Bên B rơi vào tình trạng phá sản, thì trong bất kỳ trường hợp nào nêu trên, Bên A có quyền hợp pháp, vào bất kỳ thời điểm nào sau đó, tái chiếm hữu phòng và di dời toàn bộ tài sản của Bên B ra khỏi căn hộ mà không phải chịu trách nhiệm về bất kỳ tổn thất hoặc thiệt hại nào phát sinh từ việc di dời đó. Theo đó, Hợp đồng này sẽ chấm dứt hoàn toàn, nhưng không ảnh hưởng đến quyền khởi kiện của Bên A đối với bất kỳ vi phạm nào của Bên B đối với các cam kết nêu trong Hợp đồng này. Bên A sẽ chấm dứt Hợp đồng ngay lập tức và tịch thu tiền đặt cọc.",
+    );
+  }
+
+  const elecBudget = cd.electricityBudget || "400";
+  clauses.push(
+    "Bất kể các nội dung khác trong Hợp đồng này, Bên A sẽ không chịu bất kỳ trách nhiệm nào đối với Bên B về các tai nạn xảy ra, thương tích, thiệt hại về tính mạng hoặc thiệt hại đối với tài sản, đồ đạc trong căn hộ hay bất kỳ phần nào của căn hộ.",
+    cd.electricityFree
+      ? "a) TIỀN ĐIỆN: Toàn bộ chi phí tiền điện (hóa đơn SP) cho căn hộ được Bên A bao trọn. Bên B không phải chịu bất kỳ khoản phí tiền điện nào."
+      : `a) TIỀN ĐIỆN: Hạn mức tiền điện (hóa đơn SP) hàng tháng cho toàn bộ căn hộ được ấn định là S$${elecBudget} (${numberToWordsVi(parseInt(elecBudget)).toUpperCase()} ĐÔ LA SINGAPORE). Trong trường hợp tổng hóa đơn tiện ích vượt quá hạn mức này, phần chênh lệch sẽ được chia theo tỷ lệ cho tất cả người thuê trong căn hộ. Bên A có quyền yêu cầu Bên B thanh toán phần chênh lệch này. Điều khoản này chỉ áp dụng đối với phòng có trang bị máy lạnh.`,
+    "b) Bên B phải xuất trình bản gốc/bản sao các giấy tờ như NRIC/Hộ chiếu/Work Permit/Employment Pass/Student Pass để chứng minh danh tính và tình trạng cư trú hợp pháp tại Singapore.",
+    "c) Tiền đặt cọc sẽ được hoàn trả trong vòng 7 (BẢY) ngày kể từ khi kết thúc hợp đồng thuê, sau khi đã khấu trừ các khoản phí còn nợ (nếu có), và không tính lãi.",
+  );
+
+  if (!cd.fullPaymentReceived) {
+    clauses.push(
+      "d) Nếu tiền thuê không được thanh toán vào ngày 1 hàng tháng, Bên B sẽ được yêu cầu rời khỏi căn hộ trong vòng 1 (MỘT) đến 7 (BẢY) ngày theo quyết định của Bên A, do vi phạm hợp đồng và/hoặc các điều khoản, điều kiện quy định trong Hợp đồng này.",
+    );
+  }
+
+  const lawLetter = cd.fullPaymentReceived ? "d" : "e";
+  const cleaningLetter = cd.fullPaymentReceived ? "e" : "f";
+  clauses.push(
+    `${lawLetter}) Pháp luật áp dụng cho bất kỳ tranh chấp nào phát sinh từ hợp đồng thuê này là pháp luật của Cộng hòa Singapore, và các bên đồng ý chịu sự điều chỉnh của pháp luật Singapore.`,
+  );
+  clauses.push(`${cleaningLetter}) Phí vệ sinh: SGD$${cd.cleaningFee || ""} / 1 người`);
 
   return clauses;
 }

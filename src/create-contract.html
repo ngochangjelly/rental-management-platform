@@ -790,6 +790,14 @@
         color: #fff;
         box-shadow: 0 4px 14px rgba(37, 211, 102, 0.32);
       }
+      .action-bar-pdf-vi {
+        grid-column: 1 / -1;
+      }
+      .btn-pdf-vi {
+        background: linear-gradient(135deg, #da251d 0%, #a81812 100%);
+        color: #fff;
+        box-shadow: 0 6px 20px rgba(218, 37, 29, 0.34);
+      }
 
       /* ── Toasts ─────────────────────────────────────────────────── */
       .toast-container-custom {
@@ -1680,7 +1688,14 @@
         class="btn-action btn-pdf action-bar-pdf ripple-host"
         id="exportPdfBtn"
       >
-        <i class="bi bi-file-earmark-pdf"></i> Xuất PDF
+        <i class="bi bi-file-earmark-pdf"></i> Xuất PDF (Tiếng Anh)
+      </button>
+      <button
+        class="btn-action btn-pdf-vi action-bar-pdf-vi ripple-host"
+        id="exportPdfViBtn"
+        title="Xuất hợp đồng với bản dịch tiếng Việt đầy đủ, chính xác — dễ hiểu cho người thuê"
+      >
+        <i class="bi bi-file-earmark-pdf"></i> Xuất PDF (Tiếng Việt)
       </button>
       <button class="btn-action btn-share ripple-host" id="shareBtn">
         <i class="bi bi-share-fill"></i> Chia Sẻ

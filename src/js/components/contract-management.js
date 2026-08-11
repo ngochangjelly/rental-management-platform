@@ -4,7 +4,18 @@
  */
 import i18next from "i18next";
 import { renderTenantSocialBadges } from "../utils/social-links.js";
-import { getSection1BaseClauseTexts } from "./contract-clauses.js";
+import {
+  getSection1BaseClauseTexts,
+  getAirconClauseIndexInSection1,
+  getSection1BaseClauseTextsVi,
+  buildSection2ClausesVi,
+  formatDateVi,
+  formatRoomTypeVi,
+  formatPaymentMethodVi,
+  formatMonthsTextVi,
+  formatLeasePeriodVi,
+  formatTenancyPeriodVi,
+} from "./contract-clauses.js";
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
 
@@ -25,6 +36,7 @@ class ContractManagementComponent {
       address: "",
       unit: "",
       room: "",
+      noAircon: undefined, // Whether the room has no air-conditioning; auto-filled from the tenant's room assignment, undefined means unknown (falls back to room-type heuristic)
       agreementDate: new Date().toISOString().split("T")[0],
       leasePeriod: "",
       moveInDate: "",
@@ -1675,6 +1687,8 @@ class ContractManagementComponent {
               this.contractData.room = propA.room;
             }
           }
+          this.contractData.noAircon =
+            typeof propA.noAircon === "boolean" ? propA.noAircon : undefined;
         }
       }
 
@@ -1782,6 +1796,8 @@ class ContractManagementComponent {
               console.log("✅ Auto-filled room type:", propertyWithDates.room);
             }
           }
+          this.contractData.noAircon =
+            typeof propertyWithDates.noAircon === "boolean" ? propertyWithDates.noAircon : undefined;
 
           // Auto-fill rent and deposit from tenant data
           if (tenant) {
@@ -2035,6 +2051,8 @@ class ContractManagementComponent {
             );
           }
         }
+        this.contractData.noAircon =
+          typeof propertyWithDates.noAircon === "boolean" ? propertyWithDates.noAircon : undefined;
 
         // Auto-fill rent and deposit by summing all selected Tenant B (roommates)
         const totalRent = this.selectedTenantB.reduce(
@@ -3551,7 +3569,13 @@ class ContractManagementComponent {
   }
 
   hasAircon() {
-    // Check if room type includes "NO_AIRCON"
+    // Prefer the explicit noAircon flag from the tenant's room assignment
+    // (set via the "Without AC" checkbox in Tenant Management). Fall back to
+    // the legacy heuristic of checking the room type string for tenants/
+    // contracts that predate that field.
+    if (typeof this.contractData.noAircon === "boolean") {
+      return !this.contractData.noAircon;
+    }
     const roomType = this.contractData.room || "";
     return !roomType.includes("NO_AIRCON");
   }
@@ -5198,6 +5222,535 @@ class ContractManagementComponent {
     }
   }
 
+  // ─── Vietnamese PDF export ─────────────────────────────────────────────────
+  // Professional Vietnamese rendering of the same contract, for Vietnamese-
+  // speaking tenants. Clause wording lives in contract-clauses.js (…Vi
+  // exports) — this method only lays the translated text onto the page,
+  // mirroring exportToPDF's structure/logic exactly so the two stay in sync.
+  // Download-only for now (no share/WhatsApp variants).
+  async exportToPDFVietnamese() {
+    try {
+      this.syncFormValuesToContractData();
+
+      if (
+        !Array.isArray(this.selectedTenantB) ||
+        this.selectedTenantB.length === 0
+      ) {
+        const checkedBoxes = document.querySelectorAll(
+          ".tenant-b-checkbox:checked",
+        );
+        if (checkedBoxes.length > 0) {
+          this.selectedTenantB = [];
+          checkedBoxes.forEach((checkbox) => {
+            const dataType = checkbox.getAttribute("data-type");
+            const index = parseInt(checkbox.getAttribute("data-index"));
+            let tenant = null;
+            if (
+              dataType === "investor" &&
+              !isNaN(index) &&
+              index >= 0 &&
+              index < this.investors.length
+            ) {
+              tenant = this.investors[index];
+            } else if (
+              dataType === "tenant" &&
+              !isNaN(index) &&
+              index >= 0 &&
+              index < this.tenants.length
+            ) {
+              tenant = this.tenants[index];
+            }
+            if (tenant) this.selectedTenantB.push(tenant);
+          });
+        }
+      }
+
+      const exportBtn = document.querySelector(
+        '[onclick="contractManager.exportToPDFVietnamese()"]',
+      );
+      if (exportBtn) {
+        exportBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
+        exportBtn.disabled = true;
+      }
+
+      if (typeof jsPDF === "undefined") {
+        throw new Error("jsPDF library not available - check imports");
+      }
+
+      // Filename — same scheme as the English export, with a "-VN" suffix
+      const unitNumber = this.contractData.unit
+        ? this.contractData.unit.replace(/[^a-zA-Z0-9#-]/g, "_")
+        : "";
+      const tenantBName =
+        Array.isArray(this.selectedTenantB) && this.selectedTenantB.length > 0
+          ? this.selectedTenantB
+              .map((t) => t.name)
+              .join("_")
+              .replace(/[^a-zA-Z0-9_]/g, "_")
+          : "TenantB";
+      const roomType = this.formatRoomType(this.contractData.room).replace(
+        /[^a-zA-Z0-9]/g,
+        "_",
+      );
+      const monthlyRent = this.contractData.monthlyRental
+        ? `${this.contractData.monthlyRental}`
+        : "0";
+      const moveInDateFormatted = this.formatDateForFilename(
+        this.contractData.moveInDate,
+      );
+      const moveOutDateFormatted = this.formatDateForFilename(
+        this.contractData.moveOutDate,
+      );
+      const dateRange =
+        moveInDateFormatted && moveOutDateFormatted
+          ? `${moveInDateFormatted}-${moveOutDateFormatted}`
+          : "";
+      const customAddressText = document.getElementById("customAddressText");
+      const addressSource =
+        customAddressText && customAddressText.value.trim()
+          ? customAddressText.value.trim()
+          : this.contractData.address;
+      let cleanAddress = addressSource || "Address";
+      if (this.contractData.unit) {
+        const unitSuffix = `, ${this.contractData.unit.trim()}`;
+        if (cleanAddress.endsWith(unitSuffix)) {
+          cleanAddress = cleanAddress.slice(0, -unitSuffix.length);
+        }
+      }
+      cleanAddress = cleanAddress.replace(/,\s*#[^,]+$/, "").trim();
+      cleanAddress = cleanAddress.replace(/,?\s*Singapore\s*\d*$/i, "");
+      cleanAddress = cleanAddress.replace(/,?\s*S\d{6}$/i, "");
+      cleanAddress = cleanAddress.replace(/,?\s*\d{6}$/i, "");
+      const propertyAddress =
+        cleanAddress.replace(/[^a-zA-Z0-9]/g, "_") || "Address";
+
+      const filenameParts = [];
+      if (unitNumber) filenameParts.push(unitNumber);
+      filenameParts.push(tenantBName, roomType, monthlyRent);
+      if (dateRange) filenameParts.push(dateRange);
+      filenameParts.push(propertyAddress);
+      const filename = `${filenameParts.join("-")}-VN.pdf`;
+
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      const _loadFont = async (url) => {
+        const buf = await (await fetch(url)).arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let s = "";
+        for (let i = 0; i < bytes.length; i++)
+          s += String.fromCharCode(bytes[i]);
+        return btoa(s);
+      };
+      const [_regB64, _boldB64] = await Promise.all([
+        _loadFont("/fonts/NotoSerif-Regular.ttf"),
+        _loadFont("/fonts/NotoSerif-Bold.ttf"),
+      ]);
+      pdf.addFileToVFS("NotoSerif-Regular.ttf", _regB64);
+      pdf.addFont("NotoSerif-Regular.ttf", "NotoSerif", "normal");
+      pdf.addFileToVFS("NotoSerif-Bold.ttf", _boldB64);
+      pdf.addFont("NotoSerif-Bold.ttf", "NotoSerif", "bold");
+      pdf.setFont("NotoSerif", "normal");
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 20;
+      const contentWidth = pageWidth - margin * 2;
+
+      let currentY = margin;
+      const lineHeight = 5;
+
+      const addPageNumbers = () => {
+        const totalPages = pdf.internal.getNumberOfPages();
+        const currentFontSize = pdf.internal.getFontSize();
+        const currentFont = pdf.internal.getFont();
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.setFontSize(10);
+          pdf.setFont("NotoSerif", "normal");
+          const pageText = `${i}`;
+          const textWidth = pdf.getTextWidth(pageText);
+          const x = (pageWidth - textWidth) / 2;
+          const y = pageHeight - 10;
+          pdf.text(pageText, x, y);
+        }
+        pdf.setFontSize(currentFontSize);
+        pdf.setFont(currentFont.fontName, currentFont.fontStyle);
+      };
+
+      const addText = (text, options = {}) => {
+        if (!text || String(text).trim() === "") {
+          currentY += options.spacing || 0;
+          return;
+        }
+        const fontSize = options.fontSize || 10;
+        const isBold = options.bold || false;
+        const isCenter = options.center || false;
+        const leftMargin = options.indent ? margin + 10 : margin;
+
+        pdf.setFontSize(fontSize);
+        pdf.setFont("NotoSerif", isBold ? "bold" : "normal");
+
+        if (currentY > pageHeight - margin - 20) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        const maxWidth = contentWidth - (options.indent ? 10 : 0);
+        const lines = pdf.splitTextToSize(String(text), maxWidth);
+
+        for (let i = 0; i < lines.length; i++) {
+          if (currentY > pageHeight - margin - 20) {
+            pdf.addPage();
+            currentY = margin;
+          }
+          if (isCenter) {
+            const textWidth = pdf.getTextWidth(lines[i]);
+            pdf.text(lines[i], (pageWidth - textWidth) / 2, currentY);
+          } else {
+            pdf.text(lines[i], leftMargin, currentY);
+          }
+          currentY += lineHeight;
+        }
+        currentY += options.spacing || 0;
+      };
+
+      const customTenantAText = document.getElementById("customTenantAText");
+      const customTenantBText = document.getElementById("customTenantBText");
+
+      const tenantAInfo = this.selectedTenantA
+        ? {
+            name: this.selectedTenantA.name,
+            passport:
+              this.selectedTenantA.passportNumber ||
+              this.selectedTenantA.passport ||
+              "",
+            fin:
+              this.selectedTenantA.finNumber || this.selectedTenantA.fin || "",
+            email: this.selectedTenantA.email || "",
+          }
+        : customTenantAText && customTenantAText.value.trim()
+          ? { name: customTenantAText.value.trim(), passport: "", fin: "", email: "" }
+          : {
+              name: "[Tên Bên A]",
+              passport: "[Số hộ chiếu Bên A]",
+              fin: "[Số FIN Bên A]",
+              email: "[Email]",
+            };
+
+      let tenantBInfo;
+      if (
+        Array.isArray(this.selectedTenantB) &&
+        this.selectedTenantB.length > 0
+      ) {
+        tenantBInfo = this.selectedTenantB.map((tenant) => ({
+          name: tenant.name,
+          passport: tenant.passportNumber || tenant.passport || "",
+          fin: tenant.finNumber || tenant.fin || "",
+        }));
+      } else if (customTenantBText && customTenantBText.value.trim()) {
+        tenantBInfo = [{ name: customTenantBText.value.trim(), passport: "", fin: "" }];
+      } else {
+        tenantBInfo = [{ name: "[Tên Bên B]", passport: "[Số hộ chiếu Bên B]", fin: "[Số FIN Bên B]" }];
+      }
+
+      const unit = this.contractData.unit || "";
+      const rawAddr =
+        customAddressText && customAddressText.value.trim()
+          ? customAddressText.value.trim()
+          : this.contractData.address || "[Địa chỉ căn hộ]";
+      let cleanAddr = rawAddr;
+      if (unit) {
+        const suffix = `, ${unit}`;
+        if (cleanAddr.endsWith(suffix)) {
+          cleanAddr = cleanAddr.slice(0, -suffix.length).trim();
+        }
+      }
+      const propertyAddressForPDF = unit ? `${unit}, ${cleanAddr}` : cleanAddr;
+
+      // Header
+      addText("HỢP ĐỒNG THUÊ PHÒNG Ở GHÉP", {
+        fontSize: 16,
+        bold: true,
+        center: true,
+        spacing: 10,
+      });
+      addText(`Địa chỉ đầy đủ: ${propertyAddressForPDF}`, { center: true });
+      addText(`Phòng: ${formatRoomTypeVi(this.contractData.room)}`, { center: true });
+      addText(
+        `HỢP ĐỒNG NÀY được lập vào ngày: ${formatDateVi(
+          this.contractData.agreementDate ||
+            new Date().toISOString().split("T")[0],
+        )}`,
+        { center: true, spacing: 15 },
+      );
+
+      // Parties
+      addText("GIỮA", { bold: true, spacing: 5 });
+      addText(`Người thuê chính (Bên A): ${tenantAInfo.name}`, { indent: true });
+      if (tenantAInfo.passport) {
+        addText(`Số hộ chiếu: ${tenantAInfo.passport}`, { indent: true });
+      }
+      if (tenantAInfo.fin) {
+        addText(`Số FIN: ${tenantAInfo.fin}`, { indent: true });
+      }
+      addText(`Email: ${tenantAInfo.email}`, { indent: true });
+      {
+        const sa = this.getSettlementAccountsData();
+        if (sa) {
+          addText("Tài khoản thanh toán:", { indent: true, bold: true });
+          if (sa.hasSgd) {
+            const parts = [];
+            if (sa.sgd.bankName) parts.push(`Ngân hàng: ${sa.sgd.bankName}`);
+            if (sa.sgd.accountHolderName)
+              parts.push(`Chủ tài khoản: ${sa.sgd.accountHolderName}`);
+            if (sa.sgd.accountNumber)
+              parts.push(`Số tài khoản: ${sa.sgd.accountNumber}`);
+            addText(`SGD — ${parts.join(", ")}`, { indent: true });
+          }
+          if (sa.hasVnd) {
+            const parts = [];
+            if (sa.vnd.bankName) parts.push(`Ngân hàng: ${sa.vnd.bankName}`);
+            if (sa.vnd.accountHolderName)
+              parts.push(`Chủ tài khoản: ${sa.vnd.accountHolderName}`);
+            if (sa.vnd.accountNumber)
+              parts.push(`Số tài khoản: ${sa.vnd.accountNumber}`);
+            addText(`VND — ${parts.join(", ")}`, { indent: true });
+          }
+        }
+      }
+      addText(
+        "(Sau đây gọi là \"Bên A\"; trong trường hợp ngữ cảnh cho phép, thuật ngữ này bao gồm tất cả những người có quyền lợi hợp pháp thông qua \"Bên A\") là một bên của Hợp đồng này.",
+        { indent: true, spacing: 10 },
+      );
+
+      addText("VÀ", { bold: true, spacing: 5 });
+      for (let index = 0; index < tenantBInfo.length; index++) {
+        const tenant = tenantBInfo[index];
+        const isLastTenant = index === tenantBInfo.length - 1;
+        if (tenantBInfo.length > 1) {
+          addText(`Bên B${index + 1}:`, { indent: true, bold: true, spacing: 2 });
+        }
+        const nameValue = tenant.name || "[Họ tên]";
+        addText("Họ và tên: " + nameValue, { indent: true });
+        if (tenant.passport && String(tenant.passport).trim()) {
+          addText("Số hộ chiếu: " + String(tenant.passport), { indent: true });
+        }
+        if (tenant.fin && String(tenant.fin).trim()) {
+          addText("Số FIN: " + String(tenant.fin), {
+            indent: true,
+            spacing: isLastTenant ? 0 : 5,
+          });
+        } else if (!isLastTenant) {
+          addText("", { spacing: 5 });
+        }
+      }
+      addText(
+        "(Sau đây gọi là \"Bên B\"; trong trường hợp ngữ cảnh cho phép, thuật ngữ này bao gồm tất cả những người có quyền lợi hợp pháp thông qua \"Bên B\") là một bên của Hợp đồng này.",
+        { indent: true, spacing: 10 },
+      );
+
+      addText(
+        `Hình thức thanh toán: ${formatPaymentMethodVi(this.contractData.paymentMethod)}`,
+        { spacing: 10 },
+      );
+
+      // Agreement terms
+      addText("CÁC BÊN NAY THỎA THUẬN NHƯ SAU:", { bold: true, spacing: 8 });
+      addText(`Thời hạn thuê: ${formatLeasePeriodVi(this.contractData)}`, {
+        bold: true,
+        spacing: 8,
+      });
+      addText(`Thời gian thuê: ${formatTenancyPeriodVi(this.contractData)}`, {
+        bold: true,
+        spacing: 8,
+      });
+      addText("Thời gian nhận/trả phòng: Nhận phòng sau 15:00, trả phòng trước 11:00", {
+        bold: true,
+        spacing: 8,
+      });
+
+      addText(
+        `Tiền thuê hàng tháng: $${
+          this.contractData.monthlyRental || "[Tiền thuê hàng tháng]"
+        }`,
+        { bold: true, spacing: 5 },
+      );
+      addText("*Mức giá thuê phòng được bảo mật tuyệt đối", {
+        fontSize: 9,
+        indent: true,
+      });
+      addText("*Việc gia hạn hợp đồng phải được cả Bên A và Bên B đồng ý", {
+        fontSize: 9,
+        indent: true,
+      });
+      addText('*Thanh toán vào ngày 1 hàng tháng cho "Bên A"', {
+        fontSize: 9,
+        indent: true,
+        spacing: this.contractData.fullPaymentReceived ? 0 : 8,
+      });
+
+      if (this.contractData.fullPaymentReceived) {
+        addText(
+          `*Bên A xác nhận đã nhận đủ toàn bộ tiền thuê cho toàn bộ thời gian thuê (S$${this.calculateTotalRental().toFixed(
+            2,
+          )})`,
+          { fontSize: 12, bold: true, indent: true, spacing: 8 },
+        );
+      }
+
+      addText(
+        `Tiền đặt cọc: $${
+          this.contractData.securityDeposit ||
+          this.contractData.monthlyRental ||
+          "[Tiền đặt cọc]"
+        }${
+          this.contractData.partialDepositReceived &&
+          this.contractData.partialDepositAmount
+            ? ` (Đã nhận cọc một phần: $${this.contractData.partialDepositAmount})`
+            : ""
+        }`,
+        { bold: true, spacing: 5 },
+      );
+      addText(
+        "*Khoản tiền đặt cọc này không được dùng để khấu trừ vào tiền thuê nhà phải trả trong suốt thời hạn của Hợp đồng này",
+        { fontSize: 9, indent: true, spacing: 10 },
+      );
+
+      addText(
+        "Tiền thuê hàng tháng đã bao gồm Wi-Fi, tiện ích (điện, nước), gas, và việc sử dụng các tiện ích chung của khu chung cư như hồ bơi, khu vực nướng BBQ và phòng sinh hoạt đa năng.",
+        { fontSize: 9, spacing: 10 },
+      );
+
+      // Section 1
+      addText("1. BÊN B (CÁC BÊN B) CAM KẾT VỚI BÊN A NHƯ SAU:", {
+        bold: true,
+        fontSize: 12,
+        spacing: 10,
+      });
+
+      const section1Clauses = [];
+
+      if (!this.contractData.fullPaymentReceived) {
+        const depositText = formatMonthsTextVi(this.contractData.depositMonths || 1);
+        const advanceText = formatMonthsTextVi(this.contractData.advanceMonths || 1);
+        const agreementDate = this.contractData.agreementDate
+          ? formatDateVi(this.contractData.agreementDate)
+          : "[Ngày ký]";
+        const moveInDate = this.contractData.moveInDate
+          ? formatDateVi(this.contractData.moveInDate)
+          : "[Ngày dọn vào]";
+
+        section1Clauses.push(
+          `a) Thanh toán khoản tiền tương đương ${depositText} tiền thuê nhà làm tiền đặt cọc vào ngày ký hợp đồng (${agreementDate}), và khoản tiền tương đương ${advanceText} tiền thuê nhà làm tiền tạm ứng vào ngày dọn vào (${moveInDate}). Khoản tiền đặt cọc này sẽ do Bên A giữ để bảo đảm cho việc Bên B thực hiện đầy đủ và nghiêm túc tất cả các cam kết, điều kiện và điều khoản quy định đối với Bên B trong Hợp đồng này; nếu vi phạm, Bên B sẽ bị mất toàn bộ hoặc một phần khoản tiền đặt cọc nêu trên tương ứng với mức cần thiết để khắc phục hậu quả vi phạm đó.`,
+          "b) Ngoài ra, và không ảnh hưởng đến bất kỳ quyền, thẩm quyền hoặc biện pháp khắc phục nào khác của Bên A, nếu tiền thuê nhà theo Hợp đồng này hoặc bất kỳ phần nào của khoản tiền đó không được thanh toán trong vòng 7 (BẢY) ngày kể từ ngày đến hạn, Bên A có quyền tịch thu tiền đặt cọc và, vào bất kỳ thời điểm nào sau đó, thu hồi lại Phòng và di dời toàn bộ tài sản của Bên B ra khỏi Phòng mà không phải chịu trách nhiệm về bất kỳ tổn thất hoặc thiệt hại nào phát sinh từ việc di dời đó.",
+        );
+      }
+
+      const baseClauseTextsVi = getSection1BaseClauseTextsVi(this.contractData);
+      const airconIdx = getAirconClauseIndexInSection1(this.contractData);
+
+      let clauseOffset = 0;
+      baseClauseTextsVi.forEach((clauseText, index) => {
+        if (index === airconIdx && !this.acClauseVisible()) {
+          clauseOffset = 1;
+          return;
+        }
+        const letterIndex = this.contractData.fullPaymentReceived
+          ? index - clauseOffset
+          : index + 2 - clauseOffset;
+        const letter = String.fromCharCode(97 + letterIndex);
+        section1Clauses.push(`${letter}) ${clauseText}`);
+      });
+
+      section1Clauses.forEach((clause) => {
+        addText(clause, { indent: true, spacing: 3 });
+      });
+
+      // Additional (custom) clauses are free text entered by the admin —
+      // kept as-authored since there is no reliable canonical translation.
+      this.additionalClauses.forEach((clause, index) => {
+        const letter = String.fromCharCode(97 + index + 21);
+        if (clause.text.trim()) {
+          addText(`${letter}) ${clause.text}`, { indent: true, spacing: 3 });
+        }
+      });
+
+      currentY += 15;
+
+      // Section 2
+      addText("2) VÀ CÁC BÊN THỎA THUẬN THÊM NHƯ SAU:", {
+        bold: true,
+        fontSize: 12,
+        spacing: 10,
+      });
+
+      const section2ClausesVi = buildSection2ClausesVi(this.contractData);
+      section2ClausesVi.forEach((clause) => {
+        addText(clause, { indent: true, spacing: 5 });
+      });
+
+      currentY += 20;
+
+      // Signature section
+      const signatureHeight = 20;
+      if (currentY + 80 > pageHeight - margin) {
+        pdf.addPage();
+        currentY = margin;
+      }
+
+      addText(
+        "Bằng việc ký tên dưới đây, cả hai bên đồng ý tuân thủ đầy đủ các điều khoản và điều kiện nêu trên",
+        { bold: true, center: true, spacing: 15 },
+      );
+
+      try {
+        if (this.signatures.tenantA) {
+          await this.addImageToPDF(pdf, this.signatures.tenantA, 30, currentY, 60, signatureHeight);
+        }
+        if (this.signatures.tenantB) {
+          await this.addImageToPDF(pdf, this.signatures.tenantB, 120, currentY, 60, signatureHeight);
+        }
+      } catch (error) {
+        console.warn("⚠️ Error adding signatures to PDF:", error);
+      }
+
+      currentY += signatureHeight + 15;
+
+      pdf.setFontSize(12);
+      pdf.text("Bên A", 30, currentY);
+      pdf.text("Bên B", 120, currentY);
+
+      currentY += 10;
+      pdf.setFontSize(10);
+      pdf.text(tenantAInfo.name || "[Bên A]", 30, currentY);
+
+      const tenantBX = 120;
+      let tenantBY = currentY;
+      tenantBInfo.forEach((tenant) => {
+        pdf.text(tenant.name || "[Bên B]", tenantBX, tenantBY);
+        tenantBY += 5;
+      });
+
+      addPageNumbers();
+
+      pdf.save(filename);
+      showToast("Contract exported successfully!", "success");
+    } catch (error) {
+      console.error("Error exporting Vietnamese PDF:", error);
+      showToast("Error exporting PDF: " + error.message, "error");
+    } finally {
+      const btn = document.querySelector(
+        '[onclick="contractManager.exportToPDFVietnamese()"]',
+      );
+      if (btn) {
+        btn.innerHTML =
+          '<i class="bi bi-file-earmark-pdf-fill me-1"></i>Xuất PDF (Tiếng Việt)';
+        btn.disabled = false;
+      }
+    }
+  }
+
   // Helper method to add image to PDF
   async addImageToPDF(pdf, imageUrl, x, y, width, height) {
     return new Promise((resolve, reject) => {
@@ -6429,6 +6982,7 @@ class ContractManagementComponent {
       this.contractData = {
         address: "",
         room: "",
+        noAircon: undefined,
         agreementDate: new Date().toISOString().split("T")[0],
         leasePeriod: "",
         moveInDate: "",
