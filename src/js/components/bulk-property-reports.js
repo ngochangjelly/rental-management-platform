@@ -7,7 +7,13 @@ import {
   fetchInvestorsForAvatarStack,
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
-
+import {
+  getModeTokens,
+  getNeutralTokens,
+  getBadgeTokens,
+  getSurfaceTokens,
+} from "../utils/financial-report-theme.js";
+  
 class BulkPropertyReportsComponent {
   constructor() {
     this.properties = [];
@@ -51,6 +57,18 @@ class BulkPropertyReportsComponent {
     if (deselectAllBtn) {
       deselectAllBtn.addEventListener("click", () => {
         this.deselectAllProperties();
+      });
+    }
+
+    // Grand View button — generates each selected property's full report
+    // snapshot image (the same PNG "Capture Screenshot" produces on the
+    // single-property page) and gathers them into one bulk viewer modal.
+    // Purely additive/read-only; does not touch any of the profit/settlement
+    // calculation logic above.
+    const grandViewBtn = document.getElementById("grandViewReportsBtn");
+    if (grandViewBtn) {
+      grandViewBtn.addEventListener("click", () => {
+        this.openGrandReportView();
       });
     }
   }
@@ -2147,6 +2165,95 @@ class BulkPropertyReportsComponent {
     payeeSel.innerHTML = `<option value="">Select payee…</option>${opts}`;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Profit-share settlement helper for the Settlement Extraction tool
+  //
+  // Deliberately MIRRORS (does not call or refactor) the per-property
+  // investor-distribution math inside fetchBulkReports() above — see that
+  // method for the canonical version, used by the main "Property Profit
+  // Results" view. Copied on purpose instead of shared, so this new
+  // feature can never change fetchBulkReports()'s behavior; if that
+  // formula is ever revised, this copy needs the same change made here.
+  //
+  // Produces each investor's final SGD balance for one property/month —
+  // their profit share, adjusted for what they've already paid/received
+  // (report.investorTransactions) and for expenses they personally
+  // fronted / income they personally collected on behalf of the group
+  // (report.expenses / report.income, filtered by personInCharge,
+  // regardless of who those items were paid to or received from). This
+  // output feeds directly into the existing, unmodified
+  // calculatePropertySettlements() to get pairwise "who pays whom" amounts.
+  //
+  // Why this is safe to ADD to the raw expense-reimbursement total instead
+  // of double-counting it: expensesPaidByInvestor/incomeReceivedByInvestor
+  // only look at personInCharge — they never look at paidTo — so a raw
+  // expense specifically tagged personInCharge=payer & paidTo=payee has NO
+  // bearing on which investor the profit-settlement pairing routes to;
+  // they're mathematically independent amounts. Verified by hand with
+  // balanced 2- and 3-investor examples before wiring this in: summing
+  // them reproduces exactly the fair end-of-month cash position for every
+  // investor, with nothing left over and nothing paid twice.
+  // ─────────────────────────────────────────────────────────────────────────
+  _computeInvestorFinalsForExtraction(report, propertyId, investorsData) {
+    const totalIncome = report.totalIncome || 0;
+    const totalExpenses = report.totalExpenses || 0;
+    const netProfit = totalIncome - totalExpenses;
+
+    return investorsData
+      .map((investor) => {
+        const propertyInfo = investor.properties?.find(
+          (p) => p.propertyId === propertyId
+        );
+        if (!propertyInfo) return null;
+
+        const percentage = propertyInfo.percentage || 0;
+        const profitShare = (netProfit * percentage) / 100;
+
+        const existingTransaction = report.investorTransactions
+          ? report.investorTransactions.find(
+              (t) => t.investorId === investor.investorId
+            )
+          : null;
+        const alreadyPaid = existingTransaction ? existingTransaction.alreadyPaid : 0;
+        const alreadyReceived = existingTransaction ? existingTransaction.alreadyReceived : 0;
+
+        let expensesPaidByInvestor = 0;
+        if (report.expenses && Array.isArray(report.expenses)) {
+          expensesPaidByInvestor = report.expenses
+            .filter(
+              (exp) => !exp.isPending && exp.personInCharge === investor.investorId
+            )
+            .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+        }
+
+        let incomeReceivedByInvestor = 0;
+        if (report.income && Array.isArray(report.income)) {
+          incomeReceivedByInvestor = report.income
+            .filter(
+              (inc) => !inc.isPending && inc.personInCharge === investor.investorId
+            )
+            .reduce((sum, inc) => sum + (parseFloat(inc.amount) || 0), 0);
+        }
+
+        const final =
+          profitShare -
+          alreadyPaid +
+          alreadyReceived +
+          expensesPaidByInvestor -
+          incomeReceivedByInvestor;
+
+        return {
+          investorName: investor.name || investor.username,
+          investorId: investor.investorId,
+          avatar: investor.avatar || null,
+          sharePercentage: percentage,
+          final,
+          sgdAmount: final,
+        };
+      })
+      .filter((inv) => inv !== null);
+  }
+
   async fetchSettlementExtraction() {
     const month   = document.getElementById("extractMonth")?.value;
     const year    = document.getElementById("extractYear")?.value;
@@ -2180,17 +2287,53 @@ class BulkPropertyReportsComponent {
             if (!resp.ok) return;
             const data = await resp.json();
             if (!data.success || !data.data) return;
+            const report = data.data;
 
-            const matching = (data.data.expenses || []).filter(
+            const matching = (report.expenses || []).filter(
               (exp) => exp.personInCharge === payerId && exp.paidTo === payeeId,
             );
+            const expenseTotal = matching.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
-            if (matching.length > 0) {
+            // Profit-share settlement for this property: separate from
+            // (and additive to, see _computeInvestorFinalsForExtraction's
+            // docblock) the raw expense reimbursements above. Fetching
+            // investors is best-effort — if it fails, the property still
+            // shows its raw expense total, it just won't have a profit
+            // settlement line.
+            let profitSettlementAmount = 0;
+            try {
+              const investorsResp = await API.get(
+                API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(property.propertyId),
+              );
+              if (investorsResp.ok) {
+                const investorsResult = await investorsResp.json();
+                if (
+                  investorsResult.success &&
+                  Array.isArray(investorsResult.data) &&
+                  investorsResult.data.length > 0
+                ) {
+                  const investorFinals = this._computeInvestorFinalsForExtraction(
+                    report,
+                    property.propertyId,
+                    investorsResult.data,
+                  );
+                  const propertySettlements = this.calculatePropertySettlements(investorFinals);
+                  profitSettlementAmount = propertySettlements
+                    .filter((s) => s.fromId === payerId && s.toId === payeeId)
+                    .reduce((s, x) => s + x.amount, 0);
+                }
+              }
+            } catch {
+              /* profit settlement unavailable for this property — raw expenses still count */
+            }
+
+            if (matching.length > 0 || profitSettlementAmount >= 0.01) {
               results.push({
                 propertyId:   property.propertyId,
                 propertyData: property,
                 expenses:     matching,
-                total:        matching.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0),
+                profitSettlementAmount,
+                total:        expenseTotal + profitSettlementAmount,
               });
             }
           } catch { /* skip */ }
@@ -2219,7 +2362,18 @@ class BulkPropertyReportsComponent {
     ];
     const monthName   = MONTH_NAMES[parseInt(month) - 1];
     const grandTotal  = results.reduce((s, r) => s + r.total, 0);
-    const totalTx     = results.reduce((s, r) => s + r.expenses.length, 0);
+    const grandExpenseTotal = results.reduce(
+      (s, r) => s + r.expenses.reduce((es, e) => es + (parseFloat(e.amount) || 0), 0),
+      0,
+    );
+    const grandProfitSettlementTotal = results.reduce(
+      (s, r) => s + (r.profitSettlementAmount || 0),
+      0,
+    );
+    const totalTx     = results.reduce(
+      (s, r) => s + r.expenses.length + (r.profitSettlementAmount >= 0.01 ? 1 : 0),
+      0,
+    );
     const payerName   = payerInvestor?.name || "Unknown";
     const payeeName   = payeeInvestor?.name || "Unknown";
 
@@ -2250,7 +2404,7 @@ class BulkPropertyReportsComponent {
       html += `
           <div class="text-center text-muted py-5">
             <i class="bi bi-inbox fs-1 mb-3 d-block"></i>
-            <p>No expense transactions found where <strong>${escapeHtml(payerName)}</strong> paid <strong>${escapeHtml(payeeName)}</strong> in ${escapeHtml(monthName)} ${escapeHtml(year)}.</p>
+            <p>No expense transactions or profit-share settlements found where <strong>${escapeHtml(payerName)}</strong> owes <strong>${escapeHtml(payeeName)}</strong> in ${escapeHtml(monthName)} ${escapeHtml(year)}.</p>
           </div>`;
     } else {
       // Info alert
@@ -2263,12 +2417,16 @@ class BulkPropertyReportsComponent {
                 ${renderAvatar(payerInvestor?.avatar, payerName, "#dc3545")}
                 <strong class="text-danger">${escapeHtml(payerName)}</strong>
               </span>
-              <span>paid</span>
+              <span>owes</span>
               <span class="d-inline-flex align-items-center">
                 ${renderAvatar(payeeInvestor?.avatar, payeeName, "#198754")}
                 <strong class="text-success">${escapeHtml(payeeName)}</strong>
               </span>
               <span>— Grand Total: <strong class="text-dark">$${grandTotal.toFixed(2)} SGD</strong></span>
+            </div>
+            <div class="small text-muted mt-1">
+              Recorded expense payments: <strong>$${grandExpenseTotal.toFixed(2)}</strong>
+              &nbsp;+&nbsp; Profit-share settlement: <strong>$${grandProfitSettlementTotal.toFixed(2)}</strong>
             </div>
           </div>`;
 
@@ -2288,21 +2446,24 @@ class BulkPropertyReportsComponent {
                 <span class="fw-semibold">${escapeHtml(propLabel)}</span>
               </div>
               <span class="badge bg-warning text-dark fs-6 px-3 py-1 flex-shrink-0">$${result.total.toFixed(2)}</span>
-            </div>
-            <div class="ps-2 border-start border-3 border-info">
-              <small class="text-muted fw-bold d-block mb-1">Transactions:</small>`;
+            </div>`;
 
-        result.expenses.forEach((exp) => {
-          const dateStr = exp.date
-            ? new Date(exp.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" })
-            : "—";
-          const curr = exp.currency || "SGD";
-          const amt  = parseFloat(exp.amount) || 0;
-          const amtStr = curr === "VND"
-            ? `₫${amt.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
-            : `$${amt.toFixed(2)}`;
-
+        if (result.expenses.length > 0) {
           html += `
+            <div class="ps-2 border-start border-3 border-info mb-2">
+              <small class="text-muted fw-bold d-block mb-1">Recorded Expense Payments:</small>`;
+
+          result.expenses.forEach((exp) => {
+            const dateStr = exp.date
+              ? new Date(exp.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" })
+              : "—";
+            const curr = exp.currency || "SGD";
+            const amt  = parseFloat(exp.amount) || 0;
+            const amtStr = curr === "VND"
+              ? `₫${amt.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
+              : `$${amt.toFixed(2)}`;
+
+            html += `
               <div class="d-flex justify-content-between align-items-start py-1 border-bottom border-light">
                 <div class="flex-grow-1 me-2">
                   <span class="fw-medium">${escapeHtml(exp.item || "—")}</span>
@@ -2313,10 +2474,28 @@ class BulkPropertyReportsComponent {
                   <i class="bi bi-plus-circle-fill"></i> +${escapeHtml(amtStr)}
                 </small>
               </div>`;
-        });
+          });
+
+          html += `</div>`;
+        }
+
+        if (result.profitSettlementAmount >= 0.01) {
+          html += `
+            <div class="ps-2 border-start border-3 border-primary">
+              <small class="text-muted fw-bold d-block mb-1">Profit-Share Settlement:</small>
+              <div class="d-flex justify-content-between align-items-start py-1">
+                <div class="flex-grow-1 me-2">
+                  <span class="fw-medium">From investor profit distribution</span>
+                  <small class="text-muted d-block">Netted from income/expenses each investor personally handled this month — see the main Property Profit Results settlement instructions for the full breakdown.</small>
+                </div>
+                <small class="badge bg-primary d-flex align-items-center gap-1 flex-shrink-0">
+                  <i class="bi bi-pie-chart-fill"></i> +$${result.profitSettlementAmount.toFixed(2)}
+                </small>
+              </div>
+            </div>`;
+        }
 
         html += `
-            </div>
           </div>`;
       });
       html += `</div>`;
@@ -2329,6 +2508,12 @@ class BulkPropertyReportsComponent {
             </div>
             <div class="d-flex justify-content-between mb-1">
               <span class="text-muted">Total Transactions:</span><strong>${totalTx}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+              <span class="text-muted"><i class="bi bi-plus-circle-fill text-danger me-1"></i>Recorded Expense Payments:</span><strong>$${grandExpenseTotal.toFixed(2)}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+              <span class="text-muted"><i class="bi bi-pie-chart-fill text-primary me-1"></i>Profit-Share Settlement:</span><strong>$${grandProfitSettlementTotal.toFixed(2)}</strong>
             </div>
             <hr class="my-2">
             <div class="d-flex justify-content-between align-items-center">
@@ -2411,6 +2596,42 @@ class BulkPropertyReportsComponent {
   /**
    * Generate a mobile-optimized SVG for the settlement extraction.
    * W=430 (iPhone 14 Pro Max width). Portrait layout.
+   *
+   * Styling/layout only — every number below (results, grandTotal,
+   * totalTx, each result.total / result.profitSettlementAmount /
+   * exp.amount / exp.currency / exp.date / exp.item) is read exactly as
+   * computed by fetchSettlementExtraction() above; nothing here changes
+   * what's calculated, only how it's drawn. The visual language — dark
+   * base + accent haze, brand logo, Noto Serif type, and every color —
+   * matches the single-property report export (_generateReportSVG in
+   * financial-reports.js), all sourced from the shared
+   * financial-report-theme module so the two can't drift apart again.
+   * Extraction is always a list of amounts owed, so it stays permanently
+   * in "expense" (red) mode rather than switching on a profit/loss sign.
+   *
+   * Layout is deliberately dense for phone viewing: a property card only
+   * shows the separate "Property Total" bar once it actually has 2+
+   * amounts to sum (raw expenses + profit settlement combined) — a
+   * single amount is already the total, so repeating it below would just
+   * waste space. The payer/payee row anchors each name to its own side
+   * (payer left, payee right, arrow fixed at the card's horizontal
+   * center) instead of chaining position off the other name's rendered
+   * length — that chained approach is what let a long payee name run
+   * under the total badge; independent anchoring can't overlap regardless
+   * of how long either name is.
+   *
+   * Rows never get an alternating background — that read as busy/table-like
+   * rather than premium. Instead each row gets a soft edge-to-edge fading
+   * divider underneath it (ROW_DIV_FADE), the exact same convention the
+   * report export uses between its own item rows, so both exports read as
+   * one continuous panel per property/section.
+   *
+   * No dollar amount gets a colored pill/badge either — every amount
+   * (expense rows, profit settlement, subtotals, grand total) is plain
+   * right-aligned text, with a leading +/- carrying the sign instead of a
+   * colored tag. Distinction between amounts comes from typography (size
+   * and weight — totals are simply bigger/bolder) and the row's own label
+   * text, not color, for a flatter, more editorial "statement" look.
    */
   async _generateExtractionSVG({ results, payerInvestor, payeeInvestor, month, year }) {
     const W       = 430;
@@ -2421,12 +2642,12 @@ class BulkPropertyReportsComponent {
     const INNER_L = cardX + 12;             // 32
     const INNER_R = cardX + cardW - 12;     // 398
 
-    const CARD_PAD   = 12;
-    const PROP_HDR_H = 46;   // property header (2 lines: ID+unit / address)
-    const EXP_ROW_H  = 26;   // each expense row
-    const PROP_TOT_H = 28;   // property subtotal row
-    const SEP_H      = 6;
-    const CARD_GAP   = 10;
+    const CARD_PAD   = 10;
+    const PROP_HDR_H = 24;   // property header (single line: badge + unit + address)
+    const EXP_ROW_H  = 23;   // each expense / profit-settlement row
+    const PROP_TOT_H = 22;   // property subtotal row (only rendered when a card has 2+ amounts)
+    const SEP_H      = 5;
+    const CARD_GAP   = 8;
 
     const nodes  = [];
     const defs   = [];
@@ -2435,6 +2656,22 @@ class BulkPropertyReportsComponent {
     const p = (s) => nodes.push(s);
 
     const fontFaceStyle = await this._loadFontFaceStyle();
+
+    // Brand logo — same asset + fetch pattern as the report export.
+    let logoDataUri = null;
+    try {
+      const logoResp = await fetch("/logo.png");
+      if (logoResp.ok) {
+        const logoBlob = await logoResp.blob();
+        logoDataUri = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.readAsDataURL(logoBlob);
+        });
+      }
+    } catch {
+      /* logo optional */
+    }
 
     // Fetch avatars
     const urls = new Set();
@@ -2454,7 +2691,61 @@ class BulkPropertyReportsComponent {
       } catch { /* initials fallback */ }
     }));
 
-    const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 13, fallbackColor = "#6c757d") => {
+    // ── Colour palette — same tokens & "dark base + accent haze" language
+    // as the report export (see financial-report-theme.js).
+    const expenseTokens = getModeTokens(false); // "loss"/red — extraction is always a payable list
+    const receiveTokens = getModeTokens(true);  // "profit"/green — used only for the payee side
+    const neutralTokens = getNeutralTokens();
+    const badgeTokens   = getBadgeTokens();
+    const surfaceTokens = getSurfaceTokens();
+
+    const BASE_BG      = expenseTokens.base;
+    const PANEL_BG     = expenseTokens.panel;
+    const SUMMARY_BG   = expenseTokens.summaryBg;
+    const FOOTER_BG    = expenseTokens.footerBg;
+    const BRAND        = neutralTokens.brand;
+    const TEXT_HI      = neutralTokens.textPrimary;
+    const TEXT_MED     = neutralTokens.textMuted;
+    const DIVIDER      = neutralTokens.dividerNeutral;
+    // Cards reuse the header's own PANEL_BG rather than surfaceTokens.bg
+    // (a cool dark slate meant for neutral live-dashboard UI, never used
+    // inside the report export itself). The report's export never mixes
+    // hues — every surface is a shade of the same warm mode palette — so
+    // reusing PANEL_BG here keeps property cards in that same family
+    // instead of reading as an unrelated black block dropped on top.
+    const CARD_BG      = PANEL_BG;
+    const CARD_BORDER  = surfaceTokens.border;
+    const EXPENSE_CLR  = expenseTokens.accent;
+    const RECEIVE_CLR  = receiveTokens.accent;
+    const CHIP_BG      = badgeTokens.bg;
+    const CHIP_TXT     = badgeTokens.text;
+
+    // Full-bleed background haze — same recipe as the report export.
+    defs.push(
+      `<radialGradient id="exHaze" cx="50%" cy="0%" r="90%">
+        <stop offset="0%" stop-color="${EXPENSE_CLR}" stop-opacity="0.20"/>
+        <stop offset="45%" stop-color="${EXPENSE_CLR}" stop-opacity="0.07"/>
+        <stop offset="100%" stop-color="${EXPENSE_CLR}" stop-opacity="0"/>
+      </radialGradient>`
+    );
+
+    // Row divider — fades out at both edges instead of a flat full-width
+    // line or an alternating row background, so rows read as one
+    // continuous panel (no table-style odd/even banding) with just a
+    // subtle premium seam between entries. Same treatment the report
+    // export uses for its item rows (rowDivGrad in _generateReportSVG),
+    // kept neutral here (not tied to any one row's red/teal color) since
+    // it separates rows of different types (expense vs. profit settlement).
+    defs.push(
+      `<linearGradient id="exRowDivGrad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+        <stop offset="50%" stop-color="#ffffff" stop-opacity="0.14"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>`
+    );
+    const ROW_DIV_FADE = "url(#exRowDivGrad)";
+
+    const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 13, fallbackColor = TEXT_MED) => {
       const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
       if (dataUri) {
         const id = `ec${clipIdx++}`;
@@ -2474,59 +2765,84 @@ class BulkPropertyReportsComponent {
     const genDate   = new Date().toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 
     const grandTotal = results.reduce((s, r) => s + r.total, 0);
-    const totalTx    = results.reduce((s, r) => s + r.expenses.length, 0);
+    const totalTx    = results.reduce(
+      (s, r) => s + r.expenses.length + (r.profitSettlementAmount >= 0.01 ? 1 : 0),
+      0,
+    );
     const payerName  = payerInvestor?.name || "Unknown";
     const payeeName  = payeeInvestor?.name || "Unknown";
 
-    // ── Header ───────────────────────────────────────────────────────────
-    const HDR_H = 80;
-    p(`<rect x="0" y="0" width="${W}" height="${HDR_H}" fill="#0f172a"/>`);
-    p(`<text x="${M}" y="22" font-size="8" fill="#94a3b8" font-weight="600" letter-spacing="2.5">SETTLEMENT EXTRACTION</text>`);
-    p(`<text x="${M}" y="48" font-size="18" fill="#ffffff" font-weight="700">${this._svgEsc(monthName)} ${this._svgEsc(String(year))}</text>`);
-    p(`<text x="${W - M}" y="48" font-size="22" fill="#64748b" text-anchor="end">&#x21C4;</text>`);
-    p(`<text x="${W - M}" y="68" font-size="9" fill="#64748b" text-anchor="end">Generated ${this._svgEsc(genDate)}</text>`);
+    // ── Header — logo + kicker + period only. The payer/payee identity
+    // deliberately does NOT repeat here — it used to (a second, more
+    // heavily truncated copy of both names right above the avatar panel
+    // that already shows them properly), which just duplicated the same
+    // information worse. The avatar panel below is the single, richer
+    // place that identity lives: avatars, color-coding, explicit
+    // "Payer"/"Payee" labels beat a plain truncated title text anyway. ──
+    const HDR_H = 56;
+    const LOGO_SIZE = 30;
+    const LOGO_X = M;
+    const LOGO_Y = Math.round((HDR_H - LOGO_SIZE) / 2);
+    p(`<rect x="0" y="0" width="${W}" height="${HDR_H}" fill="${PANEL_BG}"/>`);
+    if (logoDataUri) {
+      p(`<image href="${logoDataUri}" x="${LOGO_X}" y="${LOGO_Y}" width="${LOGO_SIZE}" height="${LOGO_SIZE}"/>`);
+    }
+    const TX = LOGO_X + (logoDataUri ? LOGO_SIZE + 10 : 0);
+    const HDR_MIDY = HDR_H / 2;
+    p(`<text x="${TX}" y="${HDR_MIDY - 2}" font-size="9.5" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">SETTLEMENT EXTRACTION</text>`);
+    p(`<text x="${TX}" y="${HDR_MIDY + 15}" font-size="9.5" fill="#ffffff" opacity="0.6">Generated ${this._svgEsc(genDate)}</text>`);
+    p(`<text x="${W - M}" y="${HDR_MIDY + 6}" font-size="19" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc(monthName)} ${this._svgEsc(String(year))}</text>`);
     y = HDR_H;
 
-    // ── Payer → Payee info box ────────────────────────────────────────────
-    const INFO_H = 58;
-    p(`<rect x="0" y="${y}" width="${W}" height="${INFO_H}" fill="#e8f4fd"/>`);
-    p(`<rect x="0" y="${y}" width="4" height="${INFO_H}" fill="#0d6efd"/>`);
+    // ── Payer → Payee panel ─────────────────────────────────────────────────
+    // Row 1 is avatar + role label only (no name text) — the photo already
+    // identifies the person, and every length of investor name has to
+    // ellipsize somewhere on a 430px-wide export no matter how it's
+    // truncated (word-boundary-aware or not), which reads as unfinished.
+    // A short, always-intact "Payer"/"Payee" label plus the red/green
+    // color-coding is enough for who's who; the full names still appear in
+    // the footer caption at the bottom of the export. Two stacked rows so
+    // nothing ever competes for the same horizontal space: row 1 is
+    // payer/arrow/payee (each anchored to its own side of the card, so
+    // neither can run into the other); row 2 is the total badge on its
+    // own, full-width row underneath.
+    const ROW1_H = 34;
+    const ROW2_H = 28;
+    const INFO_H = ROW1_H + ROW2_H;
+    p(`<rect x="0" y="${y}" width="${W}" height="${INFO_H}" fill="${SUMMARY_BG}"/>`);
+    p(`<rect x="0" y="${y}" width="4" height="${INFO_H}" fill="${BRAND}"/>`);
 
-    const avatarR = 14;
-    const infoMidY = y + INFO_H / 2;
+    const avatarR = 13;
+    const row1MidY = y + ROW1_H / 2;
 
-    // Payer
-    const fromCx = M + 8 + avatarR;
-    renderCircleAvatar(payerInvestor?.avatar, payerName, fromCx, infoMidY, avatarR, "#dc3545");
-    const fromNameX = fromCx + avatarR + 5;
-    const fromNameStr = this._svgTrunc(payerName, 16);
-    p(`<text x="${fromNameX}" y="${infoMidY - 6}" font-size="12" fill="#dc3545" font-weight="700">${this._svgEsc(fromNameStr)}</text>`);
-    p(`<text x="${fromNameX}" y="${infoMidY + 8}" font-size="9" fill="#6c757d">Payer</text>`);
+    // Payer — left-anchored, always expense/red like the report's EXPENSE_CLR
+    const fromCx = INNER_L + avatarR;
+    renderCircleAvatar(payerInvestor?.avatar, payerName, fromCx, row1MidY, avatarR, EXPENSE_CLR);
+    p(`<text x="${fromCx + avatarR + 6}" y="${row1MidY + 5}" font-size="14" fill="${EXPENSE_CLR}" font-weight="700">Payer</text>`);
 
-    // Arrow
-    const arrowX = fromNameX + fromNameStr.length * 7.5 + 8;
-    p(`<text x="${arrowX}" y="${infoMidY + 5}" font-size="18" fill="#6c757d">&#x2192;</text>`);
+    // Payee — right-anchored, always receive/green like the report's INCOME_CLR.
+    // Anchored independently of the payer block above, so it can never be
+    // pushed into (or overlap) anything else on this row.
+    const toCx = INNER_R - avatarR;
+    renderCircleAvatar(payeeInvestor?.avatar, payeeName, toCx, row1MidY, avatarR, RECEIVE_CLR);
+    p(`<text x="${toCx - avatarR - 6}" y="${row1MidY + 5}" font-size="14" fill="${RECEIVE_CLR}" font-weight="700" text-anchor="end">Payee</text>`);
 
-    // Payee
-    const toCx = arrowX + 20 + 5 + avatarR;
-    renderCircleAvatar(payeeInvestor?.avatar, payeeName, toCx, infoMidY, avatarR, "#198754");
-    const toNameX = toCx + avatarR + 5;
-    const toNameStr = this._svgTrunc(payeeName, 16);
-    p(`<text x="${toNameX}" y="${infoMidY - 6}" font-size="12" fill="#198754" font-weight="700">${this._svgEsc(toNameStr)}</text>`);
-    p(`<text x="${toNameX}" y="${infoMidY + 8}" font-size="9" fill="#6c757d">Payee</text>`);
+    // Arrow — fixed at the row's horizontal center, independent of either name's length.
+    p(`<text x="${(INNER_L + INNER_R) / 2}" y="${row1MidY + 5}" font-size="18" fill="${TEXT_MED}" text-anchor="middle">&#x2192;</text>`);
 
-    // Total badge (right side)
-    const totalStr  = `$${grandTotal.toFixed(2)}`;
-    const totBadgeW = Math.max(82, totalStr.length * 8.5 + 16);
-    const totBadgeX = INNER_R - totBadgeW;
-    p(`<rect x="${totBadgeX}" y="${infoMidY - 14}" width="${totBadgeW}" height="26" rx="7" fill="#ffc107"/>`);
-    p(`<text x="${totBadgeX + totBadgeW / 2}" y="${infoMidY + 4}" font-size="13" fill="#212529" font-weight="700" text-anchor="middle">${this._svgEsc(totalStr)}</text>`);
+    // Row 2 — total badge on its own full-width row (label left, value right,
+    // same convention as the "Grand Total" card at the bottom of this export).
+    const row2Top = y + ROW1_H;
+    const row2MidY = row2Top + ROW2_H / 2;
+    p(`<line x1="${INNER_L}" y1="${row2Top}" x2="${INNER_R}" y2="${row2Top}" stroke="${DIVIDER}" stroke-width="1"/>`);
 
-    // Sub-label under total
     const txLabel = `${totalTx} tx · ${results.length} prop`;
-    p(`<text x="${totBadgeX + totBadgeW / 2}" y="${infoMidY + 20}" font-size="8" fill="#6c757d" text-anchor="middle">${this._svgEsc(txLabel)}</text>`);
+    p(`<text x="${INNER_L}" y="${row2MidY + 3}" font-size="9" fill="${TEXT_MED}">${this._svgEsc(txLabel)}</text>`);
 
-    y += INFO_H + 12;
+    const totalStr = `$${grandTotal.toFixed(2)}`;
+    p(`<text x="${INNER_R}" y="${row2MidY + 6}" font-size="19" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(totalStr)}</text>`);
+
+    y += INFO_H + 10;
 
     // ── Property cards ────────────────────────────────────────────────────
     results.forEach((result) => {
@@ -2534,105 +2850,133 @@ class BulkPropertyReportsComponent {
       const unit    = prop.unit    || "";
       const address = prop.address || result.propertyId;
       const numExp  = result.expenses.length;
+      const hasProfitSettlement = result.profitSettlementAmount >= 0.01;
+      const rowCount = numExp + (hasProfitSettlement ? 1 : 0);
+      // A single amount already IS the property total — showing a
+      // separate "Property Total" bar right below it would just repeat
+      // the same number, so that bar only earns its place once there's
+      // more than one amount (recorded expenses and/or a profit
+      // settlement) to actually sum.
+      const hasSubtotal = rowCount >= 2;
 
-      // Card height: header + expense rows + separator + subtotal + padding
-      const cardH = CARD_PAD + PROP_HDR_H + numExp * EXP_ROW_H + SEP_H + PROP_TOT_H + CARD_PAD;
+      // Card height: header + (expense + profit-settlement) rows + (separator + subtotal, only if 2+ rows) + padding
+      const cardH = CARD_PAD + PROP_HDR_H + rowCount * EXP_ROW_H
+        + (hasSubtotal ? SEP_H + PROP_TOT_H : 0) + CARD_PAD;
 
-      // Card shell
-      p(`<rect x="${cardX}" y="${y}" width="${cardW}" height="${cardH}" rx="8" fill="#ffffff" stroke="#dee2e6" stroke-width="1.5"/>`);
+      // Card shell — same dark "surface" card used for neutral (non
+      // profit/loss) containers throughout the report module.
+      p(`<rect x="${cardX}" y="${y}" width="${cardW}" height="${cardH}" rx="8" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1.5"/>`);
 
-      // ── Property header (2 lines) ──
+      // ── Property header — one line: propertyId badge + unit + address,
+      // all sharing the same baseline. Used to be two stacked lines
+      // (badge+unit, then address on its own row below) — pure wasted
+      // vertical space, since there's plenty of horizontal room for all
+      // three once the address is truncated to whatever's actually left
+      // over after the badge and unit claim their width. ──
       let yi = y + CARD_PAD;
 
-      // Line 1: propertyId badge + unit
       const propIdStr  = this._svgTrunc(result.propertyId, 20);
-      const propIdW    = Math.max(50, propIdStr.length * 6.5 + 12);
-      p(`<rect x="${INNER_L}" y="${yi + 4}" width="${propIdW}" height="18" rx="4" fill="#6c757d"/>`);
-      p(`<text x="${INNER_L + propIdW / 2}" y="${yi + 16}" font-size="9" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc(propIdStr)}</text>`);
+      const propIdW    = Math.max(48, propIdStr.length * 6.5 + 12);
+      p(`<rect x="${INNER_L}" y="${yi + 2}" width="${propIdW}" height="16" rx="4" fill="${CHIP_BG}"/>`);
+      p(`<text x="${INNER_L + propIdW / 2}" y="${yi + 13}" font-size="9" fill="${CHIP_TXT}" font-weight="700" text-anchor="middle">${this._svgEsc(propIdStr)}</text>`);
+
+      let headerX = INNER_L + propIdW + 8;
       if (unit) {
-        p(`<text x="${INNER_L + propIdW + 8}" y="${yi + 16}" font-size="11" fill="#1e293b" font-weight="700">${this._svgEsc(unit)}</text>`);
+        p(`<text x="${headerX}" y="${yi + 13}" font-size="11" fill="${TEXT_HI}" font-weight="700">${this._svgEsc(unit)}</text>`);
+        headerX += unit.length * 7.8 + 8; // rough width estimate for font-size 11 bold, consistent with the badge-width formula above
       }
 
-      // Line 2: address
-      const addrStr = this._svgTrunc(address, 48);
-      p(`<text x="${INNER_L}" y="${yi + 36}" font-size="9.5" fill="#6c757d">${this._svgEsc(addrStr)}</text>`);
+      const addrMaxPx    = Math.max(0, INNER_R - headerX);
+      const addrMaxChars = Math.max(4, Math.floor(addrMaxPx / 6.2)); // rough width estimate for font-size 9.5 regular
+      const addrStr      = this._svgTrunc(address, addrMaxChars);
+      p(`<text x="${headerX}" y="${yi + 13}" font-size="9.5" fill="${TEXT_MED}">${this._svgEsc(addrStr)}</text>`);
 
       yi += PROP_HDR_H;
 
-      // ── Expense rows ──
+      // ── Expense rows (recorded reimbursements: personInCharge=payer, paidTo=payee) ──
       result.expenses.forEach((exp, ei) => {
         const rowY = yi + ei * EXP_ROW_H;
-
-        // Alternating row bg
-        if (ei % 2 === 1) {
-          p(`<rect x="${cardX + 1}" y="${rowY}" width="${cardW - 2}" height="${EXP_ROW_H}" fill="#f8fafc"/>`);
-        }
 
         // Date
         const dateStr = exp.date
           ? new Date(exp.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
           : "—";
-        p(`<text x="${INNER_L}" y="${rowY + 17}" font-size="9" fill="#94a3b8">${this._svgEsc(dateStr)}</text>`);
+        p(`<text x="${INNER_L}" y="${rowY + 15}" font-size="9" fill="${TEXT_MED}" opacity="0.85">${this._svgEsc(dateStr)}</text>`);
 
         // Description
         const descStr = this._svgTrunc(exp.item || "—", 34);
-        p(`<text x="${INNER_L + 46}" y="${rowY + 17}" font-size="10" fill="#1e293b">${this._svgEsc(descStr)}</text>`);
+        p(`<text x="${INNER_L + 46}" y="${rowY + 15}" font-size="10" fill="${TEXT_HI}">${this._svgEsc(descStr)}</text>`);
 
-        // Amount badge
+        // Amount — plain text, no colored badge: sign prefix carries the
+        // direction (+ owed / - credited), same baseline as the date and
+        // description to its left.
         const curr   = exp.currency || "SGD";
         const amt    = parseFloat(exp.amount) || 0;
+        const sign   = amt < 0 ? "-" : "+";
+        const absAmt = Math.abs(amt);
         const amtStr = curr === "VND"
-          ? `+\u20ab${amt.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
-          : `+$${amt.toFixed(2)}`;
-        const amtBW  = Math.max(60, amtStr.length * 6.5 + 14);
-        const amtBX  = INNER_R - amtBW;
-        p(`<rect x="${amtBX}" y="${rowY + 4}" width="${amtBW}" height="18" rx="5" fill="#dc3545"/>`);
-        // Icon circle
-        p(`<circle cx="${amtBX + 9}" cy="${rowY + 13}" r="4.5" fill="#ffffff"/>`);
-        p(`<text x="${amtBX + 9}" y="${rowY + 16}" font-size="6.5" fill="#dc3545" font-weight="800" text-anchor="middle">+</text>`);
-        p(`<text x="${amtBX + 19 + (amtBW - 19) / 2}" y="${rowY + 16}" font-size="9" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc(amtStr)}</text>`);
+          ? `${sign}₫${absAmt.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
+          : `${sign}$${absAmt.toFixed(2)}`;
+        p(`<text x="${INNER_R}" y="${rowY + 15}" font-size="11" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(amtStr)}</text>`);
+
+        // Row separator — soft edge-to-edge fade, same treatment the
+        // report export uses between its item rows, instead of an
+        // alternating row background.
+        p(`<line x1="${INNER_L}" y1="${rowY + EXP_ROW_H}" x2="${INNER_R}" y2="${rowY + EXP_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`);
       });
 
-      yi += numExp * EXP_ROW_H;
+      // ── Profit-share settlement row — distinct color, own line, always last ──
+      if (hasProfitSettlement) {
+        const rowY = yi + numExp * EXP_ROW_H;
 
-      // ── Property subtotal ──
-      p(`<line x1="${INNER_L}" y1="${yi + SEP_H / 2}" x2="${INNER_R}" y2="${yi + SEP_H / 2}" stroke="#dee2e6" stroke-width="1"/>`);
-      yi += SEP_H;
+        p(`<text x="${INNER_L}" y="${rowY + 15}" font-size="10" fill="${TEXT_HI}">Profit Share Settlement</text>`);
 
-      p(`<text x="${INNER_L}" y="${yi + PROP_TOT_H - 8}" font-size="10" fill="#1e293b" font-weight="700">Property Total</text>`);
-      const ptStr  = `$${result.total.toFixed(2)}`;
-      const ptBW   = Math.max(76, ptStr.length * 8 + 16);
-      const ptBX   = INNER_R - ptBW;
-      p(`<rect x="${ptBX}" y="${yi + 4}" width="${ptBW}" height="20" rx="6" fill="#ffc107"/>`);
-      p(`<text x="${ptBX + ptBW / 2}" y="${yi + 18}" font-size="11" fill="#212529" font-weight="700" text-anchor="middle">${this._svgEsc(ptStr)}</text>`);
+        const psAmt  = result.profitSettlementAmount;
+        const psSign = psAmt < 0 ? "-" : "+";
+        const psStr  = `${psSign}$${Math.abs(psAmt).toFixed(2)}`;
+        p(`<text x="${INNER_R}" y="${rowY + 15}" font-size="11" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(psStr)}</text>`);
+
+        // Same soft row separator as the expense rows above.
+        p(`<line x1="${INNER_L}" y1="${rowY + EXP_ROW_H}" x2="${INNER_R}" y2="${rowY + EXP_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`);
+      }
+
+      yi += rowCount * EXP_ROW_H;
+
+      // ── Property subtotal — only when there's more than one amount to sum ──
+      if (hasSubtotal) {
+        p(`<line x1="${INNER_L}" y1="${yi + SEP_H / 2}" x2="${INNER_R}" y2="${yi + SEP_H / 2}" stroke="${DIVIDER}" stroke-width="1"/>`);
+        yi += SEP_H;
+
+        p(`<text x="${INNER_L}" y="${yi + PROP_TOT_H - 7}" font-size="10" fill="${TEXT_HI}" font-weight="700">Property Total</text>`);
+        const ptStr = `$${result.total.toFixed(2)}`;
+        p(`<text x="${INNER_R}" y="${yi + PROP_TOT_H - 7}" font-size="13" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(ptStr)}</text>`);
+      }
 
       y += cardH + CARD_GAP;
     });
 
-    // ── Grand total card ──────────────────────────────────────────────────
-    const gtH = 60;
-    p(`<rect x="${cardX}" y="${y}" width="${cardW}" height="${gtH}" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>`);
-    p(`<text x="${INNER_L}" y="${y + 22}" font-size="10" fill="#6c757d" font-weight="600">Total Transactions:</text>`);
-    p(`<text x="${INNER_R}" y="${y + 22}" font-size="10" fill="#1e293b" font-weight="700" text-anchor="end">${totalTx}</text>`);
-    p(`<line x1="${INNER_L}" y1="${y + 30}" x2="${INNER_R}" y2="${y + 30}" stroke="#dee2e6" stroke-width="0.5"/>`);
-    p(`<text x="${INNER_L}" y="${y + 50}" font-size="11" fill="#1e293b" font-weight="700">Grand Total (SGD):</text>`);
+    // ── Grand total card — mirrors the report's summary-bar convention ────
+    const gtH = 48;
+    p(`<rect x="${cardX}" y="${y}" width="${cardW}" height="${gtH}" rx="8" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`);
+    p(`<text x="${INNER_L}" y="${y + 16}" font-size="10" fill="${TEXT_MED}" font-weight="600" letter-spacing="0.5">TOTAL TRANSACTIONS</text>`);
+    p(`<text x="${INNER_R}" y="${y + 16}" font-size="10" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${totalTx}</text>`);
+    p(`<line x1="${INNER_L}" y1="${y + 22}" x2="${INNER_R}" y2="${y + 22}" stroke="${DIVIDER}" stroke-width="0.5"/>`);
+    p(`<text x="${INNER_L}" y="${y + 40}" font-size="11" fill="${TEXT_HI}" font-weight="700">Grand Total (SGD)</text>`);
     const gtStr = `$${grandTotal.toFixed(2)}`;
-    const gtBW  = Math.max(86, gtStr.length * 9 + 16);
-    const gtBX  = INNER_R - gtBW;
-    p(`<rect x="${gtBX}" y="${y + 36}" width="${gtBW}" height="22" rx="6" fill="#ffc107"/>`);
-    p(`<text x="${gtBX + gtBW / 2}" y="${y + 51}" font-size="13" fill="#212529" font-weight="700" text-anchor="middle">${this._svgEsc(gtStr)}</text>`);
-    y += gtH + 10;
+    p(`<text x="${INNER_R}" y="${y + 40}" font-size="16" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(gtStr)}</text>`);
+    y += gtH + 8;
 
-    // ── Footer ───────────────────────────────────────────────────────────
-    y += 6;
-    p(`<text x="${W / 2}" y="${y + 12}" font-size="8.5" fill="#94a3b8" text-anchor="middle">${this._svgEsc(payerName)} &#x2192; ${this._svgEsc(payeeName)} &#xB7; ${this._svgEsc(monthName)} ${this._svgEsc(String(year))}</text>`);
-    y += 28;
+    // ── Footer — same bar treatment as the report ──────────────────────────
+    p(`<rect x="0" y="${y}" width="${W}" height="22" fill="${FOOTER_BG}"/>`);
+    p(`<text x="${W / 2}" y="${y + 15}" font-size="9" fill="${TEXT_MED}" text-anchor="middle">${this._svgEsc(payerName)} &#x2192; ${this._svgEsc(payeeName)} &#xB7; ${this._svgEsc(monthName)} ${this._svgEsc(String(year))} &#xB7; Auto-generated</text>`);
+    y += 22;
 
     const H = y;
     return [
       `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Noto Serif,serif">`,
       `<defs>${fontFaceStyle}${defs.join("")}</defs>`,
-      `<rect x="0" y="0" width="${W}" height="${H}" fill="#f1f5f9"/>`,
+      `<rect x="0" y="0" width="${W}" height="${H}" fill="${BASE_BG}"/>`,
+      `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#exHaze)"/>`,
       ...nodes,
       `</svg>`,
     ].join("");
@@ -2669,12 +3013,15 @@ class BulkPropertyReportsComponent {
     btn.disabled = true;
 
     try {
-      const svgStr = await this._generateSettlementSVG(settlements, properties);
+      // Read once, pass into the SVG so its header can show the period
+      // (display-only — doesn't feed into any calculation).
+      const monthLabel = document.getElementById("bulkReportMonth")?.selectedOptions?.[0]?.textContent?.trim() || "";
+      const year = document.getElementById("bulkReportYear")?.value || "";
+
+      const svgStr = await this._generateSettlementSVG(settlements, properties, monthLabel, year);
       const blob = await this._svgToPngBlob(svgStr);
 
       // Show preview modal first (non-blocking)
-      const monthLabel = document.getElementById("bulkReportMonth")?.selectedOptions?.[0]?.textContent?.trim() || "";
-      const year = document.getElementById("bulkReportYear")?.value || "";
       this._showImagePreview(blob, {
         fileName: `Settlement_Transfers_${(monthLabel + "_" + year).replace(/\s+/g, "_") || "export"}.png`,
         title: "Settlement Preview",
@@ -2982,8 +3329,26 @@ class BulkPropertyReportsComponent {
   /**
    * Generate a mobile-optimized settlement SVG (portrait, iPhone 14 Pro/Max).
    * Width = 390px. Height is dynamic based on settlement count and breakdown depth.
+   *
+   * Styling only — every number below (settlements, properties, each
+   * settlement.amount / propertyBreakdown[].amount, totals) is read
+   * exactly as computed upstream (calculatePropertySettlements /
+   * calculateSettlementsForCurrency); nothing here changes what's
+   * calculated, only how it's drawn. Re-themed to match the settlement
+   * extraction export (_generateExtractionSVG) and the single-property
+   * report export (_generateReportSVG in financial-reports.js): same
+   * dark base + accent haze, brand logo, Noto Serif type, and every color
+   * sourced from the shared financial-report-theme module instead of a
+   * one-off hand-rolled purple palette, so all three exports read as one
+   * family instead of three different apps. Like the extraction export,
+   * this stays in "expense" (red) mode — it's fundamentally a list of
+   * debts to settle, not a profit/loss figure. No dollar amount gets a
+   * colored pill/badge — every amount is plain right-aligned text (a
+   * leading +/- carries direction on line items; running totals just
+   * show the plain figure, no sign, matching the extraction export's
+   * convention) — distinction comes from typography weight/size, not color.
    */
-  async _generateSettlementSVG(settlements, properties = []) {
+  async _generateSettlementSVG(settlements, properties = [], monthLabel = "", year = "") {
     // ── Layout constants ──────────────────────────────────────────────────
     // Two columns, each keeping the original single-column card geometry;
     // content fills the left column up to its target height, then flows
@@ -3005,32 +3370,17 @@ class BulkPropertyReportsComponent {
     const propCardH   = PROP_THUMB_H + 4 + PROP_LABEL_H;
 
     // Row heights within each card
-    const CARD_PAD_TOP    = 14;
-    const CARD_PAD_BOT    = 14;
-    const SUB_ROW_H       = 26; // "from" / "to" sub-row (stacked, so long names don't get cut off)
+    const CARD_PAD_TOP    = 12;
+    const CARD_PAD_BOT    = 12;
+    const SUB_ROW_H       = 24; // "from" / "to" sub-row (stacked, so long names don't get cut off)
     const SUB_ROW_GAP     = 6;
     const NAME_ROW_H      = SUB_ROW_H * 2 + SUB_ROW_GAP; // stacked from/to rows
-    const AMT_ROW_H       = 30; // transfer amount badge row
-    const LABEL_ROW_H     = 20; // "step-by-step" label
-    const PROP_ROW_H      = 22; // each property line
+    const AMT_ROW_H       = 24; // transfer amount row
+    const LABEL_ROW_H     = 18; // "step-by-step" label
+    const PROP_ROW_H      = 20; // each property line
     const SEP_H           = 8;  // separator before net total
-    const NET_ROW_H       = 34; // net total row (plain text, bigger figure)
-    const CARD_GAP        = 10; // gap between cards
-
-    // ── Dark purple premium palette ──────────────────────────────────────
-    const PAGE_BG    = "#0b0912"; // near-black with a purple tint
-    const CARD_BG    = "#181322"; // card surface
-    const CARD_BG_2  = "#1d1830"; // slightly raised surface (info box, thumbnails w/o photo)
-    const BORDER     = "#2c2440"; // subtle card border
-    const DIVIDER    = "#2c2440";
-    const TEXT_HI    = "#f6f3ff"; // primary text (near-white, purple-tinted)
-    const TEXT_MED   = "#b6adcf"; // secondary text
-    const TEXT_LOW   = "#7d7398"; // muted / labels
-    const ACCENT_PURPLE    = "#8b5cf6"; // primary purple accent
-    const ACCENT_GREEN     = "#2fbf71"; // credit / positive — deep emerald (premium, not neon) for text/icons on the dark card
-    const ACCENT_RED       = "#ff6b81"; // debit / payment (coral) — for text/icons directly on the dark card
-    const ACCENT_GREEN_FILL = "#2f8f5b"; // muted deep green for filled pill badges — blends into the dark theme instead of popping
-    const ACCENT_RED_FILL   = "#b3394a"; // muted deep red for filled pill badges — blends into the dark theme instead of popping
+    const NET_ROW_H       = 30; // net total row (plain text, bigger figure)
+    const CARD_GAP        = 8;  // gap between cards
 
     const nodes  = [];
     const defs   = [];
@@ -3039,18 +3389,73 @@ class BulkPropertyReportsComponent {
 
     const fontFaceStyle = await this._loadFontFaceStyle();
 
-    // Coral (payer) → lime (payee) gradient for the rare no-breakdown
-    // fallback amount badge.
-    defs.push(`<linearGradient id="netAmountGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${ACCENT_RED_FILL}"/><stop offset="100%" stop-color="${ACCENT_GREEN_FILL}"/></linearGradient>`);
+    // Brand logo — same asset + fetch pattern as the report and extraction exports.
+    let logoDataUri = null;
+    try {
+      const logoResp = await fetch("/logo.png");
+      if (logoResp.ok) {
+        const logoBlob = await logoResp.blob();
+        logoDataUri = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.readAsDataURL(logoBlob);
+        });
+      }
+    } catch {
+      /* logo optional */
+    }
 
-    // Header background — deep, muted purple-black.
-    defs.push(`<linearGradient id="headerGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3a2266"/><stop offset="100%" stop-color="#120b1f"/></linearGradient>`);
+    // ── Colour palette — same tokens & "dark base + accent haze" language
+    // as the report and extraction exports (see financial-report-theme.js).
+    const expenseTokens = getModeTokens(false); // "loss"/red — a settlement list is always a payable list
+    const receiveTokens = getModeTokens(true);  // "profit"/green — used only for the receiving side
+    const neutralTokens = getNeutralTokens();
+    const badgeTokens   = getBadgeTokens();
+    const surfaceTokens = getSurfaceTokens();
+
+    const BASE_BG     = expenseTokens.base;
+    const PANEL_BG    = expenseTokens.panel;
+    const SUMMARY_BG  = expenseTokens.summaryBg;
+    const FOOTER_BG   = expenseTokens.footerBg;
+    const BRAND       = neutralTokens.brand;
+    const TEXT_HI     = neutralTokens.textPrimary;
+    const TEXT_MED    = neutralTokens.textMuted;
+    const DIVIDER     = neutralTokens.dividerNeutral;
+    // Cards reuse the header's own PANEL_BG rather than a separate surface
+    // tone — the report family never mixes hues, every surface is a shade
+    // of the same warm mode palette, so this keeps every card in that
+    // same family instead of reading as an unrelated block dropped on top.
+    const CARD_BG     = PANEL_BG;
+    const CARD_BORDER = surfaceTokens.border;
+    const EXPENSE_CLR = expenseTokens.accent; // "from" / paying side
+    const RECEIVE_CLR = receiveTokens.accent; // "to" / receiving side
+    const CHIP_BG     = badgeTokens.bg;       // neutral reference marker (step number, property ID)
+    const CHIP_TXT    = badgeTokens.text;
+
+    // Full-bleed background haze — same recipe as the report/extraction exports.
+    defs.push(
+      `<radialGradient id="setHaze" cx="50%" cy="0%" r="90%">
+        <stop offset="0%" stop-color="${EXPENSE_CLR}" stop-opacity="0.18"/>
+        <stop offset="45%" stop-color="${EXPENSE_CLR}" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="${EXPENSE_CLR}" stop-opacity="0"/>
+      </radialGradient>`
+    );
+    // Row divider — fades out at both edges instead of a flat line, same
+    // convention the report and extraction exports use between item rows.
+    defs.push(
+      `<linearGradient id="setRowDivGrad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+        <stop offset="50%" stop-color="#ffffff" stop-opacity="0.14"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>`
+    );
+    const ROW_DIV_FADE = "url(#setRowDivGrad)";
 
     // Avatar + property thumbnail caches
     const avatarCache = await this._fetchSettlementAvatarsAsBase64(settlements);
     const propImageCache = await this._fetchPropertyImagesAsBase64(properties, propCardW, PROP_THUMB_H);
 
-    const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 13, fallbackColor = "#6c757d") => {
+    const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 13, fallbackColor = TEXT_MED) => {
       const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
       if (dataUri) {
         const id = `sc${clipIdx++}`;
@@ -3065,26 +3470,24 @@ class BulkPropertyReportsComponent {
 
     const genDate = new Date().toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 
-    // ── Header (full width) — deep purple-black premium bar ─────────────
-    const HDR_H = 52;
-    p(`<rect x="0" y="0" width="${TOTAL_W}" height="${HDR_H}" fill="url(#headerGradient)"/>`);
-    p(`<rect x="0" y="0" width="${TOTAL_W}" height="1" fill="#ffffff" opacity="0.08"/>`);
-    p(`<rect x="0" y="${HDR_H - 1}" width="${TOTAL_W}" height="1" fill="#000000" opacity="0.35"/>`);
-    const titleStr = "SETTLEMENT INSTRUCTIONS";
-    const titleY   = Math.round(HDR_H / 2) + 5;
-    p(`<text x="${M}" y="${titleY}" font-size="16" fill="${TEXT_HI}" font-weight="700" letter-spacing="0.5">${titleStr}</text>`);
-
-    // Prominent bubble showing total properties involved in this calculation
-    const titleW   = titleStr.length * 9.5;
-    const countStr = String(properties.length);
-    const bubbleR  = 13;
-    const bubbleCx = M + titleW + 16 + bubbleR;
-    const bubbleCy = Math.round(HDR_H / 2);
-    p(`<circle cx="${bubbleCx}" cy="${bubbleCy}" r="${bubbleR}" fill="${ACCENT_PURPLE}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1.5"/>`);
-    p(`<text x="${bubbleCx}" y="${bubbleCy + 4}" font-size="12" fill="#ffffff" font-weight="800" text-anchor="middle">${this._svgEsc(countStr)}</text>`);
-
-    p(`<text x="${TOTAL_W - M}" y="21" font-size="18" fill="${ACCENT_PURPLE}" text-anchor="end">&#x21C4;</text>`);
-    p(`<text x="${TOTAL_W - M}" y="38" font-size="9" fill="${TEXT_MED}" text-anchor="end">Generated ${this._svgEsc(genDate)}</text>`);
+    // ── Header — logo + kicker + period, same structure as the report and
+    // extraction exports. ──────────────────────────────────────────────
+    const HDR_H = 58;
+    const LOGO_SIZE = 32;
+    const LOGO_X = M;
+    const LOGO_Y = Math.round((HDR_H - LOGO_SIZE) / 2);
+    p(`<rect x="0" y="0" width="${TOTAL_W}" height="${HDR_H}" fill="${PANEL_BG}"/>`);
+    if (logoDataUri) {
+      p(`<image href="${logoDataUri}" x="${LOGO_X}" y="${LOGO_Y}" width="${LOGO_SIZE}" height="${LOGO_SIZE}"/>`);
+    }
+    const TX = LOGO_X + (logoDataUri ? LOGO_SIZE + 10 : 0);
+    const HDR_MIDY = HDR_H / 2;
+    p(`<text x="${TX}" y="${HDR_MIDY - 3}" font-size="11" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">SETTLEMENT INSTRUCTIONS</text>`);
+    const subLabel = `${properties.length} propert${properties.length === 1 ? "y" : "ies"} · ${settlements.length} transaction${settlements.length === 1 ? "" : "s"}`;
+    p(`<text x="${TX}" y="${HDR_MIDY + 16}" font-size="10" fill="#ffffff" opacity="0.6">${this._svgEsc(subLabel)} · Generated ${this._svgEsc(genDate)}</text>`);
+    if (monthLabel || year) {
+      p(`<text x="${TOTAL_W - M}" y="${HDR_MIDY + 7}" font-size="20" fill="#ffffff" font-weight="700" text-anchor="end">${this._svgEsc([monthLabel, year].filter(Boolean).join(" "))}</text>`);
+    }
     let y = HDR_H;
 
     // ── Info box (full width) ───────────────────────────────────────────
@@ -3093,12 +3496,12 @@ class BulkPropertyReportsComponent {
     const infoWrapChars = Math.floor(52 * (TOTAL_W / COL_W));
     const infoLines = this._svgWrapText(infoText, infoWrapChars);
     const INFO_H = 14 + infoLines.length * 14 + 10;
-    p(`<rect x="0" y="${y}" width="${TOTAL_W}" height="${INFO_H}" fill="${CARD_BG_2}"/>`);
-    p(`<rect x="0" y="${y}" width="4" height="${INFO_H}" fill="${ACCENT_PURPLE}"/>`);
+    p(`<rect x="0" y="${y}" width="${TOTAL_W}" height="${INFO_H}" fill="${SUMMARY_BG}"/>`);
+    p(`<rect x="0" y="${y}" width="4" height="${INFO_H}" fill="${BRAND}"/>`);
     infoLines.forEach((line, i) => {
       p(`<text x="${M + 8}" y="${y + 20 + i * 14}" font-size="10.5" fill="${TEXT_MED}">${this._svgEsc(line)}</text>`);
     });
-    y += INFO_H + 12;
+    y += INFO_H + 10;
 
     // ── Selected properties (full width) — mirrors the "Select Properties"
     // picker card: photo with a numbered ID badge overlaid top-left, then
@@ -3111,8 +3514,8 @@ class BulkPropertyReportsComponent {
       const addrMaxChars = Math.max(8, Math.floor(propCardW / 4.6));
       const unitMaxChars = Math.max(6, Math.floor(propCardW / 4.6));
 
-      p(`<text x="${M}" y="${y + 12}" font-size="10" fill="${TEXT_LOW}" font-weight="700" letter-spacing="0.5">PROPERTIES IN THIS CALCULATION (${propsSorted.length})</text>`);
-      y += 22;
+      p(`<text x="${M}" y="${y + 10}" font-size="9.5" fill="${TEXT_MED}" font-weight="700" letter-spacing="0.5" opacity="0.8">PROPERTIES IN THIS CALCULATION (${propsSorted.length})</text>`);
+      y += 20;
       const gridTop = y;
 
       propsSorted.forEach((prop, i) => {
@@ -3122,7 +3525,7 @@ class BulkPropertyReportsComponent {
         const py  = gridTop + row * (propCardH + PROP_GAP);
 
         // Card shell
-        p(`<rect x="${px}" y="${py}" width="${propCardW}" height="${propCardH}" rx="8" fill="${CARD_BG}" stroke="${BORDER}" stroke-width="1"/>`);
+        p(`<rect x="${px}" y="${py}" width="${propCardW}" height="${propCardH}" rx="8" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`);
 
         // Thumbnail photo
         const dataUri = prop.propertyImage ? propImageCache[prop.propertyImage] : null;
@@ -3165,9 +3568,9 @@ class BulkPropertyReportsComponent {
     const cardHeightOf = (settlement) => {
       const hasBreakdown = Array.isArray(settlement.propertyBreakdown) && settlement.propertyBreakdown.length > 0;
       const numProps     = hasBreakdown ? settlement.propertyBreakdown.length : 0;
-      // The top amount badge is skipped when there's a breakdown — the dark
-      // "Net Amount to Transfer" band at the bottom already shows this same
-      // figure, so showing both was a confusing, duplicated red/green badge.
+      // The top amount row is skipped when there's a breakdown — the "Net
+      // Amount to Transfer" line at the bottom already shows this same
+      // figure, so showing both was a duplicated, confusing number.
       let innerH = NAME_ROW_H + (hasBreakdown ? 0 : AMT_ROW_H);
       if (hasBreakdown) innerH += LABEL_ROW_H + numProps * PROP_ROW_H + SEP_H + NET_ROW_H;
       return CARD_PAD_TOP + innerH + CARD_PAD_BOT;
@@ -3181,57 +3584,53 @@ class BulkPropertyReportsComponent {
       const cardH   = cardHeightOf(settlement);
       const cardY   = yTop;
 
-      // Card shell
-      p(`<rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="10" fill="${CARD_BG}" stroke="${BORDER}" stroke-width="1.5"/>`);
+      // Card shell — same dark panel tone as every other surface in this export.
+      p(`<rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="10" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1.5"/>`);
 
-      // ── Row 1: number badge + from (top line) / to (bottom line) ──────
+      // ── Row 1: step number + from (top line) / to (bottom line) ───────
       // Stacked instead of side-by-side so long investor names get the
       // full card width instead of being squeezed and cut off.
       const CHARS_PER_PX = 1 / 7; // matches this file's existing text-width estimate
 
-      // From person (top line): number badge + avatar + name
+      // From person (top line): step number + avatar + name
       const y_from  = cardY + CARD_PAD_TOP + Math.floor(SUB_ROW_H / 2);
       const BADGE_R = 11;
       const badgeCx = INNER_L + BADGE_R;
-      p(`<circle cx="${badgeCx}" cy="${y_from}" r="${BADGE_R}" fill="${ACCENT_PURPLE}"/>`);
-      p(`<text x="${badgeCx}" y="${y_from + 4}" font-size="${index < 9 ? 11 : 9}" fill="#fff" font-weight="700" text-anchor="middle">${index + 1}</text>`);
+      p(`<circle cx="${badgeCx}" cy="${y_from}" r="${BADGE_R}" fill="${CHIP_BG}"/>`);
+      p(`<text x="${badgeCx}" y="${y_from + 4}" font-size="${index < 9 ? 11 : 9}" fill="${CHIP_TXT}" font-weight="700" text-anchor="middle">${index + 1}</text>`);
 
       const FROM_R    = 12;
       const fromCx    = badgeCx + BADGE_R + 6 + FROM_R;
-      renderCircleAvatar(settlement.fromAvatar, settlement.fromName, fromCx, y_from, FROM_R, ACCENT_RED_FILL);
+      renderCircleAvatar(settlement.fromAvatar, settlement.fromName, fromCx, y_from, FROM_R, EXPENSE_CLR);
 
       const fromNameX     = fromCx + FROM_R + 5;
       const fromMaxChars  = Math.max(10, Math.floor((INNER_R - fromNameX) * CHARS_PER_PX));
       const fromNameStr   = this._svgTrunc(settlement.fromName, fromMaxChars);
-      p(`<text x="${fromNameX}" y="${y_from + 5}" font-size="12" fill="${ACCENT_RED}" font-weight="700">${this._svgEsc(fromNameStr)}</text>`);
+      p(`<text x="${fromNameX}" y="${y_from + 5}" font-size="12" fill="${EXPENSE_CLR}" font-weight="700">${this._svgEsc(fromNameStr)}</text>`);
 
       // To person (bottom line): down-arrow + avatar + name, indented under the badge
       const y_to = y_from + SUB_ROW_H + SUB_ROW_GAP;
-      p(`<text x="${badgeCx}" y="${y_to + 5}" font-size="13" fill="${TEXT_LOW}" text-anchor="middle">&#x21B3;</text>`);
+      p(`<text x="${badgeCx}" y="${y_to + 5}" font-size="13" fill="${TEXT_MED}" text-anchor="middle">&#x21B3;</text>`);
 
       const TO_R = 12;
       const toCx = fromCx; // align under the from-avatar
-      renderCircleAvatar(settlement.toAvatar, settlement.toName, toCx, y_to, TO_R, ACCENT_GREEN_FILL);
+      renderCircleAvatar(settlement.toAvatar, settlement.toName, toCx, y_to, TO_R, RECEIVE_CLR);
 
       const toNameX    = fromNameX; // align under the from-name
       const toMaxChars = Math.max(10, Math.floor((INNER_R - toNameX) * CHARS_PER_PX));
       const toNameStr  = this._svgTrunc(settlement.toName, toMaxChars);
-      p(`<text x="${toNameX}" y="${y_to + 5}" font-size="12" fill="${ACCENT_GREEN}" font-weight="700">${this._svgEsc(toNameStr)}</text>`);
+      p(`<text x="${toNameX}" y="${y_to + 5}" font-size="12" fill="${RECEIVE_CLR}" font-weight="700">${this._svgEsc(toNameStr)}</text>`);
 
-      // ── Row 2: transfer amount badge (right-aligned) — only when there's
-      // no breakdown to show it in; otherwise the dark "Net Amount to
-      // Transfer" band below already shows this same figure, so showing
-      // both was a confusing, duplicated red/green badge. ──
+      // ── Row 2: transfer amount — plain text, right-aligned, no badge.
+      // Only rendered when there's no breakdown to show it in; otherwise
+      // the "Net Amount to Transfer" line below already shows this same
+      // figure, so showing both was a duplicated number. ──
       if (!hasBreakdown) {
-        const y_amt      = cardY + CARD_PAD_TOP + NAME_ROW_H + Math.floor(AMT_ROW_H / 2);
-        const amtStr     = settlement.currency === "VND"
-          ? `\u20ab${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
+        const y_amt  = cardY + CARD_PAD_TOP + NAME_ROW_H + Math.floor(AMT_ROW_H / 2);
+        const amtStr = settlement.currency === "VND"
+          ? `₫${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
           : `$${settlement.amount.toFixed(2)}`;
-        const amtBadgeW  = Math.max(78, amtStr.length * 8 + 16);
-        const amtBadgeX  = INNER_R - amtBadgeW;
-        const amtBadgeH  = 26;
-        p(`<rect x="${amtBadgeX}" y="${y_amt - Math.floor(amtBadgeH / 2)}" width="${amtBadgeW}" height="${amtBadgeH}" rx="7" fill="url(#netAmountGradient)"/>`);
-        p(`<text x="${amtBadgeX + amtBadgeW / 2}" y="${y_amt + 5}" font-size="14" fill="#ffffff" font-weight="800" text-anchor="middle">${this._svgEsc(amtStr)}</text>`);
+        p(`<text x="${INNER_R}" y="${y_amt + 5}" font-size="16" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(amtStr)}</text>`);
       }
 
       // ── Property breakdown ────────────────────────────────────────────
@@ -3239,49 +3638,41 @@ class BulkPropertyReportsComponent {
         let yi = cardY + CARD_PAD_TOP + NAME_ROW_H;
 
         // "Step-by-step calculation:" label
-        p(`<text x="${INNER_L}" y="${yi + LABEL_ROW_H - 6}" font-size="8.5" fill="${TEXT_LOW}" font-weight="600" letter-spacing="0.5">STEP-BY-STEP CALCULATION</text>`);
+        p(`<text x="${INNER_L}" y="${yi + LABEL_ROW_H - 5}" font-size="8.5" fill="${TEXT_MED}" font-weight="600" letter-spacing="0.5" opacity="0.85">STEP-BY-STEP CALCULATION</text>`);
         yi += LABEL_ROW_H;
 
-        // Property rows
+        // Property rows — plain text, no colored pill/icon; sign prefix
+        // alone carries direction (matches the extraction export's line items).
         settlement.propertyBreakdown.forEach((prop) => {
           const rowY       = yi;
           yi              += PROP_ROW_H;
           const propName   = this._svgTrunc(prop.propertyName || prop.propertyId, 50);
-          p(`<text x="${INNER_L + 2}" y="${rowY + 15}" font-size="9.5" fill="${TEXT_MED}">${this._svgEsc(propName)}</text>`);
+          p(`<text x="${INNER_L + 2}" y="${rowY + 14}" font-size="9.5" fill="${TEXT_MED}">${this._svgEsc(propName)}</text>`);
 
-          const isNeg       = prop.amount < 0;
-          const dispAmt     = Math.abs(prop.amount);
-          const propAmtStr  = `${isNeg ? "+" : "-"}$${dispAmt.toFixed(2)}`;
-          // Match UI: solid green for credit, solid red for payment out
-          const propBg      = isNeg ? ACCENT_GREEN_FILL : ACCENT_RED_FILL;
-          const iconChar    = isNeg ? "+" : "\u2212";
-          const propBadgeH  = 20;
-          const propBadgeW  = Math.max(76, propAmtStr.length * 7 + 28);
-          const propBadgeX  = INNER_R - propBadgeW;
-          const propBadgeCy = rowY + 2 + Math.floor(propBadgeH / 2);
-          // Badge background
-          p(`<rect x="${propBadgeX}" y="${rowY + 2}" width="${propBadgeW}" height="${propBadgeH}" rx="5" fill="${propBg}"/>`);
-          // White circle icon with +/- inside (matching UI's bi-plus-circle-fill / bi-dash-circle-fill)
-          const iconCx = propBadgeX + 11;
-          p(`<circle cx="${iconCx}" cy="${propBadgeCy}" r="5.5" fill="#ffffff"/>`);
-          p(`<text x="${iconCx}" y="${propBadgeCy + 3.5}" font-size="8" fill="${propBg}" font-weight="800" text-anchor="middle">${iconChar}</text>`);
-          // Amount text (offset right of icon)
-          const textCx = propBadgeX + 22 + (propBadgeW - 22) / 2;
-          p(`<text x="${textCx}" y="${propBadgeCy + 3.5}" font-size="9.5" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc(propAmtStr)}</text>`);
+          const isNeg      = prop.amount < 0;
+          const dispAmt    = Math.abs(prop.amount);
+          const propAmtStr = `${isNeg ? "+" : "-"}$${dispAmt.toFixed(2)}`;
+          p(`<text x="${INNER_R - 2}" y="${rowY + 14}" font-size="10" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(propAmtStr)}</text>`);
+
+          // Soft row separator — same fading-divider convention as the
+          // report and extraction exports, instead of a colored pill per row.
+          p(`<line x1="${INNER_L}" y1="${rowY + PROP_ROW_H}" x2="${INNER_R}" y2="${rowY + PROP_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`);
         });
 
         // Separator
         p(`<line x1="${INNER_L}" y1="${yi + 2}" x2="${INNER_R}" y2="${yi + 2}" stroke="${DIVIDER}" stroke-width="1"/>`);
         yi += SEP_H;
 
-        // Net total row \u2014 plain text, no filled badge/band. The separator
+        // Net total row — plain text, no filled badge/band. The separator
         // line above is the only divider; the figure itself is just larger
-        // and bolder so it still reads as the final answer.
-        p(`<text x="${INNER_L + 2}" y="${yi + NET_ROW_H - 10}" font-size="12" fill="${TEXT_HI}" font-weight="700">Net Amount to Transfer</text>`);
-        const netAmtStr  = settlement.currency === "VND"
-          ? `\u20ab${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
+        // and bolder so it still reads as the final answer. No leading
+        // sign here — it's a running total, not a single directional line
+        // item (same convention as the extraction export's totals).
+        p(`<text x="${INNER_L + 2}" y="${yi + NET_ROW_H - 9}" font-size="12" fill="${TEXT_HI}" font-weight="700">Net Amount to Transfer</text>`);
+        const netAmtStr = settlement.currency === "VND"
+          ? `₫${settlement.amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
           : `$${settlement.amount.toFixed(2)}`;
-        p(`<text x="${INNER_R - 2}" y="${yi + NET_ROW_H - 10}" font-size="21" fill="${TEXT_HI}" font-weight="800" text-anchor="end">${this._svgEsc(netAmtStr)}</text>`);
+        p(`<text x="${INNER_R - 2}" y="${yi + NET_ROW_H - 9}" font-size="19" fill="${TEXT_HI}" font-weight="800" text-anchor="end">${this._svgEsc(netAmtStr)}</text>`);
       }
 
       return cardY + cardH + CARD_GAP;
@@ -3331,33 +3722,450 @@ class BulkPropertyReportsComponent {
     const fullInnerL = fullCardX + 12;
     const fullInnerR = fullCardX + fullCardW - 12;
     if (settlements.length > 1) {
-      const totalSGD  = settlements
+      const totalSGD = settlements
         .filter((s) => s.currency !== "VND")
         .reduce((sum, s) => sum + s.amount, 0);
-      const sumH      = 56;
-      p(`<rect x="${fullCardX}" y="${y}" width="${fullCardW}" height="${sumH}" rx="8" fill="${CARD_BG_2}" stroke="${BORDER}" stroke-width="1"/>`);
-      p(`<text x="${fullInnerL}" y="${y + 22}" font-size="10" fill="${TEXT_MED}" font-weight="600">Total Transactions:</text>`);
-      p(`<text x="${fullInnerR}" y="${y + 22}" font-size="10" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${settlements.length}</text>`);
-      p(`<line x1="${fullInnerL}" y1="${y + 30}" x2="${fullInnerR}" y2="${y + 30}" stroke="${DIVIDER}" stroke-width="0.5"/>`);
-      p(`<text x="${fullInnerL}" y="${y + 46}" font-size="10" fill="${TEXT_MED}" font-weight="600">Total Amount (SGD):</text>`);
-      p(`<text x="${fullInnerR}" y="${y + 46}" font-size="12" fill="${ACCENT_GREEN}" font-weight="700" text-anchor="end">$${totalSGD.toFixed(2)}</text>`);
-      y += sumH + 10;
+      const sumH = 52;
+      p(`<rect x="${fullCardX}" y="${y}" width="${fullCardW}" height="${sumH}" rx="8" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`);
+      p(`<text x="${fullInnerL}" y="${y + 20}" font-size="10" fill="${TEXT_MED}" font-weight="600">Total Transactions:</text>`);
+      p(`<text x="${fullInnerR}" y="${y + 20}" font-size="10" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${settlements.length}</text>`);
+      p(`<line x1="${fullInnerL}" y1="${y + 28}" x2="${fullInnerR}" y2="${y + 28}" stroke="${DIVIDER}" stroke-width="0.5"/>`);
+      p(`<text x="${fullInnerL}" y="${y + 44}" font-size="11" fill="${TEXT_HI}" font-weight="700">Total Amount (SGD):</text>`);
+      p(`<text x="${fullInnerR}" y="${y + 44}" font-size="14" fill="${TEXT_HI}" font-weight="700" text-anchor="end">$${totalSGD.toFixed(2)}</text>`);
+      y += sumH + 8;
     }
 
-    // ── Footer (full width) ──────────────────────────────────────────────
-    y += 8;
-    p(`<text x="${TOTAL_W / 2}" y="${y + 12}" font-size="8.5" fill="${TEXT_LOW}" text-anchor="middle">Netted across all properties &#xB7; Amounts in SGD</text>`);
-    y += 28;
+    // ── Footer — same bar treatment as the report and extraction exports ──
+    p(`<rect x="0" y="${y}" width="${TOTAL_W}" height="24" fill="${FOOTER_BG}"/>`);
+    p(`<text x="${TOTAL_W / 2}" y="${y + 16}" font-size="9.5" fill="${TEXT_MED}" text-anchor="middle">Netted across all properties &#xB7; Amounts in SGD &#xB7; Auto-generated</text>`);
+    y += 24;
 
     // ── Compose SVG ──────────────────────────────────────────────────────
     const H = y;
     return [
       `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${TOTAL_W}" height="${H}" viewBox="0 0 ${TOTAL_W} ${H}" font-family="Noto Serif,serif">`,
       `<defs>${fontFaceStyle}${defs.join("")}</defs>`,
-      `<rect x="0" y="0" width="${TOTAL_W}" height="${H}" fill="${PAGE_BG}"/>`,
+      `<rect x="0" y="0" width="${TOTAL_W}" height="${H}" fill="${BASE_BG}"/>`,
+      `<rect x="0" y="0" width="${TOTAL_W}" height="${H}" fill="url(#setHaze)"/>`,
       ...nodes,
       `</svg>`,
     ].join("");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Grand View — bulk report snapshot gallery
+  //
+  // Reuses the exact same export pipeline the single-property Financial
+  // Report page's "Capture Screenshot" button already uses
+  // (FinancialReportsComponent._generateReportSVG() + _svgToPngBlob()),
+  // driven once per selected property, so every image here is
+  // pixel-identical to what Capture Screenshot would produce for that
+  // property. None of that ~900-line SVG-drawing code is duplicated or
+  // modified — it's called as-is on the app's single shared
+  // FinancialReportsComponent instance.
+  //
+  // Strictly read-only: every request here is a GET (the report data
+  // itself was already fetched by fetchBulkReports() above; this only
+  // adds a per-property GET for the raw investor list the SVG needs,
+  // plus the logo/font/avatar GETs the export always makes). Nothing
+  // here ever POSTs/PUTs/DELETEs, so no report/settlement figure is
+  // written, changed, or recalculated. The shared component's live
+  // selection state is snapshotted before the batch and restored
+  // afterwards (in a finally block), so visiting the Financial Reports
+  // section later is completely unaffected.
+  // ═══════════════════════════════════════════════════════════════════
+
+  async openGrandReportView() {
+    try {
+      const withReport = (this.lastReports || []).filter((r) => r.report);
+
+      console.log(
+        `[GrandView] ${(this.lastReports || []).length} propert${(this.lastReports || []).length === 1 ? "y" : "ies"} fetched, ` +
+          `${withReport.length} with a report to render`
+      );
+
+      if (withReport.length === 0) {
+        this.notifyGrandView(
+          (this.lastReports || []).length === 0
+            ? "Please fetch reports first, then open Grand View to see them all together."
+            : "None of the fetched properties have a report for this month yet.",
+          "warning"
+        );
+        return;
+      }
+
+      this.renderGrandReportModal(withReport.length);
+      await this.generateGrandReportImages(withReport);
+    } catch (error) {
+      console.error("[GrandView] Failed to open report gallery:", error);
+      this.notifyGrandView(
+        "Could not open Grand View — see browser console for details.",
+        "error"
+      );
+    }
+  }
+
+  // Toast is fixed-position (top-right) so it's visible no matter how far
+  // the page is scrolled — falls back to the in-page alert banner used
+  // elsewhere in this component if the global toast helper isn't loaded.
+  notifyGrandView(message, type = "info") {
+    if (typeof showToast === "function") {
+      showToast(message, type, 5000);
+    } else {
+      this.showError(message);
+    }
+  }
+
+  // Reuse the app's single FinancialReportsComponent instance — the same
+  // one "Capture Screenshot" runs on — instead of constructing a second
+  // copy, which would double up its DOM event listeners (add-income
+  // button, month nav, etc. would each fire twice). Mirrors exactly how
+  // dashboard-controller.js lazily creates it on first visit to that
+  // section, so this never creates more than one instance app-wide.
+  async getFinancialReportsInstance() {
+    if (window.financialReports) return window.financialReports;
+
+    const dc = window.dashboardController;
+    if (dc) {
+      dc.components = dc.components || {};
+      if (!dc.components.financialReports) {
+        dc.components.financialReports = new FinancialReportsComponent();
+      }
+      window.financialReports = dc.components.financialReports;
+    } else {
+      // Defensive fallback — shouldn't happen inside the dashboard shell.
+      window.financialReports = new FinancialReportsComponent();
+    }
+
+    // Its property list (needed for the report title/address) loads
+    // asynchronously on construction — wait for it so the first image
+    // generated isn't missing the property title.
+    if (window.financialReports._propertiesPromise) {
+      await window.financialReports._propertiesPromise;
+    }
+    return window.financialReports;
+  }
+
+  renderGrandReportModal(total) {
+    const stale = document.getElementById("grandReportModal");
+    if (stale) stale.remove();
+
+    const modalHtml = `
+      <div class="modal fade" id="grandReportModal" tabindex="-1" aria-labelledby="grandReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+          <div class="modal-content" style="background:#f1f3f5;">
+            <div class="modal-header bg-dark text-white">
+              <h5 class="modal-title d-flex align-items-center gap-2" id="grandReportModalLabel">
+                <i class="bi bi-collection"></i>Grand View — All Property Reports
+                <span class="badge bg-light text-dark" id="grandReportProgressBadge">0 / ${total}</span>
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 d-flex flex-column" style="min-height:0;">
+              <div class="border-bottom bg-white px-3 py-2" style="flex-shrink:0;" id="grandReportProgressBar">
+                <div class="progress" style="height:6px;">
+                  <div class="progress-bar bg-success" id="grandReportProgressFill" style="width:0%;"></div>
+                </div>
+                <small class="text-muted" id="grandReportProgressLabel">Generating report snapshots…</small>
+              </div>
+              <div class="flex-grow-1" style="overflow-y:auto;">
+                <div class="p-3" id="grandReportGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:1rem;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lightbox overlay -->
+          <div id="grandReportLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;align-items:center;justify-content:center;flex-direction:column;">
+            <button type="button" class="btn btn-light btn-sm" id="grandReportLightboxClose" style="position:absolute;top:16px;right:16px;z-index:2002;"><i class="bi bi-x-lg"></i></button>
+            <button type="button" class="btn btn-light" id="grandReportLightboxPrev" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);z-index:2002;"><i class="bi bi-chevron-left"></i></button>
+            <button type="button" class="btn btn-light" id="grandReportLightboxNext" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);z-index:2002;"><i class="bi bi-chevron-right"></i></button>
+            <img id="grandReportLightboxImg" src="" style="max-width:90vw;max-height:80vh;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,0.6);border-radius:4px;background:#fff;">
+            <div class="text-white text-center mt-3 d-flex align-items-center gap-3" id="grandReportLightboxCaption"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    const modalElement = document.getElementById("grandReportModal");
+    const modal = new bootstrap.Modal(modalElement, {
+      backdrop: true,
+      keyboard: true,
+    });
+
+    this._grandReportObjectUrls = [];
+    this._grandReportItems = [];
+    this._grandReportCancelled = false;
+
+    modalElement.addEventListener("hidden.bs.modal", () => {
+      if (this._grandReportKeyHandler) {
+        document.removeEventListener("keydown", this._grandReportKeyHandler);
+        this._grandReportKeyHandler = null;
+      }
+      // Signal any in-flight generation loop to stop early, and free the
+      // PNG object URLs it already produced.
+      this._grandReportCancelled = true;
+      (this._grandReportObjectUrls || []).forEach((u) => URL.revokeObjectURL(u));
+      this._grandReportObjectUrls = [];
+      this._grandReportItems = [];
+      modalElement.remove();
+    });
+
+    this.bindGrandReportModalEvents(modalElement);
+
+    modal.show();
+  }
+
+  bindGrandReportModalEvents(modalElement) {
+    const grid = modalElement.querySelector("#grandReportGrid");
+    if (grid) {
+      grid.addEventListener("click", (e) => {
+        const tile = e.target.closest("[data-role='report-tile']");
+        if (!tile || tile.dataset.status !== "done") return;
+        this.openGrandReportLightbox(tile.dataset.id);
+      });
+    }
+
+    const lightbox = modalElement.querySelector("#grandReportLightbox");
+    modalElement
+      .querySelector("#grandReportLightboxClose")
+      ?.addEventListener("click", () => this.closeGrandReportLightbox());
+    modalElement
+      .querySelector("#grandReportLightboxPrev")
+      ?.addEventListener("click", () => this.stepGrandReportLightbox(-1));
+    modalElement
+      .querySelector("#grandReportLightboxNext")
+      ?.addEventListener("click", () => this.stepGrandReportLightbox(1));
+    lightbox?.addEventListener("click", (e) => {
+      if (e.target === lightbox) this.closeGrandReportLightbox();
+    });
+
+    this._grandReportKeyHandler = (e) => {
+      if (!lightbox || lightbox.style.display === "none") return;
+      if (e.key === "Escape") this.closeGrandReportLightbox();
+      if (e.key === "ArrowLeft") this.stepGrandReportLightbox(-1);
+      if (e.key === "ArrowRight") this.stepGrandReportLightbox(1);
+    };
+    document.addEventListener("keydown", this._grandReportKeyHandler);
+  }
+
+  // Renders one placeholder tile per property up front (so the grid layout
+  // doesn't jump around as results stream in), then fills each tile in as
+  // its image finishes. Strictly sequential: every iteration reuses the
+  // same shared FinancialReportsComponent instance, so two properties can
+  // never be generated concurrently without their data crossing over.
+  async generateGrandReportImages(withReport) {
+    const grid = document.getElementById("grandReportGrid");
+    if (!grid) return;
+
+    withReport.forEach((r) => {
+      grid.insertAdjacentHTML("beforeend", this.renderGrandReportTile(r));
+    });
+
+    let fr;
+    try {
+      fr = await this.getFinancialReportsInstance();
+    } catch (error) {
+      console.error("[GrandView] Could not prepare report generator:", error);
+      this.notifyGrandView(
+        "Could not prepare the report generator — see console.",
+        "error"
+      );
+      return;
+    }
+
+    // Snapshot the singleton's live selection so the Financial Reports
+    // section is completely unaffected once we're done (restored in the
+    // finally block below no matter how the loop ends).
+    const snapshot = {
+      selectedProperty: fr.selectedProperty,
+      currentReport: fr.currentReport,
+      investors: fr.investors,
+      currentDate: fr.currentDate,
+    };
+
+    const monthSel = document.getElementById("bulkReportMonth")?.value;
+    const yearSel = document.getElementById("bulkReportYear")?.value;
+
+    let completed = 0;
+    try {
+      for (const r of withReport) {
+        if (this._grandReportCancelled) break; // modal was closed mid-batch
+
+        try {
+          const investors = await this.fetchRawInvestorsForSVG(
+            r.propertyId,
+            r.report
+          );
+          if (this._grandReportCancelled) break;
+
+          fr.selectedProperty = r.propertyId;
+          fr.currentReport = r.report;
+          fr.investors = investors;
+          if (monthSel && yearSel) {
+            fr.currentDate = new Date(
+              parseInt(yearSel),
+              parseInt(monthSel) - 1,
+              1
+            );
+          }
+
+          const svgStr = await fr._generateReportSVG();
+          const blob = await fr._svgToPngBlob(svgStr);
+          if (this._grandReportCancelled) break;
+
+          const objectUrl = URL.createObjectURL(blob);
+          this._grandReportObjectUrls.push(objectUrl);
+
+          const item = {
+            id: `report-${r.propertyId}`,
+            propertyId: r.propertyId,
+            propertyAddress: r.propertyData?.address || r.propertyId,
+            propertyUnit: r.propertyData?.unit || "",
+            objectUrl,
+            fileName: `Financial_Report_${r.propertyId}_${monthSel || ""}_${yearSel || ""}.png`.replace(
+              /[^a-zA-Z0-9_.-]/g,
+              "_"
+            ),
+          };
+          this._grandReportItems.push(item);
+          this.updateGrandReportTile(r.propertyId, "done", item);
+        } catch (error) {
+          console.error(
+            `[GrandView] Failed to generate report image for ${r.propertyId}:`,
+            error
+          );
+          this.updateGrandReportTile(r.propertyId, "error");
+        }
+
+        completed++;
+        this.updateGrandReportProgress(completed, withReport.length);
+      }
+    } finally {
+      fr.selectedProperty = snapshot.selectedProperty;
+      fr.currentReport = snapshot.currentReport;
+      fr.investors = snapshot.investors;
+      fr.currentDate = snapshot.currentDate;
+    }
+
+    if (!this._grandReportCancelled) {
+      const progressBar = document.getElementById("grandReportProgressBar");
+      if (progressBar) progressBar.style.display = "none";
+    }
+  }
+
+  // Closed reports carry a baked-in investorSnapshot and don't need the
+  // raw per-property investor list at all — see _getInvestorDataForSVG()
+  // in financial-reports.js, which short-circuits on isClosed+snapshot.
+  // Skipping the fetch in that case avoids an unnecessary round trip.
+  async fetchRawInvestorsForSVG(propertyId, report) {
+    if (report?.isClosed && report?.investorSnapshot?.length > 0) return [];
+
+    try {
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(propertyId)
+      );
+      if (!response.ok) return [];
+      const result = await response.json();
+      return result.success && Array.isArray(result.data) ? result.data : [];
+    } catch (error) {
+      console.error(
+        `[GrandView] Failed to load investors for ${propertyId}:`,
+        error
+      );
+      return [];
+    }
+  }
+
+  renderGrandReportTile(r) {
+    const address = r.propertyData?.address || r.propertyId;
+    const unit = r.propertyData?.unit || "";
+    return `
+      <div class="card h-100" data-role="report-tile" data-id="report-${escapeHtml(r.propertyId)}" data-status="pending" style="overflow:hidden;">
+        <div class="d-flex align-items-center justify-content-center bg-light" style="height:180px;" data-role="tile-media">
+          <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+        </div>
+        <div class="card-body py-2 px-2">
+          <div class="text-truncate small fw-semibold" title="${escapeHtml(address)}">${escapeHtml(address)}</div>
+          ${unit ? `<div class="text-muted" style="font-size:11px;">${escapeHtml(unit)}</div>` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  updateGrandReportTile(propertyId, status, item) {
+    const tile = document.querySelector(
+      `[data-role="report-tile"][data-id="report-${CSS.escape(String(propertyId))}"]`
+    );
+    if (!tile) return;
+    tile.dataset.status = status;
+    tile.style.cursor = status === "done" ? "pointer" : "default";
+
+    const media = tile.querySelector('[data-role="tile-media"]');
+    if (!media) return;
+
+    if (status === "done" && item) {
+      media.innerHTML = `<img src="${item.objectUrl}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${escapeHtml(item.propertyAddress)}">`;
+    } else if (status === "error") {
+      media.innerHTML = `<div class="text-danger text-center small p-2"><i class="bi bi-exclamation-triangle d-block mb-1" style="font-size:1.3rem;"></i>Failed to generate</div>`;
+    }
+  }
+
+  updateGrandReportProgress(completed, total) {
+    const badge = document.getElementById("grandReportProgressBadge");
+    if (badge) badge.textContent = `${completed} / ${total}`;
+    const fill = document.getElementById("grandReportProgressFill");
+    if (fill) fill.style.width = `${Math.round((completed / total) * 100)}%`;
+    const label = document.getElementById("grandReportProgressLabel");
+    if (label) {
+      label.textContent =
+        completed >= total
+          ? `Done — ${total} report${total === 1 ? "" : "s"} generated`
+          : `Generating report snapshots… (${completed} / ${total})`;
+    }
+  }
+
+  openGrandReportLightbox(id) {
+    const index = (this._grandReportItems || []).findIndex(
+      (it) => it.id === id
+    );
+    if (index === -1) return;
+    this._grandReportLightboxIndex = index;
+    this.renderGrandReportLightbox();
+    const lightbox = document.getElementById("grandReportLightbox");
+    if (lightbox) lightbox.style.display = "flex";
+  }
+
+  stepGrandReportLightbox(delta) {
+    const list = this._grandReportItems;
+    if (!list || list.length === 0) return;
+    this._grandReportLightboxIndex =
+      (this._grandReportLightboxIndex + delta + list.length) % list.length;
+    this.renderGrandReportLightbox();
+  }
+
+  renderGrandReportLightbox() {
+    const it = this._grandReportItems?.[this._grandReportLightboxIndex];
+    if (!it) return;
+
+    const img = document.getElementById("grandReportLightboxImg");
+    const caption = document.getElementById("grandReportLightboxCaption");
+    if (img) img.src = it.objectUrl;
+    if (caption) {
+      caption.innerHTML = `
+        <div>
+          <div class="fw-bold">${escapeHtml(it.propertyAddress)}${it.propertyUnit ? ` · ${escapeHtml(it.propertyUnit)}` : ""}</div>
+          <div class="small text-white-50">${this._grandReportLightboxIndex + 1} / ${this._grandReportItems.length}</div>
+        </div>
+        <a href="${it.objectUrl}" download="${escapeHtml(it.fileName)}" class="btn btn-sm btn-light"><i class="bi bi-download me-1"></i>Download PNG</a>
+      `;
+    }
+  }
+
+  closeGrandReportLightbox() {
+    const lightbox = document.getElementById("grandReportLightbox");
+    if (lightbox) lightbox.style.display = "none";
   }
 
   showError(message) {

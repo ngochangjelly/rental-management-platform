@@ -1380,6 +1380,8 @@ class PublicContractCreator {
       // Options
       airconFreeOfCharge: document.getElementById("ccAirconFree")?.checked || false,
       forfeitAcCleanFee: document.getElementById("ccForfeitAcClean")?.checked || false,
+      acDeduction6Month: document.getElementById("ccAcDeduction6Month")?.value || "100",
+      acDeduction1Year: document.getElementById("ccAcDeduction1Year")?.value || "200",
       // Tenant A
       tenantA: {
         name: document.getElementById("ccTenantAName")?.value || "",
@@ -1452,6 +1454,8 @@ class PublicContractCreator {
     set("ccCleaningFee", s.cleaningFee ?? "20");
     set("ccAirconFree", s.airconFreeOfCharge);
     set("ccForfeitAcClean", s.forfeitAcCleanFee);
+    set("ccAcDeduction6Month", s.acDeduction6Month ?? "100");
+    set("ccAcDeduction1Year", s.acDeduction1Year ?? "200");
     set("ccTenantAName", s.tenantA?.name);
     set("ccTenantAFin", s.tenantA?.fin);
     set("ccTenantAPassport", s.tenantA?.passport);
@@ -1526,6 +1530,7 @@ class PublicContractCreator {
     clear("ccDeposit"); clear("ccDepositMonths", "1"); clear("ccAdvanceMonths", "1");
     clear("ccPaymentMethod", "BANK_TRANSFER");
     clear("ccElecBudget", "400"); clear("ccCleaningFee", "20");
+    clear("ccAcDeduction6Month", "100"); clear("ccAcDeduction1Year", "200");
     clear("ccTenantAName"); clear("ccTenantAFin"); clear("ccTenantAPassport"); clear("ccTenantAEmail");
     clear("ccSgdBank"); clear("ccSgdHolder"); clear("ccSgdAccNo");
     clear("ccVndBank"); clear("ccVndHolder"); clear("ccVndAccNo");

@@ -177,7 +177,7 @@ export function getSection1BaseClauseTexts(contractData) {
     "The Main tenant shall not enter the premises or remove, relocate, or dispose of Tenant B's belongings without prior written consent from Tenant B, except in cases of emergency or as otherwise permitted by law.",
     "Not to bring or store or permit to be brought or stored in the premises or any part thereof any goods which are of a dangerous, obnoxious, inflammable or hazardous nature.",
     "At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same was delivered to Tenant B at the commencement of the term hereby created. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, and clean the room and their designated area to the same condition as delivered. Failing to do so will result in a minimum deduction of SGD$150 from the security deposit for cleaning expenses.",
-    `For a 6-month agreement, SGD$100 will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$200 will be deducted. This applies only to rooms with an air-conditioner.${cd.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}`,
+    `For a 6-month agreement, SGD$${cd.acDeduction6Month || 100} will be deducted from the deposit for air-conditioner servicing. For a 1-year agreement, SGD$${cd.acDeduction1Year || 200} will be deducted. This applies only to rooms with an air-conditioner.${cd.airconFreeOfCharge ? " (As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)" : ""}`,
     "Costs of damage to common area facilities provided by Tenant A will be shared by both parties. For the first SGD$200 of any single bill, the cost will be divided among all subtenants of the unit. Any amount exceeding SGD$200 will be borne by Tenant A. This applies only to leases of 6 months and above.",
     "No smoking or vaping in the premises (first violation will result in a warning; subsequent violations will lead to contract termination). Vaping is illegal in Singapore and carries criminal penalties including potential imprisonment.",
     "Visitors can be allowed to stay overnight upon permission request from Tenant B to Tenant A.",
@@ -239,7 +239,9 @@ export function buildSection2Clauses(contractData) {
   clauses.push(
     `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
   );
-  clauses.push(`${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax`);
+  clauses.push(
+    `${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).`,
+  );
 
   return clauses;
 }
@@ -442,7 +444,7 @@ export function getSection1BaseClauseTextsVi(contractData) {
     "Bên A (người thuê chính) không được tự ý vào phòng hoặc di dời, chuyển chỗ, tiêu hủy tài sản của Bên B khi chưa có sự đồng ý trước bằng văn bản của Bên B, trừ trường hợp khẩn cấp hoặc được pháp luật cho phép.",
     "Không được mang vào, cất giữ, hoặc cho phép mang vào, cất giữ trong căn hộ hay bất kỳ phần nào của căn hộ bất kỳ hàng hóa nào có tính chất nguy hiểm, độc hại, dễ cháy nổ hoặc gây nguy hại.",
     "Khi hết thời hạn thuê được thiết lập theo Hợp đồng này, bàn giao lại phòng một cách ôn hòa, trong tình trạng tương tự như tình trạng phòng đã được bàn giao cho Bên B vào thời điểm bắt đầu thời hạn thuê. Do phòng được bàn giao trong tình trạng sạch sẽ, Bên B có trách nhiệm dọn dẹp toàn bộ đồ đạc cá nhân ra khỏi phòng và căn hộ, đồng thời vệ sinh phòng và khu vực được chỉ định về tình trạng tương tự như khi được bàn giao. Nếu không thực hiện, Bên B sẽ bị trừ tối thiểu SGD$150 từ tiền đặt cọc để trang trải chi phí dọn vệ sinh.",
-    `Đối với hợp đồng thuê 6 tháng, SGD$100 sẽ được trừ từ tiền đặt cọc để bảo trì máy lạnh (điều hòa). Đối với hợp đồng thuê 1 năm, SGD$200 sẽ được trừ. Điều khoản này chỉ áp dụng đối với phòng có trang bị máy lạnh.${cd.airconFreeOfCharge ? " (Theo thỏa thuận đặc biệt, Bên A đồng ý miễn khoản phí này cho Bên B. Bên B được miễn phí khoản này trong thời hạn thuê.)" : ""}`,
+    `Đối với hợp đồng thuê 6 tháng, SGD$${cd.acDeduction6Month || 100} sẽ được trừ từ tiền đặt cọc để bảo trì máy lạnh (điều hòa). Đối với hợp đồng thuê 1 năm, SGD$${cd.acDeduction1Year || 200} sẽ được trừ. Điều khoản này chỉ áp dụng đối với phòng có trang bị máy lạnh.${cd.airconFreeOfCharge ? " (Theo thỏa thuận đặc biệt, Bên A đồng ý miễn khoản phí này cho Bên B. Bên B được miễn phí khoản này trong thời hạn thuê.)" : ""}`,
     "Chi phí sửa chữa thiệt hại đối với các tiện ích khu vực chung do Bên A cung cấp sẽ được cả hai bên cùng chia sẻ. Đối với mỗi hóa đơn, SGD$200 đầu tiên sẽ được chia đều cho tất cả những người thuê phòng trong căn hộ. Phần chi phí vượt quá SGD$200 sẽ do Bên A chịu trách nhiệm. Điều khoản này chỉ áp dụng cho hợp đồng thuê từ 6 tháng trở lên.",
     "Không được hút thuốc lá hoặc hút thuốc lá điện tử (vaping) trong căn hộ (vi phạm lần đầu sẽ bị cảnh cáo; các lần vi phạm tiếp theo sẽ dẫn đến việc chấm dứt Hợp đồng). Hút thuốc lá điện tử là hành vi bất hợp pháp tại Singapore và có thể bị xử lý hình sự, bao gồm cả hình phạt tù.",
     "Khách có thể được phép ở qua đêm nếu Bên B xin phép và được Bên A đồng ý trước.",
@@ -505,7 +507,9 @@ export function buildSection2ClausesVi(contractData) {
   clauses.push(
     `${lawLetter}) Pháp luật áp dụng cho bất kỳ tranh chấp nào phát sinh từ hợp đồng thuê này là pháp luật của Cộng hòa Singapore, và các bên đồng ý chịu sự điều chỉnh của pháp luật Singapore.`,
   );
-  clauses.push(`${cleaningLetter}) Phí vệ sinh: SGD$${cd.cleaningFee || ""} / 1 người`);
+  clauses.push(
+    `${cleaningLetter}) Phí vệ sinh: SGD$${cd.cleaningFee || ""} / 1 người (bao gồm vệ sinh khu vực chung, nhà bếp, nhà vệ sinh chung và nhà vệ sinh phòng master).`,
+  );
 
   return clauses;
 }

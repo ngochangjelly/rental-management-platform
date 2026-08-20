@@ -17,7 +17,7 @@ import {
   formatTenancyPeriodVi,
 } from "./contract-clauses.js";
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
-import { getRoomTypeDisplayName } from "../utils/room-type-mapper.js";
+import { getRoomTypeDisplayName, getRoomTypeBadgeStyle } from "../utils/room-type-mapper.js";
 
 class ContractManagementComponent {
   constructor() {
@@ -53,6 +53,8 @@ class ContractManagementComponent {
       pestControlClause: false,
       airconFreeOfCharge: false,
       forfeitAcCleanFee: false,
+      acDeduction6Month: 100,
+      acDeduction1Year: 200,
       showSettlementAccounts: false,
     };
 
@@ -229,6 +231,88 @@ class ContractManagementComponent {
     }
 
     return propertyId; // Fallback to ID if property not found
+  }
+
+  // Resolves room/rent/move-in/move-out to preview for `tenant` in the
+  // Tenant B picker list. Uses the same association-selection rule already
+  // used to auto-fill dates/room when a tenant is picked (prefer the
+  // property matching the contract's currently selected property, else the
+  // tenant's most recent property by move-in date) — read-only, does not
+  // touch this.contractData, so it can't affect existing auto-fill logic.
+  getTenantPropertySummary(tenant) {
+    const summary = {
+      roomRaw: "",
+      roomLabel: "",
+      rent: null,
+      moveInDate: "",
+      moveOutDate: "",
+    };
+    if (!tenant || !Array.isArray(tenant.properties) || tenant.properties.length === 0) {
+      return summary;
+    }
+
+    let prop = null;
+    if (this.selectedPropertyId) {
+      prop =
+        tenant.properties.find(
+          (p) =>
+            p.propertyId === this.selectedPropertyId &&
+            (p.moveinDate || p.moveoutDate || p.room),
+        ) || null;
+    }
+    if (!prop) {
+      for (const p of tenant.properties) {
+        if (p.moveinDate || p.moveoutDate || p.room) {
+          if (!prop || new Date(p.moveinDate || 0) > new Date(prop.moveinDate || 0)) {
+            prop = p;
+          }
+        }
+      }
+    }
+
+    if (prop) {
+      summary.roomRaw = prop.room || "";
+      summary.roomLabel = prop.room ? this.formatRoomType(prop.room) : "";
+      summary.moveInDate = prop.moveinDate || "";
+      summary.moveOutDate = prop.moveoutDate || "";
+    }
+
+    summary.rent =
+      typeof getEffectiveTenantRent === "function"
+        ? getEffectiveTenantRent(tenant)
+        : tenant.rent;
+
+    return summary;
+  }
+
+  // Builds the small "room badge / rent / move-in-out" meta line shown under
+  // a tenant's name in the Tenant B picker, so admins can tell rooms/tenants
+  // apart without leaving the dropdown. Returns "" when there's nothing to
+  // show (e.g. brand new tenant with no property assignment yet).
+  renderTenantBOptionMeta(tenant) {
+    const summary = this.getTenantPropertySummary(tenant);
+    const parts = [];
+
+    if (summary.roomLabel) {
+      parts.push(
+        `<span class="badge" style="font-size:0.62rem;font-weight:600;${getRoomTypeBadgeStyle(summary.roomRaw)}" title="${summary.roomLabel}">${summary.roomLabel}</span>`,
+      );
+    }
+    if (summary.rent) {
+      parts.push(
+        `<span style="font-size:0.72rem;color:#6b7280;"><i class="bi bi-cash-coin me-1"></i>S$${Number(summary.rent).toLocaleString()}</span>`,
+      );
+    }
+    if (summary.moveInDate || summary.moveOutDate) {
+      const inTxt = summary.moveInDate ? this.formatDate(summary.moveInDate) : "?";
+      const outTxt = summary.moveOutDate ? this.formatDate(summary.moveOutDate) : "?";
+      parts.push(
+        `<span style="font-size:0.72rem;color:#6b7280;"><i class="bi bi-calendar-range me-1"></i>${inTxt} → ${outTxt}</span>`,
+      );
+    }
+
+    if (parts.length === 0) return "";
+    return `<div class="d-flex align-items-center flex-wrap gap-2 mt-1">${parts.join("")}</div>`;
   }
 
   getSettlementAccountsData() {
@@ -713,6 +797,7 @@ class ContractManagementComponent {
         const identifier = fin || `tenant_${originalIndex}`;
 
         const displayText = `${name}${fin ? ` (FIN: ${fin})` : passport ? ` (Passport: ${passport})` : ""}`;
+        const optionMeta = this.renderTenantBOptionMeta(tenant);
 
         dropdownMenu.innerHTML += `
           <div class="form-check px-3 py-2" data-search-text="${name.toLowerCase()} ${fin.toLowerCase()} ${passport.toLowerCase()}" style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
@@ -723,8 +808,9 @@ class ContractManagementComponent {
                    data-name="${name}"
                    data-passport="${passport}"
                    style="margin: 0; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; position: relative;">
-            <label class="form-check-label" for="tenantB_${identifier}" style="cursor: pointer; flex: 1; margin: 0;">
-              ${displayText}
+            <label class="form-check-label" for="tenantB_${identifier}" style="cursor: pointer; flex: 1; min-width: 0; margin: 0;">
+              <div>${displayText}</div>
+              ${optionMeta}
             </label>
           </div>
         `;
@@ -958,11 +1044,15 @@ class ContractManagementComponent {
     const rows = tenants
       .map((tenant) => {
         const badges = renderTenantSocialBadges(tenant, { size: "sm" });
-        if (!badges) return "";
+        const meta = this.renderTenantBOptionMeta(tenant);
+        if (!badges && !meta) return "";
         return `
-        <div class="d-flex align-items-center gap-2 flex-wrap py-1">
-          <small class="text-muted fw-semibold" style="min-width:80px;">${tenant.name || "Tenant"}</small>
-          <div class="d-flex gap-1 flex-wrap">${badges}</div>
+        <div class="py-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <small class="text-muted fw-semibold" style="min-width:80px;">${tenant.name || "Tenant"}</small>
+            ${badges ? `<div class="d-flex gap-1 flex-wrap">${badges}</div>` : ""}
+          </div>
+          ${meta}
         </div>`;
       })
       .filter(Boolean)
@@ -2558,6 +2648,25 @@ class ContractManagementComponent {
       });
     }
 
+    // Handle the AC deduction amount inputs (6-month / 1-year agreement)
+    const acDeduction6MonthInput = document.getElementById("acDeduction6Month");
+    if (acDeduction6MonthInput) {
+      acDeduction6MonthInput.addEventListener("input", () => {
+        this.contractData.acDeduction6Month =
+          acDeduction6MonthInput.value || 100;
+        this.updateContractPreview();
+      });
+    }
+
+    const acDeduction1YearInput = document.getElementById("acDeduction1Year");
+    if (acDeduction1YearInput) {
+      acDeduction1YearInput.addEventListener("input", () => {
+        this.contractData.acDeduction1Year =
+          acDeduction1YearInput.value || 200;
+        this.updateContractPreview();
+      });
+    }
+
     // Handle electricity free checkbox
     const electricityFreeCheckbox = document.getElementById("electricityFree");
     if (electricityFreeCheckbox) {
@@ -3223,7 +3332,7 @@ class ContractManagementComponent {
                                 this.contractData.fullPaymentReceived
                                   ? "n"
                                   : "p"
-                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>`
+                              })</strong> For 6 6-month agreement, the deposit money will be deducted SGD$${this.contractData.acDeduction6Month || 100} for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$${this.contractData.acDeduction1Year || 200}. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>`
                             : ""
                         }
 
@@ -3385,7 +3494,7 @@ class ContractManagementComponent {
                         
                         <p><strong>${
                           this.contractData.fullPaymentReceived ? "e" : "f"
-                        })</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax</p>
+                        })</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).</p>
                     </div>
                 </div>
 
@@ -4251,7 +4360,7 @@ class ContractManagementComponent {
       const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
       section2Clauses.push(
         `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax`,
+        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).`,
       );
       section2Clauses.forEach((clause) =>
         children.push(para(clause, { indent: true, spacing: 5 })),
@@ -5065,7 +5174,7 @@ class ContractManagementComponent {
 
       section2Clauses.push(
         `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningClauseLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax`,
+        `${cleaningClauseLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).`,
       );
 
       section2Clauses.forEach((clause) => {
@@ -6067,7 +6176,7 @@ class ContractManagementComponent {
 
                         <p style="margin-bottom: 15px;"><strong>o)</strong> At the expiration of the term hereby created, to deliver up the room peacefully and quietly in like condition as the same were delivered to Tenant B at the commencement of the term hereby created. Authorised alterations or additions, fair wear and tear. As the room is delivered in clean condition, Tenant B is expected to clear all personal belongings from the room and the premises, clean the room and their designated area spick and span, in like condition as the same were delivered. In failing to do so, a minimum of SGD$150 (SINGAPORE DOLLARS ONE HUNDRED AND FIFTY ONLY) will be deducted from the security deposit for the time spent cleaning the place.</p>
 
-                        ${this.acClauseVisible() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$100 for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$200. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>` : ""}
+                        ${this.acClauseVisible() ? `<p style="margin-bottom: 15px;"><strong>p)</strong> For 6 6-month agreement, the deposit money will be deducted SGD$${this.contractData.acDeduction6Month || 100} for Air-conditioner services. On a 1-year agreement, the deduction level would be SGD$${this.contractData.acDeduction1Year || 200}. ONLY APPLY FOR A ROOM WITH AN AIR-CONDITIONER.${this.contractData.airconFreeOfCharge ? " <em>(As a special arrangement, Tenant A has kindly waived this deduction for Tenant B. Tenant B is free of charge for this term.)</em>" : ""}</p>` : ""}
 
                         <p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "q" : "p"})</strong> Cost of damage for common area facilities provided previously by Tenant A will be handled by both parties. For the first 200 (SGD) in any single bill, the bill would be divided among all subtenants of the unit. The exceeding amount would be handled by Tenant A. Only applied for 6 months lease and above.</p>
 
@@ -6131,7 +6240,7 @@ class ContractManagementComponent {
                             
                             <p style="margin-bottom: 15px;"><strong>e)</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                             
-                            <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax</p>
+                            <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).</p>
                         </div>
                     </div>
 
@@ -6537,6 +6646,20 @@ class ContractManagementComponent {
       this.contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
+    const acDeduction6MonthElement =
+      document.getElementById("acDeduction6Month");
+    if (acDeduction6MonthElement) {
+      this.contractData.acDeduction6Month =
+        acDeduction6MonthElement.value || 100;
+    }
+
+    const acDeduction1YearElement =
+      document.getElementById("acDeduction1Year");
+    if (acDeduction1YearElement) {
+      this.contractData.acDeduction1Year =
+        acDeduction1YearElement.value || 200;
+    }
+
     const electricityFreeElement = document.getElementById("electricityFree");
     if (electricityFreeElement) {
       this.contractData.electricityFree = electricityFreeElement.checked;
@@ -6638,6 +6761,19 @@ class ContractManagementComponent {
       contractData.forfeitAcCleanFee = forfeitAcCleanFeeElement.checked;
     }
 
+    // Get AC deduction amounts
+    const acDeduction6MonthElement =
+      document.getElementById("acDeduction6Month");
+    if (acDeduction6MonthElement) {
+      contractData.acDeduction6Month = acDeduction6MonthElement.value || 100;
+    }
+
+    const acDeduction1YearElement =
+      document.getElementById("acDeduction1Year");
+    if (acDeduction1YearElement) {
+      contractData.acDeduction1Year = acDeduction1YearElement.value || 200;
+    }
+
     const electricityFreeEl = document.getElementById("electricityFree");
     if (electricityFreeEl) {
       contractData.electricityFree = electricityFreeEl.checked;
@@ -6665,6 +6801,8 @@ class ContractManagementComponent {
       this.contractData = {
         forfeitAcCleanFee: false,
         electricityFree: false,
+        acDeduction6Month: 100,
+        acDeduction1Year: 200,
         ...templateData.contractData,
       };
 
@@ -6682,7 +6820,11 @@ class ContractManagementComponent {
               ? document.getElementById("airconFreeOfCharge")
               : field === "forfeitAcCleanFee"
                 ? document.getElementById("forfeitAcCleanFee")
-                : field === "electricityFree"
+                : field === "acDeduction6Month"
+                  ? document.getElementById("acDeduction6Month")
+                  : field === "acDeduction1Year"
+                    ? document.getElementById("acDeduction1Year")
+                    : field === "electricityFree"
                     ? document.getElementById("electricityFree")
                     : field === "showSettlementAccounts"
                       ? document.getElementById("showSettlementAccounts")
@@ -6998,6 +7140,9 @@ class ContractManagementComponent {
         fullPaymentReceived: false,
         pestControlClause: false,
         airconFreeOfCharge: false,
+        forfeitAcCleanFee: false,
+        acDeduction6Month: 100,
+        acDeduction1Year: 200,
       };
 
       // Reset property selection
@@ -7118,6 +7263,25 @@ class ContractManagementComponent {
       document.getElementById("airconFreeOfCharge");
     if (airconFreeOfChargeElement) {
       airconFreeOfChargeElement.checked = false;
+    }
+
+    // Reset forfeit AC cleaning fee checkbox
+    const forfeitAcCleanFeeElement =
+      document.getElementById("forfeitAcCleanFee");
+    if (forfeitAcCleanFeeElement) {
+      forfeitAcCleanFeeElement.checked = false;
+    }
+
+    // Reset AC deduction amount inputs
+    const acDeduction6MonthElement =
+      document.getElementById("acDeduction6Month");
+    if (acDeduction6MonthElement) {
+      acDeduction6MonthElement.value = "100";
+    }
+    const acDeduction1YearElement =
+      document.getElementById("acDeduction1Year");
+    if (acDeduction1YearElement) {
+      acDeduction1YearElement.value = "200";
     }
 
     // Reset new tenant fields
@@ -7464,7 +7628,7 @@ class ContractManagementComponent {
               ]),
               clausePara("f", [
                 normal(
-                  "Cleaning fee: SGD$_____ / 1pax",
+                  "Cleaning fee: SGD$_____ / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).",
                 ),
               ]),
               blankPara(),

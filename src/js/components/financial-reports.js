@@ -626,6 +626,29 @@ class FinancialReportsComponent {
     this.renderPropertyCards(this.properties);
   }
 
+  // Bootstrap 5.3 runs `data-bs-title` through normalizeData(), which turns an
+  // empty string (and the literal "null") into `null` — and Tooltip's config
+  // type check then throws `TOOLTIP: Option "title" provided type "null"`.
+  // A single such element (e.g. an income row whose personInCharge is blank)
+  // used to abort the whole render chain mid-way, leaving the expense list
+  // stuck on its loading skeleton forever. Resolve the title ourselves, skip
+  // elements that have none, and never let one bad element kill the render.
+  _createTooltip(el, options = {}) {
+    const title = (
+      el.getAttribute("data-bs-title") ||
+      el.getAttribute("data-bs-original-title") ||
+      el.getAttribute("title") ||
+      ""
+    ).trim();
+    if (!title) return null;
+    try {
+      return new bootstrap.Tooltip(el, { ...options, title });
+    } catch (error) {
+      console.warn("Skipping tooltip with invalid config", el, error);
+      return null;
+    }
+  }
+
   initializeTooltips() {
     // Dispose of existing tooltips first to prevent memory leaks
     const existingTooltips = document.querySelectorAll(
@@ -651,12 +674,11 @@ class FinancialReportsComponent {
     const tooltipTriggerList = document.querySelectorAll(
       '[data-bs-toggle="tooltip"]',
     );
-    [...tooltipTriggerList].map(
-      (tooltipTriggerEl) =>
-        new bootstrap.Tooltip(tooltipTriggerEl, {
-          placement: "top",
-          offset: [15, 0], // Offset to the right
-        }),
+    [...tooltipTriggerList].forEach((tooltipTriggerEl) =>
+      this._createTooltip(tooltipTriggerEl, {
+        placement: "top",
+        offset: [15, 0], // Offset to the right
+      }),
     );
 
     // Add custom tooltip styles if not already added
@@ -1427,7 +1449,12 @@ class FinancialReportsComponent {
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge,
       );
-      const investorName = investor ? investor.name : item.personInCharge;
+      // Items imported without a personInCharge resolve to nothing — fall back
+      // to a "?" circle with an explanatory tooltip rather than rendering a
+      // blank avatar and an empty data-bs-title (which Bootstrap rejects).
+      const investorName = (investor ? investor.name : item.personInCharge) || "";
+      const investorInitial = investorName.charAt(0).toUpperCase() || "?";
+      const investorTooltip = investorName || "No person in charge";
       const investorAvatar = investor?.avatar;
 
       // Check if this item is pending deletion confirmation
@@ -1475,12 +1502,12 @@ class FinancialReportsComponent {
 
       // Shared: investor avatar (both desktop and mobile use slightly different sizes)
       const investorAvatarDesktop = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
 
       const investorAvatarMobile = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
 
       // Shared: action buttons (desktop)
       const evidenceBtn = hasEvidence
@@ -1740,7 +1767,11 @@ class FinancialReportsComponent {
       const investor = this.investors.find(
         (inv) => inv.investorId === item.personInCharge,
       );
-      const investorName = investor ? investor.name : item.personInCharge;
+      // See updateIncomeDisplay() — blank personInCharge must still produce a
+      // renderable initial and a non-empty tooltip title.
+      const investorName = (investor ? investor.name : item.personInCharge) || "";
+      const investorInitial = investorName.charAt(0).toUpperCase() || "?";
+      const investorTooltip = investorName || "No person in charge";
       const investorAvatar = investor?.avatar;
 
       // Check if this item is pending deletion confirmation
@@ -1786,12 +1817,12 @@ class FinancialReportsComponent {
 
       // Shared: investor avatar
       const investorAvatarDesktop = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
 
       const investorAvatarMobile = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorName)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorName)}">${escapeHtml(investorName.charAt(0).toUpperCase())}</div>`;
+        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
+        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
 
       // paid-to avatar: desktop (flex-column with badge) vs mobile (inline)
       const unknownCircle = `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:32px;height:32px;font-size:16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`;
@@ -2599,7 +2630,7 @@ class FinancialReportsComponent {
           if (existingTooltip) {
             existingTooltip.dispose();
           }
-          new bootstrap.Tooltip(tooltipTriggerEl);
+          this._createTooltip(tooltipTriggerEl);
         });
       }
     } catch (error) {
@@ -9297,7 +9328,7 @@ class FinancialReportsComponent {
     container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
       const existing = bootstrap.Tooltip.getInstance(el);
       if (existing) existing.dispose();
-      new bootstrap.Tooltip(el);
+      this._createTooltip(el);
     });
   }
 }
