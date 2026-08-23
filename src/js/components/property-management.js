@@ -581,6 +581,15 @@ class PropertyManagementComponent {
     });
   }
 
+  // OneMap returns addresses in ALL CAPS (e.g. "122 MIDDLE ROAD"). Convert
+  // to Title Case for display, but keep all-uppercase tokens like unit
+  // numbers ("#01-23") and abbreviations that are letters+digits mixed as-is.
+  toTitleCase(str) {
+    return str
+      .toLowerCase()
+      .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  }
+
   async fetchAddressFromPostcode(postcode) {
     if (!postcode || postcode.length !== 6 || !/^\d+$/.test(postcode)) {
       if (postcode.length === 6) {
@@ -615,6 +624,7 @@ class PropertyManagementComponent {
         let address = result.ADDRESS || "";
         if (address) {
           address = address.replace(/ SINGAPORE \d{6}$/i, "");
+          address = this.toTitleCase(address);
         }
 
         const addressInput = document.getElementById("address");
@@ -1343,6 +1353,10 @@ class PropertyManagementComponent {
 
         document.getElementById("rentPaymentDate").value =
           property.rentPaymentDate || 1;
+        document.getElementById("depositToLandlord").value =
+          property.depositToLandlord || 0;
+        document.getElementById("depositFromTenant").value =
+          property.depositFromTenant || 0;
         document.getElementById("rent").value = property.rent || 0;
         console.log('🔍 DEBUG - Editing property, rent value set to form:', property.rent);
         document.getElementById("airconUnits").value = property.airconUnits || 0;
@@ -1561,6 +1575,8 @@ class PropertyManagementComponent {
 
         document.getElementById("maxPax").value = "1";
         document.getElementById("rentPaymentDate").value = "1";
+        document.getElementById("depositToLandlord").value = "0";
+        document.getElementById("depositFromTenant").value = "0";
         document.getElementById("rent").value = "0";
 
         // Clear WiFi images for add mode
@@ -1780,6 +1796,8 @@ class PropertyManagementComponent {
           formData.get("moveInDate") || new Date().toISOString().split("T")[0],
         moveOutDate: formData.get("moveOutDate")?.trim() || null,
         rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
+        depositToLandlord: parseFloat(formData.get("depositToLandlord")) || 0,
+        depositFromTenant: parseFloat(formData.get("depositFromTenant")) || 0,
         rent: parseFloat(formData.get("rent")) || 0,
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
         subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
@@ -1861,6 +1879,16 @@ class PropertyManagementComponent {
 
       if (propertyData.rent < 0) {
         alert("Rent cannot be negative");
+        return;
+      }
+
+      if (propertyData.depositToLandlord < 0) {
+        alert("Deposit to landlord cannot be negative");
+        return;
+      }
+
+      if (propertyData.depositFromTenant < 0) {
+        alert("Deposit from tenant cannot be negative");
         return;
       }
 
