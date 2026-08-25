@@ -5285,6 +5285,29 @@
                   ></button>
                 </div>
                 <div class="pm-detail-body" style="flex: 1; overflow-y: auto;">
+                  <style>
+                    /* Field shimmer while a save is in flight (see JS:
+                       handlePropertySubmit toggles .pm-saving on #propertyForm).
+                       Painted directly onto the real .form-control/.form-select
+                       elements — not swapped-in placeholder bars — so the
+                       shimmer is always exactly the field's own box and never
+                       shifts the layout. Reuses the @keyframes pm-shimmer /
+                       gradient already defined for the property-list skeleton
+                       above, so both loading states look identical. */
+                    #propertyForm.pm-saving .form-control,
+                    #propertyForm.pm-saving .form-select {
+                      color: transparent !important;
+                      background: linear-gradient(90deg, #eef0f3 25%, #f8f9fb 37%, #eef0f3 63%) !important;
+                      background-size: 400% 100%;
+                      animation: pm-shimmer 1.4s ease infinite;
+                      border-color: transparent !important;
+                      box-shadow: none !important;
+                      pointer-events: none;
+                    }
+                    #propertyForm.pm-saving .form-control::placeholder {
+                      color: transparent;
+                    }
+                  </style>
                   <form id="propertyForm">
                     <!-- Hidden field to store property image URL -->
                     <input
@@ -5667,11 +5690,11 @@
                   <!-- Per-room price range, shown once rooms are selected above -->
                   <div id="propertyRoomPricesWrap" class="mt-2" style="display: none">
                     <label class="form-label mb-1">
-                      Room Price Range (SGD/month)
+                      Room Pricing (SGD/month)
                       <i
                         class="bi bi-info-circle text-muted"
                         data-bs-toggle="tooltip"
-                        title="Set the asking price range for each room type. Used by the Sales Map to filter and sort rooms for prospective tenants."
+                        title="Min/Max is the asking range used by the Sales Map to filter and sort rooms for prospective tenants. Actual is what the room is really listed at right now — who last set it and when is tracked automatically."
                       ></i>
                     </label>
                     <div id="propertyRoomPricesContainer"></div>

@@ -214,21 +214,37 @@ class PropertyManagementComponent {
       if (container.querySelector(`.room-price-row[data-room="${room}"]`)) return;
       const label = getRoomTypeDisplayName(room);
       const row = document.createElement('div');
-      row.className = 'd-flex align-items-center gap-2 mb-2 room-price-row';
+      row.className = 'mb-2 room-price-row';
       row.dataset.room = room;
       row.innerHTML = `
-        <span class="badge text-truncate" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
-        <div class="input-group input-group-sm" style="max-width:110px;">
-          <span class="input-group-text">$</span>
-          <input type="number" class="form-control room-price-min" min="0" step="10" placeholder="Min">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="badge text-truncate" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
+          <div class="input-group input-group-sm" style="max-width:110px;">
+            <span class="input-group-text">$</span>
+            <input type="number" class="form-control room-price-min" min="0" step="10" placeholder="Min">
+          </div>
+          <span class="text-muted small">to</span>
+          <div class="input-group input-group-sm" style="max-width:110px;">
+            <span class="input-group-text">$</span>
+            <input type="number" class="form-control room-price-max" min="0" step="10" placeholder="Max">
+          </div>
+          <span class="text-muted small border-start ps-2 ms-1" title="What the room is actually listed at right now">Actual</span>
+          <div class="input-group input-group-sm" style="max-width:110px;">
+            <span class="input-group-text">$</span>
+            <input type="number" class="form-control room-price-current" min="0" step="10" placeholder="Now">
+          </div>
         </div>
-        <span class="text-muted small">to</span>
-        <div class="input-group input-group-sm" style="max-width:110px;">
-          <span class="input-group-text">$</span>
-          <input type="number" class="form-control room-price-max" min="0" step="10" placeholder="Max">
-        </div>
+        <div class="room-price-meta small text-muted fst-italic mt-1"></div>
       `;
       container.appendChild(row);
+
+      // Live feedback: flag when the actual price drifts outside the asking
+      // range, and clear the "last updated" caption the moment it's edited
+      // (the caption reflects the saved value; re-stamped by the server on save).
+      const currentInput = row.querySelector('.room-price-current');
+      currentInput.addEventListener('input', () => this.refreshRoomPriceRowMeta(row));
+      row.querySelector('.room-price-min').addEventListener('input', () => this.refreshRoomPriceRowMeta(row));
+      row.querySelector('.room-price-max').addEventListener('input', () => this.refreshRoomPriceRowMeta(row));
     });
 
     // Keep rows ordered by family, then number
@@ -239,25 +255,68 @@ class PropertyManagementComponent {
     wrap.style.display = checkedRooms.length > 0 ? 'block' : 'none';
   }
 
-  // Fills the price range inputs from a property's saved roomPrices; call after
-  // renderRoomPricesInputs() has created the rows for the property's rooms.
+  // Updates a room-price row's caption: shows the out-of-range warning when the
+  // actual price falls outside [min, max], and otherwise the saved "last
+  // updated" stamp (dataset.updatedAt/updatedBy, set by populateRoomPricesInputs).
+  refreshRoomPriceRowMeta(row) {
+    const meta = row.querySelector('.room-price-meta');
+    if (!meta) return;
+
+    const min = parseFloat(row.querySelector('.room-price-min')?.value) || 0;
+    const max = parseFloat(row.querySelector('.room-price-max')?.value) || 0;
+    const current = parseFloat(row.querySelector('.room-price-current')?.value) || 0;
+
+    if (current > 0 && (min > 0 || max > 0) && (current < min || current > max)) {
+      meta.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning"></i> Outside the $${min}–$${max} asking range`;
+      meta.classList.remove('text-muted', 'fst-italic');
+      meta.classList.add('text-warning');
+      return;
+    }
+
+    meta.classList.remove('text-warning');
+    meta.classList.add('text-muted', 'fst-italic');
+    const updatedAt = row.dataset.updatedAt;
+    const updatedBy = row.dataset.updatedBy;
+    if (current > 0 && updatedAt) {
+      const dateStr = new Date(updatedAt).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+      meta.textContent = `Updated ${dateStr}${updatedBy ? ' by ' + updatedBy : ''}`;
+    } else if (current > 0) {
+      meta.textContent = 'Will be saved as today\'s update';
+    } else {
+      meta.textContent = '';
+    }
+  }
+
+  // Fills the price range + actual-price inputs from a property's saved
+  // roomPrices; call after renderRoomPricesInputs() has created the rows for
+  // the property's rooms.
   populateRoomPricesInputs(roomPrices = []) {
     roomPrices.forEach(rp => {
       const row = document.querySelector(`.room-price-row[data-room="${rp.room}"]`);
       if (!row) return;
       const minInput = row.querySelector('.room-price-min');
       const maxInput = row.querySelector('.room-price-max');
+      const currentInput = row.querySelector('.room-price-current');
       if (minInput) minInput.value = rp.minPrice || '';
       if (maxInput) maxInput.value = rp.maxPrice || '';
+      if (currentInput) currentInput.value = rp.currentPrice || '';
+      // Stash the server-stamped metadata on the row; it's display-only (never
+      // submitted back) and re-stamped server-side whenever currentPrice changes.
+      row.dataset.updatedAt = rp.currentPriceUpdatedAt || '';
+      row.dataset.updatedBy = rp.currentPriceUpdatedBy || '';
+      this.refreshRoomPriceRowMeta(row);
     });
   }
 
-  // Reads the currently-rendered price range rows into a roomPrices payload.
+  // Reads the currently-rendered price range + actual-price rows into a
+  // roomPrices payload. currentPriceUpdatedAt/By are intentionally omitted —
+  // the server stamps those from the authenticated user on save.
   getRoomPricesFromInputs() {
     return Array.from(document.querySelectorAll('#propertyRoomPricesContainer .room-price-row')).map(row => {
       const minPrice = parseFloat(row.querySelector('.room-price-min')?.value) || 0;
       const maxPrice = parseFloat(row.querySelector('.room-price-max')?.value) || 0;
-      return { room: row.dataset.room, minPrice, maxPrice };
+      const currentPrice = parseFloat(row.querySelector('.room-price-current')?.value) || 0;
+      return { room: row.dataset.room, minPrice, maxPrice, currentPrice };
     });
   }
 
@@ -1285,6 +1344,7 @@ class PropertyManagementComponent {
     // Reset and populate form
     const form = document.getElementById("propertyForm");
     if (form) {
+      form.classList.remove("pm-saving");
       form.reset();
       // Rebuild the room picker back to its default set - otherwise "+ Add"
       // rows from a previously edited property would linger across opens.
@@ -1898,8 +1958,16 @@ class PropertyManagementComponent {
       const submitBtn = document.getElementById("propertySubmitBtn");
       submitBtn.disabled = true;
       submitBtn.innerHTML = isEdit
-        ? '<i class="bi bi-hourglass-split me-1"></i>Updating Property...'
-        : '<i class="bi bi-hourglass-split me-1"></i>Adding Property...';
+        ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Updating Property...'
+        : '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Adding Property...';
+
+      // Shimmer the form's own fields too, so the whole panel reads as busy
+      // rather than just the button. This toggles a class on the real
+      // <form> — the shimmer paints onto the actual .form-control/.form-select
+      // elements in place (see CSS near the form markup), so it's always
+      // exactly their size and never shifts the layout.
+      const propertyFormEl = document.getElementById("propertyForm");
+      propertyFormEl?.classList.add("pm-saving");
 
       // Add or update the property
       if (isEdit) {
@@ -1915,10 +1983,11 @@ class PropertyManagementComponent {
       this.selectedPropertyId = propertyData.propertyId;
       const savedProperty = this.properties.find((p) => p.propertyId === propertyData.propertyId);
       if (savedProperty) {
-        this.showPropertyPanel(savedProperty); // also re-enables submitBtn
+        this.showPropertyPanel(savedProperty); // also re-enables submitBtn + clears pm-saving
       } else {
         this.highlightSelectedRow();
         submitBtn.disabled = false;
+        propertyFormEl?.classList.remove("pm-saving");
       }
     } catch (error) {
       console.error("Error in handlePropertySubmit:", error);
@@ -1937,6 +2006,7 @@ class PropertyManagementComponent {
           ? '<i class="bi bi-pencil-square me-1"></i>Update Property'
           : '<i class="bi bi-plus-circle me-1"></i>Add Property';
       }
+      document.getElementById("propertyForm")?.classList.remove("pm-saving");
     }
   }
 
