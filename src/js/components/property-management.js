@@ -516,6 +516,98 @@ class PropertyManagementComponent {
     }
   }
 
+  // ─── Investor Ownership (edit form) ──────────────────────────────────────
+  // Fetched fresh from the investors DB each time a property is selected —
+  // scoped to just that property (GET /api/investors/property/:id) rather
+  // than served from the preloaded this.allInvestors cache — so it stays
+  // accurate and works even where that bulk list isn't available, and never
+  // fires for the "Add New Property" empty form.
+
+  hidePropertyInvestorOwnership() {
+    const section = document.getElementById("investorOwnershipCol");
+    if (section) section.style.display = "none";
+    const container = document.getElementById("investorOwnershipContainer");
+    if (container) container.innerHTML = "";
+    // Bump so any in-flight fetch from a previously selected property is
+    // ignored if it resolves after we've moved on.
+    this._investorOwnershipRequestId = (this._investorOwnershipRequestId || 0) + 1;
+  }
+
+  async loadPropertyInvestorOwnership(propertyId) {
+    const section = document.getElementById("investorOwnershipCol");
+    const container = document.getElementById("investorOwnershipContainer");
+    if (!section || !container) return;
+
+    section.style.display = "";
+    container.innerHTML = `<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>`;
+
+    // Guard against a stale response landing after the user has switched to
+    // a different property (or back to add-mode) while this was in flight.
+    const requestId = (this._investorOwnershipRequestId = (this._investorOwnershipRequestId || 0) + 1);
+
+    try {
+      const response = await API.get(API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(propertyId));
+      const result = await response.json();
+      if (requestId !== this._investorOwnershipRequestId) return; // superseded
+
+      if (!result.success) {
+        container.innerHTML = `<div class="text-danger small">Failed to load investors.</div>`;
+        return;
+      }
+
+      this.renderPropertyInvestorOwnership(result.data || [], propertyId);
+    } catch (error) {
+      if (requestId !== this._investorOwnershipRequestId) return;
+      console.error("Error loading investor ownership:", error);
+      container.innerHTML = `<div class="text-danger small">Failed to load investors.</div>`;
+    }
+  }
+
+  renderPropertyInvestorOwnership(investors, propertyId) {
+    const container = document.getElementById("investorOwnershipContainer");
+    if (!container) return;
+
+    // Each investor's `properties` array can list several properties — pull
+    // out just the percentage entry that applies to the property being
+    // edited (the API already scopes `investors` to owners of this property).
+    const owners = investors
+      .map((investor) => {
+        const propertyData = (investor.properties || []).find((p) => p.propertyId === propertyId);
+        return { investor, percentage: propertyData ? propertyData.percentage : 0 };
+      })
+      .sort((a, b) => b.percentage - a.percentage);
+
+    if (owners.length === 0) {
+      container.innerHTML = `<div class="text-muted small"><i class="bi bi-person-lines-fill me-1"></i>None configured.</div>`;
+      return;
+    }
+
+    const rowsHtml = owners
+      .map(
+        ({ investor, percentage }) => `
+      <div class="d-flex align-items-center gap-2 py-1" title="${this.escapeHtml(investor.name)} (${this.escapeHtml(investor.investorId)})">
+        ${renderInvestorAvatarCircle(investor, 22)}
+        <span class="small text-truncate flex-grow-1">${this.escapeHtml(investor.name)}</span>
+        <span class="badge bg-light text-dark border" style="font-size:0.7rem;">${percentage}%</span>
+      </div>`
+      )
+      .join("");
+
+    // Sanity-check the split adds up to 100% — flag it if not, since a
+    // mismatch usually means a stale/incomplete ownership record.
+    const totalPercentage = Math.round(owners.reduce((sum, o) => sum + o.percentage, 0) * 100) / 100;
+    const totalOff = Math.abs(totalPercentage - 100) > 0.01;
+    const totalHtml = `
+      <div class="d-flex align-items-center justify-content-between pt-1 mt-1 border-top">
+        <span class="text-muted" style="font-size:0.7rem;">Total</span>
+        <span class="fw-bold ${totalOff ? "text-danger" : "text-success"}" style="font-size:0.7rem;">
+          ${totalPercentage}%${totalOff ? ' <i class="bi bi-exclamation-triangle-fill" title="Ownership percentages do not add up to 100%"></i>' : ""}
+        </span>
+      </div>`;
+
+    container.innerHTML = rowsHtml + totalHtml;
+  }
+
   populateAcServiceCompanyDropdown() {
     const dropdown = document.getElementById("acServiceCompanyId");
     if (!dropdown) return;
@@ -766,7 +858,6 @@ class PropertyManagementComponent {
           });
         }
         this.renderPropertiesTable();
-        this.updatePropertiesCountBadge();
         this.autoSelectFirstPropertyOnce();
 
         // Update sidebar badges
@@ -800,12 +891,16 @@ class PropertyManagementComponent {
     }
   }
 
+  // Reflects the currently *visible* count (after quick-search + filter
+  // panel), not the unfiltered total — so it stays accurate whenever the
+  // list is narrowed down.
   updatePropertiesCountBadge() {
     const badge = document.getElementById("propertiesTotalCountBadge");
     if (!badge) return;
 
     const total = this.properties.length;
-    badge.textContent = total;
+    const visible = this.getVisibleProperties().length;
+    badge.textContent = visible === total ? total : `${visible} / ${total}`;
     badge.style.display = total > 0 ? "" : "none";
   }
 
@@ -840,6 +935,8 @@ class PropertyManagementComponent {
     const container = document.getElementById("propertiesContainer");
 
     if (!container) return;
+
+    this.updatePropertiesCountBadge();
 
     if (this.properties.length === 0) {
       this.showEmptyState();
@@ -1388,6 +1485,7 @@ class PropertyManagementComponent {
         document.getElementById("address").value = property.address || "";
         document.getElementById("unit").value = property.unit || "";
         document.getElementById("maxPax").value = property.maxPax || 1;
+        document.getElementById("leaseTerm").value = property.leaseTerm ?? "";
 
         // Format date for input
         if (property.moveInDate) {
@@ -1535,6 +1633,10 @@ class PropertyManagementComponent {
         }
         this.updateManagerAvatarPreview(property.manager || "");
 
+        // Investor ownership breakdown — only fetched now, when a property
+        // has actually been selected for editing.
+        this.loadPropertyInvestorOwnership(property.propertyId);
+
         if (property.managementFeeStart) {
           const feeDate = new Date(property.managementFeeStart);
           document.getElementById("managementFeeStart").value = feeDate
@@ -1633,6 +1735,12 @@ class PropertyManagementComponent {
           moveOutDateInput.value = "";
         }
 
+        // Clear lease term for add mode — filled in manually
+        const leaseTermInput = document.getElementById("leaseTerm");
+        if (leaseTermInput) {
+          leaseTermInput.value = "";
+        }
+
         document.getElementById("maxPax").value = "1";
         document.getElementById("rentPaymentDate").value = "1";
         document.getElementById("depositToLandlord").value = "0";
@@ -1666,6 +1774,9 @@ class PropertyManagementComponent {
         this.populateManagerDropdown();
         document.getElementById("manager").value = "";
         this.updateManagerAvatarPreview("");
+
+        // No property selected yet — hide investor ownership and don't fetch
+        this.hidePropertyInvestorOwnership();
 
         // Reset settlement bank dropdowns for add mode
         const sgdBankText = document.getElementById("settlementSgdBankText");
@@ -1852,6 +1963,9 @@ class PropertyManagementComponent {
         address: formData.get("address").trim(),
         unit: formData.get("unit").trim(),
         maxPax: parseInt(formData.get("maxPax")) || 1,
+        leaseTerm: formData.get("leaseTerm")?.trim()
+          ? parseInt(formData.get("leaseTerm"))
+          : null,
         moveInDate:
           formData.get("moveInDate") || new Date().toISOString().split("T")[0],
         moveOutDate: formData.get("moveOutDate")?.trim() || null,
