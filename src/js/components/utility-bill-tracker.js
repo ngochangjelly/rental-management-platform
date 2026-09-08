@@ -10,6 +10,37 @@ import {
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
 
+// Draws each month's grand total above its stacked bar. Uses Chart.js's built-in
+// plugin hook system (afterDatasetsDraw) — no extra plugin/CDN script required.
+// Registered per-chart (via the `plugins:` array in the Chart config) rather than
+// globally, so it never touches other charts elsewhere in the app.
+const monthlyTotalLabelsPlugin = {
+  id: 'monthlyTotalLabels',
+  afterDatasetsDraw(chart, _args, pluginOpts) {
+    const totals = pluginOpts?.totals;
+    if (!totals || !totals.length) return;
+    const subsidy = pluginOpts.subsidy || 0;
+    const { ctx, scales } = chart;
+    const xScale = scales.x;
+    const yScale = scales.y;
+    if (!xScale || !yScale) return;
+    ctx.save();
+    ctx.font = '700 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    totals.forEach((total, i) => {
+      if (total == null || total <= 0) return;
+      const xPos = xScale.getPixelForValue(i);
+      const yPos = yScale.getPixelForValue(total);
+      ctx.fillStyle = subsidy > 0
+        ? (total >= subsidy ? '#dc3545' /* over subsidy limit */ : '#198754' /* within subsidy limit */)
+        : (pluginOpts.color || '#495057');
+      ctx.fillText(`$${total.toFixed(0)}`, xPos, yPos - 4);
+    });
+    ctx.restore();
+  },
+};
+
 class UtilityBillTrackerComponent {
   constructor() {
     this.properties = [];
@@ -1038,12 +1069,15 @@ class UtilityBillTrackerComponent {
     this.chart = new Chart(canvas, {
       type: 'bar',
       data: { labels, datasets },
+      plugins: [monthlyTotalLabelsPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 24 } },
         plugins: {
           legend: { position: 'top' },
+          monthlyTotalLabels: { totals, subsidy },
           tooltip: {
             callbacks: {
               label: (ctx) => {

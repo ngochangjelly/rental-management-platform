@@ -10,6 +10,7 @@
  *   #/tenants/<property-slug>/<tenant-name-slug>    → specific tenant (opens modal)
  *   #/bills/<property-slug>/<year>/<month>          → bill management for property/month
  *   #/bills/<property-slug>                         → bill management (current month)
+ *   #/properties/<property-slug>                    → property detail panel (Properties section)
  *
  * Property slug  = slugify(unit) + "-" + slugify(address)
  *   e.g.  "#05-12" + "123 Clementi Road"  →  "05-12-123-clementi-road"
@@ -129,6 +130,11 @@ class AppRouter {
       {
         pattern: /^\/bills$/,
         handle: () => this._goSection("bills"),
+      },
+      // Properties — property slug (opens the property in the detail panel)
+      {
+        pattern: /^\/properties\/(.+)$/,
+        handle: ([, slug]) => this._goProperty(slug),
       },
       // Docs — specific doc: {title-slug}-{24-char-id} or just {24-char-id}
       {
@@ -329,6 +335,42 @@ class AppRouter {
       } else {
         console.warn(`[Router] No tenant matched name slug: "${tenantNameSlug}"`);
       }
+    }
+  }
+
+  async _goProperty(slug) {
+    this._goSection("properties");
+
+    const pm = window.propertyManager;
+    if (!pm) return;
+
+    const property = await this._resolvePropertiesSlug(slug);
+    if (!property) {
+      console.warn(`[Router] No property found for properties slug: "${slug}"`);
+      return;
+    }
+
+    pm._slugResolvedProperty = property;
+    await pm.selectProperty(property.propertyId);
+    pm._slugResolvedProperty = null;
+  }
+
+  async _resolvePropertiesSlug(slug) {
+    const cached = window.propertyManager?.properties;
+    if (cached?.length > 0) {
+      return cached.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    }
+
+    try {
+      const res = await API.get(
+        `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200`,
+      );
+      const data = await res.json();
+      const props = data.properties || [];
+      return props.find((p) => SlugUtils.propertySlug(p) === slug) || null;
+    } catch (e) {
+      console.error("[Router] Failed to resolve properties slug:", e);
+      return null;
     }
   }
 

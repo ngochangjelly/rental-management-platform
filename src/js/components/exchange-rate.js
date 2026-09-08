@@ -49,8 +49,11 @@ class ExchangeRateComponent {
   // Fetch rate effective at a given date (YYYY-MM-DD or Date obj)
   async getRateAt(date) {
     try {
+      // Local Y/M/D, not toISOString() — that converts to UTC first, which
+      // for a UTC+8 user rolls "today" back to yesterday for several hours
+      // after local midnight and can miss a rate added earlier today.
       const dateStr = date instanceof Date
-        ? date.toISOString().split('T')[0]
+        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
         : String(date);
       const res = await API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr));
       const data = await res.json();

@@ -79,11 +79,61 @@ class PropertyManagementComponent {
         addBtn.type = 'button';
         addBtn.className = 'btn btn-sm btn-link text-decoration-none room-family-add-btn';
         addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Add ${label}`;
+
+        // Inline "type any number" entry row, swapped in for the button when
+        // clicked. Free-form so a room can be numbered to match its real-world
+        // label (e.g. Common 1425), not forced to the next sequential number.
+        const entryRow = document.createElement('div');
+        entryRow.className = 'room-family-add-entry px-3 py-2 d-flex align-items-center gap-2';
+        entryRow.style.display = 'none';
+        entryRow.innerHTML = `
+          <span class="text-muted small">${label}</span>
+          <input type="number" inputmode="numeric" min="1" step="1" class="form-control form-control-sm no-spinner room-family-number-input" placeholder="Number" style="max-width:100px;">
+          <button type="button" class="btn btn-sm btn-success room-family-confirm-btn" title="Add"><i class="bi bi-check-lg"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-secondary room-family-cancel-btn" title="Cancel"><i class="bi bi-x-lg"></i></button>
+        `;
+
+        const numberInput = entryRow.querySelector('.room-family-number-input');
+        const confirmBtn = entryRow.querySelector('.room-family-confirm-btn');
+        const cancelBtn = entryRow.querySelector('.room-family-cancel-btn');
+
+        const showEntry = () => {
+          addBtn.style.display = 'none';
+          entryRow.style.display = 'flex';
+          numberInput.value = '';
+          numberInput.focus();
+        };
+        const showButton = () => {
+          entryRow.style.display = 'none';
+          addBtn.style.display = '';
+        };
+
         addBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.handleAddRoomFamily(key);
+          showEntry();
         });
+        cancelBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showButton();
+        });
+        confirmBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (this.handleAddRoomFamily(key, numberInput.value)) showButton();
+          else numberInput.focus();
+        });
+        numberInput.addEventListener('click', (e) => e.stopPropagation());
+        numberInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmBtn.click();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            showButton();
+          }
+        });
+
         group.appendChild(addBtn);
+        group.appendChild(entryRow);
       }
     });
 
@@ -142,16 +192,28 @@ class PropertyManagementComponent {
     hiddenSelect.appendChild(option);
   }
 
-  // "+ Add {family}" handler: appends the next numbered room in that family,
-  // checked by default since the user just asked for it.
-  handleAddRoomFamily(family) {
-    const existingNumbers = Array.from(document.querySelectorAll('.property-room-checkbox'))
-      .map(cb => parseRoomType(cb.value))
-      .filter(p => p.family === family)
-      .map(p => p.number || 0);
-    const nextNumber = existingNumbers.length ? Math.max(...existingNumbers) + 1 : 1;
-    this.addRoomTypeCheckbox(`${family}_${nextNumber}`, { checked: true });
+  // "+ Add {family}" handler: adds the room number the user typed (any
+  // positive whole number, not just the next sequential one — e.g. Common
+  // 1425 to match a real-world room label), checked by default since the
+  // user just asked for it. Returns true on success, false if the input was
+  // invalid or that room already exists, so the caller can decide whether to
+  // close the entry row or leave it open for correction.
+  handleAddRoomFamily(family, rawNumber) {
+    const number = parseInt(rawNumber, 10);
+    if (!Number.isInteger(number) || number < 1 || String(number) !== String(rawNumber).trim()) {
+      alert('Enter a whole number (1 or greater) for the room.');
+      return false;
+    }
+
+    const roomType = `${family}_${number}`;
+    if (document.getElementById(`room_${roomType}`)) {
+      alert(`${getRoomTypeDisplayName(roomType)} already exists.`);
+      return false;
+    }
+
+    this.addRoomTypeCheckbox(roomType, { checked: true });
     this.updatePropertyRoomsSelection();
+    return true;
   }
 
   // Makes sure every room in `rooms` has a checkbox, adding any that go
@@ -221,17 +283,17 @@ class PropertyManagementComponent {
           <span class="badge text-truncate" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
           <div class="input-group input-group-sm" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control room-price-min" min="0" step="10" placeholder="Min">
+            <input type="number" class="form-control no-spinner room-price-min" min="0" step="any" placeholder="Min">
           </div>
           <span class="text-muted small">to</span>
           <div class="input-group input-group-sm" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control room-price-max" min="0" step="10" placeholder="Max">
+            <input type="number" class="form-control no-spinner room-price-max" min="0" step="any" placeholder="Max">
           </div>
           <span class="text-muted small border-start ps-2 ms-1" title="What the room is actually listed at right now">Actual</span>
           <div class="input-group input-group-sm" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control room-price-current" min="0" step="10" placeholder="Now">
+            <input type="number" class="form-control no-spinner room-price-current" min="0" step="any" placeholder="Now">
           </div>
         </div>
         <div class="room-price-meta small text-muted fst-italic mt-1"></div>
@@ -687,6 +749,13 @@ class PropertyManagementComponent {
       });
     }
 
+    // Copy System ID + address of every property currently shown in the list
+    // (i.e. after search + filters, or all of them when nothing is applied).
+    const copyListBtn = document.getElementById("propertyCopyListBtn");
+    if (copyListBtn) {
+      copyListBtn.addEventListener("click", () => this.copyVisiblePropertiesList(copyListBtn));
+    }
+
     // OneMap API - Fetch address from postcode
     const fetchAddressBtn = document.getElementById("fetchAddressBtn");
     if (fetchAddressBtn) {
@@ -893,13 +962,15 @@ class PropertyManagementComponent {
 
   // Reflects the currently *visible* count (after quick-search + filter
   // panel), not the unfiltered total — so it stays accurate whenever the
-  // list is narrowed down.
+  // list is narrowed down. Archived properties are excluded from both
+  // numbers — they're shown in their own "Archived (N)" divider in the list,
+  // not counted as part of the active total.
   updatePropertiesCountBadge() {
     const badge = document.getElementById("propertiesTotalCountBadge");
     if (!badge) return;
 
-    const total = this.properties.length;
-    const visible = this.getVisibleProperties().length;
+    const total = this.properties.filter((p) => !p.isArchived).length;
+    const visible = this.getVisibleProperties().filter((p) => !p.isArchived).length;
     badge.textContent = visible === total ? total : `${visible} / ${total}`;
     badge.style.display = total > 0 ? "" : "none";
   }
@@ -1033,14 +1104,11 @@ class PropertyManagementComponent {
 
     const investorAvatarHtml = renderInvestorAvatarStack(this.allInvestors, property.propertyId, { size: 28, overlap: 10, max: 3 });
 
-    // Room badges — up to 3, then a "+N" overflow badge
+    // Room badges — show every room type on the property, not just the first few.
     const rooms = property.rooms || [];
-    const visibleRooms = rooms.slice(0, 3);
-    const extraRoomsCount = rooms.length - visibleRooms.length;
     const roomBadgesHtml = rooms.length > 0
       ? `<div class="d-flex flex-wrap gap-1 mt-1">
-          ${visibleRooms.map((room) => `<span class="badge" style="font-size:0.6rem;${getRoomTypeBadgeStyle(room)}">${getRoomTypeDisplayName(room)}</span>`).join('')}
-          ${extraRoomsCount > 0 ? `<span class="badge bg-light text-muted border" style="font-size:0.6rem;">+${extraRoomsCount}</span>` : ''}
+          ${rooms.map((room) => `<span class="badge" style="font-size:0.6rem;${getRoomTypeBadgeStyle(room)}">${getRoomTypeDisplayName(room)}</span>`).join('')}
         </div>`
       : '';
 
@@ -1343,6 +1411,47 @@ class PropertyManagementComponent {
     return applyPropertyFilters(list, this.filters, { allInvestors: this.allInvestors });
   }
 
+  // Copies "SYSTEM_ID - full address" (one per line) for every property
+  // currently visible in the list — search box + filter panel already
+  // applied via getVisibleProperties(), so this copies the filtered subset
+  // when a filter/search is active, or the full list when nothing is
+  // applied. Uses the same order as the on-screen rows. Archived properties
+  // are excluded — getVisibleProperties() keeps them in for the on-screen
+  // "Archived" divider, but they don't belong in a list meant to be pasted
+  // elsewhere (e.g. into a message to tenants/investors).
+  async copyVisiblePropertiesList(btn) {
+    const origHtml = btn?.innerHTML;
+    try {
+      const sortedProperties = this.sortPropertiesForDisplay(
+        this.getVisibleProperties().filter((p) => !p.isArchived)
+      );
+
+      if (sortedProperties.length === 0) {
+        showToast('No properties to copy', 'warning');
+        return;
+      }
+
+      const text = sortedProperties
+        .map((property) => {
+          const fullAddress = [property.address, property.unit].filter(Boolean).join(', ');
+          return `${property.propertyId} - ${fullAddress}`;
+        })
+        .join('\n');
+
+      await navigator.clipboard.writeText(text);
+      showToast(`${sortedProperties.length} propert${sortedProperties.length === 1 ? 'y' : 'ies'} copied to clipboard`, 'success');
+
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-check-lg text-success"></i> Copied';
+        clearTimeout(btn._copyListResetTimeout);
+        btn._copyListResetTimeout = setTimeout(() => { btn.innerHTML = origHtml; }, 1500);
+      }
+    } catch (err) {
+      console.error('Copy property list failed:', err);
+      showToast('Failed to copy: ' + err.message, 'danger');
+    }
+  }
+
   /** Empty-state copy that reflects *why* the grid is empty (no data vs. no match), or undefined for the default message. */
   buildFilteredEmptyStateMessage() {
     const term = this._searchTerm.trim();
@@ -1426,6 +1535,15 @@ class PropertyManagementComponent {
     this.editingProperty = property;
     this.selectedPropertyId = property?.propertyId || null;
     if (property) this._lastSelectedPropertyId = property.propertyId;
+
+    // Sync URL so the selected property is bookmarkable/shareable and
+    // survives a refresh (mirrors tenants/bills/financial sections).
+    if (property && window.SlugUtils) {
+      const slug = window.SlugUtils.propertySlug(property);
+      window.appRouter?.replace(`/properties/${slug}`);
+    } else if (!property) {
+      window.appRouter?.replace('/properties');
+    }
 
     // Update panel title and button text
     const isEdit = !!property;
@@ -1515,6 +1633,8 @@ class PropertyManagementComponent {
           property.depositToLandlord || 0;
         document.getElementById("depositFromTenant").value =
           property.depositFromTenant || 0;
+        document.getElementById("mainTenantFee").value =
+          property.mainTenantFee || 0;
         document.getElementById("rent").value = property.rent || 0;
         console.log('🔍 DEBUG - Editing property, rent value set to form:', property.rent);
         document.getElementById("airconUnits").value = property.airconUnits || 0;
@@ -1745,6 +1865,7 @@ class PropertyManagementComponent {
         document.getElementById("rentPaymentDate").value = "1";
         document.getElementById("depositToLandlord").value = "0";
         document.getElementById("depositFromTenant").value = "0";
+        document.getElementById("mainTenantFee").value = "0";
         document.getElementById("rent").value = "0";
 
         // Clear WiFi images for add mode
@@ -1972,6 +2093,7 @@ class PropertyManagementComponent {
         rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
         depositToLandlord: parseFloat(formData.get("depositToLandlord")) || 0,
         depositFromTenant: parseFloat(formData.get("depositFromTenant")) || 0,
+        mainTenantFee: parseFloat(formData.get("mainTenantFee")) || 0,
         rent: parseFloat(formData.get("rent")) || 0,
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
         subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
@@ -2066,6 +2188,11 @@ class PropertyManagementComponent {
         return;
       }
 
+      if (propertyData.mainTenantFee < 0) {
+        alert("Main tenant fee cannot be negative");
+        return;
+      }
+
       // Show loading state. The submit button now lives in a footer that's a
       // sibling of <form id="propertyForm"> (linked via form="propertyForm"),
       // not a descendant of it, so it can't be found via event.target.querySelector.
@@ -2144,8 +2271,15 @@ class PropertyManagementComponent {
   }
 
   async editProperty(propertyId) {
-    // Find the property to edit
-    const property = this.properties.find((p) => p.propertyId === propertyId);
+    // Find the property to edit — prefer the local cache; fall back to a
+    // router-resolved property object (set by AppRouter._goProperty) in case
+    // this fires before loadProperties() has populated the list, e.g. a
+    // deep link opened on a fresh page load.
+    const property =
+      this.properties.find((p) => p.propertyId === propertyId) ||
+      (this._slugResolvedProperty?.propertyId === propertyId
+        ? this._slugResolvedProperty
+        : null);
     if (!property) {
       alert("Property not found");
       return;

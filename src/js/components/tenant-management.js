@@ -5490,17 +5490,15 @@ class TenantManagementComponent {
         tenant.registrationStatus ||
         (tenant.isRegistered ? "registered" : "unregistered");
 
-      // Filter for registered tenants (non-outdated)
-      const registeredTenants = this.tenants.filter((tenant) => {
-        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
-        return getStatus(tenant) === "registered" && !isOutdated;
-      });
+      // Filter for registered tenants, regardless of active/outdated status
+      const registeredTenants = this.tenants.filter(
+        (tenant) => getStatus(tenant) === "registered",
+      );
 
-      // Filter for pending tenants (non-outdated)
-      const pendingTenants = this.tenants.filter((tenant) => {
-        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
-        return getStatus(tenant) === "pending" && !isOutdated;
-      });
+      // Filter for pending tenants, regardless of active/outdated status
+      const pendingTenants = this.tenants.filter(
+        (tenant) => getStatus(tenant) === "pending",
+      );
 
       const totalCount = registeredTenants.length + pendingTenants.length;
 
@@ -5508,8 +5506,8 @@ class TenantManagementComponent {
       if (totalCount === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No registered or pending active unassigned tenants to copy"
-            : "No registered or pending active tenants found for this property";
+            ? "No registered or pending unassigned tenants to copy"
+            : "No registered or pending tenants found for this property";
         alert(message);
         return;
       }
@@ -5536,8 +5534,10 @@ class TenantManagementComponent {
       const formatTenant = (tenant, index) => {
         const isMainTenant = this.hasMainTenantProperty(tenant);
         const mainTenantIndicator = isMainTenant ? " (Main)" : "";
+        const isOutdated = this.isTenantOutdated(tenant, this.selectedProperty);
+        const movedOutIndicator = isOutdated ? " (Moved out)" : "";
 
-        let entry = `${index}. ${tenant.name}${mainTenantIndicator}`;
+        let entry = `${index}. ${tenant.name}${mainTenantIndicator}${movedOutIndicator}`;
         entry += `\nFIN: ${tenant.fin || "-"}`;
         entry += `\nPassport: ${tenant.passportNumber || "-"}`;
         if (tenant.dateOfBirth) entry += `\nDOB: ${this.formatDate(tenant.dateOfBirth)}`;

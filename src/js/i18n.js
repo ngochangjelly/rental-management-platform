@@ -333,6 +333,7 @@ i18next.init({
           cleaningFee: "Cleaning Fee",
           acCleanFee: "AC Clean Fee",
           total: "Total",
+          depositRefund: "Deposit Refund",
           status: "Status",
           uploadLink: "Upload Link",
           actions: "Actions",
@@ -481,6 +482,16 @@ i18next.init({
           noCyclesFound: "No SP Group bills recorded for this month or the 2 months before it yet.",
           subsidisedSaved: "Subsidised — saved {{amount}}",
           landlordAbsorbsShort: "Landlord absorbs {{amount}} in subsidies.",
+          // Move-out deposit refund (deposit minus prorated rent for the days
+          // stayed in their final billing month)
+          depositRefundOf: "Deposit {{deposit}}",
+          depositRefundOwed: "Owes {{amount}} more",
+          noDepositOnFile: "No deposit on file",
+          depositRefundLabel: "Deposit Refund",
+          depositShortfallLabel: "Additional Amount Owed",
+          depositRefundFormula: "Deposit {{deposit}} − last month's rent {{rent}}",
+          depositMissingNote:
+            "⚠️ No deposit amount on file for this tenant — please settle manually.",
           // Per-tenant bill export (download image / copy text)
           billDownloadSuccess: "Downloaded {{count}} bill(s)",
           billDownloadPartial: "Downloaded {{succeeded}} of {{total}} bill(s) — some failed, check console",
@@ -966,6 +977,7 @@ i18next.init({
           cleaningFee: "Tiền vệ sinh",
           acCleanFee: "Phí vệ sinh AC",
           total: "Tổng cộng",
+          depositRefund: "Hoàn cọc",
           status: "Trạng thái",
           uploadLink: "Link nộp tiền",
           actions: "Thao tác",
@@ -1114,6 +1126,16 @@ i18next.init({
           noCyclesFound: "Chưa có hóa đơn SP Group nào được ghi cho tháng này hoặc 2 tháng trước đó.",
           subsidisedSaved: "Được hỗ trợ — tiết kiệm {{amount}}",
           landlordAbsorbsShort: "Chủ nhà chịu {{amount}} tiền hỗ trợ.",
+          // Move-out deposit refund (deposit minus prorated rent for the days
+          // stayed in their final billing month)
+          depositRefundOf: "Cọc {{deposit}}",
+          depositRefundOwed: "Còn thiếu {{amount}}",
+          noDepositOnFile: "Chưa có tiền cọc",
+          depositRefundLabel: "Hoàn cọc",
+          depositShortfallLabel: "Số tiền cần đóng thêm",
+          depositRefundFormula: "Tiền cọc {{deposit}} − tiền thuê tháng cuối {{rent}}",
+          depositMissingNote:
+            "⚠️ Chưa có thông tin tiền cọc của người thuê này trên hệ thống — vui lòng đối chiếu thủ công.",
           // Per-tenant bill export (download image / copy text)
           billDownloadSuccess: "Đã tải {{count}} hóa đơn",
           billDownloadPartial: "Đã tải {{succeeded}}/{{total}} hóa đơn — một số bị lỗi, xem console",

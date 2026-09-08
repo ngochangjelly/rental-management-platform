@@ -780,10 +780,21 @@ class BillManagementComponent {
         (data.tenants || []).forEach((tenant) => {
           const id = tenant._id?.toString().toUpperCase();
           if (!id) return;
+          const propAssoc = (tenant.properties || []).find(
+            (p) =>
+              p.propertyId?.toUpperCase() ===
+              this.selectedProperty?.toUpperCase(),
+          );
           map.set(id, {
             avatar: tenant.avatar || null,
             facebookUrl: tenant.facebookUrl || null,
             phoneNumber: tenant.phoneNumber || null,
+            // For the deposit-refund column — moveoutDate isn't month-specific
+            // (unlike isMovingOut), so it's safe to cache alongside the rest
+            // of this property-scoped profile data; callers derive "moving
+            // out this month" themselves against whichever month they render.
+            deposit: tenant.deposit != null ? tenant.deposit : null,
+            moveoutDate: propAssoc?.moveoutDate || null,
           });
         });
       }
@@ -979,6 +990,60 @@ class BillManagementComponent {
       .join(", ");
   }
 
+  // A tenant's security deposit (tenant.deposit, set on their profile) and
+  // whether this calendar month is the one they actually move out in — i.e.
+  // their property association's moveoutDate (kept in sync with their
+  // roomAssignments elsewhere, see tenant-management.js) falls inside
+  // [monthStart, monthEnd]. Only a genuine move-out month owes a deposit
+  // settlement; an ordinary partial month (e.g. just moved in) doesn't.
+  // Deliberately independent of which rent figure the caller prorates from
+  // (the live dynamic preview vs. an already-generated/persisted bill), so
+  // both can share this and just subtract their own rent figure from the
+  // deposit themselves.
+  _depositRefundInfo(tenant, propAssoc, monthStart, monthEnd) {
+    const deposit = tenant?.deposit != null ? tenant.deposit : null;
+    let isMovingOut = false;
+    if (propAssoc?.moveoutDate) {
+      const moveout = new Date(propAssoc.moveoutDate);
+      moveout.setHours(0, 0, 0, 0);
+      isMovingOut = +moveout >= +monthStart && +moveout <= +monthEnd;
+    }
+    return { deposit, isMovingOut };
+  }
+
+  // Security-deposit settlement for a tenant's final (move-out) month: the
+  // deposit refunded back to them once their last partial month's rent is
+  // netted out — refund = deposit − rent charged for the days they actually
+  // stayed that month. Utilities/cleaning/AC fees are billed separately as
+  // usual and don't touch the deposit. Returns null when not applicable (not
+  // moving out this month) or unknown (no deposit on file, so it can't be
+  // computed) — callers should show a "no deposit on file" note rather than
+  // a wrong $0.
+  _computeDepositRefund(isMovingOut, deposit, rentAmount) {
+    if (!isMovingOut || deposit == null) return null;
+    return deposit - rentAmount;
+  }
+
+  // Deposit Refund table cell shared by the live preview and the generated
+  // bill table: a dash for anyone not moving out this month, a muted "no
+  // deposit on file" note if we can't compute it, otherwise the refund in
+  // green — or, in the (unusual) case the last month's rent exceeds the
+  // deposit on file, the shortfall in red since that's now an extra amount
+  // owed rather than money going back to the tenant.
+  _depositRefundCellHtml(isMovingOut, deposit, refund, fmt) {
+    if (!isMovingOut) return '<span class="text-muted">-</span>';
+    if (deposit == null) {
+      return `<span class="text-muted" style="font-size:0.72rem;" title="${escapeHtml(t("noDepositOnFile"))}"><i class="bi bi-exclamation-triangle me-1"></i>${t("noDepositOnFile")}</span>`;
+    }
+    const isShortfall = refund < 0;
+    const color = isShortfall ? "#c92a2a" : "#2b8a3e";
+    const mainLabel = isShortfall
+      ? t("depositRefundOwed", { amount: fmt(Math.abs(refund)) })
+      : fmt(refund);
+    return `<div class="fw-semibold" style="color:${color};">${mainLabel}</div>
+      <div class="text-muted" style="font-size:0.66rem;">${t("depositRefundOf", { deposit: fmt(deposit) })}</div>`;
+  }
+
   // Vietnamese sentence describing how much of the billing month a tenant
   // was actually present, for the bill card/breakdown text sent to tenants.
   // Full-month stays keep the simple "Ở trọn tháng (N ngày)" phrasing since
@@ -1031,9 +1096,12 @@ class BillManagementComponent {
       );
       if (rentInfo.daysStayed <= 0) continue; // not present this month at all
 
-      // Cleaning is a flat monthly service fee, not prorated — a tenant who
-      // wasn't present the whole month owes nothing towards it.
-      const isFullMonth = rentInfo.daysStayed >= daysInMonth;
+      const { deposit, isMovingOut } = this._depositRefundInfo(
+        tenant,
+        propAssoc,
+        monthStart,
+        monthEnd,
+      );
 
       entries.push({
         tenantId: tenant._id?.toString().toUpperCase(),
@@ -1044,8 +1112,22 @@ class BillManagementComponent {
         rentAmount: rentInfo.amount,
         monthlyRent: rentInfo.monthlyRent,
         periods: rentInfo.periods,
-        cleaningFee: isFullMonth ? tenant.cleaningFee || 0 : 0,
+        // Cleaning is a monthly service fee, prorated by actual days stayed
+        // this billing month — same day/daysInMonth split as rent — rather
+        // than an all-or-nothing full-month-only charge. monthlyCleaningFee
+        // (the un-prorated rate) is kept alongside so the exported bill can
+        // show tenants the "days × rate" math behind the charged amount.
+        monthlyCleaningFee: tenant.cleaningFee || 0,
+        cleaningFee:
+          (tenant.cleaningFee || 0) * (rentInfo.daysStayed / daysInMonth),
         acCleanFee: rentInfo.acCleanFee || 0,
+        deposit,
+        isMovingOut,
+        depositRefund: this._computeDepositRefund(
+          isMovingOut,
+          deposit,
+          rentInfo.amount,
+        ),
         notes: (tenant.notes || "").trim(),
         pendingTodos: (tenant.todos || []).filter((td) => !td.completed),
         avatar: tenant.avatar || null,
@@ -1103,6 +1185,11 @@ class BillManagementComponent {
           share: r.utilityShare,
           charged: r.chargedAmount,
           isSubsidized: r.isSubsidized,
+          // Move-in/move-out (or leave-plan) note for this specific cycle —
+          // the SP Group billing period rarely lines up with the rent month.
+          note: r.note || "",
+          presentDays: r.presentDays,
+          periodDays: r.tenantPeriodDays,
         };
       });
     });
@@ -1184,7 +1271,7 @@ class BillManagementComponent {
     // grid definition itself — there's no browser column-width algorithm
     // left to misbehave, unlike native <table> auto/fixed layout.
     const GRID_COLUMNS =
-      "32px minmax(170px,2fr) minmax(100px,1fr) 84px 84px 84px 74px minmax(130px,1.3fr) 96px";
+      "32px minmax(170px,2fr) minmax(100px,1fr) 84px 84px 84px 74px minmax(130px,1.3fr) 96px minmax(110px,1fr)";
 
     const gridCell = (content, opts = {}) => `
       <div style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
@@ -1233,6 +1320,15 @@ class BillManagementComponent {
           { align: "right" },
         )}
         ${gridCell(`<span class="fw-bold">${fmt(r.total)}</span>`, { align: "right" })}
+        ${gridCell(
+          this._depositRefundCellHtml(
+            r.isMovingOut,
+            r.deposit,
+            r.depositRefund,
+            fmt,
+          ),
+          { align: "right" },
+        )}
       </div>
     `,
       )
@@ -1248,7 +1344,7 @@ class BillManagementComponent {
 
     container.innerHTML = `
       <div style="overflow-x:auto;">
-        <div style="min-width:820px;">
+        <div style="min-width:930px;">
           <div style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:8px;background:#f8f9fa;border-bottom:2px solid #dee2e6;font-weight:600;font-size:0.85rem;">
             ${gridCell(`<input type="checkbox" id="selectAllTenants" class="form-check-input" ${allSelected ? "checked" : ""}>`)}
             ${gridCell(t("tenant"))}
@@ -1259,6 +1355,7 @@ class BillManagementComponent {
             ${gridCell(t("acCleanFee"), { align: "right" })}
             ${gridCell(t("utilityFee"), { align: "right" })}
             ${gridCell(t("total"), { align: "right" })}
+            ${gridCell(t("depositRefund"), { align: "right" })}
           </div>
           ${rowsHtml}
         </div>
@@ -1312,6 +1409,20 @@ class BillManagementComponent {
 
     const tenantBills = this.currentBill.tenantBills || [];
 
+    // Bounds of the calendar month this bill covers — needed to tell whether
+    // a tenant's moveoutDate (cached on their profile above) actually falls
+    // within it, for the deposit-refund column below.
+    const billYear = this.currentDate.getFullYear();
+    const billMonthIdx = this.currentDate.getMonth();
+    const billMonthStart = new Date(billYear, billMonthIdx, 1);
+    billMonthStart.setHours(0, 0, 0, 0);
+    const billMonthEnd = new Date(
+      billYear,
+      billMonthIdx,
+      new Date(billYear, billMonthIdx + 1, 0).getDate(),
+    );
+    billMonthEnd.setHours(0, 0, 0, 0);
+
     // Group roommates (same room) adjacent to each other, preserving each
     // room's first-seen position — avoids a full re-sort of the list.
     const roomOrder = [];
@@ -1348,7 +1459,7 @@ class BillManagementComponent {
     // native <table> auto layout. ".bill-tenant-row"/".tenant-checkbox" are
     // plain classes either way, so bindCheckboxEvents() etc. don't care.
     const GRID_COLUMNS =
-      "32px minmax(160px,2fr) minmax(90px,1fr) 90px 90px 90px 84px 100px minmax(130px,1.2fr) 150px minmax(150px,1fr)";
+      "32px minmax(160px,2fr) minmax(90px,1fr) 90px 90px 90px 84px 100px minmax(110px,1fr) minmax(130px,1.2fr) 150px minmax(150px,1fr)";
     const gridCell = (content, opts = {}) => `
       <div style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
@@ -1360,7 +1471,7 @@ class BillManagementComponent {
         </div>
       </div>
       <div style="overflow-x:auto;">
-        <div style="min-width:950px;">
+        <div style="min-width:1050px;">
           <div style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:8px;background:#f8f9fa;border-bottom:2px solid #dee2e6;border-left:4px solid transparent;font-weight:600;font-size:0.85rem;">
             ${gridCell(`<input type="checkbox" id="selectAllTenants" class="form-check-input">`)}
             ${gridCell(t("tenant"))}
@@ -1370,6 +1481,7 @@ class BillManagementComponent {
             ${gridCell(t("cleaningFee"), { align: "right" })}
             ${gridCell(t("acCleanFee"), { align: "right" })}
             ${gridCell(t("total"), { align: "right" })}
+            ${gridCell(t("depositRefund"), { align: "right" })}
             ${gridCell(t("status"))}
             ${gridCell(t("uploadLink"))}
             ${gridCell(t("actions"))}
@@ -1408,6 +1520,19 @@ class BillManagementComponent {
         NAME_AVATAR_SIZE,
       );
 
+      let rowIsMovingOut = false;
+      if (profile.moveoutDate) {
+        const moveout = new Date(profile.moveoutDate);
+        moveout.setHours(0, 0, 0, 0);
+        rowIsMovingOut =
+          +moveout >= +billMonthStart && +moveout <= +billMonthEnd;
+      }
+      const rowDepositRefund = this._computeDepositRefund(
+        rowIsMovingOut,
+        profile.deposit,
+        tenantBill.baseRental,
+      );
+
       html += `
         <div class="bill-tenant-row" data-tenant-id="${tenantBill.tenantId}" style="display:grid;grid-template-columns:${GRID_COLUMNS};gap:8px;align-items:center;padding:10px 8px;border-bottom:1px solid #f1f3f5;border-left:4px solid ${roommateBorder};">
           ${gridCell(`<input type="checkbox" class="form-check-input tenant-checkbox" data-tenant-id="${tenantBill.tenantId}">`)}
@@ -1439,6 +1564,15 @@ class BillManagementComponent {
             { align: "right" },
           )}
           ${gridCell(`<strong>$${tenantBill.totalAmount.toFixed(2)}</strong>`, { align: "right" })}
+          ${gridCell(
+            this._depositRefundCellHtml(
+              rowIsMovingOut,
+              profile.deposit,
+              rowDepositRefund,
+              (v) => `$${v.toFixed(2)}`,
+            ),
+            { align: "right" },
+          )}
           ${gridCell(`${statusBadge}${uploadInfo}`)}
           ${gridCell(`
             <button class="btn btn-sm btn-outline-secondary" onclick="billManager.copyUploadLink('${tenantBill.uploadLink}')">
@@ -2227,9 +2361,17 @@ class BillManagementComponent {
       const billingMonthEnd = new Date(year, month, 0);
       billingMonthEnd.setHours(0, 0, 0, 0);
 
+      const { periodStart, periodEnd, periodDays } =
+        this._resolveBillingPeriod(billingPeriod);
+
       // Mirrors the backend's tenant-eligibility filter for bill generation
-      // (has room, moved in by month end, not moved out before month start)
-      // — the same set of tenants that will actually receive a tenantBills row.
+      // — the same set of tenants that will actually receive a tenantBills
+      // row: either (a) their stay overlaps the rent calendar month (the
+      // normal case), or (b) failing that, their stay still overlaps the
+      // utility billing period (an SP Group cycle rarely aligned to the rent
+      // month) — a tenant who moved out before this rent month started but
+      // whose days fall inside that cycle still owes their share of it, even
+      // though they won't get a rent/cleaning line this month.
       const eligible = [];
       for (const tenant of fullTenants) {
         const propAssoc = (tenant.properties || []).find(
@@ -2238,25 +2380,28 @@ class BillManagementComponent {
             this.selectedProperty?.toUpperCase(),
         );
         if (!propAssoc || !propAssoc.room) continue;
-        if (propAssoc.moveinDate) {
-          const movein = new Date(propAssoc.moveinDate);
-          movein.setHours(0, 0, 0, 0);
-          if (movein > billingMonthEnd) continue;
+
+        const movein = propAssoc.moveinDate ? new Date(propAssoc.moveinDate) : null;
+        const moveout = propAssoc.moveoutDate ? new Date(propAssoc.moveoutDate) : null;
+        movein?.setHours(0, 0, 0, 0);
+        moveout?.setHours(0, 0, 0, 0);
+
+        const movedInInTime = !movein || movein <= billingMonthEnd;
+        const notMovedOutYet = !moveout || moveout >= billingMonthStart;
+        let include = movedInInTime && notMovedOutYet;
+        if (!include && periodStart && periodEnd) {
+          const s = movein || periodStart;
+          const e = moveout || periodEnd;
+          include = +e >= +periodStart && +s <= +periodEnd;
         }
-        if (propAssoc.moveoutDate) {
-          const moveout = new Date(propAssoc.moveoutDate);
-          moveout.setHours(0, 0, 0, 0);
-          if (moveout < billingMonthStart) continue;
-        }
+        if (!include) continue;
+
         eligible.push({
           tenantId: tenant._id?.toString().toUpperCase(),
           tenantName: tenant.name,
           room: propAssoc.room,
         });
       }
-
-      const { periodStart, periodEnd, periodDays } =
-        this._resolveBillingPeriod(billingPeriod);
 
       const breakdown = this._calcUtilityBreakdown(
         fullTenants,
@@ -2568,15 +2713,15 @@ class BillManagementComponent {
     }
   }
 
-  // Current SGD→VND rate as of the bill's month (same endpoint the utility
-  // breakdown modal uses). Returns null on failure/no rate on file so callers
-  // simply omit the VND conversion rather than show a stale/wrong figure.
+  // Latest SGD→VND rate on file, regardless of which month's bill is being
+  // viewed — tenants pay in real time, so the VND figure shown/exported
+  // should always reflect today's rate rather than whatever was effective
+  // back when the bill's billing month started. Returns null on failure/no
+  // rate on file so callers simply omit the VND conversion rather than show
+  // a stale/wrong figure.
   async _fetchExchangeRate() {
     try {
-      const dateStr = this.currentDate.toISOString().split("T")[0];
-      const res = await API.get(
-        API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr),
-      );
+      const res = await API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_CURRENT);
       const data = await res.json().catch(() => null);
       return data?.success && data?.rate?.rate ? data.rate.rate : null;
     } catch {
@@ -2608,9 +2753,15 @@ class BillManagementComponent {
           preview.daysInMonth,
           r.periods,
         ),
+        daysStayed: r.daysStayed,
+        daysInMonth: preview.daysInMonth,
+        monthlyCleaningFee: r.monthlyCleaningFee,
         cycles: r.cycles,
         isSubsidized: r.isSubsidized,
         avatar: r.avatar,
+        isMovingOut: r.isMovingOut,
+        deposit: r.deposit,
+        depositRefund: r.depositRefund,
       };
       return {
         tenantId: r.tenantId,
@@ -2682,6 +2833,7 @@ class BillManagementComponent {
           p.propertyId?.toUpperCase() === this.selectedProperty?.toUpperCase(),
       );
       let tenancyNote = `Ở trọn tháng (${daysInMonth} ngày)`;
+      let daysStayed = daysInMonth;
       if (propAssoc) {
         const info = this._computeProratedRent(
           propAssoc,
@@ -2690,6 +2842,7 @@ class BillManagementComponent {
           monthEnd,
           daysInMonth,
         );
+        daysStayed = info.daysStayed;
         tenancyNote = this._buildTenancyNote(
           info.daysStayed,
           daysInMonth,
@@ -2698,8 +2851,17 @@ class BillManagementComponent {
       }
       const row = rowByTenant[tb.tenantId];
       const isSubsidized = row ? row.isSubsidized : tb.utilityFee === 0;
+      const { deposit, isMovingOut } = this._depositRefundInfo(
+        full,
+        propAssoc,
+        monthStart,
+        monthEnd,
+      );
       perTenant[tb.tenantId] = {
         tenancyNote,
+        daysStayed,
+        daysInMonth,
+        monthlyCleaningFee: full?.cleaningFee || 0,
         isSubsidized,
         cycles: [
           {
@@ -2708,9 +2870,22 @@ class BillManagementComponent {
             share: row ? row.utilityShare : tb.utilityFee,
             charged: tb.utilityFee,
             isSubsidized,
+            // Move-in/move-out (or leave-plan) note for this specific utility
+            // cycle — distinct from tenancyNote above, since the SP Group
+            // cycle rarely lines up with the rent calendar month.
+            note: row?.note || "",
+            presentDays: row?.presentDays,
+            periodDays: row?.tenantPeriodDays,
           },
         ],
         avatar: full?.avatar || null,
+        isMovingOut,
+        deposit,
+        depositRefund: this._computeDepositRefund(
+          isMovingOut,
+          deposit,
+          tb.baseRental,
+        ),
       };
     });
 
@@ -2764,6 +2939,15 @@ class BillManagementComponent {
         <span style="font-weight:600;font-size:14px;color:${opts.color || "#1a1a1a"};">${value}</span>
       </div>`;
 
+    // Move-in/move-out note for a cycle whose SP Group dates don't line up
+    // with the rent month — spelled out so a tenant sees why their share
+    // isn't a plain equal split (e.g. they only moved in mid-cycle).
+    const cycleNoteHtml = (c) =>
+      c.note
+        ? `
+        <div style="margin-top:2px;padding-left:10px;font-size:11px;color:#adb5bd;font-style:italic;">${escapeHtml(c.note)}</div>`
+        : "";
+
     const cycleLines =
       cycles.length > 1
         ? cycles
@@ -2772,12 +2956,12 @@ class BillManagementComponent {
         <div style="display:flex;justify-content:space-between;margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">
           <span>Kỳ ${escapeHtml(c.label)} (${escapeHtml(c.period)})</span>
           <span style="${c.isSubsidized ? "text-decoration:line-through;" : ""}">${fmt(c.share)}</span>
-        </div>`,
+        </div>${cycleNoteHtml(c)}`,
             )
             .join("")
         : cycles[0]?.period
           ? `
-        <div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">Kỳ ${escapeHtml(cycles[0].period)}</div>`
+        <div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">Kỳ ${escapeHtml(cycles[0].period)}</div>${cycleNoteHtml(cycles[0])}`
           : "";
 
     const utilitySection = `
@@ -2789,6 +2973,19 @@ class BillManagementComponent {
         ${cycleLines}
         ${info.isSubsidized ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#2b8a3e;font-style:italic;">Được hỗ trợ 100% — tiết kiệm ${fmt(totalRawShare)}</div>` : ""}
       </div>`;
+
+    // "27/30 ngày × $X/tháng" — the same day-count × monthly-rate math behind
+    // any prorated line (rent, cleaning), spelled out so a tenant can see
+    // exactly why a partial-month charge is less than the usual full rate,
+    // without having to do the division themselves.
+    const isPartialMonth =
+      info.daysStayed != null &&
+      info.daysInMonth != null &&
+      info.daysStayed < info.daysInMonth;
+    const proratedFormula = (monthlyAmt) =>
+      isPartialMonth
+        ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">${info.daysStayed}/${info.daysInMonth} ngày × ${fmt(monthlyAmt)}/tháng</div>`
+        : "";
 
     // Shows the room's full whole-month rate under the actual charge
     // whenever they differ — i.e. the tenant was only present part of the
@@ -2802,16 +2999,52 @@ class BillManagementComponent {
           <span style="color:#495057;font-size:14px;">Tiền thuê phòng</span>
           <span style="font-weight:600;font-size:14px;color:#1a1a1a;">${fmt(tenantBill.baseRental)}</span>
         </div>
-        ${isProratedRent ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}</div>` : ""}
+        ${isProratedRent ? proratedFormula(tenantBill.monthlyRent) : ""}
       </div>`;
 
     const cleaningSection = tenantBill.cleaningFee
-      ? row(labelIcon("🧹", "Tiền vệ sinh"), fmt(tenantBill.cleaningFee))
+      ? `<div style="padding:11px 0;border-bottom:1px solid #f1f3f5;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:#495057;font-size:14px;">${labelIcon("🧹", "Tiền vệ sinh")}</span>
+            <span style="font-weight:600;font-size:14px;color:#1a1a1a;">${fmt(tenantBill.cleaningFee)}</span>
+          </div>
+          ${proratedFormula(info.monthlyCleaningFee || tenantBill.cleaningFee)}
+        </div>`
       : "";
 
     const acCleanSection = tenantBill.acCleanFee
       ? row(labelIcon("❄️", "Phí vệ sinh máy lạnh"), fmt(tenantBill.acCleanFee))
       : "";
+
+    // Security-deposit settlement — only shown for a tenant's actual move-out
+    // month. Rendered as its own callout block (not another line in the fee
+    // list above) since it's money flowing the other way: back to the
+    // tenant, netted against their last partial month's rent, rather than
+    // another charge added to the total they owe.
+    const depositRefundSection = (() => {
+      if (!info.isMovingOut) return "";
+      if (info.deposit == null) {
+        return `
+      <div style="margin-top:14px;padding:12px 16px;background:#fff9db;border-radius:10px;font-size:12px;color:#846200;line-height:1.5;">
+        ${t("depositMissingNote")}
+      </div>`;
+      }
+      const isShortfall = info.depositRefund < 0;
+      const label = isShortfall
+        ? t("depositShortfallLabel")
+        : t("depositRefundLabel");
+      const amount = fmt(Math.abs(info.depositRefund));
+      const bg = isShortfall ? "#fff5f5" : "#ebfbee";
+      const fg = isShortfall ? "#c92a2a" : "#2b8a3e";
+      return `
+      <div style="margin-top:14px;padding:14px 16px;background:${bg};border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <span style="font-size:13px;font-weight:700;color:${fg};">💰 ${label}</span>
+          <span style="font-size:20px;font-weight:800;color:${fg};white-space:nowrap;">${amount}</span>
+        </div>
+        <div style="margin-top:4px;font-size:11px;color:#868e96;">${t("depositRefundFormula", { deposit: fmt(info.deposit), rent: fmt(tenantBill.baseRental) })}</div>
+      </div>`;
+    })();
 
     // Deliberately understated — bank details are reference info, not the
     // headline of the bill, so this sits small and muted below the total.
@@ -2880,6 +3113,7 @@ class BillManagementComponent {
             <span style="font-size:13px;font-weight:700;color:#868e96;text-transform:uppercase;letter-spacing:0.6px;">Tổng cộng</span>
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">${fmt(tenantBill.totalAmount)}</span>
           </div>
+          ${depositRefundSection}
         </div>
 
         ${paymentSection}
@@ -2903,6 +3137,17 @@ class BillManagementComponent {
       : "—";
     const totalRawShare = cycles.reduce((s, c) => s + (c.share || 0), 0);
 
+    // Same "days × monthly rate" math as the bill card image, spelled out
+    // in text so a partial-month charge is self-explanatory here too.
+    const isPartialMonth =
+      info.daysStayed != null &&
+      info.daysInMonth != null &&
+      info.daysStayed < info.daysInMonth;
+    const proratedFormula = (monthlyAmt) =>
+      isPartialMonth
+        ? `  ${info.daysStayed}/${info.daysInMonth} ngày × ${fmt(monthlyAmt)}/tháng`
+        : null;
+
     const lines = [
       `HÓA ĐƠN THÁNG ${ctx.monthLabel}`,
       propLine,
@@ -2917,23 +3162,47 @@ class BillManagementComponent {
       tenantBill.monthlyRent > 0 &&
       Math.abs(tenantBill.baseRental - tenantBill.monthlyRent) > 0.005
     ) {
-      lines.push(`  Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}`);
+      const line = proratedFormula(tenantBill.monthlyRent);
+      lines.push(line || `  Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}`);
     }
     lines.push(`Tiền điện nước: ${fmt(tenantBill.utilityFee)}`);
     if (cycles.length > 1) {
-      cycles.forEach((c) =>
-        lines.push(`  Kỳ ${c.label} (${c.period}): ${fmt(c.share)}`),
-      );
+      cycles.forEach((c) => {
+        lines.push(`  Kỳ ${c.label} (${c.period}): ${fmt(c.share)}`);
+        if (c.note) lines.push(`    ${c.note}`);
+      });
     } else if (cycles[0]?.period) {
       lines.push(`  Kỳ ${cycles[0].period}`);
+      if (cycles[0].note) lines.push(`    ${cycles[0].note}`);
     }
     if (info.isSubsidized)
       lines.push(`  (Được hỗ trợ 100% — tiết kiệm ${fmt(totalRawShare)})`);
-    if (tenantBill.cleaningFee)
+    if (tenantBill.cleaningFee) {
       lines.push(`Tiền vệ sinh: ${fmt(tenantBill.cleaningFee)}`);
+      const feeLine = proratedFormula(
+        info.monthlyCleaningFee || tenantBill.cleaningFee,
+      );
+      if (feeLine) lines.push(feeLine);
+    }
     if (tenantBill.acCleanFee)
       lines.push(`Phí vệ sinh máy lạnh: ${fmt(tenantBill.acCleanFee)}`);
     lines.push("", `TỔNG CỘNG: ${fmt(tenantBill.totalAmount)}`);
+
+    if (info.isMovingOut) {
+      if (info.deposit == null) {
+        lines.push("", t("depositMissingNote"));
+      } else {
+        const isShortfall = info.depositRefund < 0;
+        const label = isShortfall
+          ? t("depositShortfallLabel")
+          : t("depositRefundLabel");
+        lines.push(
+          "",
+          `${label.toUpperCase()}: ${fmt(Math.abs(info.depositRefund))}`,
+          `  (${t("depositRefundFormula", { deposit: fmt(info.deposit), rent: fmt(tenantBill.baseRental) })})`,
+        );
+      }
+    }
 
     const settlement = this._billSettlementBlocks(ctx.property);
     if (settlement) {
@@ -3158,17 +3427,13 @@ class BillManagementComponent {
         this._resolveBillingPeriod();
 
       // Fetch tenant data, property info, and exchange rate in parallel
-      const dateStr = this.currentDate.toISOString().split("T")[0];
-      const [tenantRes, propRes, rateRes] = await Promise.all([
+      const [tenantRes, propRes, exchangeRate] = await Promise.all([
         API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)),
         API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty)),
-        API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_AT(dateStr)),
+        this._fetchExchangeRate(),
       ]);
       const data = await tenantRes.json();
       const propData = await propRes.json();
-      const rateData = await rateRes.json().catch(() => null);
-      const exchangeRate =
-        rateData?.success && rateData?.rate?.rate ? rateData.rate.rate : null;
       if (!data.success)
         throw new Error(data.error || "Failed to load tenants");
 
