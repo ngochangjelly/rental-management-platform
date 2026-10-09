@@ -2165,95 +2165,6 @@ class BulkPropertyReportsComponent {
     payeeSel.innerHTML = `<option value="">Select payee…</option>${opts}`;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Profit-share settlement helper for the Settlement Extraction tool
-  //
-  // Deliberately MIRRORS (does not call or refactor) the per-property
-  // investor-distribution math inside fetchBulkReports() above — see that
-  // method for the canonical version, used by the main "Property Profit
-  // Results" view. Copied on purpose instead of shared, so this new
-  // feature can never change fetchBulkReports()'s behavior; if that
-  // formula is ever revised, this copy needs the same change made here.
-  //
-  // Produces each investor's final SGD balance for one property/month —
-  // their profit share, adjusted for what they've already paid/received
-  // (report.investorTransactions) and for expenses they personally
-  // fronted / income they personally collected on behalf of the group
-  // (report.expenses / report.income, filtered by personInCharge,
-  // regardless of who those items were paid to or received from). This
-  // output feeds directly into the existing, unmodified
-  // calculatePropertySettlements() to get pairwise "who pays whom" amounts.
-  //
-  // Why this is safe to ADD to the raw expense-reimbursement total instead
-  // of double-counting it: expensesPaidByInvestor/incomeReceivedByInvestor
-  // only look at personInCharge — they never look at paidTo — so a raw
-  // expense specifically tagged personInCharge=payer & paidTo=payee has NO
-  // bearing on which investor the profit-settlement pairing routes to;
-  // they're mathematically independent amounts. Verified by hand with
-  // balanced 2- and 3-investor examples before wiring this in: summing
-  // them reproduces exactly the fair end-of-month cash position for every
-  // investor, with nothing left over and nothing paid twice.
-  // ─────────────────────────────────────────────────────────────────────────
-  _computeInvestorFinalsForExtraction(report, propertyId, investorsData) {
-    const totalIncome = report.totalIncome || 0;
-    const totalExpenses = report.totalExpenses || 0;
-    const netProfit = totalIncome - totalExpenses;
-
-    return investorsData
-      .map((investor) => {
-        const propertyInfo = investor.properties?.find(
-          (p) => p.propertyId === propertyId
-        );
-        if (!propertyInfo) return null;
-
-        const percentage = propertyInfo.percentage || 0;
-        const profitShare = (netProfit * percentage) / 100;
-
-        const existingTransaction = report.investorTransactions
-          ? report.investorTransactions.find(
-              (t) => t.investorId === investor.investorId
-            )
-          : null;
-        const alreadyPaid = existingTransaction ? existingTransaction.alreadyPaid : 0;
-        const alreadyReceived = existingTransaction ? existingTransaction.alreadyReceived : 0;
-
-        let expensesPaidByInvestor = 0;
-        if (report.expenses && Array.isArray(report.expenses)) {
-          expensesPaidByInvestor = report.expenses
-            .filter(
-              (exp) => !exp.isPending && exp.personInCharge === investor.investorId
-            )
-            .reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
-        }
-
-        let incomeReceivedByInvestor = 0;
-        if (report.income && Array.isArray(report.income)) {
-          incomeReceivedByInvestor = report.income
-            .filter(
-              (inc) => !inc.isPending && inc.personInCharge === investor.investorId
-            )
-            .reduce((sum, inc) => sum + (parseFloat(inc.amount) || 0), 0);
-        }
-
-        const final =
-          profitShare -
-          alreadyPaid +
-          alreadyReceived +
-          expensesPaidByInvestor -
-          incomeReceivedByInvestor;
-
-        return {
-          investorName: investor.name || investor.username,
-          investorId: investor.investorId,
-          avatar: investor.avatar || null,
-          sharePercentage: percentage,
-          final,
-          sgdAmount: final,
-        };
-      })
-      .filter((inv) => inv !== null);
-  }
-
   async fetchSettlementExtraction() {
     const month   = document.getElementById("extractMonth")?.value;
     const year    = document.getElementById("extractYear")?.value;
@@ -2294,46 +2205,18 @@ class BulkPropertyReportsComponent {
             );
             const expenseTotal = matching.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
-            // Profit-share settlement for this property: separate from
-            // (and additive to, see _computeInvestorFinalsForExtraction's
-            // docblock) the raw expense reimbursements above. Fetching
-            // investors is best-effort — if it fails, the property still
-            // shows its raw expense total, it just won't have a profit
-            // settlement line.
-            let profitSettlementAmount = 0;
-            try {
-              const investorsResp = await API.get(
-                API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(property.propertyId),
-              );
-              if (investorsResp.ok) {
-                const investorsResult = await investorsResp.json();
-                if (
-                  investorsResult.success &&
-                  Array.isArray(investorsResult.data) &&
-                  investorsResult.data.length > 0
-                ) {
-                  const investorFinals = this._computeInvestorFinalsForExtraction(
-                    report,
-                    property.propertyId,
-                    investorsResult.data,
-                  );
-                  const propertySettlements = this.calculatePropertySettlements(investorFinals);
-                  profitSettlementAmount = propertySettlements
-                    .filter((s) => s.fromId === payerId && s.toId === payeeId)
-                    .reduce((s, x) => s + x.amount, 0);
-                }
-              }
-            } catch {
-              /* profit settlement unavailable for this property — raw expenses still count */
-            }
-
-            if (matching.length > 0 || profitSettlementAmount >= 0.01) {
+            // Deliberately excludes profit-share settlement amounts — that
+            // has its own dedicated section in "Property Profit Results"
+            // (see calculateSettlementsForCurrency / calculatePropertySettlements
+            // above, used by fetchBulkReports()). This tool only surfaces raw
+            // recorded expense reimbursements between the two investors so the
+            // two totals are never double-shown/double-counted across sections.
+            if (matching.length > 0) {
               results.push({
                 propertyId:   property.propertyId,
                 propertyData: property,
                 expenses:     matching,
-                profitSettlementAmount,
-                total:        expenseTotal + profitSettlementAmount,
+                total:        expenseTotal,
               });
             }
           } catch { /* skip */ }
@@ -2366,14 +2249,7 @@ class BulkPropertyReportsComponent {
       (s, r) => s + r.expenses.reduce((es, e) => es + (parseFloat(e.amount) || 0), 0),
       0,
     );
-    const grandProfitSettlementTotal = results.reduce(
-      (s, r) => s + (r.profitSettlementAmount || 0),
-      0,
-    );
-    const totalTx     = results.reduce(
-      (s, r) => s + r.expenses.length + (r.profitSettlementAmount >= 0.01 ? 1 : 0),
-      0,
-    );
+    const totalTx     = results.reduce((s, r) => s + r.expenses.length, 0);
     const payerName   = payerInvestor?.name || "Unknown";
     const payeeName   = payeeInvestor?.name || "Unknown";
 
@@ -2404,7 +2280,7 @@ class BulkPropertyReportsComponent {
       html += `
           <div class="text-center text-muted py-5">
             <i class="bi bi-inbox fs-1 mb-3 d-block"></i>
-            <p>No expense transactions or profit-share settlements found where <strong>${escapeHtml(payerName)}</strong> owes <strong>${escapeHtml(payeeName)}</strong> in ${escapeHtml(monthName)} ${escapeHtml(year)}.</p>
+            <p>No expense transactions found where <strong>${escapeHtml(payerName)}</strong> owes <strong>${escapeHtml(payeeName)}</strong> in ${escapeHtml(monthName)} ${escapeHtml(year)}.</p>
           </div>`;
     } else {
       // Info alert
@@ -2426,7 +2302,7 @@ class BulkPropertyReportsComponent {
             </div>
             <div class="small text-muted mt-1">
               Recorded expense payments: <strong>$${grandExpenseTotal.toFixed(2)}</strong>
-              &nbsp;+&nbsp; Profit-share settlement: <strong>$${grandProfitSettlementTotal.toFixed(2)}</strong>
+              &nbsp;·&nbsp; Profit-share settlement is not included here — see the "Profit Share Settlement" section under Property Profit Results.
             </div>
           </div>`;
 
@@ -2479,22 +2355,6 @@ class BulkPropertyReportsComponent {
           html += `</div>`;
         }
 
-        if (result.profitSettlementAmount >= 0.01) {
-          html += `
-            <div class="ps-2 border-start border-3 border-primary">
-              <small class="text-muted fw-bold d-block mb-1">Profit-Share Settlement:</small>
-              <div class="d-flex justify-content-between align-items-start py-1">
-                <div class="flex-grow-1 me-2">
-                  <span class="fw-medium">From investor profit distribution</span>
-                  <small class="text-muted d-block">Netted from income/expenses each investor personally handled this month — see the main Property Profit Results settlement instructions for the full breakdown.</small>
-                </div>
-                <small class="badge bg-primary d-flex align-items-center gap-1 flex-shrink-0">
-                  <i class="bi bi-pie-chart-fill"></i> +$${result.profitSettlementAmount.toFixed(2)}
-                </small>
-              </div>
-            </div>`;
-        }
-
         html += `
           </div>`;
       });
@@ -2511,9 +2371,6 @@ class BulkPropertyReportsComponent {
             </div>
             <div class="d-flex justify-content-between mb-1">
               <span class="text-muted"><i class="bi bi-plus-circle-fill text-danger me-1"></i>Recorded Expense Payments:</span><strong>$${grandExpenseTotal.toFixed(2)}</strong>
-            </div>
-            <div class="d-flex justify-content-between mb-1">
-              <span class="text-muted"><i class="bi bi-pie-chart-fill text-primary me-1"></i>Profit-Share Settlement:</span><strong>$${grandProfitSettlementTotal.toFixed(2)}</strong>
             </div>
             <hr class="my-2">
             <div class="d-flex justify-content-between align-items-center">
@@ -2598,22 +2455,25 @@ class BulkPropertyReportsComponent {
    * W=430 (iPhone 14 Pro Max width). Portrait layout.
    *
    * Styling/layout only — every number below (results, grandTotal,
-   * totalTx, each result.total / result.profitSettlementAmount /
-   * exp.amount / exp.currency / exp.date / exp.item) is read exactly as
-   * computed by fetchSettlementExtraction() above; nothing here changes
-   * what's calculated, only how it's drawn. The visual language — dark
-   * base + accent haze, brand logo, Noto Serif type, and every color —
-   * matches the single-property report export (_generateReportSVG in
-   * financial-reports.js), all sourced from the shared
-   * financial-report-theme module so the two can't drift apart again.
-   * Extraction is always a list of amounts owed, so it stays permanently
-   * in "expense" (red) mode rather than switching on a profit/loss sign.
+   * totalTx, each result.total / exp.amount / exp.currency / exp.date /
+   * exp.item) is read exactly as computed by fetchSettlementExtraction()
+   * above; nothing here changes what's calculated, only how it's drawn.
+   * Profit-share settlement amounts are deliberately excluded — that has
+   * its own dedicated section in "Property Profit Results" and is never
+   * shown here, so the two totals can't be double-counted/double-shown.
+   * The visual language — dark base + accent haze, brand logo, Noto Serif
+   * type, and every color — matches the single-property report export
+   * (_generateReportSVG in financial-reports.js), all sourced from the
+   * shared financial-report-theme module so the two can't drift apart
+   * again. Extraction is always a list of amounts owed, so it stays
+   * permanently in "expense" (red) mode rather than switching on a
+   * profit/loss sign.
    *
    * Layout is deliberately dense for phone viewing: a property card only
    * shows the separate "Property Total" bar once it actually has 2+
-   * amounts to sum (raw expenses + profit settlement combined) — a
-   * single amount is already the total, so repeating it below would just
-   * waste space. The payer/payee row anchors each name to its own side
+   * expense rows to sum — a single amount is already the total, so
+   * repeating it below would just waste space. The payer/payee row
+   * anchors each name to its own side
    * (payer left, payee right, arrow fixed at the card's horizontal
    * center) instead of chaining position off the other name's rendered
    * length — that chained approach is what let a long payee name run
@@ -2765,10 +2625,7 @@ class BulkPropertyReportsComponent {
     const genDate   = new Date().toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 
     const grandTotal = results.reduce((s, r) => s + r.total, 0);
-    const totalTx    = results.reduce(
-      (s, r) => s + r.expenses.length + (r.profitSettlementAmount >= 0.01 ? 1 : 0),
-      0,
-    );
+    const totalTx    = results.reduce((s, r) => s + r.expenses.length, 0);
     const payerName  = payerInvestor?.name || "Unknown";
     const payeeName  = payeeInvestor?.name || "Unknown";
 
@@ -2850,16 +2707,14 @@ class BulkPropertyReportsComponent {
       const unit    = prop.unit    || "";
       const address = prop.address || result.propertyId;
       const numExp  = result.expenses.length;
-      const hasProfitSettlement = result.profitSettlementAmount >= 0.01;
-      const rowCount = numExp + (hasProfitSettlement ? 1 : 0);
+      const rowCount = numExp;
       // A single amount already IS the property total — showing a
       // separate "Property Total" bar right below it would just repeat
       // the same number, so that bar only earns its place once there's
-      // more than one amount (recorded expenses and/or a profit
-      // settlement) to actually sum.
+      // more than one recorded expense to actually sum.
       const hasSubtotal = rowCount >= 2;
 
-      // Card height: header + (expense + profit-settlement) rows + (separator + subtotal, only if 2+ rows) + padding
+      // Card height: header + expense rows + (separator + subtotal, only if 2+ rows) + padding
       const cardH = CARD_PAD + PROP_HDR_H + rowCount * EXP_ROW_H
         + (hasSubtotal ? SEP_H + PROP_TOT_H : 0) + CARD_PAD;
 
@@ -2924,21 +2779,6 @@ class BulkPropertyReportsComponent {
         // alternating row background.
         p(`<line x1="${INNER_L}" y1="${rowY + EXP_ROW_H}" x2="${INNER_R}" y2="${rowY + EXP_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`);
       });
-
-      // ── Profit-share settlement row — distinct color, own line, always last ──
-      if (hasProfitSettlement) {
-        const rowY = yi + numExp * EXP_ROW_H;
-
-        p(`<text x="${INNER_L}" y="${rowY + 15}" font-size="10" fill="${TEXT_HI}">Profit Share Settlement</text>`);
-
-        const psAmt  = result.profitSettlementAmount;
-        const psSign = psAmt < 0 ? "-" : "+";
-        const psStr  = `${psSign}$${Math.abs(psAmt).toFixed(2)}`;
-        p(`<text x="${INNER_R}" y="${rowY + 15}" font-size="11" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(psStr)}</text>`);
-
-        // Same soft row separator as the expense rows above.
-        p(`<line x1="${INNER_L}" y1="${rowY + EXP_ROW_H}" x2="${INNER_R}" y2="${rowY + EXP_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`);
-      }
 
       yi += rowCount * EXP_ROW_H;
 

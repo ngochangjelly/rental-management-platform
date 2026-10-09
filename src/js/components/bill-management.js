@@ -586,13 +586,20 @@ class BillManagementComponent {
     return { start: s, end: e, days: dim };
   }
 
-  // Current month + 2 previous months' tracked utility bills (3 total) — a
-  // wide enough window to cover cycles that lag behind the calendar month.
+  // Current month + the previous BILL_CYCLE_LOOKBACK_MONTHS months' tracked
+  // utility bills — wide enough to cover cycles that lag behind the calendar
+  // month, and to catch up on a past cycle's PUB top-up that was never
+  // collected (billed together with this month's rent + cleaning).
+  static get BILL_CYCLE_LOOKBACK_MONTHS() {
+    return 5;
+  }
+
   _getBillCycleWindow() {
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth() + 1;
     const wanted = new Set([`${year}-${month}`]);
-    for (let back = 1; back <= 2; back++) {
+    const lookback = BillManagementComponent.BILL_CYCLE_LOOKBACK_MONTHS;
+    for (let back = 1; back <= lookback; back++) {
       const d = new Date(year, month - 1 - back, 1);
       wanted.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
     }
@@ -622,8 +629,50 @@ class BillManagementComponent {
     return this._cyclesOverlappingCurrentMonth(bills).map((b) => b._id);
   }
 
+  // A bill recorded under an earlier (year, month) than the one being viewed
+  // — i.e. a past cycle whose PUB top-up is being caught up on this month.
+  _isPastCycle(bill) {
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+    return bill.year < year || (bill.year === year && bill.month < month);
+  }
+
+  // Quick-select presets for the cycle picker: this month's bill only, the
+  // most recent past month's bill only (forgot to collect its top-up and
+  // this month's bill isn't in yet), or both together.
+  _cyclePresets(bills) {
+    const current = bills.filter((b) => !this._isPastCycle(b));
+    const past = bills.filter((b) => this._isPastCycle(b));
+    const lastPast = past.length ? past[past.length - 1] : null;
+    const lastMonth = lastPast
+      ? past.filter(
+          (b) => b.year === lastPast.year && b.month === lastPast.month,
+        )
+      : [];
+    const ids = (list) => list.map((b) => b._id);
+    return [
+      { key: "current", label: t("cyclePresetCurrent"), ids: ids(current) },
+      { key: "last", label: t("cyclePresetLast"), ids: ids(lastMonth) },
+      {
+        key: "lastAndCurrent",
+        label: t("cyclePresetLastAndCurrent"),
+        ids: ids([...lastMonth, ...current]),
+        // Only meaningful when both halves actually exist
+        disabled: lastMonth.length === 0 || current.length === 0,
+      },
+      {
+        key: "allPast",
+        label: t("cyclePresetAllPast"),
+        ids: ids(past),
+        disabled: past.length < 2,
+      },
+    ];
+  }
+
   async _loadDynamicPreview() {
     const propertyAtStart = this.selectedProperty;
+    // Rapid cycle/preset toggles each kick off a fetch; only the latest may render.
+    const seq = (this._previewSeq = (this._previewSeq || 0) + 1);
     try {
       const bills = this._getBillCycleWindow();
       if (this._selectedCycleIds === null) {
@@ -638,6 +687,7 @@ class BillManagementComponent {
       );
       const preview = await this._computeDynamicPreview(selectedBills);
       if (this.selectedProperty !== propertyAtStart) return; // property/month changed mid-fetch
+      if (seq !== this._previewSeq) return; // superseded by a newer selection
 
       this._dynamicPreviewCache = preview; // used by downloadSelectedBills/copySelectedBillBreakdown
 
@@ -670,12 +720,16 @@ class BillManagementComponent {
     const cardsHtml = bills
       .map((b) => {
         const isSel = this._selectedCycleIds.has(b._id);
+        const isPast = this._isPastCycle(b);
         const { start, end, days } = this._billPeriodBounds(b);
         return `
         <label class="cycle-card ${isSel ? "cycle-selected" : ""}">
           <input type="checkbox" class="form-check-input cycle-checkbox" data-bill-id="${b._id}" ${isSel ? "checked" : ""}>
           <div>
-            <div class="cycle-card-month">${monthName(b.month - 1, true)} ${b.year}</div>
+            <div class="cycle-card-month">
+              ${monthName(b.month - 1, true)} ${b.year}
+              <span class="badge ${isPast ? "bg-warning text-dark" : "bg-primary"} ms-1" style="font-size:0.6rem;vertical-align:middle;">${isPast ? t("cyclePastBadge") : t("cycleCurrentBadge")}</span>
+            </div>
             <div class="cycle-card-period">${fmtDate(start)}–${fmtDate(end)} · ${days}d</div>
             <div class="cycle-card-amount">$${(b.totalAmount || 0).toFixed(2)}</div>
           </div>
@@ -683,13 +737,49 @@ class BillManagementComponent {
       })
       .join("");
 
+    // A preset is "active" when the current selection is exactly its set.
+    const sel = this._selectedCycleIds;
+    const presetsHtml = this._cyclePresets(bills)
+      .map((p) => {
+        const disabled = p.disabled || p.ids.length === 0;
+        const active =
+          !disabled &&
+          p.ids.length === sel.size &&
+          p.ids.every((id) => sel.has(id));
+        return `<button type="button" class="btn btn-sm ${active ? "btn-primary" : "btn-outline-primary"} py-0 cycle-preset-btn" data-preset="${p.key}" ${disabled ? "disabled" : ""} style="font-size:0.78rem;">${p.label}</button>`;
+      })
+      .join("");
+
+    const selectedBills = bills.filter((b) => sel.has(b._id));
+    const selectedTotal = selectedBills.reduce(
+      (s, b) => s + (b.totalAmount || 0),
+      0,
+    );
+    const pastSelected = selectedBills.filter((b) => this._isPastCycle(b));
+    const summaryHtml =
+      selectedBills.length > 0
+        ? `<div class="small mt-2">
+            <i class="bi bi-check2-square text-primary me-1"></i>${t("cyclesSelectedSummary", { count: selectedBills.length, amount: `$${selectedTotal.toFixed(2)}` })}
+            ${
+              pastSelected.length > 0
+                ? `<span class="text-warning-emphasis ms-1"><i class="bi bi-clock-history me-1"></i>${t("cyclesIncludesPast", { months: pastSelected.map((b) => `${monthName(b.month - 1, true)} ${b.year}`).join(", ") })}</span>`
+                : ""
+            }
+          </div>`
+        : `<div class="small text-muted mt-2">${t("cyclesNoneSelected")}</div>`;
+
     container.innerHTML = `
       <div class="d-flex align-items-center gap-2 mb-1">
         <i class="bi bi-collection text-primary"></i>
         <strong style="font-size:0.88rem;">${t("billCyclesTitle")}</strong>
       </div>
       <div class="small text-muted mb-2">${t("billCyclesHint")}</div>
+      <div class="d-flex flex-wrap gap-1 mb-2">
+        ${presetsHtml}
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 cycle-preset-btn" data-preset="clear" ${sel.size === 0 ? "disabled" : ""} style="font-size:0.78rem;">${t("cyclePresetClear")}</button>
+      </div>
       <div class="d-flex flex-wrap gap-2">${cardsHtml}</div>
+      ${summaryHtml}
     `;
 
     container.querySelectorAll(".cycle-checkbox").forEach((cb) => {
@@ -697,6 +787,15 @@ class BillManagementComponent {
         const id = e.target.getAttribute("data-bill-id");
         if (e.target.checked) this._selectedCycleIds.add(id);
         else this._selectedCycleIds.delete(id);
+        this._loadDynamicPreview();
+      });
+    });
+
+    container.querySelectorAll(".cycle-preset-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-preset");
+        const preset = this._cyclePresets(bills).find((p) => p.key === key);
+        this._selectedCycleIds = new Set(preset ? preset.ids : []);
         this._loadDynamicPreview();
       });
     });
@@ -795,6 +894,7 @@ class BillManagementComponent {
             // out this month" themselves against whichever month they render.
             deposit: tenant.deposit != null ? tenant.deposit : null,
             moveoutDate: propAssoc?.moveoutDate || null,
+            moveinDate: propAssoc?.moveinDate || null,
           });
         });
       }
@@ -957,6 +1057,31 @@ class BillManagementComponent {
   // month, so restating the month/year on every row would be redundant.
   // A single-day stay renders as just "D". Multiple segments (e.g. a mid-
   // month room switch that briefly gaps) are joined with ", ".
+  // Move-in / move-out dates under a tenant's name. A date falling inside
+  // the month being viewed is highlighted (green in, red out) since that's
+  // what explains a prorated rent / deposit refund on this month's bill.
+  _moveDatesHtml(moveinDate, moveoutDate, monthStart, monthEnd) {
+    const part = (raw, icon, label, color) => {
+      if (!raw) return "";
+      const d = new Date(raw);
+      if (isNaN(d)) return "";
+      d.setHours(0, 0, 0, 0);
+      const inMonth = +d >= +monthStart && +d <= +monthEnd;
+      const dateStr = d.toLocaleDateString("en-SG", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      return `<span title="${label}" style="white-space:nowrap;${inMonth ? `color:${color};font-weight:600;` : ""}"><i class="bi ${icon} me-1"></i>${dateStr}</span>`;
+    };
+    const parts = [
+      part(moveinDate, "bi-box-arrow-in-right", t("moveInDate"), "#2b8a3e"),
+      part(moveoutDate, "bi-box-arrow-right", t("moveOutDate"), "#c92a2a"),
+    ].filter(Boolean);
+    if (!parts.length) return "";
+    return `<div class="text-muted d-flex flex-wrap column-gap-2" style="font-size:0.72rem;margin-top:3px;">${parts.join("")}</div>`;
+  }
+
   _formatStayPeriodShort(periods) {
     return (periods || [])
       .map((p) => {
@@ -1133,6 +1258,8 @@ class BillManagementComponent {
         avatar: tenant.avatar || null,
         facebookUrl: tenant.facebookUrl || null,
         phoneNumber: tenant.phoneNumber || null,
+        moveinDate: propAssoc.moveinDate || null,
+        moveoutDate: propAssoc.moveoutDate || null,
         cycles: {},
       });
     }
@@ -1173,7 +1300,9 @@ class BillManagementComponent {
         start,
         end,
         days,
+        bill,
       );
+      const isPast = this._isPastCycle(bill);
       breakdown.rows.forEach((r) => {
         const e = entryByTenant[r.tenantId];
         if (!e) return;
@@ -1181,6 +1310,9 @@ class BillManagementComponent {
           label: `${monthName(bill.month - 1, true)} ${bill.year}`,
           month: bill.month,
           year: bill.year,
+          // A past cycle's PUB top-up being caught up on this month — the
+          // exported bill calls it out so the tenant knows why it's there.
+          isPast,
           period: `${fmtCycleDate(start)}–${fmtCycleDate(end)}, ${days} ngày`,
           share: r.utilityShare,
           charged: r.chargedAmount,
@@ -1211,7 +1343,13 @@ class BillManagementComponent {
       })
       .sort((a, b) => (a.room || "").localeCompare(b.room || ""));
 
-    return { rows, daysInMonth, hasSelectedBills: selectedBills.length > 0 };
+    return {
+      rows,
+      daysInMonth,
+      monthStart,
+      monthEnd,
+      hasSelectedBills: selectedBills.length > 0,
+    };
   }
 
   _renderDynamicPreview(container, preview) {
@@ -1228,7 +1366,10 @@ class BillManagementComponent {
           const amtHtml = r.isSubsidized
             ? `<span class="text-decoration-line-through">${fmt(c.share)}</span>`
             : fmt(c.share);
-          return `<div style="font-size:0.72rem;color:#6c757d;">${escapeHtml(c.label)}: ${amtHtml}</div>`;
+          const pastIcon = c.isPast
+            ? `<i class="bi bi-clock-history text-warning me-1" title="${t("cyclePastBadge")}"></i>`
+            : "";
+          return `<div style="font-size:0.72rem;color:#6c757d;">${pastIcon}${escapeHtml(c.label)}: ${amtHtml}</div>`;
         })
         .join("");
 
@@ -1287,6 +1428,7 @@ class BillManagementComponent {
             <div style="min-width:0;">
               <div class="fw-semibold">${escapeHtml(r.tenantName)}</div>
               ${tenantSocialIcons(r)}
+              ${this._moveDatesHtml(r.moveinDate, r.moveoutDate, preview.monthStart, preview.monthEnd)}
               ${tenantNotesCell(r)}
             </div>
           </div>`)}
@@ -1335,6 +1477,16 @@ class BillManagementComponent {
       .join("");
 
     const totalPayable = preview.rows.reduce((s, r) => s + r.total, 0);
+    const sumOf = (key) => preview.rows.reduce((s, r) => s + (r[key] || 0), 0);
+    const totalsBreakdown = [
+      [t("baseRental"), sumOf("rentAmount")],
+      [t("cleaningFee"), sumOf("cleaningFee")],
+      [t("acCleanFee"), sumOf("acCleanFee")],
+      [t("utilityFee"), sumOf("pubAmount")],
+    ]
+      .filter(([, v]) => v > 0.005)
+      .map(([label, v]) => `${label} ${fmt(v)}`)
+      .join(" · ");
     const totalSaved = preview.rows
       .filter((r) => r.isSubsidized)
       .reduce((s, r) => s + r.pubShareRaw, 0);
@@ -1365,7 +1517,10 @@ class BillManagementComponent {
           ${!preview.hasSelectedBills ? t("pubNotAddedYetNote") : ""}
           ${totalSaved > 0.005 ? `<span class="ms-1">${t("landlordAbsorbsShort", { amount: fmt(totalSaved) })}</span>` : ""}
         </small>
-        <div><strong>${t("estimatedTotal")}: ${fmt(totalPayable)}</strong></div>
+        <div class="text-end">
+          <strong>${t("estimatedTotal")}: ${fmt(totalPayable)}</strong>
+          ${totalsBreakdown ? `<div class="text-muted" style="font-size:0.72rem;">${totalsBreakdown}</div>` : ""}
+        </div>
       </div>
     `;
   }
@@ -1543,6 +1698,7 @@ class BillManagementComponent {
                 <div><strong>${escapeHtml(tenantBill.tenantName)}</strong>${cleaningSubsidyBadge}</div>
                 ${socialIcons}
                 <small class="text-muted d-block">${escapeHtml(tenantBill.tenantId)}</small>
+                ${this._moveDatesHtml(profile.moveinDate, profile.moveoutDate, billMonthStart, billMonthEnd)}
               </div>
             </div>`)}
           ${gridCell(this._roomTypeBadgeHtml(tenantBill.room))}
@@ -2176,73 +2332,59 @@ class BillManagementComponent {
       return;
     }
 
-    const ub = this.currentUtilityBill;
-    const fmtDate = (v) =>
-      v
-        ? new Date(v).toLocaleDateString("en-SG", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })
-        : null;
-
-    // Pre-fill billing period from tracker data if available
-    const prefillPeriod =
-      ub && (ub.billingPeriodStart || ub.billingPeriodEnd)
-        ? `${fmtDate(ub.billingPeriodStart) || "?"} - ${fmtDate(ub.billingPeriodEnd) || "?"}`
-        : "";
-    const prefillFee = ub ? (ub.totalAmount || 0).toFixed(2) : "0";
-
-    const trackerBanner = ub
-      ? `
-      <div class="alert alert-success py-2 mb-3">
-        <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
-        <strong>${t("spBillFound")}</strong> — ${monthName((ub.month || 1) - 1, true)} ${ub.year}
-        <div class="mt-1 small">
-          ${t("elec")}: <strong>$${(ub.electricityAmount || 0).toFixed(2)}</strong> &nbsp;
-          ${t("water")}: <strong>$${(ub.waterAmount || 0).toFixed(2)}</strong> &nbsp;
-          ${t("gasAndOthers")}: <strong>$${((ub.gasAmount || 0) + (ub.refuseAmount || 0) + (ub.otherAmount || 0)).toFixed(2)}</strong> &nbsp;
-          ${t("total")}: <strong class="text-primary">$${(ub.totalAmount || 0).toFixed(2)}</strong>
-        </div>
-      </div>`
-      : `
-      <div class="alert alert-warning py-2 mb-3">
-        <i class="bi bi-exclamation-triangle me-1"></i>
-        ${t("noSpBillFoundMsg")}
-        <a href="#" class="alert-link ms-1" onclick="event.preventDefault();bootstrap.Modal.getInstance(document.getElementById('generateBillModal'))?.hide();dashboardController.showSection('utility-bills')">${t("addBill")}</a>
-      </div>`;
+    // Utility bills to generate from are picked right here in the modal, so
+    // this works both for a first generate and for regenerating an already
+    // generated bill against a different set of bills (e.g. add a past
+    // month's uncollected PUB top-up, or swap in this month's bill once it
+    // arrives). Seeded from the live-preview picker before a bill exists, or
+    // from the bills the existing bill was generated against.
+    const bills = this._getBillCycleWindow();
+    this._generateCycleIds = new Set(
+      this.currentBill
+        ? this._cycleIdsForExistingBill(bills)
+        : this._selectedCycleIds || this._defaultSelectedCycleIds(bills),
+    );
 
     const modalHtml = `
       <div class="modal fade" id="generateBillModal" tabindex="-1">
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">${t("generateBillTitle")}</h5>
+              <h5 class="modal-title">${this.currentBill ? t("regenerateBill") : t("generateBillTitle")}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
               <form id="generateBillForm">
-                <div class="mb-3">
-                  <label class="form-label">${t("property")}</label>
-                  <input type="text" class="form-control" value="${this.selectedProperty || t("noPropertySelected")}" readonly>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <label class="form-label">${t("property")}</label>
+                    <input type="text" class="form-control" value="${this.selectedProperty || t("noPropertySelected")}" readonly>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">${t("monthYear")}</label>
+                    <input type="text" class="form-control" value="${monthName(this.currentDate.getMonth())} ${this.currentDate.getFullYear()}" readonly>
+                  </div>
                 </div>
-                <div class="mb-3">
-                  <label class="form-label">${t("monthYear")}</label>
-                  <input type="text" class="form-control" value="${monthName(this.currentDate.getMonth())} ${this.currentDate.getFullYear()}" readonly>
-                </div>
-                ${trackerBanner}
+                <div id="generateCyclesSection" class="mb-3"></div>
                 <div class="mb-3">
                   <label for="billingPeriod" class="form-label">${t("billingPeriodLabel")}</label>
-                  <input type="text" class="form-control" id="billingPeriod" placeholder="${t("billingPeriodPlaceholder")}" value="${escapeHtml(prefillPeriod)}">
+                  <input type="text" class="form-control" id="billingPeriod" placeholder="${t("billingPeriodPlaceholder")}">
                 </div>
                 <div class="mb-3">
                   <label for="totalUtilityFee" class="form-label">${t("totalUtilityFeeToShare")}</label>
                   <div class="input-group">
                     <span class="input-group-text">$</span>
-                    <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01" value="${prefillFee}">
+                    <input type="number" class="form-control" id="totalUtilityFee" name="totalUtilityFee" min="0" step="0.01">
                   </div>
-                  <div class="form-text">${t("utilityFeeDesc")}</div>
+                  <div class="form-text" id="totalUtilityFeeHelp"></div>
                 </div>
+                ${
+                  this.currentBill
+                    ? `<div class="alert alert-warning py-2 mb-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>${t("regenerateWarningInline")}
+                      </div>`
+                    : ""
+                }
                 <div class="alert alert-info mb-0">
                   <i class="bi bi-info-circle me-2"></i>
                   <small>${t("generateNoteText")}</small>
@@ -2251,8 +2393,11 @@ class BillManagementComponent {
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t("cancel")}</button>
-              ${this.currentBill ? `<button type="button" class="btn btn-warning" onclick="billManager.generateBill(true)">${t("regenerateBill")}</button>` : ""}
-              <button type="button" class="btn btn-primary" onclick="billManager.generateBill()">${t("generate")}</button>
+              ${
+                this.currentBill
+                  ? `<button type="button" class="btn btn-warning" onclick="billManager.generateBill(true)"><i class="bi bi-arrow-repeat me-1"></i>${t("regenerateBill")}</button>`
+                  : `<button type="button" class="btn btn-primary" onclick="billManager.generateBill()">${t("generate")}</button>`
+              }
             </div>
           </div>
         </div>
@@ -2264,17 +2409,179 @@ class BillManagementComponent {
     if (existingModal) existingModal.remove();
 
     document.body.insertAdjacentHTML("beforeend", modalHtml);
+    this._renderGenerateCycles(bills);
 
     const modalEl = document.getElementById("generateBillModal");
-    modalEl.addEventListener("hidden.bs.modal", () => modalEl.remove(), {
-      once: true,
-    });
+    modalEl.addEventListener(
+      "hidden.bs.modal",
+      () => {
+        modalEl.remove();
+        this._generateCycles = [];
+        this._generateCycleIds = null;
+      },
+      { once: true },
+    );
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
   }
 
+  // Bills an already-generated bill was most likely built from: every
+  // tracked bill whose own period falls inside the persisted billingPeriod
+  // span (a multi-bill generate stores first-start → last-end). Falls back
+  // to the usual "overlaps this month" default when nothing matches, e.g.
+  // the bill was generated before any SP Group bill was tracked.
+  _cycleIdsForExistingBill(bills) {
+    const matched = this._cyclesWithinExistingBill(bills);
+    if (matched.length) return matched.map((b) => b._id);
+    return this._defaultSelectedCycleIds(bills);
+  }
+
+  _cyclesWithinExistingBill(bills = this._getBillCycleWindow()) {
+    const span = this._parseBillingPeriodSpan(this.currentBill?.billingPeriod);
+    if (!span) return [];
+    return bills.filter((b) => {
+      const { start, end } = this._billPeriodBounds(b);
+      return +start >= +span.start && +end <= +span.end;
+    });
+  }
+
+  _parseBillingPeriodSpan(bp) {
+    if (!bp) return null;
+    const parts = bp.split(/\s*[-–—]\s*/);
+    if (parts.length !== 2) return null;
+    const start = new Date(parts[0]);
+    const end = new Date(parts[1]);
+    if (isNaN(start) || isNaN(end)) return null;
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    return { start, end };
+  }
+
+  // (Re)renders the modal's utility-bill picker and keeps the billing
+  // period / total fee fields in sync with what's ticked. With nothing
+  // ticked the fields fall back to manual entry (this month's tracked bill
+  // prefilled, if any) — the original single-bill behaviour.
+  _renderGenerateCycles(bills) {
+    const section = document.getElementById("generateCyclesSection");
+    if (!section) return;
+    const sel = this._generateCycleIds;
+    const cycles = bills.filter((b) => sel.has(b._id));
+    this._generateCycles = cycles;
+
+    const fmtDate = (v) =>
+      v
+        ? new Date(v).toLocaleDateString("en-SG", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : null;
+    const cyclesTotal = cycles.reduce((s, b) => s + (b.totalAmount || 0), 0);
+
+    const presetsHtml = this._cyclePresets(bills)
+      .map((p) => {
+        const disabled = p.disabled || p.ids.length === 0;
+        const active =
+          !disabled &&
+          p.ids.length === sel.size &&
+          p.ids.every((id) => sel.has(id));
+        return `<button type="button" class="btn btn-sm ${active ? "btn-primary" : "btn-outline-primary"} py-0 gen-cycle-preset" data-preset="${p.key}" ${disabled ? "disabled" : ""} style="font-size:0.75rem;">${p.label}</button>`;
+      })
+      .join("");
+
+    const listHtml = bills.length
+      ? bills
+          .map((b) => {
+            const { start, end } = this._billPeriodBounds(b);
+            const isPast = this._isPastCycle(b);
+            return `
+          <label class="d-flex align-items-center gap-2 border rounded px-2 py-1 mb-1 ${sel.has(b._id) ? "border-primary bg-primary-subtle" : ""}" style="cursor:pointer;font-size:0.85rem;">
+            <input type="checkbox" class="form-check-input mt-0 gen-cycle-cb" data-bill-id="${b._id}" ${sel.has(b._id) ? "checked" : ""}>
+            <span class="fw-semibold">${monthName(b.month - 1, true)} ${b.year}</span>
+            <span class="badge ${isPast ? "bg-warning text-dark" : "bg-primary"}" style="font-size:0.6rem;">${isPast ? t("cyclePastBadge") : t("cycleCurrentBadge")}</span>
+            <span class="text-muted small">${fmtDate(start)} – ${fmtDate(end)}</span>
+            <span class="ms-auto fw-bold text-primary">$${(b.totalAmount || 0).toFixed(2)}</span>
+          </label>`;
+          })
+          .join("")
+      : `<div class="alert alert-warning py-2 mb-0 small">
+          <i class="bi bi-exclamation-triangle me-1"></i>${t("noCyclesFound")}
+          <a href="#" class="alert-link ms-1" onclick="event.preventDefault();bootstrap.Modal.getInstance(document.getElementById('generateBillModal'))?.hide();dashboardController.showSection('utility-bills')">${t("addBill")}</a>
+        </div>`;
+
+    section.innerHTML = `
+      <label class="form-label mb-1"><i class="bi bi-collection text-primary me-1"></i>${t("billCyclesTitle")}</label>
+      ${bills.length ? `<div class="d-flex flex-wrap gap-1 mb-2">${presetsHtml}<button type="button" class="btn btn-sm btn-outline-secondary py-0 gen-cycle-preset" data-preset="clear" ${sel.size === 0 ? "disabled" : ""} style="font-size:0.75rem;">${t("cyclePresetClear")}</button></div>` : ""}
+      ${listHtml}
+      ${
+        cycles.length
+          ? `<div class="small mt-1">${t("cyclesSelectedSummary", { count: cycles.length, amount: `$${cyclesTotal.toFixed(2)}` })}</div>`
+          : bills.length
+            ? `<div class="small text-muted mt-1">${t("cyclesNoneSelectedManual")}</div>`
+            : ""
+      }
+    `;
+
+    // Sync the period / fee fields: locked to the ticked bills, or manual.
+    const periodEl = document.getElementById("billingPeriod");
+    const feeEl = document.getElementById("totalUtilityFee");
+    const helpEl = document.getElementById("totalUtilityFeeHelp");
+    if (cycles.length) {
+      const span = this._cyclesSpan(cycles);
+      periodEl.value = `${fmtDate(span.start)} - ${fmtDate(span.end)}`;
+      feeEl.value = cyclesTotal.toFixed(2);
+      periodEl.readOnly = true;
+      feeEl.readOnly = true;
+      helpEl.textContent = t("utilityFeeFromCyclesDesc");
+    } else {
+      // Only reset when coming out of locked mode, so manual edits survive
+      // re-renders while nothing is ticked.
+      if (feeEl.readOnly || feeEl.value === "") {
+        const ub = this.currentUtilityBill;
+        periodEl.value =
+          ub && (ub.billingPeriodStart || ub.billingPeriodEnd)
+            ? `${fmtDate(ub.billingPeriodStart) || "?"} - ${fmtDate(ub.billingPeriodEnd) || "?"}`
+            : "";
+        feeEl.value = "0";
+      }
+      periodEl.readOnly = false;
+      feeEl.readOnly = false;
+      helpEl.textContent = t("utilityFeeDesc");
+    }
+
+    section.querySelectorAll(".gen-cycle-cb").forEach((cb) => {
+      cb.addEventListener("change", (e) => {
+        const id = e.target.getAttribute("data-bill-id");
+        if (e.target.checked) sel.add(id);
+        else sel.delete(id);
+        this._renderGenerateCycles(bills);
+      });
+    });
+    section.querySelectorAll(".gen-cycle-preset").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-preset");
+        const preset = this._cyclePresets(bills).find((p) => p.key === key);
+        this._generateCycleIds = new Set(preset ? preset.ids : []);
+        this._renderGenerateCycles(bills);
+      });
+    });
+  }
+
+  // Earliest start → latest end across the given cycles.
+  _cyclesSpan(bills) {
+    let start = null;
+    let end = null;
+    bills.forEach((b) => {
+      const bounds = this._billPeriodBounds(b);
+      if (!start || +bounds.start < +start) start = bounds.start;
+      if (!end || +bounds.end > +end) end = bounds.end;
+    });
+    return { start, end };
+  }
+
   async generateBill(regenerate = false) {
     try {
+      const cycles = this._generateCycles || [];
       const totalUtilityFee =
         parseFloat(document.getElementById("totalUtilityFee").value) || 0;
       const billingPeriod =
@@ -2303,6 +2610,7 @@ class BillManagementComponent {
         billingPeriod,
         year,
         month,
+        cycles,
       );
 
       const formData = new FormData();
@@ -2347,7 +2655,18 @@ class BillManagementComponent {
   // a flat totalUtility / tenantCount split, which over-collected because it
   // divided by ALL tenants (not just paying ones) and never applied the
   // landlord subsidy at all.
-  async _computeTenantUtilityShares(totalUtilityFee, billingPeriod, year, month) {
+  //
+  // With `cycles` (utility bills ticked in the preview picker), each cycle is
+  // prorated over its own billing period / per-type split and the per-tenant
+  // results summed — so a past month's uncollected top-up and this month's
+  // bill can be billed together on one rent month.
+  async _computeTenantUtilityShares(
+    totalUtilityFee,
+    billingPeriod,
+    year,
+    month,
+    cycles = [],
+  ) {
     try {
       const res = await API.get(
         API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
@@ -2361,8 +2680,16 @@ class BillManagementComponent {
       const billingMonthEnd = new Date(year, month, 0);
       billingMonthEnd.setHours(0, 0, 0, 0);
 
-      const { periodStart, periodEnd, periodDays } =
-        this._resolveBillingPeriod(billingPeriod);
+      // Multi-cycle: eligibility spans all selected cycles (matches the
+      // start–end span sent as billingPeriod, which the backend filters on).
+      const span = cycles.length ? this._cyclesSpan(cycles) : null;
+      const { periodStart, periodEnd, periodDays } = span
+        ? {
+            periodStart: span.start,
+            periodEnd: span.end,
+            periodDays: Math.round((span.end - span.start) / 864e5) + 1,
+          }
+        : this._resolveBillingPeriod(billingPeriod);
 
       // Mirrors the backend's tenant-eligibility filter for bill generation
       // — the same set of tenants that will actually receive a tenantBills
@@ -2403,19 +2730,40 @@ class BillManagementComponent {
         });
       }
 
-      const breakdown = this._calcUtilityBreakdown(
-        fullTenants,
-        eligible,
-        totalUtilityFee,
-        this.propertySubsidy,
-        periodStart,
-        periodEnd,
-        periodDays,
-      );
+      const breakdowns = cycles.length
+        ? cycles.map((bill) => {
+            const { start, end, days } = this._billPeriodBounds(bill);
+            return this._calcUtilityBreakdown(
+              fullTenants,
+              eligible,
+              bill.totalAmount || 0,
+              this.propertySubsidy,
+              start,
+              end,
+              days,
+              bill,
+            );
+          })
+        : [
+            this._calcUtilityBreakdown(
+              fullTenants,
+              eligible,
+              totalUtilityFee,
+              this.propertySubsidy,
+              periodStart,
+              periodEnd,
+              periodDays,
+            ),
+          ];
 
       const shares = {};
-      breakdown.rows.forEach((r) => {
-        shares[r.tenantId] = Math.round(r.chargedAmount * 100) / 100;
+      breakdowns.forEach((breakdown) => {
+        breakdown.rows.forEach((r) => {
+          shares[r.tenantId] = (shares[r.tenantId] || 0) + r.chargedAmount;
+        });
+      });
+      Object.keys(shares).forEach((id) => {
+        shares[id] = Math.round(shares[id] * 100) / 100;
       });
       return shares;
     } catch (err) {
@@ -2825,6 +3173,49 @@ class BillManagementComponent {
     const cycleLabel = `${monthName(monthIdx, true)} ${year}`;
     const cyclePeriod = this.currentBill.billingPeriod || `${daysInMonth} ngày`;
 
+    // A bill generated from several SP Group bills (or a past one) only
+    // persists their combined start–end span, so rebuild the per-bill lines
+    // from the tracked bills inside that span — same split the generate
+    // used — letting the exported card list each month separately.
+    const fmtCycleDate = (d) =>
+      d.toLocaleDateString("en-SG", { day: "2-digit", month: "2-digit" });
+    const matchedCycles = this._cyclesWithinExistingBill();
+    let cyclesByTenant = null;
+    if (
+      matchedCycles.length > 1 ||
+      matchedCycles.some((b) => this._isPastCycle(b))
+    ) {
+      cyclesByTenant = {};
+      matchedCycles.forEach((bill) => {
+        const { start, end, days } = this._billPeriodBounds(bill);
+        const bd = this._calcUtilityBreakdown(
+          fullTenants,
+          this.currentBill.tenantBills || [],
+          bill.totalAmount || 0,
+          this.propertySubsidy,
+          start,
+          end,
+          days,
+          bill,
+        );
+        const isPast = this._isPastCycle(bill);
+        bd.rows.forEach((r) => {
+          if (!cyclesByTenant[r.tenantId]) cyclesByTenant[r.tenantId] = [];
+          cyclesByTenant[r.tenantId].push({
+            label: `${monthName(bill.month - 1, true)} ${bill.year}`,
+            isPast,
+            period: `${fmtCycleDate(start)}–${fmtCycleDate(end)}, ${days} ngày`,
+            share: r.utilityShare,
+            charged: r.chargedAmount,
+            isSubsidized: r.isSubsidized,
+            note: r.note || "",
+            presentDays: r.presentDays,
+            periodDays: r.tenantPeriodDays,
+          });
+        });
+      });
+    }
+
     const perTenant = {};
     (this.currentBill.tenantBills || []).forEach((tb) => {
       const full = tenantMap[tb.tenantId];
@@ -2863,7 +3254,7 @@ class BillManagementComponent {
         daysInMonth,
         monthlyCleaningFee: full?.cleaningFee || 0,
         isSubsidized,
-        cycles: [
+        cycles: cyclesByTenant?.[tb.tenantId] || [
           {
             label: cycleLabel,
             period: cyclePeriod,
@@ -2904,6 +3295,10 @@ class BillManagementComponent {
     const vnd = property?.settlementVnd;
     if (!sgd?.bankName && !vnd?.bankName) return null;
     return { sgd, vnd };
+  }
+
+  static get PAST_CYCLE_NOTE_VI() {
+    return "Bao gồm tiền điện nước kỳ trước chưa thu";
   }
 
   static get BILL_FOOTER_NOTE_VI() {
@@ -2948,8 +3343,12 @@ class BillManagementComponent {
         <div style="margin-top:2px;padding-left:10px;font-size:11px;color:#adb5bd;font-style:italic;">${escapeHtml(c.note)}</div>`
         : "";
 
+    // A past cycle (uncollected PUB top-up caught up this month) is always
+    // listed by its month label, even alone, so the tenant can tell it's not
+    // this month's usage.
+    const hasPastCycle = cycles.some((c) => c.isPast);
     const cycleLines =
-      cycles.length > 1
+      cycles.length > 1 || hasPastCycle
         ? cycles
             .map(
               (c) => `
@@ -2971,6 +3370,7 @@ class BillManagementComponent {
           <span style="font-weight:600;font-size:14px;color:${info.isSubsidized ? "#2b8a3e" : "#1a1a1a"};">${fmt(tenantBill.utilityFee)}</span>
         </div>
         ${cycleLines}
+        ${hasPastCycle && !info.isSubsidized ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#e67700;font-style:italic;">${BillManagementComponent.PAST_CYCLE_NOTE_VI}</div>` : ""}
         ${info.isSubsidized ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#2b8a3e;font-style:italic;">Được hỗ trợ 100% — tiết kiệm ${fmt(totalRawShare)}</div>` : ""}
       </div>`;
 
@@ -3064,13 +3464,17 @@ class BillManagementComponent {
       ? `<br><span style="color:#2b8a3e;font-weight:700;font-size:13px;">Số tiền cần chuyển: ${vndAmount.toLocaleString("vi-VN")} VND</span>
          <span style="color:#adb5bd;"> (1 SGD ≈ ${Number(ctx.exchangeRate).toLocaleString("vi-VN")} VND)</span>`
       : "";
+    // SGD and VND accounts sit side by side (2 columns in 1 row) rather than
+    // stacked, so a card with both on file doesn't grow taller than it needs
+    // to — each column shrinks to fit, wrapping its bank-detail line if the
+    // card is narrow.
     const paymentSection = settlement
       ? `
       <div style="background:#f8f9fa;padding:12px 24px;border-top:1px solid #f1f3f5;">
         <div style="font-size:10px;letter-spacing:0.5px;color:#adb5bd;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Thông tin thanh toán</div>
-        <div style="font-size:12px;color:#868e96;line-height:1.5;">
-          ${settlement.sgd?.bankName ? settlementLine("SGD", settlement.sgd) : ""}
-          ${settlement.vnd?.bankName ? settlementLine("VND", settlement.vnd, vndAmountLine) : ""}
+        <div style="display:flex;gap:14px;font-size:12px;color:#868e96;line-height:1.5;">
+          ${settlement.sgd?.bankName ? `<div style="flex:1;min-width:0;">${settlementLine("SGD", settlement.sgd)}</div>` : ""}
+          ${settlement.vnd?.bankName ? `<div style="flex:1;min-width:0;">${settlementLine("VND", settlement.vnd, vndAmountLine)}</div>` : ""}
         </div>
       </div>`
       : "";
@@ -3166,7 +3570,8 @@ class BillManagementComponent {
       lines.push(line || `  Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}`);
     }
     lines.push(`Tiền điện nước: ${fmt(tenantBill.utilityFee)}`);
-    if (cycles.length > 1) {
+    const hasPastCycle = cycles.some((c) => c.isPast);
+    if (cycles.length > 1 || hasPastCycle) {
       cycles.forEach((c) => {
         lines.push(`  Kỳ ${c.label} (${c.period}): ${fmt(c.share)}`);
         if (c.note) lines.push(`    ${c.note}`);
@@ -3175,6 +3580,8 @@ class BillManagementComponent {
       lines.push(`  Kỳ ${cycles[0].period}`);
       if (cycles[0].note) lines.push(`    ${cycles[0].note}`);
     }
+    if (hasPastCycle && !info.isSubsidized)
+      lines.push(`  (${BillManagementComponent.PAST_CYCLE_NOTE_VI})`);
     if (info.isSubsidized)
       lines.push(`  (Được hỗ trợ 100% — tiết kiệm ${fmt(totalRawShare)})`);
     if (tenantBill.cleaningFee) {
@@ -3234,7 +3641,7 @@ class BillManagementComponent {
   // with the property's unit/address (not the room) so files sort/identify
   // by property when an admin has many downloads across properties mixed
   // together, with the tenant name kept to avoid collisions within a batch.
-  _billFileName(tenantBill, ctx) {
+  _billFileName(tenantBills, ctx) {
     const sanitize = (s) =>
       (s || "")
         .normalize("NFC")
@@ -3246,11 +3653,15 @@ class BillManagementComponent {
           .map(sanitize)
           .join(" - ")
       : "";
-    const safeName = sanitize(tenantBill.tenantName || tenantBill.tenantId)
-      .replace(/[^\p{L}\p{N} _-]/gu, "")
-      .replace(/\s+/g, "_");
+    const safeNames = tenantBills
+      .map((tb) =>
+        sanitize(tb.tenantName || tb.tenantId)
+          .replace(/[^\p{L}\p{N} _-]/gu, "")
+          .replace(/\s+/g, "_"),
+      )
+      .join("+");
     const monthLabel = ctx.monthLabel.replace("/", "-");
-    return `${unitAddr ? `#${unitAddr} - ` : ""}${safeName} - ${monthLabel}.png`;
+    return `${unitAddr ? `#${unitAddr} - ` : ""}${safeNames} - ${monthLabel}.png`;
   }
 
   // Rasterizes a card's HTML off-screen into a PNG blob via html2canvas.
@@ -3336,7 +3747,7 @@ class BillManagementComponent {
 
           const cardHtml = this._buildBillCardHtml(tb, tenantCtx);
           const blob = await this._renderCardToBlob(cardHtml);
-          const fileName = this._billFileName(tb, ctx);
+          const fileName = this._billFileName([tb], ctx);
           return { tb, blob, fileName };
         }),
       );
@@ -3500,6 +3911,10 @@ class BillManagementComponent {
     return { periodStart: null, periodEnd: null, periodDays: null };
   }
 
+  // `utilityBill` supplies the electricity/water/gas split for the cycle
+  // being calculated — defaults to this month's tracked bill, but a past
+  // cycle (multi-cycle preview / generate) must pass its own bill, otherwise
+  // it'd be split using a different month's per-type proportions.
   _calcUtilityBreakdown(
     fullTenants,
     tenantBills,
@@ -3508,6 +3923,7 @@ class BillManagementComponent {
     periodStart,
     periodEnd,
     periodDays,
+    utilityBill = this.currentUtilityBill,
   ) {
     const netUtility = Math.max(0, grossUtility - landlordSubsidy);
     // Build lookup: _id (uppercased) → full tenant object
@@ -3520,7 +3936,7 @@ class BillManagementComponent {
 
     // Split gross utility into per-type amounts if the SP Group bill has breakdowns.
     // Falls back to treating everything as a single pool when no split is available.
-    const ub = this.currentUtilityBill;
+    const ub = utilityBill;
     const hasTypeBreakdown =
       ub &&
       (ub.electricityAmount ||
@@ -3839,14 +4255,14 @@ class BillManagementComponent {
       (a.room || "").localeCompare(b.room || ""),
     );
 
-    // Per-tenant "cards" (stacked, not a wide multi-column table) — the whole
-    // point is that this exact markup is what gets rasterised into the
-    // exported/clipboard image, and most recipients open that image on an
-    // iPhone. A rigid grid with several fixed-width columns has to either
-    // overflow a phone-width screen or squeeze every column's text down to
-    // ~11px to fit, which is illegible once the PNG is shrunk further to fit
-    // a chat bubble. Cards reflow at any width and keep each figure at a
-    // readable size instead.
+    // Per-tenant "cards" laid out 2-per-row (not a wide multi-column table)
+    // — this exact markup is what gets rasterised into the exported/
+    // clipboard image, an admin-facing summary of every tenant at once, so
+    // fitting 2 side by side keeps the image from growing needlessly tall
+    // with a long tenant list. Unlike a rigid table, each card still reflows
+    // independently (flex-basis, not a fixed column width), so a card with
+    // a longer note or an extra badge just grows taller without squeezing
+    // its neighbour's text down to fit.
     const cardsHtml = sortedRows
       .map((r, i) => {
         const shareTypeLines = hasTypeBreakdown
@@ -3876,7 +4292,7 @@ class BillManagementComponent {
         const chargedAmt = r.notBilled ? r.utilityShare : r.chargedAmount;
 
         return `
-        <div style="border:1px solid #dee2e6;border-radius:10px;padding:12px 14px;margin-bottom:9px;background:${r.notBilled ? "#f8f9fa" : "#fff"};${r.notBilled ? "opacity:0.85;" : ""}">
+        <div style="flex:1 1 calc(50% - 5px);min-width:230px;box-sizing:border-box;border:1px solid #dee2e6;border-radius:10px;padding:12px 14px;background:${r.notBilled ? "#f8f9fa" : "#fff"};${r.notBilled ? "opacity:0.85;" : ""}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div style="font-weight:700;font-size:1rem;">${i + 1}. ${escapeHtml(r.tenantName)}</div>
             ${this._roomTypeBadgeHtml(r.room)}
@@ -3971,7 +4387,7 @@ class BillManagementComponent {
         : "";
 
     return `
-      <div id="utilityBreakdownPrintArea" style="font-family:'Noto Serif',serif;max-width:460px;margin:0 auto;padding:18px 16px;background:#fff;font-size:15px;line-height:1.5;color:#212529;">
+      <div id="utilityBreakdownPrintArea" style="font-family:'Noto Serif',serif;max-width:640px;margin:0 auto;padding:18px 16px;background:#fff;font-size:15px;line-height:1.5;color:#212529;">
 
         <!-- Header -->
         <div style="border-bottom:3px solid #0d6efd;padding-bottom:10px;margin-bottom:14px;">
@@ -4006,9 +4422,11 @@ class BillManagementComponent {
           ${methodNote}
         </div>
 
-        <!-- Tenant cards -->
-        <div>
+        <!-- Tenant cards, 2 per row -->
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;">
           ${cardsHtml}
+        </div>
+        <div style="margin-top:9px;">
           ${totalsCardHtml}
         </div>
 

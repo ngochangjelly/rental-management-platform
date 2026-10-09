@@ -2266,6 +2266,20 @@ class FinancialReportsComponent {
     this.initializeTooltips();
   }
 
+  // Whether an income item represents an actual rent payment, as opposed
+  // to topup PUB, deposit, furniture sale, etc. Used to decide whether a
+  // tenant showing up as "paidBy" on an income item has really paid rent —
+  // matching on paidBy alone (regardless of what the item was for) is a
+  // false positive: a tenant who only topped up utilities would wrongly
+  // vanish from the unpaid-rent reminder. Items explicitly tagged via the
+  // category picker are trusted outright; older/untagged items fall back
+  // to checking the item title for the word "rent" (the consistent naming
+  // convention used for every rent entry in this dataset).
+  _isRentPaymentItem(item) {
+    if (item.category) return item.category === "rent";
+    return /\brent\b/i.test(item.item || "");
+  }
+
   async updateUnpaidRentReminder() {
     const reminderContainer = document.getElementById("unpaidRentReminder");
     if (!reminderContainer || !this.selectedProperty || !this.currentReport) {
@@ -2368,13 +2382,25 @@ class FinancialReportsComponent {
         return true; // Tenant was/is in property during this month
       });
 
-      // Get payment amounts per tenant (appear in income as paidBy)
+      // Get payment amounts per tenant (appear in income as paidBy).
+      // Pending income items are excluded — "pending" means the rent
+      // hasn't actually been received yet, so it must not count toward
+      // "paid" here or the tenant would wrongly disappear from the
+      // unpaid-rent reminder below. Non-rent income (topup PUB, deposit,
+      // furniture sale, ...) is excluded too — rent is what this reminder
+      // tracks, so a tenant who only paid for e.g. a PUB topup must still
+      // show up as owing rent (see _isRentPaymentItem).
       const paidAmountsByTenantId = new Map();
       if (
         this.currentReport.income &&
         Array.isArray(this.currentReport.income)
       ) {
-        this.currentReport.income.forEach((incomeItem) => {
+        this.currentReport.income
+          .filter(
+            (incomeItem) =>
+              !incomeItem.isPending && this._isRentPaymentItem(incomeItem),
+          )
+          .forEach((incomeItem) => {
           const paidByList = Array.isArray(incomeItem.paidBy)
             ? incomeItem.paidBy
             : incomeItem.paidBy
@@ -5245,9 +5271,8 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Add to pending closes set
-    this.pendingClose = true;
-    await this.updateClosedStatus();
+    // Lock immediately — no confirmation step (unlock asks instead)
+    await this.confirmCloseMonth();
   }
 
   // Cancel close confirmation
@@ -5303,6 +5328,10 @@ class FinancialReportsComponent {
 
     if (!this.currentReport.isClosed) {
       this.showError("This month is not closed");
+      return;
+    }
+
+    if (!confirm("Unlock this month's report? It will become editable again.")) {
       return;
     }
 
@@ -9077,9 +9106,16 @@ class FinancialReportsComponent {
       return true;
     });
 
-    // Map paid amounts from income
+    // Map paid amounts from income. Pending items are excluded — a
+    // pending income item means the rent hasn't actually been received,
+    // so it must not count toward "paid" here (same rule as
+    // updateUnpaidRentReminder's paidAmountsByTenantId above). Non-rent
+    // income (topup PUB, deposit, furniture sale, ...) is excluded too —
+    // see _isRentPaymentItem.
     const paidAmountsByTenantId = new Map();
     (report?.income || []).forEach((incomeItem) => {
+      if (incomeItem.isPending) return;
+      if (!this._isRentPaymentItem(incomeItem)) return;
       if (incomeItem.paidBy && incomeItem.paidBy.startsWith("tenant_")) {
         const tenantId = incomeItem.paidBy.replace("tenant_", "");
         const tenant = currentMonthTenants.find(

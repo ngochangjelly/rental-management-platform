@@ -135,36 +135,21 @@ class investorProfitChartComponent {
           : null;
 
         return `
-          <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-            <div
-              class="ipr-investor-card card h-100 ${isSelected ? "selected" : ""}"
-              data-investor-id="${investor.investorId}"
-              data-investor-index="${index}"
-              style="${isSelected ? `border-color: ${color.border};` : ""}"
-            >
-              <div class="card-body text-center p-3">
-                <div class="position-relative d-inline-block mb-2">
-                  ${
-                    avatarUrl
-                      ? `<img src="${avatarUrl}" class="rounded-circle" style="width:64px;height:64px;object-fit:cover;${isSelected ? `box-shadow:0 0 0 3px ${color.border};` : "box-shadow:0 2px 8px rgba(0,0,0,0.12);"}" alt="${this.escapeHtml(investor.name)}">`
-                      : `<div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold" style="width:64px;height:64px;font-size:1.4rem;background:${isSelected ? color.border : "linear-gradient(135deg,#667eea,#764ba2)"};${isSelected ? "" : "box-shadow:0 2px 8px rgba(102,126,234,0.35);"}">${this.getInitials(investor.name)}</div>`
-                  }
-                  ${
-                    isSelected
-                      ? `<div class="position-absolute bottom-0 end-0">
-                          <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width:22px;height:22px;background:${color.border};box-shadow:0 1px 4px rgba(0,0,0,0.2);">
-                            <i class="bi bi-check-lg" style="font-size:0.65rem;"></i>
-                          </div>
-                        </div>`
-                      : ""
-                  }
-                </div>
-                <h6 class="card-title mb-1 text-truncate fw-semibold" style="font-size:0.85rem">${this.escapeHtml(investor.name)}</h6>
-                <small class="text-muted" style="font-size:0.75rem">
-                  <i class="bi bi-building me-1"></i>${propertyCount} ${i18next.t("investorProfitChart.properties", "properties")}
-                </small>
-              </div>
-            </div>
+          <div
+            class="ipr-investor-card ${isSelected ? "selected" : ""}"
+            data-investor-id="${investor.investorId}"
+            data-investor-index="${index}"
+            title="${this.escapeHtml(investor.name)} · ${propertyCount} ${i18next.t("investorProfitChart.properties", "properties")}"
+            style="${isSelected ? `border-color: ${color.border}; background: ${color.bg.replace("0.7", "0.12")};` : ""}"
+          >
+            ${
+              avatarUrl
+                ? `<img src="${avatarUrl}" class="ipr-investor-avatar" alt="${this.escapeHtml(investor.name)}">`
+                : `<div class="ipr-investor-avatar ipr-investor-initials" style="${isSelected ? `background:${color.border};` : ""}">${this.getInitials(investor.name)}</div>`
+            }
+            <span class="ipr-investor-name">${this.escapeHtml(investor.name)}</span>
+            <span class="ipr-investor-count">${propertyCount}</span>
+            ${isSelected ? `<i class="bi bi-check-lg ipr-investor-check" style="color:${color.border};"></i>` : ""}
           </div>
         `;
       })

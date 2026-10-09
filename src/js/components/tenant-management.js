@@ -887,9 +887,11 @@ class TenantManagementComponent {
     return html;
   }
 
-  // Full rich preview for the right-hand detail panel — same fields/order
-  // the old card showed, reflowed into a 2-column grid to use the wider
-  // space. Panel header (avatar/name/Edit/Copy/Delete) is set separately by
+  // Full rich preview for the right-hand detail panel — shows every tenant
+  // field, grouped into sections (contact, identity, tenancy, financial,
+  // property/room history, tasks, notes, signature). Empty fields render a
+  // muted dash rather than being hidden, so every tenant has the same shape.
+  // Panel header (avatar/name/Edit/Copy/Delete) is set separately by
   // showTenantDetailPanel().
   renderTenantDetailContent(tenant) {
     const registrationStatus =
@@ -901,6 +903,15 @@ class TenantManagementComponent {
 
     const roommateId = tenant.roommateId?._id || tenant.roommateId;
     const roommate = roommateId ? this.tenants.find((t) => t._id === roommateId) : null;
+    const roommateName = roommate?.name || tenant.roommateId?.name || null;
+
+    const currentProp = (tenant.properties || []).find((p) => {
+      const id = typeof p === "object" ? p.propertyId : p;
+      return id === this.selectedProperty;
+    });
+
+    const money = (v) => (typeof v === "number" ? `$${v.toFixed(2)}` : null);
+    const yesNo = (v) => (v ? "Yes" : "No");
 
     const field = (label, value, copyVal) => {
       if (value === undefined || value === null || value === "") {
@@ -910,34 +921,106 @@ class TenantManagementComponent {
       return `<div class="tm-detail-field"><div class="tm-detail-label">${label}</div><div class="tm-detail-value prop-copy-val" data-copy="${this.escapeHtml(String(copy))}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${value}</div></div>`;
     };
 
+    const section = (icon, title, body) => `
+        <div class="tm-detail-section">
+          <div class="tm-detail-section-title"><i class="bi ${icon} me-1"></i>${title}</div>
+          ${body}
+        </div>`;
+
+    let age = null;
+    if (tenant.dateOfBirth) {
+      const dob = new Date(tenant.dateOfBirth);
+      if (!isNaN(dob.getTime())) {
+        const now = new Date();
+        age = now.getFullYear() - dob.getFullYear();
+        if (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate())) age--;
+      }
+    }
+
+    // Deposit receiver is stored as an investorId — show "ID - Name" once the
+    // investor list has been fetched (see ensureInvestorsCache()).
+    let depositReceiverDisplay = null;
+    if (tenant.depositReceiver) {
+      const inv = (this.investorsCache || []).find((i) => i.investorId === tenant.depositReceiver);
+      depositReceiverDisplay = this.escapeHtml(inv ? `${inv.investorId} - ${inv.name}` : tenant.depositReceiver);
+    }
+
+    const utilities = [
+      ["usesElectricity", "Electricity", "bi-lightning-charge"],
+      ["usesWater", "Water", "bi-droplet"],
+      ["usesGas", "Gas", "bi-fire"],
+    ]
+      .map(([key, label, icon]) => {
+        const uses = tenant[key] !== false; // schema default is true
+        return `<span class="badge ${uses ? "bg-success-subtle text-success-emphasis" : "bg-light text-muted text-decoration-line-through"} border"><i class="bi ${icon} me-1"></i>${label}</span>`;
+      })
+      .join(" ");
+
+    // Every property association with its full room-assignment history and
+    // leave plans — the compact row only shows the selected property.
+    const propertiesHtml = (tenant.properties || [])
+      .map((p) => {
+        if (typeof p !== "object") {
+          return `<div class="tm-detail-prop"><div class="fw-semibold">${this.escapeHtml(p)}</div></div>`;
+        }
+        const info = this.getPropertyInfo(p.propertyId);
+        const title = info
+          ? `${p.propertyId} - ${info.address || ""}${info.unit ? `, ${info.unit}` : ""}`
+          : p.propertyId;
+        let assignments = p.roomAssignments || [];
+        if (assignments.length === 0 && p.room) {
+          assignments = [{ room: p.room, moveinDate: p.moveinDate, moveoutDate: p.moveoutDate, noAircon: p.noAircon }];
+        }
+        const assignmentsHtml = assignments.length
+          ? `<table class="table table-sm mb-0 tm-detail-table">
+              <thead><tr><th>Room</th><th>Move-in</th><th>Move-out</th><th>Rent</th><th>Aircon</th></tr></thead>
+              <tbody>${assignments
+                .map((ra) => `
+                <tr class="${ra.moveoutDate ? "" : "table-success"}">
+                  <td>${ra.room ? this.escapeHtml(getRoomTypeDisplayName(ra.room)) : "-"}</td>
+                  <td>${this.formatDate(ra.moveinDate) || "-"}</td>
+                  <td>${this.formatDate(ra.moveoutDate) || '<span class="text-muted">Ongoing</span>'}</td>
+                  <td>${money(ra.rent) || "-"}</td>
+                  <td>${ra.noAircon ? '<span class="text-danger">No</span>' : "Yes"}</td>
+                </tr>`)
+                .join("")}</tbody>
+            </table>`
+          : '<div class="text-muted small">No room assignment</div>';
+        const leaves = p.leavePlans || [];
+        const leavesHtml = leaves.length
+          ? `<div class="small mt-2"><span class="tm-detail-label d-block">Leave plans</span>${leaves
+              .map((lp) => `<div><i class="bi bi-airplane me-1"></i>${this.formatDate(lp.startDate)} → ${this.formatDate(lp.endDate)}${lp.reason ? ` <span class="text-muted">(${this.escapeHtml(lp.reason)})</span>` : ""}</div>`)
+              .join("")}</div>`
+          : "";
+        return `
+          <div class="tm-detail-prop${p.propertyId === this.selectedProperty ? " tm-detail-prop-current" : ""}">
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+              <span class="fw-semibold">${this.escapeHtml(title)}</span>
+              ${p.isMainTenant ? '<span class="badge bg-primary">Main Tenant</span>' : ""}
+              ${p.propertyId === this.selectedProperty ? '<span class="badge bg-light text-dark border">Current view</span>' : ""}
+            </div>
+            <div class="table-responsive">${assignmentsHtml}</div>
+            ${leavesHtml}
+          </div>`;
+      })
+      .join("");
+
+    const todos = tenant.todos || [];
+    const todosHtml = todos.length
+      ? `<ul class="list-unstyled mb-0">${todos
+          .map((t) => `
+            <li class="d-flex gap-2 mb-1">
+              <i class="bi ${t.completed ? "bi-check-square-fill text-success" : "bi-square text-muted"}"></i>
+              <div>
+                <span class="${t.completed ? "text-decoration-line-through text-muted" : ""}">${this.escapeHtml(t.text)}</span>
+                ${t.completed && (t.completedBy || t.completedAt) ? `<div class="text-muted" style="font-size:0.75rem;">Completed${t.completedBy ? ` by ${this.escapeHtml(t.completedBy)}` : ""}${t.completedAt ? ` on ${this.formatDate(t.completedAt)}` : ""}</div>` : ""}
+              </div>
+            </li>`)
+          .join("")}</ul>`
+      : '<div class="text-muted small">No tasks</div>';
+
     return `
       <div class="p-4">
-        <p class="text-muted mb-1${tenant.phoneNumber ? " prop-copy-val" : ""}" ${tenant.phoneNumber ? `data-copy="${this.escapeHtml(tenant.phoneNumber)}" title="Click to copy phone" onclick="event.stopPropagation();copyToClipboardInline(this)"` : ""}>${this.escapeHtml(tenant.phoneNumber || "No phone")}</p>
-        ${tenant.email
-        ? `<p class="text-muted mb-3 prop-copy-val" data-copy="${this.escapeHtml(tenant.email)}" title="Click to copy email" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-envelope me-1"></i>${this.escapeHtml(tenant.email)}</p>`
-        : '<div class="mb-3"></div>'
-      }
-
-        <div class="d-flex gap-2 mb-3 tenant-doc-thumbs" style="max-width: 260px;">
-          ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport")}
-          ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass")}
-        </div>
-
-        <div class="tm-detail-grid mb-3">
-          ${field("FIN", tenant.fin ? this.escapeHtml(tenant.fin) : null)}
-          ${field("Passport", tenant.passportNumber ? this.escapeHtml(tenant.passportNumber) : null)}
-          ${field("DOB", tenant.dateOfBirth ? this.formatDate(tenant.dateOfBirth) : null)}
-          ${field("Gender", tenant.gender ? this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)) : null)}
-          ${field("Pass Type", tenant.passType ? this.escapeHtml(tenant.passType) : null)}
-          ${tenant.industry ? field("Industry", this.escapeHtml(tenant.industry)) : ""}
-          ${tenant.university ? field("University", this.escapeHtml(tenant.university)) : ""}
-          ${field("Room", this.escapeHtml(roomInfo))}
-          ${field("Rent", typeof rentAmount === "number" ? `$${rentAmount.toFixed(2)}` : rentAmount, typeof rentAmount === "number" ? rentAmount : undefined)}
-          ${field("Cleaning Fee", typeof tenant.cleaningFee === "number" ? `$${tenant.cleaningFee.toFixed(2)}` : "N/A", tenant.cleaningFee)}
-          ${field("Move-in", moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
-          ${field("Move-out", moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
-        </div>
-
         <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
           ${isMainTenant ? '<span class="badge bg-primary">Main Tenant</span>' : ""}
           ${isOutdated ? '<span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>Moved Out</span>' : ""}
@@ -950,7 +1033,73 @@ class TenantManagementComponent {
           ${roommate ? `<button type="button" class="badge bg-light text-dark border" style="cursor:pointer;" onclick="event.stopPropagation();tenantManager.selectTenantForDetail('${roommate._id}')" title="View roommate"><i class="bi bi-arrow-left-right me-1"></i>Roommate: ${this.escapeHtml(roommate.name)}</button>` : ""}
         </div>
 
-        ${tenant.notes ? `<div class="pt-2 border-top text-muted" style="font-size:0.85em;"><i class="bi bi-sticky me-1"></i>${this.escapeHtml(tenant.notes.trim())}</div>` : ""}
+        ${section("bi-person-lines-fill", "Contact", `
+          <div class="tm-detail-grid">
+            ${field("Phone", tenant.phoneNumber ? this.escapeHtml(tenant.phoneNumber) : null)}
+            ${field("Email", tenant.email ? this.escapeHtml(tenant.email) : null)}
+            ${field("Nickname", tenant.nickname ? this.escapeHtml(tenant.nickname) : null)}
+            ${field("Facebook", tenant.facebookUrl ? `<span class="text-break">${this.escapeHtml(tenant.facebookUrl)}</span>` : null, tenant.facebookUrl)}
+          </div>`)}
+
+        ${section("bi-images", "Documents", `
+          <div class="d-flex gap-2 tenant-doc-thumbs" style="max-width: 260px;">
+            ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport")}
+            ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass")}
+          </div>`)}
+
+        ${section("bi-person-vcard", "Identity", `
+          <div class="tm-detail-grid">
+            ${field("FIN", tenant.fin ? this.escapeHtml(tenant.fin) : null)}
+            ${field("Passport", tenant.passportNumber ? this.escapeHtml(tenant.passportNumber) : null)}
+            ${field("DOB", tenant.dateOfBirth ? `${this.formatDate(tenant.dateOfBirth)}${age !== null ? ` <small class="text-muted">(${age} y/o)</small>` : ""}` : null, this.formatDate(tenant.dateOfBirth))}
+            ${field("Gender", tenant.gender ? this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)) : null)}
+            ${field("Pass Type", tenant.passType ? this.escapeHtml(tenant.passType) : null)}
+            ${field("Pass Issue Date", tenant.passIssueDate ? this.formatDate(tenant.passIssueDate) : null)}
+            ${field("Visa Issue Date", tenant.visaIssueDate ? this.formatDate(tenant.visaIssueDate) : null)}
+            ${field("Industry", tenant.industry ? this.escapeHtml(tenant.industry) : null)}
+            ${field("University", tenant.university ? this.escapeHtml(tenant.university) : null)}
+          </div>`)}
+
+        ${section("bi-door-open", "Tenancy", `
+          <div class="tm-detail-grid">
+            ${field("Room", this.escapeHtml(roomInfo))}
+            ${field("Rent", money(rentAmount) || rentAmount, typeof rentAmount === "number" ? rentAmount : undefined)}
+            ${field("Move-in", moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
+            ${field("Move-out", moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
+            ${field("Aircon", currentProp && typeof currentProp === "object" ? (currentProp.noAircon ? "No aircon" : "Yes") : null)}
+            ${field("Main Tenant", yesNo(isMainTenant))}
+            ${field("Roommate", roommateName ? this.escapeHtml(roommateName) : null)}
+            ${field("House Cleaner", yesNo(tenant.isHouseCleaner))}
+          </div>`)}
+
+        ${section("bi-cash-coin", "Financial", `
+          <div class="tm-detail-grid mb-2">
+            ${field("Deposit", money(tenant.deposit), tenant.deposit)}
+            ${field("Deposit Receiver", depositReceiverDisplay, tenant.depositReceiver)}
+            ${field("Cleaning Fee", money(tenant.cleaningFee), tenant.cleaningFee)}
+            ${field("Utility Subsidized", yesNo(tenant.isUtilitySubsidized))}
+          </div>
+          <div class="tm-detail-label">Utilities used</div>
+          <div class="d-flex gap-1 flex-wrap">${utilities}</div>`)}
+
+        ${section("bi-building", `Properties &amp; Room History (${(tenant.properties || []).length})`,
+          propertiesHtml || '<div class="text-muted small">Not assigned to any property</div>')}
+
+        ${section("bi-list-task", `Tasks (${todos.filter((t) => !t.completed).length} pending / ${todos.length})`, todosHtml)}
+
+        ${section("bi-sticky", "Notes",
+          tenant.notes && tenant.notes.trim()
+            ? `<div class="text-muted" style="white-space: pre-wrap; font-size:0.9em;">${this.escapeHtml(tenant.notes.trim())}</div>`
+            : '<div class="text-muted small">No notes</div>')}
+
+        ${section("bi-pen", "Signature",
+          tenant.signature
+            ? `<img src="${this.normalizeImageUrl(tenant.signature)}" alt="Signature" class="tm-detail-signature" loading="lazy" onclick="event.stopPropagation();window.open(this.src, '_blank')">`
+            : '<div class="text-muted small">No signature</div>')}
+
+        <div class="text-muted pt-2 border-top" style="font-size:0.75rem;">
+          ${tenant.createdAt ? `Created ${this.formatDate(tenant.createdAt)}` : ""}${tenant.updatedAt ? ` · Updated ${this.formatDate(tenant.updatedAt)}` : ""}
+        </div>
       </div>`;
   }
 
@@ -997,6 +1146,37 @@ class TenantManagementComponent {
     }
 
     body.innerHTML = this.renderTenantDetailContent(tenant);
+
+    // Deposit receiver is an investorId; fetch investors once so the panel
+    // can show their name, then re-render if this tenant is still selected.
+    if (tenant.depositReceiver && !this.investorsCache) {
+      this.ensureInvestorsCache().then(() => {
+        if (this.selectedTenantId === tenant._id) {
+          body.innerHTML = this.renderTenantDetailContent(tenant);
+        }
+      });
+    }
+  }
+
+  async ensureInvestorsCache() {
+    if (this.investorsCache) return this.investorsCache;
+    if (!this._investorsCachePromise) {
+      this._investorsCachePromise = API.get(API_CONFIG.ENDPOINTS.INVESTORS)
+        .then((r) => r.json())
+        .then((result) => {
+          this.investorsCache = result.success && result.data ? result.data : [];
+          return this.investorsCache;
+        })
+        .catch((error) => {
+          console.error("Error loading investors for detail panel:", error);
+          this.investorsCache = [];
+          return this.investorsCache;
+        })
+        .finally(() => {
+          this._investorsCachePromise = null;
+        });
+    }
+    return this._investorsCachePromise;
   }
 
   // Row-click entry point: selects `tenantId` into the detail panel and, on
@@ -1211,6 +1391,50 @@ class TenantManagementComponent {
                 }
                 .tm-detail-value {
                     font-size: 0.95rem;
+                }
+                .tm-detail-section {
+                    margin-bottom: 1.25rem;
+                    padding-bottom: 1rem;
+                    border-bottom: 1px solid #edf0f3;
+                }
+                .tm-detail-section:last-of-type {
+                    border-bottom: none;
+                }
+                .tm-detail-section-title {
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.04em;
+                    color: #6f42c1;
+                    margin-bottom: 0.6rem;
+                }
+                .tm-detail-prop {
+                    border: 1px solid #edf0f3;
+                    border-radius: 8px;
+                    padding: 10px 12px;
+                    margin-bottom: 8px;
+                }
+                .tm-detail-prop-current {
+                    border-color: #b9a6e6;
+                    background: rgba(111,66,193,0.03);
+                }
+                .tm-detail-table {
+                    font-size: 0.85rem;
+                }
+                .tm-detail-table th {
+                    font-size: 0.7rem;
+                    text-transform: uppercase;
+                    color: #6c757d;
+                    font-weight: 600;
+                }
+                .tm-detail-signature {
+                    max-width: 240px;
+                    max-height: 100px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    background: white;
+                    padding: 4px;
+                    cursor: pointer;
                 }
                 .prop-copy-val {
                     border-radius: 4px;
@@ -2606,6 +2830,7 @@ class TenantManagementComponent {
       const result = await response.json();
 
       if (result.success && result.data) {
+        this.investorsCache = result.data;
         this.populateInvestorDropdown(result.data);
         console.log(
           "✅ Investors loaded for dropdown:",

@@ -1066,9 +1066,10 @@ class PropertyManagementComponent {
   }
 
   // Compact list-row for the master-detail left panel. Full property detail
-  // (rooms, banking, settlement accounts, FB groups, SP credentials, etc.) is
-  // intentionally NOT duplicated here — it's the same property object and
-  // shows up in the right-hand form once the row is selected.
+  // (banking, settlement accounts, etc.) is intentionally NOT duplicated
+  // here — it's the same property object and shows up in the right-hand
+  // form once the row is selected. Quick-access links (FB groups, SP
+  // account) are surfaced here since they're used without editing.
   renderPropertyRow(property, isArchived) {
     const isCondo = property.propertyType === 'condo';
     const isSelected = property.propertyId === this.selectedPropertyId;
@@ -1163,6 +1164,14 @@ class PropertyManagementComponent {
         </div>`
       : '';
 
+    // Tenant / Admin group links — same badges as the detail form.
+    const groupBadgeStyle = 'font-size:0.6rem;';
+    const tenantGroupHtml = this.renderTenantGroupBadge(property.tenantFacebookGroup?.trim(), groupBadgeStyle);
+    const adminGroupHtml = this.renderAdminGroupBadge(property.adminFacebookGroup?.trim(), groupBadgeStyle);
+    const groupLinksHtml = (tenantGroupHtml || adminGroupHtml)
+      ? `<div class="d-flex flex-wrap gap-1 mt-1">${tenantGroupHtml}${adminGroupHtml}</div>`
+      : '';
+
     const archiveActionHtml = !isArchived
       ? `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="Archive" onclick="event.stopPropagation(); propertyManager.archiveProperty('${property.propertyId}')"><i class="bi bi-archive"></i></button>`
       : `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="Unarchive" onclick="event.stopPropagation(); propertyManager.unarchiveProperty('${property.propertyId}')"><i class="bi bi-arrow-counterclockwise"></i></button>`;
@@ -1186,6 +1195,7 @@ class PropertyManagementComponent {
           </div>
           ${moveDatesHtml}
           ${spAccountHtml}
+          ${groupLinksHtml}
           ${roomBadgesHtml}
           ${peopleRowHtml}
         </div>
@@ -1969,23 +1979,28 @@ class PropertyManagementComponent {
     const tenantInput = document.getElementById('tenantFacebookGroup');
     const tenantBadge = document.getElementById('tenantFacebookGroupBadge');
     if (tenantBadge) {
-      const url = tenantInput?.value?.trim();
-      if (url) {
-        const meta = getGroupLinkMeta(url);
-        tenantBadge.innerHTML = `<a href="${this.escapeHtml(url)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(url)}" class="badge text-decoration-none" style="background-color:${meta.color};color:#fff;" title="Tenant ${meta.brand} Group"><i class="bi ${meta.icon} me-1"></i>Tenant Group</a>`;
-      } else {
-        tenantBadge.innerHTML = '';
-      }
+      tenantBadge.innerHTML = this.renderTenantGroupBadge(tenantInput?.value?.trim());
     }
 
     const adminInput = document.getElementById('adminFacebookGroup');
     const adminBadge = document.getElementById('adminFacebookGroupBadge');
     if (adminBadge) {
-      const url = adminInput?.value?.trim();
-      adminBadge.innerHTML = url
-        ? `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>`
-        : '';
+      adminBadge.innerHTML = this.renderAdminGroupBadge(adminInput?.value?.trim());
     }
+  }
+
+  // Group link badges shared by the detail form and the left-panel list rows.
+  // stopPropagation so clicking a badge inside a list row doesn't also select
+  // the row. Tenant badge copies the URL before opening (openTenantFbGroup).
+  renderTenantGroupBadge(url, extraStyle = '') {
+    if (!url) return '';
+    const meta = getGroupLinkMeta(url);
+    return `<a href="${this.escapeHtml(url)}" onclick="event.preventDefault(); event.stopPropagation(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(url)}" class="badge text-decoration-none" style="background-color:${meta.color};color:#fff;${extraStyle}" title="Tenant ${meta.brand} Group (click to copy link & open)"><i class="bi ${meta.icon} me-1"></i>Tenant Group</a>`;
+  }
+
+  renderAdminGroupBadge(url, extraStyle = '') {
+    if (!url) return '';
+    return `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" class="badge bg-dark text-decoration-none" style="${extraStyle}" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>`;
   }
 
   // Applies/removes the .pm-row-selected highlight across the rendered list
