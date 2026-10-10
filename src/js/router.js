@@ -11,6 +11,9 @@
  *   #/bills/<property-slug>/<year>/<month>          → bill management for property/month
  *   #/bills/<property-slug>                         → bill management (current month)
  *   #/properties/<property-slug>                    → property detail panel (Properties section)
+ *   #/tenancy-occupancy/<property-slugs>            → occupancy timelines (current year)
+ *   #/tenancy-occupancy/<property-slugs>/<year>     → occupancy timelines for a year
+ *     <property-slugs> = comma-separated property slugs, or "all"
  *
  * Property slug  = slugify(unit) + "-" + slugify(address)
  *   e.g.  "#05-12" + "123 Clementi Road"  →  "05-12-123-clementi-road"
@@ -135,6 +138,16 @@ class AppRouter {
       {
         pattern: /^\/properties\/(.+)$/,
         handle: ([, slug]) => this._goProperty(slug),
+      },
+      // Tenancy occupancy — property slugs (comma-separated or "all") + year
+      {
+        pattern: /^\/tenancy-occupancy\/([^/]+)\/(\d{4})$/,
+        handle: ([, slugs, year]) => this._goOccupancy(slugs, +year),
+      },
+      // Tenancy occupancy — property slugs, current year
+      {
+        pattern: /^\/tenancy-occupancy\/([^/]+)$/,
+        handle: ([, slugs]) => this._goOccupancy(slugs),
       },
       // Docs — specific doc: {title-slug}-{24-char-id} or just {24-char-id}
       {
@@ -373,6 +386,16 @@ class AppRouter {
       console.error("[Router] Failed to resolve properties slug:", e);
       return null;
     }
+  }
+
+  async _goOccupancy(slugs, year) {
+    if (!this._goSection("tenancy-occupancy")) return;
+
+    const to = window.tenancyOccupancyComponent;
+    if (!to) return;
+
+    // The component resolves slugs itself once its property list has loaded.
+    await to.applyRoute(slugs, year);
   }
 
   async _goDoc(docSlug) {

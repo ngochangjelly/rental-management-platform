@@ -1,5 +1,6 @@
 import {
   getRoomTypeDisplayName,
+  getRoomTypeBadgeStyle,
   ROOM_TYPE_MAP,
 } from "../utils/room-type-mapper.js";
 import i18next from "i18next";
@@ -406,7 +407,13 @@ class TenancyOccupancyComponent {
   /**
    * Load all data (properties and tenants)
    */
-  async loadData() {
+  loadData() {
+    // Kept so the router can wait for the property list before applying a deep link
+    this._loadPromise = this._loadData();
+    return this._loadPromise;
+  }
+
+  async _loadData() {
     this.isLoading = true;
     this.renderLoadingState();
 
@@ -584,6 +591,9 @@ class TenancyOccupancyComponent {
     const container = document.getElementById("tenancyOccupancyContainer");
     if (!container) return;
 
+    // Selection and year both end up here, so keep the URL bookmarkable from one place
+    this.syncUrl();
+
     let html = "";
 
     // Show prompt when no properties are selected
@@ -610,6 +620,73 @@ class TenancyOccupancyComponent {
     });
 
     container.innerHTML = html;
+  }
+
+  /**
+   * URL slug for a property (falls back to the property ID when unit/address are empty)
+   */
+  getPropertySlug(property) {
+    return (
+      window.SlugUtils.propertySlug(property) ||
+      window.SlugUtils.toSlug(property.propertyId)
+    );
+  }
+
+  /**
+   * Silently sync the URL with the selected properties and year
+   * e.g. #/tenancy-occupancy/05-12-123-clementi-road,08-21-45-jurong-west/2026
+   */
+  syncUrl() {
+    if (this._applyingRoute || !window.appRouter) return;
+    // A load can finish after the user has moved on to another section
+    if (window.dashboardController?.currentSection !== "tenancy-occupancy") return;
+
+    const selected = this.properties.filter((p) =>
+      this.selectedProperties.has(p.propertyId),
+    );
+    if (selected.length === 0) {
+      window.appRouter.replace("/tenancy-occupancy");
+      return;
+    }
+
+    const slugs =
+      selected.length === this.properties.length
+        ? "all"
+        : selected.map((p) => this.getPropertySlug(p)).join(",");
+    window.appRouter.replace(`/tenancy-occupancy/${slugs}/${this.currentYear}`);
+  }
+
+  /**
+   * Apply a deep link (called by AppRouter._goOccupancy)
+   * @param {string} slugsParam - comma-separated property slugs, or "all"
+   * @param {number} [year] - defaults to the current year
+   */
+  async applyRoute(slugsParam, year) {
+    // Hold off URL syncing so the load's own render doesn't overwrite the deep link
+    this._applyingRoute = true;
+    try {
+      if (this._loadPromise) await this._loadPromise;
+    } finally {
+      this._applyingRoute = false;
+    }
+
+    this.currentYear = year || new Date().getFullYear();
+    this.updateYearDisplay();
+    if (this.properties.length === 0) return;
+
+    const slugs = new Set(slugsParam.split(",").filter(Boolean));
+    const selectAll = slugs.has("all");
+    const matched = this.properties.filter(
+      (p) => selectAll || slugs.has(this.getPropertySlug(p)),
+    );
+    if (!selectAll && matched.length < slugs.size) {
+      console.warn(`[Router] Some occupancy property slugs not found: "${slugsParam}"`);
+    }
+
+    this.selectedProperties = new Set(matched.map((p) => p.propertyId));
+    this.updatePropertyFilterLabel();
+    this.updatePropertyCardStyles();
+    this.renderTimelines();
   }
 
   /**
@@ -677,6 +754,8 @@ class TenancyOccupancyComponent {
           moveinDate: assignment.moveinDate,
           moveoutDate: assignment.moveoutDate,
           room: assignment.room,
+          // Rent is tracked per room assignment; fall back to the legacy tenant-level rent
+          rent: assignment.rent ?? tenant.rent ?? null,
           roomAssignmentId: assignment.id,
           isMainTenant: propertyAssignment.isMainTenant,
           leavePlans: propertyAssignment.leavePlans || [],
@@ -952,6 +1031,11 @@ class TenancyOccupancyComponent {
       ? getRoomTypeDisplayName(tenant.room)
       : "N/A";
 
+    // Room badge uses the system-wide room type color
+    const roomBadgeHtml = tenant.room
+      ? `<span class="badge tenant-room-badge" style="${getRoomTypeBadgeStyle(tenant.room)}">${this.escapeHtml(roomDisplayName)}</span>`
+      : roomDisplayName;
+
     // Generate avatar HTML
     const displayName = tenant.nickname || tenant.name;
     let avatarHtml = "";
@@ -1003,6 +1087,36 @@ class TenancyOccupancyComponent {
 
     const durationText = i18next.t("tenancyOccupancy.duration", "Duration");
     const daysText = i18next.t("tenancyOccupancy.days", "days");
+
+    // Tenancy details shown under the tenant name: move-in/move-out, rent, notes
+    const moveInText = i18next.t("tenancyOccupancy.moveIn", "Move-in");
+    const moveOutText = i18next.t("tenancyOccupancy.moveOut", "Move-out");
+    const rentText = i18next.t("tenancyOccupancy.rent", "Rent");
+    const notesText = i18next.t("tenancyOccupancy.notes", "Notes");
+    const rentStr =
+      typeof tenant.rent === "number" && tenant.rent > 0
+        ? `$${tenant.rent.toLocaleString()}${i18next.t("tenancyOccupancy.perMonth", "/mo")}`
+        : "";
+    const notesStr = (tenant.notes || "").trim();
+
+    const rentChipHtml = rentStr
+      ? `<span class="tenant-rent-chip" title="${rentText}: ${rentStr}">${rentStr}</span>`
+      : "";
+    const datesHtml = `
+                            <div class="tenant-dates-text" title="${moveInText}: ${moveinStr}&#10;${moveOutText}: ${moveoutStr}&#10;${durationText}: ${duration} ${daysText}">
+                                <i class="bi bi-calendar-event"></i>
+                                <span>${moveinStr}</span>
+                                <i class="bi bi-arrow-right"></i>
+                                <span class="${isFutureMoveout ? "moveout-soon" : ""}">${moveoutStr}</span>
+                            </div>`;
+    const notesHtml = notesStr
+      ? `
+                            <div class="tenant-notes-text" title="${this.escapeAttr(notesStr)}">
+                                <i class="bi bi-sticky"></i>
+                                <span>${this.escapeHtml(notesStr)}</span>
+                            </div>`
+      : "";
+    const barTooltipExtra = `${rentStr ? `&#10;${rentText}: ${rentStr}` : ""}${notesStr ? `&#10;${notesText}: ${this.escapeAttr(notesStr)}` : ""}`;
 
     // Generate leave plan intervals (yellow bars)
     let leavePlansHtml = "";
@@ -1102,7 +1216,7 @@ class TenancyOccupancyComponent {
                         ${avatarHtml}
                         <div class="tenant-info">
                             <div class="tenant-name-text">${this.escapeHtml(displayName)} ${leaveDaysBadgeHtml}</div>
-                            <div class="tenant-room-text">${roomDisplayName}</div>
+                            <div class="tenant-room-text">${roomBadgeHtml} ${rentChipHtml}</div>${datesHtml}${notesHtml}
                             ${isPastMoveout ? `<div class="moved-out-badge"><i class="bi bi-box-arrow-right"></i> Moved out</div>` : ""}
                         </div>
                         <div class="tenant-actions-column">
@@ -1116,7 +1230,7 @@ class TenancyOccupancyComponent {
                         class="occupancy-bar ${!tenant.moveoutDate ? "current-tenant" : ""} ${isFutureMoveout ? "future-moveout" : ""} ${isPastMoveout ? "past-moveout" : ""}"
                         style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};">
                         ${moveinBadgeHtml}
-                        <span class="occupancy-bar-label" title="${this.escapeHtml(displayName)}&#10;${roomDisplayName}&#10;${i18next.t("tenancyOccupancy.moveIn", "Move-in")}: ${moveinStr}&#10;${i18next.t("tenancyOccupancy.moveOut", "Move-out")}: ${moveoutStr}&#10;${durationText}: ${duration} ${daysText}${totalLeaveDays > 0 ? `&#10;${i18next.t("tenancyOccupancy.totalLeaveDays", "Total leave days")}: ${totalLeaveDays}` : ""}">${this.escapeHtml(displayName)}</span>
+                        <span class="occupancy-bar-label" title="${this.escapeHtml(displayName)}&#10;${roomDisplayName}&#10;${i18next.t("tenancyOccupancy.moveIn", "Move-in")}: ${moveinStr}&#10;${i18next.t("tenancyOccupancy.moveOut", "Move-out")}: ${moveoutStr}&#10;${durationText}: ${duration} ${daysText}${totalLeaveDays > 0 ? `&#10;${i18next.t("tenancyOccupancy.totalLeaveDays", "Total leave days")}: ${totalLeaveDays}` : ""}${barTooltipExtra}">${this.escapeHtml(displayName)}</span>
                         ${moveoutBadgeHtml}
                         ${leavePlansHtml}
                     </div>
@@ -1572,6 +1686,13 @@ class TenancyOccupancyComponent {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Escape text for use inside a double-quoted HTML attribute
+   */
+  escapeAttr(text) {
+    return this.escapeHtml(text).replace(/"/g, "&quot;");
   }
 }
 

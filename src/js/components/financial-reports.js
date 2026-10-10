@@ -696,6 +696,12 @@ class FinancialReportsComponent {
           padding: 0.5rem 0.75rem;
           border-radius: 0.375rem;
         }
+        /* Multi-line tenant payer details (see _getTenantTooltipLines) */
+        .fr-payee-tooltip .tooltip-inner {
+          white-space: pre-line;
+          text-align: left;
+          max-width: 260px;
+        }
         .tooltip .tooltip-arrow::before {
           border-top-color: #5a67d8 !important;
           border-bottom-color: #5a67d8 !important;
@@ -2726,6 +2732,47 @@ class FinancialReportsComponent {
     }
   }
 
+  // Resolve the utility bill for a given year/month: the Utility Bill Tracker
+  // entry when there is one, otherwise the tenant bill. Returns
+  // { amount, details } or null when neither exists.
+  async _lookupUtilityBill(trackerBills, year, month) {
+    const ubEntry = trackerBills.find(
+      (b) => b.year === year && b.month === month,
+    );
+    if (ubEntry) {
+      const fmt = (d) =>
+        d
+          ? new Date(d).toLocaleDateString("en-SG", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : null;
+      const start = fmt(ubEntry.billingPeriodStart);
+      const end = fmt(ubEntry.billingPeriodEnd);
+      return {
+        amount: ubEntry.totalAmount ?? 0,
+        details: start && end ? `${start} – ${end}` : start || "",
+      };
+    }
+
+    // Fall back to tenant bill
+    const res = await API.get(
+      API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(
+        this.selectedProperty,
+        year,
+        month,
+      ),
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.success || !data.bill) return null;
+    return {
+      amount: data.bill.utilityFee ?? 0,
+      details: data.bill.billingPeriod || "",
+    };
+  }
+
   async fillUtilityBillExpense() {
     if (!this.selectedProperty) {
       showToast("Please select a property first", "error");
@@ -2742,60 +2789,48 @@ class FinancialReportsComponent {
         month: "long",
       });
 
-      // First: check utility bill tracker for a matching entry
-      let amount = null;
-      let details = "";
       const ubRes = await API.get(
         API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty),
       );
       const ubData = await ubRes.json();
-      const ubEntry = (ubData.bills || []).find(
-        (b) => b.year === year && b.month === month,
-      );
-      if (ubEntry) {
-        amount = ubEntry.totalAmount ?? 0;
-        const fmt = (d) =>
-          d
-            ? new Date(d).toLocaleDateString("en-SG", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })
-            : null;
-        const start = fmt(ubEntry.billingPeriodStart);
-        const end = fmt(ubEntry.billingPeriodEnd);
-        details = start && end ? `${start} – ${end}` : start || "";
-      } else {
-        // Fall back to tenant bill
-        const res = await API.get(
-          API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(
-            this.selectedProperty,
-            year,
-            month,
-          ),
+      const trackerBills = ubData.bills || [];
+
+      // The bill for a month often arrives after that month's report is
+      // being filled, so when the report month has no bill yet, fall back
+      // to the previous month's bill.
+      const prevDate = new Date(year, month - 2, 1);
+      const prevYear = prevDate.getFullYear();
+      const prevMonth = prevDate.getMonth() + 1;
+      const prevMonthName = prevDate.toLocaleString("en-SG", {
+        month: "long",
+      });
+
+      let billMonthLabel = `${monthName} ${year}`;
+      let found = await this._lookupUtilityBill(trackerBills, year, month);
+      if (!found) {
+        found = await this._lookupUtilityBill(
+          trackerBills,
+          prevYear,
+          prevMonth,
         );
-        if (!res.ok) {
+        if (!found) {
           showToast(
-            `No utility bill found for ${monthName} ${year}. Add one in Utility Bill Tracker first.`,
+            `No utility bill found for ${monthName} ${year} or ${prevMonthName} ${prevYear}. Add one in Utility Bill Tracker first.`,
             "warning",
           );
           return;
         }
-        const data = await res.json();
-        if (!data.success || !data.bill) {
-          showToast(
-            `No utility bill found for ${monthName} ${year}. Add one in Utility Bill Tracker first.`,
-            "warning",
-          );
-          return;
-        }
-        amount = data.bill.utilityFee ?? 0;
-        details = data.bill.billingPeriod || "";
+        billMonthLabel = `${prevMonthName} ${prevYear}`;
+        showToast(
+          `No utility bill for ${monthName} ${year} — using ${billMonthLabel}'s bill instead.`,
+          "warning",
+        );
       }
+      const { amount, details } = found;
 
       const itemTitle = details
         ? `Utility Bill — ${details}`
-        : `Utility Bill — ${monthName} ${year}`;
+        : `Utility Bill — ${billMonthLabel}`;
       const prefilled = {
         item: itemTitle,
         amount,
@@ -3382,6 +3417,68 @@ class FinancialReportsComponent {
     return options;
   }
 
+  // Extra avatar-tooltip lines for a tenant payer: stay dates at the selected
+  // property, rent, cleaning fee, away periods touching the previous, current
+  // or next month of the report being viewed, and notes when there are any.
+  _getTenantTooltipLines(tenant, propertyRecord) {
+    const fmtDate = (value) => {
+      const date = value ? new Date(value) : null;
+      return date && !isNaN(date)
+        ? date.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "—";
+    };
+    const fmtMoney = (value) =>
+      value && !isNaN(Number(value)) ? `$${Number(value).toFixed(2)}` : "—";
+    const rent =
+      typeof getEffectiveTenantRent === "function"
+        ? getEffectiveTenantRent(tenant)
+        : tenant.rent;
+    const lines = [
+      `Move-in: ${fmtDate(propertyRecord?.moveinDate)}`,
+      `Move-out: ${fmtDate(propertyRecord?.moveoutDate)}`,
+      `Rent: ${fmtMoney(rent)}`,
+      `Cleaning: ${fmtMoney(tenant.cleaningFee)}`,
+    ];
+    const reportMonth = this.currentDate || new Date();
+    const windowStart = new Date(
+      reportMonth.getFullYear(),
+      reportMonth.getMonth() - 1,
+      1,
+    );
+    const windowEnd = new Date(
+      reportMonth.getFullYear(),
+      reportMonth.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    (propertyRecord?.leavePlans || [])
+      .map((plan) => ({
+        start: new Date(plan.startDate),
+        end: new Date(plan.endDate),
+        reason: plan.reason ? plan.reason.trim() : "",
+      }))
+      .filter(
+        ({ start, end }) =>
+          !isNaN(start) && !isNaN(end) && start <= windowEnd && end >= windowStart,
+      )
+      .sort((a, b) => a.start - b.start)
+      .forEach(({ start, end, reason }) => {
+        lines.push(
+          `Away: ${fmtDate(start)} – ${fmtDate(end)}${reason ? ` (${reason})` : ""}`,
+        );
+      });
+    const notes = tenant.notes ? tenant.notes.trim() : "";
+    if (notes) lines.push(`Notes: ${notes}`);
+    return lines;
+  }
+
   _resolvePaidByPerson(paidByValue) {
     if (!paidByValue) return null;
     let person = null;
@@ -3389,6 +3486,7 @@ class FinancialReportsComponent {
     let avatar = null;
     let roomType = null;
     let contactUrl = null;
+    let tooltipLines = [];
 
     if (paidByValue.startsWith("tenant_")) {
       const tenantId = paidByValue.replace("tenant_", "");
@@ -3402,12 +3500,14 @@ class FinancialReportsComponent {
       if (person) {
         displayName = person.name || "Unknown Tenant";
         avatar = person.avatar;
-        if (person.properties && this.selectedProperty) {
-          const assoc = person.properties.find(
-            (p) => p.propertyId === this.selectedProperty,
-          );
-          if (assoc?.room) roomType = assoc.room;
-        }
+        const assoc =
+          person.properties && this.selectedProperty
+            ? person.properties.find(
+                (p) => p.propertyId === this.selectedProperty,
+              )
+            : null;
+        if (assoc?.room) roomType = assoc.room;
+        tooltipLines = this._getTenantTooltipLines(person, assoc);
         const phone = (person.phoneNumber || "").replace(/[^0-9]/g, "");
         if (person.facebookUrl) {
           contactUrl = person.facebookUrl;
@@ -3427,14 +3527,14 @@ class FinancialReportsComponent {
     }
 
     if (!person) return null;
-    return { displayName, avatar, roomType, contactUrl };
+    return { displayName, avatar, roomType, contactUrl, tooltipLines };
   }
 
   _renderAvatarCircle(info, size = 32) {
     if (!info) {
       return `<div class="rounded-circle bg-warning bg-opacity-25 border border-warning d-flex align-items-center justify-content-center text-warning" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.5)}px;" data-bs-toggle="tooltip" data-bs-title="Unknown payer"><i class="bi bi-person-question"></i></div>`;
     }
-    const { displayName, avatar, contactUrl } = info;
+    const { displayName, avatar, contactUrl, tooltipLines = [] } = info;
     const linkAttrs = contactUrl
       ? `href="${escapeHtml(contactUrl)}" target="_blank" rel="noopener noreferrer" style="cursor:pointer;" title="Message ${escapeHtml(displayName)}"`
       : "";
@@ -3443,17 +3543,19 @@ class FinancialReportsComponent {
     // No saved Facebook URL or phone number to message them on — dim the
     // avatar so it doesn't look clickable, and say why in the tooltip.
     const dimStyle = contactUrl ? "" : "opacity:0.55;";
-    const tooltip = contactUrl
-      ? displayName
-      : `${displayName} (no contact info saved)`;
+    const tooltip = [
+      contactUrl ? displayName : `${displayName} (no contact info saved)`,
+      ...tooltipLines,
+    ].join("\n");
+    const tooltipAttrs = `data-bs-toggle="tooltip" data-bs-custom-class="fr-payee-tooltip" data-bs-title="${escapeHtml(tooltip)}"`;
 
     if (avatar) {
       return wrap(
-        `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;${dimStyle}" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}">`,
+        `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="${escapeHtml(displayName)}" class="rounded-circle border border-2 border-white" style="width: ${size}px; height: ${size}px; object-fit: cover;${dimStyle}" ${tooltipAttrs}>`,
       );
     }
     return wrap(
-      `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;${dimStyle}" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}">${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`,
+      `<div class="rounded-circle bg-info border border-2 border-white d-flex align-items-center justify-content-center text-white fw-bold" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.44)}px;${dimStyle}" ${tooltipAttrs}>${escapeHtml(displayName.charAt(0).toUpperCase())}</div>`,
     );
   }
 
@@ -5284,6 +5386,9 @@ class FinancialReportsComponent {
   // Confirm close month
   async confirmCloseMonth() {
     this.pendingClose = false;
+    const closeBtn = document.getElementById("closeMonthBtn");
+    if (closeBtn?.classList.contains("is-loading")) return;
+    this.setLockButtonLoading(closeBtn, true);
 
     try {
       const year = this.currentDate.getFullYear();
@@ -5316,7 +5421,19 @@ class FinancialReportsComponent {
       console.error("Error closing month:", error);
       this.showError(error.message || "Failed to close month");
       await this.updateClosedStatus();
+    } finally {
+      this.setLockButtonLoading(closeBtn, false);
     }
+  }
+
+  // Swap the lock/unlock icon for a spinner without changing button size
+  // (icon keeps its box via visibility:hidden; spinner is an overlay — see
+  // #closeMonthBtn.is-loading in dashboard.html)
+  setLockButtonLoading(btn, isLoading) {
+    if (!btn) return;
+    btn.classList.toggle("is-loading", isLoading);
+    btn.disabled = isLoading;
+    btn.setAttribute("aria-busy", isLoading ? "true" : "false");
   }
 
   // Reopen current month
@@ -5334,6 +5451,10 @@ class FinancialReportsComponent {
     if (!confirm("Unlock this month's report? It will become editable again.")) {
       return;
     }
+
+    const reopenBtn = document.getElementById("reopenMonthBtn");
+    if (reopenBtn?.classList.contains("is-loading")) return;
+    this.setLockButtonLoading(reopenBtn, true);
 
     try {
       const year = this.currentDate.getFullYear();
@@ -5365,6 +5486,8 @@ class FinancialReportsComponent {
     } catch (error) {
       console.error("Error reopening month:", error);
       this.showError(error.message || "Failed to reopen month");
+    } finally {
+      this.setLockButtonLoading(reopenBtn, false);
     }
   }
 

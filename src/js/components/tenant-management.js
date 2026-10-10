@@ -478,6 +478,15 @@ class TenantManagementComponent {
       addTenantBtn._tenantListenerAttached = true;
     }
 
+    // Reload button - re-fetch the currently displayed list from the backend
+    const reloadBtn = document.getElementById("reloadTenantsBtn");
+    if (reloadBtn && !reloadBtn._tenantListenerAttached) {
+      reloadBtn.addEventListener("click", () => {
+        window.tenantManager?.reloadTenantList();
+      });
+      reloadBtn._tenantListenerAttached = true;
+    }
+
     // Tenant form submission (add/edit)
     const tenantForm = document.getElementById("tenantForm");
     if (tenantForm && !tenantForm._tenantListenerAttached) {
@@ -521,6 +530,38 @@ class TenantManagementComponent {
     if (backBtn && !backBtn._tenantListenerAttached) {
       backBtn.addEventListener("click", () => this.exitMobileTenantDetailView());
       backBtn._tenantListenerAttached = true;
+    }
+  }
+
+  // Re-fetch whatever list is currently shown (search results, unassigned,
+  // or the selected property's tenants) from the backend.
+  async reloadTenantList() {
+    if (this._reloadingTenants) return;
+    this._reloadingTenants = true;
+
+    const btn = document.getElementById("reloadTenantsBtn");
+    const icon = btn?.querySelector("i");
+    if (btn) btn.disabled = true;
+    icon?.classList.replace("bi-arrow-clockwise", "spinner-border");
+    icon?.classList.add("spinner-border-sm");
+
+    try {
+      const searchTerm =
+        document.getElementById("tenantSearchInput")?.value.trim() || "";
+      if (searchTerm) {
+        await this.filterTenants(searchTerm);
+      } else if (this.selectedProperty === "UNASSIGNED") {
+        await this.loadUnassignedTenants();
+      } else if (this.selectedProperty) {
+        await this.loadTenantsForProperty(this.selectedProperty);
+      } else {
+        await this.loadProperties();
+      }
+    } finally {
+      icon?.classList.remove("spinner-border-sm");
+      icon?.classList.replace("spinner-border", "bi-arrow-clockwise");
+      if (btn) btn.disabled = false;
+      this._reloadingTenants = false;
     }
   }
 
