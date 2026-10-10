@@ -12601,6 +12601,7 @@
                               <tr>
                                 <th>Username</th>
                                 <th>Role</th>
+                                <th>Modules</th>
                                 <th>Property Access</th>
                                 <th>Created</th>
                                 <th>Actions</th>
@@ -12608,7 +12609,7 @@
                             </thead>
                             <tbody id="usersTableBody">
                               <tr>
-                                <td colspan="5" class="text-center">
+                                <td colspan="6" class="text-center">
                                   <div
                                     class="spinner-border text-primary"
                                     role="status"
@@ -14581,7 +14582,37 @@
                   <option value="admin">Admin</option>
                 </select>
                 <div class="form-text">
-                  Admins have full access. Users only see assigned properties.
+                  Admins have full access. Users only see assigned modules and
+                  properties.
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div
+                  class="d-flex justify-content-between align-items-center mb-2"
+                >
+                  <label class="form-label mb-0">Module Access</label>
+                  <div class="btn-group btn-group-sm" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      id="moduleSelectAllBtn"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      id="moduleSelectNoneBtn"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div id="moduleAccessContainer" class="border rounded p-3"></div>
+                <div class="form-text" id="moduleAccessHelp">
+                  Sidebar modules this user can open. Dashboard is always
+                  available.
                 </div>
               </div>
 
@@ -14685,6 +14716,11 @@
               ? "30 days"
               : "this session",
           );
+
+          // Module access can change after login — use the fresh copy
+          if (Array.isArray(result.user?.moduleAccess)) {
+            updateStoredUser({ moduleAccess: result.user.moduleAccess });
+          }
 
           // Initialize dashboard controller if authenticated
           window.dashboardController = new DashboardController();

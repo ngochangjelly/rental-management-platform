@@ -61,7 +61,8 @@ class HouseViewSpecialistComponent {
   }
 
   init() {
-    this.loadRecords();
+    // goToList() reloads when the section opens, so skip without access
+    if (canAccessModule("house-view-specialist")) this.loadRecords();
   }
 
   // ─── Draft persistence ─────────────────────────────────────────────────────

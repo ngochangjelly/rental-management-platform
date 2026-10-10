@@ -73,6 +73,14 @@ class UserManagement {
       });
     }
 
+    // Module access controls
+    const roleSelect = document.getElementById('userRole');
+    if (roleSelect) {
+      roleSelect.addEventListener('change', () => this.updateModuleAccessForRole());
+    }
+    document.getElementById('moduleSelectAllBtn')?.addEventListener('click', () => this.setAllModules(true));
+    document.getElementById('moduleSelectNoneBtn')?.addEventListener('click', () => this.setAllModules(false));
+
     // Toggle password visibility
     const togglePasswordBtn = document.getElementById('togglePasswordBtn');
     if (togglePasswordBtn) {
@@ -110,7 +118,7 @@ class UserManagement {
       this.showError('Failed to load users');
       document.getElementById('usersTableBody').innerHTML = `
         <tr>
-          <td colspan="5" class="text-center text-danger">
+          <td colspan="6" class="text-center text-danger">
             Failed to load users. Please try again.
           </td>
         </tr>
@@ -226,6 +234,97 @@ class UserManagement {
     }).join('');
   }
 
+  // Non-admins with the Users module can only grant modules they hold
+  canGrantModule(key) {
+    return isAdmin() || getModuleAccess().includes(key);
+  }
+
+  renderModuleCheckboxes(selectedModules = []) {
+    const container = document.getElementById('moduleAccessContainer');
+    if (!container) return;
+
+    const groups = {};
+    APP_MODULES.forEach(module => {
+      (groups[module.group] = groups[module.group] || []).push(module);
+    });
+
+    container.innerHTML = `
+      <div class="row g-3">
+        ${Object.entries(groups).map(([group, modules]) => `
+          <div class="col-sm-6">
+            <div class="small text-uppercase text-muted fw-semibold mb-1">${group}</div>
+            ${modules.map(module => `
+              <div class="form-check">
+                <input
+                  class="form-check-input module-access-checkbox"
+                  type="checkbox"
+                  value="${module.key}"
+                  id="module-${module.key}"
+                  ${selectedModules.includes(module.key) ? 'checked' : ''}
+                  ${this.canGrantModule(module.key) ? '' : 'disabled'}
+                />
+                <label class="form-check-label" for="module-${module.key}">
+                  <i class="bi ${module.icon} me-1"></i>${module.label}
+                </label>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    this.updateModuleAccessForRole();
+  }
+
+  // Admins always have every module, so the picker is locked for them
+  updateModuleAccessForRole() {
+    const isAdminRole = document.getElementById('userRole')?.value === 'admin';
+    document.querySelectorAll('.module-access-checkbox').forEach(cb => {
+      if (isAdminRole) {
+        cb.dataset.wasChecked = cb.checked;
+        cb.checked = true;
+        cb.disabled = true;
+      } else {
+        if (cb.dataset.wasChecked !== undefined) {
+          cb.checked = cb.dataset.wasChecked === 'true';
+          delete cb.dataset.wasChecked;
+        }
+        cb.disabled = !this.canGrantModule(cb.value);
+      }
+    });
+
+    ['moduleSelectAllBtn', 'moduleSelectNoneBtn'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = isAdminRole;
+    });
+
+    const help = document.getElementById('moduleAccessHelp');
+    if (help) {
+      help.textContent = isAdminRole
+        ? 'Admins can access every module.'
+        : 'Sidebar modules this user can open. Dashboard is always available.';
+    }
+  }
+
+  setAllModules(checked) {
+    document.querySelectorAll('.module-access-checkbox:not(:disabled)').forEach(cb => {
+      cb.checked = checked;
+    });
+  }
+
+  renderModuleSummary(user) {
+    if (user.role === 'admin') {
+      return '<span class="text-muted">All modules</span>';
+    }
+    const labels = APP_MODULES
+      .filter(m => getModuleAccess(user).includes(m.key))
+      .map(m => m.label);
+    if (labels.length === 0) {
+      return '<span class="text-muted">No access</span>';
+    }
+    return `<span class="small">${this.escapeHtml(labels.join(', '))}</span>`;
+  }
+
   renderUsers() {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
@@ -233,7 +332,7 @@ class UserManagement {
     if (this.users.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" class="text-center text-muted">
+          <td colspan="6" class="text-center text-muted">
             No users found. Click "Add User" to create one.
           </td>
         </tr>
@@ -251,6 +350,9 @@ class UserManagement {
             ${user.role.toUpperCase()}
           </span>
         </td>
+        <td data-label="Modules">
+          ${this.renderModuleSummary(user)}
+        </td>
         <td data-label="Property Access">
           ${user.role === 'admin'
             ? '<span class="text-muted">All Properties</span>'
@@ -261,6 +363,7 @@ class UserManagement {
         </td>
         <td data-label="Created">${new Date(user.createdAt).toLocaleDateString()}</td>
         <td data-label="Actions">
+          ${user.role === 'admin' && !isAdmin() ? '<span class="text-muted small">Admin only</span>' : `
           <button
             class="btn btn-sm btn-outline-primary me-1"
             onclick="userManagement.editUser('${user._id}')"
@@ -274,7 +377,7 @@ class UserManagement {
             title="Delete"
           >
             <i class="bi bi-trash"></i>
-          </button>
+          </button>`}
         </td>
       </tr>
     `).join('');
@@ -293,6 +396,10 @@ class UserManagement {
     if (passwordInput) {
       passwordInput.required = true;
     }
+
+    // New users start with no modules; the admin picks what they need
+    this.restrictRoleOptions();
+    this.renderModuleCheckboxes([]);
 
     // Load properties
     await this.loadProperties();
@@ -323,7 +430,9 @@ class UserManagement {
     // Populate form
     document.getElementById('userUsername').value = user.username;
     document.getElementById('userPassword').value = '';
+    this.restrictRoleOptions();
     document.getElementById('userRole').value = user.role;
+    this.renderModuleCheckboxes(getModuleAccess(user));
 
     // Password is optional when editing
     const passwordInput = document.getElementById('userPassword');
@@ -360,6 +469,10 @@ class UserManagement {
       const propertyCheckboxes = document.querySelectorAll('.property-access-checkbox:checked');
       const propertyAccess = Array.from(propertyCheckboxes).map(cb => cb.value);
 
+      // Get selected modules (ignored by the backend for admins)
+      const moduleCheckboxes = document.querySelectorAll('.module-access-checkbox:checked');
+      const moduleAccess = Array.from(moduleCheckboxes).map(cb => cb.value);
+
       // Validate
       if (!username) {
         throw new Error('Username is required');
@@ -373,7 +486,8 @@ class UserManagement {
       const userData = {
         username,
         role,
-        propertyAccess
+        propertyAccess,
+        moduleAccess
       };
 
       // Only include password if provided
@@ -432,6 +546,15 @@ class UserManagement {
     } catch (error) {
       console.error('❌ Error deleting user:', error);
       this.showError(error.message || 'Failed to delete user');
+    }
+  }
+
+  // Only admins can create or promote admins
+  restrictRoleOptions() {
+    const adminOption = document.querySelector('#userRole option[value="admin"]');
+    if (adminOption) {
+      adminOption.hidden = !isAdmin();
+      adminOption.disabled = !isAdmin();
     }
   }
 

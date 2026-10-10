@@ -11,6 +11,17 @@ class AcServiceCompanyComponent {
 
   init() {
     this.bindEvents();
+    // Constructed on every page load — only fetch if the user has the module
+    if (canAccessModule("ac-clean")) {
+      this.loadCompanies();
+    } else {
+      this._skippedInitialLoad = true;
+    }
+  }
+
+  loadIfSkipped() {
+    if (!this._skippedInitialLoad) return;
+    this._skippedInitialLoad = false;
     this.loadCompanies();
   }
 

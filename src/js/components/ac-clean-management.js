@@ -20,6 +20,15 @@ class AcCleanManagementComponent {
     this.init();
   }
 
+  // Called when the section opens, in case module access was granted after
+  // init() skipped the initial fetch
+  loadIfSkipped() {
+    if (!this._skippedInitialLoad) return;
+    this._skippedInitialLoad = false;
+    this.loadProperties();
+    this.loadCompanies();
+  }
+
   init() {
     console.log("🚀 AC Clean Management Component initializing...");
 
@@ -30,8 +39,13 @@ class AcCleanManagementComponent {
     }
 
     this.bindEvents();
-    this.loadProperties();
-    this.loadCompanies();
+    // Constructed on every page load — only fetch if the user has the module
+    if (canAccessModule("ac-clean")) {
+      this.loadProperties();
+      this.loadCompanies();
+    } else {
+      this._skippedInitialLoad = true;
+    }
 
     console.log("✅ AC Clean Management Component initialized");
   }

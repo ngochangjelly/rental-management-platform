@@ -337,6 +337,58 @@ const isAdmin = () => {
   return user && user.role === 'admin';
 };
 
+// Dashboard modules a system user can be granted. Keys match the sidebar
+// `data-section` values and the backend's MODULE_KEYS. "dashboard" is always
+// accessible and is not listed.
+const APP_MODULES = [
+  { key: "house-view-specialist", label: "Chuyên gia xem nhà", icon: "bi-house-door", group: "Leasing" },
+  { key: "sales-map", label: "Sales Map", icon: "bi-map", group: "Leasing" },
+  { key: "properties", label: "Properties", icon: "bi-building", group: "Leasing" },
+  { key: "tenants", label: "Tenants", icon: "bi-people", group: "Leasing" },
+  { key: "tenancy-occupancy", label: "Tenancy Occupancy", icon: "bi-calendar-range", group: "Leasing" },
+  { key: "analysis", label: "Contract Analysis", icon: "bi-file-text", group: "Contracts" },
+  { key: "contracts", label: "Create Contract", icon: "bi-file-text", group: "Contracts" },
+  { key: "loi", label: "Letter of Intent", icon: "bi-pen", group: "Contracts" },
+  { key: "financial", label: "Financial Reports", icon: "bi-graph-up", group: "Finance" },
+  { key: "bills", label: "Bill Management", icon: "bi-receipt", group: "Finance" },
+  { key: "utility-bills", label: "Utility Bill Tracker", icon: "bi-lightning-charge-fill", group: "Finance" },
+  { key: "bulk-reports", label: "Bulk Property Reports", icon: "bi-bar-chart-fill", group: "Finance" },
+  { key: "exchange-rate", label: "Tỷ giá SGD/VND", icon: "bi-currency-exchange", group: "Finance" },
+  { key: "ac-clean", label: "AC Clean Management", icon: "bi-snow", group: "Operations" },
+  { key: "cctv", label: "CCTV Monitor", icon: "bi-camera-video-fill", group: "Operations" },
+  { key: "docs", label: "Docs", icon: "bi-file-richtext-fill", group: "Operations" },
+  { key: "common-prompt", label: "Thư viện tin nhắn", icon: "bi-chat-dots", group: "Operations" },
+  { key: "investors", label: "Investors", icon: "bi-person-badge", group: "Administration" },
+  { key: "investor-profit-report", label: "Investor Profit Report", icon: "bi-graph-up-arrow", group: "Administration" },
+  { key: "users", label: "User Management", icon: "bi-people-fill", group: "Administration" },
+];
+
+// Used when a stored session predates module access (the backend returns
+// the same defaults for legacy users and investors).
+const ADMIN_ONLY_DEFAULT_MODULES = ["investors", "investor-profit-report", "users"];
+const DEFAULT_USER_MODULES = APP_MODULES.map((m) => m.key).filter(
+  (key) => !ADMIN_ONLY_DEFAULT_MODULES.includes(key),
+);
+
+// Effective module keys for a user object (defaults to the current user)
+const getModuleAccess = (user = getCurrentUser()) => {
+  if (!user) return [];
+  if (user.role === "admin") return APP_MODULES.map((m) => m.key);
+  return Array.isArray(user.moduleAccess) ? user.moduleAccess : DEFAULT_USER_MODULES;
+};
+
+// Whether the current user may open a dashboard section
+const canAccessModule = (key) =>
+  key === "dashboard" || getModuleAccess().includes(key);
+
+// Merge fresh fields (e.g. moduleAccess from /api/auth/status) into the
+// stored user, keeping whichever storage the login used.
+const updateStoredUser = (fields) => {
+  const storage = localStorage.getItem("user") ? localStorage : sessionStorage;
+  const current = getCurrentUser() || {};
+  storage.setItem("user", JSON.stringify({ ...current, ...fields }));
+};
+
 // Helper function to get investor data for current user
 const getCurrentInvestor = async () => {
   try {
@@ -459,6 +511,10 @@ window.getAuthHeaders = getAuthHeaders;
 window.clearAuth = clearAuth;
 window.getCurrentUser = getCurrentUser;
 window.isAdmin = isAdmin;
+window.APP_MODULES = APP_MODULES;
+window.getModuleAccess = getModuleAccess;
+window.canAccessModule = canAccessModule;
+window.updateStoredUser = updateStoredUser;
 window.getCurrentInvestor = getCurrentInvestor;
 window.getInvestorPropertyIds = getInvestorPropertyIds;
 window.ImageUtils = ImageUtils;

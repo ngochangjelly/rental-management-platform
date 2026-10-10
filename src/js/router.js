@@ -211,13 +211,14 @@ class AppRouter {
     this._goSection("dashboard");
   }
 
+  /** Returns false when the user has no access to the section. */
   _goSection(name) {
-    window.dashboardController?.showSection(name, { fromRouter: true });
+    return window.dashboardController?.showSection(name, { fromRouter: true }) !== false;
   }
 
   async _goFinancial(slug, year, month) {
     // Show the section — creates FinancialReportsComponent if not yet done.
-    this._goSection("financial");
+    if (!this._goSection("financial")) return;
 
     const fr = window.financialReports;
     if (!fr) return;
@@ -273,7 +274,7 @@ class AppRouter {
   }
 
   async _goUtility(slug) {
-    this._goSection("utility-bills");
+    if (!this._goSection("utility-bills")) return;
 
     const ut = window.utilityBillTracker;
     if (!ut) return;
@@ -309,7 +310,7 @@ class AppRouter {
   }
 
   async _goTenant(propertySlug, tenantNameSlug) {
-    this._goSection("tenants");
+    if (!this._goSection("tenants")) return;
 
     const tm = window.tenantManager;
     if (!tm) return;
@@ -339,7 +340,7 @@ class AppRouter {
   }
 
   async _goProperty(slug) {
-    this._goSection("properties");
+    if (!this._goSection("properties")) return;
 
     const pm = window.propertyManager;
     if (!pm) return;
@@ -375,7 +376,7 @@ class AppRouter {
   }
 
   async _goDoc(docSlug) {
-    this._goSection("docs");
+    if (!this._goSection("docs")) return;
     const dm = window.docsManagement;
     if (!dm) return;
     // Slug format: {title-slug}-{24-char-mongoId}  OR  just {24-char-mongoId}
@@ -408,7 +409,7 @@ class AppRouter {
   }
 
   async _goBills(slug, year, month) {
-    this._goSection("bills");
+    if (!this._goSection("bills")) return;
 
     const bm = window.billManager;
     if (!bm) return;

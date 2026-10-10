@@ -20,7 +20,10 @@ class CctvManagementComponent {
   init() {
     this._container = document.getElementById("cctv-container");
     if (!this._container) return;
-    this._loadHls().then(() => this.loadCameras());
+    // Cameras reload whenever the section opens, so skip without access
+    this._loadHls().then(() => {
+      if (canAccessModule("cctv")) this.loadCameras();
+    });
   }
 
   async _loadHls() {

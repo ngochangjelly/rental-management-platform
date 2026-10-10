@@ -88,6 +88,19 @@ class DashboardController {
   }
 
   showSection(sectionName, { fromRouter = false } = {}) {
+    // Blocks deep links and buttons into modules the user wasn't granted
+    if (!canAccessModule(sectionName)) {
+      console.warn(`🚫 No access to module "${sectionName}"`);
+      if (typeof showToast === "function") {
+        showToast("You don't have access to this module", "error");
+      }
+      if (this.currentSection !== "dashboard") {
+        this.showSection("dashboard", { fromRouter });
+      }
+      if (fromRouter) window.appRouter?.replace("/dashboard");
+      return false;
+    }
+
     // Stop CCTV streams when navigating away from the cctv section
     if (this.currentSection === "cctv" && sectionName !== "cctv") {
       window.cctvManager?.stopAllStreams();
@@ -129,6 +142,7 @@ class DashboardController {
     if (!fromRouter) {
       window.appRouter?.replace("/" + sectionName);
     }
+    return true;
   }
 
   initializeComponentsLazily() {
@@ -261,6 +275,10 @@ class DashboardController {
           );
         }
         break;
+      case "ac-clean":
+        window.acCleanManagementComponent?.loadIfSkipped();
+        window.acServiceCompanyComponent?.loadIfSkipped();
+        break;
       case "exchange-rate":
         if (window.exchangeRateComponent) {
           window.exchangeRateComponent.init();
@@ -308,33 +326,28 @@ class DashboardController {
   }
 
   async loadUserInfo() {
-    // Load user info from API and show/hide admin-only features
     const userInfoEl = document.getElementById("userInfo");
 
-    // Check if user is admin and show/hide admin-only nav items
-    const user = getCurrentUser();
-    const usersNavItem = document.getElementById("usersNavItem");
-    const investorsNavItem = document.getElementById("investorsNavItem");
-
-    const investorProfitChartNavItem = document.getElementById(
-      "investorProfitChartNavItem",
-    );
-
-    if (user && user.role === "admin") {
-      if (usersNavItem) {
-        usersNavItem.style.display = "block";
-      }
-      if (investorsNavItem) {
-        investorsNavItem.style.display = "block";
-      }
-      if (investorProfitChartNavItem) {
-        investorProfitChartNavItem.style.display = "block";
-      }
-    }
+    this.applyModuleAccess();
 
     if (userInfoEl) {
       userInfoEl.textContent = "Admin User";
     }
+  }
+
+  // Show only the sidebar items and dashboard cards for granted modules
+  applyModuleAccess() {
+    document
+      .querySelectorAll("#sidebar .nav-item > .nav-link[data-section]")
+      .forEach((link) => {
+        const allowed = canAccessModule(link.dataset.section);
+        link.parentElement.style.display = allowed ? "" : "none";
+      });
+
+    document.querySelectorAll(".feature-card[data-section]").forEach((card) => {
+      const wrapper = card.closest('[class*="col-"]') || card;
+      wrapper.style.display = canAccessModule(card.dataset.section) ? "" : "none";
+    });
   }
 
   async loadDashboardStats() {
