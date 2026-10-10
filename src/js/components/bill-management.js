@@ -1028,8 +1028,7 @@ class BillManagementComponent {
       // Only exclude it when the overlap's end IS the actual checkout date,
       // not just the calendar month boundary clamping an ongoing stay.
       const isActualCheckout = !!ra.moveoutDate && oe === +raEnd;
-      const days =
-        Math.round((oe - os) / msDay) + (isActualCheckout ? 0 : 1);
+      const days = Math.round((oe - os) / msDay) + (isActualCheckout ? 0 : 1);
       if (days <= 0) continue;
 
       const rent = ra.rent != null ? ra.rent : tenantFallbackRent || 0;
@@ -1648,7 +1647,8 @@ class BillManagementComponent {
       const uploadInfo = tenantBill.latestUpload
         ? `<small class="text-muted">${t("uploadedOn", { date: new Date(tenantBill.latestUpload.uploadDate).toLocaleString() })}</small>`
         : "";
-      const roommateBorder = roommateColor[tenantBill.room || ""] || "transparent";
+      const roommateBorder =
+        roommateColor[tenantBill.room || ""] || "transparent";
 
       // Same $0-fee heuristic already used for the "Utility Subsidized" summary
       // count below — no dedicated flag is stored on tenantBills, so a $0 fee
@@ -2267,10 +2267,12 @@ class BillManagementComponent {
     document.querySelectorAll(".bill-tenant-row").forEach((row) => {
       row.style.cursor = "pointer";
       row.addEventListener("mouseenter", () => {
-        if (!row.querySelector(".tenant-checkbox")?.checked) row.style.background = "rgba(0,0,0,0.03)";
+        if (!row.querySelector(".tenant-checkbox")?.checked)
+          row.style.background = "rgba(0,0,0,0.03)";
       });
       row.addEventListener("mouseleave", () => {
-        if (!row.querySelector(".tenant-checkbox")?.checked) row.style.background = "";
+        if (!row.querySelector(".tenant-checkbox")?.checked)
+          row.style.background = "";
       });
       row.addEventListener("click", (e) => {
         if (e.target.closest("input, button, a")) return;
@@ -2284,7 +2286,8 @@ class BillManagementComponent {
   // as an inline style directly on the row rather than a CSS rule.
   _syncTenantRowHighlight(checkbox) {
     const row = checkbox.closest(".bill-tenant-row");
-    if (row) row.style.background = checkbox.checked ? "rgba(13,110,253,0.08)" : "";
+    if (row)
+      row.style.background = checkbox.checked ? "rgba(13,110,253,0.08)" : "";
   }
 
   toggleSelectAll(checked) {
@@ -2708,8 +2711,12 @@ class BillManagementComponent {
         );
         if (!propAssoc || !propAssoc.room) continue;
 
-        const movein = propAssoc.moveinDate ? new Date(propAssoc.moveinDate) : null;
-        const moveout = propAssoc.moveoutDate ? new Date(propAssoc.moveoutDate) : null;
+        const movein = propAssoc.moveinDate
+          ? new Date(propAssoc.moveinDate)
+          : null;
+        const moveout = propAssoc.moveoutDate
+          ? new Date(propAssoc.moveoutDate)
+          : null;
         movein?.setHours(0, 0, 0, 0);
         moveout?.setHours(0, 0, 0, 0);
 
@@ -3124,7 +3131,10 @@ class BillManagementComponent {
       };
     });
 
-    return { tenantBills, ctx: { property, monthLabel, perTenant, exchangeRate } };
+    return {
+      tenantBills,
+      ctx: { property, monthLabel, perTenant, exchangeRate },
+    };
   }
 
   // Gathers everything needed to render bill cards/text for the currently
@@ -3567,7 +3577,9 @@ class BillManagementComponent {
       Math.abs(tenantBill.baseRental - tenantBill.monthlyRent) > 0.005
     ) {
       const line = proratedFormula(tenantBill.monthlyRent);
-      lines.push(line || `  Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}`);
+      lines.push(
+        line || `  Giá thuê trọn tháng: ${fmt(tenantBill.monthlyRent)}`,
+      );
     }
     lines.push(`Tiền điện nước: ${fmt(tenantBill.utilityFee)}`);
     const hasPastCycle = cycles.some((c) => c.isPast);
