@@ -1558,6 +1558,63 @@
           0 6px 16px rgba(25, 135, 84, 0.4) !important;
       }
 
+      /* Tooltip of the yellow "report not closed" badge on property cards
+         (utils/unclosed-report-badge.js) */
+      .unclosed-report-tip {
+        position: fixed;
+        z-index: 1090;
+        display: none;
+        width: max-content;
+        max-width: 240px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #212529;
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.35;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .unclosed-report-tip.show {
+        display: block;
+      }
+
+      .unclosed-report-tip-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin-bottom: 4px;
+        font-weight: 600;
+        color: #ffc107;
+      }
+
+      .unclosed-report-tip-text {
+        margin-bottom: 8px;
+      }
+
+      .unclosed-report-tip-btn {
+        display: block;
+        width: 100%;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .unclosed-report-tip-arrow {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: #212529;
+        transform: translateX(-50%) rotate(45deg);
+      }
+
+      .unclosed-report-tip[data-placement="top"] .unclosed-report-tip-arrow {
+        bottom: -5px;
+      }
+
+      .unclosed-report-tip[data-placement="bottom"] .unclosed-report-tip-arrow {
+        top: -5px;
+      }
+
       .property-select-card img {
         transition: transform 0.2s ease;
       }
@@ -10635,7 +10692,6 @@
                   ></div>
                 </div>
                 <div class="card-body">
-                  <div id="financialUnclosedReminder"></div>
                   <div id="propertyCards">
                     <!-- Property cards will be dynamically generated here -->
                     <div class="col-12 text-center text-muted">
@@ -12064,7 +12120,6 @@
                   </button>
                 </div>
                 <div class="card-body">
-                  <div id="bulkUnclosedReminder"></div>
                   <div class="mb-3">
                     <small class="text-muted">
                       <i class="bi bi-info-circle me-1"></i>

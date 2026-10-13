@@ -7,7 +7,15 @@ import {
   fetchInvestorsForAvatarStack,
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
-import { renderStabilityBannerBadge, renderStabilityCardBadge, renderStabilityStatsBadges } from "../utils/property-stability.js";
+import {
+  renderStabilityBannerBadge,
+  renderStabilityCardBadge,
+  renderStabilityStatsBadges,
+} from "../utils/property-stability.js";
+import {
+  renderUnclosedCountBadge,
+  renderUnclosedReportBadge,
+} from "../utils/unclosed-report-badge.js";
 import {
   getModeTokens,
   getNeutralTokens,
@@ -128,14 +136,15 @@ class BulkPropertyReportsComponent {
   }
 
   // Fetch the closed state of every property's report for the selected
-  // month, then render the yellow reminder above the property grid (same
-  // callout as Financial Reports). A missing report counts as not closed.
+  // month, then re-render the grid so not-closed properties get the yellow
+  // warning marker (and the header its "Not closed" count). A missing report
+  // counts as not closed.
   async loadUnclosedReminder() {
     const month = document.getElementById("bulkReportMonth")?.value;
     const year = document.getElementById("bulkReportYear")?.value;
     if (!month || !year || !this.properties.length) {
       this._closedStatusKey = null;
-      this.renderUnclosedReminder();
+      this.renderPropertyList();
       return;
     }
 
@@ -143,7 +152,7 @@ class BulkPropertyReportsComponent {
     const key = `${year}-${month}`;
     this._closedStatusLoadingKey = key;
     this._closedStatusKey = null;
-    this.renderUnclosedReminder();
+    this.renderPropertyList();
 
     const status = {};
     await Promise.all(
@@ -164,39 +173,17 @@ class BulkPropertyReportsComponent {
 
     this._closedStatus = status;
     this._closedStatusKey = key;
-    this.renderUnclosedReminder();
+    this.renderPropertyList();
   }
 
-  renderUnclosedReminder() {
-    const el = document.getElementById("bulkUnclosedReminder");
-    if (!el) return;
-    const unclosed = this._closedStatusKey
-      ? [...this.properties]
-          .filter((p) => !this._closedStatus[p.propertyId])
-          .sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0))
-      : [];
-    if (unclosed.length === 0) {
-      el.innerHTML = "";
-      return;
-    }
+  // "October 2026" for the month the loaded closed statuses belong to
+  closedStatusMonthLabel() {
+    if (!this._closedStatusKey) return "";
     const [year, month] = this._closedStatusKey.split("-");
-    const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("en-SG", {
+    return new Date(year, month - 1, 1).toLocaleDateString("en-SG", {
       month: "long",
       year: "numeric",
     });
-    const chips = unclosed
-      .map((p) => {
-        const label = [p.unit, p.address].filter(Boolean).join(", ") || p.propertyId;
-        return `<span class="btn btn-sm btn-outline-dark" style="font-size:11px;padding:1px 8px;border-radius:20px;cursor:default;pointer-events:none;"><i class="bi bi-unlock-fill me-1"></i>${escapeHtml(String(label))}</span>`;
-      })
-      .join("");
-    el.innerHTML = `
-      <div class="alert alert-warning mb-3" role="alert">
-        <div class="fw-semibold mb-2">
-          <i class="bi bi-exclamation-triangle-fill me-1"></i>${unclosed.length} of ${this.properties.length} ${this.properties.length === 1 ? "report" : "reports"} for ${monthLabel} not closed yet
-        </div>
-        <div class="d-flex flex-wrap gap-1">${chips}</div>
-      </div>`;
   }
 
   setDefaultDate() {
@@ -252,12 +239,20 @@ class BulkPropertyReportsComponent {
 
     // Total / Stable / Unstable counts in the "Select Properties" card header
     // (white outline so the badges read on the blue header).
+    const monthLabel = this.closedStatusMonthLabel();
+    const [statusYear, statusMonth] = (this._closedStatusKey || "").split("-");
+    const isUnclosed = (p) =>
+      !!this._closedStatusKey && !this._closedStatus[p.propertyId];
     const statsEl = document.getElementById("bulkPropertyStats");
     if (statsEl) {
-      statsEl.innerHTML = renderStabilityStatsBadges(
-        this.properties,
-        "border:1px solid rgba(255,255,255,0.7);",
-      );
+      const outline = "border:1px solid rgba(255,255,255,0.7);";
+      statsEl.innerHTML =
+        renderStabilityStatsBadges(this.properties, outline) +
+        renderUnclosedCountBadge(
+          (this.properties || []).filter(isUnclosed).length,
+          monthLabel,
+          outline,
+        );
     }
 
     if (!this.properties || this.properties.length === 0) {
@@ -279,6 +274,16 @@ class BulkPropertyReportsComponent {
       .sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0))
       .map((property, index) => {
         const isSelected = this.selectedProperties.has(property.propertyId);
+        // Yellow warning marker: this month's report is not closed yet. Its
+        // hover tooltip links to the report in a new tab.
+        const unclosedBadge = isUnclosed(property)
+          ? renderUnclosedReportBadge({
+              property,
+              year: statusYear,
+              month: statusMonth,
+              monthLabel,
+            })
+          : "";
         return `
       <div class="card property-select-card ${isSelected ? "selected" : ""} overflow-hidden"
            data-property-id="${property.propertyId}"
@@ -292,6 +297,7 @@ class BulkPropertyReportsComponent {
               </div>
               ${renderPropertyImageAvatarBadge(this._avatarInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
               ${renderStabilityBannerBadge(property, 'bottom-0 start-0')}
+              ${unclosedBadge ? `<div class="position-absolute bottom-0 end-0 p-1" style="z-index: 3; line-height: 1;">${unclosedBadge}</div>` : ""}
               <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
             </div>`
           : ""
@@ -309,6 +315,7 @@ class BulkPropertyReportsComponent {
             <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
           </div>
           ${renderStabilityCardBadge(property)}
+          ${!property.propertyImage ? unclosedBadge : ""}
           ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
         </div>
       </div>

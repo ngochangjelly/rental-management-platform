@@ -30,6 +30,10 @@ import {
   renderStabilityCardBadge,
   renderStabilityStatsBadges,
 } from "../utils/property-stability.js";
+import {
+  renderUnclosedCountBadge,
+  renderUnclosedReportBadge,
+} from "../utils/unclosed-report-badge.js";
 
 /**
  * Financial Reports Component
@@ -413,7 +417,6 @@ class FinancialReportsComponent {
 
     this._loadingStatuses = true;
     this.propertyReportStatus = {};
-    this.renderUnclosedReminder();
 
     try {
       await Promise.all(
@@ -451,53 +454,33 @@ class FinancialReportsComponent {
     this.renderPropertyCards(this.properties);
   }
 
-  // Total / Stable / Unstable counts in the "Select Property" card header.
-  // Always counts every property, regardless of the active filter.
-  renderPropertyStats(properties) {
-    const el = document.getElementById("financialPropertyStats");
-    if (!el) return;
-    el.innerHTML = renderStabilityStatsBadges(properties);
-  }
-
-  // Yellow reminder above the property cards listing every property whose
-  // report for the selected month is not closed yet. Hidden while statuses
-  // are (re)loading so it never shows the previous month's list.
-  renderUnclosedReminder() {
-    const el = document.getElementById("financialUnclosedReminder");
-    if (!el) return;
+  // True once the closed/settled statuses for the selected month are loaded
+  // (never while they are loading, so the previous month's state isn't shown).
+  reportStatusesReady() {
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth() + 1;
-    const statusesReady =
-      !this._loadingStatuses && this._statusCacheKey === `${year}-${month}`;
-    const unclosed = statusesReady
-      ? (this.properties || [])
-          .filter((p) => !this.propertyReportStatus[p.propertyId]?.isClosed)
-          .sort(
-            (a, b) =>
-              (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
-          )
-      : [];
-    if (unclosed.length === 0) {
-      el.innerHTML = "";
-      return;
-    }
-    const monthLabel = this.currentDate.toLocaleDateString("en-SG", {
+    return !this._loadingStatuses && this._statusCacheKey === `${year}-${month}`;
+  }
+
+  reportMonthLabel() {
+    return this.currentDate.toLocaleDateString("en-SG", {
       month: "long",
       year: "numeric",
     });
-    const chips = unclosed
-      .map((p) => {
-        const label = [p.unit, p.address].filter(Boolean).join(", ") || p.propertyId;
-        return `<button type="button" class="btn btn-sm btn-outline-dark" style="font-size:11px;padding:1px 8px;border-radius:20px;" title="Open this report" onclick="window.financialReports.selectProperty('${p.propertyId}')"><i class="bi bi-unlock-fill me-1"></i>${escapeHtml(label)}</button>`;
-      })
-      .join("");
-    el.innerHTML = `
-      <div class="alert alert-warning mb-3" role="alert">
-        <div class="fw-semibold mb-2">
-          <i class="bi bi-exclamation-triangle-fill me-1"></i>${unclosed.length} of ${this.properties.length} ${this.properties.length === 1 ? "report" : "reports"} for ${monthLabel} not closed yet
-        </div>
-        <div class="d-flex flex-wrap gap-1">${chips}</div>
-      </div>`;
+  }
+
+  // Total / Stable / Unstable (+ "Not closed" for the selected month) counts
+  // in the "Select Property" card header. Always counts every property,
+  // regardless of the active filter.
+  renderPropertyStats(properties) {
+    const el = document.getElementById("financialPropertyStats");
+    if (!el) return;
+    const unclosed = this.reportStatusesReady()
+      ? properties.filter((p) => !this.propertyReportStatus[p.propertyId]?.isClosed).length
+      : 0;
+    el.innerHTML =
+      renderStabilityStatsBadges(properties) +
+      renderUnclosedCountBadge(unclosed, this.reportMonthLabel());
   }
 
   renderPropertyCards(properties) {
@@ -524,7 +507,6 @@ class FinancialReportsComponent {
     }
 
     this.renderPropertyStats(this.properties);
-    this.renderUnclosedReminder();
 
     // Use CSS Grid for compact layout
     container.style.display = "grid";
@@ -587,12 +569,25 @@ class FinancialReportsComponent {
       container.appendChild(empty);
       return;
     }
+    const statusesReady = this.reportStatusesReady();
+    const monthLabel = this.reportMonthLabel();
     sortedProperties.forEach((property) => {
       const isSelected =
         String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
       const isReportClosed = reportStatus && reportStatus.isClosed;
       const isReportSettled = reportStatus && reportStatus.isSettled;
+      // Yellow warning marker: this month's report is not closed yet. Its
+      // hover tooltip links to the report in a new tab.
+      const unclosedBadge =
+        statusesReady && !isReportClosed
+          ? renderUnclosedReportBadge({
+              property,
+              year: this.currentDate.getFullYear(),
+              month: this.currentDate.getMonth() + 1,
+              monthLabel,
+            })
+          : "";
       const cardStatusColor = isReportSettled
         ? "#0d9488"
         : isReportClosed
@@ -612,6 +607,7 @@ class FinancialReportsComponent {
                  </div>
                  ${renderPropertyImageAvatarBadge(this.allInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
                  <div class="position-absolute bottom-0 start-0 p-1 d-flex align-items-center gap-1" style="z-index: 3; line-height: 1;">${renderStabilityBadge(property.isStable, "font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);")}${isReportClosed ? '<span class="badge bg-success" style="font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);" title="Report closed"><i class="bi bi-lock-fill"></i></span>' : ""}</div>
+                 ${unclosedBadge ? `<div class="position-absolute bottom-0 end-0 p-1" style="z-index: 3; line-height: 1;">${unclosedBadge}</div>` : ""}
                  ${isReportSettled ? `<div style="position: absolute; inset: 0; background: rgba(13,148,136,0.42); display: ${isSelected ? "none" : "flex"}; align-items: center; justify-content: center;"><i class="bi bi-cash-coin text-white" style="font-size: 1.3rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i></div>` : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                </div>`
@@ -631,6 +627,7 @@ class FinancialReportsComponent {
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
             </div>
             ${renderStabilityCardBadge(property)}
+            ${!property.propertyImage ? unclosedBadge : ""}
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
             ${!property.propertyImage && isReportSettled && !isSelected ? `<span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin me-1"></i>Settled</span>` : ""}
             ${!property.propertyImage && isReportClosed && !isReportSettled && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
@@ -2716,7 +2713,6 @@ class FinancialReportsComponent {
 
     // Invalidate status cache so the new month's statuses are fetched
     this._statusCacheKey = null;
-    this.renderUnclosedReminder();
 
     // Reset any pending close/unlock state when changing months
     this.pendingClose = false;
