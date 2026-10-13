@@ -28,6 +28,7 @@ import {
   getStabilityMeta,
   renderStabilityBadge,
   renderStabilityCardBadge,
+  renderStabilityStatsBadges,
 } from "../utils/property-stability.js";
 
 /**
@@ -412,6 +413,7 @@ class FinancialReportsComponent {
 
     this._loadingStatuses = true;
     this.propertyReportStatus = {};
+    this.renderUnclosedReminder();
 
     try {
       await Promise.all(
@@ -449,6 +451,55 @@ class FinancialReportsComponent {
     this.renderPropertyCards(this.properties);
   }
 
+  // Total / Stable / Unstable counts in the "Select Property" card header.
+  // Always counts every property, regardless of the active filter.
+  renderPropertyStats(properties) {
+    const el = document.getElementById("financialPropertyStats");
+    if (!el) return;
+    el.innerHTML = renderStabilityStatsBadges(properties);
+  }
+
+  // Yellow reminder above the property cards listing every property whose
+  // report for the selected month is not closed yet. Hidden while statuses
+  // are (re)loading so it never shows the previous month's list.
+  renderUnclosedReminder() {
+    const el = document.getElementById("financialUnclosedReminder");
+    if (!el) return;
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth() + 1;
+    const statusesReady =
+      !this._loadingStatuses && this._statusCacheKey === `${year}-${month}`;
+    const unclosed = statusesReady
+      ? (this.properties || [])
+          .filter((p) => !this.propertyReportStatus[p.propertyId]?.isClosed)
+          .sort(
+            (a, b) =>
+              (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
+          )
+      : [];
+    if (unclosed.length === 0) {
+      el.innerHTML = "";
+      return;
+    }
+    const monthLabel = this.currentDate.toLocaleDateString("en-SG", {
+      month: "long",
+      year: "numeric",
+    });
+    const chips = unclosed
+      .map((p) => {
+        const label = [p.unit, p.address].filter(Boolean).join(", ") || p.propertyId;
+        return `<button type="button" class="btn btn-sm btn-outline-dark" style="font-size:11px;padding:1px 8px;border-radius:20px;" title="Open this report" onclick="window.financialReports.selectProperty('${p.propertyId}')"><i class="bi bi-unlock-fill me-1"></i>${escapeHtml(label)}</button>`;
+      })
+      .join("");
+    el.innerHTML = `
+      <div class="alert alert-warning mb-3" role="alert">
+        <div class="fw-semibold mb-2">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>${unclosed.length} of ${this.properties.length} ${this.properties.length === 1 ? "report" : "reports"} for ${monthLabel} not closed yet
+        </div>
+        <div class="d-flex flex-wrap gap-1">${chips}</div>
+      </div>`;
+  }
+
   renderPropertyCards(properties) {
     const container = document.getElementById("propertyCards");
     if (!container) return;
@@ -471,6 +522,9 @@ class FinancialReportsComponent {
         );
       }
     }
+
+    this.renderPropertyStats(this.properties);
+    this.renderUnclosedReminder();
 
     // Use CSS Grid for compact layout
     container.style.display = "grid";
@@ -545,37 +599,37 @@ class FinancialReportsComponent {
           ? "#198754"
           : null;
       const cardHtml = `
-        <div class="card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportSettled ? "property-card-settled" : isReportClosed ? "property-card-closed" : ""} overflow-hidden"
+        <div class="card property-grid-card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportSettled ? "property-card-settled" : isReportClosed ? "property-card-closed" : ""} overflow-hidden"
              style="cursor: pointer; transition: all 0.2s ease;"
              data-property-id="${property.propertyId}"
              onclick="window.financialReports.selectProperty('${property.propertyId}')">
           ${
             property.propertyImage
-              ? `<div data-role="property-image" style="height: 62px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-                 <div class="position-absolute top-0 start-0 p-1 d-flex align-items-center gap-1" style="z-index: 3; line-height: 1;">${isReportClosed ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span>' : ""}${renderStabilityBadge(property.isStable, "font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);")}</div>
+              ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                 <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                      style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2; background-color: ${cardStatusColor || "#0d6efd"};">
+                   ${escapeHtml(property.propertyId.toString().substring(0, 3))}
+                 </div>
                  ${renderPropertyImageAvatarBadge(this.allInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
+                 <div class="position-absolute bottom-0 start-0 p-1 d-flex align-items-center gap-1" style="z-index: 3; line-height: 1;">${renderStabilityBadge(property.isStable, "font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);")}${isReportClosed ? '<span class="badge bg-success" style="font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);" title="Report closed"><i class="bi bi-lock-fill"></i></span>' : ""}</div>
                  ${isReportSettled ? `<div style="position: absolute; inset: 0; background: rgba(13,148,136,0.42); display: ${isSelected ? "none" : "flex"}; align-items: center; justify-content: center;"><i class="bi bi-cash-coin text-white" style="font-size: 1.3rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i></div>` : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
-                 <div class="text-center text-white" style="position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 4px 2px; line-height: 1.2; background: linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0));">
-                   <div class="fw-semibold text-truncate" style="font-size: 9px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
-                   <div class="text-truncate" style="font-size: 9px; opacity: 0.85;">${escapeHtml(property.unit)}</div>
-                 </div>
                </div>`
               : ""
           }
           <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : isReportSettled ? "rgba(13,148,136,0.07)" : "#fff"};">
-            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
-                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${cardStatusColor || "#0d6efd"};">
-              ${isReportSettled ? '<i class="bi bi-cash-coin" style="font-size: 10px;"></i>' : escapeHtml(property.propertyId.substring(0, 3))}
-            </div>
             ${
               !property.propertyImage
-                ? `<div class="text-center" style="line-height: 1.2; width: 100%;">
-                     <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
-                     <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit)}</div>
-                   </div>`
+                ? `<div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${cardStatusColor || "#0d6efd"};">
+              ${escapeHtml(property.propertyId.toString().substring(0, 3))}
+            </div>`
                 : ""
             }
+            <div class="text-center" style="line-height: 1.2; width: 100%;">
+              <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || "")}">${escapeHtml(property.address || property.propertyId)}</div>
+              <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
+            </div>
             ${renderStabilityCardBadge(property)}
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
             ${!property.propertyImage && isReportSettled && !isSelected ? `<span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin me-1"></i>Settled</span>` : ""}
@@ -586,49 +640,8 @@ class FinancialReportsComponent {
       container.innerHTML += cardHtml;
     });
 
-    // Add hover effects with CSS
-    this.addPropertyCardStyles();
-
     // Re-apply selection state after re-render
     this.updatePropertyCardSelection();
-  }
-
-  addPropertyCardStyles() {
-    if (!document.getElementById("property-card-styles")) {
-      const style = document.createElement("style");
-      style.id = "property-card-styles";
-      style.textContent = `
-        .property-card-compact {
-          border-radius: 6px;
-          border: 1px solid #dee2e6;
-        }
-        .property-card-compact:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
-        }
-        .property-card-compact.selected-card {
-          border: 3px solid #0d6efd !important;
-          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
-        }
-        .property-card-compact.property-card-closed {
-          border: 2px solid #198754 !important;
-        }
-        .property-card-compact.property-card-closed.selected-card {
-          border: 3px solid #0d6efd !important;
-          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
-        }
-        .property-card-compact.property-card-settled {
-          border: 2px solid #0d9488 !important;
-          box-shadow: 0 0 0 2px rgba(13,148,136,0.18), 0 2px 8px rgba(13,148,136,0.15) !important;
-          background: rgba(13,148,136,0.04);
-        }
-        .property-card-compact.property-card-settled.selected-card {
-          border: 3px solid #0d6efd !important;
-          box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
-        }
-      `;
-      document.head.appendChild(style);
-    }
   }
 
   setPropertyFilter(filter) {
@@ -2703,6 +2716,7 @@ class FinancialReportsComponent {
 
     // Invalidate status cache so the new month's statuses are fetched
     this._statusCacheKey = null;
+    this.renderUnclosedReminder();
 
     // Reset any pending close/unlock state when changing months
     this.pendingClose = false;

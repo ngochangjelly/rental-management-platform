@@ -32,3 +32,18 @@ export function renderStabilityCardBadge(property) {
   if (property?.propertyImage) return '';
   return renderStabilityBadge(property?.isStable, 'font-size:8px;');
 }
+
+// Total / Stable / Unstable count badges for a module's property-list header
+// (Financial Reports, Bulk Property Reports). Counts every property passed in.
+export function renderStabilityStatsBadges(properties, extraStyle = '') {
+  const list = properties || [];
+  if (!list.length) return '';
+  const stable = list.filter((p) => p.isStable === true).length;
+  const badge = ({ color, icon, label }, count) =>
+    `<span class="badge" style="background-color:${color};color:#fff;font-size:0.7rem;${extraStyle}" title="${count} ${label.toLowerCase()} ${count === 1 ? 'property' : 'properties'}"><i class="bi ${icon} me-1"></i>${label}: ${count}</span>`;
+  return (
+    badge({ label: 'Total', color: '#6c757d', icon: 'bi-buildings' }, list.length) +
+    badge(STABILITY_META.stable, stable) +
+    badge(STABILITY_META.unstable, list.length - stable)
+  );
+}

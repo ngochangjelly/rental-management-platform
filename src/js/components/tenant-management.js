@@ -212,7 +212,7 @@ class TenantManagementComponent {
     // Add special card for unassigned tenants
     const isUnassignedSelected = this.selectedProperty === "UNASSIGNED";
     const unassignedCardHtml = `
-            <div class="card property-card-compact ${isUnassignedSelected ? "border-warning selected-card" : "border-secondary"} overflow-hidden"
+            <div class="card property-grid-card property-card-compact ${isUnassignedSelected ? "border-warning selected-card" : "border-secondary"} overflow-hidden"
                  style="cursor: pointer; transition: all 0.2s ease;"
                  data-property-id="UNASSIGNED"
                  onclick="tenantManager.selectUnassignedTenants()">
@@ -235,23 +235,30 @@ class TenantManagementComponent {
     sortedProperties.forEach((property) => {
       const isSelected = this.selectedProperty === property.propertyId;
       const cardHtml = `
-                <div class="card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
+                <div class="card property-grid-card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
                      style="cursor: pointer; transition: all 0.2s ease;"
                      data-property-id="${property.propertyId}"
                      onclick="tenantManager.selectProperty('${property.propertyId}')">
                     ${property.propertyImage
           ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+                            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                     style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;">
+                  ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
+                </div>
                             ${renderPropertyImageAvatarBadge(this._avatarInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
-                            ${renderStabilityBannerBadge(property)}
+                            ${renderStabilityBannerBadge(property, "bottom-0 start-0")}
                             <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
                           </div>`
           : ""
         }
                     <div data-role="card-body" class="d-flex flex-column align-items-center py-2 px-0" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
-                        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                        ${!property.propertyImage
+          ? `<div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
                              style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">
                             ${this.escapeHtml(property.propertyId.toString().substring(0, 3))}
-                        </div>
+                        </div>`
+          : ""
+        }
                         <div class="text-center px-2" style="line-height: 1.2; width: 100%;">
                             <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address)}">${this.escapeHtml(property.address)}</div>
                             <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit)}</div>
@@ -263,31 +270,6 @@ class TenantManagementComponent {
             `;
       container.innerHTML += cardHtml;
     });
-
-    // Add hover effects
-    this.addPropertyNavigationCardStyles();
-  }
-
-  addPropertyNavigationCardStyles() {
-    if (!document.getElementById("tenant-property-nav-card-styles")) {
-      const style = document.createElement("style");
-      style.id = "tenant-property-nav-card-styles";
-      style.textContent = `
-                .property-card-compact {
-                    border-radius: 6px;
-                    border: 1px solid #dee2e6;
-                }
-                .property-card-compact:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
-                }
-                .property-card-compact.selected-card {
-                    border: 1px solid #0d6efd !important;
-                    box-shadow: inset 0 0 0 2px #0d6efd, 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25) !important;
-                }
-            `;
-      document.head.appendChild(style);
-    }
   }
 
   async selectProperty(propertyId) {

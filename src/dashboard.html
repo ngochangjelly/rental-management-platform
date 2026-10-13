@@ -1237,6 +1237,20 @@
         color: #ffffff !important;
       }
 
+      /* Bulk reports Select/Deselect All toggle: text is forced white by the
+         rule above, so keep the background translucent in every state */
+      #toggleAllPropertiesBtn,
+      #toggleAllPropertiesBtn:focus {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        border-color: rgba(255, 255, 255, 0.7) !important;
+      }
+
+      #toggleAllPropertiesBtn:hover,
+      #toggleAllPropertiesBtn:active {
+        background-color: rgba(255, 255, 255, 0.3) !important;
+        border-color: #ffffff !important;
+      }
+
       /* Force explicit background colors for export */
       #exportableFinancialReport .card-header.bg-primary {
         background-color: #0d6efd !important;
@@ -1496,29 +1510,52 @@
         }
       }
 
-      /* Property selection card styles */
-      .property-select-card {
+      /* Property selection grid cards — one look for every module (Bulk
+         Reports is the reference). The border is 2px in every state and the
+         selected emphasis is a box-shadow ring, so nothing ever shifts. */
+      .property-select-card,
+      .property-grid-card {
         border: 2px solid #dee2e6;
         transition: all 0.2s ease;
         cursor: pointer;
         overflow: hidden;
       }
 
-      .property-select-card:hover {
+      .property-select-card:hover,
+      .property-grid-card:hover {
         border-color: #0d6efd;
-        transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
 
-      .property-select-card.selected {
-        border-color: #198754 !important;
-        border-width: 3px !important;
-        box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3) !important;
+      /* Financial Reports status borders (same 2px box as every other state) */
+      .property-grid-card.property-card-closed {
+        border-color: #198754;
       }
 
-      .property-select-card.selected:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(25, 135, 84, 0.4) !important;
+      .property-grid-card.property-card-settled {
+        border-color: #0d9488;
+        box-shadow:
+          0 0 0 2px rgba(13, 148, 136, 0.18),
+          0 2px 8px rgba(13, 148, 136, 0.15);
+        background: rgba(13, 148, 136, 0.04);
+      }
+
+      .property-select-card.selected,
+      .property-grid-card.selected,
+      .property-grid-card.selected-card {
+        border-color: #198754 !important;
+        border-width: 2px !important;
+        box-shadow:
+          0 0 0 1px #198754,
+          0 4px 12px rgba(25, 135, 84, 0.3) !important;
+      }
+
+      .property-select-card.selected:hover,
+      .property-grid-card.selected:hover,
+      .property-grid-card.selected-card:hover {
+        box-shadow:
+          0 0 0 1px #198754,
+          0 6px 16px rgba(25, 135, 84, 0.4) !important;
       }
 
       .property-select-card img {
@@ -1753,13 +1790,6 @@
       }
       /* ── End Quick Drop Zone ─────────────────────────────────────── */
 
-      .utility-prop-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12) !important;
-      }
-      .utility-prop-card.selected {
-        border-width: 2px !important;
-      }
       /* SP utility account — hover-to-copy affordance */
       .sp-copy-val {
         cursor: pointer;
@@ -10593,12 +10623,19 @@
 
               <!-- Property Selection -->
               <div class="card mb-4">
-                <div class="card-header">
+                <div
+                  class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"
+                >
                   <h5 class="mb-0">
                     <i class="bi bi-building me-2"></i>Select Property
                   </h5>
+                  <div
+                    id="financialPropertyStats"
+                    class="d-flex align-items-center flex-wrap gap-1"
+                  ></div>
                 </div>
                 <div class="card-body">
+                  <div id="financialUnclosedReminder"></div>
                   <div id="propertyCards">
                     <!-- Property cards will be dynamically generated here -->
                     <div class="col-12 text-center text-muted">
@@ -12007,29 +12044,27 @@
               <!-- Property Selection Card -->
               <div class="card mb-4">
                 <div
-                  class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+                  class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2"
                 >
-                  <h5 class="mb-0">
-                    <i class="bi bi-building me-2"></i>Select Properties
-                  </h5>
-                  <div class="btn-group" role="group">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-light"
-                      id="selectAllPropertiesBtn"
-                    >
-                      <i class="bi bi-check-all me-1"></i>Select All
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-light"
-                      id="deselectAllPropertiesBtn"
-                    >
-                      <i class="bi bi-x-lg me-1"></i>Deselect All
-                    </button>
+                  <div class="d-flex align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0">
+                      <i class="bi bi-building me-2"></i>Select Properties
+                    </h5>
+                    <div
+                      id="bulkPropertyStats"
+                      class="d-flex align-items-center flex-wrap gap-1"
+                    ></div>
                   </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-light"
+                    id="toggleAllPropertiesBtn"
+                  >
+                    <i class="bi bi-check-all me-1"></i>Select All
+                  </button>
                 </div>
                 <div class="card-body">
+                  <div id="bulkUnclosedReminder"></div>
                   <div class="mb-3">
                     <small class="text-muted">
                       <i class="bi bi-info-circle me-1"></i>

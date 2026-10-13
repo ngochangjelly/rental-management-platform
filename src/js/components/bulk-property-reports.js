@@ -7,7 +7,7 @@ import {
   fetchInvestorsForAvatarStack,
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
-import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
+import { renderStabilityBannerBadge, renderStabilityCardBadge, renderStabilityStatsBadges } from "../utils/property-stability.js";
 import {
   getModeTokens,
   getNeutralTokens,
@@ -21,6 +21,8 @@ class BulkPropertyReportsComponent {
     this.selectedProperties = new Set();
     this.lastClickedIndex = -1; // Track last clicked card for shift selection
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
+    this._closedStatus = {}; // {propertyId: boolean} report closed state for the selected month
+    this._closedStatusKey = null; // "year-month" the statuses above belong to
     this.init();
   }
 
@@ -45,21 +47,25 @@ class BulkPropertyReportsComponent {
       });
     }
 
-    // Select All button
-    const selectAllBtn = document.getElementById("selectAllPropertiesBtn");
-    if (selectAllBtn) {
-      selectAllBtn.addEventListener("click", () => {
-        this.selectAllProperties();
+    // Select All / Deselect All toggle — deselects only when every property
+    // is already selected, otherwise selects the rest.
+    const toggleAllBtn = document.getElementById("toggleAllPropertiesBtn");
+    if (toggleAllBtn) {
+      toggleAllBtn.addEventListener("click", () => {
+        if (this.areAllPropertiesSelected()) {
+          this.deselectAllProperties();
+        } else {
+          this.selectAllProperties();
+        }
       });
     }
 
-    // Deselect All button
-    const deselectAllBtn = document.getElementById("deselectAllPropertiesBtn");
-    if (deselectAllBtn) {
-      deselectAllBtn.addEventListener("click", () => {
-        this.deselectAllProperties();
+    // Selected month/year drives the "not closed yet" reminder
+    ["bulkReportMonth", "bulkReportYear"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        this.loadUnclosedReminder();
       });
-    }
+    });
 
     // Grand View button — generates each selected property's full report
     // snapshot image (the same PNG "Capture Screenshot" produces on the
@@ -92,6 +98,13 @@ class BulkPropertyReportsComponent {
     this.renderPropertyList();
   }
 
+  areAllPropertiesSelected() {
+    return (
+      this.properties.length > 0 &&
+      this.properties.every((p) => this.selectedProperties.has(p.propertyId))
+    );
+  }
+
   updateSelectedCount() {
     const countEl = document.getElementById("selectedPropertiesCount");
     if (countEl) {
@@ -100,6 +113,90 @@ class BulkPropertyReportsComponent {
         count === 1 ? "property" : "properties"
       } selected`;
     }
+    this.updateToggleAllButton();
+  }
+
+  // Keep the toggle's label in sync with the current selection.
+  updateToggleAllButton() {
+    const btn = document.getElementById("toggleAllPropertiesBtn");
+    if (!btn) return;
+    const allSelected = this.areAllPropertiesSelected();
+    btn.innerHTML = allSelected
+      ? '<i class="bi bi-x-lg me-1"></i>Deselect All'
+      : '<i class="bi bi-check-all me-1"></i>Select All';
+    btn.disabled = this.properties.length === 0;
+  }
+
+  // Fetch the closed state of every property's report for the selected
+  // month, then render the yellow reminder above the property grid (same
+  // callout as Financial Reports). A missing report counts as not closed.
+  async loadUnclosedReminder() {
+    const month = document.getElementById("bulkReportMonth")?.value;
+    const year = document.getElementById("bulkReportYear")?.value;
+    if (!month || !year || !this.properties.length) {
+      this._closedStatusKey = null;
+      this.renderUnclosedReminder();
+      return;
+    }
+
+    // Hide while loading; a newer month/year change supersedes this one
+    const key = `${year}-${month}`;
+    this._closedStatusLoadingKey = key;
+    this._closedStatusKey = null;
+    this.renderUnclosedReminder();
+
+    const status = {};
+    await Promise.all(
+      this.properties.map(async (property) => {
+        try {
+          const response = await API.get(
+            API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(property.propertyId, year, month),
+          );
+          if (!response.ok) return;
+          const result = await response.json();
+          status[property.propertyId] = !!(result.success && result.data?.isClosed);
+        } catch (error) {
+          console.debug(`Could not fetch report status for ${property.propertyId}:`, error);
+        }
+      }),
+    );
+    if (this._closedStatusLoadingKey !== key) return;
+
+    this._closedStatus = status;
+    this._closedStatusKey = key;
+    this.renderUnclosedReminder();
+  }
+
+  renderUnclosedReminder() {
+    const el = document.getElementById("bulkUnclosedReminder");
+    if (!el) return;
+    const unclosed = this._closedStatusKey
+      ? [...this.properties]
+          .filter((p) => !this._closedStatus[p.propertyId])
+          .sort((a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0))
+      : [];
+    if (unclosed.length === 0) {
+      el.innerHTML = "";
+      return;
+    }
+    const [year, month] = this._closedStatusKey.split("-");
+    const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("en-SG", {
+      month: "long",
+      year: "numeric",
+    });
+    const chips = unclosed
+      .map((p) => {
+        const label = [p.unit, p.address].filter(Boolean).join(", ") || p.propertyId;
+        return `<span class="btn btn-sm btn-outline-dark" style="font-size:11px;padding:1px 8px;border-radius:20px;cursor:default;pointer-events:none;"><i class="bi bi-unlock-fill me-1"></i>${escapeHtml(String(label))}</span>`;
+      })
+      .join("");
+    el.innerHTML = `
+      <div class="alert alert-warning mb-3" role="alert">
+        <div class="fw-semibold mb-2">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>${unclosed.length} of ${this.properties.length} ${this.properties.length === 1 ? "report" : "reports"} for ${monthLabel} not closed yet
+        </div>
+        <div class="d-flex flex-wrap gap-1">${chips}</div>
+      </div>`;
   }
 
   setDefaultDate() {
@@ -140,6 +237,7 @@ class BulkPropertyReportsComponent {
 
       this.properties = allProperties;
       this.renderPropertyList();
+      this.loadUnclosedReminder();
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showError("Error loading properties. Please try again.");
@@ -149,6 +247,18 @@ class BulkPropertyReportsComponent {
   renderPropertyList() {
     const container = document.getElementById("bulkPropertyList");
     if (!container) return;
+
+    this.updateToggleAllButton();
+
+    // Total / Stable / Unstable counts in the "Select Properties" card header
+    // (white outline so the badges read on the blue header).
+    const statsEl = document.getElementById("bulkPropertyStats");
+    if (statsEl) {
+      statsEl.innerHTML = renderStabilityStatsBadges(
+        this.properties,
+        "border:1px solid rgba(255,255,255,0.7);",
+      );
+    }
 
     if (!this.properties || this.properties.length === 0) {
       container.innerHTML = `
@@ -249,14 +359,12 @@ class BulkPropertyReportsComponent {
       // Add hover effect
       card.addEventListener("mouseenter", () => {
         if (!card.classList.contains("selected")) {
-          card.style.transform = "translateY(-2px)";
           card.style.boxShadow = "0 4px 10px rgba(0,0,0,0.15)";
         }
       });
 
       card.addEventListener("mouseleave", () => {
         if (!card.classList.contains("selected")) {
-          card.style.transform = "";
           card.style.boxShadow = "";
         }
       });
@@ -275,9 +383,8 @@ class BulkPropertyReportsComponent {
       const propertyId = card.dataset.propertyId;
       const isSelected = this.selectedProperties.has(propertyId);
 
+      // Border/ring come from the .selected CSS rule (no size change).
       card.classList.toggle("selected", isSelected);
-      card.style.border = isSelected ? "3px solid #0d6efd" : "";
-      card.style.boxShadow = isSelected ? "0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25)" : "";
 
       const overlay = card.querySelector('[data-role="selected-overlay"]');
       if (overlay) overlay.style.display = isSelected ? "flex" : "none";

@@ -241,11 +241,8 @@ class PropertyMoveoutTimeline {
       const expiryHtml = _expiryLabel(days, color, i18next);
 
       return `
-        <div class="card overflow-hidden moveout-prop-card"
-             data-property-id="${p.propertyId}"
-             style="cursor:pointer;transition:all 0.15s;
-                    border:${isSelected ? `2px solid ${color}` : "1px solid #dee2e6"};
-                    box-shadow:${isSelected ? `0 0 0 2px ${color}33` : "none"};">
+        <div class="card overflow-hidden property-grid-card moveout-prop-card ${isSelected ? "selected" : ""}"
+             data-property-id="${p.propertyId}">
           ${p.propertyImage
             ? `<div style="height:42px;background-image:url('${p.propertyImage}');
                           background-size:cover;background-position:center;position:relative;">
@@ -577,10 +574,6 @@ function _esc(text) {
   const s = document.createElement("style");
   s.id = "moveout-timeline-styles";
   s.textContent = `
-    .moveout-prop-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.12) !important;
-    }
     @keyframes moveout-pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.72; }

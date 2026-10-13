@@ -794,28 +794,37 @@ class UtilityBillTrackerComponent {
           ? `<span class="badge bg-success" style="font-size:0.6rem;"><i class="bi bi-check-lg me-1"></i>${i18next.t('utilityBillTracker.filled')}</span>`
           : `<span class="badge bg-warning text-dark" style="font-size:0.6rem;"><i class="bi bi-exclamation me-1"></i>${i18next.t('utilityBillTracker.missing')}</span>`;
       }
+      // Border width and the selected look come from the shared
+      // .property-grid-card CSS; only the status colour is set here.
+      const idColor = overBudget ? `hsl(0,${borderSat}%,${borderL}%)` : '#0d6efd';
       const borderStyle = sel
-        ? 'border: 3px solid #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.2), 0 4px 12px rgba(13,110,253,0.25);'
+        ? ''
         : overBudget
-          ? `border: 2px solid hsl(0,${borderSat}%,${borderL}%); box-shadow: 0 0 0 2px hsla(0,80%,55%,${shadowA});`
-          : (statusKnown && !hasBill ? 'border: 2px solid #ffc107;' : '');
+          ? `border-color: hsl(0,${borderSat}%,${borderL}%); box-shadow: 0 0 0 2px hsla(0,80%,55%,${shadowA});`
+          : (statusKnown && !hasBill ? 'border-color: #ffc107;' : '');
       const bodyBg = sel ? 'rgba(13,110,253,0.07)' : overBudget ? `hsl(0,100%,${bgL}%)` : '#fff';
       return `
-        <div class="card utility-prop-card overflow-hidden ${sel ? 'selected' : ''}"
-             style="cursor:pointer;transition:all .2s ease;${borderStyle}"
+        <div class="card property-grid-card utility-prop-card overflow-hidden ${sel ? 'selected' : ''}"
+             style="${borderStyle}"
              onclick="utilityBillTracker.selectProperty('${p.propertyId}')">
           ${p.propertyImage
             ? `<div data-role="property-image" style="height:55px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;position:relative;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                     style="position:absolute;top:3px;left:3px;width:20px;height:20px;font-size:9px;box-shadow:0 1px 3px rgba(0,0,0,0.5);z-index:2;background:${idColor};">
+                  ${escapeHtml(p.propertyId.toString().substring(0, 3))}
+                </div>
                 ${renderPropertyImageAvatarBadge(this._avatarInvestors, p.propertyId, { size: 22, overlap: 9, max: 3 })}
-                ${renderStabilityBannerBadge(p)}
+                ${renderStabilityBannerBadge(p, 'bottom-0 start-0')}
                 <div data-role="selected-overlay" style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:${sel ? 'flex' : 'none'};align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>
                </div>`
             : ''}
           <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap:3px;background:${bodyBg};">
-            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
-                 style="width:28px;height:28px;font-size:11px;flex-shrink:0;background:${overBudget ? `hsl(0,${borderSat}%,${borderL}%)` : '#0d6efd'};">
+            ${!p.propertyImage
+              ? `<div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width:28px;height:28px;font-size:11px;flex-shrink:0;background:${idColor};">
               ${escapeHtml(p.propertyId.toString().substring(0, 3))}
-            </div>
+            </div>`
+              : ''}
             <div class="text-center" style="line-height:1.2;width:100%;">
               <div class="fw-semibold text-truncate" style="font-size:10px;" title="${escapeHtml(p.address || '')}">${escapeHtml(p.address || p.propertyId)}</div>
               <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.unit || '')}</div>
