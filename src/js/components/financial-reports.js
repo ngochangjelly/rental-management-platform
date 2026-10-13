@@ -24,6 +24,11 @@ import {
   getBannerTokens,
 } from "../utils/financial-report-theme.js";
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
+import {
+  getStabilityMeta,
+  renderStabilityBadge,
+  renderStabilityCardBadge,
+} from "../utils/property-stability.js";
 
 /**
  * Financial Reports Component
@@ -547,7 +552,7 @@ class FinancialReportsComponent {
           ${
             property.propertyImage
               ? `<div data-role="property-image" style="height: 62px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
-                 ${isReportClosed ? '<div class="position-absolute top-0 start-0 p-1"><span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span></div>' : ""}
+                 <div class="position-absolute top-0 start-0 p-1 d-flex align-items-center gap-1" style="z-index: 3; line-height: 1;">${isReportClosed ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill"></i></span>' : ""}${renderStabilityBadge(property.isStable, "font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);")}</div>
                  ${renderPropertyImageAvatarBadge(this.allInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
                  ${isReportSettled ? `<div style="position: absolute; inset: 0; background: rgba(13,148,136,0.42); display: ${isSelected ? "none" : "flex"}; align-items: center; justify-content: center;"><i class="bi bi-cash-coin text-white" style="font-size: 1.3rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i></div>` : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
@@ -571,6 +576,7 @@ class FinancialReportsComponent {
                    </div>`
                 : ""
             }
+            ${renderStabilityCardBadge(property)}
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
             ${!property.propertyImage && isReportSettled && !isSelected ? `<span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin me-1"></i>Settled</span>` : ""}
             ${!property.propertyImage && isReportClosed && !isReportSettled && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
@@ -5934,6 +5940,14 @@ class FinancialReportsComponent {
 
       const statusIcon = isSettled ? " 🤝" : isClosed ? " 🔒" : "";
 
+      // Stable (green) / Unstable (purple) — set in Property Management
+      const stabilityBadge = property
+        ? renderStabilityBadge(
+            property.isStable,
+            "font-size: 0.65rem; vertical-align: middle;",
+          )
+        : "";
+
       const fmtMoveDate = (v) =>
         v
           ? new Date(v).toLocaleDateString("en-SG", {
@@ -5991,7 +6005,7 @@ class FinancialReportsComponent {
       currentMonthEl.innerHTML = `
         <div class="d-flex flex-column align-items-center">
           <div class="fw-bold">${month} ${year}${statusIcon}</div>
-          ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}${rentInfo ? ` · ${rentInfo}` : ""}</div>` : ""}
+          ${propertyInfo ? `<div class="text-muted" style="font-size: 0.9rem;">${propertyInfo}${rentInfo ? ` · ${rentInfo}` : ""}${stabilityBadge ? ` ${stabilityBadge}` : ""}</div>` : ""}
           ${moveDatesInfo ? `<div class="text-muted" style="font-size: 0.78rem; opacity: 0.85;">${moveDatesInfo}</div>` : ""}
           ${utilityAccountsInfo ? `<div class="d-flex flex-wrap justify-content-center gap-1 mt-1" style="font-size: 0.72rem;">${utilityAccountsInfo}</div>` : ""}
         </div>
@@ -7785,6 +7799,19 @@ class FinancialReportsComponent {
     p(
       `<text x="${W - M}" y="86" font-size="14" fill="#ffffff" text-anchor="end" opacity="0.65">Generated ${this._svgEsc(genDate)}</text>`,
     );
+    // Stable (green) / Unstable (purple) pill, right after the "FINANCIAL
+    // REPORT" caption — same status as the Property Management toggle
+    if (property) {
+      const stability = getStabilityMeta(property.isStable);
+      const STAB_W = property.isStable === true ? 66 : 84;
+      const STAB_X = TX + 184;
+      p(
+        `<rect x="${STAB_X}" y="12" width="${STAB_W}" height="18" rx="9" fill="${stability.color}" stroke="#ffffff" stroke-opacity="0.55"/>`,
+      );
+      p(
+        `<text x="${STAB_X + STAB_W / 2}" y="25" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle" letter-spacing="1">${stability.label.toUpperCase()}</text>`,
+      );
+    }
     if (report.isClosed) {
       p(
         `<rect x="${W - M - 74}" y="6" width="70" height="18" rx="9" fill="${bannerTokensSvg.danger.border}"/>`,

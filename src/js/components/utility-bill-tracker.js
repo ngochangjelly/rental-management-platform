@@ -9,6 +9,7 @@ import {
   fetchInvestorsForAvatarStack,
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
+import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
 
 // Draws each month's grand total above its stacked bar. Uses Chart.js's built-in
 // plugin hook system (afterDatasetsDraw) — no extra plugin/CDN script required.
@@ -806,6 +807,7 @@ class UtilityBillTrackerComponent {
           ${p.propertyImage
             ? `<div data-role="property-image" style="height:55px;background-image:url('${p.propertyImage}');background-size:cover;background-position:center;position:relative;">
                 ${renderPropertyImageAvatarBadge(this._avatarInvestors, p.propertyId, { size: 22, overlap: 9, max: 3 })}
+                ${renderStabilityBannerBadge(p)}
                 <div data-role="selected-overlay" style="position:absolute;inset:0;background:rgba(13,110,253,0.5);display:${sel ? 'flex' : 'none'};align-items:center;justify-content:center;"><i class="bi bi-check-circle-fill text-white" style="font-size:1.4rem;"></i></div>
                </div>`
             : ''}
@@ -818,6 +820,7 @@ class UtilityBillTrackerComponent {
               <div class="fw-semibold text-truncate" style="font-size:10px;" title="${escapeHtml(p.address || '')}">${escapeHtml(p.address || p.propertyId)}</div>
               <div class="text-muted text-truncate" style="font-size:10px;">${escapeHtml(p.unit || '')}</div>
             </div>
+            ${renderStabilityCardBadge(p)}
             ${statusBadge ? `<div>${statusBadge}</div>` : ''}
             ${overBudget ? `<span class="badge" title="+$${(billAmt - subsidy).toFixed(2)} over limit" style="font-size:0.55rem;padding:2px 4px;background:hsl(0,${borderSat}%,${borderL}%);color:#fff;cursor:default;">⚠ over limit</span>` : ''}
             ${!p.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size:0.9rem;display:${sel ? 'inline' : 'none'};"></i>` : ''}

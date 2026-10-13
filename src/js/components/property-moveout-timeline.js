@@ -3,6 +3,7 @@ import {
   fetchInvestorsForAvatarStack,
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
+import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
 
 const NAME_COL_WIDTH = 200; // px — sticky left column
 const DAY_PX = 3;           // px per day; 1 year ≈ 1095 px (fits most screens)
@@ -249,6 +250,7 @@ class PropertyMoveoutTimeline {
             ? `<div style="height:42px;background-image:url('${p.propertyImage}');
                           background-size:cover;background-position:center;position:relative;">
                 ${renderPropertyImageAvatarBadge(this._avatarInvestors, p.propertyId, { size: 18, overlap: 7, max: 2 })}
+                ${renderStabilityBannerBadge(p)}
                 ${isSelected
                   ? `<div style="position:absolute;inset:0;background:rgba(13,110,253,0.4);
                                 display:flex;align-items:center;justify-content:center;">
@@ -265,6 +267,7 @@ class PropertyMoveoutTimeline {
             <div class="fw-semibold text-truncate" style="font-size:10px;"
                  title="${_esc(p.address || "")}">${_esc(p.address || p.propertyId)}</div>
             <div class="text-muted text-truncate" style="font-size:9px;">${_esc(p.unit || "")}</div>
+${renderStabilityCardBadge(p)}
             ${expiryHtml}
           </div>
         </div>`;

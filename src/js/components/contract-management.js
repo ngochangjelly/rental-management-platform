@@ -17,6 +17,7 @@ import {
   formatTenancyPeriodVi,
 } from "./contract-clauses.js";
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
+import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
 import { getRoomTypeDisplayName, getRoomTypeBadgeStyle } from "../utils/room-type-mapper.js";
 
 class ContractManagementComponent {
@@ -1340,6 +1341,7 @@ class ContractManagementComponent {
             property.propertyImage
               ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
                 ${renderPropertyImageAvatarBadge(this.investors, id, { size: 22, overlap: 9, max: 3 })}
+                ${renderStabilityBannerBadge(property)}
                 <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
               </div>`
               : ""
@@ -1353,6 +1355,7 @@ class ContractManagementComponent {
               <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(baseAddress)}">${escapeHtml(baseAddress)}</div>
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
             </div>
+            ${renderStabilityCardBadge(property)}
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
           </div>
         </div>

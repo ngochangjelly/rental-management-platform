@@ -15,6 +15,7 @@ import {
   loadPropertyFilters,
   savePropertyFilters,
 } from '../utils/property-filters.js';
+import { getStabilityMeta, renderStabilityBadge } from '../utils/property-stability.js';
 
 /**
  * Property Management Component
@@ -792,6 +793,15 @@ class PropertyManagementComponent {
       });
     }
 
+    // Stable/Unstable toggle in the panel header — saves immediately when
+    // editing an existing property; for a new one it's sent with the form.
+    const stableToggle = document.getElementById("propertyStableToggle");
+    if (stableToggle) {
+      stableToggle.addEventListener("change", (e) => {
+        this.handleStableToggle(e.target.checked);
+      });
+    }
+
     // Live-update the Tenant/Admin group badges as the URL is typed/pasted
     ['tenantFacebookGroup', 'adminFacebookGroup'].forEach((id) => {
       const input = document.getElementById(id);
@@ -1102,6 +1112,9 @@ class PropertyManagementComponent {
     const lockBadge = property.digitalLockEnabled
       ? `<i class="bi bi-shield-lock-fill" style="color:#6f42c1;font-size:0.75rem;" title="Digital Lock Installed"></i>`
       : '';
+    const stabilityBadge = !isArchived
+      ? renderStabilityBadge(property.isStable, 'font-size:0.6rem;')
+      : '';
 
     const investorAvatarHtml = renderInvestorAvatarStack(this.allInvestors, property.propertyId, { size: 28, overlap: 10, max: 3 });
 
@@ -1183,7 +1196,7 @@ class PropertyManagementComponent {
           <div class="d-flex align-items-center justify-content-between gap-1">
             <div class="d-flex align-items-center gap-1" style="min-width: 0;">
               <span class="pm-row-id fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy Property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
-              ${archivedBadge}${condoBadge}${lockBadge}
+              ${archivedBadge}${condoBadge}${stabilityBadge}${lockBadge}
             </div>
             ${investorAvatarHtml}
           </div>
@@ -1565,6 +1578,9 @@ class PropertyManagementComponent {
     submitBtn.innerHTML = isEdit
       ? '<i class="bi bi-pencil-square me-1"></i><span id="propertySubmitText">Update Property</span>'
       : '<i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">Add Property</span>';
+
+    // Stable/Unstable toggle lives in the panel header (outside the form)
+    this.setStableToggleUI(property?.isStable === true);
 
     // Reset and populate form
     const form = document.getElementById("propertyForm");
@@ -1970,6 +1986,65 @@ class PropertyManagementComponent {
     this.setupPropertyImageClipboardListener();
   }
 
+  // Sync the header toggle + its Stable (green) / Unstable (purple) badge
+  setStableToggleUI(isStable) {
+    const toggle = document.getElementById("propertyStableToggle");
+    if (toggle) toggle.checked = isStable;
+    const badge = document.getElementById("propertyStableBadge");
+    if (badge) {
+      const meta = getStabilityMeta(isStable);
+      badge.innerHTML = `<i class="bi ${meta.icon} me-1"></i>${meta.label}`;
+      badge.style.backgroundColor = meta.color;
+    }
+  }
+
+  // Header toggle changed. Editing an existing property saves the status
+  // right away (only isStable is sent, so unsaved form edits are untouched);
+  // in add-mode it just updates the badge and goes out with the form.
+  async handleStableToggle(isStable) {
+    this.setStableToggleUI(isStable);
+
+    const property = this.editingProperty;
+    if (!property) return;
+
+    const toggle = document.getElementById("propertyStableToggle");
+    if (toggle) toggle.disabled = true;
+    try {
+      const response = await API.put(
+        API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(property.propertyId),
+        { isStable }
+      );
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || result.message || "Failed to update status");
+      }
+
+      property.isStable = isStable;
+      const cached = this.properties.find((p) => p.propertyId === property.propertyId);
+      if (cached) cached.isStable = isStable;
+      // Financial Reports keeps its own copy of the property list
+      const reportCopy = window.financialReports?.properties?.find(
+        (p) => p.propertyId === property.propertyId
+      );
+      if (reportCopy) reportCopy.isStable = isStable;
+
+      this.renderPropertiesTable();
+      showToast(
+        `Property ${property.propertyId} marked ${getStabilityMeta(isStable).label}`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Error updating stable status:", error);
+      // Only roll the toggle back if the panel still shows this property
+      if (this.editingProperty === property) {
+        this.setStableToggleUI(property.isStable === true);
+      }
+      showToast("Failed to update status: " + error.message, "danger");
+    } finally {
+      if (toggle) toggle.disabled = false;
+    }
+  }
+
   // Renders a small clickable badge next to the Tenant/Admin group inputs,
   // reflecting whatever URL is currently in each field — same badge styling
   // the old property cards used (tenant: blue/green per getGroupLinkMeta
@@ -2151,6 +2226,7 @@ class PropertyManagementComponent {
         spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
         spAccountPassword: formData.get("spAccountPassword")?.trim() || "",
         propertyType: formData.get("propertyType") || 'hdb',
+        isStable: document.getElementById("propertyStableToggle")?.checked === true,
       };
 
       // Debug: Log property data being saved
