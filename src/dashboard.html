@@ -2430,32 +2430,6 @@
           font-size: 0.9rem !important;
         }
 
-        /* Lock/unlock loading: hide the icon (keeps its box) and overlay a
-           spinner so the button size never changes */
-        #closeMonthBtn.is-loading,
-        #reopenMonthBtn.is-loading {
-          position: relative;
-          pointer-events: none;
-        }
-        #closeMonthBtn.is-loading i,
-        #reopenMonthBtn.is-loading i {
-          visibility: hidden;
-        }
-        #closeMonthBtn.is-loading::after,
-        #reopenMonthBtn.is-loading::after {
-          content: "";
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 0.9rem;
-          height: 0.9rem;
-          margin: -0.45rem 0 0 -0.45rem;
-          border: 0.15em solid #ffffff;
-          border-right-color: transparent;
-          border-radius: 50%;
-          animation: spinner-border 0.75s linear infinite;
-        }
-
         /* Month navigation buttons */
         #prevMonth,
         #nextMonth {
@@ -2475,6 +2449,32 @@
           width: 100% !important;
           max-width: 100% !important;
         }
+      }
+
+      /* Lock/unlock loading: hide the icon (keeps its box) and overlay a
+         spinner so the button size never changes */
+      #closeMonthBtn.is-loading,
+      #reopenMonthBtn.is-loading {
+        position: relative;
+        pointer-events: none;
+      }
+      #closeMonthBtn.is-loading i,
+      #reopenMonthBtn.is-loading i {
+        visibility: hidden;
+      }
+      #closeMonthBtn.is-loading::after,
+      #reopenMonthBtn.is-loading::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0.9rem;
+        height: 0.9rem;
+        margin: -0.45rem 0 0 -0.45rem;
+        border: 0.15em solid #ffffff;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spinner-border 0.75s linear infinite;
       }
 
       /* Ultra-small screens (older phones) */

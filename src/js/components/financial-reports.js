@@ -46,6 +46,7 @@ class FinancialReportsComponent {
     this.editingItemIndex = null;
     this.pendingDeletes = new Set(); // Track items pending deletion confirmation
     this.pendingClose = false; // Track month close confirmation
+    this.pendingReopen = false; // Track month unlock (reopen) confirmation
     this.selectedItems = new Set(); // Track bulk-selected items (e.g. "income-0", "expense-2")
     this.isEditMode = false; // Whether drag-to-reorder is active
     this._dragSelecting = false; // Whether a drag selection is in progress
@@ -815,6 +816,7 @@ class FinancialReportsComponent {
     this.editingItemIndex = null;
     this.pendingDeletes.clear(); // Clear any pending deletion confirmations
     this.selectedItems.clear(); // Clear any bulk selections
+    if (this.pendingReopen) this.setReopenConfirm(false); // Clear any pending unlock confirmation
 
     if (!propertyId) {
       this.selectedProperty = null;
@@ -2696,8 +2698,9 @@ class FinancialReportsComponent {
     // Invalidate status cache so the new month's statuses are fetched
     this._statusCacheKey = null;
 
-    // Reset any pending close state when changing months
+    // Reset any pending close/unlock state when changing months
     this.pendingClose = false;
+    if (this.pendingReopen) this.setReopenConfirm(false);
 
     // Show the shimmer skeleton immediately instead of the old "No income
     // items added" flash — investors are unchanged for the new month, so
@@ -5373,7 +5376,7 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Lock immediately — no confirmation step (unlock asks instead)
+    // Lock immediately — no confirmation step (unlock asks via inline tick instead)
     await this.confirmCloseMonth();
   }
 
@@ -5448,7 +5451,53 @@ class FinancialReportsComponent {
       return;
     }
 
-    if (!confirm("Unlock this month's report? It will become editable again.")) {
+    const reopenBtn = document.getElementById("reopenMonthBtn");
+    if (reopenBtn?.classList.contains("is-loading")) return;
+
+    // No dialog — swap the unlock button for inline tick/cancel buttons
+    this.setReopenConfirm(true);
+  }
+
+  // Cancel unlock confirmation
+  cancelReopenConfirm() {
+    this.setReopenConfirm(false);
+  }
+
+  // Show/hide the inline tick/cancel pair that replaces the unlock button
+  // while waiting for confirmation (same pattern as row delete)
+  setReopenConfirm(show) {
+    this.pendingReopen = show;
+    const reopenBtn = document.getElementById("reopenMonthBtn");
+    if (!reopenBtn) return;
+
+    document.getElementById("reopenMonthConfirm")?.remove();
+    reopenBtn.style.display = show ? "none" : "inline-block";
+    if (!show) return;
+
+    reopenBtn.insertAdjacentHTML(
+      "afterend",
+      `<span id="reopenMonthConfirm" class="d-inline-flex gap-1">
+        <button type="button" class="btn btn-sm btn-success" onclick="window.financialReports.confirmReopenMonth()" title="Confirm unlock (allows editing again)" style="background-color: #28a745; border-color: #28a745;">
+          <i class="bi bi-check-lg" style="color: #ffffff !important; font-size: 0.9rem;"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-light" onclick="window.financialReports.cancelReopenConfirm()" title="Cancel">
+          <i class="bi bi-x-lg" style="color: #6c757d !important; font-size: 0.9rem;"></i>
+        </button>
+      </span>`,
+    );
+  }
+
+  // Confirm unlock (reopen) of current month
+  async confirmReopenMonth() {
+    if (!this.pendingReopen) return;
+    this.setReopenConfirm(false);
+
+    if (
+      !this.selectedProperty ||
+      !this.currentReport ||
+      !this.currentReport.isClosed
+    ) {
+      await this.updateClosedStatus();
       return;
     }
 
@@ -5786,7 +5835,10 @@ class FinancialReportsComponent {
     }
 
     if (reopenBtn) {
-      reopenBtn.style.display = isClosed ? "inline-block" : "none";
+      // Drop a stale unlock confirmation if the report is no longer closed
+      if (this.pendingReopen && !isClosed) this.setReopenConfirm(false);
+      reopenBtn.style.display =
+        isClosed && !this.pendingReopen ? "inline-block" : "none";
     }
 
     const isSettled = this.currentReport && this.currentReport.isSettled;
