@@ -8165,6 +8165,16 @@
                         <li>
                           <button
                             class="dropdown-item"
+                            onclick="tenantManager.copyPendingDeregistrationTenants()"
+                            title="Copy tenants pending deregistration with move-in and move-out dates"
+                          >
+                            <i class="bi bi-clipboard-minus me-2"></i>Pending
+                            Deregistration
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            class="dropdown-item"
                             onclick="tenantManager.copyOutdatedTenants()"
                             title="Copy only outdated tenant information to clipboard"
                           >

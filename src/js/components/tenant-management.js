@@ -5831,6 +5831,82 @@ class TenantManagementComponent {
     }
   }
 
+  // Copy tenants marked "pending_deregistration" (WhatsApp/Messenger friendly),
+  // with move-in/move-out dates since deregistration follows the move-out.
+  copyPendingDeregistrationTenants() {
+    try {
+      if (!this.selectedProperty) {
+        alert("Please select a property first");
+        return;
+      }
+
+      const pendingDeregTenants = (this.tenants || []).filter((tenant) => {
+        const status =
+          tenant.registrationStatus ||
+          (tenant.isRegistered ? "registered" : "unregistered");
+        return status === "pending_deregistration";
+      });
+
+      if (pendingDeregTenants.length === 0) {
+        const message =
+          this.selectedProperty === "UNASSIGNED"
+            ? "No unassigned tenants pending deregistration"
+            : "No tenants pending deregistration for this property";
+        alert(message);
+        return;
+      }
+
+      let propertyDisplay = "";
+      if (this.selectedProperty === "UNASSIGNED") {
+        propertyDisplay = "Unassigned Tenants";
+      } else {
+        const propertyInfo = this.getPropertyInfo(this.selectedProperty);
+        propertyDisplay = propertyInfo
+          ? `${propertyInfo.address}, ${propertyInfo.unit}`
+          : this.selectedProperty;
+      }
+
+      // Main tenant first
+      const sortedTenants = [...pendingDeregTenants].sort((a, b) => {
+        const aMain = this.hasMainTenantProperty(a) ? 0 : 1;
+        const bMain = this.hasMainTenantProperty(b) ? 0 : 1;
+        return aMain - bMain;
+      });
+
+      let copyText = `📍 ${propertyDisplay}\n`;
+      copyText += `🔻 Pending Deregistration\n\n`;
+
+      sortedTenants.forEach((tenant, idx) => {
+        const mainTenantIndicator = this.hasMainTenantProperty(tenant) ? " (Main)" : "";
+        const moveinDate = this.getTenantMoveInDate(tenant, this.selectedProperty);
+        const moveoutDate = this.getTenantMoveOutDate(tenant, this.selectedProperty);
+
+        copyText += `${idx + 1}. ${tenant.name}${mainTenantIndicator}`;
+        copyText += `\nFIN: ${tenant.fin || "-"}`;
+        copyText += `\nPassport: ${tenant.passportNumber || "-"}`;
+        if (tenant.passType) copyText += `\nPass Type: ${tenant.passType}`;
+        copyText += `\nMove-in: ${moveinDate || "-"}`;
+        copyText += `\nMove-out: ${moveoutDate || "-"}`;
+        copyText += "\n\n";
+      });
+
+      copyText += `📊 Total: ${sortedTenants.length}`;
+
+      navigator.clipboard
+        .writeText(copyText)
+        .then(() => {
+          this.showCopySuccessMessage(sortedTenants.length);
+        })
+        .catch((err) => {
+          console.error("Failed to copy to clipboard:", err);
+          alert("Copy failed. Here's the text to copy manually:\n\n" + copyText);
+        });
+    } catch (error) {
+      console.error("Error copying pending deregistration tenant list:", error);
+      alert("Error copying tenant list. Please try again.");
+    }
+  }
+
   copyOutdatedTenants() {
     try {
       // Check if a property is selected
