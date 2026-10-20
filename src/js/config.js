@@ -53,6 +53,10 @@ const API_CONFIG = {
     INVESTOR_ADD_PROPERTY: (investorId) => `/api/investors/${investorId}/properties`,
     INVESTOR_REMOVE_PROPERTY: (investorId, propertyId) => `/api/investors/${investorId}/properties/${propertyId}`,
 
+    // Management fee (amount per 100% ownership, by effective month)
+    MANAGEMENT_FEE_RATES: "/api/management-fee-rates",
+    MANAGEMENT_FEE_RATE_BY_MONTH: (monthKey) => `/api/management-fee-rates/${monthKey}`,
+
     // Users
     USERS: "/api/users",
     USER_BY_ID: (id) => `/api/users/${id}`,

@@ -2,6 +2,8 @@
  * Investor Management Component
  * Handles comprehensive investor management with properties and percentages
  */
+import { ManagementFeePanel } from "./investor-management-fee.js";
+
 class InvestorManagementComponent {
   constructor() {
     this.investors = [];
@@ -9,6 +11,11 @@ class InvestorManagementComponent {
     this.isModalOpen = false;
     this.editingInvestorId = null;
     this.avatar = ''; // Avatar image URL
+    this.feePanel = new ManagementFeePanel({
+      containerId: 'managementFeePanel',
+      getData: () => ({ investors: this.investors, properties: this.properties }),
+      notify: (message, type) => this.showToast(message, type),
+    });
     this.init();
   }
 
@@ -42,13 +49,15 @@ class InvestorManagementComponent {
     try {
       await Promise.all([
         this.loadInvestors(),
-        this.loadProperties()
+        this.loadProperties(),
+        this.feePanel.loadRates()
       ]);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       // Always render investors, even if API calls failed
       this.renderInvestors();
+      this.feePanel.render();
     }
   }
 

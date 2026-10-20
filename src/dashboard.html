@@ -2002,6 +2002,85 @@
          Improved mobile and tablet experience
          ======================================== */
 
+      /* Investor Management Fee Table */
+      .mgmt-fee-card .card-header {
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .mgmt-fee-rate-form {
+        min-width: 220px;
+        max-width: 260px;
+      }
+
+      .mgmt-fee-table {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .mgmt-fee-table thead th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6c757d;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .mgmt-fee-row {
+        cursor: pointer;
+      }
+
+      .mgmt-fee-check {
+        width: 2.5rem;
+        text-align: center;
+      }
+
+      .mgmt-fee-toolbar {
+        background-color: #f8f9fc;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .mgmt-fee-kbd {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.3rem;
+        margin-left: 0.25rem;
+        background-color: rgba(0, 0, 0, 0.08);
+        color: inherit;
+        box-shadow: none;
+      }
+
+      .mgmt-fee-row:focus-visible {
+        outline: 2px solid #667eea;
+        outline-offset: -2px;
+      }
+
+      .mgmt-fee-details > td {
+        background-color: #f8f9fc;
+      }
+
+      .mgmt-fee-total th,
+      .mgmt-fee-total td {
+        background-color: #f1f3f9;
+        border-top: 2px solid #dee2e6;
+      }
+
+      .mgmt-fee-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .mgmt-fee-avatar-initial {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #667eea;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+
       /* Investor Card Responsive Styles */
       .investor-card {
         transition:
@@ -12490,6 +12569,9 @@
                   </button>
                 </div>
               </div>
+
+              <!-- Management Fees (rendered by ManagementFeePanel) -->
+              <div id="managementFeePanel"></div>
 
               <!-- Investors Content -->
               <div id="investorContent">
