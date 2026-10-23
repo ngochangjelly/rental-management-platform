@@ -19,19 +19,18 @@ class CctvManagementComponent {
 
   init() {
     this._container = document.getElementById("cctv-container");
-    if (!this._container) return;
-    // Cameras reload whenever the section opens, so skip without access
-    this._loadHls().then(() => {
-      if (canAccessModule("cctv")) this.loadCameras();
-    });
+    // Cameras (and the property list) load when the section opens — see
+    // dashboard-controller initializeComponentForSection("cctv")
   }
 
-  async _loadHls() {
+  // Memoized so concurrent loadCameras() calls share one <script> tag
+  _loadHls() {
     if (window.Hls) {
       this.hlsLib = window.Hls;
-      return;
+      return Promise.resolve();
     }
-    return new Promise((resolve) => {
+    if (this._hlsPromise) return this._hlsPromise;
+    this._hlsPromise = new Promise((resolve) => {
       const s = document.createElement("script");
       s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js";
       s.onload = () => {
@@ -41,6 +40,7 @@ class CctvManagementComponent {
       s.onerror = () => resolve(); // graceful degradation
       document.head.appendChild(s);
     });
+    return this._hlsPromise;
   }
 
   // ─── Data ──────────────────────────────────────────────────────────────────
@@ -48,7 +48,8 @@ class CctvManagementComponent {
   async loadCameras() {
     this._render(this._loadingHtml());
     try {
-      const [camRes, propRes, gwRes] = await Promise.all([
+      const [, camRes, propRes, gwRes] = await Promise.all([
+        this._loadHls().then(() => null),
         API.get(API_CONFIG.ENDPOINTS.CCTV_CAMERAS),
         API.get(API_CONFIG.ENDPOINTS.PROPERTIES),
         API.get(API_CONFIG.ENDPOINTS.CCTV_GATEWAYS).catch(() => null),
