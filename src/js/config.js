@@ -67,6 +67,7 @@ const API_CONFIG = {
     // Financial Reports
     FINANCIAL_REPORTS_BY_PROPERTY: (propertyId) => `/api/financial-reports/property/${propertyId}`,
     FINANCIAL_REPORT: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}`,
+    FINANCIAL_REPORT_STATUSES: (year, month, propertyIds) => `/api/financial-reports/statuses/${year}/${month}?propertyIds=${propertyIds.map(encodeURIComponent).join(",")}`,
     FINANCIAL_REPORT_INCOME: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/income`,
     FINANCIAL_REPORT_EXPENSES: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/expenses`,
     FINANCIAL_REPORT_CLOSE: (propertyId, year, month) => `/api/financial-reports/property/${propertyId}/${year}/${month}/close`,

@@ -28,6 +28,11 @@ class TenancyOccupancyComponent {
     this.selectedProperties = new Set(); // Use Set for better performance
     this.lastClickedIndex = -1; // Track last clicked card for shift selection
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
+    // Tenants load only once a property is selected, per filter combination
+    this._tenantsKey = null; // filter key the loaded tenants belong to (null = not loaded)
+    this._tenantsPromise = null; // in-flight tenant load
+    this._tenantsPromiseKey = null;
+    this._tenantsReqId = 0; // latest tenant request wins
     this.init();
   }
 
@@ -77,7 +82,7 @@ class TenancyOccupancyComponent {
       clearTimeout(this.searchTimeout);
     }
     this.searchTimeout = setTimeout(() => {
-      this.loadData();
+      this.renderTimelines();
     }, 300);
   }
 
@@ -86,7 +91,7 @@ class TenancyOccupancyComponent {
    */
   handleRoomChange(value) {
     this.selectedRoom = value;
-    this.loadData();
+    this.renderTimelines();
   }
 
   /**
@@ -94,7 +99,7 @@ class TenancyOccupancyComponent {
    */
   handleActiveOnlyChange(checked) {
     this.activeOnly = checked;
-    this.loadData();
+    this.renderTimelines();
   }
 
   /**
@@ -115,7 +120,8 @@ class TenancyOccupancyComponent {
     if (roomSelect) roomSelect.value = "";
     if (activeCheckbox) activeCheckbox.checked = false;
     this.updatePropertyCardStyles();
-    this.loadData();
+    this.updatePropertyFilterLabel();
+    this.renderTimelines();
   }
 
   /**
@@ -426,69 +432,36 @@ class TenancyOccupancyComponent {
     this.isLoading = true;
     this.renderLoadingState();
 
+    // Tenants are re-fetched on every section open (as before), but only
+    // needed when properties are selected — then fetch them in parallel
+    this._tenantsKey = null;
+    const tenantsReady =
+      this.selectedProperties.size > 0 ? this._ensureTenants() : null;
+
     try {
-      // Build tenant query with filters
-      let tenantQuery = `${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`;
-      if (this.searchQuery) {
-        tenantQuery += `&search=${encodeURIComponent(this.searchQuery)}`;
-      }
-      if (this.selectedRoom) {
-        tenantQuery += `&room=${encodeURIComponent(this.selectedRoom)}`;
-      }
-      if (this.activeOnly) {
-        tenantQuery += `&activeOnly=true`;
-      }
+      // Fetch all properties with pagination (summary fields — cards and section headers)
+      let allProperties = [];
+      let currentPage = 1;
+      const itemsPerPage = 200;
+      let hasMorePages = true;
 
-      // Fetch all properties with pagination
-      const fetchAllProperties = async () => {
-        let allProperties = [];
-        let currentPage = 1;
-        const itemsPerPage = 50;
-        let hasMorePages = true;
-
-        while (hasMorePages) {
-          const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`);
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.properties) {
-              allProperties = allProperties.concat(result.properties);
-              hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
-              currentPage++;
-            } else {
-              hasMorePages = false;
-            }
+      while (hasMorePages) {
+        const response = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}&fields=summary`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.properties) {
+            allProperties = allProperties.concat(result.properties);
+            hasMorePages = result.pagination && currentPage < result.pagination.totalPages;
+            currentPage++;
           } else {
             hasMorePages = false;
           }
-        }
-        return allProperties;
-      };
-
-      // Fetch properties and tenants in parallel
-      const [properties, tenantsResponse] = await Promise.all([
-        fetchAllProperties(),
-        API.get(tenantQuery),
-      ]);
-
-      this.properties = properties;
-
-      if (tenantsResponse.ok) {
-        const result = await tenantsResponse.json();
-        // API returns { success: true, tenants: [...] } or { data: [...] }
-        if (result.success && result.tenants) {
-          this.tenants = result.tenants;
-        } else if (result.data && Array.isArray(result.data)) {
-          this.tenants = result.data;
-        } else if (Array.isArray(result.tenants)) {
-          this.tenants = result.tenants;
-        } else if (Array.isArray(result)) {
-          this.tenants = result;
         } else {
-          this.tenants = [];
+          hasMorePages = false;
         }
-      } else {
-        this.tenants = [];
       }
+
+      this.properties = allProperties;
 
       // Check investor restrictions
       const investorPropertyIds = await getInvestorPropertyIds();
@@ -506,6 +479,8 @@ class TenancyOccupancyComponent {
         );
       }
 
+      if (tenantsReady) await tenantsReady;
+
       this.isLoading = false;
       this.render();
     } catch (error) {
@@ -515,10 +490,84 @@ class TenancyOccupancyComponent {
     }
   }
 
+  // Search / room / active-only filters are applied by the tenants API
+  _tenantFilterKey() {
+    return JSON.stringify([this.searchQuery, this.selectedRoom, this.activeOnly]);
+  }
+
+  /**
+   * Load tenants for the current filters unless already loaded. Concurrent
+   * calls share one request; a response for outdated filters is dropped.
+   */
+  _ensureTenants() {
+    const key = this._tenantFilterKey();
+    if (this._tenantsKey === key) return Promise.resolve();
+    if (this._tenantsPromise && this._tenantsPromiseKey === key) {
+      return this._tenantsPromise;
+    }
+
+    const reqId = ++this._tenantsReqId;
+    let tenantQuery = `${API_CONFIG.ENDPOINTS.TENANTS}?limit=10000`;
+    if (this.searchQuery) {
+      tenantQuery += `&search=${encodeURIComponent(this.searchQuery)}`;
+    }
+    if (this.selectedRoom) {
+      tenantQuery += `&room=${encodeURIComponent(this.selectedRoom)}`;
+    }
+    if (this.activeOnly) {
+      tenantQuery += `&activeOnly=true`;
+    }
+
+    const promise = (async () => {
+      let tenants = [];
+      let failed = false;
+      try {
+        const tenantsResponse = await API.get(tenantQuery);
+        if (tenantsResponse.ok) {
+          const result = await tenantsResponse.json();
+          // API returns { success: true, tenants: [...] } or { data: [...] }
+          if (result.success && result.tenants) {
+            tenants = result.tenants;
+          } else if (result.data && Array.isArray(result.data)) {
+            tenants = result.data;
+          } else if (Array.isArray(result.tenants)) {
+            tenants = result.tenants;
+          } else if (Array.isArray(result)) {
+            tenants = result;
+          }
+        }
+      } catch (error) {
+        console.error("Error loading tenancy occupancy tenants:", error);
+        failed = true;
+      }
+
+      if (reqId !== this._tenantsReqId) return; // superseded by newer filters
+      this._tenantsPromise = null;
+      this._tenantsPromiseKey = null;
+      this.tenants = tenants;
+      // Marked loaded even on failure so renders don't retry in a loop;
+      // Retry (loadData) clears it
+      this._tenantsKey = key;
+      this._tenantsFailed = failed;
+    })();
+
+    this._tenantsPromise = promise;
+    this._tenantsPromiseKey = key;
+    return promise;
+  }
+
   /**
    * Render loading state
    */
   renderLoadingState() {
+    this._renderTimelineSpinner();
+
+    // Update property filter options (will show "No properties available" until data loads)
+    this.renderPropertyCards();
+    this.updatePropertyFilterLabel();
+  }
+
+  _renderTimelineSpinner() {
     const container = document.getElementById("tenancyOccupancyContainer");
     if (!container) return;
 
@@ -530,10 +579,6 @@ class TenancyOccupancyComponent {
                 <p class="mt-3 text-muted">${i18next.t("tenancyOccupancy.loadingData", "Loading occupancy data...")}</p>
             </div>
         `;
-
-    // Update property filter options (will show "No properties available" until data loads)
-    this.renderPropertyCards();
-    this.updatePropertyFilterLabel();
   }
 
   /**
@@ -617,6 +662,20 @@ class TenancyOccupancyComponent {
       return;
     }
 
+    // Tenants load on first selection / after a filter change
+    if (this._tenantsKey !== this._tenantFilterKey()) {
+      this._renderTimelineSpinner();
+      this._ensureTenants().then(() => {
+        // Render only if these tenants still match the current filters
+        if (this._tenantsKey === this._tenantFilterKey()) this.renderTimelines();
+      });
+      return;
+    }
+    if (this._tenantsFailed) {
+      this.renderError();
+      return;
+    }
+
     // Filter properties based on selection
     const filteredProperties = this.properties.filter((property) =>
       this.selectedProperties.has(property.propertyId),
@@ -671,6 +730,9 @@ class TenancyOccupancyComponent {
    * @param {number} [year] - defaults to the current year
    */
   async applyRoute(slugsParam, year) {
+    // Deep link selects properties, so start loading tenants alongside the property list
+    if (slugsParam) this._ensureTenants();
+
     // Hold off URL syncing so the load's own render doesn't overwrite the deep link
     this._applyingRoute = true;
     try {

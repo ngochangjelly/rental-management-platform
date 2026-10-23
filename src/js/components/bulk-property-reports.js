@@ -154,6 +154,44 @@ class BulkPropertyReportsComponent {
     this._closedStatusKey = null;
     this.renderPropertyList();
 
+    const status =
+      (await this._fetchClosedStatusBulk(year, month)) ||
+      (await this._fetchClosedStatusPerProperty(year, month));
+    if (this._closedStatusLoadingKey !== key) return;
+
+    this._closedStatus = status;
+    this._closedStatusKey = key;
+    this.renderPropertyList();
+  }
+
+  // {propertyId: isClosed} for every property in one request, or null when
+  // the endpoint is unavailable so the caller can fall back
+  async _fetchClosedStatusBulk(year, month) {
+    try {
+      const ids = this.properties.map((p) => p.propertyId);
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_STATUSES(year, month, ids),
+      );
+      if (!response.ok) return null;
+      const result = await response.json();
+      if (!result.success || !Array.isArray(result.data)) return null;
+
+      // Reports store propertyId uppercased — match the list's ids the same way
+      const byId = new Map(result.data.map((s) => [String(s.propertyId).toUpperCase(), s]));
+      const status = {};
+      this.properties.forEach((property) => {
+        const report = byId.get(String(property.propertyId).toUpperCase());
+        if (report) status[property.propertyId] = !!report.isClosed;
+      });
+      return status;
+    } catch (error) {
+      console.debug("Bulk report statuses unavailable, fetching per property:", error);
+      return null;
+    }
+  }
+
+  // Fallback: fetch each property's full report for the month
+  async _fetchClosedStatusPerProperty(year, month) {
     const status = {};
     await Promise.all(
       this.properties.map(async (property) => {
@@ -169,11 +207,7 @@ class BulkPropertyReportsComponent {
         }
       }),
     );
-    if (this._closedStatusLoadingKey !== key) return;
-
-    this._closedStatus = status;
-    this._closedStatusKey = key;
-    this.renderPropertyList();
+    return status;
   }
 
   // "October 2026" for the month the loaded closed statuses belong to

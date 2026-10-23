@@ -62,6 +62,7 @@ class FinancialReportsComponent {
     this._dragSelecting = false; // Whether a drag selection is in progress
     this._dragSelectMode = true; // true = selecting, false = deselecting during drag
     this.propertyReportStatus = {}; // Track {propertyId: {isClosed: boolean}} for current month
+    this._propertyDetails = {}; // {propertyId: full property} fetched on select — the list itself only holds summary fields
     this.allUnpaidVisible = false; // Track all-unpaid overview visibility
     this.propertySubsidy = 0;
     this._utilityBills = [];
@@ -361,14 +362,16 @@ class FinancialReportsComponent {
   async loadProperties() {
     try {
       // Fetch all properties with pagination
+      // Summary fields only (cards, slugs, report header/image basics); the
+      // selected property's full record is merged in by _loadPropertySubsidyAndBills
       let allProperties = [];
       let currentPage = 1;
-      const itemsPerPage = 50;
+      const itemsPerPage = 200;
       let hasMorePages = true;
 
       while (hasMorePages) {
         const response = await API.get(
-          `${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}`,
+          `${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}&fields=summary`,
         );
         const result = await response.json();
 
@@ -387,6 +390,14 @@ class FinancialReportsComponent {
           hasMorePages = false;
         }
       }
+
+      // Keep full records already fetched for properties opened earlier;
+      // the freshly loaded summary fields win where both have a value
+      allProperties = allProperties.map((p) =>
+        this._propertyDetails[p.propertyId]
+          ? { ...this._propertyDetails[p.propertyId], ...p }
+          : p,
+      );
 
       this.renderPropertyCards(allProperties);
       // Load report statuses for all properties (async, will re-render when done)
@@ -419,39 +430,75 @@ class FinancialReportsComponent {
     this.propertyReportStatus = {};
 
     try {
-      await Promise.all(
-        this.properties.map(async (property) => {
-          try {
-            const response = await API.get(
-              API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
-                property.propertyId,
-                year,
-                month,
-              ),
-            );
-            if (response.ok) {
-              const result = await response.json();
-              if (result.success && result.data) {
-                this.propertyReportStatus[property.propertyId] = {
-                  isClosed: result.data.isClosed || false,
-                  isSettled: result.data.isSettled || false,
-                };
-              }
-            }
-          } catch (error) {
-            console.debug(
-              `Could not fetch report status for ${property.propertyId}:`,
-              error,
-            );
-          }
-        }),
-      );
+      const loaded = await this._fetchReportStatusesBulk(year, month);
+      if (!loaded) await this._fetchReportStatusesPerProperty(year, month);
     } finally {
       this._loadingStatuses = false;
       this._statusCacheKey = cacheKey;
     }
 
     this.renderPropertyCards(this.properties);
+  }
+
+  // One request for every property's closed/settled flags. Returns false when
+  // the endpoint is unavailable so the caller can fall back.
+  async _fetchReportStatusesBulk(year, month) {
+    try {
+      const ids = this.properties.map((p) => p.propertyId);
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORT_STATUSES(year, month, ids),
+      );
+      if (!response.ok) return false;
+      const result = await response.json();
+      if (!result.success || !Array.isArray(result.data)) return false;
+
+      // Reports store propertyId uppercased — match the list's ids the same way
+      const byId = new Map(result.data.map((s) => [String(s.propertyId).toUpperCase(), s]));
+      this.properties.forEach((property) => {
+        const status = byId.get(String(property.propertyId).toUpperCase());
+        if (status) {
+          this.propertyReportStatus[property.propertyId] = {
+            isClosed: status.isClosed || false,
+            isSettled: status.isSettled || false,
+          };
+        }
+      });
+      return true;
+    } catch (error) {
+      console.debug("Bulk report statuses unavailable, fetching per property:", error);
+      return false;
+    }
+  }
+
+  // Fallback: fetch each property's full report for the month
+  async _fetchReportStatusesPerProperty(year, month) {
+    await Promise.all(
+      this.properties.map(async (property) => {
+        try {
+          const response = await API.get(
+            API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(
+              property.propertyId,
+              year,
+              month,
+            ),
+          );
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+              this.propertyReportStatus[property.propertyId] = {
+                isClosed: result.data.isClosed || false,
+                isSettled: result.data.isSettled || false,
+              };
+            }
+          }
+        } catch (error) {
+          console.debug(
+            `Could not fetch report status for ${property.propertyId}:`,
+            error,
+          );
+        }
+      }),
+    );
   }
 
   // True once the closed/settled statuses for the selected month are loaded
@@ -918,6 +965,10 @@ class FinancialReportsComponent {
 
       if (result.success) {
         this.tenants = result.tenants || [];
+        // Lets the unpaid-rent reminder that follows reuse this list once
+        // instead of fetching the same tenants again
+        this._freshTenantsFor =
+          propertyId === this.selectedProperty ? propertyId : null;
         console.log(
           "✅ Loaded tenants for property:",
           this.tenants.length,
@@ -1048,6 +1099,9 @@ class FinancialReportsComponent {
         propRes.status === "fulfilled" && propRes.value.success
           ? propRes.value.property?.subsidizedPub || 0
           : 0;
+      if (propRes.status === "fulfilled" && propRes.value.success && propRes.value.property) {
+        this._mergePropertyDetails(propertyId, propRes.value.property);
+      }
       this._utilityBills =
         billsRes.status === "fulfilled" && billsRes.value.success
           ? billsRes.value.bills || []
@@ -1056,6 +1110,14 @@ class FinancialReportsComponent {
       this.propertySubsidy = 0;
       this._utilityBills = [];
     }
+  }
+
+  // The list holds summary fields only; fill in the full record (utility
+  // accounts, group links, ...) for the header and exports of this property.
+  _mergePropertyDetails(propertyId, fullProperty) {
+    this._propertyDetails[propertyId] = fullProperty;
+    const listed = this.properties?.find((p) => p.propertyId === propertyId);
+    if (listed) Object.assign(listed, fullProperty);
   }
 
   _findOverlappingUtilityBill() {
@@ -2314,20 +2376,28 @@ class FinancialReportsComponent {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
 
-      // Fetch tenants for this property
-      const tenantsResponse = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
-      );
+      // Tenants for this property: reuse the list selectProperty() just
+      // loaded (once — later reloads, e.g. after a save, fetch fresh). Copies,
+      // since the filter below annotates each tenant object.
+      let allTenants;
+      if (this._freshTenantsFor === this.selectedProperty) {
+        this._freshTenantsFor = null;
+        allTenants = this.tenants.map((t) => ({ ...t }));
+      } else {
+        const tenantsResponse = await API.get(
+          API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty),
+        );
 
-      if (!tenantsResponse.ok) {
-        reminderContainer.style.display = "none";
-        return;
+        if (!tenantsResponse.ok) {
+          reminderContainer.style.display = "none";
+          return;
+        }
+
+        const tenantsResult = await tenantsResponse.json();
+        allTenants = tenantsResult.success
+          ? tenantsResult.tenants || []
+          : [];
       }
-
-      const tenantsResult = await tenantsResponse.json();
-      const allTenants = tenantsResult.success
-        ? tenantsResult.tenants || []
-        : [];
 
       // Filter tenants whose rental period overlaps with current month
       const currentMonthTenants = allTenants.filter((tenant) => {
