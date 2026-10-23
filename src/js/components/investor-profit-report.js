@@ -46,8 +46,15 @@ class investorProfitChartComponent {
    * Initialize the component
    */
   init() {
-    this.loadInvestors();
+    // Investors load on first open of the section (see ensureInvestorsLoaded)
     this.bindEvents();
+  }
+
+  /** Called by the dashboard controller each time the section opens. */
+  ensureInvestorsLoaded() {
+    if (this._investorsRequested) return;
+    this._investorsRequested = true;
+    this.loadInvestors();
   }
 
   /**

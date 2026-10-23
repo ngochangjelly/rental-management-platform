@@ -39,13 +39,9 @@ class AcCleanManagementComponent {
     }
 
     this.bindEvents();
-    // Constructed on every page load — only fetch if the user has the module
-    if (canAccessModule("ac-clean")) {
-      this.loadProperties();
-      this.loadCompanies();
-    } else {
-      this._skippedInitialLoad = true;
-    }
+    // Constructed on every page load — defer fetching until the section opens
+    // (dashboard-controller calls loadIfSkipped() then)
+    this._skippedInitialLoad = true;
 
     console.log("✅ AC Clean Management Component initialized");
   }

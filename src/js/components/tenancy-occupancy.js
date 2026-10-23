@@ -39,10 +39,7 @@ class TenancyOccupancyComponent {
     this.bindEvents();
     // Initialize year display
     this.updateYearDisplay();
-    fetchInvestorsForAvatarStack().then((investors) => {
-      this._avatarInvestors = investors;
-      this.renderPropertyCards();
-    });
+    // Investor avatars load on first loadData(), when the section opens
   }
 
   /**
@@ -413,6 +410,13 @@ class TenancyOccupancyComponent {
    * Load all data (properties and tenants)
    */
   loadData() {
+    if (!this._avatarInvestorsRequested) {
+      this._avatarInvestorsRequested = true;
+      fetchInvestorsForAvatarStack().then((investors) => {
+        this._avatarInvestors = investors;
+        this.renderPropertyCards();
+      });
+    }
     // Kept so the router can wait for the property list before applying a deep link
     this._loadPromise = this._loadData();
     return this._loadPromise;

@@ -32,9 +32,6 @@ class DashboardController {
     // Initialize components when their sections are first accessed
     this.initializeComponentsLazily();
 
-    // Preload tenants data on dashboard entry for better UX
-    this.preloadTenantData();
-
     // Start router after controller is fully initialised.
     // setTimeout ensures all component constructors have run before the
     // router tries to navigate to a deep-linked URL.
@@ -177,17 +174,9 @@ class DashboardController {
           this.components.tenantManagement = new TenantManagementComponent();
           // Make it globally accessible for button onclick handlers
           window.tenantManager = this.components.tenantManagement;
+          // Its init() loads the property cards; tenants load when a property is picked
           console.log("✅ TenantManagementComponent created");
-
-          // Load tenants after section is shown
-          setTimeout(() => {
-            console.log("⏰ Loading tenants after section display...");
-            this.components.tenantManagement.loadTenants();
-          }, 100);
         } else {
-          console.log(
-            "♻️ Using preloaded TenantManagementComponent - data already available",
-          );
           // Ensure event listeners are attached now that section is visible
           this.components.tenantManagement.ensureEventListeners();
         }
@@ -260,6 +249,7 @@ class DashboardController {
         // Investor profit report component is initialized globally
         // Just trigger data load when section is shown
         if (window.investorProfitChart) {
+          window.investorProfitChart.ensureInvestorsLoaded();
           // Update date filter dropdowns to match component state
           this.updateInvestorProfitDateFilters();
         }
@@ -352,23 +342,23 @@ class DashboardController {
 
   async loadDashboardStats() {
     try {
-      // Load properties stats
-      const propertiesResponse = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTY_STATS,
-      );
-      const propertiesResult = await propertiesResponse.json();
+      // Property count + tenant stats are cheap count queries; the full
+      // lists are only fetched when the Properties / Tenants module opens.
+      const [propertiesResponse, tenantsResponse] = await Promise.all([
+        API.get(API_CONFIG.ENDPOINTS.PROPERTY_COUNT),
+        API.get(API_CONFIG.ENDPOINTS.TENANT_STATS),
+      ]);
+      const [propertiesResult, tenantsResult] = await Promise.all([
+        propertiesResponse.json(),
+        tenantsResponse.json(),
+      ]);
 
       if (propertiesResult.success) {
         const propertiesCountEl = document.getElementById("propertiesCount");
         if (propertiesCountEl) {
-          propertiesCountEl.textContent =
-            propertiesResult.stats.totalProperties || 0;
+          propertiesCountEl.textContent = propertiesResult.count || 0;
         }
       }
-
-      // Load tenants stats
-      const tenantsResponse = await API.get(API_CONFIG.ENDPOINTS.TENANT_STATS);
-      const tenantsResult = await tenantsResponse.json();
 
       if (tenantsResult.success) {
         const stats = tenantsResult.stats;
@@ -595,19 +585,6 @@ class DashboardController {
 
   goToInvestors() {
     this.showSection("investors");
-  }
-
-  // Preload tenant data when dashboard loads for better UX
-  preloadTenantData() {
-    console.log("🚀 Preloading tenant data on dashboard entry...");
-    // Initialize tenant management component early
-    if (!this.components.tenantManagement) {
-      this.components.tenantManagement = new TenantManagementComponent();
-      window.tenantManager = this.components.tenantManagement;
-      console.log("✅ Tenant management component preloaded");
-
-      // Component init() already calls loadProperties() — nothing more needed here
-    }
   }
 
   setupLanguageSwitcher() {

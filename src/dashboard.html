@@ -15214,101 +15214,49 @@
       // Function to update sidebar badges (v3 - cache busted)
       async function updateSidebarBadges() {
         try {
-          console.log(
-            "🔄 Updating sidebar badges - using API:",
-            buildApiUrl(API_CONFIG.ENDPOINTS.PROPERTIES),
-          );
+          // Only counts are needed here — full lists load when their module opens
+          const setCountBadge = (id, count) => {
+            const badge = document.getElementById(id);
+            if (!badge) return;
+            badge.textContent = count;
+            // Hide badge if count is 0
+            badge.style.display = count > 0 ? "inline-block" : "none";
+          };
 
-          // Fetch properties count
-          const propertiesResponse = await API.get(
-            API_CONFIG.ENDPOINTS.PROPERTIES,
-          );
+          // Investor count is admin/module-restricted — a failure just hides its badge
+          const investorsRequest = API.get(
+            API_CONFIG.ENDPOINTS.INVESTOR_COUNT,
+          ).catch(() => null);
+
+          const [propertiesResponse, tenantsResponse] = await Promise.all([
+            API.get(API_CONFIG.ENDPOINTS.PROPERTY_COUNT),
+            API.get(API_CONFIG.ENDPOINTS.TENANT_COUNT),
+          ]);
 
           if (propertiesResponse.ok) {
             const propertiesResult = await propertiesResponse.json();
-            const propertiesCount = propertiesResult.success
-              ? propertiesResult.properties.filter((p) => !p.isArchived).length
-              : 0;
-
-            const propertiesBadge = document.getElementById("propertiesBadge");
-            if (propertiesBadge) {
-              propertiesBadge.textContent = propertiesCount;
-              // Hide badge if count is 0
-              propertiesBadge.style.display =
-                propertiesCount > 0 ? "inline-block" : "none";
-            }
+            setCountBadge(
+              "propertiesBadge",
+              propertiesResult.success ? propertiesResult.count : 0,
+            );
           }
-
-          // Fetch tenants count
-          const tenantsResponse = await API.get(
-            API_CONFIG.ENDPOINTS.TENANTS + "?limit=50",
-          );
 
           if (tenantsResponse.ok) {
             const tenantsResult = await tenantsResponse.json();
-            const tenantsCount = tenantsResult.success
-              ? tenantsResult.tenants.length
-              : 0;
-
-            const tenantsBadge = document.getElementById("tenantsBadge");
-            if (tenantsBadge) {
-              tenantsBadge.textContent = tenantsCount;
-              // Hide badge if count is 0
-              tenantsBadge.style.display =
-                tenantsCount > 0 ? "inline-block" : "none";
-            }
+            setCountBadge(
+              "tenantsBadge",
+              tenantsResult.success ? tenantsResult.count : 0,
+            );
           }
 
-          // Fetch investors count (only for admins - skip if insufficient permissions)
-          try {
-            const investorsResponse = await API.get(
-              API_CONFIG.ENDPOINTS.INVESTORS,
-            );
-
-            if (investorsResponse.ok) {
-              const investorsResult = await investorsResponse.json();
-              let investorsCount = 0;
-
-              // Handle different possible response structures
-              if (
-                investorsResult.success &&
-                investorsResult.investors &&
-                Array.isArray(investorsResult.investors)
-              ) {
-                investorsCount = investorsResult.investors.length;
-              } else if (Array.isArray(investorsResult)) {
-                investorsCount = investorsResult.length;
-              } else if (
-                investorsResult.data &&
-                Array.isArray(investorsResult.data)
-              ) {
-                investorsCount = investorsResult.data.length;
-              }
-
-              const investorsBadge = document.getElementById("investorsBadge");
-              if (investorsBadge) {
-                investorsBadge.textContent = investorsCount;
-                // Hide badge if count is 0
-                investorsBadge.style.display =
-                  investorsCount > 0 ? "inline-block" : "none";
-              }
-            } else {
-              // Non-admin users get 403/503 - just hide the badge silently
-              const investorsBadge = document.getElementById("investorsBadge");
-              if (investorsBadge) {
-                investorsBadge.style.display = "none";
-              }
-            }
-          } catch (investorError) {
-            // Silently handle investor API errors (permission denied for non-admins)
-            console.log(
-              "Investors count not available (permission restricted)",
-            );
-            const investorsBadge = document.getElementById("investorsBadge");
-            if (investorsBadge) {
-              investorsBadge.style.display = "none";
-            }
+          // Investors count (non-admins get 403 — hide the badge silently)
+          const investorsResponse = await investorsRequest;
+          let investorsCount = 0;
+          if (investorsResponse?.ok) {
+            const investorsResult = await investorsResponse.json();
+            investorsCount = investorsResult.success ? investorsResult.count : 0;
           }
+          setCountBadge("investorsBadge", investorsCount);
         } catch (error) {
           console.error("Error updating sidebar badges:", error);
           // Hide badges on error

@@ -45,8 +45,7 @@ class CommonPromptComponent {
 
   init() {
     this.bindEvents();
-    this.loadProperties();
-    this.loadInvestors();
+    // Properties and investors load in refresh(), which runs each time the section opens
     this.renderPromptLibrary();
     this.loadCurrentExchangeRate();
     // Also update if rate changes while page is open
@@ -2349,6 +2348,11 @@ Thank you! 🙏`;
     this.renderPromptLibrary();
     // Reload properties
     this.loadProperties();
+    // Investors rarely change — fetch once, on first open
+    if (!this._investorsRequested) {
+      this._investorsRequested = true;
+      this.loadInvestors();
+    }
   }
 }
 

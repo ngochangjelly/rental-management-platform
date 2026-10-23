@@ -25,12 +25,14 @@ const API_CONFIG = {
     PROPERTY_BY_ID: (id) => `/api/properties/${id}`,
     PROPERTY_TENANTS: (id) => `/api/properties/${id}/tenants`,
     PROPERTY_STATS: "/api/properties/stats/summary",
+    PROPERTY_COUNT: "/api/properties/count",
 
     // Tenants
     TENANTS: "/api/tenants",
     TENANT_BY_ID: (id) => `/api/tenants/${id}`,
     TENANT_BY_FIN: (fin) => `/api/tenants/fin/${fin}`,
     TENANT_STATS: "/api/tenants/stats/summary",
+    TENANT_COUNT: "/api/tenants/count",
     TENANT_ADD_PROPERTY: (id) => `/api/tenants/${id}/properties`,
     TENANT_REMOVE_PROPERTY: (id, propertyId) =>
       `/api/tenants/${id}/properties/${propertyId}`,
@@ -47,6 +49,7 @@ const API_CONFIG = {
 
     // Investors
     INVESTORS: "/api/investors",
+    INVESTOR_COUNT: "/api/investors/count",
     INVESTORS_ME: "/api/investors/me",
     INVESTOR_BY_ID: (id) => `/api/investors/${id}`,
     INVESTORS_BY_PROPERTY: (propertyId) => `/api/investors/property/${propertyId}`,
