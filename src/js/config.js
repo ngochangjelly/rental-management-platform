@@ -114,6 +114,10 @@ const API_CONFIG = {
 
     // Utility Bill Tracker (SP Group bills)
     UTILITY_BILLS_BY_PROPERTY: (propertyId) => `/api/utility-bills/property/${propertyId}`,
+    UTILITY_BILL_STATUSES: (year, month, propertyIds) =>
+      `/api/utility-bills/statuses/${year}/${month}?propertyIds=${propertyIds.map(encodeURIComponent).join(",")}`,
+    UTILITY_BILLS_BULK: (propertyIds, fromYear, fromMonth) =>
+      `/api/utility-bills/bulk?propertyIds=${propertyIds.map(encodeURIComponent).join(",")}&fromYear=${fromYear}&fromMonth=${fromMonth}`,
     UTILITY_BILL_CREATE: (propertyId) => `/api/utility-bills/property/${propertyId}`,
     UTILITY_BILL_UPDATE: (billId) => `/api/utility-bills/${billId}`,
     UTILITY_BILL_DELETE: (billId) => `/api/utility-bills/${billId}`,

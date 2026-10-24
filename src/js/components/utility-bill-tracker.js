@@ -48,6 +48,8 @@ class UtilityBillTrackerComponent {
     this.selectedProperty = null;
     this.bills = [];
     this.tenants = []; // Tenants for selected property (including leavePlans)
+    this._tenantsFor = null; // propertyId `this.tenants` was loaded for (loaded on first breakdown)
+    this._propertiesPromise = null; // in-flight/finished property list load (reused by the router)
     this.editingBillId = null;
     this.chart = null;
     this.monthlyBillStatus = {}; // { propertyId: boolean }
@@ -66,7 +68,7 @@ class UtilityBillTrackerComponent {
 
   _init() {
     this._bindEvents();
-    this._loadProperties();
+    this._propertiesPromise = this._loadProperties();
     fetchInvestorsForAvatarStack().then((investors) => {
       this._avatarInvestors = investors;
       this._renderPropertyCards();
@@ -337,7 +339,9 @@ class UtilityBillTrackerComponent {
       let page = 1;
       let hasMore = true;
       while (hasMore) {
-        const res = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${page}&limit=50`);
+        // `fields=utility`: only what the cards, slug, calendar and drop-zone
+        // account matching use. Full details load when a property is selected.
+        const res = await API.get(`${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${page}&limit=200&fields=utility`);
         const data = await res.json();
         if (data.success) {
           allProperties = allProperties.concat(data.properties || []);
@@ -364,9 +368,51 @@ class UtilityBillTrackerComponent {
     this.monthlyBillStatus = {};
     this._renderMonthlySummary(true);
 
+    this.monthlyBillStatus =
+      (await this._fetchMonthlyStatusBulk(year, month)) ||
+      (await this._fetchMonthlyStatusPerProperty(year, month));
+
+    this._renderPropertyCards();
+    this._renderMonthlySummary(false);
+    this._renderBillingCalendar();
+  }
+
+  // One request for every property's status. Returns null when the endpoint
+  // is unavailable (older backend) so the caller falls back to per-property.
+  async _fetchMonthlyStatusBulk(year, month) {
+    if (!this.properties.length) return {};
+    try {
+      const ids = this.properties.map(p => p.propertyId);
+      const res = await API.get(API_CONFIG.ENDPOINTS.UTILITY_BILL_STATUSES(year, month, ids));
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.data)) return null;
+
+      // Bills store propertyId uppercased — match the list's ids the same way
+      const byId = new Map(data.data.map(s => [String(s.propertyId).toUpperCase(), s]));
+      const statuses = {};
+      for (const p of this.properties) {
+        const s = byId.get(String(p.propertyId).toUpperCase());
+        if (!s) continue;
+        statuses[p.propertyId] = {
+          hasBill: !!s.hasBill,
+          billAmount: s.billAmount || 0,
+          // Day of month in the browser's timezone, same as before
+          recentBillDays: (s.recentBillDates || []).map(d => new Date(d).getDate()),
+        };
+      }
+      return statuses;
+    } catch (err) {
+      console.debug('[UtilityBillTracker] bulk statuses unavailable, fetching per property:', err);
+      return null;
+    }
+  }
+
+  // Fallback: fetch each property's bill list and derive the status
+  async _fetchMonthlyStatusPerProperty(year, month) {
     const results = await Promise.allSettled(
       this.properties.map(p =>
-        API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId))
+        API.get(`${API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId)}?fields=lite`)
           .then(r => r.json())
           .then(data => {
             const bills = data.bills || [];
@@ -387,19 +433,17 @@ class UtilityBillTrackerComponent {
       )
     );
 
+    const statuses = {};
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        this.monthlyBillStatus[result.value.propertyId] = {
+        statuses[result.value.propertyId] = {
           hasBill: result.value.hasBill,
           billAmount: result.value.billAmount,
           recentBillDays: result.value.recentBillDays || [],
         };
       }
     }
-
-    this._renderPropertyCards();
-    this._renderMonthlySummary(false);
-    this._renderBillingCalendar();
+    return statuses;
   }
 
   _syncSelectAllToggle(checked) {
@@ -429,6 +473,35 @@ class UtilityBillTrackerComponent {
     this._updateQdzHint();
   }
 
+  // Same shape as Promise.allSettled over per-property requests, or null.
+  async _fetchChartBillsBulk() {
+    try {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      const ids = this.properties.map(p => p.propertyId);
+      const res = await API.get(
+        API_CONFIG.ENDPOINTS.UTILITY_BILLS_BULK(ids, from.getFullYear(), from.getMonth() + 1)
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.bills)) return null;
+
+      const byId = new Map();
+      for (const b of data.bills) {
+        const key = String(b.propertyId).toUpperCase();
+        if (!byId.has(key)) byId.set(key, []);
+        byId.get(key).push(b);
+      }
+      return this.properties.map(p => ({
+        status: 'fulfilled',
+        value: { property: p, bills: byId.get(String(p.propertyId).toUpperCase()) || [] },
+      }));
+    } catch (err) {
+      console.debug('[UtilityBillTracker] bulk bills unavailable, fetching per property:', err);
+      return null;
+    }
+  }
+
   _destroyAllCharts() {
     for (const c of (this._allCharts || [])) {
       try { c.destroy(); } catch (_) {}
@@ -448,14 +521,17 @@ class UtilityBillTrackerComponent {
       </div>`;
     container.removeAttribute('hidden');
 
-    // Fetch all properties' bills in parallel
-    const results = await Promise.allSettled(
-      this.properties.map(p =>
-        API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId))
-          .then(r => r.json())
-          .then(d => ({ property: p, bills: d.bills || [] }))
-      )
-    );
+    // Last 12 months of bills for every property: one request, or one per
+    // property on an older backend.
+    const results =
+      (await this._fetchChartBillsBulk()) ||
+      (await Promise.allSettled(
+        this.properties.map(p =>
+          API.get(`${API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(p.propertyId)}?fields=lite`)
+            .then(r => r.json())
+            .then(d => ({ property: p, bills: d.bills || [] }))
+        )
+      ));
 
     if (!this.allSelected) return; // deselected while loading
 
@@ -880,19 +956,23 @@ class UtilityBillTrackerComponent {
   }
 
   async _loadBills() {
-    if (!this.selectedProperty) return;
-    // Load bills, tenants, and property details in parallel
-    const [billsResult, tenantsResult, propResult] = await Promise.allSettled([
-      API.get(API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(this.selectedProperty)).then(r => r.json()),
-      API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)).then(r => r.json()),
-      API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty)).then(r => r.json()),
+    const propertyId = this.selectedProperty;
+    if (!propertyId) return;
+    // Bills (without stored OCR text) and the property's full record in
+    // parallel. Tenants are only needed for the per-tenant breakdown, so they
+    // load when that is opened.
+    const [billsResult, propResult] = await Promise.allSettled([
+      API.get(`${API_CONFIG.ENDPOINTS.UTILITY_BILLS_BY_PROPERTY(propertyId)}?fields=lite`).then(r => r.json()),
+      API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)).then(r => r.json()),
     ]);
+    // Another property was picked while this one was loading
+    if (this.selectedProperty !== propertyId) return;
+
     this.bills = billsResult.status === 'fulfilled' && billsResult.value.success
       ? billsResult.value.bills || []
       : [];
-    this.tenants = tenantsResult.status === 'fulfilled' && tenantsResult.value.success
-      ? tenantsResult.value.tenants || []
-      : [];
+    this.tenants = [];
+    this._tenantsFor = null;
     const prop = propResult.status === 'fulfilled' && propResult.value.success
       ? propResult.value.property || {}
       : {};
@@ -903,6 +983,26 @@ class UtilityBillTrackerComponent {
     this._renderBillsTable();
     this._showAddForm(false);
     document.getElementById('utilityBillContent')?.removeAttribute('hidden');
+  }
+
+  // Tenants (with leave plans) of the selected property, loaded once per
+  // selection. A failed load leaves the list empty, as before, and retries
+  // on the next breakdown.
+  async _ensureTenants() {
+    const propertyId = this.selectedProperty;
+    if (!propertyId || this._tenantsFor === propertyId) return;
+    let tenants = [];
+    let ok = false;
+    try {
+      const data = await API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(propertyId)).then(r => r.json());
+      ok = !!data.success;
+      tenants = ok ? data.tenants || [] : [];
+    } catch (err) {
+      console.error('[UtilityBillTracker] load tenants error:', err);
+    }
+    if (this.selectedProperty !== propertyId) return;
+    this.tenants = tenants;
+    this._tenantsFor = ok ? propertyId : null;
   }
 
   // ── FB Group links ─────────────────────────────────────────────────────────
@@ -1651,9 +1751,21 @@ class UtilityBillTrackerComponent {
     return { totalBillingDays, rows };
   }
 
-  showBillBreakdown(billId) {
+  async showBillBreakdown(billId) {
     const bill = this.bills.find(b => b._id === billId);
     if (!bill) return;
+
+    // Ignore repeat clicks while tenants load (two modals would leave a
+    // stuck backdrop)
+    if (this._breakdownLoading) return;
+    const propertyId = this.selectedProperty;
+    this._breakdownLoading = true;
+    try {
+      await this._ensureTenants();
+    } finally {
+      this._breakdownLoading = false;
+    }
+    if (this.selectedProperty !== propertyId) return;
 
     const result = this._computeBillBreakdown(bill);
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

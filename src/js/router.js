@@ -304,14 +304,18 @@ class AppRouter {
   }
 
   async _resolveUtilitySlug(slug) {
-    const cached = window.utilityBillTracker?.properties;
+    // The tracker starts loading its property list when the section opens;
+    // wait for that instead of downloading the list a second time.
+    const ut = window.utilityBillTracker;
+    if (ut?._propertiesPromise) await ut._propertiesPromise;
+    const cached = ut?.properties;
     if (cached?.length > 0) {
       return cached.find((p) => SlugUtils.propertySlug(p) === slug) || null;
     }
 
     try {
       const res = await API.get(
-        `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200`,
+        `${API_CONFIG.ENDPOINTS.PROPERTIES}?limit=200&fields=utility`,
       );
       const data = await res.json();
       const props = data.properties || [];
