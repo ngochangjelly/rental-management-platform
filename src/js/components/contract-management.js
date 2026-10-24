@@ -28,6 +28,9 @@ class ContractManagementComponent {
     this.selectedTenantA = null;
     this.selectedTenantB = []; // Changed to array to support multiple tenants
     this.selectedPropertyId = null; // Track selected property for filtering
+    this._propertiesPromise = null; // shared in-flight property list request
+    this._propertyDetails = {}; // propertyId -> full record, fetched on selection
+    this._tenantsReqId = 0; // latest tenants request wins
     this.additionalClauses = [];
     this.signatures = {
       tenantA: null,
@@ -106,15 +109,23 @@ class ContractManagementComponent {
   }
 
   async loadTenants() {
+    const propertyId = this.selectedPropertyId;
+    const reqId = ++this._tenantsReqId;
+    // Tenants are only listed for a selected property
+    if (!propertyId) {
+      this.tenants = [];
+      this.populateDropdowns();
+      return;
+    }
     try {
-      // Only load tenants for the selected property
-      let url = API_CONFIG.ENDPOINTS.TENANTS + "?limit=100";
-      if (this.selectedPropertyId) {
-        url += `&property=${this.selectedPropertyId}`;
-      }
+      const url =
+        API_CONFIG.ENDPOINTS.TENANTS +
+        `?limit=100&property=${encodeURIComponent(propertyId)}`;
 
       const response = await API.get(url);
       const result = await response.json();
+      // A different property was picked while this one was loading
+      if (reqId !== this._tenantsReqId) return;
 
       if (result.success && result.tenants) {
         this.tenants = result.tenants;
@@ -140,7 +151,7 @@ class ContractManagementComponent {
       this.populateDropdowns();
     } catch (error) {
       console.error("Error loading tenants:", error);
-      this.tenants = [];
+      if (reqId === this._tenantsReqId) this.tenants = [];
     }
   }
 
@@ -181,10 +192,23 @@ class ContractManagementComponent {
     }
   }
 
-  async loadProperties() {
+  // Several callers ask for the list when the section opens; they share one
+  // request.
+  loadProperties() {
+    if (!this._propertiesPromise) {
+      this._propertiesPromise = this._fetchProperties().finally(() => {
+        this._propertiesPromise = null;
+      });
+    }
+    return this._propertiesPromise;
+  }
+
+  async _fetchProperties() {
     try {
+      // Only what the cards and address list show. The selected property's
+      // full record (settlement accounts) loads in _ensurePropertyDetails.
       const response = await API.get(
-        API_CONFIG.ENDPOINTS.PROPERTIES + "?limit=100",
+        API_CONFIG.ENDPOINTS.PROPERTIES + "?limit=200&fields=summary",
       );
       const result = await response.json();
 
@@ -207,9 +231,41 @@ class ContractManagementComponent {
         this.properties.length,
         "properties for contract creation",
       );
+
+      // The list was replaced (e.g. after a property edit): drop cached
+      // details and re-fetch the selected property's.
+      this._propertyDetails = {};
+      if (this.selectedPropertyId) {
+        this._ensurePropertyDetails(this.selectedPropertyId).then(() => {
+          if (this.contractData.showSettlementAccounts) {
+            this.updateSettlementAccountsDisplay();
+            this.updateContractPreview();
+          }
+        });
+      }
     } catch (error) {
       console.error("Error loading properties:", error);
       this.properties = [];
+    }
+  }
+
+  // Full record of a property, merged into its list entry so
+  // getSelectedProperty() returns all fields (settlement accounts etc.).
+  async _ensurePropertyDetails(propertyId) {
+    if (!propertyId || this._propertyDetails[propertyId]) return;
+    try {
+      const response = await API.get(
+        API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId),
+      );
+      const result = await response.json();
+      if (!response.ok || !result.success || !result.property) return;
+      this._propertyDetails[propertyId] = result.property;
+      const entry = this.properties.find(
+        (p) => (p.propertyId || p.id || p._id) === propertyId,
+      );
+      if (entry) Object.assign(entry, result.property);
+    } catch (error) {
+      console.error("Error loading property details:", error);
     }
   }
 
@@ -1509,8 +1565,11 @@ class ContractManagementComponent {
         );
       }
 
-      // Load tenants only when a valid property is selected
-      await this.loadTenants();
+      // Load the selected property's tenants and full record together
+      await Promise.all([
+        this.loadTenants(),
+        this._ensurePropertyDetails(this.selectedPropertyId),
+      ]);
     }
 
     // Refresh tenant dropdowns with property filter
@@ -6864,7 +6923,10 @@ class ContractManagementComponent {
         }
 
         if (this.selectedPropertyId) {
-          await this.loadTenants();
+          await Promise.all([
+            this.loadTenants(),
+            this._ensurePropertyDetails(this.selectedPropertyId),
+          ]);
           this.populateTenantsDropdown();
         }
 
