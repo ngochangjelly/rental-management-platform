@@ -11,6 +11,12 @@ class InvestorManagementComponent {
     this.isModalOpen = false;
     this.editingInvestorId = null;
     this.avatar = ''; // Avatar image URL
+    // List/detail view state
+    this.selectedInvestorId = null;
+    this._search = '';        // investor list search
+    this._propFilter = '';    // selected investor's property filter
+    this._propSort = 'default';
+    this._mobileDetail = false; // mobile: detail view open instead of the list
     this.feePanel = new ManagementFeePanel({
       containerId: 'managementFeePanel',
       getData: () => ({ investors: this.investors, properties: this.properties }),
@@ -129,6 +135,66 @@ class InvestorManagementComponent {
     }
   }
 
+  // ─── List + detail layout ─────────────────────────────────────────────────
+  // Desktop: investor list on the left (sticky, scrolls on its own), selected
+  // investor's holdings on the right. Mobile: the list fills the screen and
+  // tapping an investor opens the detail view with a back button.
+
+  _isMobileLayout() {
+    return window.matchMedia("(max-width: 991.98px)").matches;
+  }
+
+  _propertyById(propertyId) {
+    return this.properties.find(p =>
+      p.propertyId === propertyId || String(p.propertyId) === String(propertyId)
+    );
+  }
+
+  _propertyLabel(fullProperty, propertyId) {
+    return fullProperty
+      ? `${fullProperty.address || 'Address N/A'}${fullProperty.unit ? `, ${fullProperty.unit}` : ''}`
+      : String(propertyId);
+  }
+
+  // Holdings shown on screen: archived properties are left out, as before
+  _activeHoldings(investor) {
+    return (investor.properties || []).filter(prop => {
+      const full = this._propertyById(prop.propertyId);
+      return !full || !full.isArchived;
+    });
+  }
+
+  _avatarHtml(investor, size) {
+    const initial = escapeHtml((investor.name || '?').charAt(0).toUpperCase());
+    const box = `width:${size}px;height:${size}px;`;
+    const initialHtml = (hidden) =>
+      `<span class="inv-avatar inv-avatar-initial" style="${box}font-size:${Math.round(size * 0.4)}px;${hidden ? 'display:none;' : ''}">${initial}</span>`;
+    if (investor.avatar) {
+      // On a broken image, swap to the initial
+      return `<img src="${escapeHtml(this.getOptimizedAvatarUrl(investor.avatar, 'small'))}" alt=""
+                   class="inv-avatar" style="${box}"
+                   onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" />${initialHtml(true)}`;
+    }
+    return initialHtml(false);
+  }
+
+  // Matches the investor's own details first, then their property addresses
+  // and IDs. `viaProps` counts holdings that matched when the investor didn't.
+  _investorMatch(investor, q) {
+    const own = [investor.name, investor.investorId, investor.username, investor.email, investor.phone]
+      .filter(Boolean).join(' ').toLowerCase();
+    if (own.includes(q)) return { match: true, viaProps: 0 };
+    const viaProps = this._activeHoldings(investor).filter(h =>
+      this._holdingMatches(h, q)
+    ).length;
+    return { match: viaProps > 0, viaProps };
+  }
+
+  _holdingMatches(holding, q) {
+    const label = this._propertyLabel(this._propertyById(holding.propertyId), holding.propertyId);
+    return `${label} ${holding.propertyId}`.toLowerCase().includes(q);
+  }
+
   renderInvestors() {
     const investorsList = document.getElementById("investorsList");
     if (!investorsList) {
@@ -149,143 +215,283 @@ class InvestorManagementComponent {
       return;
     }
 
-    let html = `
-      <div class="d-flex justify-content-end mb-3">
-        <button class="btn btn-outline-secondary btn-sm" id="exportInvestorReportBtn" onclick="window.investorManager.exportInvestorReport()">
-          <i class="bi bi-download me-1"></i>Export Portfolio Report
-        </button>
+    // Keep the current selection; fall back to the remembered or first investor
+    if (!this.investors.some(i => i.investorId === this.selectedInvestorId)) {
+      let remembered = null;
+      try { remembered = localStorage.getItem('investorMgmt.selected'); } catch (_) {}
+      const fallback = this.investors.find(i => i.investorId === remembered) || this.investors[0];
+      this.selectedInvestorId = fallback.investorId;
+      this._mobileDetail = false;
+      this._propFilter = '';
+    }
+
+    investorsList.innerHTML = `
+      <div class="inv-layout" id="invLayout">
+        <aside class="inv-master">
+          <div class="inv-search">
+            <i class="bi bi-search"></i>
+            <input type="search" id="invSearch" class="form-control form-control-sm"
+                   placeholder="Search investor or property…" autocomplete="off"
+                   value="${escapeHtml(this._search)}" aria-label="Search investors or properties">
+          </div>
+          <div class="inv-list" id="invList" role="list"></div>
+          <div class="inv-master-foot">
+            <button class="btn btn-outline-secondary btn-sm w-100" id="exportInvestorReportBtn" onclick="window.investorManager.exportInvestorReport()">
+              <i class="bi bi-download me-1"></i>Export Portfolio Report
+            </button>
+          </div>
+        </aside>
+        <section class="inv-detail" id="invDetail" aria-live="polite"></section>
       </div>
-      <div class="row">
     `;
-    
-    this.investors.forEach((investor) => {
-      const activeInvestorProperties = (investor.properties || []).filter(prop => {
-        const full = this.properties.find(p =>
-          p.propertyId === prop.propertyId || String(p.propertyId) === String(prop.propertyId)
-        );
-        return !full || !full.isArchived;
-      });
-      const totalProperties = activeInvestorProperties.length;
-      const totalPercentage = activeInvestorProperties.reduce((sum, prop) => sum + prop.percentage, 0);
 
-      html += `
-        <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
-          <div class="card investor-card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <div class="d-flex align-items-center">
-                <div class="me-3">
-                  ${investor.avatar ? `
-                    <img src="${this.getOptimizedAvatarUrl(investor.avatar, 'small')}" alt="Avatar" 
-                         class="rounded-circle border" 
-                         style="width: 40px; height: 40px; object-fit: cover;" 
-                         onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 40 40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%23667eea\\'/><text x=\\'20\\' y=\\'25\\' text-anchor=\\'middle\\' fill=\\'white\\' font-size=\\'16\\' font-family=\\'Noto Serif,serif\\'>${investor.name.charAt(0).toUpperCase()}</text></svg>';" />
-                  ` : `
-                    <div class="rounded-circle border d-flex align-items-center justify-content-center" 
-                         style="width: 40px; height: 40px; background-color: #667eea; color: white; font-weight: bold; font-size: 16px;">
-                      ${investor.name.charAt(0).toUpperCase()}
-                    </div>
-                  `}
-                </div>
-                <div>
-                  <h6 class="mb-0 d-flex align-items-center gap-1">
-                    ${escapeHtml(investor.name)}
-                    ${investor.facebookUrl ? `<a href="${escapeHtml(investor.facebookUrl)}" target="_blank" rel="noopener noreferrer" title="View Facebook Profile" onclick="event.stopPropagation()"><i class="bi bi-facebook text-primary"></i></a>` : ''}
-                  </h6>
-                  <small class="text-muted">ID: ${investor.investorId}</small>
-                </div>
-              </div>
-              <div class="btn-group" role="group">
-                <button class="btn btn-sm btn-outline-success" onclick="window.investorManager.copyInvestorText('${investor.investorId}')" title="Copy to Messenger">
-                  <i class="bi bi-clipboard"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="window.investorManager.exportInvestorReport('${investor.investorId}')" title="Export Report">
-                  <i class="bi bi-download"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-primary" onclick="window.investorManager.editInvestor('${investor.investorId}')" title="Edit Investor">
-                  <i class="bi bi-pencil"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="window.investorManager.deleteInvestor('${investor.investorId}')" title="Delete Investor">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </div>
+    document.getElementById('invSearch').addEventListener('input', (e) => {
+      this._search = e.target.value;
+      this._renderInvestorListPane();
+    });
+
+    this._renderInvestorListPane();
+    this._renderInvestorDetail();
+    this._applyMobileState();
+  }
+
+  _renderInvestorListPane() {
+    const el = document.getElementById('invList');
+    if (!el) return;
+    const q = this._search.trim().toLowerCase();
+    const rows = this.investors
+      .map(inv => ({ inv, m: q ? this._investorMatch(inv, q) : { match: true, viaProps: 0 } }))
+      .filter(r => r.m.match);
+
+    if (rows.length === 0) {
+      el.innerHTML = `<div class="inv-list-empty">No investor or property matches “${escapeHtml(this._search.trim())}”</div>`;
+      return;
+    }
+
+    el.innerHTML = rows.map(({ inv, m }) => {
+      const id = escapeHtml(inv.investorId);
+      const count = this._activeHoldings(inv).length;
+      const active = inv.investorId === this.selectedInvestorId;
+      const sub = m.viaProps
+        ? `${m.viaProps} matching propert${m.viaProps === 1 ? 'y' : 'ies'}`
+        : `ID ${id}`;
+      return `
+        <button type="button" role="listitem" class="inv-item ${active ? 'active' : ''}"
+                ${active ? 'aria-current="true"' : ''}
+                onclick="window.investorManager.selectInvestor('${id}')">
+          ${this._avatarHtml(inv, 36)}
+          <span class="inv-item-text">
+            <span class="inv-item-name">${escapeHtml(inv.name)}${inv.facebookUrl ? ' <i class="bi bi-facebook text-primary" style="font-size:0.75rem;"></i>' : ''}</span>
+            <span class="inv-item-sub ${m.viaProps ? 'text-primary' : ''}">${sub}</span>
+          </span>
+          <span class="inv-item-count" title="${count} propert${count === 1 ? 'y' : 'ies'}">${count}</span>
+          <i class="bi bi-chevron-right inv-item-chevron d-lg-none"></i>
+        </button>`;
+    }).join('');
+  }
+
+  selectInvestor(investorId) {
+    const changed = investorId !== this.selectedInvestorId;
+    if (changed) {
+      this.selectedInvestorId = investorId;
+      try { localStorage.setItem('investorMgmt.selected', investorId); } catch (_) {}
+    }
+    // Picked through a property search: narrow the holdings to those matches
+    const q = this._search.trim().toLowerCase();
+    const inv = this.investors.find(i => i.investorId === investorId);
+    const m = q && inv ? this._investorMatch(inv, q) : null;
+    if (m && m.viaProps) this._propFilter = this._search.trim();
+    else if (changed) this._propFilter = '';
+    this._mobileDetail = true;
+    this._renderInvestorListPane();
+    this._renderInvestorDetail();
+    this._applyMobileState();
+    if (this._isMobileLayout()) {
+      document.getElementById('invLayout')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }
+
+  backToInvestorList() {
+    this._mobileDetail = false;
+    this._applyMobileState();
+    document.getElementById('invLayout')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
+  _applyMobileState() {
+    document.getElementById('invLayout')?.classList.toggle('show-detail', !!this._mobileDetail);
+  }
+
+  _renderInvestorDetail() {
+    const el = document.getElementById('invDetail');
+    if (!el) return;
+    const investor = this.investors.find(i => i.investorId === this.selectedInvestorId);
+    if (!investor) {
+      el.innerHTML = `<div class="inv-detail-empty"><i class="bi bi-person-badge"></i><div>Select an investor</div></div>`;
+      return;
+    }
+
+    const id = escapeHtml(investor.investorId);
+    const holdings = this._activeHoldings(investor);
+    const archivedCount = (investor.properties || []).length - holdings.length;
+    const totalPercentage = holdings.reduce((sum, prop) => sum + prop.percentage, 0);
+
+    const chip = (icon, text, href) => href
+      ? `<a class="inv-chip" href="${escapeHtml(href)}"><i class="bi bi-${icon}"></i>${escapeHtml(text)}</a>`
+      : `<span class="inv-chip"><i class="bi bi-${icon}"></i>${escapeHtml(text)}</span>`;
+    const chips = [
+      investor.username ? chip('person', investor.username) : '',
+      investor.phone ? chip('telephone', investor.phone, `tel:${investor.phone}`) : '',
+      investor.email ? chip('envelope', investor.email, `mailto:${investor.email}`) : '',
+      investor.fin ? chip('person-vcard', `FIN ${investor.fin}`) : '',
+      investor.passport ? chip('passport', `Passport ${investor.passport}`) : '',
+    ].join('');
+
+    const showTools = holdings.length > 5;
+
+    el.innerHTML = `
+      <button type="button" class="btn btn-link btn-sm inv-back d-lg-none" onclick="window.investorManager.backToInvestorList()">
+        <i class="bi bi-chevron-left"></i>All investors
+      </button>
+      <div class="inv-detail-head">
+        ${this._avatarHtml(investor, 56)}
+        <div class="inv-detail-title">
+          <h5 class="mb-0">
+            ${escapeHtml(investor.name)}
+            ${investor.facebookUrl ? `<a href="${escapeHtml(investor.facebookUrl)}" target="_blank" rel="noopener noreferrer" title="View Facebook Profile"><i class="bi bi-facebook text-primary"></i></a>` : ''}
+          </h5>
+          <div class="text-muted small">ID ${id}</div>
+        </div>
+        <div class="inv-detail-actions">
+          <button class="btn btn-sm btn-outline-success" onclick="window.investorManager.copyInvestorText('${id}')" title="Copy to Messenger">
+            <i class="bi bi-clipboard"></i><span class="inv-action-label">Copy</span>
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="window.investorManager.exportInvestorReport('${id}')" title="Export Report">
+            <i class="bi bi-download"></i><span class="inv-action-label">Export</span>
+          </button>
+          <button class="btn btn-sm btn-outline-primary" onclick="window.investorManager.editInvestor('${id}')" title="Edit Investor">
+            <i class="bi bi-pencil"></i><span class="inv-action-label">Edit</span>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="window.investorManager.deleteInvestor('${id}')" title="Delete Investor">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+      ${chips ? `<div class="inv-chips">${chips}</div>` : ''}
+
+      <div class="inv-stats">
+        <div class="inv-stat">
+          <div class="inv-stat-value">${holdings.length}</div>
+          <div class="inv-stat-label">Propert${holdings.length === 1 ? 'y' : 'ies'}</div>
+        </div>
+        <div class="inv-stat inv-stat-accent">
+          <div class="inv-stat-value">${totalPercentage}%</div>
+          <div class="inv-stat-label">Total Investment</div>
+        </div>
+      </div>
+
+      <div class="inv-props-head">
+        <h6 class="mb-0">Properties</h6>
+        ${showTools ? `
+          <div class="inv-props-tools">
+            <div class="inv-search inv-search-sm">
+              <i class="bi bi-funnel"></i>
+              <input type="search" id="invPropFilter" class="form-control form-control-sm"
+                     placeholder="Filter properties…" autocomplete="off"
+                     value="${escapeHtml(this._propFilter)}" aria-label="Filter properties">
             </div>
-            <div class="card-body py-2">
-              ${investor.username ? `<p class="mb-1 small"><strong>Username:</strong> ${escapeHtml(investor.username)}</p>` : ''}
-              ${investor.email ? `<p class="mb-1 small"><strong>Email:</strong> ${escapeHtml(investor.email)}</p>` : ''}
-              ${investor.phone ? `<p class="mb-1 small"><strong>Phone:</strong> ${escapeHtml(investor.phone)}</p>` : ''}
-              ${investor.fin ? `<p class="mb-1 small"><strong>FIN:</strong> ${escapeHtml(investor.fin)}</p>` : ''}
-              ${investor.passport ? `<p class="mb-1 small"><strong>Passport:</strong> ${escapeHtml(investor.passport)}</p>` : ''}
-              
-              <hr class="my-2">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="small"><strong>Properties:</strong></span>
-                <span class="badge bg-primary">${totalProperties}</span>
-              </div>
-              
-              ${totalProperties > 0 ? `
-                <div class="properties-list">
-                  ${activeInvestorProperties.map(property => {
-                    // Look up full property details
-                    const fullProperty = this.properties.find(p =>
-                      p.propertyId === property.propertyId ||
-                      String(p.propertyId) === String(property.propertyId)
-                    );
+            <select id="invPropSort" class="form-select form-select-sm" aria-label="Sort properties">
+              <option value="default" ${this._propSort === 'default' ? 'selected' : ''}>Default order</option>
+              <option value="share" ${this._propSort === 'share' ? 'selected' : ''}>Share: high → low</option>
+              <option value="address" ${this._propSort === 'address' ? 'selected' : ''}>Address A–Z</option>
+              <option value="id" ${this._propSort === 'id' ? 'selected' : ''}>Property ID</option>
+            </select>
+          </div>` : ''}
+      </div>
+      <div id="invPropRows" class="inv-props"></div>
+      ${archivedCount > 0 ? `<div class="inv-archived-note"><i class="bi bi-archive me-1"></i>${archivedCount} archived propert${archivedCount === 1 ? 'y' : 'ies'} not shown</div>` : ''}
+    `;
 
-                    const displayText = fullProperty ?
-                      `${fullProperty.address || 'Address N/A'}${fullProperty.unit ? `, ${fullProperty.unit}` : ''}` :
-                      property.propertyId;
+    if (showTools) {
+      document.getElementById('invPropFilter').addEventListener('input', (e) => {
+        this._propFilter = e.target.value;
+        this._renderHoldingRows(investor);
+      });
+      document.getElementById('invPropSort').addEventListener('change', (e) => {
+        this._propSort = e.target.value;
+        this._renderHoldingRows(investor);
+      });
+    }
+    this._renderHoldingRows(investor);
+  }
 
-                    const hasHistory = property.history && property.history.length > 0;
+  _renderHoldingRows(investor) {
+    const el = document.getElementById('invPropRows');
+    if (!el) return;
+    const holdings = this._activeHoldings(investor);
+    if (holdings.length === 0) {
+      el.innerHTML = `<div class="inv-props-empty">No property investments</div>`;
+      return;
+    }
 
-                    return `
-                      <div class="mb-2 p-2 border rounded bg-light">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div class="flex-grow-1 me-2">
-                            <div class="small text-dark fw-medium">${displayText}</div>
-                            <div class="text-muted" style="font-size: 0.75rem;">ID: ${property.propertyId}</div>
-                          </div>
-                          <div class="d-flex align-items-center gap-1">
-                            <span class="badge bg-primary">${property.percentage}%</span>
-                            <button class="btn btn-sm btn-outline-secondary p-1"
-                                    onclick="window.investorManager.showChangePercentageModal('${investor.investorId}', '${property.propertyId}')"
-                                    title="Change Percentage">
-                              <i class="bi bi-pencil-square" style="font-size: 0.7rem;"></i>
-                            </button>
-                          </div>
-                        </div>
-                        ${hasHistory ? `
-                          <div class="mt-1">
-                            <button class="btn btn-link btn-sm p-0 text-muted"
-                                    onclick="window.investorManager.togglePercentageHistory(this, '${investor.investorId}', '${property.propertyId}')"
-                                    style="font-size: 0.7rem;">
-                              <i class="bi bi-clock-history me-1"></i>View history
-                            </button>
-                            <div class="percentage-history-container" style="display: none;"></div>
-                          </div>
-                        ` : ''}
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-                <div class="mt-2 pt-2 border-top">
-                  <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <span class="text-white fw-semibold">Total Investment:</span>
-                    <span class="badge bg-white text-primary fw-bold fs-6">${totalPercentage}%</span>
-                  </div>
-                </div>
-              ` : `
-                <div class="text-center text-muted">
-                  <small>No property investments</small>
-                </div>
-              `}
+    // Filter/sort only apply when the tools are shown (more than 5 holdings)
+    const toolsOn = holdings.length > 5;
+    const q = toolsOn ? this._propFilter.trim().toLowerCase() : '';
+    let rows = holdings.map(h => {
+      const full = this._propertyById(h.propertyId);
+      return { h, full, label: this._propertyLabel(full, h.propertyId) };
+    });
+    if (q) rows = rows.filter(r => this._holdingMatches(r.h, q));
+    const sort = toolsOn ? this._propSort : 'default';
+    if (sort === 'share') rows.sort((a, b) => b.h.percentage - a.h.percentage);
+    else if (sort === 'address') rows.sort((a, b) => a.label.localeCompare(b.label));
+    else if (sort === 'id') rows.sort((a, b) => (parseInt(a.h.propertyId) || 0) - (parseInt(b.h.propertyId) || 0));
+
+    if (rows.length === 0) {
+      el.innerHTML = `<div class="inv-props-empty">No property matches “${escapeHtml(this._propFilter.trim())}”</div>`;
+      return;
+    }
+
+    const iid = escapeHtml(investor.investorId);
+    el.innerHTML = rows.map(({ h, full, label }) => {
+      const pid = escapeHtml(h.propertyId);
+      const history = h.history || [];
+      const hasHistory = history.length > 0;
+      // "since" only once the share has changed at least once
+      const current = history.length > 1 ? history.find(e => !e.effectiveTo) : null;
+      const since = current?.effectiveFrom
+        ? new Date(current.effectiveFrom).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '';
+      const pct = Number(h.percentage) || 0;
+      const thumb = full?.propertyImage
+        ? `<div class="inv-prop-thumb" style="background-image:url('${escapeHtml(full.propertyImage)}')"></div>`
+        : `<div class="inv-prop-thumb inv-prop-thumb-empty"><i class="bi bi-building"></i></div>`;
+      return `
+        <div class="inv-prop" data-prop-row>
+          <div class="inv-prop-main">
+            ${thumb}
+            <div class="inv-prop-text">
+              <div class="inv-prop-addr" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+              <div class="inv-prop-meta">ID ${pid}${since ? ` · since ${escapeHtml(since)}` : ''}</div>
+            </div>
+            <div class="inv-prop-share">
+              <span class="inv-prop-pct">${h.percentage}%</span>
+              <div class="inv-prop-bar"><span style="width:${Math.max(0, Math.min(pct, 100))}%"></span></div>
+            </div>
+            <div class="inv-prop-actions">
+              <button class="btn btn-sm btn-light" title="Change percentage"
+                      onclick="window.investorManager.showChangePercentageModal('${iid}', '${pid}')">
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              ${hasHistory ? `
+                <button class="btn btn-sm btn-light" data-icon-only="1" title="Percentage history" aria-expanded="false"
+                        onclick="window.investorManager.togglePercentageHistory(this, '${iid}', '${pid}')">
+                  <i class="bi bi-clock-history"></i>
+                </button>` : ''}
             </div>
           </div>
-        </div>
-      `;
-    });
-    
-    html += '</div>';
-    investorsList.innerHTML = html;
+          ${hasHistory ? '<div class="percentage-history-container" style="display: none;"></div>' : ''}
+        </div>`;
+    }).join('');
   }
 
   showInvestorModal(investorId = null) {
@@ -957,14 +1163,26 @@ class InvestorManagementComponent {
   }
 
   async togglePercentageHistory(button, investorId, propertyId) {
-    const container = button.nextElementSibling;
+    const row = button.closest('[data-prop-row]');
+    const container = row
+      ? row.querySelector('.percentage-history-container')
+      : button.nextElementSibling;
     if (!container) return;
+    const iconOnly = button.dataset.iconOnly === '1';
+    const setOpen = (open) => {
+      if (iconOnly) {
+        button.classList.toggle('active', open);
+        button.setAttribute('aria-expanded', String(open));
+      } else {
+        button.innerHTML = `<i class="bi bi-clock-history me-1"></i>${open ? 'Hide' : 'View'} history`;
+      }
+    };
 
     if (container.style.display === 'none') {
       // Load and show history
       container.innerHTML = '<div class="text-muted small py-2">Loading history...</div>';
       container.style.display = 'block';
-      button.innerHTML = '<i class="bi bi-clock-history me-1"></i>Hide history';
+      setOpen(true);
 
       try {
         const response = await API.get(
@@ -1011,7 +1229,7 @@ class InvestorManagementComponent {
     } else {
       // Hide history
       container.style.display = 'none';
-      button.innerHTML = '<i class="bi bi-clock-history me-1"></i>View history';
+      setOpen(false);
     }
   }
 
