@@ -94,7 +94,8 @@ class FinancialReportsComponent {
   init() {
     this.bindEvents();
     this._propertiesPromise = this.loadProperties();
-    if (window.isAdmin && window.isAdmin()) this.loadAllInvestors();
+    // Non-admins get only the investors of the properties they can access
+    this.loadAllInvestors();
 
     // Initial cleanup to ensure no leftover modals from previous sessions
     this.forceCleanupModalBackdrops();
