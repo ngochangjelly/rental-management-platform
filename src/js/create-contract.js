@@ -25,6 +25,12 @@ import {
   getSection1BaseClauseTextsVi,
   buildSection2ClausesVi,
   getAirconClauseIndexInSection1,
+  EARLY_TERMINATION_TITLE,
+  EARLY_TERMINATION_TITLE_VI,
+  getEarlyTerminationLines,
+  getEarlyTerminationLinesVi,
+  formatEarlyTerminationLine,
+  renderEarlyTerminationHtml,
 } from "./components/contract-clauses.js";
 import { jsPDF } from "jspdf";
 
@@ -536,6 +542,13 @@ async function generatePDF(state) {
   const section2Clauses = buildSection2Clauses(state);
   section2Clauses.forEach((c) => addText(c, { indent: true, spacing: 5 }));
 
+  // ── Section 3: Early termination ───────────────────────────────────────────
+  y += 15;
+  addText(EARLY_TERMINATION_TITLE, { bold: true, fontSize: 12, spacing: 10 });
+  getEarlyTerminationLines().forEach((line) =>
+    addText(formatEarlyTerminationLine(line), { indent: true, bold: line.kind === "heading", spacing: 3 }),
+  );
+
   y += 20;
 
   // ── Signature section ──────────────────────────────────────────────────────
@@ -782,6 +795,13 @@ async function generatePDFVietnamese(state) {
   addText("2) VÀ CÁC BÊN THỎA THUẬN THÊM NHƯ SAU:", { bold: true, fontSize: 12, spacing: 10 });
   const section2ClausesVi = buildSection2ClausesVi(state);
   section2ClausesVi.forEach((c) => addText(c, { indent: true, spacing: 5 }));
+
+  // ── Section 3: Early termination ───────────────────────────────────────────
+  y += 15;
+  addText(EARLY_TERMINATION_TITLE_VI, { bold: true, fontSize: 12, spacing: 10 });
+  getEarlyTerminationLinesVi().forEach((line) =>
+    addText(formatEarlyTerminationLine(line), { indent: true, bold: line.kind === "heading", spacing: 3 }),
+  );
 
   y += 20;
 
@@ -1698,6 +1718,13 @@ class PublicContractCreator {
         ${p(bold("2) AND PROVIDED ALWAYS AS IT IS HEREBY AGREED AS FOLLOWS:"))}
         <div style="margin-left:20px;">
           ${section2Clauses.map((c) => p(c, "margin-bottom:6px;")).join("")}
+        </div>
+      </div>
+
+      <div style="margin:16px 0;">
+        ${p(bold(EARLY_TERMINATION_TITLE))}
+        <div style="margin-left:20px;">
+          ${renderEarlyTerminationHtml(getEarlyTerminationLines())}
         </div>
       </div>
 

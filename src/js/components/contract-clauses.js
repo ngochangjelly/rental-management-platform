@@ -245,6 +245,75 @@ export function buildSection2Clauses(contractData) {
   return clauses;
 }
 
+// ─── Section 3: Early termination ─────────────────────────────────────────────
+
+export const EARLY_TERMINATION_TITLE = "3) EARLY TERMINATION OF AGREEMENT";
+
+/**
+ * Section 3 content as an ordered list of lines, so every renderer (HTML
+ * preview, PDF, DOCX) prints the same thing. Each line is
+ * { kind: "heading" | "text" | "bullet", text }.
+ * Keep in lockstep with getEarlyTerminationLinesVi below.
+ */
+export function getEarlyTerminationLines() {
+  return [
+    { kind: "heading", text: "a) Early termination by Tenant B" },
+    { kind: "text", text: "Tenant B shall not unilaterally terminate this Agreement before the end of the tenancy period, unless Tenant A agrees in writing." },
+    { kind: "text", text: "If Tenant B wishes to terminate this Agreement early, Tenant B must give Tenant A written notice at least thirty (30) calendar days before the intended date of handing over the room." },
+    { kind: "text", text: "Giving 30 days' notice does not release Tenant B from the obligation to pay compensation for terminating this Agreement early." },
+
+    { kind: "heading", text: "b) Financial obligations upon early termination" },
+    { kind: "text", text: "If Tenant B terminates this Agreement early without Tenant A's approval, Tenant B shall:" },
+    { kind: "bullet", text: "Pay in full all rent, electricity, water, service charges and any other amounts payable up to the actual date of handover;" },
+    { kind: "bullet", text: "Pay all costs of repairing and rectifying any damage caused by Tenant B;" },
+    { kind: "bullet", text: "Return the room, furniture and all items provided under this Agreement in their original condition, except for fair wear and tear;" },
+    { kind: "bullet", text: "Pay a penalty/compensation for early termination equal to 1 (ONE) month's rent;" },
+    { kind: "bullet", text: "Bear any reasonable, actually incurred costs of finding a new tenant and restoring the room, if any." },
+
+    { kind: "heading", text: "c) Security deposit" },
+    { kind: "text", text: "If Tenant B terminates this Agreement early in breach of this Agreement, Tenant A has the right to deduct from the security deposit any penalty, compensation, unpaid rent, utility charges, repair costs and any other financial obligations of Tenant B." },
+    { kind: "text", text: "If Tenant B's total obligations exceed the security deposit, Tenant B remains responsible for paying the shortfall to Tenant A within 7 (SEVEN) days of receiving the check-out notice." },
+
+    { kind: "heading", text: "d) Less than 30 days' notice" },
+    { kind: "text", text: "If Tenant B leaves the room without giving at least 30 days' prior notice, or abandons the room, Tenant A has the right to forfeit the entire security deposit as compensation for the breach of the notice obligation." },
+
+    { kind: "heading", text: "e) Refund of security deposit" },
+    { kind: "text", text: "If this Agreement ends on its expiry date, or Tenant A has approved an early termination, Tenant A will inspect the room after Tenant B has fulfilled all obligations and handed over the room." },
+    { kind: "text", text: "The remaining security deposit, after valid deductions, will be refunded to Tenant B within 7 (SEVEN) working days from the date the room handover is completed." },
+  ];
+}
+
+/**
+ * Format a Section 3 line as plain text for PDF/DOCX renderers
+ * (bullets get a leading "• ").
+ */
+export function formatEarlyTerminationLine(line) {
+  return line.kind === "bullet" ? `• ${line.text}` : line.text;
+}
+
+/**
+ * Render Section 3 lines as HTML for the on-screen previews. Consecutive
+ * bullets are grouped into one <ul>. Text is static clause wording (no user
+ * input), so it is inserted as-is.
+ */
+export function renderEarlyTerminationHtml(lines) {
+  let html = "";
+  let inList = false;
+  for (const line of lines) {
+    if (line.kind === "bullet") {
+      if (!inList) { html += `<ul style="margin:4px 0 6px 0;padding-left:20px;">`; inList = true; }
+      html += `<li style="margin-bottom:3px;">${line.text}</li>`;
+      continue;
+    }
+    if (inList) { html += "</ul>"; inList = false; }
+    html += line.kind === "heading"
+      ? `<p style="margin:10px 0 4px 0;"><strong>${line.text}</strong></p>`
+      : `<p style="margin:4px 0;">${line.text}</p>`;
+  }
+  if (inList) html += "</ul>";
+  return html;
+}
+
 /**
  * Locate the index of the air-conditioner servicing clause within the array
  * returned by getSection1BaseClauseTexts / getSection1BaseClauseTextsVi (the
@@ -510,4 +579,41 @@ export function buildSection2ClausesVi(contractData) {
   );
 
   return clauses;
+}
+
+// ─── Section 3: Early termination (Vietnamese) ─────────────────────────────
+
+export const EARLY_TERMINATION_TITLE_VI = "3) CHẤM DỨT HỢP ĐỒNG TRƯỚC THỜI HẠN";
+
+/**
+ * Vietnamese counterpart of getEarlyTerminationLines — same order, same
+ * line kinds. Uses "Bên A" / "Bên B" to match the parties as defined at the
+ * top of the Vietnamese contract.
+ */
+export function getEarlyTerminationLinesVi() {
+  return [
+    { kind: "heading", text: "a) Trường hợp Bên B đơn phương chấm dứt Hợp đồng trước thời hạn" },
+    { kind: "text", text: "Bên B không được đơn phương chấm dứt Hợp đồng trước thời hạn, trừ khi được Bên A đồng ý bằng văn bản." },
+    { kind: "text", text: "Trong trường hợp Bên B có nhu cầu chấm dứt Hợp đồng trước thời hạn, Bên B phải gửi thông báo bằng văn bản cho Bên A ít nhất ba mươi (30) ngày dương lịch trước ngày dự kiến bàn giao mặt bằng." },
+    { kind: "text", text: "Việc thông báo trước 30 ngày không làm mất nghĩa vụ bồi thường do chấm dứt Hợp đồng trước thời hạn của Bên B." },
+
+    { kind: "heading", text: "b) Nghĩa vụ tài chính khi chấm dứt trước hạn" },
+    { kind: "text", text: "Nếu Bên B tự ý chấm dứt Hợp đồng trước thời hạn mà không thuộc trường hợp được Bên A chấp thuận, Bên B có trách nhiệm:" },
+    { kind: "bullet", text: "Thanh toán đầy đủ tiền thuê, tiền điện, nước, phí dịch vụ và các khoản phải trả khác phát sinh đến thời điểm bàn giao thực tế;" },
+    { kind: "bullet", text: "Thanh toán toàn bộ chi phí sửa chữa, khắc phục hư hỏng do lỗi của Bên B;" },
+    { kind: "bullet", text: "Hoàn trả mặt bằng, nội thất và tài sản kèm theo Hợp đồng về tình trạng ban đầu, trừ hao mòn tự nhiên;" },
+    { kind: "bullet", text: "Chịu khoản phạt/bồi thường do chấm dứt Hợp đồng trước thời hạn tương đương 1 (MỘT) tháng tiền thuê;" },
+    { kind: "bullet", text: "Chịu các chi phí hợp lý, thực tế phát sinh cho việc tìm kiếm người thuê mới và khôi phục mặt bằng, nếu có." },
+
+    { kind: "heading", text: "c) Tiền đặt cọc" },
+    { kind: "text", text: "Trong trường hợp Bên B chấm dứt Hợp đồng trước thời hạn trái với thỏa thuận, Bên A có quyền khấu trừ tiền phạt, tiền bồi thường, tiền thuê còn thiếu, chi phí tiện ích, chi phí sửa chữa và các nghĩa vụ tài chính khác của Bên B từ khoản tiền đặt cọc." },
+    { kind: "text", text: "Nếu tổng nghĩa vụ của Bên B lớn hơn tiền đặt cọc, Bên B vẫn có trách nhiệm thanh toán phần chênh lệch còn thiếu cho Bên A trong vòng 07 (BẢY) ngày kể từ ngày nhận được thông báo trả phòng (check-out)." },
+
+    { kind: "heading", text: "d) Trường hợp thông báo không đủ 30 ngày" },
+    { kind: "text", text: "Nếu Bên B rời khỏi mặt bằng mà không thông báo trước ít nhất 30 ngày hoặc tự ý bỏ nhà, Bên A có quyền khấu trừ toàn bộ tiền đặt cọc để bồi thường cho việc vi phạm nghĩa vụ thông báo." },
+
+    { kind: "heading", text: "e) Hoàn trả tiền đặt cọc" },
+    { kind: "text", text: "Trường hợp Hợp đồng chấm dứt đúng hạn hoặc được Bên A chấp thuận chấm dứt trước hạn, sau khi Bên B hoàn thành đầy đủ nghĩa vụ và bàn giao mặt bằng, Bên A sẽ kiểm tra hiện trạng." },
+    { kind: "text", text: "Phần tiền đặt cọc còn lại sau khi khấu trừ các nghĩa vụ hợp lệ sẽ được hoàn trả cho Bên B trong vòng 07 (BẢY) ngày làm việc kể từ ngày hoàn tất việc bàn giao phòng." },
+  ];
 }

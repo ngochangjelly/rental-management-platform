@@ -15,6 +15,12 @@ import {
   formatMonthsTextVi,
   formatLeasePeriodVi,
   formatTenancyPeriodVi,
+  EARLY_TERMINATION_TITLE,
+  EARLY_TERMINATION_TITLE_VI,
+  getEarlyTerminationLines,
+  getEarlyTerminationLinesVi,
+  formatEarlyTerminationLine,
+  renderEarlyTerminationHtml,
 } from "./contract-clauses.js";
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
@@ -3534,6 +3540,13 @@ class ContractManagementComponent {
                     </div>
                 </div>
 
+                <div style="margin: 30px 0;">
+                    <p><strong>${EARLY_TERMINATION_TITLE}</strong></p>
+                    <div style="margin-left: 20px;">
+                        ${renderEarlyTerminationHtml(getEarlyTerminationLines())}
+                    </div>
+                </div>
+
                 <div style="margin: 30px 0; text-align: center; page-break-inside: avoid; break-inside: avoid;">
                     <p><strong>By signing below, both parties agree to abide by all the above terms and conditions</strong></p>
                 
@@ -4402,6 +4415,21 @@ class ContractManagementComponent {
         children.push(para(clause, { indent: true, spacing: 5 })),
       );
 
+      // ── Section 3: Early termination ──
+      children.push(para("", { spacing: 15 }));
+      children.push(
+        para(EARLY_TERMINATION_TITLE, { bold: true, fontSize: 12, spacing: 10 }),
+      );
+      getEarlyTerminationLines().forEach((line) =>
+        children.push(
+          para(formatEarlyTerminationLine(line), {
+            indent: true,
+            bold: line.kind === "heading",
+            spacing: 3,
+          }),
+        ),
+      );
+
       // ── Signatures ──
       children.push(para("", { spacing: 20 }));
       children.push(
@@ -5217,6 +5245,17 @@ class ContractManagementComponent {
         addText(clause, { indent: true, spacing: 5 });
       });
 
+      // Section 3: Early termination
+      currentY += 15;
+      addText(EARLY_TERMINATION_TITLE, { bold: true, fontSize: 12, spacing: 10 });
+      getEarlyTerminationLines().forEach((line) => {
+        addText(formatEarlyTerminationLine(line), {
+          indent: true,
+          bold: line.kind === "heading",
+          spacing: 3,
+        });
+      });
+
       currentY += 20;
 
       // Signature section
@@ -5835,6 +5874,17 @@ class ContractManagementComponent {
         addText(clause, { indent: true, spacing: 5 });
       });
 
+      // Section 3: Early termination
+      currentY += 15;
+      addText(EARLY_TERMINATION_TITLE_VI, { bold: true, fontSize: 12, spacing: 10 });
+      getEarlyTerminationLinesVi().forEach((line) => {
+        addText(formatEarlyTerminationLine(line), {
+          indent: true,
+          bold: line.kind === "heading",
+          spacing: 3,
+        });
+      });
+
       currentY += 20;
 
       // Signature section
@@ -6275,6 +6325,14 @@ class ContractManagementComponent {
                             <p style="margin-bottom: 15px;"><strong>e)</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                             
                             <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).</p>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Early Termination -->
+                    <div style="margin-bottom: 30px;">
+                        <p style="margin-bottom: 20px; font-weight: bold; font-size: 14px;">${EARLY_TERMINATION_TITLE}</p>
+                        <div style="margin-left: 15px;">
+                            ${renderEarlyTerminationHtml(getEarlyTerminationLines())}
                         </div>
                     </div>
 
@@ -7663,6 +7721,28 @@ class ContractManagementComponent {
                   "Cleaning fee: SGD$_____ / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).",
                 ),
               ]),
+              blankPara(),
+
+              // Section 3: Early termination
+              new Paragraph({
+                children: [bold(EARLY_TERMINATION_TITLE)],
+                spacing: { before: 240 },
+              }),
+              blankPara(),
+              ...getEarlyTerminationLines().map((line) =>
+                new Paragraph({
+                  children: [
+                    line.kind === "heading"
+                      ? bold(line.text)
+                      : normal(formatEarlyTerminationLine(line)),
+                  ],
+                  indent: { left: line.kind === "bullet" ? 720 : 360 },
+                  spacing: {
+                    before: line.kind === "heading" ? 120 : 0,
+                    after: 80,
+                  },
+                }),
+              ),
               blankPara(),
               blankPara(),
 
