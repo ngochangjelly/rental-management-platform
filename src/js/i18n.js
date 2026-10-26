@@ -186,6 +186,8 @@ i18next.init({
           addLeavePlanTooltip:
             "Add away days when tenant is on holiday or away from home. This will be deducted from utility expenses.",
           awayDays: "Away",
+          movedOutTenants: "Moved out",
+          movedOutCount: "moved out",
           editLeavePlan: "Edit Leave Plan",
           totalLeaveDays: "Total leave days",
           startDate: "Start Date",
@@ -848,6 +850,8 @@ i18next.init({
           addLeavePlanTooltip:
             "Thêm ngày vắng nhà khi người thuê đi du lịch hoặc về quê. Số ngày này sẽ được trừ vào chi phí điện nước.",
           awayDays: "Vắng",
+          movedOutTenants: "Đã trả phòng",
+          movedOutCount: "đã trả phòng",
           editLeavePlan: "Sửa ngày vắng nhà",
           totalLeaveDays: "Tổng ngày vắng nhà",
           startDate: "Ngày bắt đầu",

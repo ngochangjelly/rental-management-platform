@@ -79,6 +79,8 @@
         "addLeavePlan": "Add Leave Plan",
         "addLeavePlanTooltip": "Add away days when tenant is on holiday or away from home. This will be deducted from utility expenses.",
         "awayDays": "Away",
+        "movedOutTenants": "Moved out",
+        "movedOutCount": "moved out",
         "editLeavePlan": "Edit Leave Plan",
         "totalLeaveDays": "Total leave days",
         "startDate": "Start Date",

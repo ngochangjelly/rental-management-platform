@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
 
 /**
@@ -10,12 +11,14 @@ class TenantCalendar {
         this.selectedProperty = null;
         this.tenants = [];
         this.currentView = 'table'; // 'table' or 'calendar'
+        this.showMovedOut = false; // moved-out tenants are collapsed by default
     }
 
     /**
      * Initialize the calendar with tenant data for a specific property
      */
     loadTenants(propertyId, tenants) {
+        if (propertyId !== this.selectedProperty) this.showMovedOut = false;
         this.selectedProperty = propertyId;
         this.tenants = tenants || [];
 
@@ -63,6 +66,7 @@ class TenantCalendar {
 
         // Filter tenants for selected property
         const propertyTenants = this.getPropertyTenants();
+        this.renderCounts(propertyTenants);
 
         if (propertyTenants.length === 0) {
             container.innerHTML = `
@@ -76,6 +80,61 @@ class TenantCalendar {
 
         // Generate calendar HTML
         container.innerHTML = this.generateCalendarHTML(propertyTenants);
+    }
+
+    /**
+     * A tenant has moved out once their move-out date has passed
+     */
+    isMovedOut(tenant) {
+        return !!(tenant.moveoutDate && new Date(tenant.moveoutDate) < new Date());
+    }
+
+    /**
+     * Show active / moved-out / total badges in the timeline card header
+     */
+    renderCounts(tenants) {
+        const el = document.getElementById('tenantCalendarCounts');
+        if (!el) return;
+        if (tenants.length === 0) {
+            el.innerHTML = '';
+            return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const activeCount = tenants.filter((t) => {
+            const movein = new Date(t.moveinDate);
+            movein.setHours(0, 0, 0, 0);
+            if (movein > today) return false;
+            if (!t.moveoutDate) return true;
+            const moveout = new Date(t.moveoutDate);
+            moveout.setHours(0, 0, 0, 0);
+            return moveout >= today;
+        }).length;
+        const movedOutCount = tenants.filter((t) => this.isMovedOut(t)).length;
+
+        el.innerHTML = `
+            <span class="badge ${activeCount > 0 ? 'bg-success' : 'bg-secondary'} occupancy-header-badge">
+                <i class="bi bi-people-fill me-1"></i>${activeCount} ${i18next.t('tenancyOccupancy.active', 'active')}
+            </span>
+            <span class="badge occupancy-header-badge moved-out-count-badge">
+                <i class="bi bi-box-arrow-right me-1"></i>${movedOutCount} ${i18next.t('tenancyOccupancy.movedOutCount', 'moved out')}
+            </span>
+            <span class="badge bg-secondary occupancy-header-badge">
+                ${tenants.length} ${i18next.t('tenancyOccupancy.total', 'total')}
+            </span>
+        `;
+    }
+
+    /**
+     * Show or hide the moved-out tenants
+     */
+    toggleMovedOut(button) {
+        const group = button.closest('.moved-out-group');
+        if (!group) return;
+        this.showMovedOut = !group.classList.contains('expanded');
+        group.classList.toggle('expanded', this.showMovedOut);
+        button.setAttribute('aria-expanded', String(this.showMovedOut));
     }
 
     /**
@@ -201,10 +260,35 @@ class TenantCalendar {
                 <div class="calendar-rows">
         `;
 
-        // Render each tenant as a row
-        tenants.forEach((tenant, index) => {
+        // Moved-out tenants are collapsed behind a toggle row
+        const activeTenants = tenants.filter((t) => !this.isMovedOut(t));
+        const movedOutTenants = tenants.filter((t) => this.isMovedOut(t));
+
+        activeTenants.forEach((tenant, index) => {
             html += this.generateTenantRow(tenant, index, totalDaysInYear, daysInMonths);
         });
+
+        if (movedOutTenants.length > 0) {
+            const expanded = this.showMovedOut;
+            const label = i18next.t('tenancyOccupancy.movedOutTenants', 'Moved out');
+            html += `
+                <div class="moved-out-group ${expanded ? 'expanded' : ''}">
+                    <button type="button" class="moved-out-toggle" aria-expanded="${expanded}"
+                        onclick="tenantCalendar.toggleMovedOut(this)">
+                        <i class="bi bi-chevron-right moved-out-chevron"></i>
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>${this.escapeHtml(label)} (${movedOutTenants.length})</span>
+                    </button>
+                    <div class="moved-out-rows">
+            `;
+            movedOutTenants.forEach((tenant, index) => {
+                html += this.generateTenantRow(tenant, activeTenants.length + index, totalDaysInYear, daysInMonths);
+            });
+            html += `
+                    </div>
+                </div>
+            `;
+        }
 
         html += `
                 </div>

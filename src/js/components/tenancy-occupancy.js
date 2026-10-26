@@ -27,6 +27,7 @@ class TenancyOccupancyComponent {
     this.activeOnly = false;
     this.selectedProperties = new Set(); // Use Set for better performance
     this.lastClickedIndex = -1; // Track last clicked card for shift selection
+    this.expandedMovedOut = new Set(); // Properties whose moved-out tenants are shown
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     // Tenants load only once a property is selected, per filter combination
     this._tenantsKey = null; // filter key the loaded tenants belong to (null = not loaded)
@@ -873,6 +874,8 @@ class TenancyOccupancyComponent {
       return moveout >= today;
     }).length;
 
+    const movedOutCount = this.countMovedOut(tenants);
+
     // Determine badge color based on occupancy
     let badgeClass = "bg-secondary";
     if (currentTenants > 0) {
@@ -890,12 +893,12 @@ class TenancyOccupancyComponent {
                 </div>
             `;
     } else {
-      timelineHtml = this.generateCalendarHTML(tenants);
+      timelineHtml = this.generateCalendarHTML(tenants, property.propertyId);
     }
 
     return `
-            <div class="card mb-4 property-timeline-card" data-property-id="${property.propertyId}">
-                <div class="card-header d-flex justify-content-between align-items-center bg-light">
+            <div class="card mb-3 property-timeline-card" data-property-id="${property.propertyId}">
+                <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center bg-light">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-building text-primary"></i>
                         <div>
@@ -903,18 +906,21 @@ class TenancyOccupancyComponent {
                             ${address ? `<small class="text-muted">${this.escapeHtml(address)}</small>` : ""}
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none fs-6 px-3 py-2" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin</a>` : ""}
-                        ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge text-decoration-none fs-6 px-3 py-2" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenants</a>` : ""}
-                        <span class="badge ${badgeClass} fs-6 px-3 py-2" title="${i18next.t("tenancyOccupancy.currentTenants", "Current tenants")}: ${currentTenants}">
+                    <div class="d-flex flex-wrap justify-content-end align-items-center gap-1">
+                        ${property.adminFacebookGroup ? `<a href="${this.escapeHtml(property.adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none occupancy-header-badge" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin</a>` : ""}
+                        ${property.tenantFacebookGroup ? `<a href="${this.escapeHtml(property.tenantFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge text-decoration-none occupancy-header-badge" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenants</a>` : ""}
+                        <span class="badge ${badgeClass} occupancy-header-badge" data-role="active-count" title="${i18next.t("tenancyOccupancy.currentTenants", "Current tenants")}: ${currentTenants}">
                             <i class="bi bi-people-fill me-1"></i>${currentTenants} ${i18next.t("tenancyOccupancy.active", "active")}
                         </span>
-                        <span class="badge bg-secondary fs-6 px-3 py-2" title="${i18next.t("tenancyOccupancy.totalInYear", "Total in {{year}}").replace("{{year}}", this.currentYear)}">
+                        <span class="badge occupancy-header-badge moved-out-count-badge" data-role="moved-out-count" title="${i18next.t("tenancyOccupancy.movedOutTenants", "Moved out")}: ${movedOutCount}">
+                            <i class="bi bi-box-arrow-right me-1"></i>${movedOutCount} ${i18next.t("tenancyOccupancy.movedOutCount", "moved out")}
+                        </span>
+                        <span class="badge bg-secondary occupancy-header-badge" data-role="total-count" title="${i18next.t("tenancyOccupancy.totalInYear", "Total in {{year}}").replace("{{year}}", this.currentYear)}">
                             ${tenantCount} ${i18next.t("tenancyOccupancy.total", "total")}
                         </span>
                     </div>
                 </div>
-                <div class="card-body p-3" style="overflow-x: auto">
+                <div class="card-body p-2" style="overflow-x: auto">
                     ${timelineHtml}
                 </div>
             </div>
@@ -947,7 +953,7 @@ class TenancyOccupancyComponent {
   /**
    * Generate the calendar HTML with timeline bars
    */
-  generateCalendarHTML(tenants) {
+  generateCalendarHTML(tenants, propertyId) {
     const months = [
       "Jan",
       "Feb",
@@ -1012,15 +1018,41 @@ class TenancyOccupancyComponent {
                 <div class="calendar-rows">
         `;
 
-    // Render each tenant as a row
-    tenants.forEach((tenant, index) => {
-      html += this.generateTenantRow(
-        tenant,
-        index,
-        totalDaysInYear,
-        daysInMonths,
-      );
+    // Moved-out tenants are collapsed behind a toggle row
+    const activeTenants = tenants.filter((t) => !this.isMovedOut(t));
+    const movedOutTenants = tenants.filter((t) => this.isMovedOut(t));
+
+    activeTenants.forEach((tenant, index) => {
+      html += this.generateTenantRow(tenant, index, totalDaysInYear, daysInMonths);
     });
+
+    if (movedOutTenants.length > 0) {
+      const expanded = this.expandedMovedOut.has(propertyId);
+      const label = i18next.t("tenancyOccupancy.movedOutTenants", "Moved out");
+      html += `
+                <div class="moved-out-group ${expanded ? "expanded" : ""}">
+                    <button type="button" class="moved-out-toggle" aria-expanded="${expanded}"
+                        data-property-id="${this.escapeAttr(propertyId)}"
+                        onclick="tenancyOccupancyComponent.toggleMovedOut(this)">
+                        <i class="bi bi-chevron-right moved-out-chevron"></i>
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>${this.escapeHtml(label)} (${movedOutTenants.length})</span>
+                    </button>
+                    <div class="moved-out-rows">
+      `;
+      movedOutTenants.forEach((tenant, index) => {
+        html += this.generateTenantRow(
+          tenant,
+          activeTenants.length + index,
+          totalDaysInYear,
+          daysInMonths,
+        );
+      });
+      html += `
+                    </div>
+                </div>
+      `;
+    }
 
     html += `
                 </div>
@@ -1028,6 +1060,31 @@ class TenancyOccupancyComponent {
         `;
 
     return html;
+  }
+
+  /**
+   * A tenant has moved out once their move-out date has passed
+   */
+  isMovedOut(tenant) {
+    return !!(tenant.moveoutDate && new Date(tenant.moveoutDate) < new Date());
+  }
+
+  countMovedOut(tenants) {
+    return tenants.filter((t) => this.isMovedOut(t)).length;
+  }
+
+  /**
+   * Show or hide the moved-out tenants of one property
+   */
+  toggleMovedOut(button) {
+    const propertyId = button.dataset.propertyId;
+    const group = button.closest(".moved-out-group");
+    if (!group) return;
+    const expanded = !group.classList.contains("expanded");
+    group.classList.toggle("expanded", expanded);
+    button.setAttribute("aria-expanded", String(expanded));
+    if (expanded) this.expandedMovedOut.add(propertyId);
+    else this.expandedMovedOut.delete(propertyId);
   }
 
   /**
@@ -1728,22 +1785,26 @@ class TenancyOccupancyComponent {
                     </div>
                 `;
       } else {
-        cardBody.innerHTML = this.generateCalendarHTML(propertyTenants);
+        cardBody.innerHTML = this.generateCalendarHTML(propertyTenants, propertyId);
       }
     }
 
     // Update the badge counts in the header
     const currentTenants = propertyTenants.filter((t) => !t.moveoutDate).length;
-    const activeBadge = propertyCard.querySelector(
-      ".badge.bg-success, .badge.bg-secondary",
-    );
+    const activeBadge = propertyCard.querySelector('[data-role="active-count"]');
     if (activeBadge) {
       activeBadge.innerHTML = `<i class="bi bi-people-fill me-1"></i>${currentTenants} ${i18next.t("tenancyOccupancy.active", "active")}`;
-      activeBadge.className =
-        currentTenants > 0 ? "badge bg-success" : "badge bg-secondary";
+      activeBadge.classList.toggle("bg-success", currentTenants > 0);
+      activeBadge.classList.toggle("bg-secondary", currentTenants === 0);
     }
 
-    const totalBadge = propertyCard.querySelectorAll(".badge")[1];
+    const movedOutBadge = propertyCard.querySelector('[data-role="moved-out-count"]');
+    if (movedOutBadge) {
+      const movedOutCount = this.countMovedOut(propertyTenants);
+      movedOutBadge.innerHTML = `<i class="bi bi-box-arrow-right me-1"></i>${movedOutCount} ${i18next.t("tenancyOccupancy.movedOutCount", "moved out")}`;
+    }
+
+    const totalBadge = propertyCard.querySelector('[data-role="total-count"]');
     if (totalBadge) {
       totalBadge.textContent = `${propertyTenants.length} ${i18next.t("tenancyOccupancy.total", "total")}`;
     }

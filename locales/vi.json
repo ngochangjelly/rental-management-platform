@@ -79,6 +79,8 @@
         "addLeavePlan": "Thêm ngày vắng nhà",
         "addLeavePlanTooltip": "Thêm ngày vắng nhà khi người thuê đi du lịch hoặc về quê. Số ngày này sẽ được trừ vào chi phí điện nước.",
         "awayDays": "Vắng",
+        "movedOutTenants": "Đã trả phòng",
+        "movedOutCount": "đã trả phòng",
         "editLeavePlan": "Sửa ngày vắng nhà",
         "totalLeaveDays": "Tổng ngày vắng nhà",
         "startDate": "Ngày bắt đầu",
