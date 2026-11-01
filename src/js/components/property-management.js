@@ -24,6 +24,7 @@ import {
   applyMobileInputHints,
   trackUserEdits,
 } from '../utils/mobile-ux.js';
+import { syncRoomPhotoStrips } from './room-photos/room-photo-strip.js';
 
 /**
  * Property Management Component
@@ -325,6 +326,14 @@ class PropertyManagementComponent {
       .forEach(row => container.appendChild(row));
 
     wrap.style.display = checkedRooms.length > 0 ? 'block' : 'none';
+
+    // Photo strip under each saved room (upload/manage photos, share link)
+    const property = this.editingProperty;
+    syncRoomPhotoStrips(container, {
+      propertyId: property?.propertyId || null,
+      savedRooms: property?.rooms || [],
+      address: property?.address || '',
+    });
   }
 
   // Updates a room-price row's caption: shows the out-of-range warning when the

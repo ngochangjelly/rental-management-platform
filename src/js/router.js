@@ -11,6 +11,7 @@
  *   #/bills/<property-slug>/<year>/<month>          → bill management for property/month
  *   #/bills/<property-slug>                         → bill management (current month)
  *   #/properties/<property-slug>                    → property detail panel (Properties section)
+ *   #/sales-map/<property-slug>                     → Sales Map focused on one property
  *   #/tenancy-occupancy/<property-slugs>            → occupancy timelines (current year)
  *   #/tenancy-occupancy/<property-slugs>/<year>     → occupancy timelines for a year
  *     <property-slugs> = comma-separated property slugs, or "all"
@@ -138,6 +139,11 @@ class AppRouter {
       {
         pattern: /^\/properties\/(.+)$/,
         handle: ([, slug]) => this._goProperty(slug),
+      },
+      // Sales map — focus one property
+      {
+        pattern: /^\/sales-map\/(.+)$/,
+        handle: ([, slug]) => this._goSalesMap(slug),
       },
       // Tenancy occupancy — property slugs (comma-separated or "all") + year
       {
@@ -410,6 +416,12 @@ class AppRouter {
       console.error("[Router] Failed to resolve properties slug:", e);
       return null;
     }
+  }
+
+  _goSalesMap(slug) {
+    if (!this._goSection("sales-map")) return;
+    // The map applies it once its data has loaded
+    window.salesMapComponent?.focusBySlug(slug);
   }
 
   async _goOccupancy(slugs, year) {

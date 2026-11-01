@@ -1,5 +1,11 @@
-import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+import { getRoomTypeDisplayName, compareRoomTypes } from '../utils/room-type-mapper.js';
 import i18next from '../i18n.js';
+import { roomListingService } from '../services/room-listing-service.js';
+import { shareRoomLink, formatPriceRange } from './room-photos/room-share.js';
+import './room-photos/room-photos.css';
+import { SalesPropertyPicker } from './sales-map/sales-property-picker.js';
+
+const FOCUS_ZOOM = 17; // street level when a property is picked
 
 /**
  * SalesMapComponent — Singapore property map for the Sales department.
@@ -19,6 +25,13 @@ class SalesMapComponent {
     this._leafletReady = false;
     this._dataLoaded = false;
     this._activeFilter = 'all';
+    this._roomsStale = false;
+    this._picker = null;
+    this.focusedPropertyId = null; // property picked in the picker / by clicking its pin
+    this._pendingFocusSlug = null; // deep link that arrived before the data
+    this._dataReady = false;
+    // Photos/links edited elsewhere (e.g. Properties) → refresh cards on next visit
+    window.addEventListener('room-listings:changed', () => { this._roomsStale = true; });
   }
 
   // ─── Called by DashboardController when section becomes visible ──────────────
@@ -32,6 +45,12 @@ class SalesMapComponent {
     } else if (this.map) {
       // Re-show: invalidate size in case the container was resized while hidden
       setTimeout(() => this.map.invalidateSize(), 50);
+      // The sidebar resets the URL to #/sales-map; put the focused property back
+      setTimeout(() => this._syncUrl(), 0);
+      if (this._roomsStale) {
+        this._roomsStale = false;
+        this.loadData();
+      }
     }
   }
 
@@ -118,7 +137,10 @@ class SalesMapComponent {
         </div>
       </div>
 
-      <div class="sales-map-layout d-flex gap-0" style="height:calc(100vh - 220px);min-height:480px;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+      <!-- Property picker (focus the map on one property) -->
+      <div id="sm-property-picker"></div>
+
+      <div class="sales-map-layout d-flex gap-0" style="height:calc(100vh - 370px);min-height:460px;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
 
         <!-- Map pane -->
         <div style="position:relative;flex:1 1 0;min-width:0;">
@@ -159,12 +181,7 @@ class SalesMapComponent {
             <div style="font-weight:700;font-size:0.9rem;color:#374151;">${t('panelTitle')}</div>
             <div id="sm-panel-meta" style="font-size:0.75rem;color:#9ca3af;margin-top:2px;"></div>
           </div>
-          <div id="sm-panel-body" style="flex:1;overflow-y:auto;padding:14px 16px;">
-            <div style="text-align:center;color:#9ca3af;padding-top:48px;">
-              <i class="bi bi-cursor" style="font-size:2.5rem;"></i>
-              <div style="margin-top:10px;font-size:0.85rem;">${t('hoverHint')}</div>
-            </div>
-          </div>
+          <div id="sm-panel-body" style="flex:1;overflow-y:auto;padding:14px 16px;">${this._panelHintHTML()}</div>
         </div>
       </div>
 
@@ -179,23 +196,41 @@ class SalesMapComponent {
 
     this._attachFilterListeners();
     this._initResponsive();
+    this._attachRoomCardListeners();
+
+    const pickerMount = document.getElementById('sm-property-picker');
+    if (pickerMount) {
+      this._picker = new SalesPropertyPicker({
+        mount: pickerMount,
+        onSelect: (propertyId) => this.focusProperty(propertyId),
+      });
+    }
+  }
+
+  _panelHintHTML() {
+    return `<div style="text-align:center;color:#9ca3af;padding-top:48px;">
+      <i class="bi bi-cursor" style="font-size:2.5rem;"></i>
+      <div style="margin-top:10px;font-size:0.85rem;">${i18next.t('salesMap.hoverHint')}</div>
+    </div>`;
   }
 
   _attachFilterListeners() {
     document.querySelectorAll('.sm-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this._activeFilter = btn.dataset.filter;
-        document.querySelectorAll('.sm-filter-btn').forEach(b => {
-          const active = b === btn;
-          b.classList.toggle('sm-filter-active', active);
-          b.style.background = active ? '#667eea' : 'white';
-          b.style.color = active ? 'white' : '#374151';
-          b.style.borderColor = active ? '#667eea' : '#dee2e6';
-          b.style.fontWeight = active ? '700' : '400';
-        });
-        this._placeMarkers(this._activeFilter);
-      });
+      btn.addEventListener('click', () => this._setTypeFilter(btn.dataset.filter));
     });
+  }
+
+  _setTypeFilter(filter) {
+    this._activeFilter = filter;
+    document.querySelectorAll('.sm-filter-btn').forEach(b => {
+      const active = b.dataset.filter === filter;
+      b.classList.toggle('sm-filter-active', active);
+      b.style.background = active ? '#667eea' : 'white';
+      b.style.color = active ? 'white' : '#374151';
+      b.style.borderColor = active ? '#667eea' : '#dee2e6';
+      b.style.fontWeight = active ? '700' : '400';
+    });
+    this._placeMarkers(filter);
   }
 
   _initResponsive() {
@@ -226,9 +261,18 @@ class SalesMapComponent {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to load');
       this.properties = data.properties || [];
+      this._dataReady = true;
       this._initMap();
       this._placeMarkers(this._activeFilter);
       this._updateMeta();
+
+      const focused = this._focusedProperty();
+      if (focused) this._showPanel(focused); // fresh rooms/photos after a reload
+      if (this._pendingFocusSlug) {
+        const slug = this._pendingFocusSlug;
+        this._pendingFocusSlug = null;
+        this.focusBySlug(slug);
+      }
     } catch (err) {
       console.error('[SalesMap] loadData failed:', err);
       this._showLoadError(err.message);
@@ -257,16 +301,18 @@ class SalesMapComponent {
     }).addTo(this.map);
   }
 
-  _makeIcon(type) {
+  _makeIcon(type, focused = false) {
     const color = type === 'condo' ? '#d97706' : '#2563eb';
+    const [w, h] = focused ? [34, 51] : [24, 36];
     const svg = encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24S24 21 24 12C24 5.4 18.6 0 12 0z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="12" r="5" fill="white" opacity="0.9"/></svg>`
     );
     return L.icon({
       iconUrl: `data:image/svg+xml,${svg}`,
-      iconSize: [24, 36],
-      iconAnchor: [12, 36],
-      popupAnchor: [0, -38],
+      iconSize: [w, h],
+      iconAnchor: [w / 2, h],
+      popupAnchor: [0, -(h + 2)],
+      className: focused ? 'sm-pin-focused' : '',
     });
   }
 
@@ -280,6 +326,14 @@ class SalesMapComponent {
 
     const list = filter === 'all' ? this.properties : this.properties.filter(p => p.propertyType === filter);
     this._updateStats(list);
+
+    // A focused property hidden by the type filter is no longer focused
+    if (this.focusedPropertyId && !list.some(p => p.propertyId === this.focusedPropertyId)) {
+      this.focusedPropertyId = null;
+      this._resetPanel();
+      this._syncUrl();
+    }
+    this._picker?.render(list, this.focusedPropertyId);
     const noCoords = [];
     const withCoords = [];
 
@@ -311,26 +365,128 @@ class SalesMapComponent {
           lng += SPREAD * Math.cos(angle);
         }
 
-        const icon = this._makeIcon(prop.propertyType);
-        const marker = L.marker([lat, lng], { icon }).addTo(this.map);
+        const focused = prop.propertyId === this.focusedPropertyId;
+        const icon = this._makeIcon(prop.propertyType, focused);
+        const marker = L.marker([lat, lng], { icon, zIndexOffset: focused ? 1000 : 0 }).addTo(this.map);
 
         marker.bindTooltip(
           `<strong>${prop.address}</strong><br>${prop.unit}<br><span style="color:#16a34a">${t('available')}: ${prop.availableCount}/${prop.totalRooms}</span>`,
-          { permanent: false, direction: 'top', offset: [0, -38] }
+          { permanent: false, direction: 'top', offset: [0, focused ? -52 : -38] }
         );
 
         marker.on('mouseover', () => this._showPanel(prop));
-        marker.on('click', () => this._showPanel(prop));
+        // Clicking a pin focuses that property (keeps the current zoom)
+        marker.on('click', () => this.focusProperty(prop.propertyId, { fly: false }));
         this.markers.push({ marker, property: prop });
       });
     }
 
     if (noCoords.length) this._showNoCoordsBanner(noCoords);
 
-    if (this.markers.length > 0) {
-      const group = L.featureGroup(this.markers.map(m => m.marker));
-      this.map.fitBounds(group.getBounds().pad(0.15), { maxZoom: 14 });
+    const focusedMarker = this._markerFor(this.focusedPropertyId);
+    if (focusedMarker) {
+      this.map.setView(focusedMarker.getLatLng(), Math.max(this.map.getZoom(), FOCUS_ZOOM));
+    } else {
+      this._fitAllMarkers();
     }
+  }
+
+  _fitAllMarkers({ animate = false } = {}) {
+    if (!this.markers.length) return;
+    const group = L.featureGroup(this.markers.map(m => m.marker));
+    this.map.fitBounds(group.getBounds().pad(0.15), { maxZoom: 14, animate });
+  }
+
+  // ─── Property focus (picker, pin click, #/sales-map/<slug>) ──────────────────
+
+  /**
+   * Focuses the map on one property, or on all of them when propertyId is null.
+   * fly: move the map (pin clicks keep the current view).
+   */
+  focusProperty(propertyId, { fly = true, updateUrl = true } = {}) {
+    const prop = propertyId ? this.properties.find(p => p.propertyId === propertyId) : null;
+    if (propertyId && !prop) return;
+
+    // A deep link can point at a type the filter currently hides
+    if (prop && this._activeFilter !== 'all' && prop.propertyType !== this._activeFilter) {
+      this.focusedPropertyId = prop.propertyId;
+      this._setTypeFilter('all');
+    }
+
+    this.focusedPropertyId = prop ? prop.propertyId : null;
+    this._highlightFocusedMarker();
+    this._picker?.setSelected(this.focusedPropertyId);
+
+    if (prop) {
+      this._showPanel(prop);
+      const marker = this._markerFor(prop.propertyId);
+      if (marker) {
+        if (fly) this.map.flyTo(marker.getLatLng(), Math.max(this.map.getZoom(), FOCUS_ZOOM), { duration: 0.6 });
+        marker.openTooltip();
+      }
+    } else {
+      this._resetPanel();
+      if (fly) this._fitAllMarkers({ animate: true });
+    }
+
+    if (updateUrl) this._syncUrl();
+  }
+
+  /** Router entry point for #/sales-map/<property-slug>. */
+  focusBySlug(slug) {
+    if (!this._dataReady) {
+      this._pendingFocusSlug = slug; // applied once loadData() finishes
+      return;
+    }
+    const prop = this.properties.find(p => window.SlugUtils?.propertySlug(p) === slug);
+    if (prop) this.focusProperty(prop.propertyId, { updateUrl: false });
+    else console.warn(`[SalesMap] No property for slug "${slug}"`);
+  }
+
+  _focusedProperty() {
+    return this.focusedPropertyId
+      ? this.properties.find(p => p.propertyId === this.focusedPropertyId) || null
+      : null;
+  }
+
+  _markerFor(propertyId) {
+    if (!propertyId) return null;
+    return this.markers.find(m => m.property.propertyId === propertyId)?.marker || null;
+  }
+
+  _highlightFocusedMarker() {
+    for (const { marker, property } of this.markers) {
+      const on = property.propertyId === this.focusedPropertyId;
+      marker.setIcon(this._makeIcon(property.propertyType, on));
+      marker.setZIndexOffset(on ? 1000 : 0);
+      const tooltip = marker.getTooltip();
+      if (tooltip) tooltip.options.offset = L.point(0, on ? -52 : -38);
+      if (!on) marker.closeTooltip();
+    }
+  }
+
+  _resetPanel() {
+    const body = document.getElementById('sm-panel-body');
+    if (body) body.innerHTML = this._panelHintHTML();
+    const mTitle = document.getElementById('sm-mobile-title');
+    if (mTitle) mTitle.textContent = '';
+    const mBody = document.getElementById('sm-mobile-body');
+    if (mBody) mBody.innerHTML = '';
+    this.selectedProperty = null;
+    const t = (k) => i18next.t(`salesMap.${k}`);
+    const avail = this.properties.reduce((sum, p) => sum + p.availableCount, 0);
+    const meta = document.getElementById('sm-panel-meta');
+    if (meta) meta.textContent = `${this.properties.length} ${t('properties')} · ${avail} ${t('roomsAvailable')}`;
+  }
+
+  // Keeps #/sales-map/<slug> in step with the focus (bookmarkable, survives refresh)
+  _syncUrl() {
+    if (!window.location.hash.startsWith('#/sales-map')) return; // user is elsewhere
+    const prop = this._focusedProperty();
+    const path = prop && window.SlugUtils
+      ? `/sales-map/${window.SlugUtils.propertySlug(prop)}`
+      : '/sales-map';
+    window.appRouter?.replace(path);
   }
 
   // ─── Side panel ───────────────────────────────────────────────────────────────
@@ -353,6 +509,8 @@ class SalesMapComponent {
     document.querySelectorAll('.sm-geocode-btn').forEach(btn =>
       btn.addEventListener('click', () => this._geocode(prop))
     );
+
+    this._prefetchRoomListings(prop);
   }
 
   _buildPanelHTML(prop) {
@@ -382,6 +540,8 @@ class SalesMapComponent {
 
     if (prop.totalRooms === 0) {
       html += `<div style="color:#9ca3af;font-size:0.82rem;text-align:center;padding:8px 0;">${t('noRooms')}</div>`;
+    } else if (Array.isArray(prop.roomDetails)) {
+      html += this._buildRoomCardsHTML(prop);
     } else {
       if (prop.availableRooms.length > 0) {
         html += `<div style="margin-bottom:10px;">
@@ -423,6 +583,99 @@ class SalesMapComponent {
 
   _roomLabel(roomType) {
     return getRoomTypeDisplayName(roomType);
+  }
+
+  // ─── Room cards (photos, price range, share link) ─────────────────────────────
+
+  _buildRoomCardsHTML(prop) {
+    const rp = (k, opts) => i18next.t(`roomPhotos.${k}`, opts);
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const rooms = [...prop.roomDetails].sort((a, b) =>
+      (b.isAvailable - a.isAvailable) || compareRoomTypes(a.room, b.room));
+
+    return rooms.map((r) => {
+      const label = this._roomLabel(r.room);
+      const price = formatPriceRange(r.minPrice, r.maxPrice);
+      const hasPhotos = r.photoCount > 0;
+      return `
+        <div class="rp-room-card${r.isAvailable ? '' : ' rp-occupied'}" data-pid="${esc(prop.propertyId)}" data-room="${esc(r.room)}">
+          <button type="button" class="rp-room-cover" data-sm-action="photos" ${hasPhotos ? '' : 'disabled'} aria-label="${esc(rp('viewPhotos'))}">
+            ${r.coverThumbUrl ? `<img src="${esc(r.coverThumbUrl)}" alt="" loading="lazy" decoding="async">` : '<i class="bi bi-image" style="font-size:1.3rem;"></i>'}
+            ${hasPhotos ? `<span class="rp-room-count"><i class="bi bi-images"></i> ${r.photoCount}</span>` : ''}
+          </button>
+          <div class="rp-room-info">
+            <div class="rp-room-name">${esc(label)}
+              <span class="rp-room-status ${r.isAvailable ? 'rp-free' : 'rp-taken'}">${i18next.t(`salesMap.${r.isAvailable ? 'available' : 'occupied'}`)}</span>
+            </div>
+            <div class="rp-room-price${price ? '' : ' rp-muted'}">${price ? `${esc(price)} <span style="font-weight:400;color:#6b7280;">${rp('perMonth')}</span>` : rp('noPrice')}</div>
+            <div class="rp-room-actions">
+              <button type="button" class="btn btn-outline-secondary" data-sm-action="photos" ${hasPhotos ? '' : 'disabled'}><i class="bi bi-images me-1"></i>${rp('photos')}</button>
+              <button type="button" class="btn btn-outline-primary" data-sm-action="share"><i class="bi bi-share me-1"></i>${rp('share')}</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // Warm the cache (photo URLs + existing share links) while the user reads
+  // the panel, so Photos/Share respond instantly. Debounced for hover sweeps.
+  _prefetchRoomListings(prop) {
+    clearTimeout(this._prefetchTimer);
+    if (!prop.roomDetails?.length) return;
+    this._prefetchTimer = setTimeout(() => {
+      roomListingService.getPropertyRooms(prop.propertyId).catch(() => {});
+    }, 300);
+  }
+
+  _attachRoomCardListeners() {
+    const onClick = (e) => {
+      const btn = e.target.closest('[data-sm-action]');
+      const card = btn?.closest('.rp-room-card');
+      if (!btn || !card || btn.disabled) return;
+      const prop = this.properties.find((p) => p.propertyId === card.dataset.pid);
+      if (!prop) return;
+      if (btn.dataset.smAction === 'photos') this._openRoomPhotos(prop, card.dataset.room);
+      if (btn.dataset.smAction === 'share') this._shareRoom(prop, card.dataset.room, btn);
+    };
+    document.getElementById('sm-panel-body')?.addEventListener('click', onClick);
+    document.getElementById('sm-mobile-body')?.addEventListener('click', onClick);
+  }
+
+  async _openRoomPhotos(prop, room) {
+    try {
+      const [listing, { openPhotoViewer }] = await Promise.all([
+        roomListingService.getRoom(prop.propertyId, room),
+        import(/* webpackChunkName: "room-photo-viewer" */ './room-photos/photo-viewer.js'),
+      ]);
+      if (!listing?.photos?.length) return;
+      openPhotoViewer({
+        photos: listing.photos,
+        title: `${this._roomLabel(room)} · ${prop.address}`,
+      });
+    } catch (err) {
+      if (window.showToast) showToast(err.message, 'danger');
+    }
+  }
+
+  async _shareRoom(prop, room, btn) {
+    btn.disabled = true;
+    try {
+      const listing = await roomListingService.getRoom(prop.propertyId, room).catch(() => null);
+      const shareUrl = listing?.shareUrl
+        || (await roomListingService.enableShare(prop.propertyId, room)).shareUrl;
+      const details = prop.roomDetails.find((r) => r.room === room) || {};
+      await shareRoomLink({
+        url: shareUrl,
+        roomLabel: this._roomLabel(room),
+        address: prop.address,
+        minPrice: details.minPrice,
+        maxPrice: details.maxPrice,
+      });
+    } catch (err) {
+      if (window.showToast) showToast(err.message, 'danger');
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   // ─── Geocoding ────────────────────────────────────────────────────────────────

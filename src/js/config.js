@@ -154,6 +154,14 @@ const API_CONFIG = {
     SALES_MAP_DATA: "/api/sales/map-data",
     SALES_GEOCODE: (propertyId) => `/api/sales/geocode/${propertyId}`,
 
+    // Room photos + public share links
+    ROOM_LISTINGS_BY_PROPERTY: (propertyId) => `/api/room-listings/property/${encodeURIComponent(propertyId)}`,
+    ROOM_UPLOAD_SIGNATURE: (propertyId, room) => `/api/room-listings/property/${encodeURIComponent(propertyId)}/rooms/${encodeURIComponent(room)}/upload-signature`,
+    ROOM_PHOTOS: (propertyId, room) => `/api/room-listings/property/${encodeURIComponent(propertyId)}/rooms/${encodeURIComponent(room)}/photos`,
+    ROOM_PHOTOS_ORDER: (propertyId, room) => `/api/room-listings/property/${encodeURIComponent(propertyId)}/rooms/${encodeURIComponent(room)}/photos/order`,
+    ROOM_PHOTO: (propertyId, room, photoId) => `/api/room-listings/property/${encodeURIComponent(propertyId)}/rooms/${encodeURIComponent(room)}/photos/${encodeURIComponent(photoId)}`,
+    ROOM_SHARE: (propertyId, room) => `/api/room-listings/property/${encodeURIComponent(propertyId)}/rooms/${encodeURIComponent(room)}/share`,
+
     // Docs
     DOCS: "/api/docs",
     DOC_BY_ID: (id) => `/api/docs/${id}`,
