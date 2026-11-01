@@ -198,11 +198,31 @@ class AppRouter {
   replace(path) {
     const target = "#" + path;
     if (window.location.hash === target) return;
+    // On phones, Properties/Tenants open records as full-screen views that
+    // the back gesture closes (utils/mobile-ux.js). Selection changes inside
+    // those sections swap the current history entry instead of stacking one
+    // per record, so "back" returns to the list rather than to the previously
+    // opened record. Arriving from another section still adds an entry.
+    const section = (path.match(/^\/(properties|tenants)(?=\/|$)/) || [])[1];
+    const currentSection = (window.location.hash.match(/^#\/([a-z-]+)/) || [])[1];
+    if (section && section === currentSection && window.matchMedia("(max-width: 767.98px)").matches) {
+      history.replaceState(history.state, "", target);
+      return;
+    }
     this._busy = true;
     window.location.hash = target;
     setTimeout(() => {
       this._busy = false;
     }, 50);
+  }
+
+  /** Ignore hash changes for a moment (used when a back gesture only closes an on-screen view). */
+  suppressRouting(ms = 150) {
+    this._busy = true;
+    clearTimeout(this._suppressTimer);
+    this._suppressTimer = setTimeout(() => {
+      this._busy = false;
+    }, ms);
   }
 
   // ─── Private ───────────────────────────────────────────────────────────────

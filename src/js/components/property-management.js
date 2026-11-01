@@ -16,6 +16,14 @@ import {
   savePropertyFilters,
 } from '../utils/property-filters.js';
 import { getStabilityMeta, renderStabilityBadge } from '../utils/property-stability.js';
+import {
+  isMobileViewport,
+  mobileLayers,
+  createSectionNav,
+  openActionSheet,
+  applyMobileInputHints,
+  trackUserEdits,
+} from '../utils/mobile-ux.js';
 
 /**
  * Property Management Component
@@ -41,6 +49,7 @@ class PropertyManagementComponent {
 
   init() {
     this.setupEventListeners();
+    this.setupMobileUx();
     this.loadProperties();
     this.loadAcServiceCompanies();
     this.loadAllInvestors();
@@ -280,21 +289,21 @@ class PropertyManagementComponent {
       row.className = 'mb-2 room-price-row';
       row.dataset.room = room;
       row.innerHTML = `
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <span class="badge text-truncate" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
-          <div class="input-group input-group-sm" style="max-width:110px;">
+        <div class="d-flex align-items-center gap-2 flex-wrap room-price-fields">
+          <span class="badge text-truncate room-price-label" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
+          <div class="input-group input-group-sm room-price-input" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control no-spinner room-price-min" min="0" step="any" placeholder="Min">
+            <input type="number" class="form-control no-spinner room-price-min" min="0" step="any" inputmode="decimal" placeholder="Min" aria-label="${label} minimum price">
           </div>
-          <span class="text-muted small">to</span>
-          <div class="input-group input-group-sm" style="max-width:110px;">
+          <span class="text-muted small room-price-sep">to</span>
+          <div class="input-group input-group-sm room-price-input" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control no-spinner room-price-max" min="0" step="any" placeholder="Max">
+            <input type="number" class="form-control no-spinner room-price-max" min="0" step="any" inputmode="decimal" placeholder="Max" aria-label="${label} maximum price">
           </div>
-          <span class="text-muted small border-start ps-2 ms-1" title="What the room is actually listed at right now">Actual</span>
-          <div class="input-group input-group-sm" style="max-width:110px;">
+          <span class="text-muted small border-start ps-2 ms-1 room-price-sep" title="What the room is actually listed at right now">Actual</span>
+          <div class="input-group input-group-sm room-price-input" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control no-spinner room-price-current" min="0" step="any" placeholder="Now">
+            <input type="number" class="form-control no-spinner room-price-current" min="0" step="any" inputmode="decimal" placeholder="Now" aria-label="${label} actual price">
           </div>
         </div>
         <div class="room-price-meta small text-muted fst-italic mt-1"></div>
@@ -708,7 +717,7 @@ class PropertyManagementComponent {
     // Mobile "back to list" button (only visible <768px, see dashboard.html media query)
     const backBtn = document.getElementById('pmBackToListBtn');
     if (backBtn) {
-      backBtn.addEventListener('click', () => this.exitMobileDetailView());
+      backBtn.addEventListener('click', () => this.handleMobileBack());
     }
 
     // Property form submission (add/edit)
@@ -962,6 +971,10 @@ class PropertyManagementComponent {
   autoSelectFirstPropertyOnce() {
     if (this._hasAutoSelected || this.selectedPropertyId) return;
     this._hasAutoSelected = true;
+    // Phones show the list first and the detail panel is off-screen, so
+    // there's nothing to pre-fill — and doing so would point the URL at a
+    // property, reopening it on refresh.
+    if (isMobileViewport()) return;
 
     const visible = this.getVisibleProperties();
     const sorted = this.sortPropertiesForDisplay(visible);
@@ -1537,7 +1550,9 @@ class PropertyManagementComponent {
     const summary = document.getElementById("propertyFilterSummary");
     const summaryText = document.getElementById("propertyFilterSummaryText");
     if (summary && summaryText) {
-      summary.style.display = activeCount > 0 ? '' : 'none';
+      // d-none, not style.display: the element's .d-flex is !important and
+      // would otherwise keep "0 filters applied" visible.
+      summary.classList.toggle('d-none', activeCount === 0);
       summaryText.textContent = `${activeCount} filter${activeCount === 1 ? '' : 's'} applied`;
     }
   }
@@ -1573,6 +1588,24 @@ class PropertyManagementComponent {
     document.getElementById("propertyModalTitle").textContent = isEdit
       ? "Edit Property"
       : "Add New Property";
+
+    // Phone header subtitle (hidden on desktop): which property this is.
+    const subtitle = document.getElementById("propertyPanelSubtitle");
+    if (subtitle) {
+      subtitle.textContent = isEdit
+        ? [property.propertyId, [property.address, property.unit].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
+        : 'Fill in the details and tap Add';
+    }
+    // Phone "⋯" menu (archive, view tenants...) only applies to a saved property.
+    document.getElementById("pmDetailMenuBtn")?.classList.toggle('d-none', !isEdit);
+    this._formDirty = false;
+    // A different record starts at the top of the form; re-showing the same
+    // one (e.g. after Save) keeps the scroll position.
+    const panelKey = property?.propertyId || '__new__';
+    if (panelKey !== this._panelKey) {
+      this._panelKey = panelKey;
+      if (isMobileViewport()) this._secNav?.reset();
+    }
     const submitBtn = document.getElementById("propertySubmitBtn");
     submitBtn.disabled = false;
     submitBtn.innerHTML = isEdit
@@ -2090,15 +2123,119 @@ class PropertyManagementComponent {
     });
   }
 
-  // Swaps the mobile stacked layout (see the #pmLayout media query in
-  // dashboard.html) from list-view to detail-view. No-op visually at desktop
-  // widths, where both columns are always shown side by side.
+  // ─── Phone layout ──────────────────────────────────────────────────────────
+  // Below 768px the list fills the page and the detail form opens as a
+  // full-screen view on top (see the #pmLayout media query in dashboard.html).
+  // These hooks are wired up on every screen size but only matter on phones.
+  setupMobileUx() {
+    const form = document.getElementById('propertyForm');
+    const body = document.querySelector('#pmDetailCol .pm-detail-body');
+    if (form && body) {
+      this._secNav = createSectionNav({ mount: body, scrollEl: body, root: form });
+      applyMobileInputHints(form);
+
+      // Remember whether the user has changed anything since the panel was
+      // (re)loaded, so a back gesture can ask before throwing it away.
+      trackUserEdits(form, () => {
+        this._formDirty = true;
+      });
+    }
+
+    document.getElementById('pmMobileAddBtn')?.addEventListener('click', () => this.showAddPropertyPanel());
+    document.getElementById('pmMobileMenuBtn')?.addEventListener('click', () => this.openMobileListMenu());
+    document.getElementById('pmDetailMenuBtn')?.addEventListener('click', () => this.openMobileDetailMenu());
+  }
+
+  // Swaps the mobile stacked layout from list-view to detail-view. No-op
+  // visually at desktop widths, where both columns are always side by side.
   enterMobileDetailView() {
-    document.getElementById('pmLayout')?.classList.add('pm-mobile-detail-active');
+    const layout = document.getElementById('pmLayout');
+    if (!layout) return;
+    layout.classList.add('pm-mobile-detail-active');
+    if (!isMobileViewport()) return;
+    mobileLayers.open('pm-detail', () => this.handleMobileBack());
+    // Chips are measured from the laid-out form, so wait for the slide-in frame.
+    requestAnimationFrame(() => this._secNav?.refresh());
   }
 
   exitMobileDetailView() {
-    document.getElementById('pmLayout')?.classList.remove('pm-mobile-detail-active');
+    const layout = document.getElementById('pmLayout');
+    if (!layout?.classList.contains('pm-mobile-detail-active')) return Promise.resolve();
+    layout.classList.remove('pm-mobile-detail-active');
+    if (!isMobileViewport()) return Promise.resolve();
+    // Once the history entry for the detail view is gone, point the URL back
+    // at the list so a refresh doesn't reopen the property.
+    return mobileLayers.close('pm-detail').then(() => window.appRouter?.replace('/properties'));
+  }
+
+  // Back arrow / back gesture on the phone detail view. Asks before
+  // discarding typed changes; returning false keeps the view open.
+  handleMobileBack() {
+    if (this._formDirty) {
+      if (!confirm('Discard your unsaved changes to this property?')) return false;
+      this.handlePanelCancel(); // reloads the saved values, then exits
+    } else {
+      this.exitMobileDetailView();
+    }
+    return true;
+  }
+
+  openMobileListMenu() {
+    openActionSheet({
+      title: 'Properties',
+      actions: [
+        { icon: 'bi-image', label: 'Export property portfolio', hint: 'Image of the selected properties', onClick: () => this.openExportSelectionModal('image') },
+        { icon: 'bi-table', label: 'Copy as Excel', hint: 'Paste straight into a spreadsheet', onClick: () => this.openExportSelectionModal('text') },
+        { icon: 'bi-clipboard', label: 'Copy list', hint: 'ID + address of the properties shown', onClick: () => this.copyVisiblePropertiesList() },
+        'divider',
+        { icon: 'bi-calendar-range', label: 'Lease expiry timeline', onClick: () => this.showMobileLeaseTimeline() },
+        { icon: 'bi-arrow-clockwise', label: 'Reload', onClick: () => this.loadProperties() },
+      ],
+    });
+  }
+
+  openMobileDetailMenu() {
+    const property = this.editingProperty;
+    if (!property) return;
+    const slug = window.SlugUtils?.propertySlug(property);
+    openActionSheet({
+      title: `${property.propertyId} · ${property.address || ''}`,
+      actions: [
+        slug && {
+          icon: 'bi-people',
+          label: 'View tenants',
+          opensScreen: true,
+          onClick: () => {
+            this.exitMobileDetailView().then(() => window.appRouter?.navigate(`/tenants/${slug}`));
+          },
+        },
+        {
+          icon: 'bi-geo-alt',
+          label: 'Copy address',
+          onClick: () => {
+            const text = [property.address, property.unit].filter(Boolean).join(', ');
+            navigator.clipboard?.writeText(text).then(() => showToast('Address copied', 'success'));
+          },
+        },
+        'divider',
+        property.isArchived
+          ? { icon: 'bi-arrow-counterclockwise', label: 'Unarchive property', onClick: () => this.unarchiveProperty(property.propertyId) }
+          : { icon: 'bi-archive', label: 'Archive property', danger: true, onClick: () => this.archiveProperty(property.propertyId) },
+      ],
+    });
+  }
+
+  // The lease timeline card is hidden on phones to give the list the whole
+  // screen; this reveals it (expanded) and scrolls to it.
+  showMobileLeaseTimeline() {
+    const card = document.getElementById('propertyMoveoutTimelineSection');
+    const body = document.getElementById('propertyMoveoutTimelineBody');
+    if (!card) return;
+    card.classList.add('pm-timeline-revealed');
+    if (body && window.bootstrap?.Collapse) {
+      window.bootstrap.Collapse.getOrCreateInstance(body, { toggle: false }).show();
+    }
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Cancel button handler (header X + footer Cancel). Discards any

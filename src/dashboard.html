@@ -127,6 +127,319 @@
       }
     </style>
 
+    <!-- Shared phone UI pieces (utils/mobile-ux.js): section chips, bottom
+         action sheet, floating add button. Only shown below 768px. -->
+    <style>
+      .m-secnav,
+      .m-fab {
+        display: none;
+      }
+      .m-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: #343a40;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+      }
+      .m-icon-btn:active {
+        background: rgba(0, 0, 0, 0.08);
+      }
+      .m-icon-btn-light {
+        color: #fff;
+      }
+      .m-icon-btn-light:active {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      @media (max-width: 767.98px) {
+        body.m-layer-open {
+          overflow: hidden;
+        }
+
+        /* Horizontal chips that jump between form sections */
+        .m-secnav {
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+          overflow-x: auto;
+          padding: 8px 12px;
+          background: #fff;
+          border-bottom: 1px solid #e9ecef;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        .m-secnav::-webkit-scrollbar {
+          display: none;
+        }
+        .m-secnav-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+          padding: 6px 12px;
+          min-height: 34px;
+          border: 1px solid #dee2e6;
+          border-radius: 999px;
+          background: #fff;
+          color: #495057;
+          font-size: 0.8rem;
+          font-weight: 600;
+          white-space: nowrap;
+          transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .m-secnav-chip.active {
+          background: #4f46e5;
+          border-color: #4f46e5;
+          color: #fff;
+        }
+
+        /* Floating "add" button */
+        .m-fab {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          position: fixed;
+          right: 18px;
+          bottom: calc(18px + env(safe-area-inset-bottom));
+          z-index: 990; /* under the slide-out sidebar's dimmer (999) */
+          width: 58px;
+          height: 58px;
+          border: 0;
+          border-radius: 18px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: #fff;
+          font-size: 1.6rem;
+          box-shadow: 0 8px 20px rgba(102, 126, 234, 0.45);
+        }
+        .m-fab:active {
+          transform: scale(0.94);
+        }
+      }
+
+      /* Tenant add/edit modal on phones: full screen (modal-fullscreen-md-down),
+         body scrolls between a fixed header + section chips and a pinned
+         Save bar. The <form> sits between .modal-content and .modal-body, so
+         it has to join the flex column for the body to get a height. */
+      @media (max-width: 767.98px) {
+        #tenantModal .modal-content {
+          background: #f2f3f7;
+        }
+        #tenantModal .modal-header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: #fff;
+          padding: 10px 12px;
+          padding-top: max(10px, env(safe-area-inset-top));
+          border: 0;
+        }
+        #tenantModal .modal-header .btn-close {
+          filter: invert(1) grayscale(1) brightness(2);
+          width: 40px;
+          height: 40px;
+          margin: 0;
+        }
+        #tenantModal #tenantForm {
+          display: flex;
+          flex-direction: column;
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+        #tenantModal .modal-body {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          padding: 12px 12px 24px;
+        }
+        #tenantModal .modal-body > .mb-4 {
+          background: #fff;
+          border-radius: 16px;
+          padding: 14px 14px 4px;
+          margin-bottom: 12px !important;
+          box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+        }
+        #tenantModal .modal-body > .mb-4 > .mb-4 {
+          margin-bottom: 1rem !important;
+        }
+        #tenantModal .m-2col {
+          align-items: flex-end;
+        }
+        #tenantModal .m-2col > [class*="col-md-"] {
+          flex: 0 0 auto;
+          width: 50%;
+        }
+        #tenantModal .m-2col .form-text {
+          display: none;
+        }
+        #tenantModal .m-2col .form-label {
+          font-size: 0.82rem;
+        }
+        #tenantModal .m-3col > [class*="col-md-"] {
+          flex: 0 0 auto;
+          width: 33.333%;
+        }
+        /* A global rule makes every .col-6 full width under 400px (most
+           phones); inside the editors, half-width pairs (move-in/move-out,
+           room/rent, WiFi fields) are meant to stay side by side. */
+        #tenantModal .row > .col-6,
+        #propertyForm .row > .col-6 {
+          flex: 0 0 auto;
+          width: 50%;
+          max-width: 50%;
+        }
+        #tenantModal .form-control,
+        #tenantModal .form-select,
+        #tenantModal .input-group-text {
+          font-size: 16px; /* stops iOS zooming into the field */
+        }
+        #tenantModal .form-control:not(textarea),
+        #tenantModal .form-select {
+          min-height: 44px;
+        }
+        #tenantModal .form-text {
+          font-size: 0.74rem;
+        }
+        #tenantModal .modal-footer {
+          flex-wrap: nowrap;
+          gap: 8px;
+          padding: 10px 12px;
+          padding-bottom: max(10px, env(safe-area-inset-bottom));
+          background: #fff;
+          box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+        }
+        #tenantModal .modal-footer > .btn {
+          margin: 0;
+          min-height: 48px;
+          border-radius: 12px;
+        }
+        #tenantModal #tenantSubmitBtn {
+          flex: 1 1 auto;
+          font-weight: 600;
+        }
+      }
+
+      /* Bottom action sheet (created on demand, phones only) */
+      .m-sheet-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1070;
+        background: rgba(15, 23, 42, 0.45);
+        opacity: 0;
+        transition: opacity 0.22s ease;
+      }
+      .m-sheet-backdrop.show {
+        opacity: 1;
+      }
+      .m-sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1071;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 6px 12px calc(12px + env(safe-area-inset-bottom));
+        background: #f2f3f7;
+        border-radius: 20px 20px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+        overscroll-behavior: contain;
+      }
+      .m-sheet.show {
+        transform: none;
+      }
+      .m-sheet-grabber {
+        width: 38px;
+        height: 5px;
+        margin: 4px auto 10px;
+        border-radius: 3px;
+        background: #c7c9d1;
+      }
+      .m-sheet-title {
+        padding: 0 6px 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .m-sheet-list {
+        background: #fff;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .m-sheet-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        min-height: 54px;
+        padding: 10px 16px;
+        border: 0;
+        border-bottom: 1px solid #f0f1f4;
+        background: #fff;
+        color: #212529;
+        font-size: 1rem;
+        text-align: left;
+      }
+      .m-sheet-item:last-child {
+        border-bottom: 0;
+      }
+      .m-sheet-item:active {
+        background: #f1f3f9;
+      }
+      .m-sheet-item > i {
+        width: 22px;
+        font-size: 1.2rem;
+        color: #4f46e5;
+        text-align: center;
+      }
+      .m-sheet-item.danger,
+      .m-sheet-item.danger > i {
+        color: #dc3545;
+      }
+      .m-sheet-item-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .m-sheet-item-text small {
+        color: #8a8f98;
+        font-size: 0.78rem;
+      }
+      .m-sheet-divider {
+        height: 8px;
+        background: #f2f3f7;
+      }
+      .m-sheet-cancel {
+        display: block;
+        width: 100%;
+        min-height: 54px;
+        margin-top: 10px;
+        border: 0;
+        border-radius: 14px;
+        background: #fff;
+        color: #4f46e5;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .m-sheet,
+        .m-sheet-backdrop {
+          transition: none;
+        }
+      }
+    </style>
+
     <!-- Webpack will inject scripts here automatically -->
     <style>
       .sidebar {
@@ -204,7 +517,9 @@
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           padding: 0.75rem 1rem;
-          margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+          /* Matches main's 1rem phone padding; -1.5rem stuck out 8px on
+             each side and let the whole page wobble sideways. */
+          margin: -1rem -1rem 1rem -1rem;
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -5815,6 +6130,7 @@
           <div id="properties-section" class="content-section">
             <div class="p-4">
               <div
+                id="pmPageHeader"
                 class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4"
               >
                 <h2 class="mb-2 mb-md-0">Property Management</h2>
@@ -5924,7 +6240,7 @@
               </div>
 
       <!-- Property List + Detail (master-detail layout) -->
-      <div class="card">
+      <div class="card pm-master-card">
         <div class="card-body p-0">
           <style>
             /* Loading skeleton — shown while properties are being fetched.
@@ -5970,36 +6286,271 @@
               0% { background-position: 100% 50%; }
               100% { background-position: 0 50%; }
             }
+            /* Phone header bits that only exist for the mobile layout */
+            .pm-detail-subtitle { display: none; }
+            .room-price-head { display: none; }
+
+            /* ── Phones (<768px): app-style list + full-screen editor ──────
+               The list scrolls with the page under a sticky search bar; the
+               big page header and lease timeline move into the "⋯" sheet;
+               tapping a property slides the form in over everything with a
+               section-jump bar and an always-visible Save button. Desktop
+               keeps the side-by-side master-detail layout. */
             @media (max-width: 767.98px) {
-              /* #pmListCol/#pmDetailCol both have flex:1 children (their
-                 scrollable inner bodies) that need a *definite* ancestor
-                 height to resolve flex-basis:0 against — an "auto" height
-                 here would collapse them to 0px, so keep a bounded height
-                 like the desktop layout, just with a mobile-sized offset. */
+              #pmPageHeader { display: none !important; }
+              #propertyMoveoutTimelineSection:not(.pm-timeline-revealed) { display: none; }
+              #properties-section > .p-4 { padding: 0 0 96px !important; }
+              #propertyMoveoutTimelineSection { margin-top: 12px; }
+
+              .pm-master-card {
+                border: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                overflow: visible !important; /* a global .card rule clips it, which breaks the sticky toolbar */
+              }
               #pmLayout {
-                flex-direction: column !important;
-                height: calc(100vh - 230px) !important;
-                min-height: 420px !important;
-                overflow: hidden !important;
+                display: block !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
               }
-              #pmListCol,
-              #pmDetailCol {
-                width: 100% !important;
+              #pmListCol {
+                display: block !important;
+                width: auto !important;
                 min-width: 0 !important;
-                max-width: 100% !important;
-                height: 100% !important;
-                border-right: none !important;
+                max-width: none !important;
+                border: 0 !important;
+                overflow: visible !important;
+                background: transparent !important;
               }
-              #pmDetailCol { display: none; }
-              #pmLayout.pm-mobile-detail-active #pmListCol { display: none !important; }
-              #pmLayout.pm-mobile-detail-active #pmDetailCol { display: flex !important; }
-              #pmBackToListBtn { display: inline-flex !important; }
+
+              /* Sticky toolbar: title row, then search, then filter chips */
+              .pm-list-toolbar {
+                position: sticky;
+                top: 0;
+                z-index: 30;
+                margin: 0 -1rem;
+                padding: 10px 1rem !important;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                background: rgba(248, 249, 250, 0.94) !important;
+                -webkit-backdrop-filter: saturate(180%) blur(14px);
+                backdrop-filter: saturate(180%) blur(14px);
+                border-bottom: 1px solid #e5e5e7 !important;
+              }
+              .pm-list-toolbar > * { margin-bottom: 0 !important; }
+              .pm-toolbar-title { order: 1; }
+              .pm-toolbar-title h5 { font-size: 1.35rem; font-weight: 800; }
+              .pm-toolbar-search { order: 2; }
+              .pm-toolbar-filters { order: 3; flex-wrap: nowrap !important; }
+              .pm-reload-btn,
+              .pm-copy-list-btn { display: none !important; }
+              .pm-toolbar-search .form-control,
+              .pm-toolbar-search .input-group-text {
+                font-size: 16px; /* <16px makes iOS zoom in on focus */
+                min-height: 42px;
+                border-radius: 12px;
+              }
+              .pm-toolbar-search .form-control { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+              .pm-toolbar-search .input-group-text { border-top-left-radius: 0; border-bottom-left-radius: 0; background: #fff; }
+              #propertyInvestorFilterBtn {
+                border-radius: 999px;
+                min-height: 34px;
+                background: #fff;
+              }
+
+              #propertiesContainer {
+                overflow: visible !important;
+                padding: 10px 0 0 !important;
+              }
+
+              /* List rows: larger tap targets; chip rows scroll sideways
+                 instead of wrapping so each card stays compact. */
+              .pm-row {
+                padding: 12px !important;
+                margin-bottom: 10px !important;
+                border-radius: 14px !important;
+                box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+                border: 1px solid #eceef2 !important;
+              }
+              .pm-row.pm-row-selected { border-color: #667eea !important; }
+              .pm-row .flex-wrap.mt-1,
+              .pm-row .flex-wrap.mt-2 {
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+              }
+              .pm-row .flex-wrap.mt-1::-webkit-scrollbar,
+              .pm-row .flex-wrap.mt-2::-webkit-scrollbar { display: none; }
+              .pm-row .flex-wrap.mt-1 > *,
+              .pm-row .flex-wrap.mt-2 > * { flex-shrink: 0; }
+              .pm-row .badge { font-size: 0.68rem !important; }
+              .pm-row-actions { display: none; } /* archive lives in the detail "⋯" menu */
+              .pm-row:not(.pm-row-selected):hover { background: #fff; }
+              .pm-row:active { background: #f1f3ff; }
+
+              /* Full-screen editor that slides in from the right */
+              #pmDetailCol {
+                position: fixed !important;
+                inset: 0;
+                z-index: 1045;
+                width: 100% !important;
+                height: 100% !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                display: flex !important;
+                background: #f2f3f7 !important;
+                transform: translateX(100%);
+                visibility: hidden;
+                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.32s;
+                box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12);
+              }
+              #pmLayout.pm-mobile-detail-active #pmDetailCol {
+                transform: none;
+                visibility: visible;
+                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+              }
+              #pmDetailHeader {
+                gap: 4px;
+                min-height: 56px;
+                padding: 6px 6px 6px 2px !important;
+                padding-top: max(6px, env(safe-area-inset-top)) !important;
+              }
+              #pmBackToListBtn {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                height: 44px;
+                flex-shrink: 0;
+              }
+              .pm-detail-title-icon,
+              #propertyPanelCancelBtn { display: none !important; }
+              #propertyModalTitle {
+                font-size: 0.68rem;
+                font-weight: 700 !important;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                opacity: 0.85;
+              }
+              .pm-detail-subtitle {
+                display: block;
+                font-size: 1rem;
+                font-weight: 700;
+                line-height: 1.25;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              .pm-stable-switch {
+                margin-right: 0 !important;
+                padding: 2px 6px 2px 2.6em !important;
+              }
+              .pm-stable-switch .badge { font-size: 0.62rem !important; }
+
+              #pmDetailCol .pm-detail-body {
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                scroll-padding-top: 8px;
+              }
+              #propertyForm > .p-4 { padding: 12px 12px 24px !important; }
+
+              /* Each section becomes its own white card */
+              #propertyForm > .p-4 > .mb-4:not(.row) {
+                background: #fff;
+                border-radius: 16px;
+                padding: 14px 14px 2px;
+                margin-bottom: 12px !important;
+                box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+              }
+              #propertyForm > .p-4 > .row.mb-4 {
+                --bs-gutter-x: 0;
+                margin: 0 !important;
+              }
+              #propertyForm > .p-4 > .row.mb-4 > [class*="col-"] {
+                background: #fff;
+                border-radius: 16px;
+                padding: 14px 14px 2px;
+                margin-bottom: 12px;
+                box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+              }
+              #propertyForm > .p-4 > .mb-4 > .d-flex.border-bottom:first-child,
+              #propertyForm [data-msec] > .d-flex.border-bottom:first-child {
+                margin-bottom: 12px !important;
+              }
+
+              /* Short fields sit two per row */
+              #propertyForm .m-2col { align-items: flex-end; }
+              #propertyForm .m-2col > [class*="col-md-"] { flex: 0 0 auto; width: 50%; }
+              #propertyForm .m-2col > .m-full { width: 100%; }
+              #propertyForm .m-2col .form-text { display: none; }
+              #propertyForm .m-2col .form-label { font-size: 0.82rem; }
+
+              #pmDetailCol .form-control,
+              #pmDetailCol .form-select,
+              #pmDetailCol .input-group-text {
+                font-size: 16px; /* stops iOS zooming into the field */
+              }
+              #pmDetailCol .form-control:not(textarea),
+              #pmDetailCol .form-select { min-height: 44px; }
+              #pmDetailCol .form-text { font-size: 0.74rem; }
+
+              /* Room prices: badge on its own line, then Min / Max / Actual */
+              .room-price-head {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+                font-size: 0.68rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: #6c757d;
+                margin-bottom: 4px;
+              }
+              .room-price-fields {
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px !important;
+              }
+              .room-price-fields .room-price-label {
+                grid-column: 1 / -1;
+                justify-self: start;
+                max-width: 100% !important;
+              }
+              .room-price-fields .room-price-sep { display: none; }
+              .room-price-fields .room-price-input { max-width: none !important; flex-wrap: nowrap; }
+              .room-price-fields .room-price-input .input-group-text { padding: 0 6px; }
+              .room-price-fields .room-price-input .form-control { padding-left: 6px; padding-right: 6px; min-width: 0; }
+              .room-price-row {
+                padding-bottom: 8px;
+                border-bottom: 1px dashed #edf0f3;
+              }
+
+              /* Sticky bottom action bar, clear of the home indicator */
+              #pmDetailCol .pm-detail-footer {
+                padding: 10px 12px !important;
+                padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+                box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+              }
+              #pmDetailCol .pm-detail-footer .btn {
+                min-height: 48px;
+                border-radius: 12px;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+              }
+              #propertySubmitBtn { flex: 1 1 auto; }
+            }
+            @media (max-width: 767.98px) and (prefers-reduced-motion: reduce) {
+              #pmDetailCol,
+              #pmLayout.pm-mobile-detail-active #pmDetailCol { transition: none; }
             }
           </style>
           <div class="d-flex" id="pmLayout" style="height: calc(100vh - 260px); min-height: 520px; overflow: hidden;">
               <div class="pm-list-col" id="pmListCol" style="width: 520px; min-width: 420px; max-width: 520px; border-right: 1px solid #e5e5e7; display: flex; flex-direction: column; overflow: hidden; background: #f8f9fa; flex-shrink: 0;">
                 <div class="pm-list-toolbar" style="padding: 12px 14px; border-bottom: 1px solid #e5e5e7; background: white; flex-shrink: 0;">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="d-flex align-items-center justify-content-between mb-2 pm-toolbar-title">
                     <h5 class="mb-0 d-flex align-items-center gap-2">
                       Properties
                       <span
@@ -6010,14 +6561,24 @@
                       >
                     </h5>
                     <button
-                      class="btn btn-outline-primary btn-sm"
+                      class="btn btn-outline-primary btn-sm pm-reload-btn"
                       onclick="propertyManager.loadProperties()"
                       title="Reload property list"
                     >
                       <i class="bi bi-arrow-clockwise"></i>
                     </button>
+                    <!-- Phone only: export / copy / timeline / reload live in a bottom sheet -->
+                    <button
+                      type="button"
+                      class="m-icon-btn d-md-none"
+                      id="pmMobileMenuBtn"
+                      title="More actions"
+                      aria-label="More actions"
+                    >
+                      <i class="bi bi-three-dots"></i>
+                    </button>
                   </div>
-                  <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pm-toolbar-filters">
                     <div class="dropdown">
                       <button
                         class="btn btn-outline-secondary btn-sm dropdown-toggle"
@@ -6046,8 +6607,7 @@
                     </div>
                     <div
                       id="propertyFilterSummary"
-                      class="d-flex align-items-center gap-2"
-                      style="display: none"
+                      class="d-flex align-items-center gap-2 d-none"
                     >
                       <span
                         id="propertyFilterSummaryText"
@@ -6064,19 +6624,21 @@
                     </div>
                     <button
                       type="button"
-                      class="btn btn-outline-secondary btn-sm ms-auto"
+                      class="btn btn-outline-secondary btn-sm ms-auto pm-copy-list-btn"
                       id="propertyCopyListBtn"
                       title="Copy System ID and address of the properties currently shown"
                     >
                       <i class="bi bi-clipboard"></i> Copy list
                     </button>
                   </div>
-                  <div class="input-group input-group-sm">
+                  <div class="input-group input-group-sm pm-toolbar-search">
                     <input
                       type="text"
                       class="form-control"
                       placeholder="Search properties..."
                       id="propertySearchInput"
+                      enterkeyhint="search"
+                      autocomplete="off"
                     />
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                   </div>
@@ -6162,13 +6724,17 @@
                     >
                       <i class="bi bi-arrow-left fs-5"></i>
                     </button>
-                    <i class="bi bi-building"></i>
-                    <h5 class="mb-0 fw-bold text-truncate" id="propertyModalTitle">
-                      Add New Property
-                    </h5>
+                    <i class="bi bi-building pm-detail-title-icon"></i>
+                    <div class="pm-detail-titles" style="min-width: 0;">
+                      <h5 class="mb-0 fw-bold text-truncate" id="propertyModalTitle">
+                        Add New Property
+                      </h5>
+                      <!-- Phone only (see mobile CSS): which property is open -->
+                      <div class="pm-detail-subtitle" id="propertyPanelSubtitle"></div>
+                    </div>
                   </div>
                   <label
-                    class="form-check form-switch d-flex align-items-center gap-2 mb-0 ms-auto me-3 flex-shrink-0"
+                    class="form-check form-switch d-flex align-items-center gap-2 mb-0 ms-auto me-3 flex-shrink-0 pm-stable-switch"
                     for="propertyStableToggle"
                     title="Toggle on = Stable, off = Unstable"
                     style="
@@ -6200,6 +6766,15 @@
                     aria-label="Cancel"
                     title="Cancel"
                   ></button>
+                  <button
+                    type="button"
+                    class="m-icon-btn m-icon-btn-light d-md-none"
+                    id="pmDetailMenuBtn"
+                    title="More actions"
+                    aria-label="More actions"
+                  >
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
                 </div>
                 <div class="pm-detail-body" style="flex: 1; overflow-y: auto;">
                   <style>
@@ -6235,7 +6810,7 @@
                     />
                     <div class="p-4">
               <!-- Required Fields Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Basics|bi-house">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-primary"
                 >
@@ -6252,7 +6827,7 @@
                     Required Information
                   </h6>
                 </div>
-                <div class="row align-items-start">
+                <div class="row align-items-start m-2col">
                   <div class="col-md-2 mb-3">
                     <label for="propertyId" class="form-label"
                       >Property ID <span class="text-danger">*</span></label
@@ -6283,7 +6858,7 @@
                       placeholder="e.g., #12-34"
                     />
                   </div>
-                  <div class="col-md-3 mb-3">
+                  <div class="col-md-3 mb-3 m-full">
                     <label for="postcode" class="form-label">Postal Code</label>
                     <div class="input-group">
                       <input
@@ -6293,6 +6868,7 @@
                         name="postcode"
                         placeholder="6-digit"
                         maxlength="6"
+                        inputmode="numeric"
                       />
                       <button
                         class="btn btn-outline-primary"
@@ -6303,7 +6879,7 @@
                       </button>
                     </div>
                   </div>
-                  <div class="col-md-5 mb-3">
+                  <div class="col-md-5 mb-3 m-full">
                     <label for="address" class="form-label"
                       >Address <span class="text-danger">*</span></label
                     >
@@ -6320,7 +6896,7 @@
               </div>
 
               <!-- Property Details Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Details|bi-sliders">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                 >
@@ -6402,7 +6978,7 @@
                   </div>
                 </div>
                 <!-- Occupancy + Lease Term + Dates + Payment Day — one desktop row -->
-                <div class="row">
+                <div class="row m-2col">
                   <div class="col-md-2 mb-3">
                     <label for="maxPax" class="form-label"
                       >Maximum Occupancy</label
@@ -6498,7 +7074,7 @@
                   </div>
                 </div>
                 <!-- Financials -->
-                <div class="row">
+                <div class="row m-2col" data-msec="Rent &amp; fees|bi-cash-coin">
                   <div class="col-md-4 mb-3">
                     <label for="depositToLandlord" class="form-label"
                       >Deposit to Landlord (SGD)</label
@@ -6627,7 +7203,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="mb-3">
+                <div class="mb-3" data-msec="Rooms|bi-door-open">
                   <label for="propertyRooms" class="form-label">
                     Available Rooms
                     <i
@@ -6683,13 +7259,16 @@
                         title="Min/Max is the asking range used by the Sales Map to filter and sort rooms for prospective tenants. Actual is what the room is really listed at right now — who last set it and when is tracked automatically."
                       ></i>
                     </label>
+                    <div class="room-price-head" aria-hidden="true">
+                      <span>Min</span><span>Max</span><span>Actual</span>
+                    </div>
                     <div id="propertyRoomPricesContainer"></div>
                   </div>
                 </div>
               </div>
 
               <!-- Management Fee & Accountant Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Mgmt fee|bi-receipt">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #198754 !important"
@@ -6856,7 +7435,7 @@
               </div>
 
               <!-- AC Service Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Aircon|bi-snow">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #0dcaf0 !important"
@@ -6956,7 +7535,7 @@
               </div>
 
               <!-- Agent Information Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Agent|bi-person-badge">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                 >
@@ -6998,7 +7577,7 @@
               </div>
 
               <!-- Landlord Banking Details Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Landlord bank|bi-bank">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #fd7e14 !important"
@@ -7072,7 +7651,7 @@
               </div>
 
               <!-- Settlement Accounts Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Settlement|bi-wallet2">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #fd7e14 !important"
@@ -7964,7 +8543,7 @@
               </div>
 
               <!-- Telegram Bot Configuration Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Telegram|bi-telegram">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #0d6efd !important"
@@ -8025,7 +8604,7 @@
               <div class="row mb-4">
                 <div class="col-md-6">
                   <!-- WiFi Router Section -->
-                  <div class="mb-0">
+                  <div class="mb-0" data-msec="WiFi|bi-wifi">
                     <div
                       class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                     >
@@ -8096,7 +8675,7 @@
                 </div>
                 <div class="col-md-6">
                   <!-- SP Utility Account Section -->
-                  <div class="mb-0">
+                  <div class="mb-0" data-msec="SP account|bi-lightning-charge">
                     <div
                       class="d-flex align-items-center mb-3 pb-2 border-bottom"
                       style="border-color: #e0e0e0 !important"
@@ -8191,7 +8770,7 @@
               </div>
 
               <!-- Facebook Groups Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Groups|bi-people">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #0d6efd !important"
@@ -8255,7 +8834,7 @@
               </div>
 
               <!-- Integration Settings Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Integrations|bi-plug">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-info"
                 >
@@ -8297,7 +8876,7 @@
               </div>
 
               <!-- Digital Lock Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Lock|bi-shield-lock">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #6f42c1 !important"
@@ -8410,7 +8989,7 @@
               </div>
 
               <!-- Property Image Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Photo|bi-image">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                 >
@@ -8517,17 +9096,27 @@
         </div>
       </div>
             </div>
+            <!-- Phone only: floating "add" button (hidden with the section) -->
+            <button
+              type="button"
+              class="m-fab d-md-none"
+              id="pmMobileAddBtn"
+              aria-label="Add property"
+            >
+              <i class="bi bi-plus-lg"></i>
+            </button>
           </div>
 
           <!-- Tenants Section -->
           <div id="tenants-section" class="content-section">
             <div class="p-4">
               <div
+                id="tmPageHeader"
                 class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3"
               >
                 <h2 class="mb-0">Tenant Management</h2>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap tm-header-actions">
+                  <div class="tm-search-wrap">
                     <div class="input-group" style="width: 300px">
                       <span class="input-group-text bg-white border-end-0 py-1">
                         <i
@@ -8541,6 +9130,7 @@
                         placeholder="Search all tenants — name, FIN, passport, phone…"
                         id="tenantSearchInput"
                         autocomplete="off"
+                        enterkeyhint="search"
                       />
                       <button
                         class="btn btn-outline-secondary btn-sm border-start-0"
@@ -8553,7 +9143,7 @@
                       </button>
                     </div>
                     <div
-                      class="text-end mt-1"
+                      class="text-end mt-1 tm-search-hint"
                       style="font-size: 10px; color: #bbb; padding-right: 2px"
                     >
                       Press
@@ -8575,14 +9165,15 @@
                     class="btn btn-outline-secondary btn-sm"
                     id="reloadTenantsBtn"
                     title="Reload tenant list"
+                    aria-label="Reload tenant list"
                   >
-                    <i class="bi bi-arrow-clockwise me-1"></i>Reload
+                    <i class="bi bi-arrow-clockwise me-1"></i><span class="tm-reload-label">Reload</span>
                   </button>
                   <button class="btn btn-primary btn-sm" id="addTenantBtn">
                     <i class="bi bi-plus-circle me-1"></i>Add Tenant
                   </button>
                   <button
-                    class="btn btn-outline-secondary btn-sm"
+                    class="btn btn-outline-secondary btn-sm tm-back-btn"
                     onclick="dashboardController.goToDashboard()"
                   >
                     <i class="bi bi-arrow-left me-1"></i>Back
@@ -8591,11 +9182,20 @@
               </div>
 
               <!-- Property Selection Cards -->
-              <div class="card mb-4">
-                <div class="card-header">
+              <div class="card mb-4" id="tmPropertyPickerCard">
+                <div class="card-header d-flex align-items-center justify-content-between">
                   <h5 class="mb-0">
                     <i class="bi bi-building me-2"></i>Select Property
                   </h5>
+                  <!-- Phone only: switch the one-row strip to the full grid -->
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-link text-decoration-none p-0 d-md-none"
+                    id="tmPickerToggleBtn"
+                    aria-expanded="false"
+                  >
+                    <i class="bi bi-grid-3x3-gap me-1"></i><span>See all</span>
+                  </button>
                 </div>
                 <div class="card-body">
                   <div id="tenantPropertyCards">
@@ -8608,12 +9208,12 @@
               </div>
 
               <!-- Tenant List -->
-              <div class="card">
+              <div class="card" id="tmListCard">
                 <div
-                  class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"
+                  class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 tm-list-header"
                 >
-                  <h5 class="mb-0">
-                    Tenants
+                  <h5 class="mb-0 tm-list-title">
+                    <span class="tm-list-title-text">Tenants</span>
                     <span
                       id="totalTenantsBadge"
                       class="badge bg-secondary ms-2"
@@ -8652,7 +9252,17 @@
                       ></button>
                     </span>
                   </h5>
-                  <div class="d-flex flex-wrap gap-2">
+                  <!-- Phone only: copy / Excel / PDF / ZIP in a bottom sheet -->
+                  <button
+                    type="button"
+                    class="m-icon-btn d-md-none"
+                    id="tmMobileMenuBtn"
+                    title="More actions"
+                    aria-label="More actions"
+                  >
+                    <i class="bi bi-three-dots"></i>
+                  </button>
+                  <div class="d-flex flex-wrap gap-2 tm-list-actions">
                     <div class="dropdown">
                       <button
                         class="btn btn-outline-secondary btn-sm dropdown-toggle"
@@ -8831,36 +9441,227 @@
                     border-radius: 50%;
                     flex-shrink: 0;
                   }
+                  .tm-detail-footer { display: none; }
+
+                  /* ── Phones (<768px) ───────────────────────────────────────
+                     Compact header (search + reload), properties as a one-row
+                     swipe strip (tap "See all" for the grid), the tenant list
+                     scrolls with the page, a tenant opens full-screen with a
+                     bottom action bar, and "+" adds a tenant. */
                   @media (max-width: 767.98px) {
-                    /* #tmListCol/#tmDetailCol both have flex:1 children that need a
-                       *definite* ancestor height to resolve flex-basis:0 against —
-                       same reasoning as #pmLayout's mobile rule above. */
+                    #tenants-section > .p-4 { padding: 0 0 96px !important; }
+
+                    #tmPageHeader { margin-bottom: 12px !important; gap: 10px !important; }
+                    #tmPageHeader h2 { font-size: 1.5rem; font-weight: 800; }
+                    #tmPageHeader .tm-header-actions {
+                      width: 100%;
+                      flex-wrap: nowrap !important;
+                    }
+                    #tmPageHeader .tm-search-wrap { flex: 1 1 auto; min-width: 0; }
+                    #tmPageHeader .tm-search-wrap .input-group { width: 100% !important; }
+                    #tmPageHeader .tm-search-wrap .form-control,
+                    #tmPageHeader .tm-search-wrap .input-group-text,
+                    #tmPageHeader .tm-search-wrap .btn {
+                      font-size: 16px; /* avoids iOS zoom on focus */
+                      min-height: 42px;
+                    }
+                    #tmPageHeader .tm-search-wrap .input-group-text { border-radius: 12px 0 0 12px; }
+                    #tmPageHeader .tm-search-wrap .input-group > :last-child { border-radius: 0 12px 12px 0; }
+                    .tm-search-hint,
+                    #addTenantBtn,
+                    .tm-back-btn,
+                    .tm-reload-label { display: none !important; }
+                    #reloadTenantsBtn {
+                      width: 42px;
+                      height: 42px;
+                      flex-shrink: 0;
+                      border-radius: 12px;
+                    }
+                    #reloadTenantsBtn i { margin: 0 !important; font-size: 1rem; }
+
+                    /* Property picker: one swipeable row of compact cards */
+                    #tmPropertyPickerCard {
+                      border: 0;
+                      background: transparent;
+                      box-shadow: none;
+                      margin-bottom: 12px !important;
+                      overflow: visible !important;
+                    }
+                    #tmPropertyPickerCard > .card-header {
+                      background: transparent;
+                      border: 0;
+                      padding: 0 0 6px;
+                    }
+                    #tmPropertyPickerCard > .card-header h5 { font-size: 0.95rem; font-weight: 700; color: #495057; }
+                    #tmPropertyPickerCard > .card-body { padding: 0 !important; }
+                    #tmPropertyPickerCard:not(.tm-picker-expanded) #tenantPropertyCards {
+                      max-width: none !important; /* JS sets 100%, which stops the strip short of the edge */
+                      grid-template-columns: none !important;
+                      grid-auto-flow: column;
+                      grid-auto-columns: 112px;
+                      overflow-x: auto;
+                      scroll-snap-type: x proximity;
+                      scroll-padding: 0 1rem;
+                      margin: 0 -1rem;
+                      padding: 2px 1rem 8px;
+                      scrollbar-width: none;
+                      -webkit-overflow-scrolling: touch;
+                    }
+                    #tmPropertyPickerCard:not(.tm-picker-expanded) #tenantPropertyCards::-webkit-scrollbar { display: none; }
+                    #tenantPropertyCards > .card { scroll-snap-align: start; border-radius: 12px; }
+                    #tmPropertyPickerCard.tm-picker-expanded #tenantPropertyCards {
+                      grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important;
+                    }
+
+                    /* Tenant list card: badges scroll sideways, actions in "⋯" */
+                    #tmListCard {
+                      border: 0;
+                      background: transparent;
+                      box-shadow: none;
+                      overflow: visible !important;
+                    }
+                    #tmListCard > .tm-list-header {
+                      position: sticky;
+                      top: 0;
+                      z-index: 30;
+                      flex-wrap: nowrap !important;
+                      margin: 0 -1rem;
+                      padding: 8px 0.5rem 8px 1rem;
+                      background: rgba(248, 249, 250, 0.94);
+                      -webkit-backdrop-filter: saturate(180%) blur(14px);
+                      backdrop-filter: saturate(180%) blur(14px);
+                      border-bottom: 1px solid #e5e5e7;
+                      border-radius: 0;
+                    }
+                    #tmListCard .tm-list-title {
+                      display: flex;
+                      align-items: center;
+                      flex: 1 1 auto;
+                      min-width: 0;
+                      overflow-x: auto;
+                      white-space: nowrap;
+                      scrollbar-width: none;
+                    }
+                    #tmListCard .tm-list-title::-webkit-scrollbar { display: none; }
+                    #tmListCard .tm-list-title > * { flex-shrink: 0; }
+                    #tmListCard .tm-list-title-text { font-size: 1.2rem; font-weight: 800; }
+                    #tmListCard .tm-list-title .badge { font-size: 0.7rem !important; }
+                    #tmListCard .tm-list-actions { display: none !important; }
+
                     #tmLayout {
-                      flex-direction: column !important;
-                      height: calc(100vh - 230px) !important;
-                      min-height: 420px !important;
-                      overflow: hidden !important;
+                      display: block !important;
+                      height: auto !important;
+                      min-height: 0 !important;
+                      overflow: visible !important;
                     }
-                    #tmListCol,
-                    #tmDetailCol {
-                      width: 100% !important;
+                    #tmListCol {
+                      display: block !important;
+                      width: auto !important;
                       min-width: 0 !important;
-                      max-width: 100% !important;
-                      height: 100% !important;
-                      border-right: none !important;
+                      max-width: none !important;
+                      border: 0 !important;
+                      overflow: visible !important;
+                      background: transparent !important;
                     }
+                    #tenantsContainer {
+                      overflow: visible !important;
+                      padding: 10px 0 0 !important;
+                    }
+                    .tm-row {
+                      align-items: stretch !important; /* let the stats/docs rows use the full card width */
+                      padding: 12px !important;
+                      margin-bottom: 10px !important;
+                      border-radius: 14px !important;
+                      border: 1px solid #eceef2 !important;
+                      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+                    }
+                    .tm-row.tm-row-selected { border-color: #667eea !important; }
+                    .tm-row:not(.tm-row-selected):hover { background: #fff; }
+                    .tm-row:active { background: #f1f3ff; }
+                    .tm-row-edit-btn {
+                      opacity: 1 !important;
+                      width: 40px;
+                      height: 40px;
+                      font-size: 1.05rem;
+                    }
+                    .tm-row-stat-label { font-size: 0.62rem; }
+                    .tm-row-stat-value { font-size: 0.8rem; }
+
+                    /* Full-screen tenant view sliding in from the right */
                     #tmDetailCol {
-                      display: none;
-                    }
-                    #tmLayout.tm-mobile-detail-active #tmListCol {
-                      display: none !important;
+                      position: fixed !important;
+                      inset: 0;
+                      z-index: 1045;
+                      width: 100% !important;
+                      height: 100% !important;
+                      min-width: 0 !important;
+                      display: flex !important;
+                      background: #f2f3f7 !important;
+                      transform: translateX(100%);
+                      visibility: hidden;
+                      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.32s;
+                      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12);
                     }
                     #tmLayout.tm-mobile-detail-active #tmDetailCol {
-                      display: flex !important;
+                      transform: none;
+                      visibility: visible;
+                      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+                    }
+                    #tenantDetailHeader {
+                      min-height: 56px;
+                      padding: 6px 12px 6px 2px !important;
+                      padding-top: max(6px, env(safe-area-inset-top)) !important;
                     }
                     #tmBackToListBtn {
                       display: inline-flex !important;
+                      align-items: center;
+                      justify-content: center;
+                      width: 44px;
+                      height: 44px;
+                      flex-shrink: 0;
                     }
+                    #tenantDetailHeaderActions { display: none !important; } /* moved to the bottom bar */
+                    #tenantDetailBody {
+                      overscroll-behavior: contain;
+                      -webkit-overflow-scrolling: touch;
+                    }
+                    #tenantDetailBody > .p-4 { padding: 12px 12px 20px !important; }
+                    #tenantDetailBody .tm-detail-section {
+                      background: #fff;
+                      border-radius: 16px;
+                      padding: 14px;
+                      margin-bottom: 12px;
+                      border: 0;
+                      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+                    }
+                    #tenantDetailBody .tm-detail-grid {
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      gap: 0.75rem 1rem;
+                    }
+                    #tenantDetailBody .tm-detail-value { font-size: 0.92rem; overflow-wrap: anywhere; }
+                    #tenantDetailBody .tenant-doc-thumbs { max-width: none !important; }
+                    #tenantDetailBody .tenant-doc-thumb { height: 110px; }
+                    .tm-detail-footer {
+                      display: flex;
+                      gap: 8px;
+                      flex-shrink: 0;
+                      padding: 10px 12px;
+                      padding-bottom: max(10px, env(safe-area-inset-bottom));
+                      background: #fff;
+                      border-top: 1px solid #e5e5e7;
+                      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+                    }
+                    .tm-detail-footer:empty { display: none; }
+                    .tm-detail-footer .btn {
+                      min-height: 48px;
+                      border-radius: 12px;
+                    }
+                    .tm-detail-footer .tm-footer-icon { width: 52px; flex-shrink: 0; }
+                    .tm-detail-footer .tm-footer-main { flex: 1 1 auto; font-weight: 600; }
+                  }
+                  @media (max-width: 767.98px) and (prefers-reduced-motion: reduce) {
+                    #tmDetailCol,
+                    #tmLayout.tm-mobile-detail-active #tmDetailCol { transition: none; }
                   }
                 </style>
                 <div
@@ -8935,6 +9736,8 @@
                         </p>
                       </div>
                     </div>
+                    <!-- Phone only: thumb-reach actions for the open tenant -->
+                    <div class="tm-detail-footer d-md-none" id="tenantDetailFooter"></div>
                   </div>
                 </div>
               </div>
@@ -8984,6 +9787,15 @@
                 </div>
               </div>
             </div>
+            <!-- Phone only: floating "add" button (hidden with the section) -->
+            <button
+              type="button"
+              class="m-fab d-md-none"
+              id="tmMobileAddBtn"
+              aria-label="Add tenant"
+            >
+              <i class="bi bi-person-plus"></i>
+            </button>
           </div>
 
           <!-- Tenancy Occupancy Section -->
@@ -16039,7 +16851,7 @@
       aria-labelledby="tenantModalLabel"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-lg">
+      <div class="modal-dialog modal-lg modal-fullscreen-md-down">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="tenantModalLabel">
@@ -16056,7 +16868,7 @@
           <form id="tenantForm">
             <div class="modal-body">
               <!-- Required Fields Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Identity|bi-person-vcard">
                 <h6 class="text-primary mb-3">
                   <i class="bi bi-asterisk me-1"></i>Required Information
                 </h6>
@@ -16092,7 +16904,7 @@
                     <div class="form-text">Optional, max 50 characters</div>
                   </div>
                 </div>
-                <div class="row">
+                <div class="row m-2col">
                   <div class="col-md-3 mb-3">
                     <label for="tenantFin" class="form-label">FIN/NRIC</label>
                     <input
@@ -16152,7 +16964,7 @@
                     <div class="form-text">Optional</div>
                   </div>
                 </div>
-                <div class="row">
+                <div class="row m-2col">
                   <div class="col-md-3 mb-3">
                     <label for="tenantDateOfBirth" class="form-label"
                       >Date of Birth</label
@@ -16303,7 +17115,7 @@
                     </datalist>
                   </div>
                 </div>
-                <div class="row">
+                <div class="row" data-msec="Contact|bi-telephone">
                   <div class="col-md-4 mb-3">
                     <label for="tenantPhoneNumber" class="form-label"
                       >Phone Number</label
@@ -16350,7 +17162,7 @@
                 </div>
 
                 <!-- Financial Information -->
-                <div class="row">
+                <div class="row" data-msec="Money|bi-cash-coin">
                   <div class="col-md-6 mb-3">
                     <label for="tenantDeposit" class="form-label">
                       <i class="bi bi-shield-check me-1"></i>Deposit Amount
@@ -16461,7 +17273,7 @@
                 </div>
 
                 <!-- Utility Usage -->
-                <div class="row">
+                <div class="row m-3col">
                   <div class="col-12 mb-1">
                     <label class="form-label fw-semibold small text-muted"
                       >Utility Usage (used for bill breakdown)</label
@@ -16519,7 +17331,7 @@
                 </div>
 
                 <!-- Assigned Properties Section -->
-                <div class="mb-4">
+                <div class="mb-4" data-msec="Room|bi-door-open">
                   <h6 class="text-secondary mb-3">
                     <i class="bi bi-building me-1"></i>Assigned Property
                   </h6>
@@ -16532,7 +17344,7 @@
                 <!-- Main Tenant Signature — sits right under the property card so
                      ticking "Main Tenant for this property" reveals it in place.
                      Shown/hidden by tenantManager.toggleSignatureSection(). -->
-                <div class="mb-4" id="signatureSection" style="display: none">
+                <div class="mb-4" id="signatureSection" style="display: none" data-msec="Signature|bi-pen">
                   <h6 class="text-secondary mb-1">
                     <i class="bi bi-pen me-1"></i>Main Tenant Signature
                   </h6>
@@ -16709,7 +17521,7 @@
               </div>
 
               <!-- Roommate Relationship Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Roommate|bi-people">
                 <h6 class="text-secondary mb-3">
                   <i class="bi bi-people-fill me-1"></i>Roommate Relationship
                 </h6>
@@ -16737,7 +17549,7 @@
               </div>
 
               <!-- Document Images Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Photos|bi-images">
                 <h6 class="text-secondary mb-3">
                   <i class="bi bi-images me-1"></i>Document Images (Optional)
                 </h6>
@@ -16893,7 +17705,7 @@
               <input type="hidden" id="tenantAvatar" name="avatar" />
 
               <!-- Status Information Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Status|bi-check2-circle">
                 <h6 class="text-secondary mb-3">
                   <i class="bi bi-person-check me-1"></i>Status Information
                 </h6>
@@ -16928,7 +17740,7 @@
               </div>
 
               <!-- Notes and Todos Section -->
-              <div class="mb-4">
+              <div class="mb-4" data-msec="Notes|bi-journal-text">
                 <h6 class="text-secondary mb-3">
                   <i class="bi bi-journal-text me-1"></i>Notes & Tasks
                 </h6>

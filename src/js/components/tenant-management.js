@@ -11,6 +11,14 @@ import {
 } from "../utils/investor-avatar-stack.js";
 import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
 import { SignaturePad } from "../utils/signature-pad.js";
+import {
+  isMobileViewport,
+  mobileLayers,
+  createSectionNav,
+  openActionSheet,
+  applyMobileInputHints,
+  trackUserEdits,
+} from "../utils/mobile-ux.js";
 
 /**
  * Returns the effective rent for a tenant derived from their room assignments.
@@ -71,6 +79,7 @@ class TenantManagementComponent {
   init() {
     this.setupEventListeners();
     this.setupAdminControls();
+    this.setupMobileUx();
     // Load properties to display property cards
     this.loadProperties();
     fetchInvestorsForAvatarStack().then((investors) => {
@@ -271,6 +280,9 @@ class TenantManagementComponent {
             `;
       container.innerHTML += cardHtml;
     });
+
+    // Phone strip: keep the selected property visible after a re-render.
+    this.scrollSelectedPropertyCardIntoView({ smooth: false });
   }
 
   async selectProperty(propertyId) {
@@ -283,6 +295,7 @@ class TenantManagementComponent {
 
     // Only update the visual selection state without full re-render
     this.updatePropertyCardSelection(propertyId);
+    this.afterMobilePropertyPick();
 
     // Sync URL — use resolved property object if available (from router deep-link)
     const property =
@@ -307,6 +320,7 @@ class TenantManagementComponent {
 
     // Update visual selection
     this.updatePropertyCardSelection("UNASSIGNED");
+    this.afterMobilePropertyPick();
 
     // Load unassigned tenants
     await this.loadUnassignedTenants();
@@ -710,7 +724,11 @@ class TenantManagementComponent {
     // otherwise a fresh property selection (or a /tenants/<property-slug>
     // deep-link with no tenant segment) leaves the address bar pointing at
     // the property root even though a specific tenant is visible on screen.
-    if (tenantToShow) this.syncTenantUrl(tenantToShow);
+    // On phones the list is what's on screen until a tenant is tapped, and a
+    // tenant URL would reopen that tenant's edit form on refresh.
+    if (tenantToShow && (!isMobileViewport() || this.isMobileTenantDetailOpen())) {
+      this.syncTenantUrl(tenantToShow);
+    }
   }
 
   groupTenantsByRoommates(tenants) {
@@ -1146,11 +1164,14 @@ class TenantManagementComponent {
     const body = document.getElementById("tenantDetailBody");
     if (!body) return;
 
+    const footer = document.getElementById("tenantDetailFooter");
+
     if (!tenant) {
       if (headerContent) {
         headerContent.innerHTML = `<i class="bi bi-people"></i><h5 class="mb-0 fw-bold text-truncate">Tenants</h5>`;
       }
       if (headerActions) headerActions.innerHTML = "";
+      if (footer) footer.innerHTML = "";
       body.innerHTML = `
         <div class="text-center text-muted py-5">
           <i class="bi bi-person-lines-fill fs-1 d-block mb-3"></i>
@@ -1173,6 +1194,17 @@ class TenantManagementComponent {
         <button type="button" class="btn btn-sm btn-light" title="Copy tenant details" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
         <button type="button" class="btn btn-sm btn-outline-light" title="Delete tenant" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>`;
     }
+    // Phone bottom bar (hidden on desktop): same actions, within thumb reach.
+    if (footer) {
+      footer.innerHTML = `
+        <button type="button" class="btn btn-light border tm-footer-icon" title="Copy tenant details" aria-label="Copy tenant details" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
+        <button type="button" class="btn btn-light border text-danger tm-footer-icon" title="Delete tenant" aria-label="Delete tenant" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>
+        <button type="button" class="btn btn-primary tm-footer-main" onclick="tenantManager.editTenant('${tenant._id}')"><i class="bi bi-pencil-square me-1"></i>Edit tenant</button>`;
+    }
+
+    // A different tenant starts at the top on phones (desktop keeps its scroll).
+    if (isMobileViewport() && this._detailShownTenantId !== tenant._id) body.scrollTop = 0;
+    this._detailShownTenantId = tenant._id;
 
     body.innerHTML = this.renderTenantDetailContent(tenant);
 
@@ -1224,15 +1256,153 @@ class TenantManagementComponent {
     });
   }
 
-  // Swaps the mobile stacked layout (see the #tmLayout media query in
-  // dashboard.html) from list-view to detail-view. No-op visually at desktop
-  // widths, where both columns are always shown side by side.
+  // ─── Phone layout ─────────────────────────────────────────────────────────
+  // Below 768px the tenant list fills the page, a tenant opens full-screen
+  // on top, and the add/edit modal goes full-screen (see the #tmLayout and
+  // #tenantModal media queries in dashboard.html). Wired on every screen
+  // size but only visible on phones.
+  setupMobileUx() {
+    document.getElementById("tmMobileAddBtn")?.addEventListener("click", () => window.tenantManager?.showAddTenantModal());
+    document.getElementById("tmMobileMenuBtn")?.addEventListener("click", () => this.openMobileListMenu());
+    document.getElementById("tmPickerToggleBtn")?.addEventListener("click", () => this.togglePropertyPickerGrid());
+
+    const modalEl = document.getElementById("tenantModal");
+    const form = document.getElementById("tenantForm");
+    const body = modalEl?.querySelector(".modal-body");
+    if (!modalEl || !form || !body) return;
+
+    this._modalSecNav = createSectionNav({ mount: body, scrollEl: body, root: form });
+    applyMobileInputHints(form);
+
+    // Tracked on the modal body (not the form) so tapping the section chips,
+    // which sit inside the form, doesn't count as an edit.
+    trackUserEdits(body, () => {
+      this._tenantFormTouched = true;
+    });
+
+    modalEl.addEventListener("show.bs.modal", () => {
+      this._tenantFormTouched = false;
+      if (isMobileViewport()) {
+        mobileLayers.open("tm-modal", () => this.handleTenantModalBack());
+      }
+    });
+    modalEl.addEventListener("shown.bs.modal", () => this._modalSecNav?.reset());
+    modalEl.addEventListener("hidden.bs.modal", () => mobileLayers.close("tm-modal"));
+  }
+
+  // Whether the user changed anything since the modal opened. (Not
+  // hasDataChanged(): it reports a change for some tenants straight after
+  // opening, which would prompt on every back.)
+  hasUnsavedTenantChanges() {
+    return !!this._tenantFormTouched;
+  }
+
+  // Back gesture while the add/edit modal is open on a phone.
+  handleTenantModalBack() {
+    if (this.hasUnsavedTenantChanges() && !confirm("Discard your unsaved changes to this tenant?")) {
+      return false;
+    }
+    window.bootstrap?.Modal.getInstance(document.getElementById("tenantModal"))?.hide();
+    return true;
+  }
+
+  isMobileTenantDetailOpen() {
+    return !!document.getElementById("tmLayout")?.classList.contains("tm-mobile-detail-active");
+  }
+
+  // Swaps the mobile stacked layout from list-view to detail-view. No-op
+  // visually at desktop widths, where both columns are always side by side.
   enterMobileTenantDetailView() {
     document.getElementById("tmLayout")?.classList.add("tm-mobile-detail-active");
+    if (!isMobileViewport()) return;
+    mobileLayers.open("tm-detail", () => {
+      this.exitMobileTenantDetailView();
+      return true;
+    });
   }
 
   exitMobileTenantDetailView() {
-    document.getElementById("tmLayout")?.classList.remove("tm-mobile-detail-active");
+    const layout = document.getElementById("tmLayout");
+    if (!layout?.classList.contains("tm-mobile-detail-active")) return Promise.resolve();
+    layout.classList.remove("tm-mobile-detail-active");
+    if (!isMobileViewport()) return Promise.resolve();
+    // Point the URL back at the property (list) once the history entry for
+    // the tenant view is gone, so a refresh doesn't open a tenant.
+    return mobileLayers.close("tm-detail").then(() => this.syncPropertyUrl());
+  }
+
+  syncPropertyUrl() {
+    const property = this.properties.find((p) => p.propertyId === this.selectedProperty);
+    if (property && window.SlugUtils) {
+      window.appRouter?.replace(`/tenants/${window.SlugUtils.propertySlug(property)}`);
+    }
+  }
+
+  // Phone property picker: one swipeable row by default, full grid on demand.
+  togglePropertyPickerGrid(expand) {
+    const card = document.getElementById("tmPropertyPickerCard");
+    const btn = document.getElementById("tmPickerToggleBtn");
+    if (!card) return;
+    const expanded = card.classList.toggle("tm-picker-expanded", expand);
+    if (btn) {
+      btn.setAttribute("aria-expanded", String(expanded));
+      btn.innerHTML = expanded
+        ? '<i class="bi bi-chevron-up me-1"></i><span>Show less</span>'
+        : '<i class="bi bi-grid-3x3-gap me-1"></i><span>See all</span>';
+    }
+    if (!expanded) this.scrollSelectedPropertyCardIntoView();
+  }
+
+  // Centers the selected property in the phone strip (no vertical scroll).
+  scrollSelectedPropertyCardIntoView({ smooth = true } = {}) {
+    if (!isMobileViewport()) return;
+    const strip = document.getElementById("tenantPropertyCards");
+    const card = strip?.querySelector(`.property-card-compact[data-property-id="${CSS.escape(String(this.selectedProperty || ""))}"]`);
+    if (!strip || !card || strip.scrollWidth <= strip.clientWidth) return;
+    const left = card.offsetLeft - strip.offsetLeft - (strip.clientWidth - card.offsetWidth) / 2;
+    strip.scrollTo({ left: Math.max(0, left), behavior: smooth ? "smooth" : "auto" });
+  }
+
+  // After picking a property on a phone: fold the grid back into the strip
+  // and bring the tenant list into view.
+  afterMobilePropertyPick() {
+    if (!isMobileViewport()) return;
+    const card = document.getElementById("tmPropertyPickerCard");
+    if (card?.classList.contains("tm-picker-expanded")) {
+      this.togglePropertyPickerGrid(false);
+      document.getElementById("tmListCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      this.scrollSelectedPropertyCardIntoView();
+    }
+  }
+
+  // Phone "⋯" sheet for the list: built from the desktop Copy/Excel menus and
+  // PDF/ZIP buttons, so it always offers exactly what they offer.
+  openMobileListMenu() {
+    const isShown = (el) => el && el.style.display !== "none" && el.closest("li")?.style.display !== "none";
+    const iconOf = (el) => Array.from(el.querySelector("i.bi")?.classList || []).find((c) => c.startsWith("bi-"));
+    const labelOf = (el) => el.textContent.replace(/\s+/g, " ").trim();
+    const fromMenu = (buttonId) =>
+      Array.from(document.querySelectorAll(`[aria-labelledby="${buttonId}"] .dropdown-item`))
+        .filter(isShown)
+        .map((el) => ({ icon: iconOf(el), label: labelOf(el), hint: el.title || "", onClick: () => el.click() }));
+
+    const exportButtons = ["generateTenantPdfBtn", "generateTenantPdfNoBriefingBtn", "generateTenantZipBtn"]
+      .map((id) => document.getElementById(id))
+      .filter(isShown)
+      .map((el) => ({ icon: iconOf(el), label: labelOf(el), hint: "Selected tenants", onClick: () => el.click() }));
+
+    const actions = [];
+    if (exportButtons.length) {
+      actions.push(...exportButtons);
+      if (this.selectedTenantIds.size) {
+        actions.push({ icon: "bi-x-circle", label: "Clear selection", onClick: () => this.clearTenantSelection() });
+      }
+      actions.push("divider");
+    }
+    actions.push(...fromMenu("tenantCopyDropdownButton"), "divider", ...fromMenu("tenantExcelDropdownButton"));
+
+    openActionSheet({ title: "Tenants", actions });
   }
 
   renderDocThumb(pics, type, icon, label, size) {
@@ -3859,6 +4029,11 @@ class TenantManagementComponent {
         if (window.dashboardController) {
           window.dashboardController.markTenantDataChanged();
         }
+        // On phones, the deleted tenant's full-screen view has nothing left
+        // to show — return to the list.
+        if (isMobileViewport() && this.selectedTenantId === tenant._id) {
+          await this.exitMobileTenantDetailView();
+        }
         // Reload the list
         if (this.selectedProperty === "UNASSIGNED") {
           await this.loadUnassignedTenants();
@@ -4765,6 +4940,7 @@ class TenantManagementComponent {
     const section = document.getElementById("signatureSection");
     if (!section) return;
     section.style.display = this._isMainTenantInForm() ? "" : "none";
+    this._modalSecNav?.refresh();
   }
 
   setupSignatureUrlListener() {
