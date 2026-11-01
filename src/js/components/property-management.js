@@ -1661,6 +1661,8 @@ class PropertyManagementComponent {
           property.depositFromTenant || 0;
         document.getElementById("mainTenantFee").value =
           property.mainTenantFee || 0;
+        const cleaningFeeInput = document.getElementById("propertyCleaningFee");
+        if (cleaningFeeInput) cleaningFeeInput.value = property.cleaningFee || 0;
         document.getElementById("rent").value = property.rent || 0;
         console.log('🔍 DEBUG - Editing property, rent value set to form:', property.rent);
         document.getElementById("airconUnits").value = property.airconUnits || 0;
@@ -1892,6 +1894,8 @@ class PropertyManagementComponent {
         document.getElementById("depositToLandlord").value = "0";
         document.getElementById("depositFromTenant").value = "0";
         document.getElementById("mainTenantFee").value = "0";
+        const cleaningFeeInput = document.getElementById("propertyCleaningFee");
+        if (cleaningFeeInput) cleaningFeeInput.value = "0";
         document.getElementById("rent").value = "0";
 
         // Clear WiFi images for add mode
@@ -2184,6 +2188,7 @@ class PropertyManagementComponent {
         depositToLandlord: parseFloat(formData.get("depositToLandlord")) || 0,
         depositFromTenant: parseFloat(formData.get("depositFromTenant")) || 0,
         mainTenantFee: parseFloat(formData.get("mainTenantFee")) || 0,
+        cleaningFee: parseFloat(formData.get("cleaningFee")) || 0,
         rent: parseFloat(formData.get("rent")) || 0,
         airconUnits: parseInt(formData.get("airconUnits")) || 0,
         subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
@@ -2281,6 +2286,11 @@ class PropertyManagementComponent {
 
       if (propertyData.mainTenantFee < 0) {
         alert("Main tenant fee cannot be negative");
+        return;
+      }
+
+      if (propertyData.cleaningFee < 0) {
+        alert("Cleaning fee cannot be negative");
         return;
       }
 
