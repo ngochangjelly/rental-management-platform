@@ -11904,6 +11904,11 @@
                      currently showing (dynamic preview card or generated bill table),
                      so it stays a single element with its listeners/tooltips intact. -->
                 <div class="d-flex flex-wrap gap-2" id="billActionToolbar">
+                  <!-- "N selected · $total" — filled by billManager._renderSelectionSummary() -->
+                  <span
+                    id="billSelectionSummary"
+                    class="align-self-center small text-muted text-nowrap d-none"
+                  ></span>
                   <button
                     id="generateBillBtn"
                     class="btn btn-sm btn-primary"
@@ -11928,6 +11933,15 @@
                     data-bs-title="Download bill image(s) for the selected tenant(s)"
                   >
                     <i class="bi bi-download me-1"></i>Download Bill
+                  </button>
+                  <button
+                    id="billDownloadCombinedBtn"
+                    class="btn btn-sm btn-outline-success"
+                    disabled
+                    data-bs-toggle="tooltip"
+                    data-bs-title="Download ONE bill image for all selected tenants, with their grand total — select 2 or more"
+                  >
+                    <i class="bi bi-people me-1"></i>Combined Bill
                   </button>
                   <button
                     id="billCopySelectedBtn"

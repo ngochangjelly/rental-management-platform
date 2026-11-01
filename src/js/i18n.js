@@ -520,6 +520,11 @@ i18next.init({
           billDownloadFailed: "Failed to download bill(s)",
           billCopySuccess: "Copied {{count}} bill breakdown(s) to clipboard",
           billCopyFailed: "Failed to copy bill breakdown",
+          // Combined bill (one image for several selected tenants)
+          billCombinedDownloadSuccess: "Downloaded combined bill for {{count}} tenants · total {{amount}}",
+          billCombinedDownloadFailed: "Failed to download combined bill",
+          billCombinedNeedTwo: "Select at least 2 tenants to combine into one bill",
+          selectedCount: "{{count}} selected",
         },
         financialReport: {
           exportCopied: "Report copied to clipboard!",
@@ -1186,6 +1191,11 @@ i18next.init({
           billDownloadFailed: "Lỗi tải hóa đơn",
           billCopySuccess: "Đã sao chép {{count}} hóa đơn vào clipboard",
           billCopyFailed: "Lỗi sao chép hóa đơn",
+          // Combined bill (one image for several selected tenants)
+          billCombinedDownloadSuccess: "Đã tải hóa đơn chung cho {{count}} người · tổng {{amount}}",
+          billCombinedDownloadFailed: "Lỗi tải hóa đơn chung",
+          billCombinedNeedTwo: "Chọn ít nhất 2 người thuê để gộp thành một hóa đơn",
+          selectedCount: "Đã chọn {{count}}",
         },
         financialReport: {
           exportCopied: "Đã sao chép báo cáo vào clipboard!",

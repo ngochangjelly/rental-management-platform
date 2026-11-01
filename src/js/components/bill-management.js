@@ -49,6 +49,22 @@ const monthName = (idx, short = false) => {
   return short ? sh[idx] : full[idx];
 };
 
+// Money that gets added up is rounded to cents per amount first, so a total
+// always equals the sum of the rounded figures printed next to it. Rounds
+// via toFixed(2) — the same as the bill tables and single-tenant cards — so
+// a half-cent amount (e.g. 690.005) shows the same cent everywhere;
+// Math.round(v * 100) and toLocaleString can round those the other way.
+const roundCents = (v) => Number((Number(v) || 0).toFixed(2));
+const sumCents = (values) =>
+  roundCents(values.reduce((s, v) => s + roundCents(v), 0));
+// "$1,234.50" — thousands separators, since a total across several tenants
+// easily runs into four digits.
+const fmtMoney = (v) =>
+  `$${roundCents(v).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
 /**
  * Bill Management Component
  * Manages monthly bills for properties with tenant bill tracking and upload management
@@ -119,6 +135,10 @@ class BillManagementComponent {
     if (downloadBtn) {
       downloadBtn.addEventListener("click", () => this.downloadSelectedBills());
     }
+    const combinedBtn = document.getElementById("billDownloadCombinedBtn");
+    if (combinedBtn) {
+      combinedBtn.addEventListener("click", () => this.downloadCombinedBill());
+    }
     const copyBtn = document.getElementById("billCopySelectedBtn");
     if (copyBtn) {
       copyBtn.addEventListener("click", () => this.copySelectedBillBreakdown());
@@ -132,17 +152,25 @@ class BillManagementComponent {
       );
     }
 
-    // Hotkeys: Cmd/Ctrl+K → download selected bill(s), Cmd/Ctrl+C (no text selection) → copy breakdown
+    // Hotkeys: Cmd/Ctrl+K → download selected bill(s), Cmd/Ctrl+Shift+K →
+    // one combined bill, Cmd/Ctrl+C (no text selection) → copy breakdown.
+    // Shift+C is left alone — that's the browser's DevTools inspector.
     document.addEventListener("keydown", (e) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const section = document.getElementById("bills-section");
       if (!section || section.style.display === "none") return;
       if (this.selectedTenants.size === 0) return;
 
-      if (e.key === "k") {
+      const key = e.key.toLowerCase();
+      if (key === "k") {
         e.preventDefault();
-        this.downloadSelectedBills();
-      } else if (e.key === "c" && !window.getSelection()?.toString()) {
+        if (e.shiftKey) this.downloadCombinedBill();
+        else this.downloadSelectedBills();
+      } else if (
+        key === "c" &&
+        !e.shiftKey &&
+        !window.getSelection()?.toString()
+      ) {
         e.preventDefault();
         this.copySelectedBillBreakdown();
       }
@@ -159,12 +187,19 @@ class BillManagementComponent {
       /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
       navigator.userAgentData?.platform === "macOS";
     const mod = isMac ? "⌘" : "Ctrl+";
+    const shiftMod = isMac ? "⌘⇧" : "Ctrl+Shift+";
 
     document
       .getElementById("billDownloadSelectedBtn")
       ?.setAttribute(
         "data-bs-title",
         `Download bill image(s) for the selected tenant(s) (${mod}K)`,
+      );
+    document
+      .getElementById("billDownloadCombinedBtn")
+      ?.setAttribute(
+        "data-bs-title",
+        `Download ONE bill image for all selected tenants, with their grand total — select 2 or more (${shiftMod}K)`,
       );
     document
       .getElementById("billCopySelectedBtn")
@@ -2292,13 +2327,49 @@ class BillManagementComponent {
   }
 
   updateSelectionButtons() {
-    const isEmpty = this.selectedTenants.size === 0;
-    const bulkDeleteBtn = document.getElementById("bulkDeleteUploadsBtn");
-    if (bulkDeleteBtn) bulkDeleteBtn.disabled = isEmpty;
-    const downloadBtn = document.getElementById("billDownloadSelectedBtn");
-    if (downloadBtn) downloadBtn.disabled = isEmpty;
-    const copyBtn = document.getElementById("billCopySelectedBtn");
-    if (copyBtn) copyBtn.disabled = isEmpty;
+    const count = this.selectedTenants.size;
+    // A button mid-export (see _withBusyButton) stays disabled until it's done.
+    const setDisabled = (id, disabled) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = disabled || !!btn.dataset.busy;
+    };
+    setDisabled("bulkDeleteUploadsBtn", count === 0);
+    setDisabled("billDownloadSelectedBtn", count === 0);
+    setDisabled("billCopySelectedBtn", count === 0);
+    // Combining a single tenant is just their normal bill — needs 2+.
+    setDisabled("billDownloadCombinedBtn", count < 2);
+    this._renderSelectionSummary();
+  }
+
+  // Selected tenants' bill totals from whichever table is showing: the
+  // generated bill's saved amounts, or the live preview's estimates.
+  _selectedTenantTotals() {
+    const rows = this.currentBill
+      ? (this.currentBill.tenantBills || []).map((tb) => ({
+          tenantId: tb.tenantId,
+          total: tb.totalAmount,
+        }))
+      : (this._dynamicPreviewCache?.rows || []).map((r) => ({
+          tenantId: r.tenantId,
+          total: r.total,
+        }));
+    const picked = rows.filter((r) => this.selectedTenants.has(r.tenantId));
+    return {
+      count: picked.length,
+      total: sumCents(picked.map((r) => r.total)),
+    };
+  }
+
+  // "3 selected · $2,150.00" in the toolbar, so the combined amount is
+  // visible while picking tenants, before anything is exported.
+  _renderSelectionSummary() {
+    const el = document.getElementById("billSelectionSummary");
+    if (!el) return;
+    const { count, total } = this._selectedTenantTotals();
+    el.classList.toggle("d-none", count === 0);
+    el.innerHTML = count
+      ? `<i class="bi bi-check2-square me-1"></i>${escapeHtml(t("selectedCount", { count }))} · <strong class="text-body">${fmtMoney(total)}</strong>`
+      : "";
   }
 
   getStatusBadge(status) {
@@ -3301,20 +3372,45 @@ class BillManagementComponent {
     return "Sau khi chuyển khoản xong, vui lòng chụp màn hình ảnh xác nhận chuyển khoản và gửi lại để chủ nhà xác nhận. Cảm ơn bạn!";
   }
 
-  // Clean, mobile-first bill card (white background, modeled on a standard
-  // invoice layout), fully in Vietnamese. Rendered off-screen and rasterized
-  // via html2canvas.
-  _buildBillCardHtml(tenantBill, ctx) {
-    const info = ctx.perTenant[tenantBill.tenantId] || {};
-    const cycles = info.cycles || [];
-    const fmt = (v) => `$${(v || 0).toFixed(2)}`;
+  // App's own house logo mark (matches the sidebar brand icon), inlined as
+  // SVG in black rather than the bi-house-door-fill webfont glyph, since
+  // icon fonts don't rasterize reliably through html2canvas.
+  static get BILL_LOGO_SVG() {
+    return `
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 16 16" fill="#1a1a1a">
+        <path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5"/>
+      </svg>`;
+  }
+
+  // Card header: logo, "Hóa đơn tháng M/YYYY" and the property line.
+  // `extraHtml` sits under that row (the combined card's group label).
+  _billCardHeaderHtml(ctx, extraHtml = "") {
     const propLine = ctx.property
       ? [ctx.property.unit, ctx.property.address].filter(Boolean).join(", ")
       : "";
-    const roomLabel = tenantBill.room
-      ? getRoomTypeDisplayName(tenantBill.room)
-      : "—";
+    return `
+        <div style="padding:20px 24px 16px;border-bottom:1px solid #f1f3f5;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            ${BillManagementComponent.BILL_LOGO_SVG}
+            <div style="min-width:0;">
+              <div style="font-size:11px;letter-spacing:0.6px;color:#868e96;text-transform:uppercase;font-weight:700;">Hóa đơn tháng ${ctx.monthLabel}</div>
+              ${propLine ? `<div style="font-size:13px;color:#495057;font-weight:600;margin-top:1px;">${escapeHtml(propLine)}</div>` : ""}
+            </div>
+          </div>${extraHtml}
+        </div>`;
+  }
+
+  // Fee lines — rent, utilities, cleaning, AC clean — shared by the
+  // single-tenant card and each tenant's block in the combined card.
+  // `dense` tightens the rows (several tenants stack in one image) and puts
+  // each row's divider above it rather than below, so a block doesn't end
+  // on a stray rule.
+  _billLineItemsHtml(tenantBill, info, { fmt, dense = false }) {
+    const cycles = info.cycles || [];
     const totalRawShare = cycles.reduce((s, c) => s + (c.share || 0), 0);
+    const pad = dense ? 8 : 11;
+    const fs = dense ? 13 : 14;
+    const divider = `${dense ? "border-top" : "border-bottom"}:1px solid #f1f3f5;`;
 
     // Icon + label as a single inline-flex unit so the emoji and text sit on
     // the same baseline regardless of row content — avoids the icon nudging
@@ -3325,9 +3421,9 @@ class BillManagementComponent {
       </span>`;
 
     const row = (label, value, opts = {}) => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;${opts.noBorder ? "" : "border-bottom:1px solid #f1f3f5;"}">
-        <span style="color:#495057;font-size:14px;">${label}</span>
-        <span style="font-weight:600;font-size:14px;color:${opts.color || "#1a1a1a"};">${value}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:${pad}px 0;${opts.noBorder ? "" : divider}">
+        <span style="color:#495057;font-size:${fs}px;">${label}</span>
+        <span style="font-weight:600;font-size:${fs}px;color:${opts.color || "#1a1a1a"};">${value}</span>
       </div>`;
 
     // Move-in/move-out note for a cycle whose SP Group dates don't line up
@@ -3360,10 +3456,10 @@ class BillManagementComponent {
           : "";
 
     const utilitySection = `
-      <div style="padding:11px 0;border-bottom:1px solid #f1f3f5;">
+      <div style="padding:${pad}px 0;${divider}">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span style="color:#495057;font-size:14px;">${labelIcon("⚡", "Tiền điện nước")}</span>
-          <span style="font-weight:600;font-size:14px;color:${info.isSubsidized ? "#2b8a3e" : "#1a1a1a"};">${fmt(tenantBill.utilityFee)}</span>
+          <span style="color:#495057;font-size:${fs}px;">${labelIcon("⚡", "Tiền điện nước")}</span>
+          <span style="font-weight:600;font-size:${fs}px;color:${info.isSubsidized ? "#2b8a3e" : "#1a1a1a"};">${fmt(tenantBill.utilityFee)}</span>
         </div>
         ${cycleLines}
         ${hasPastCycle && !info.isSubsidized ? `<div style="margin-top:5px;padding-left:10px;font-size:12px;color:#e67700;font-style:italic;">${BillManagementComponent.PAST_CYCLE_NOTE_VI}</div>` : ""}
@@ -3390,19 +3486,19 @@ class BillManagementComponent {
       tenantBill.monthlyRent > 0 &&
       Math.abs(tenantBill.baseRental - tenantBill.monthlyRent) > 0.005;
     const rentSection = `
-      <div style="padding:11px 0;border-bottom:1px solid #f1f3f5;">
+      <div style="padding:${pad}px 0;${divider}">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span style="color:#495057;font-size:14px;">Tiền thuê phòng</span>
-          <span style="font-weight:600;font-size:14px;color:#1a1a1a;">${fmt(tenantBill.baseRental)}</span>
+          <span style="color:#495057;font-size:${fs}px;">Tiền thuê phòng</span>
+          <span style="font-weight:600;font-size:${fs}px;color:#1a1a1a;">${fmt(tenantBill.baseRental)}</span>
         </div>
         ${isProratedRent ? proratedFormula(tenantBill.monthlyRent) : ""}
       </div>`;
 
     const cleaningSection = tenantBill.cleaningFee
-      ? `<div style="padding:11px 0;border-bottom:1px solid #f1f3f5;">
+      ? `<div style="padding:${pad}px 0;${divider}">
           <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="color:#495057;font-size:14px;">${labelIcon("🧹", "Tiền vệ sinh")}</span>
-            <span style="font-weight:600;font-size:14px;color:#1a1a1a;">${fmt(tenantBill.cleaningFee)}</span>
+            <span style="color:#495057;font-size:${fs}px;">${labelIcon("🧹", "Tiền vệ sinh")}</span>
+            <span style="font-weight:600;font-size:${fs}px;color:#1a1a1a;">${fmt(tenantBill.cleaningFee)}</span>
           </div>
           ${proratedFormula(info.monthlyCleaningFee || tenantBill.cleaningFee)}
         </div>`
@@ -3412,41 +3508,51 @@ class BillManagementComponent {
       ? row(labelIcon("❄️", "Phí vệ sinh máy lạnh"), fmt(tenantBill.acCleanFee))
       : "";
 
-    // Security-deposit settlement — only shown for a tenant's actual move-out
-    // month. Rendered as its own callout block (not another line in the fee
-    // list above) since it's money flowing the other way: back to the
-    // tenant, netted against their last partial month's rent, rather than
-    // another charge added to the total they owe.
-    const depositRefundSection = (() => {
-      if (!info.isMovingOut) return "";
-      if (info.deposit == null) {
-        return `
-      <div style="margin-top:14px;padding:12px 16px;background:#fff9db;border-radius:10px;font-size:12px;color:#846200;line-height:1.5;">
+    return `
+          ${rentSection}
+          ${utilitySection}
+          ${cleaningSection}
+          ${acCleanSection}`;
+  }
+
+  // Security-deposit settlement — only shown for a tenant's actual move-out
+  // month. Rendered as its own callout block (not another line in the fee
+  // list) since it's money flowing the other way: back to the tenant,
+  // netted against their last partial month's rent, rather than another
+  // charge added to the total they owe.
+  _billDepositCalloutHtml(tenantBill, info, { fmt, dense = false }) {
+    if (!info.isMovingOut) return "";
+    if (info.deposit == null) {
+      return `
+      <div style="${dense ? "margin:6px 0 8px;padding:10px 12px;" : "margin-top:14px;padding:12px 16px;"}background:#fff9db;border-radius:10px;font-size:12px;color:#846200;line-height:1.5;">
         ${t("depositMissingNote")}
       </div>`;
-      }
-      const isShortfall = info.depositRefund < 0;
-      const label = isShortfall
-        ? t("depositShortfallLabel")
-        : t("depositRefundLabel");
-      const amount = fmt(Math.abs(info.depositRefund));
-      const bg = isShortfall ? "#fff5f5" : "#ebfbee";
-      const fg = isShortfall ? "#c92a2a" : "#2b8a3e";
-      return `
-      <div style="margin-top:14px;padding:14px 16px;background:${bg};border-radius:10px;">
+    }
+    const isShortfall = info.depositRefund < 0;
+    const label = isShortfall
+      ? t("depositShortfallLabel")
+      : t("depositRefundLabel");
+    const amount = fmt(Math.abs(info.depositRefund));
+    const bg = isShortfall ? "#fff5f5" : "#ebfbee";
+    const fg = isShortfall ? "#c92a2a" : "#2b8a3e";
+    return `
+      <div style="${dense ? "margin:6px 0 8px;padding:10px 12px;" : "margin-top:14px;padding:14px 16px;"}background:${bg};border-radius:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
           <span style="font-size:13px;font-weight:700;color:${fg};">💰 ${label}</span>
-          <span style="font-size:20px;font-weight:800;color:${fg};white-space:nowrap;">${amount}</span>
+          <span style="font-size:${dense ? 16 : 20}px;font-weight:800;color:${fg};white-space:nowrap;">${amount}</span>
         </div>
         <div style="margin-top:4px;font-size:11px;color:#868e96;">${t("depositRefundFormula", { deposit: fmt(info.deposit), rent: fmt(tenantBill.baseRental) })}</div>
       </div>`;
-    })();
+  }
 
-    // Deliberately understated — bank details are reference info, not the
-    // headline of the bill, so this sits small and muted below the total.
-    // Exception: a tenant transferring via the VND account needs the actual
-    // VND figure, not just the bank details, so that line gets called out.
+  // Deliberately understated — bank details are reference info, not the
+  // headline of the bill, so this sits small and muted below the total.
+  // Exception: a tenant transferring via the VND account needs the actual
+  // VND figure for `totalAmount`, not just the bank details, so that line
+  // gets called out. Empty when the property has no bank details on file.
+  _billPaymentSectionHtml(ctx, totalAmount) {
     const settlement = this._billSettlementBlocks(ctx.property);
+    if (!settlement) return "";
     const settlementLine = (label, s, extra = "") => `
       <div style="margin-top:3px;">
         <span style="color:#adb5bd;">${label}</span> ·
@@ -3454,7 +3560,7 @@ class BillManagementComponent {
         ${extra}
       </div>`;
     const vndAmount = ctx.exchangeRate
-      ? Math.round(tenantBill.totalAmount * ctx.exchangeRate)
+      ? Math.round(totalAmount * ctx.exchangeRate)
       : null;
     const vndAmountLine = vndAmount
       ? `<br><span style="color:#2b8a3e;font-weight:700;font-size:13px;">Số tiền cần chuyển: ${vndAmount.toLocaleString("vi-VN")} VND</span>
@@ -3464,36 +3570,36 @@ class BillManagementComponent {
     // stacked, so a card with both on file doesn't grow taller than it needs
     // to — each column shrinks to fit, wrapping its bank-detail line if the
     // card is narrow.
-    const paymentSection = settlement
-      ? `
+    return `
       <div style="background:#f8f9fa;padding:12px 24px;border-top:1px solid #f1f3f5;">
         <div style="font-size:10px;letter-spacing:0.5px;color:#adb5bd;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Thông tin thanh toán</div>
         <div style="display:flex;gap:14px;font-size:12px;color:#868e96;line-height:1.5;">
           ${settlement.sgd?.bankName ? `<div style="flex:1;min-width:0;">${settlementLine("SGD", settlement.sgd)}</div>` : ""}
           ${settlement.vnd?.bankName ? `<div style="flex:1;min-width:0;">${settlementLine("VND", settlement.vnd, vndAmountLine)}</div>` : ""}
         </div>
-      </div>`
-      : "";
+      </div>`;
+  }
 
-    // App's own house logo mark (matches the sidebar brand icon), inlined as
-    // SVG in black rather than the bi-house-door-fill webfont glyph, since
-    // icon fonts don't rasterize reliably through html2canvas.
-    const logoSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 16 16" fill="#1a1a1a">
-        <path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5"/>
-      </svg>`;
+  _billCardFooterHtml() {
+    return `
+        <div style="padding:16px 24px 20px;">
+          <div style="font-size:12px;color:#868e96;line-height:1.5;">📸 ${BillManagementComponent.BILL_FOOTER_NOTE_VI}</div>
+        </div>`;
+  }
+
+  // Clean, mobile-first bill card (white background, modeled on a standard
+  // invoice layout), fully in Vietnamese. Rendered off-screen and rasterized
+  // via html2canvas.
+  _buildBillCardHtml(tenantBill, ctx) {
+    const info = ctx.perTenant[tenantBill.tenantId] || {};
+    const fmt = (v) => `$${(v || 0).toFixed(2)}`;
+    const roomLabel = tenantBill.room
+      ? getRoomTypeDisplayName(tenantBill.room)
+      : "—";
 
     return `
       <div style="width:380px;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);border:1px solid #e9ecef;">
-        <div style="padding:20px 24px 16px;border-bottom:1px solid #f1f3f5;">
-          <div style="display:flex;align-items:center;gap:9px;">
-            ${logoSvg}
-            <div style="min-width:0;">
-              <div style="font-size:11px;letter-spacing:0.6px;color:#868e96;text-transform:uppercase;font-weight:700;">Hóa đơn tháng ${ctx.monthLabel}</div>
-              ${propLine ? `<div style="font-size:13px;color:#495057;font-weight:600;margin-top:1px;">${escapeHtml(propLine)}</div>` : ""}
-            </div>
-          </div>
-        </div>
+        ${this._billCardHeaderHtml(ctx)}
 
         <div style="padding:18px 24px 0;display:flex;align-items:flex-start;gap:12px;">
           ${this._avatarHtml(tenantBill.tenantName, info.avatar, 44, 17)}
@@ -3505,22 +3611,89 @@ class BillManagementComponent {
         </div>
 
         <div style="padding:16px 24px 0;">
-          ${rentSection}
-          ${utilitySection}
-          ${cleaningSection}
-          ${acCleanSection}
+          ${this._billLineItemsHtml(tenantBill, info, { fmt })}
           <div style="margin-top:14px;padding-top:16px;padding-bottom:4px;border-top:3px solid #1a1a1a;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:13px;font-weight:700;color:#868e96;text-transform:uppercase;letter-spacing:0.6px;">Tổng cộng</span>
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">${fmt(tenantBill.totalAmount)}</span>
           </div>
-          ${depositRefundSection}
+          ${this._billDepositCalloutHtml(tenantBill, info, { fmt })}
         </div>
 
-        ${paymentSection}
+        ${this._billPaymentSectionHtml(ctx, tenantBill.totalAmount)}
+        ${this._billCardFooterHtml()}
+      </div>`;
+  }
 
-        <div style="padding:16px 24px 20px;">
-          <div style="font-size:12px;color:#868e96;line-height:1.5;">📸 ${BillManagementComponent.BILL_FOOTER_NOTE_VI}</div>
+  // One bill image for several tenants — a couple sharing a room, or one
+  // person paying for a group — so a single transfer settles all of them.
+  // Each tenant keeps their own block (the same fee lines as their own card,
+  // with their subtotal); then a per-person recap and the grand total the
+  // payer transfers, with the VND figure computed on that grand total.
+  // Subtotals are rounded to cents before summing, so the grand total always
+  // equals the amounts printed above it.
+  _buildCombinedBillCardHtml(tenantBills, ctx) {
+    const fmt = fmtMoney;
+    const count = tenantBills.length;
+    const subtotals = tenantBills.map((tb) => roundCents(tb.totalAmount));
+    const grandTotal = sumCents(subtotals);
+
+    const groupLabel = `
+          <div style="display:inline-block;margin-top:10px;padding:3px 10px;border-radius:999px;background:#e7f5ff;color:#1971c2;font-size:12px;font-weight:600;">👥 Hóa đơn chung · ${count} người thuê</div>`;
+
+    const tenantBlocks = tenantBills
+      .map((tb, i) => {
+        const info = ctx.perTenant[tb.tenantId] || {};
+        const roomLabel = tb.room ? getRoomTypeDisplayName(tb.room) : "—";
+        return `
+          <div style="border:1px solid #e9ecef;border-radius:12px;padding:12px 14px 4px;">
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:8px;">
+              <div style="flex:0 0 36px;">${this._avatarHtml(tb.tenantName, info.avatar, 36, 14)}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:16px;font-weight:700;color:#1a1a1a;line-height:1.3;">${escapeHtml(tb.tenantName)}</div>
+                <div style="font-size:12px;color:#495057;margin-top:2px;">Phòng: ${escapeHtml(roomLabel)}</div>
+                ${info.tenancyNote ? `<div style="font-size:12px;color:#868e96;margin-top:1px;">${escapeHtml(info.tenancyNote)}</div>` : ""}
+              </div>
+              <div style="font-size:16px;font-weight:800;color:#1a1a1a;white-space:nowrap;">${fmt(subtotals[i])}</div>
+            </div>
+            ${this._billLineItemsHtml(tb, info, { fmt, dense: true })}
+            ${this._billDepositCalloutHtml(tb, info, { fmt, dense: true })}
+          </div>`;
+      })
+      .join("");
+
+    // Who owes what, right above the total — lets the payer collect each
+    // person's share without scrolling back through the blocks.
+    const recapRows = tenantBills
+      .map(
+        (tb, i) => `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:3px 0;font-size:13px;">
+            <span style="color:#495057;min-width:0;">${escapeHtml(tb.tenantName)}</span>
+            <span style="color:#1a1a1a;font-weight:600;white-space:nowrap;">${fmt(subtotals[i])}</span>
+          </div>`,
+      )
+      .join("");
+
+    return `
+      <div style="width:400px;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);border:1px solid #e9ecef;">
+        ${this._billCardHeaderHtml(ctx, groupLabel)}
+
+        <div style="padding:16px 24px 0;display:flex;flex-direction:column;gap:12px;">
+          ${tenantBlocks}
         </div>
+
+        <div style="padding:18px 24px 0;">
+          ${recapRows}
+          <div style="margin-top:10px;padding-top:16px;padding-bottom:4px;border-top:3px solid #1a1a1a;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#868e96;text-transform:uppercase;letter-spacing:0.6px;">Tổng cộng</div>
+              <div style="font-size:12px;color:#adb5bd;margin-top:2px;">${count} người thuê</div>
+            </div>
+            <span style="font-size:28px;font-weight:800;color:#1a1a1a;white-space:nowrap;">${fmt(grandTotal)}</span>
+          </div>
+        </div>
+
+        ${this._billPaymentSectionHtml(ctx, grandTotal)}
+        ${this._billCardFooterHtml()}
       </div>`;
   }
 
@@ -3639,7 +3812,10 @@ class BillManagementComponent {
   // with the property's unit/address (not the room) so files sort/identify
   // by property when an admin has many downloads across properties mixed
   // together, with the tenant name kept to avoid collisions within a batch.
+  // A combined bill joins names with "+" ("A+B"); past 3 names the rest are
+  // counted ("A+B+C+2_more") so a big group doesn't make the name unwieldy.
   _billFileName(tenantBills, ctx) {
+    const MAX_NAMES = 3;
     const sanitize = (s) =>
       (s || "")
         .normalize("NFC")
@@ -3651,13 +3827,15 @@ class BillManagementComponent {
           .map(sanitize)
           .join(" - ")
       : "";
-    const safeNames = tenantBills
-      .map((tb) =>
-        sanitize(tb.tenantName || tb.tenantId)
-          .replace(/[^\p{L}\p{N} _-]/gu, "")
-          .replace(/\s+/g, "_"),
-      )
-      .join("+");
+    const names = tenantBills.map((tb) =>
+      sanitize(tb.tenantName || tb.tenantId)
+        .replace(/[^\p{L}\p{N} _-]/gu, "")
+        .replace(/\s+/g, "_"),
+    );
+    const safeNames =
+      names.length > MAX_NAMES
+        ? `${names.slice(0, MAX_NAMES).join("+")}+${names.length - MAX_NAMES}_more`
+        : names.join("+");
     const monthLabel = ctx.monthLabel.replace("/", "-");
     return `${unitAddr ? `#${unitAddr} - ` : ""}${safeNames} - ${monthLabel}.png`;
   }
@@ -3696,12 +3874,38 @@ class BillManagementComponent {
     }
   }
 
-  async downloadSelectedBills() {
-    if (this.selectedTenants.size === 0) return;
+  // Inlines an avatar as a data: URI before rendering — a remote <img>
+  // (even crossorigin="anonymous") still taints the canvas on export
+  // whenever its actual source lacks CORS headers. Null → initials fallback.
+  async _exportAvatar(avatar) {
+    if (!avatar || avatar.startsWith("data:")) return avatar || null;
+    const optimized =
+      typeof ImageUtils !== "undefined"
+        ? ImageUtils.getOptimizedImageUrl(avatar, "small")
+        : avatar;
+    return this._avatarDataUri(optimized);
+  }
 
-    const btn = document.getElementById("billDownloadSelectedBtn");
+  _triggerDownload(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  // Shows a spinner on a toolbar button while `task` runs. The button is
+  // flagged busy so updateSelectionButtons() can't re-enable it mid-export,
+  // and a second click/hotkey press while busy is ignored.
+  async _withBusyButton(btnId, task) {
+    const btn = document.getElementById(btnId);
+    if (btn?.dataset.busy) return;
     const originalHtml = btn ? btn.innerHTML : null;
     if (btn) {
+      btn.dataset.busy = "1";
       // Lock in the current rendered width before swapping to a bare spinner,
       // otherwise the shorter content shrinks the button and shifts the rest
       // of the toolbar.
@@ -3709,93 +3913,158 @@ class BillManagementComponent {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     }
-
     try {
-      const { tenantBills, ctx } = await this._getExportSource();
-      const targets = tenantBills.filter((tb) =>
-        this.selectedTenants.has(tb.tenantId),
-      );
-
-      // Rendering each tenant's card (avatar fetch + html2canvas) is fully
-      // independent of the others, so do it all in parallel rather than one
-      // at a time. Only the actual browser download trigger (a.click()) is
-      // kept sequential-with-a-small-stagger afterwards, since firing many
-      // downloads in the same tick can get blocked by the browser as a
-      // "site is trying to download multiple files" popup.
-      const renderResults = await Promise.allSettled(
-        targets.map(async (tb) => {
-          // Inline the avatar as a data: URI before rendering — a remote
-          // <img> (even crossorigin="anonymous") still taints the canvas on
-          // export whenever its actual source lacks CORS headers.
-          const info = ctx.perTenant[tb.tenantId];
-          let avatar = info?.avatar || null;
-          if (avatar && !avatar.startsWith("data:")) {
-            const optimized =
-              typeof ImageUtils !== "undefined"
-                ? ImageUtils.getOptimizedImageUrl(avatar, "small")
-                : avatar;
-            avatar = await this._avatarDataUri(optimized);
-          }
-          // Build the card from a per-tenant ctx copy so concurrent renders
-          // never share/clobber each other's resolved avatar.
-          const tenantCtx = {
-            ...ctx,
-            perTenant: { ...ctx.perTenant, [tb.tenantId]: { ...info, avatar } },
-          };
-
-          const cardHtml = this._buildBillCardHtml(tb, tenantCtx);
-          const blob = await this._renderCardToBlob(cardHtml);
-          const fileName = this._billFileName([tb], ctx);
-          return { tb, blob, fileName };
-        }),
-      );
-
-      let succeeded = 0;
-      for (let i = 0; i < renderResults.length; i++) {
-        const result = renderResults[i];
-        if (result.status === "rejected") {
-          console.error(
-            `[BillManagement] failed to render bill for ${targets[i].tenantName}:`,
-            result.reason,
-          );
-          continue;
-        }
-
-        const { blob, fileName } = result.value;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-        succeeded++;
-
-        if (i < renderResults.length - 1)
-          await new Promise((r) => setTimeout(r, 250));
-      }
-
-      if (succeeded === targets.length) {
-        showToast(t("billDownloadSuccess", { count: succeeded }), "success");
-      } else if (succeeded > 0) {
-        showToast(
-          t("billDownloadPartial", { succeeded, total: targets.length }),
-          "warning",
-        );
-      } else {
-        showToast(t("billDownloadFailed"), "error");
-      }
-    } catch (err) {
-      console.error("[BillManagement] download bills error:", err);
-      showToast(t("billDownloadFailed"), "error");
+      await task();
     } finally {
       if (btn) {
-        btn.disabled = this.selectedTenants.size === 0;
+        delete btn.dataset.busy;
         btn.innerHTML = originalHtml;
         btn.style.width = "";
       }
+      this.updateSelectionButtons();
     }
+  }
+
+  // Keeps roommates (same room) next to each other, in each room's
+  // first-seen order — the same grouping as the generated bill table.
+  _groupByRoom(tenantBills) {
+    const groups = new Map();
+    tenantBills.forEach((tb) => {
+      const key = tb.room || "";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(tb);
+    });
+    return [...groups.values()].flat();
+  }
+
+  async downloadSelectedBills() {
+    if (this.selectedTenants.size === 0) return;
+
+    await this._withBusyButton("billDownloadSelectedBtn", async () => {
+      try {
+        const { tenantBills, ctx } = await this._getExportSource();
+        const targets = tenantBills.filter((tb) =>
+          this.selectedTenants.has(tb.tenantId),
+        );
+
+        // Rendering each tenant's card (avatar fetch + html2canvas) is fully
+        // independent of the others, so do it all in parallel rather than one
+        // at a time. Only the actual browser download trigger (a.click()) is
+        // kept sequential-with-a-small-stagger afterwards, since firing many
+        // downloads in the same tick can get blocked by the browser as a
+        // "site is trying to download multiple files" popup.
+        const renderResults = await Promise.allSettled(
+          targets.map(async (tb) => {
+            const info = ctx.perTenant[tb.tenantId];
+            const avatar = await this._exportAvatar(info?.avatar);
+            // Build the card from a per-tenant ctx copy so concurrent renders
+            // never share/clobber each other's resolved avatar.
+            const tenantCtx = {
+              ...ctx,
+              perTenant: {
+                ...ctx.perTenant,
+                [tb.tenantId]: { ...info, avatar },
+              },
+            };
+
+            const cardHtml = this._buildBillCardHtml(tb, tenantCtx);
+            const blob = await this._renderCardToBlob(cardHtml);
+            const fileName = this._billFileName([tb], ctx);
+            return { tb, blob, fileName };
+          }),
+        );
+
+        let succeeded = 0;
+        for (let i = 0; i < renderResults.length; i++) {
+          const result = renderResults[i];
+          if (result.status === "rejected") {
+            console.error(
+              `[BillManagement] failed to render bill for ${targets[i].tenantName}:`,
+              result.reason,
+            );
+            continue;
+          }
+
+          const { blob, fileName } = result.value;
+          this._triggerDownload(blob, fileName);
+          succeeded++;
+
+          if (i < renderResults.length - 1)
+            await new Promise((r) => setTimeout(r, 250));
+        }
+
+        if (succeeded === targets.length) {
+          showToast(t("billDownloadSuccess", { count: succeeded }), "success");
+        } else if (succeeded > 0) {
+          showToast(
+            t("billDownloadPartial", { succeeded, total: targets.length }),
+            "warning",
+          );
+        } else {
+          showToast(t("billDownloadFailed"), "error");
+        }
+      } catch (err) {
+        console.error("[BillManagement] download bills error:", err);
+        showToast(t("billDownloadFailed"), "error");
+      }
+    });
+  }
+
+  // ONE bill image covering every selected tenant, ending in their grand
+  // total — for when one person pays for several (roommates, a couple, a
+  // group renting more than one room). See _buildCombinedBillCardHtml.
+  async downloadCombinedBill() {
+    if (this.selectedTenants.size < 2) {
+      // Only reachable via the hotkey — the button is disabled below 2.
+      showToast(t("billCombinedNeedTwo"), "info");
+      return;
+    }
+
+    await this._withBusyButton("billDownloadCombinedBtn", async () => {
+      try {
+        const { tenantBills, ctx } = await this._getExportSource();
+        const targets = this._groupByRoom(
+          tenantBills.filter((tb) => this.selectedTenants.has(tb.tenantId)),
+        );
+        if (targets.length === 0) throw new Error("no selected tenant found");
+
+        // A broken avatar just falls back to initials — it shouldn't fail
+        // the whole combined bill.
+        const avatars = await Promise.all(
+          targets.map((tb) =>
+            this._exportAvatar(ctx.perTenant[tb.tenantId]?.avatar).catch(
+              () => null,
+            ),
+          ),
+        );
+        const perTenant = { ...ctx.perTenant };
+        targets.forEach((tb, i) => {
+          perTenant[tb.tenantId] = {
+            ...perTenant[tb.tenantId],
+            avatar: avatars[i],
+          };
+        });
+
+        const cardHtml = this._buildCombinedBillCardHtml(targets, {
+          ...ctx,
+          perTenant,
+        });
+        const blob = await this._renderCardToBlob(cardHtml);
+        this._triggerDownload(blob, this._billFileName(targets, ctx));
+
+        const total = sumCents(targets.map((tb) => tb.totalAmount));
+        showToast(
+          t("billCombinedDownloadSuccess", {
+            count: targets.length,
+            amount: fmtMoney(total),
+          }),
+          "success",
+        );
+      } catch (err) {
+        console.error("[BillManagement] combined bill download error:", err);
+        showToast(t("billCombinedDownloadFailed"), "error");
+      }
+    });
   }
 
   async copySelectedBillBreakdown() {
