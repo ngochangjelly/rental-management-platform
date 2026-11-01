@@ -38,7 +38,7 @@ class PropertyManagementComponent {
     this.originalPropertyImage = ''; // Store original property image URL for edit mode (to preserve if not changed)
     this.editingProperty = null; // Store reference to property being edited
     this.currentAcContactNumbers = []; // Store AC service contact numbers
-    this.allInvestors = []; // Store all investors for management fee payee dropdown
+    this.allInvestors = []; // Store all investors for accountant/manager dropdowns
     this._exportSelectedIds = null; // Set of propertyIds chosen for portfolio export (null until first customized)
     this._searchTerm = ''; // Current quick-search text (separate from the filter panel below)
     this.filters = loadPropertyFilters(); // Persisted filter-panel state (investor, and later more criteria)
@@ -460,35 +460,6 @@ class PropertyManagementComponent {
 
     // Return max + 1
     return Math.max(...numericIds) + 1;
-  }
-
-  populateManagementFeePayeeDropdown(propertyId = null) {
-    const dropdown = document.getElementById("managementFeePayee");
-    if (!dropdown) return;
-
-    // Clear existing options except the first one
-    dropdown.innerHTML = '<option value="">-- Select Investor --</option>';
-
-    // If a propertyId is provided, filter investors for that property
-    // Otherwise, show all investors
-    let investorsToShow = this.allInvestors;
-
-    if (propertyId) {
-      // Filter to show only investors who own this property
-      investorsToShow = this.allInvestors.filter(investor =>
-        investor.properties && investor.properties.some(p => p.propertyId === propertyId)
-      );
-    }
-
-    // Add investors as options
-    investorsToShow.forEach(investor => {
-      const option = document.createElement('option');
-      option.value = investor.investorId;
-      option.textContent = `${investor.name} (${investor.investorId})`;
-      dropdown.appendChild(option);
-    });
-
-    console.log(`📋 Populated management fee payee dropdown with ${investorsToShow.length} investors`);
   }
 
   populateAccountantDropdown() {
@@ -1802,9 +1773,6 @@ class PropertyManagementComponent {
           }
         }
 
-        // Handle Management Fee fields
-        this.populateManagementFeePayeeDropdown(property.propertyId);
-
         // Handle Accountant field
         this.populateAccountantDropdown();
         if (property.accountant) {
@@ -1826,21 +1794,6 @@ class PropertyManagementComponent {
         // Investor ownership breakdown — only fetched now, when a property
         // has actually been selected for editing.
         this.loadPropertyInvestorOwnership(property.propertyId);
-
-        if (property.managementFeeStart) {
-          const feeDate = new Date(property.managementFeeStart);
-          document.getElementById("managementFeeStart").value = feeDate
-            .toISOString()
-            .split("T")[0];
-        } else {
-          document.getElementById("managementFeeStart").value = "";
-        }
-
-        if (property.managementFeePayee) {
-          document.getElementById("managementFeePayee").value = property.managementFeePayee;
-        } else {
-          document.getElementById("managementFeePayee").value = "";
-        }
 
         // Handle WiFi images
         if (property.wifiImages && property.wifiImages.length > 0) {
@@ -1952,11 +1905,6 @@ class PropertyManagementComponent {
         // Clear AC service contact numbers for add mode
         this.currentAcContactNumbers = [];
         this.renderAcContactNumbersList();
-
-        // Reset Management Fee fields for add mode
-        this.populateManagementFeePayeeDropdown(); // Show all investors for new property
-        document.getElementById("managementFeeStart").value = "";
-        document.getElementById("managementFeePayee").value = "";
 
         // Reset Accountant field for add mode
         this.populateAccountantDropdown();
@@ -2367,8 +2315,6 @@ class PropertyManagementComponent {
         propertyImage: formData.get("propertyImage")?.trim() || this.propertyImage || this.editingProperty?.propertyImage || "",
         acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
         acServiceDate: acServiceDateValue || null,
-        managementFeeStart: formData.get("managementFeeStart")?.trim() || null,
-        managementFeePayee: formData.get("managementFeePayee")?.trim() || "",
         accountant: formData.get("accountant")?.trim() || "",
         manager: formData.get("manager")?.trim() || "",
         digitalLockEnabled: formData.get("digitalLockEnabled") === "true",

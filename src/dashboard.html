@@ -480,6 +480,11 @@
           width: 280px;
           height: 100vh;
           height: 100dvh;
+          /* The base 100vh min-height is the toolbar-hidden height on iOS,
+             which beats 100dvh and pushes Logout under the browser bar. */
+          min-height: 0;
+          padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important;
+          overscroll-behavior: contain;
           z-index: 1000;
           transform: translateX(-100%);
           box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
@@ -7267,8 +7272,8 @@
                 </div>
               </div>
 
-              <!-- Management Fee & Accountant Section -->
-              <div class="mb-4" data-msec="Mgmt fee|bi-receipt">
+              <!-- Accountant & Manager Section -->
+              <div class="mb-4" data-msec="Roles|bi-person-gear">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #198754 !important"
@@ -7283,57 +7288,15 @@
                     "
                   >
                     <i
-                      class="bi bi-receipt text-white"
+                      class="bi bi-person-gear text-white"
                       style="font-size: 12px"
                     ></i>
                   </div>
                   <h6 class="fw-bold mb-0" style="color: #198754">
-                    Management Fee
+                    Accountant &amp; Manager
                   </h6>
                 </div>
                 <div class="row">
-                  <div class="col-md-3 mb-3">
-                    <label for="managementFeeStart" class="form-label">
-                      Management Fee Start Date
-                      <i
-                        class="bi bi-info-circle text-muted"
-                        data-bs-toggle="tooltip"
-                        title="Date when management fee starts being added as fixed cost each month"
-                      ></i>
-                    </label>
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="managementFeeStart"
-                      name="managementFeeStart"
-                    />
-                    <div class="form-text">
-                      Management fee will be added as fixed cost starting from
-                      this date
-                    </div>
-                  </div>
-                  <div class="col-md-3 mb-3">
-                    <label for="managementFeePayee" class="form-label">
-                      Management Fee Payee
-                      <i
-                        class="bi bi-info-circle text-muted"
-                        data-bs-toggle="tooltip"
-                        title="Select the investor who will pay the management fee as fixed cost each month"
-                      ></i>
-                    </label>
-                    <select
-                      class="form-select"
-                      id="managementFeePayee"
-                      name="managementFeePayee"
-                    >
-                      <option value="">-- Select Investor --</option>
-                      <!-- Options will be populated dynamically -->
-                    </select>
-                    <div class="form-text">
-                      This investor will pay the management fee as fixed cost
-                      each month
-                    </div>
-                  </div>
                   <div class="col-md-3 mb-3">
                     <label for="accountant" class="form-label">
                       Accountant
