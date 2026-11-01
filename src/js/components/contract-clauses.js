@@ -191,7 +191,7 @@ export function getSection1BaseClauseTexts(contractData) {
 
   if (cd.pestControlClause) {
     clauses.push(
-      "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.",
+      "PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$250.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.",
     );
   }
 
@@ -199,6 +199,14 @@ export function getSection1BaseClauseTexts(contractData) {
 }
 
 // ─── Section 2 clause content ─────────────────────────────────────────────────
+
+/**
+ * Section 2 room-occupancy clause (no letter). Exported so renderers that
+ * hand-build Section 2 HTML can show the same wording. The backend copy in
+ * rental-management-backend src/routes/contracts.ts must match.
+ */
+export const ROOM_OCCUPANCY_CLAUSE =
+  "ROOM OCCUPANCY: Tenant A undertakes that only the person(s) named as Tenant B in this Agreement shall be permitted to reside in the room during the tenancy period.";
 
 /**
  * Returns the full Section 2 clause text array, with letters already applied.
@@ -235,12 +243,14 @@ export function buildSection2Clauses(contractData) {
 
   const lawLetter = cd.fullPaymentReceived ? "d" : "e";
   const cleaningLetter = cd.fullPaymentReceived ? "e" : "f";
+  const occupancyLetter = cd.fullPaymentReceived ? "f" : "g";
   clauses.push(
     `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
   );
   clauses.push(
     `${cleaningLetter}) Cleaning fee: SGD$${cd.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).`,
   );
+  clauses.push(`${occupancyLetter}) ${ROOM_OCCUPANCY_CLAUSE}`);
 
   return clauses;
 }
@@ -526,7 +536,7 @@ export function getSection1BaseClauseTextsVi(contractData) {
 
   if (cd.pestControlClause) {
     clauses.push(
-      "TRÁCH NHIỆM VỀ CÔN TRÙNG GÂY HẠI: Bên B xác nhận rằng căn hộ đã được kiểm tra và bàn giao trong tình trạng không có côn trùng gây hại, bao gồm nhưng không giới hạn ở rệp giường (bedbugs), gián, kiến và các loại côn trùng khác. Bên B có trách nhiệm đảm bảo vệ sinh sạch sẽ đối với toàn bộ đồ đạc cá nhân, chăn ga gối đệm và nội thất trước khi dọn vào căn hộ. Trong trường hợp phát hiện côn trùng gây hại trong căn hộ trong thời gian thuê, Bên B sẽ chịu trách nhiệm về chi phí xử lý côn trùng và thay thế bất kỳ nội thất, thiết bị hoặc đồ đạc bị hư hại, với mức tối đa là SGD$1.000,00. Bên B đồng ý thông báo ngay cho Bên A khi phát hiện bất kỳ dấu hiệu nào của côn trùng gây hại và sẽ hợp tác đầy đủ trong các biện pháp xử lý côn trùng được thực hiện.",
+      "TRÁCH NHIỆM VỀ CÔN TRÙNG GÂY HẠI: Bên B xác nhận rằng căn hộ đã được kiểm tra và bàn giao trong tình trạng không có côn trùng gây hại, bao gồm nhưng không giới hạn ở rệp giường (bedbugs), gián, kiến và các loại côn trùng khác. Bên B có trách nhiệm đảm bảo vệ sinh sạch sẽ đối với toàn bộ đồ đạc cá nhân, chăn ga gối đệm và nội thất trước khi dọn vào căn hộ. Trong trường hợp phát hiện côn trùng gây hại trong căn hộ trong thời gian thuê, Bên B sẽ chịu trách nhiệm về chi phí xử lý côn trùng và thay thế bất kỳ nội thất, thiết bị hoặc đồ đạc bị hư hại, với mức tối đa là SGD$250,00. Bên B đồng ý thông báo ngay cho Bên A khi phát hiện bất kỳ dấu hiệu nào của côn trùng gây hại và sẽ hợp tác đầy đủ trong các biện pháp xử lý côn trùng được thực hiện.",
     );
   }
 
@@ -571,11 +581,15 @@ export function buildSection2ClausesVi(contractData) {
 
   const lawLetter = cd.fullPaymentReceived ? "d" : "e";
   const cleaningLetter = cd.fullPaymentReceived ? "e" : "f";
+  const occupancyLetter = cd.fullPaymentReceived ? "f" : "g";
   clauses.push(
     `${lawLetter}) Pháp luật áp dụng cho bất kỳ tranh chấp nào phát sinh từ hợp đồng thuê này là pháp luật của Cộng hòa Singapore, và các bên đồng ý chịu sự điều chỉnh của pháp luật Singapore.`,
   );
   clauses.push(
     `${cleaningLetter}) Phí vệ sinh: SGD$${cd.cleaningFee || ""} / 1 người (bao gồm vệ sinh khu vực chung, nhà bếp, nhà vệ sinh chung và nhà vệ sinh phòng master).`,
+  );
+  clauses.push(
+    `${occupancyLetter}) NGƯỜI Ở TRONG PHÒNG: Bên A cam kết chỉ cho phép (những) người có tên là Bên B trong Hợp đồng này được ở trong phòng trong suốt thời hạn thuê.`,
   );
 
   return clauses;

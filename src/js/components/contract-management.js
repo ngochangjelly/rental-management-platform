@@ -8,7 +8,9 @@ import {
   getSection1BaseClauseTexts,
   getAirconClauseIndexInSection1,
   getSection1BaseClauseTextsVi,
+  buildSection2Clauses,
   buildSection2ClausesVi,
+  ROOM_OCCUPANCY_CLAUSE,
   formatDateVi,
   formatRoomTypeVi,
   formatPaymentMethodVi,
@@ -3488,7 +3490,7 @@ class ContractManagementComponent {
                                   : this.contractData.fullPaymentReceived
                                     ? "w"
                                     : "y"
-                              })</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
+                              })</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$250.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
                             : ""
                         }
 
@@ -3537,6 +3539,10 @@ class ContractManagementComponent {
                         <p><strong>${
                           this.contractData.fullPaymentReceived ? "e" : "f"
                         })</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).</p>
+
+                        <p><strong>${
+                          this.contractData.fullPaymentReceived ? "f" : "g"
+                        })</strong> ${ROOM_OCCUPANCY_CLAUSE}</p>
                     </div>
                 </div>
 
@@ -4382,35 +4388,7 @@ class ContractManagementComponent {
         }),
       );
 
-      const section2Clauses = [];
-      if (this.contractData.fullPaymentReceived) {
-        section2Clauses.push(
-          "If any covenants, conditions or stipulations on Tenant B's part herein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained.",
-        );
-      } else {
-        section2Clauses.push(
-          "If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B's part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith.",
-        );
-      }
-      section2Clauses.push(
-        "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
-        this.contractData.electricityFree
-          ? "a) ELECTRICITY: The electricity (SP bills) for the whole unit is totally subsidized by Tenant A. Tenant B shall not be liable for any electricity charges."
-          : `a) ELECTRICITY: A monthly budget of S$${this.contractData.electricityBudget || "400"} (SINGAPORE DOLLARS ${this.numberToWords(parseInt(this.contractData.electricityBudget || "400")).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
-        "b) Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
-        "c) Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.",
-      );
-      if (!this.contractData.fullPaymentReceived) {
-        section2Clauses.push(
-          "d) Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month.",
-        );
-      }
-      const lawLetter = this.contractData.fullPaymentReceived ? "d" : "e";
-      const cleaningLetter = this.contractData.fullPaymentReceived ? "e" : "f";
-      section2Clauses.push(
-        `${lawLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).`,
-      );
+      const section2Clauses = buildSection2Clauses(this.contractData);
       section2Clauses.forEach((clause) =>
         children.push(para(clause, { indent: true, spacing: 5 })),
       );
@@ -5197,49 +5175,7 @@ class ContractManagementComponent {
         spacing: 10,
       });
 
-      const section2Clauses = [];
-
-      // Conditional first clause based on payment status
-      if (this.contractData.fullPaymentReceived) {
-        section2Clauses.push(
-          "If any covenants, conditions or stipulations on Tenant B's part herein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained.",
-        );
-      } else {
-        section2Clauses.push(
-          "If the rent hereby reserved or any part thereof shall be unpaid for 7 (SEVEN) days after becoming payable (whether formally demanded in writing or not) OR if any covenants, conditions or stipulations on Tenant B's part therein contained shall not be performed or if anytime Tenant B shall become bankrupt then and in any of the said cases, it shall be lawful for Tenant A at any time hereafter to re-enter and re-possess the room or any thereof, remove all Tenant B's belongings from the premises and not be liable for any loss and damage of such removal. Thereupon, this Agreement shall absolutely cease and determine, but without prejudice to the right of action of Tenant A in respect of any breach of Tenant B's covenants herein contained. Tenant A shall terminate the agreement and forfeit the deposit forthwith.",
-        );
-      }
-
-      section2Clauses.push(
-        "Notwithstanding herein contained, Tenant A shall be under no liability to Tenant B for accidents happening, injuries sustained, or loss of life and damage to the property, goods, or chattels in the premises or in any part.",
-        this.contractData.electricityFree
-          ? "a) ELECTRICITY: The electricity (SP bills) for the whole unit is totally subsidized by Tenant A. Tenant B shall not be liable for any electricity charges."
-          : `a) ELECTRICITY: A monthly budget of S$${
-              this.contractData.electricityBudget || "400"
-            } (SINGAPORE DOLLARS ${this.numberToWords(
-              parseInt(this.contractData.electricityBudget || "400"),
-            ).toUpperCase()} ONLY) is set for the SP bills for the whole unit. Under circumstances where the total utility bill exceeds the limit cap, the outstanding due will be divided proportionally between all tenants of the unit. Tenant A reserved the right to claim from Tenant B. ONLY APPLY FOR A ROOM WITH AN AIR CONDITIONER.`,
-        "b) Tenant B must produce an original/photocopy of documents such as NRIC/Passport/Work Permit/Employment Pass/Student Pass to prove his/her identity and legitimate stay in Singapore.",
-        "c) Security deposit will be refunded within 7 (SEVEN) days at the end of the lease after deducting any outstanding fees, with no interest.",
-      );
-
-      // Conditionally add monthly payment clause
-      if (!this.contractData.fullPaymentReceived) {
-        section2Clauses.push(
-          "d) Tenant B will be asked to leave the apartment within 1 (ONE) to 7 (SEVEN) days at the discretion of Tenant A for breach of agreement, and/or any terms and conditions stated in this Agreement if the rental is not paid by the first day of each calendar month.",
-        );
-      }
-
-      // Add remaining clauses with adjusted letters
-      const lawClauseLetter = this.contractData.fullPaymentReceived ? "d" : "e";
-      const cleaningClauseLetter = this.contractData.fullPaymentReceived
-        ? "e"
-        : "f";
-
-      section2Clauses.push(
-        `${lawClauseLetter}) The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.`,
-        `${cleaningClauseLetter}) Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).`,
-      );
+      const section2Clauses = buildSection2Clauses(this.contractData);
 
       section2Clauses.forEach((clause) => {
         addText(clause, { indent: true, spacing: 5 });
@@ -6284,7 +6220,7 @@ class ContractManagementComponent {
 
                         ${
                           this.contractData.pestControlClause
-                            ? `<p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "z" : "y"})</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$1,000.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
+                            ? `<p style="margin-bottom: 15px;"><strong>${this.acClauseVisible() ? "z" : "y"})</strong> PEST INFESTATION LIABILITY: The Tenant B acknowledges that the premises have been inspected and are delivered free from any pest infestation including but not limited to bedbugs, cockroaches, ants, and other vermin. The Tenant B shall ensure proper hygiene and cleanliness of all personal belongings, bedding, and furniture before moving into the premises. In the event that any pest infestation is discovered within the premises during the tenancy period, the Tenant B shall be liable for pest control treatment costs and replacement of any damaged furniture, fixtures, or belongings up to a maximum amount of SGD$250.00. The Tenant B agrees to immediately notify Tenant A upon discovery of any signs of pest infestation and shall cooperate fully in any pest control measures undertaken.</p>`
                             : ""
                         }
 
@@ -6324,7 +6260,9 @@ class ContractManagementComponent {
                             
                             <p style="margin-bottom: 15px;"><strong>e)</strong> The law applicable in any action arising out of this lease shall be the law of the Republic of Singapore, and the parties hereto submit themselves to the jurisdiction of the laws of Singapore.</p>
                             
-                            <p style="margin-bottom: 20px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).</p>
+                            <p style="margin-bottom: 15px;"><strong>f)</strong> Cleaning fee: SGD$${this.contractData.cleaningFee || ""} / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).</p>
+
+                            <p style="margin-bottom: 20px;"><strong>g)</strong> ${ROOM_OCCUPANCY_CLAUSE}</p>
                         </div>
                     </div>
 
@@ -7720,6 +7658,10 @@ class ContractManagementComponent {
                 normal(
                   "Cleaning fee: SGD$_____ / 1pax (covers cleaning of the common area, kitchen, common toilet, and master bedroom toilet).",
                 ),
+              ]),
+              clausePara("g", [
+                bold("ROOM OCCUPANCY: "),
+                normal(ROOM_OCCUPANCY_CLAUSE.replace(/^ROOM OCCUPANCY: /, "")),
               ]),
               blankPara(),
 
