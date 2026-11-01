@@ -10,6 +10,7 @@ import {
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
 import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
+import { SignaturePad } from "../utils/signature-pad.js";
 
 /**
  * Returns the effective rent for a tenant derived from their room assignments.
@@ -1118,10 +1119,12 @@ class TenantManagementComponent {
             ? `<div class="text-muted" style="white-space: pre-wrap; font-size:0.9em;">${this.escapeHtml(tenant.notes.trim())}</div>`
             : '<div class="text-muted small">No notes</div>')}
 
-        ${section("bi-pen", "Signature",
-          tenant.signature
-            ? `<img src="${this.normalizeImageUrl(tenant.signature)}" alt="Signature" class="tm-detail-signature" loading="lazy" onclick="event.stopPropagation();window.open(this.src, '_blank')">`
-            : '<div class="text-muted small">No signature</div>')}
+        ${isMainTenant || tenant.signature
+          ? section("bi-pen", "Signature",
+            tenant.signature
+              ? `<img src="${this.normalizeImageUrl(tenant.signature)}" alt="Signature" class="tm-detail-signature" loading="lazy" onclick="event.stopPropagation();window.open(this.src, '_blank')">`
+              : '<div class="text-muted small">No signature</div>')
+          : ""}
 
         <div class="text-muted pt-2 border-top" style="font-size:0.75rem;">
           ${tenant.createdAt ? `Created ${this.formatDate(tenant.createdAt)}` : ""}${tenant.updatedAt ? ` · Updated ${this.formatDate(tenant.updatedAt)}` : ""}
@@ -2447,6 +2450,9 @@ class TenantManagementComponent {
       form.setAttribute("data-tenant-passport", tenant?.passportNumber || "");
       form.setAttribute("data-mode", isEdit ? "edit" : "add");
 
+      // Start every open with an empty signature pad on the Draw tab
+      this._resetSignaturePad();
+
       if (isEdit && tenant) {
         // Store original tenant data for change detection
         this.originalTenantData = {
@@ -2553,6 +2559,7 @@ class TenantManagementComponent {
         this.visaPics =
           tenant.visaPics || (tenant.visaPic ? [tenant.visaPic] : []);
         this.signature = tenant.signature || "";
+        this.updateSignaturePreview();
         console.log("📋 Set passportPics:", this.passportPics);
         console.log("📋 Set visaPics:", this.visaPics);
         console.log("📋 Set signature:", this.signature);
@@ -3173,6 +3180,9 @@ class TenantManagementComponent {
 
     // Update dropdown text when list changes
     this.updateDropdownText();
+
+    // Adding/removing a property can change main-tenant status
+    this.toggleSignatureSection();
   }
 
   getPropertyInfo(propertyId) {
@@ -3592,6 +3602,27 @@ class TenantManagementComponent {
       submitBtn.innerHTML = isEdit
         ? '<i class="bi bi-hourglass-split me-1"></i>Updating Tenant...'
         : '<i class="bi bi-hourglass-split me-1"></i>Adding Tenant...';
+
+      // A signature drawn on the pad is uploaded now and saved with the
+      // tenant. If that fails, stop rather than save without it.
+      if (this._hasPendingDrawnSignature()) {
+        try {
+          const url = await this._uploadDrawnSignature();
+          this.signature = url;
+          tenantData.signature = url;
+          // Uploaded — a retry after a failed save won't upload it again
+          this._signaturePad.clear();
+          this.updateSignaturePreview();
+        } catch (sigError) {
+          console.error("Error uploading drawn signature:", sigError);
+          alert(
+            `Couldn't save the drawn signature (${sigError.message}). The tenant was not saved — please try again.`,
+          );
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+          return;
+        }
+      }
 
       // Add or update the tenant
       if (isEdit) {
@@ -4496,12 +4527,140 @@ class TenantManagementComponent {
   }
 
   // ==================== SIGNATURE METHODS ====================
+  // Only main tenants sign contracts, so the signature section shows only
+  // while the tenant is main tenant for an assigned property. Drawing is the
+  // first choice: ink on the pad is uploaded when the tenant is saved
+  // (Add/Update Tenant) and becomes their signature. Uploading an image or
+  // pasting a URL is the second choice and applies straight away. Whichever
+  // happened last wins — an upload clears the pad.
+
+  // Main tenant for any property currently assigned in the form (the
+  // per-property "Main Tenant for this property" checkboxes).
+  _isMainTenantInForm() {
+    const assigned = new Set(this.selectedProperties || []);
+    return (this.selectedPropertiesDetails || []).some(
+      (p) => p.isMainTenant && assigned.has(p.propertyId),
+    );
+  }
+
+  // One-time setup — the modal markup is static, so the pad, tab and Clear
+  // listeners are bound once and reused for every tenant opened.
+  _initSignaturePad() {
+    if (this._signaturePad) return;
+    const canvas = document.getElementById("tenantSignatureCanvas");
+    if (!canvas) return;
+    this._signaturePad = new SignaturePad(canvas, {
+      onEnd: () => this._onSignaturePadChange(),
+    });
+    document
+      .querySelectorAll("#tenantSigTabs [data-sig-tab]")
+      .forEach((tab) =>
+        tab.addEventListener("click", () =>
+          this._switchSignatureTab(tab.dataset.sigTab),
+        ),
+      );
+    document
+      .getElementById("tenantSigClearBtn")
+      ?.addEventListener("click", () => {
+        this._signaturePad.clear();
+        this._onSignaturePadChange();
+      });
+  }
+
+  // Empty pad on the Draw tab every time the tenant modal opens.
+  _resetSignaturePad() {
+    this._initSignaturePad();
+    this._signaturePad?.clear();
+    this._switchSignatureTab("draw");
+    this._renderSignaturePadState();
+  }
+
+  _switchSignatureTab(which) {
+    document
+      .querySelectorAll("#tenantSigTabs [data-sig-tab]")
+      .forEach((tab) => {
+        const active = tab.dataset.sigTab === which;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-pressed", String(active));
+      });
+    const drawPane = document.getElementById("tenantSigDrawPane");
+    const uploadPane = document.getElementById("tenantSigUploadPane");
+    if (drawPane) drawPane.style.display = which === "draw" ? "" : "none";
+    if (uploadPane) uploadPane.style.display = which === "upload" ? "" : "none";
+  }
+
+  _onSignaturePadChange() {
+    this._renderSignaturePadState();
+    this.checkForChanges();
+  }
+
+  // "Sign here" hint, Clear button and the status line under the pad.
+  _renderSignaturePadState() {
+    const hasInk = !!this._signaturePad && !this._signaturePad.isEmpty();
+    document
+      .getElementById("tenantSignatureCanvas")
+      ?.classList.toggle("has-ink", hasInk);
+    document.getElementById("tenantSigHint")?.classList.toggle("hidden", hasInk);
+    const clearBtn = document.getElementById("tenantSigClearBtn");
+    if (clearBtn) clearBtn.disabled = !hasInk;
+
+    const status = document.getElementById("tenantSigStatus");
+    if (!status) return;
+    const isEdit =
+      document.getElementById("tenantForm")?.getAttribute("data-mode") ===
+      "edit";
+    const saveLabel = isEdit ? "Update Tenant" : "Add Tenant";
+    if (hasInk) {
+      status.className = "text-success";
+      status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${
+        this.signature
+          ? "This will replace the current signature"
+          : "Signature will be saved"
+      } when you click <strong>${saveLabel}</strong>.`;
+    } else {
+      status.className = "text-muted";
+      status.textContent = this.signature
+        ? "Draw here to replace the current signature."
+        : "";
+    }
+  }
+
+  // Ink on the pad that hasn't been uploaded yet. Ignored while the tenant
+  // isn't a main tenant (the whole section is hidden then).
+  _hasPendingDrawnSignature() {
+    return (
+      !!this._signaturePad &&
+      !this._signaturePad.isEmpty() &&
+      this._isMainTenantInForm()
+    );
+  }
+
+  // Uploads the pad's ink — cropped, on white, at 3:1 to fit the contract
+  // PDF's signature box — and returns its URL. Throws on failure.
+  async _uploadDrawnSignature() {
+    const blob = await this._signaturePad.toBlob();
+    if (!blob) throw new Error("Nothing drawn on the signature pad");
+    const file = new File([blob], `signature-${Date.now()}.png`, {
+      type: "image/png",
+    });
+    const result = await this.uploadSingleImage(file);
+    if (!result?.success || !result.url) {
+      throw new Error(result?.error || "Upload failed");
+    }
+    return this._absoluteUploadUrl(result.url);
+  }
+
+  // The upload API returns a site-relative proxy path; signatures are
+  // stored as absolute URLs.
+  _absoluteUploadUrl(url) {
+    if (!url || url.startsWith("http")) return url;
+    return url.startsWith("/") ? API_CONFIG.BASE_URL + url : "https://" + url;
+  }
 
   openSignatureUpload() {
-    const fileInput = document.getElementById("signatureUploadInput");
-    if (!fileInput) {
-      // Create file input if it doesn't exist
-      const input = document.createElement("input");
+    let input = document.getElementById("signatureUploadInput");
+    if (!input) {
+      input = document.createElement("input");
       input.type = "file";
       input.id = "signatureUploadInput";
       input.accept = "image/*";
@@ -4509,46 +4668,36 @@ class TenantManagementComponent {
       document.body.appendChild(input);
     }
 
-    document.getElementById("signatureUploadInput").click();
-
-    // Add event listener for file selection
-    document.getElementById("signatureUploadInput").onchange = (e) => {
-      if (e.target.files.length > 0) {
-        this.uploadSignature(e.target.files[0]);
-      }
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      // Reset so picking the same file again still fires a change
+      e.target.value = "";
+      if (file) this.uploadSignature(file);
     };
+    input.click();
   }
 
   async uploadSignature(file) {
     const uploadButton = document.querySelector(
       'button[onclick="tenantManager.openSignatureUpload()"]',
     );
-    const originalText = uploadButton.innerHTML;
+    const originalText = uploadButton?.innerHTML;
 
     try {
-      // Show loading state
-      uploadButton.disabled = true;
-      uploadButton.innerHTML =
-        '<i class="bi bi-hourglass-split"></i> Uploading signature...';
+      if (uploadButton) {
+        uploadButton.disabled = true;
+        uploadButton.innerHTML =
+          '<i class="bi bi-hourglass-split"></i> Uploading signature...';
+      }
 
       const result = await this.uploadSingleImage(file);
 
       if (result.success) {
-        let imageUrl = result.url;
-
-        // Normalize the URL
-        if (imageUrl && !imageUrl.startsWith("http")) {
-          if (imageUrl.startsWith("/")) {
-            imageUrl = API_CONFIG.BASE_URL + imageUrl;
-          } else {
-            imageUrl = "https://" + imageUrl;
-          }
-        }
-
-        this.signature = imageUrl;
+        this.signature = this._absoluteUploadUrl(result.url);
+        // The uploaded image is now the choice — drop any drawing in progress
+        this._signaturePad?.clear();
         this.updateSignaturePreview();
         this.checkForChanges();
-
         console.log("✅ Signature set to:", this.signature);
       } else {
         alert("Failed to upload signature: " + result.error);
@@ -4557,9 +4706,10 @@ class TenantManagementComponent {
       console.error("Error uploading signature:", error);
       alert("Error uploading signature. Please try again.");
     } finally {
-      // Reset button state
-      uploadButton.disabled = false;
-      uploadButton.innerHTML = originalText;
+      if (uploadButton) {
+        uploadButton.disabled = false;
+        uploadButton.innerHTML = originalText;
+      }
     }
   }
 
@@ -4573,6 +4723,7 @@ class TenantManagementComponent {
     }
 
     this.signature = this.normalizeImageUrl(url);
+    this._signaturePad?.clear();
     this.updateSignaturePreview();
     urlInput.value = ""; // Clear input after adding
     this.checkForChanges();
@@ -4587,46 +4738,33 @@ class TenantManagementComponent {
     console.log("🗑️ Signature removed");
   }
 
+  // The tenant's saved (or just-uploaded) signature, above the pad.
   updateSignaturePreview() {
     const preview = document.getElementById("signaturePreview");
-
-    if (!preview) {
-      return;
-    }
-
-    if (!this.signature) {
-      preview.innerHTML =
-        '<p class="text-muted fst-italic">No signature uploaded</p>';
-      return;
-    }
-
-    preview.innerHTML = `
-            <div class="position-relative d-inline-block">
-                <img src="${this.signature}" 
-                     alt="Signature Preview" 
-                     class="img-thumbnail" 
-                     style="max-width: 200px; max-height: 100px; cursor: pointer;"
-                     onclick="window.open('${this.signature}', '_blank')" />
-                <button type="button" 
-                        class="btn btn-danger position-absolute top-0 end-0"
-                        onclick="tenantManager.removeSignature()"
-                        style="padding: 2px; font-size: 0.7rem; border-radius: 50%; width: 24px; height: 24px; display: flex !important; align-items: center; justify-content: center; transform: translate(25%, -25%);"
-                        title="Remove signature">
-                    ✕
-                </button>
-                <div class="text-center mt-2">
-                    <small class="text-muted">Signature Preview</small>
-                </div>
+    if (preview) {
+      preview.innerHTML = this.signature
+        ? `
+          <div class="tenant-sig-current d-inline-flex align-items-start gap-2">
+            <div>
+              <div class="small text-muted mb-1">Current signature</div>
+              <img src="${this.escapeHtml(this.signature)}" alt="Current signature"
+                   class="img-thumbnail" onclick="window.open(this.src, '_blank')" />
             </div>
-        `;
+            <button type="button" class="btn btn-sm btn-outline-danger mt-4"
+                    onclick="tenantManager.removeSignature()" title="Remove signature">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>`
+        : '<div class="text-muted small fst-italic">No signature on file yet.</div>';
+    }
+    // The status line under the pad depends on whether one exists
+    this._renderSignaturePadState();
   }
 
   toggleSignatureSection() {
-    const signatureSection = document.getElementById("signatureSection");
-    if (!signatureSection) return;
-
-    // Always show signature section for all tenants (not just main tenants)
-    signatureSection.style.display = "";
+    const section = document.getElementById("signatureSection");
+    if (!section) return;
+    section.style.display = this._isMainTenantInForm() ? "" : "none";
   }
 
   setupSignatureUrlListener() {
@@ -4930,6 +5068,8 @@ class TenantManagementComponent {
       visaPics: this.visaPics || [],
       avatar: this.avatar || "",
       signature: this.signature || "",
+      // Drawn on the pad but not uploaded yet — uploaded on save
+      hasPendingDrawnSignature: this._hasPendingDrawnSignature(),
       // New financial fields
       deposit: document.getElementById("tenantDeposit")?.value
         ? parseFloat(document.getElementById("tenantDeposit").value)
@@ -4961,6 +5101,9 @@ class TenantManagementComponent {
   }
 
   hasDataChanged(original, current) {
+    // A freshly drawn signature is a change even before it's uploaded
+    if (current.hasPendingDrawnSignature) return true;
+
     // Compare basic fields
     const fieldsToCompare = [
       "name",
