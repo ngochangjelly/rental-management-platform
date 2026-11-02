@@ -24,6 +24,14 @@ import {
   applyMobileInputHints,
 } from '../utils/mobile-ux.js';
 import { syncRoomPhotoStrips } from './room-photos/room-photo-strip.js';
+import i18next, { onLanguageChange } from '../i18n.js';
+
+// `t` escapes interpolated values, for HTML templates. `tText` doesn't — use
+// it for alert/confirm/toast/textContent, where escaping would show as &amp;.
+const t = (key, options) => i18next.t(`properties.${key}`, options);
+const tText = (key, options) =>
+  i18next.t(`properties.${key}`, { ...options, interpolation: { escapeValue: false } });
+const tc = (key, options) => i18next.t(`common.${key}`, options);
 
 /**
  * Property Management Component
@@ -55,6 +63,68 @@ class PropertyManagementComponent {
     this.loadAllInvestors();
     this.populateRoomTypesDropdown();
     this.updateFilterSummaryUI();
+    this.relabelPanel();
+    onLanguageChange(() => this.handleLanguageChange());
+  }
+
+  // Language switched: redraw what this module built in JS from the data it
+  // already holds (static markup is re-translated by i18n.js). Values typed
+  // into the form stay as they are — only labels change.
+  handleLanguageChange() {
+    if (this.allInvestors.length) this.renderInvestorFilterMenu();
+    this.updateFilterSummaryUI();
+    if (this._listState === 'loaded') this.renderPropertiesTable();
+    else if (this._listState === 'error') this.showEmptyState(t('list.loadError'));
+    this.relabelPanel();
+  }
+
+  // Detail-panel labels that JS owns (title, submit button, pickers, ...),
+  // set for the current language and form state.
+  relabelPanel() {
+    const form = document.getElementById('propertyForm');
+    const mode = form?.getAttribute('data-mode');
+    const isEdit = mode === 'edit';
+
+    const title = document.getElementById('propertyModalTitle');
+    if (title) title.textContent = tText(isEdit ? 'page.editProperty' : 'page.addNewProperty');
+    const subtitle = document.getElementById('propertyPanelSubtitle');
+    if (subtitle && !isEdit) subtitle.textContent = tText('page.fillDetailsHint');
+
+    const submitBtn = document.getElementById('propertySubmitBtn');
+    if (submitBtn && !form?.classList.contains('pm-saving')) {
+      submitBtn.innerHTML = this.submitButtonHtml(isEdit);
+      this.refreshSubmitState();
+    }
+
+    const toggle = document.getElementById('propertyStableToggle');
+    if (toggle) this.setStableToggleUI(toggle.checked);
+
+    const idHelp = document.getElementById('propertyIdHelp');
+    if (idHelp) idHelp.textContent = tText(!mode ? 'form.idHint' : isEdit ? 'form.idLocked' : 'form.idAuto');
+
+    this.updateRoomsSelectedText();
+    document
+      .querySelectorAll('#propertyRoomPricesContainer .room-price-row')
+      .forEach((row) => this.refreshRoomPriceRowMeta(row));
+
+    ['Sgd', 'Vnd'].forEach((currency) => {
+      const value = document.getElementById(`settlement${currency}Bank`)?.value;
+      const text = document.getElementById(`settlement${currency}BankText`);
+      if (text && !value) text.textContent = tText('form.selectBank');
+    });
+
+    if (this._ownership) {
+      this.renderPropertyInvestorOwnership(this._ownership.investors, this._ownership.propertyId);
+    }
+    this.updateFbGroupBadges();
+    const imageUrlField = document.getElementById('propertyImageUrl');
+    if (imageUrlField?.hasAttribute('data-clipboard-enabled')) this._applyPasteHint(imageUrlField);
+  }
+
+  submitButtonHtml(isEdit) {
+    return isEdit
+      ? `<i class="bi bi-pencil-square me-1"></i><span id="propertySubmitText">${t('page.updateSubmit')}</span>`
+      : `<i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">${t('page.addSubmit')}</span>`;
   }
 
   // Renders the room picker as 5 family groups (Master, Common, Big Single,
@@ -88,7 +158,7 @@ class PropertyManagementComponent {
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
         addBtn.className = 'btn btn-sm btn-link text-decoration-none room-family-add-btn';
-        addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Add ${label}`;
+        addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i><span data-i18n="properties.rooms.add">${t('rooms.add')}</span> ${label}`;
 
         // Inline "type any number" entry row, swapped in for the button when
         // clicked. Free-form so a room can be numbered to match its real-world
@@ -98,9 +168,9 @@ class PropertyManagementComponent {
         entryRow.style.display = 'none';
         entryRow.innerHTML = `
           <span class="text-muted small">${label}</span>
-          <input type="number" inputmode="numeric" min="1" step="1" class="form-control form-control-sm no-spinner room-family-number-input" placeholder="Number" style="max-width:100px;">
-          <button type="button" class="btn btn-sm btn-success room-family-confirm-btn" title="Add"><i class="bi bi-check-lg"></i></button>
-          <button type="button" class="btn btn-sm btn-outline-secondary room-family-cancel-btn" title="Cancel"><i class="bi bi-x-lg"></i></button>
+          <input type="number" inputmode="numeric" min="1" step="1" class="form-control form-control-sm no-spinner room-family-number-input" placeholder="${t('rooms.number')}" data-i18n-placeholder="properties.rooms.number" style="max-width:100px;">
+          <button type="button" class="btn btn-sm btn-success room-family-confirm-btn" title="${tc('add')}" data-i18n-title="common.add"><i class="bi bi-check-lg"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-secondary room-family-cancel-btn" title="${tc('cancel')}" data-i18n-title="common.cancel"><i class="bi bi-x-lg"></i></button>
         `;
 
         const numberInput = entryRow.querySelector('.room-family-number-input');
@@ -211,13 +281,13 @@ class PropertyManagementComponent {
   handleAddRoomFamily(family, rawNumber) {
     const number = parseInt(rawNumber, 10);
     if (!Number.isInteger(number) || number < 1 || String(number) !== String(rawNumber).trim()) {
-      alert('Enter a whole number (1 or greater) for the room.');
+      alert(tText('rooms.wholeNumber'));
       return false;
     }
 
     const roomType = `${family}_${number}`;
     if (document.getElementById(`room_${roomType}`)) {
-      alert(`${getRoomTypeDisplayName(roomType)} already exists.`);
+      alert(tText('rooms.alreadyExists', { room: getRoomTypeDisplayName(roomType) }));
       return false;
     }
 
@@ -240,31 +310,36 @@ class PropertyManagementComponent {
 
     if (!hiddenSelect || !selectedText) return;
 
-    // Get selected rooms
-    const selectedRooms = [];
     checkboxes.forEach(checkbox => {
       const option = Array.from(hiddenSelect.options).find(opt => opt.value === checkbox.value);
-      if (option) {
-        option.selected = checkbox.checked;
-        if (checkbox.checked) {
-          selectedRooms.push(option.textContent);
-        }
-      }
+      if (option) option.selected = checkbox.checked;
     });
 
-    // Update display text
+    this.updateRoomsSelectedText();
+    this.renderRoomPricesInputs();
+  }
+
+  // The rooms dropdown's button text: "Select rooms...", the names (up to 3)
+  // or a count.
+  updateRoomsSelectedText() {
+    const hiddenSelect = document.getElementById("propertyRooms");
+    const selectedText = document.getElementById("propertyRoomsSelectedText");
+    if (!hiddenSelect || !selectedText) return;
+
+    const selectedRooms = Array.from(document.querySelectorAll('.property-room-checkbox:checked'))
+      .map(checkbox => Array.from(hiddenSelect.options).find(opt => opt.value === checkbox.value)?.textContent)
+      .filter(Boolean);
+
     if (selectedRooms.length === 0) {
-      selectedText.textContent = 'Select rooms...';
+      selectedText.textContent = tText('rooms.selectRooms');
       selectedText.classList.add('text-muted');
     } else if (selectedRooms.length <= 3) {
       selectedText.textContent = selectedRooms.join(', ');
       selectedText.classList.remove('text-muted');
     } else {
-      selectedText.textContent = `${selectedRooms.length} rooms selected`;
+      selectedText.textContent = tText('rooms.roomsSelected', { count: selectedRooms.length });
       selectedText.classList.remove('text-muted');
     }
-
-    this.renderRoomPricesInputs();
   }
 
   // Keeps the per-room-type price range inputs in sync with the checked room
@@ -293,17 +368,17 @@ class PropertyManagementComponent {
           <span class="badge text-truncate room-price-label" style="min-width:120px;max-width:170px;${getRoomTypeBadgeStyle(room)}" title="${label}">${label}</span>
           <div class="input-group input-group-sm room-price-input" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control no-spinner room-price-min" min="0" step="any" inputmode="decimal" placeholder="Min" aria-label="${label} minimum price">
+            <input type="number" class="form-control no-spinner room-price-min" min="0" step="any" inputmode="decimal" placeholder="${t('rooms.min')}" data-i18n-placeholder="properties.rooms.min" aria-label="${t('rooms.minPriceLabel', { room: label })}">
           </div>
-          <span class="text-muted small room-price-sep">to</span>
+          <span class="text-muted small room-price-sep" data-i18n="properties.rooms.to">${t('rooms.to')}</span>
           <div class="input-group input-group-sm room-price-input" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control no-spinner room-price-max" min="0" step="any" inputmode="decimal" placeholder="Max" aria-label="${label} maximum price">
+            <input type="number" class="form-control no-spinner room-price-max" min="0" step="any" inputmode="decimal" placeholder="${t('rooms.max')}" data-i18n-placeholder="properties.rooms.max" aria-label="${t('rooms.maxPriceLabel', { room: label })}">
           </div>
-          <span class="text-muted small border-start ps-2 ms-1 room-price-sep" title="What the room is actually listed at right now">Actual</span>
+          <span class="text-muted small border-start ps-2 ms-1 room-price-sep" title="${t('rooms.actualTitle')}" data-i18n-title="properties.rooms.actualTitle" data-i18n="properties.rooms.actual">${t('rooms.actual')}</span>
           <div class="input-group input-group-sm room-price-input" style="max-width:110px;">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control no-spinner room-price-current" min="0" step="any" inputmode="decimal" placeholder="Now" aria-label="${label} actual price">
+            <input type="number" class="form-control no-spinner room-price-current" min="0" step="any" inputmode="decimal" placeholder="${t('rooms.now')}" data-i18n-placeholder="properties.rooms.now" aria-label="${t('rooms.actualPriceLabel', { room: label })}">
           </div>
         </div>
         <div class="room-price-meta small text-muted fst-italic mt-1"></div>
@@ -347,7 +422,7 @@ class PropertyManagementComponent {
     const current = parseFloat(row.querySelector('.room-price-current')?.value) || 0;
 
     if (current > 0 && (min > 0 || max > 0) && (current < min || current > max)) {
-      meta.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning"></i> Outside the $${min}–$${max} asking range`;
+      meta.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning"></i> ${t('rooms.outsideRange', { min, max })}`;
       meta.classList.remove('text-muted', 'fst-italic');
       meta.classList.add('text-warning');
       return;
@@ -359,9 +434,9 @@ class PropertyManagementComponent {
     const updatedBy = row.dataset.updatedBy;
     if (current > 0 && updatedAt) {
       const dateStr = new Date(updatedAt).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
-      meta.textContent = `Updated ${dateStr}${updatedBy ? ' by ' + updatedBy : ''}`;
+      meta.textContent = tText('rooms.updatedOn', { date: dateStr }) + (updatedBy ? tText('rooms.updatedBy', { name: updatedBy }) : '');
     } else if (current > 0) {
-      meta.textContent = 'Will be saved as today\'s update';
+      meta.textContent = tText('rooms.willBeSaved');
     } else {
       meta.textContent = '';
     }
@@ -465,7 +540,7 @@ class PropertyManagementComponent {
     const dropdown = document.getElementById("accountant");
     if (!dropdown) return;
 
-    dropdown.innerHTML = '<option value="">-- Select Accountant --</option>';
+    dropdown.innerHTML = `<option value="" data-i18n="properties.form.selectAccountant">${t('form.selectAccountant')}</option>`;
 
     this.allInvestors.forEach(investor => {
       const option = document.createElement('option');
@@ -518,7 +593,7 @@ class PropertyManagementComponent {
     const dropdown = document.getElementById("manager");
     if (!dropdown) return;
 
-    dropdown.innerHTML = '<option value="">-- Select Manager --</option>';
+    dropdown.innerHTML = `<option value="" data-i18n="properties.form.selectManager">${t('form.selectManager')}</option>`;
 
     this.allInvestors.forEach(investor => {
       const option = document.createElement('option');
@@ -579,6 +654,7 @@ class PropertyManagementComponent {
     if (section) section.style.display = "none";
     const container = document.getElementById("investorOwnershipContainer");
     if (container) container.innerHTML = "";
+    this._ownership = null;
     // Bump so any in-flight fetch from a previously selected property is
     // ignored if it resolves after we've moved on.
     this._investorOwnershipRequestId = (this._investorOwnershipRequestId || 0) + 1;
@@ -590,7 +666,8 @@ class PropertyManagementComponent {
     if (!section || !container) return;
 
     section.style.display = "";
-    container.innerHTML = `<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>`;
+    this._ownership = null;
+    container.innerHTML = `<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i><span data-i18n="properties.form.loadingOwners">${t('form.loadingOwners')}</span></div>`;
 
     // Guard against a stale response landing after the user has switched to
     // a different property (or back to add-mode) while this was in flight.
@@ -602,7 +679,7 @@ class PropertyManagementComponent {
       if (requestId !== this._investorOwnershipRequestId) return; // superseded
 
       if (!result.success) {
-        container.innerHTML = `<div class="text-danger small">Failed to load investors.</div>`;
+        container.innerHTML = `<div class="text-danger small" data-i18n="properties.form.ownersLoadFailed">${t('form.ownersLoadFailed')}</div>`;
         return;
       }
 
@@ -610,13 +687,14 @@ class PropertyManagementComponent {
     } catch (error) {
       if (requestId !== this._investorOwnershipRequestId) return;
       console.error("Error loading investor ownership:", error);
-      container.innerHTML = `<div class="text-danger small">Failed to load investors.</div>`;
+      container.innerHTML = `<div class="text-danger small" data-i18n="properties.form.ownersLoadFailed">${t('form.ownersLoadFailed')}</div>`;
     }
   }
 
   renderPropertyInvestorOwnership(investors, propertyId) {
     const container = document.getElementById("investorOwnershipContainer");
     if (!container) return;
+    this._ownership = { investors, propertyId }; // kept for re-render on language change
 
     // Each investor's `properties` array can list several properties — pull
     // out just the percentage entry that applies to the property being
@@ -629,7 +707,7 @@ class PropertyManagementComponent {
       .sort((a, b) => b.percentage - a.percentage);
 
     if (owners.length === 0) {
-      container.innerHTML = `<div class="text-muted small"><i class="bi bi-person-lines-fill me-1"></i>None configured.</div>`;
+      container.innerHTML = `<div class="text-muted small"><i class="bi bi-person-lines-fill me-1"></i>${t('form.noneConfigured')}</div>`;
       return;
     }
 
@@ -650,9 +728,9 @@ class PropertyManagementComponent {
     const totalOff = Math.abs(totalPercentage - 100) > 0.01;
     const totalHtml = `
       <div class="d-flex align-items-center justify-content-between pt-1 mt-1 border-top">
-        <span class="text-muted" style="font-size:0.7rem;">Total</span>
+        <span class="text-muted" style="font-size:0.7rem;">${t('form.total')}</span>
         <span class="fw-bold ${totalOff ? "text-danger" : "text-success"}" style="font-size:0.7rem;">
-          ${totalPercentage}%${totalOff ? ' <i class="bi bi-exclamation-triangle-fill" title="Ownership percentages do not add up to 100%"></i>' : ""}
+          ${totalPercentage}%${totalOff ? ` <i class="bi bi-exclamation-triangle-fill" title="${t('form.ownershipMismatch')}"></i>` : ""}
         </span>
       </div>`;
 
@@ -664,7 +742,7 @@ class PropertyManagementComponent {
     if (!dropdown) return;
 
     // Clear existing options except the first one
-    dropdown.innerHTML = '<option value="">-- Select AC Service Company --</option>';
+    dropdown.innerHTML = `<option value="" data-i18n="properties.form.selectAcCompany">${t('form.selectAcCompany')}</option>`;
 
     // Add companies as options
     this.acServiceCompanies.forEach(company => {
@@ -811,7 +889,7 @@ class PropertyManagementComponent {
   async fetchAddressFromPostcode(postcode) {
     if (!postcode || postcode.length !== 6 || !/^\d+$/.test(postcode)) {
       if (postcode.length === 6) {
-        alert("Please enter a valid 6-digit postal code.");
+        alert(tText('msg.invalidPostcode'));
       }
       return;
     }
@@ -854,11 +932,11 @@ class PropertyManagementComponent {
         console.log(`✅ Address found: ${address}`);
       } else {
         console.warn("No results found for this postcode.");
-        alert("No address found for this postal code. Please enter manually.");
+        alert(tText('msg.noAddressFound'));
       }
     } catch (error) {
       console.error("Error fetching address from OneMap:", error);
-      alert("Error connecting to OneMap API. Please enter address manually.");
+      alert(tText('msg.oneMapError'));
     } finally {
       if (fetchBtn) {
         fetchBtn.disabled = false;
@@ -933,12 +1011,14 @@ class PropertyManagementComponent {
         }
       } else {
         this.properties = [];
+        this._listState = 'loaded';
         this.showEmptyState();
         this.updatePropertiesCountBadge();
       }
     } catch (error) {
       console.error("Error loading properties:", error);
-      this.showEmptyState("Error loading properties. Please try again.");
+      this._listState = 'error';
+      this.showEmptyState(t('list.loadError'));
     }
   }
 
@@ -1008,6 +1088,7 @@ class PropertyManagementComponent {
     const container = document.getElementById("propertiesContainer");
 
     if (!container) return;
+    this._listState = 'loaded';
 
     this.updatePropertiesCountBadge();
 
@@ -1037,7 +1118,7 @@ class PropertyManagementComponent {
         rowsHtml += `
           <div class="d-flex align-items-center gap-2" style="margin: 10px 6px 6px;">
             <i class="bi bi-archive text-secondary" style="font-size: 0.75rem;"></i>
-            <span class="text-secondary fw-semibold" style="font-size: 0.7rem;">Archived (${archivedCount})</span>
+            <span class="text-secondary fw-semibold" style="font-size: 0.7rem;">${t('list.archived', { count: archivedCount })}</span>
             <hr class="flex-grow-1 my-0" style="border-color: #adb5bd;">
           </div>`;
       }
@@ -1096,13 +1177,13 @@ class PropertyManagementComponent {
     const thumbWrapHtml = `<div class="pm-row-thumb-wrap">${thumbHtml}<div class="pm-row-check-badge"><i class="bi bi-check-lg"></i></div></div>`;
 
     const archivedBadge = isArchived
-      ? `<span class="badge bg-secondary" style="font-size:0.6rem;" title="Archived"><i class="bi bi-archive"></i></span>`
+      ? `<span class="badge bg-secondary" style="font-size:0.6rem;" title="${t('row.archived')}"><i class="bi bi-archive"></i></span>`
       : '';
     const condoBadge = (!isArchived && isCondo)
-      ? `<span class="badge" style="background:linear-gradient(135deg,#f6d365,#fda085);color:#7c2d12;font-size:0.6rem;" title="Condominium"><i class="bi bi-buildings"></i></span>`
+      ? `<span class="badge" style="background:linear-gradient(135deg,#f6d365,#fda085);color:#7c2d12;font-size:0.6rem;" title="${t('row.condo')}"><i class="bi bi-buildings"></i></span>`
       : '';
     const lockBadge = property.digitalLockEnabled
-      ? `<i class="bi bi-shield-lock-fill" style="color:#6f42c1;font-size:0.75rem;" title="Digital Lock Installed"></i>`
+      ? `<i class="bi bi-shield-lock-fill" style="color:#6f42c1;font-size:0.75rem;" title="${t('row.digitalLock')}"></i>`
       : '';
     const stabilityBadge = !isArchived
       ? renderStabilityBadge(property.isStable, 'font-size:0.6rem;')
@@ -1124,14 +1205,14 @@ class PropertyManagementComponent {
     const moveBadges = [];
     if (property.moveInDate) {
       const moveInFormatted = fmtDate(property.moveInDate);
-      moveBadges.push(`<span class="badge bg-light text-dark border prop-copy-val" data-copy="${moveInFormatted}" title="Click to copy move-in date" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size:0.6rem;"><i class="bi bi-box-arrow-in-right me-1"></i>In: ${moveInFormatted}</span>`);
+      moveBadges.push(`<span class="badge bg-light text-dark border prop-copy-val" data-copy="${moveInFormatted}" title="${t('row.copyMoveIn')}" onclick="event.stopPropagation();copyToClipboardInline(this)" style="font-size:0.6rem;"><i class="bi bi-box-arrow-in-right me-1"></i>${t('row.moveIn', { date: moveInFormatted })}</span>`);
     }
     if (property.moveOutDate) {
       const moveOut = new Date(property.moveOutDate);
       const diffDays = (moveOut - new Date()) / (1000 * 60 * 60 * 24);
       const badgeBg = diffDays <= 30 ? '#dc3545' : diffDays <= 90 ? '#ff8c00' : '#198754';
       const moveOutFormatted = fmtDate(property.moveOutDate);
-      moveBadges.push(`<span class="badge prop-copy-val" data-copy="${moveOutFormatted}" title="Click to copy move-out date" onclick="event.stopPropagation();copyToClipboardInline(this)" style="background:${badgeBg};color:#fff;font-size:0.6rem;"><i class="bi bi-box-arrow-right me-1"></i>Out: ${moveOutFormatted}</span>`);
+      moveBadges.push(`<span class="badge prop-copy-val" data-copy="${moveOutFormatted}" title="${t('row.copyMoveOut')}" onclick="event.stopPropagation();copyToClipboardInline(this)" style="background:${badgeBg};color:#fff;font-size:0.6rem;"><i class="bi bi-box-arrow-right me-1"></i>${t('row.moveOut', { date: moveOutFormatted })}</span>`);
     }
     const moveDatesHtml = moveBadges.length ? `<div class="d-flex flex-wrap gap-1 mt-1">${moveBadges.join('')}</div>` : '';
 
@@ -1146,12 +1227,12 @@ class PropertyManagementComponent {
         ${renderInvestorAvatarCircle(investor, 22)}
         <div class="d-flex flex-column" style="min-width: 0; line-height: 1.15;">
           <span class="pm-person-role" style="color:${color};"><i class="bi ${icon}"></i>${label}</span>
-          <span class="small text-truncate prop-copy-val" data-copy="${this.escapeHtml(investor.name)}" title="Click to copy ${label} name" onclick="event.stopPropagation();copyToClipboardInline(this)" style="max-width: 100px; color: #212529; font-weight: 600;">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
+          <span class="small text-truncate prop-copy-val" data-copy="${this.escapeHtml(investor.name)}" title="${t('row.copyPersonName', { role: label })}" onclick="event.stopPropagation();copyToClipboardInline(this)" style="max-width: 100px; color: #212529; font-weight: 600;">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
         </div>
       </div>`;
     };
-    const accountantHtml = personBadge(property.accountant, 'Accountant', '#6f42c1', 'bi-calculator');
-    const managerHtml = personBadge(property.manager, 'Manager', '#0d6efd', 'bi-person-badge');
+    const accountantHtml = personBadge(property.accountant, t('row.accountant'), '#6f42c1', 'bi-calculator');
+    const managerHtml = personBadge(property.manager, t('row.manager'), '#0d6efd', 'bi-person-badge');
     const peopleRowHtml = (accountantHtml || managerHtml)
       ? `<div class="d-flex align-items-center gap-2 flex-wrap mt-2">${accountantHtml}${managerHtml}</div>`
       : '';
@@ -1161,11 +1242,11 @@ class PropertyManagementComponent {
     const spAccountHtml = (property.spAccountNumber || property.spAccountUsername || property.spAccountPassword)
       ? `<div class="small d-flex align-items-center gap-1 flex-wrap mt-1">
           <img src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP" style="height:12px;width:auto;flex-shrink:0;">
-          ${property.spAccountNumber ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountNumber)}" title="Click to copy account number" onclick="event.stopPropagation();copyToClipboardInline(this)">#${this.escapeHtml(property.spAccountNumber)}</span>` : ''}
+          ${property.spAccountNumber ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountNumber)}" title="${t('row.copyAccountNumber')}" onclick="event.stopPropagation();copyToClipboardInline(this)">#${this.escapeHtml(property.spAccountNumber)}</span>` : ''}
           ${property.spAccountNumber && (property.spAccountUsername || property.spAccountPassword) ? `<span class="text-muted">·</span>` : ''}
-          ${property.spAccountUsername ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountUsername)}" title="Click to copy username" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountUsername)}</span>` : ''}
+          ${property.spAccountUsername ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountUsername)}" title="${t('row.copyUsername')}" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountUsername)}</span>` : ''}
           ${property.spAccountUsername && property.spAccountPassword ? `<span class="text-muted">/</span>` : ''}
-          ${property.spAccountPassword ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountPassword)}" title="Click to copy password" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountPassword)}</span>` : ''}
+          ${property.spAccountPassword ? `<span class="font-monospace prop-copy-val" data-copy="${this.escapeHtml(property.spAccountPassword)}" title="${t('row.copyPassword')}" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.spAccountPassword)}</span>` : ''}
         </div>`
       : '';
 
@@ -1178,8 +1259,8 @@ class PropertyManagementComponent {
       : '';
 
     const archiveActionHtml = !isArchived
-      ? `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="Archive" onclick="event.stopPropagation(); propertyManager.archiveProperty('${property.propertyId}')"><i class="bi bi-archive"></i></button>`
-      : `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="Unarchive" onclick="event.stopPropagation(); propertyManager.unarchiveProperty('${property.propertyId}')"><i class="bi bi-arrow-counterclockwise"></i></button>`;
+      ? `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="${t('row.archive')}" onclick="event.stopPropagation(); propertyManager.archiveProperty('${property.propertyId}')"><i class="bi bi-archive"></i></button>`
+      : `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="${t('row.unarchive')}" onclick="event.stopPropagation(); propertyManager.unarchiveProperty('${property.propertyId}')"><i class="bi bi-arrow-counterclockwise"></i></button>`;
 
     return `
       <div class="pm-row${isSelected ? ' pm-row-selected' : ''}${isArchived ? ' pm-row-archived' : ''}" data-property-id="${this.escapeHtml(property.propertyId)}" onclick="propertyManager.selectProperty('${property.propertyId}')">
@@ -1187,16 +1268,16 @@ class PropertyManagementComponent {
         <div class="flex-grow-1" style="min-width: 0;">
           <div class="d-flex align-items-center justify-content-between gap-1">
             <div class="d-flex align-items-center gap-1" style="min-width: 0;">
-              <span class="pm-row-id fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="Click to copy Property ID" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
+              <span class="pm-row-id fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="${t('row.copyPropertyId')}" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
               ${archivedBadge}${condoBadge}${stabilityBadge}${lockBadge}
             </div>
             ${investorAvatarHtml}
           </div>
-          <div class="small text-muted text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.address)}, ${this.escapeHtml(property.unit)}" title="Click to copy address" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.address)}, ${this.escapeHtml(property.unit)}</div>
+          <div class="small text-muted text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.address)}, ${this.escapeHtml(property.unit)}" title="${t('row.copyAddress')}" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.address)}, ${this.escapeHtml(property.unit)}</div>
           <div class="d-flex align-items-center justify-content-between mt-1">
-            <span class="small text-success fw-semibold prop-copy-val" data-copy="${property.rent || 0}" title="Click to copy rent" onclick="event.stopPropagation();copyToClipboardInline(this)">$${(property.rent || 0).toLocaleString()}</span>
-            <span class="small text-muted prop-copy-val" data-copy="${property.maxPax || 1}" title="Click to copy max occupancy" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-people me-1"></i>${property.maxPax || 1}</span>
-            <span class="small text-muted prop-copy-val" data-copy="${property.rentPaymentDate || 1}" title="Click to copy payment date" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-calendar-event me-1"></i>Day ${property.rentPaymentDate || 1}</span>
+            <span class="small text-success fw-semibold prop-copy-val" data-copy="${property.rent || 0}" title="${t('row.copyRent')}" onclick="event.stopPropagation();copyToClipboardInline(this)">$${(property.rent || 0).toLocaleString()}</span>
+            <span class="small text-muted prop-copy-val" data-copy="${property.maxPax || 1}" title="${t('row.copyMaxPax')}" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-people me-1"></i>${property.maxPax || 1}</span>
+            <span class="small text-muted prop-copy-val" data-copy="${property.rentPaymentDate || 1}" title="${t('row.copyPaymentDate')}" onclick="event.stopPropagation();copyToClipboardInline(this)"><i class="bi bi-calendar-event me-1"></i>${t('row.paymentDay', { day: property.rentPaymentDate || 1 })}</span>
           </div>
           ${moveDatesHtml}
           ${spAccountHtml}
@@ -1369,11 +1450,13 @@ class PropertyManagementComponent {
         </div>
       </div>`;
 
+    this._listState = 'loading';
     container.innerHTML = row.repeat(count);
     this.addPropertyRowStyles();
   }
 
-  showEmptyState(message = "No properties found") {
+  // `message` is HTML-safe text (already translated)
+  showEmptyState(message = t('list.noProperties')) {
     const container = document.getElementById("propertiesContainer");
     if (!container) return;
 
@@ -1381,12 +1464,12 @@ class PropertyManagementComponent {
       <div class="text-center text-muted py-5">
         <i class="bi bi-building fs-1"></i>
         <h5 class="mt-3">${message}</h5>
-        <p class="text-muted">Click "Add Property" to get started</p>
+        <p class="text-muted">${t('list.getStarted')}</p>
       </div>
     `;
   }
 
-  showMobileEmptyState(message = "No properties found") {
+  showMobileEmptyState(message = t('list.noProperties')) {
     const mobileList = document.getElementById("mobilePropertyList");
     if (!mobileList) return;
 
@@ -1442,7 +1525,7 @@ class PropertyManagementComponent {
       );
 
       if (sortedProperties.length === 0) {
-        showToast('No properties to copy', 'warning');
+        showToast(tText('msg.noPropertiesToCopy'), 'warning');
         return;
       }
 
@@ -1454,24 +1537,24 @@ class PropertyManagementComponent {
         .join('\n');
 
       await navigator.clipboard.writeText(text);
-      showToast(`${sortedProperties.length} propert${sortedProperties.length === 1 ? 'y' : 'ies'} copied to clipboard`, 'success');
+      showToast(tText('msg.listCopied', { count: sortedProperties.length }), 'success');
 
       if (btn) {
-        btn.innerHTML = '<i class="bi bi-check-lg text-success"></i> Copied';
+        btn.innerHTML = `<i class="bi bi-check-lg text-success"></i> ${t('msg.copied')}`;
         clearTimeout(btn._copyListResetTimeout);
         btn._copyListResetTimeout = setTimeout(() => { btn.innerHTML = origHtml; }, 1500);
       }
     } catch (err) {
       console.error('Copy property list failed:', err);
-      showToast('Failed to copy: ' + err.message, 'danger');
+      showToast(tText('msg.copyFailed', { error: err.message }), 'danger');
     }
   }
 
   /** Empty-state copy that reflects *why* the grid is empty (no data vs. no match), or undefined for the default message. */
   buildFilteredEmptyStateMessage() {
     const term = this._searchTerm.trim();
-    if (term) return `No properties match "${term}"`;
-    if (getActivePropertyFilterCount(this.filters) > 0) return "No properties match the selected filters";
+    if (term) return t('list.noMatch', { term });
+    if (getActivePropertyFilterCount(this.filters) > 0) return t('list.noMatchFilters');
     return undefined;
   }
 
@@ -1490,7 +1573,7 @@ class PropertyManagementComponent {
             <span class="small text-truncate" title="${this.escapeHtml(investor.name || '')}">${this.escapeHtml(getInvestorShortName(investor.name))}</span>
           </label>
         `).join('')
-      : '<div class="text-muted small px-3 py-1">No investors found</div>';
+      : `<div class="text-muted small px-3 py-1">${t('list.noInvestors')}</div>`;
 
     menu.querySelectorAll('.property-investor-filter-checkbox').forEach((checkbox) => {
       checkbox.addEventListener('change', () => this.handleInvestorFilterChange());
@@ -1532,7 +1615,7 @@ class PropertyManagementComponent {
       // d-none, not style.display: the element's .d-flex is !important and
       // would otherwise keep "0 filters applied" visible.
       summary.classList.toggle('d-none', activeCount === 0);
-      summaryText.textContent = `${activeCount} filter${activeCount === 1 ? '' : 's'} applied`;
+      summaryText.textContent = tText('page.filtersApplied', { count: activeCount });
     }
   }
 
@@ -1565,15 +1648,15 @@ class PropertyManagementComponent {
     // Update panel title and button text
     const isEdit = !!property;
     document.getElementById("propertyModalTitle").textContent = isEdit
-      ? "Edit Property"
-      : "Add New Property";
+      ? tText('page.editProperty')
+      : tText('page.addNewProperty');
 
     // Phone header subtitle (hidden on desktop): which property this is.
     const subtitle = document.getElementById("propertyPanelSubtitle");
     if (subtitle) {
       subtitle.textContent = isEdit
         ? [property.propertyId, [property.address, property.unit].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
-        : 'Fill in the details and tap Add';
+        : tText('page.fillDetailsHint');
     }
     // Phone "⋯" menu (archive, view tenants...) only applies to a saved property.
     document.getElementById("pmDetailMenuBtn")?.classList.toggle('d-none', !isEdit);
@@ -1588,9 +1671,7 @@ class PropertyManagementComponent {
     }
     const submitBtn = document.getElementById("propertySubmitBtn");
     submitBtn.disabled = false;
-    submitBtn.innerHTML = isEdit
-      ? '<i class="bi bi-pencil-square me-1"></i><span id="propertySubmitText">Update Property</span>'
-      : '<i class="bi bi-plus-circle me-1"></i><span id="propertySubmitText">Add Property</span>';
+    submitBtn.innerHTML = this.submitButtonHtml(isEdit);
 
     // Stable/Unstable toggle lives in the panel header (outside the form)
     this.setStableToggleUI(property?.isStable === true);
@@ -1622,7 +1703,7 @@ class PropertyManagementComponent {
           propertyIdInput.classList.add("bg-light");
         }
         if (propertyIdHelp) {
-          propertyIdHelp.textContent = "Property ID is automatically generated.";
+          propertyIdHelp.textContent = tText('form.idAuto');
         }
       }
 
@@ -1633,7 +1714,7 @@ class PropertyManagementComponent {
           propertyIdInput.classList.add("bg-light");
         }
         if (propertyIdHelp) {
-          propertyIdHelp.textContent = "Property ID cannot be changed after creation.";
+          propertyIdHelp.textContent = tText('form.idLocked');
         }
 
         // Populate form with existing data
@@ -1700,7 +1781,7 @@ class PropertyManagementComponent {
             sgdBankText.innerHTML = badgeHtml + sgdBankValue;
           } else {
             sgdBankText.classList.add('text-muted');
-            sgdBankText.textContent = 'Select bank...';
+            sgdBankText.textContent = tText('form.selectBank');
           }
         }
         document.getElementById("settlementSgdAccountNumber").value =
@@ -1718,7 +1799,7 @@ class PropertyManagementComponent {
             vndBankText.innerHTML = badgeHtml + vndBankValue;
           } else {
             vndBankText.classList.add('text-muted');
-            vndBankText.textContent = 'Select bank...';
+            vndBankText.textContent = tText('form.selectBank');
           }
         }
         document.getElementById("settlementVndAccountNumber").value =
@@ -1923,12 +2004,12 @@ class PropertyManagementComponent {
         const sgdBankText = document.getElementById("settlementSgdBankText");
         if (sgdBankText) {
           sgdBankText.classList.add('text-muted');
-          sgdBankText.textContent = 'Select bank...';
+          sgdBankText.textContent = tText('form.selectBank');
         }
         const vndBankText = document.getElementById("settlementVndBankText");
         if (vndBankText) {
           vndBankText.classList.add('text-muted');
-          vndBankText.textContent = 'Select bank...';
+          vndBankText.textContent = tText('form.selectBank');
         }
 
         // Reset digital lock for add mode
@@ -2027,7 +2108,7 @@ class PropertyManagementComponent {
 
       this.renderPropertiesTable();
       showToast(
-        `Property ${property.propertyId} marked ${getStabilityMeta(isStable).label}`,
+        tText('msg.stableMarked', { id: property.propertyId, status: getStabilityMeta(isStable).label }),
         "success"
       );
     } catch (error) {
@@ -2036,7 +2117,7 @@ class PropertyManagementComponent {
       if (this.editingProperty === property) {
         this.setStableToggleUI(property.isStable === true);
       }
-      showToast("Failed to update status: " + error.message, "danger");
+      showToast(tText('msg.stableFailed', { error: error.message }), "danger");
     } finally {
       if (toggle) toggle.disabled = false;
     }
@@ -2067,12 +2148,12 @@ class PropertyManagementComponent {
   renderTenantGroupBadge(url, extraStyle = '') {
     if (!url) return '';
     const meta = getGroupLinkMeta(url);
-    return `<a href="${this.escapeHtml(url)}" onclick="event.preventDefault(); event.stopPropagation(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(url)}" class="badge text-decoration-none" style="background-color:${meta.color};color:#fff;${extraStyle}" title="Tenant ${meta.brand} Group (click to copy link & open)"><i class="bi ${meta.icon} me-1"></i>Tenant Group</a>`;
+    return `<a href="${this.escapeHtml(url)}" onclick="event.preventDefault(); event.stopPropagation(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(url)}" class="badge text-decoration-none" style="background-color:${meta.color};color:#fff;${extraStyle}" title="${t('groups.tenantGroupTitle', { brand: meta.brand })}"><i class="bi ${meta.icon} me-1"></i>${t('groups.tenantGroup')}</a>`;
   }
 
   renderAdminGroupBadge(url, extraStyle = '') {
     if (!url) return '';
-    return `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" class="badge bg-dark text-decoration-none" style="${extraStyle}" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>`;
+    return `<a href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" class="badge bg-dark text-decoration-none" style="${extraStyle}" title="${t('groups.adminGroupTitle')}"><i class="bi bi-facebook me-1"></i>${t('groups.adminGroup')}</a>`;
   }
 
   // Applies/removes the .pm-row-selected highlight across the rendered list
@@ -2155,7 +2236,7 @@ class PropertyManagementComponent {
   // discarding typed changes; returning false keeps the view open.
   handleMobileBack() {
     if (this.hasUnsavedChanges()) {
-      if (!confirm('Discard your unsaved changes to this property?')) return false;
+      if (!confirm(tText('msg.discardChanges'))) return false;
       this.handlePanelCancel(); // reloads the saved values, then exits
     } else {
       this.exitMobileDetailView();
@@ -2165,14 +2246,14 @@ class PropertyManagementComponent {
 
   openMobileListMenu() {
     openActionSheet({
-      title: 'Properties',
+      title: tText('menu.sheetTitle'),
       actions: [
-        { icon: 'bi-image', label: 'Export property portfolio', hint: 'Image of the selected properties', onClick: () => this.openExportSelectionModal('image') },
-        { icon: 'bi-table', label: 'Copy as Excel', hint: 'Paste straight into a spreadsheet', onClick: () => this.openExportSelectionModal('text') },
-        { icon: 'bi-clipboard', label: 'Copy list', hint: 'ID + address of the properties shown', onClick: () => this.copyVisiblePropertiesList() },
+        { icon: 'bi-image', label: tText('menu.exportPortfolio'), hint: tText('menu.exportPortfolioHint'), onClick: () => this.openExportSelectionModal('image') },
+        { icon: 'bi-table', label: tText('menu.copyAsExcel'), hint: tText('menu.copyAsExcelHint'), onClick: () => this.openExportSelectionModal('text') },
+        { icon: 'bi-clipboard', label: tText('menu.copyList'), hint: tText('menu.copyListHint'), onClick: () => this.copyVisiblePropertiesList() },
         'divider',
-        { icon: 'bi-calendar-range', label: 'Lease expiry timeline', onClick: () => this.showMobileLeaseTimeline() },
-        { icon: 'bi-arrow-clockwise', label: 'Reload', onClick: () => this.loadProperties() },
+        { icon: 'bi-calendar-range', label: tText('menu.leaseTimeline'), onClick: () => this.showMobileLeaseTimeline() },
+        { icon: 'bi-arrow-clockwise', label: tc('reload'), onClick: () => this.loadProperties() },
       ],
     });
   }
@@ -2186,7 +2267,7 @@ class PropertyManagementComponent {
       actions: [
         slug && {
           icon: 'bi-people',
-          label: 'View tenants',
+          label: tText('menu.viewTenants'),
           opensScreen: true,
           onClick: () => {
             this.exitMobileDetailView().then(() => window.appRouter?.navigate(`/tenants/${slug}`));
@@ -2194,16 +2275,16 @@ class PropertyManagementComponent {
         },
         {
           icon: 'bi-geo-alt',
-          label: 'Copy address',
+          label: tText('menu.copyAddress'),
           onClick: () => {
             const text = [property.address, property.unit].filter(Boolean).join(', ');
-            navigator.clipboard?.writeText(text).then(() => showToast('Address copied', 'success'));
+            navigator.clipboard?.writeText(text).then(() => showToast(tText('msg.addressCopied'), 'success'));
           },
         },
         'divider',
         property.isArchived
-          ? { icon: 'bi-arrow-counterclockwise', label: 'Unarchive property', onClick: () => this.unarchiveProperty(property.propertyId) }
-          : { icon: 'bi-archive', label: 'Archive property', danger: true, onClick: () => this.archiveProperty(property.propertyId) },
+          ? { icon: 'bi-arrow-counterclockwise', label: tText('menu.unarchiveProperty'), onClick: () => this.unarchiveProperty(property.propertyId) }
+          : { icon: 'bi-archive', label: tText('menu.archiveProperty'), danger: true, onClick: () => this.archiveProperty(property.propertyId) },
       ],
     });
   }
@@ -2387,7 +2468,7 @@ class PropertyManagementComponent {
     }
     const unchanged = !this.hasUnsavedChanges();
     btn.disabled = unchanged;
-    if (unchanged) btn.title = "No changes to update";
+    if (unchanged) btn.title = tText('page.noChanges');
     else btn.removeAttribute("title");
   }
 
@@ -2417,15 +2498,13 @@ class PropertyManagementComponent {
         !propertyData.address ||
         !propertyData.unit
       ) {
-        alert(
-          "Please fill in all required fields (Property ID, Address, Unit)"
-        );
+        alert(tText('msg.requiredFields'));
         return;
       }
 
       // Validate numeric fields
       if (propertyData.maxPax < 1 || propertyData.maxPax > 20) {
-        alert("Maximum occupancy must be between 1 and 20");
+        alert(tText('msg.maxPaxRange'));
         return;
       }
 
@@ -2433,32 +2512,32 @@ class PropertyManagementComponent {
         propertyData.rentPaymentDate < 1 ||
         propertyData.rentPaymentDate > 31
       ) {
-        alert("Rent payment date must be between 1 and 31");
+        alert(tText('msg.paymentDateRange'));
         return;
       }
 
       if (propertyData.rent < 0) {
-        alert("Rent cannot be negative");
+        alert(tText('msg.rentNegative'));
         return;
       }
 
       if (propertyData.depositToLandlord < 0) {
-        alert("Deposit to landlord cannot be negative");
+        alert(tText('msg.depositLandlordNegative'));
         return;
       }
 
       if (propertyData.depositFromTenant < 0) {
-        alert("Deposit from tenant cannot be negative");
+        alert(tText('msg.depositTenantNegative'));
         return;
       }
 
       if (propertyData.mainTenantFee < 0) {
-        alert("Main tenant fee cannot be negative");
+        alert(tText('msg.mainTenantFeeNegative'));
         return;
       }
 
       if (propertyData.cleaningFee < 0) {
-        alert("Cleaning fee cannot be negative");
+        alert(tText('msg.cleaningFeeNegative'));
         return;
       }
 
@@ -2467,9 +2546,7 @@ class PropertyManagementComponent {
       // not a descendant of it, so it can't be found via event.target.querySelector.
       const submitBtn = document.getElementById("propertySubmitBtn");
       submitBtn.disabled = true;
-      submitBtn.innerHTML = isEdit
-        ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Updating Property...'
-        : '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Adding Property...';
+      submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${t(isEdit ? 'page.updating' : 'page.adding')}`;
 
       // Shimmer the form's own fields too, so the whole panel reads as busy
       // rather than just the button. This toggles a class on the real
@@ -2502,19 +2579,14 @@ class PropertyManagementComponent {
     } catch (error) {
       console.error("Error in handlePropertySubmit:", error);
       const isEdit = event.target.getAttribute("data-mode") === "edit";
-      alert(
-        `An error occurred while ${isEdit ? "updating" : "adding"
-        } the property. Please try again.`
-      );
+      alert(tText(isEdit ? 'msg.saveErrorUpdate' : 'msg.saveErrorAdd'));
 
       // Reset button state
       const submitBtn = document.getElementById("propertySubmitBtn");
       if (submitBtn) {
         submitBtn.disabled = false;
         const isEdit = event.target.getAttribute("data-mode") === "edit";
-        submitBtn.innerHTML = isEdit
-          ? '<i class="bi bi-pencil-square me-1"></i>Update Property'
-          : '<i class="bi bi-plus-circle me-1"></i>Add Property';
+        submitBtn.innerHTML = this.submitButtonHtml(isEdit);
       }
       document.getElementById("propertyForm")?.classList.remove("pm-saving");
     }
@@ -2531,11 +2603,11 @@ class PropertyManagementComponent {
       if (result.success) {
         await this.loadProperties(); // Reload the list
       } else {
-        alert("Failed to add property: " + result.error);
+        alert(tText('msg.addFailed', { error: result.error }));
       }
     } catch (error) {
       console.error("Error adding property:", error);
-      alert("Error adding property. Please try again.");
+      alert(tText('msg.addError'));
     }
   }
 
@@ -2550,7 +2622,7 @@ class PropertyManagementComponent {
         ? this._slugResolvedProperty
         : null);
     if (!property) {
-      alert("Property not found");
+      alert(tText('msg.notFound'));
       return;
     }
 
@@ -2577,17 +2649,17 @@ class PropertyManagementComponent {
       if (result.success) {
         await this.loadProperties(); // Reload the list
       } else {
-        alert("Failed to update property: " + result.error);
+        alert(tText('msg.updateFailed', { error: result.error }));
       }
     } catch (error) {
       console.error("Error updating property:", error);
-      alert("Error updating property: " + error.message);
+      alert(tText('msg.updateError', { error: error.message }));
       throw error; // Re-throw to handle in form submission
     }
   }
 
   async archiveProperty(propertyId) {
-    if (!confirm(`Archive property ${propertyId}?\n\nThe property will be hidden from all other modules but its tenants and data will be preserved. You can unarchive it at any time.`)) {
+    if (!confirm(tText('msg.archiveConfirm', { id: propertyId }))) {
       return;
     }
 
@@ -2601,16 +2673,16 @@ class PropertyManagementComponent {
       if (result.success) {
         await this.loadProperties();
       } else {
-        alert("Failed to archive property: " + result.error);
+        alert(tText('msg.archiveFailed', { error: result.error }));
       }
     } catch (error) {
       console.error("Error archiving property:", error);
-      alert("Error archiving property. Please try again.");
+      alert(tText('msg.archiveError'));
     }
   }
 
   async unarchiveProperty(propertyId) {
-    if (!confirm(`Unarchive property ${propertyId}?\n\nIt will become visible again in all modules.`)) {
+    if (!confirm(tText('msg.unarchiveConfirm', { id: propertyId }))) {
       return;
     }
 
@@ -2624,11 +2696,11 @@ class PropertyManagementComponent {
       if (result.success) {
         await this.loadProperties();
       } else {
-        alert("Failed to unarchive property: " + result.error);
+        alert(tText('msg.unarchiveFailed', { error: result.error }));
       }
     } catch (error) {
       console.error("Error unarchiving property:", error);
-      alert("Error unarchiving property. Please try again.");
+      alert(tText('msg.unarchiveError'));
     }
   }
 
@@ -2652,7 +2724,7 @@ class PropertyManagementComponent {
 
     try {
       uploadButton.disabled = true;
-      uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+      uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t('form.uploading')}`;
 
       for (const file of files) {
         const result = await this.uploadSingleImage(file);
@@ -2686,7 +2758,7 @@ class PropertyManagementComponent {
 
     } catch (error) {
       console.error('Error uploading WiFi images:', error);
-      alert(`Error uploading images: ${error.message}`);
+      alert(tText('msg.uploadImagesError', { error: error.message }));
     } finally {
       uploadButton.disabled = false;
       uploadButton.innerHTML = originalText;
@@ -2694,14 +2766,14 @@ class PropertyManagementComponent {
   }
 
   addWifiImageUrl() {
-    const url = prompt('Enter WiFi image URL:');
+    const url = prompt(tText('msg.enterWifiUrl'));
     if (url && url.trim()) {
       const trimmedUrl = url.trim();
       if (!this.currentWifiImages.includes(trimmedUrl)) {
         this.currentWifiImages.push(trimmedUrl);
         this.renderWifiImagesGallery();
       } else {
-        alert('This URL is already added.');
+        alert(tText('msg.urlAlreadyAdded'));
       }
     }
   }
@@ -2712,7 +2784,7 @@ class PropertyManagementComponent {
     queueMicrotask(() => this.refreshSubmitState());
 
     if (!this.currentWifiImages || this.currentWifiImages.length === 0) {
-      gallery.innerHTML = '<p class="text-muted">No WiFi images added yet.</p>';
+      gallery.innerHTML = `<p class="text-muted" data-i18n="properties.form.noWifiImages">${t('form.noWifiImages')}</p>`;
       return;
     }
 
@@ -2756,7 +2828,7 @@ class PropertyManagementComponent {
 
     try {
       uploadButton.disabled = true;
-      uploadButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+      uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t('form.uploading')}`;
 
       const result = await this.uploadSingleImage(file);
 
@@ -2785,7 +2857,7 @@ class PropertyManagementComponent {
 
     } catch (error) {
       console.error('Error uploading property image:', error);
-      alert(`Error uploading image: ${error.message}`);
+      alert(tText('msg.uploadImageError', { error: error.message }));
     } finally {
       uploadButton.disabled = false;
       uploadButton.innerHTML = originalText;
@@ -2799,7 +2871,7 @@ class PropertyManagementComponent {
 
     if (!url) {
       console.log('🖼️ addImageFromUrl - URL is empty, not setting');
-      alert('Please enter a valid image URL');
+      alert(tText('msg.invalidImageUrl'));
       return;
     }
 
@@ -2837,7 +2909,7 @@ class PropertyManagementComponent {
         <div class="d-flex align-items-center justify-content-center h-100">
           <div class="text-center text-muted">
             <i class="bi bi-image" style="font-size: 2rem;"></i>
-            <br><small>No image selected</small>
+            <br><small data-i18n="properties.form.noImage">${t('form.noImage')}</small>
           </div>
         </div>
       `;
@@ -2845,7 +2917,7 @@ class PropertyManagementComponent {
   }
 
   removePropertyImage() {
-    if (confirm('Are you sure you want to remove this property image?')) {
+    if (confirm(tText('msg.removeImageConfirm'))) {
       this.propertyImage = '';
       this.updatePropertyImagePreview();
     }
@@ -2866,11 +2938,7 @@ class PropertyManagementComponent {
       });
 
       // Add visual feedback for paste capability
-      const currentPlaceholder = field.placeholder || 'Paste Cloudinary URL here';
-      if (!currentPlaceholder.includes('Ctrl+V')) {
-        field.placeholder = currentPlaceholder + ' (Ctrl+V to paste from clipboard)';
-      }
-      field.title = 'You can paste images from clipboard here (Ctrl+V)';
+      this._applyPasteHint(field);
 
       // Add a visual indicator
       field.style.borderLeft = '3px solid #0d6efd';
@@ -2878,6 +2946,16 @@ class PropertyManagementComponent {
 
       console.log(`✅ Clipboard paste listener added to ${fieldId}`);
     }
+  }
+
+  // Adds the "(Ctrl+V …)" hint to a paste-enabled field, in the current
+  // language. The base text comes from the field's data-i18n-placeholder.
+  _applyPasteHint(field) {
+    const key = field.getAttribute('data-i18n-placeholder');
+    if (!field.dataset.pasteBase) field.dataset.pasteBase = field.placeholder;
+    const base = key ? i18next.t(key) : field.dataset.pasteBase;
+    field.placeholder = base + tText('form.pasteHintSuffix');
+    field.title = tText('form.pasteHintTitle');
   }
 
   async handleImagePaste(event, fieldId) {
@@ -2912,12 +2990,12 @@ class PropertyManagementComponent {
           document.getElementById(fieldId).value = text;
         } else {
           console.log('No image found in clipboard');
-          this.showPasteMessage(fieldId, 'No image found in clipboard', 'warning');
+          this.showPasteMessage(fieldId, tText('msg.noImageInClipboard'), 'warning');
         }
       }
     } catch (error) {
       console.error('Error handling clipboard paste:', error);
-      this.showPasteMessage(fieldId, 'Error pasting from clipboard', 'error');
+      this.showPasteMessage(fieldId, tText('msg.pasteError'), 'error');
     }
   }
 
@@ -2927,7 +3005,7 @@ class PropertyManagementComponent {
 
     try {
       // Show loading state
-      field.placeholder = 'Uploading image...';
+      field.placeholder = tText('form.uploadingImage');
       field.disabled = true;
 
       const result = await this.uploadSingleImage(file);
@@ -2951,14 +3029,14 @@ class PropertyManagementComponent {
           this.addImageFromUrl();
         }
 
-        this.showPasteMessage(fieldId, 'Image uploaded successfully!', 'success');
+        this.showPasteMessage(fieldId, tText('msg.pasteUploaded'), 'success');
         console.log(`✅ Clipboard image uploaded successfully to ${fieldId}:`, imageUrl);
       } else {
-        this.showPasteMessage(fieldId, 'Failed to upload image: ' + result.error, 'error');
+        this.showPasteMessage(fieldId, tText('msg.pasteUploadFailed', { error: result.error }), 'error');
       }
     } catch (error) {
       console.error('Error uploading clipboard image:', error);
-      this.showPasteMessage(fieldId, 'Error uploading image', 'error');
+      this.showPasteMessage(fieldId, tText('msg.pasteUploadError'), 'error');
     } finally {
       // Restore field state
       field.placeholder = originalPlaceholder;
@@ -3036,7 +3114,7 @@ class PropertyManagementComponent {
   }
 
   removeWifiImage(index) {
-    if (confirm('Are you sure you want to remove this WiFi image?')) {
+    if (confirm(tText('msg.removeWifiConfirm'))) {
       this.currentWifiImages.splice(index, 1);
       this.renderWifiImagesGallery();
     }
@@ -3087,7 +3165,7 @@ class PropertyManagementComponent {
     const acServiceDate = document.getElementById("acServiceDate").value;
 
     if (!acServiceDate) {
-      alert("Please select an AC service date first");
+      alert(tText('msg.selectAcDateFirst'));
       return;
     }
 
@@ -3108,7 +3186,7 @@ class PropertyManagementComponent {
     const calendar = new YearCalendar({
       year: currentYear,
       highlightedDates: serviceDates,
-      title: 'AC Service Schedule',
+      title: tText('form.acScheduleTitle'),
       onDateClick: null
     });
 
@@ -3193,19 +3271,19 @@ class PropertyManagementComponent {
     const number = input.value.trim();
 
     if (!number) {
-      alert('Please enter a phone number');
+      alert(tText('msg.enterPhone'));
       return;
     }
 
     // Basic phone number validation
     if (number.length < 8 || number.length > 20) {
-      alert('Phone number must be between 8 and 20 characters');
+      alert(tText('msg.phoneLength'));
       return;
     }
 
     // Check for duplicates
     if (this.currentAcContactNumbers.includes(number)) {
-      alert('This phone number is already added');
+      alert(tText('msg.phoneAlreadyAdded'));
       return;
     }
 
@@ -3219,7 +3297,7 @@ class PropertyManagementComponent {
   }
 
   removeAcContactNumber(index) {
-    if (confirm('Are you sure you want to remove this contact number?')) {
+    if (confirm(tText('msg.removeContactConfirm'))) {
       this.currentAcContactNumbers.splice(index, 1);
       this.renderAcContactNumbersList();
     }
@@ -3230,7 +3308,7 @@ class PropertyManagementComponent {
     if (!listContainer) return;
 
     if (!this.currentAcContactNumbers || this.currentAcContactNumbers.length === 0) {
-      listContainer.innerHTML = '<p class="text-muted small mb-0">No contact numbers added yet</p>';
+      listContainer.innerHTML = `<p class="text-muted small mb-0" data-i18n="properties.form.noContactNumbers">${t('form.noContactNumbers')}</p>`;
       return;
     }
 
@@ -3273,7 +3351,7 @@ class PropertyManagementComponent {
     const btn = document.getElementById('copyPropertiesTextBtn');
     const origHtml = btn?.innerHTML;
     try {
-      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Copying...'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>${t('msg.copying')}`; }
 
       const active = this.properties
         .filter(p => !p.isArchived)
@@ -3281,7 +3359,7 @@ class PropertyManagementComponent {
         .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
 
       if (active.length === 0) {
-        showToast('No properties selected to export', 'warning');
+        showToast(tText('msg.noPropertiesSelected'), 'warning');
         return;
       }
 
@@ -3317,10 +3395,10 @@ class PropertyManagementComponent {
       await navigator.clipboard.writeText(tsv);
 
       const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
-      showToast(`${active.length} properties copied — paste with ${isMac ? '⌘ Cmd+V' : 'Ctrl+V'} in Excel`, 'success', 5000);
+      showToast(tText('msg.excelCopied', { count: active.length, shortcut: isMac ? '⌘ Cmd+V' : 'Ctrl+V' }), 'success', 5000);
 
       if (btn) {
-        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Copied!';
+        btn.innerHTML = `<i class="bi bi-check-circle me-1"></i>${t('msg.copiedExcl')}`;
         btn.classList.replace('btn-outline-primary', 'btn-success');
         setTimeout(() => {
           btn.innerHTML = origHtml;
@@ -3330,7 +3408,7 @@ class PropertyManagementComponent {
       }
     } catch (err) {
       console.error('Copy as text failed:', err);
-      showToast('Failed to copy: ' + err.message, 'danger');
+      showToast(tText('msg.copyFailed', { error: err.message }), 'danger');
       if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
     }
   }
@@ -3352,14 +3430,14 @@ class PropertyManagementComponent {
     const btn = document.getElementById('exportPropertiesBtn');
     const origHtml = btn?.innerHTML;
     try {
-      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Exporting...'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>${t('msg.exporting')}`; }
       const active = this.properties
         .filter(p => !p.isArchived)
         .filter(p => !selectedIds || selectedIds.has(p.propertyId))
         .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
 
       if (active.length === 0) {
-        showToast('No properties selected to export', 'warning');
+        showToast(tText('msg.noPropertiesSelected'), 'warning');
         return;
       }
 
@@ -3378,13 +3456,13 @@ class PropertyManagementComponent {
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
-        showToast(`Copied to clipboard — paste with ${isMac ? '⌘ Cmd+V' : 'Ctrl+V'}`, 'success', 5000);
+        showToast(tText('msg.imageCopied', { shortcut: isMac ? '⌘ Cmd+V' : 'Ctrl+V' }), 'success', 5000);
       } catch (_clipErr) {
         // Clipboard copy is optional — preview modal is the primary deliverable
       }
     } catch (err) {
       console.error('Export properties image failed:', err);
-      alert('Export failed: ' + err.message);
+      alert(tText('msg.exportFailed', { error: err.message }));
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
     }
@@ -3552,21 +3630,21 @@ class PropertyManagementComponent {
                 <div class="rounded-circle bg-white d-flex align-items-center justify-content-center" style="width:32px;height:32px;flex-shrink:0;">
                   <i class="bi bi-image text-primary" style="font-size:1rem;"></i>
                 </div>
-                <h6 class="modal-title text-white fw-bold mb-0">Property Portfolio Export</h6>
+                <h6 class="modal-title text-white fw-bold mb-0">${t('exportModal.previewTitle')}</h6>
               </div>
-              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="${tc('close')}"></button>
             </div>
             <div class="modal-body p-0 text-center bg-dark" style="min-height:200px;">
               <img src="${objectUrl}" alt="Property Portfolio" style="max-width:100%;display:block;margin:0 auto;"/>
             </div>
             <div class="modal-footer border-0 justify-content-between" style="background:#f8f9fa;">
-              <div class="text-muted" style="font-size:0.78rem;"><i class="bi bi-keyboard me-1"></i>Press <kbd>Esc</kbd> to close</div>
+              <div class="text-muted" style="font-size:0.78rem;"><i class="bi bi-keyboard me-1"></i>${t('exportModal.pressEsc')}</div>
               <div class="d-flex gap-2">
                 <a href="${objectUrl}" download="${fileName}" class="btn btn-primary btn-sm">
-                  <i class="bi bi-download me-1"></i>Download PNG
+                  <i class="bi bi-download me-1"></i>${t('exportModal.downloadPng')}
                 </a>
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
-                  <i class="bi bi-x-lg me-1"></i>Close
+                  <i class="bi bi-x-lg me-1"></i>${tc('close')}
                 </button>
               </div>
             </div>
@@ -3595,7 +3673,7 @@ class PropertyManagementComponent {
       .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
 
     if (active.length === 0) {
-      showToast('No properties to export', 'warning');
+      showToast(tText('msg.noPropertiesToExport'), 'warning');
       return;
     }
 
@@ -3613,8 +3691,8 @@ class PropertyManagementComponent {
     document.getElementById('pmExportSelectModal')?.remove();
 
     const modeConfig = mode === 'image'
-      ? { label: 'Export as Image', icon: 'bi-image', btnClass: 'btn-success' }
-      : { label: 'Copy as Excel', icon: 'bi-table', btnClass: 'btn-primary' };
+      ? { label: t('exportModal.exportAsImage'), icon: 'bi-image', btnClass: 'btn-success' }
+      : { label: t('exportModal.copyAsExcel'), icon: 'bi-table', btnClass: 'btn-primary' };
 
     const modalHtml = `
       <div class="modal fade" id="pmExportSelectModal" tabindex="-1" aria-hidden="true">
@@ -3625,17 +3703,17 @@ class PropertyManagementComponent {
                 <div class="rounded-circle bg-white d-flex align-items-center justify-content-center" style="width:32px;height:32px;flex-shrink:0;">
                   <i class="bi bi-check2-square text-primary" style="font-size:1rem;"></i>
                 </div>
-                <h6 class="modal-title text-white fw-bold mb-0">Select Properties to Export</h6>
+                <h6 class="modal-title text-white fw-bold mb-0">${t('exportModal.selectTitle')}</h6>
               </div>
-              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+              <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="${tc('close')}"></button>
             </div>
             <div class="modal-body p-0">
               <div class="p-3 border-bottom bg-light">
-                <input type="text" id="pmExportSearchInput" class="form-control form-control-sm mb-2" placeholder="Search by address or unit...">
+                <input type="text" id="pmExportSearchInput" class="form-control form-control-sm mb-2" placeholder="${t('exportModal.searchPlaceholder')}">
                 <div class="d-flex justify-content-between align-items-center">
                   <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pmExportSelectAllBtn">Select All</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pmExportDeselectAllBtn">Deselect All</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pmExportSelectAllBtn">${t('exportModal.selectAll')}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pmExportDeselectAllBtn">${t('exportModal.deselectAll')}</button>
                   </div>
                   <span class="small fw-semibold text-muted" id="pmExportSelectedCount"></span>
                 </div>
@@ -3643,7 +3721,7 @@ class PropertyManagementComponent {
               <div id="pmExportPropertyList" style="max-height:360px;overflow-y:auto;"></div>
             </div>
             <div class="modal-footer border-0" style="background:#f8f9fa;">
-              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">${tc('cancel')}</button>
               <button type="button" class="btn ${modeConfig.btnClass} btn-sm" id="pmExportConfirmBtn">
                 <i class="bi ${modeConfig.icon} me-1"></i>${modeConfig.label}
               </button>
@@ -3710,7 +3788,7 @@ class PropertyManagementComponent {
               ${this._renderInvestorAvatarStack(p.propertyId)}
             </label>`;
         }).join('')
-      : `<div class="text-center text-muted py-4"><i class="bi bi-search me-1"></i>No matching properties</div>`;
+      : `<div class="text-center text-muted py-4"><i class="bi bi-search me-1"></i>${t('exportModal.noMatching')}</div>`;
 
     container.querySelectorAll('.pm-export-checkbox').forEach(cb => {
       cb.addEventListener('change', (e) => {
@@ -3729,7 +3807,7 @@ class PropertyManagementComponent {
 
   _updateExportSelectionCount(totalCount) {
     const countEl = document.getElementById('pmExportSelectedCount');
-    if (countEl) countEl.textContent = `${this._exportSelectedIds.size} of ${totalCount} selected`;
+    if (countEl) countEl.textContent = tText('exportModal.selectedOf', { selected: this._exportSelectedIds.size, total: totalCount });
     const confirmBtn = document.getElementById('pmExportConfirmBtn');
     if (confirmBtn) confirmBtn.disabled = this._exportSelectedIds.size === 0;
   }

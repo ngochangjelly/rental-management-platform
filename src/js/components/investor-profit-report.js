@@ -1,4 +1,4 @@
-import i18next from "i18next";
+import i18next, { onLanguageChange } from "../i18n.js";
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 
 /**
@@ -48,6 +48,19 @@ class investorProfitChartComponent {
   init() {
     // Investors load on first open of the section (see ensureInvestorsLoaded)
     this.bindEvents();
+    onLanguageChange(() => this.handleLanguageChange());
+  }
+
+  // Language switched: redraw from the data already loaded
+  handleLanguageChange() {
+    if (!this._investorsRequested) return;
+    this.renderInvestorList();
+    this.updateSelectionCount();
+    if (this.isLoadingData) return; // the running load renders when it finishes
+    this.renderChartArea();
+    this.renderChart();
+    this.renderMonthlyDetails();
+    this.renderSummaryStats();
   }
 
   /** Called by the dashboard controller each time the section opens. */

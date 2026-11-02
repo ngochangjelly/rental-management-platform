@@ -3,7 +3,7 @@
  * Tracks SP Group (electricity, water, gas) bills per property per month.
  * Uses Chart.js for monthly trend charts and backend OCR to parse bill images.
  */
-import i18next from "../i18n.js";
+import i18next, { onLanguageChange } from "../i18n.js";
 import { getGroupLinkMeta } from "../utils/social-links.js";
 import {
   fetchInvestorsForAvatarStack,
@@ -68,11 +68,27 @@ class UtilityBillTrackerComponent {
 
   _init() {
     this._bindEvents();
+    onLanguageChange(() => this._handleLanguageChange());
     this._propertiesPromise = this._loadProperties();
     fetchInvestorsForAvatarStack().then((investors) => {
       this._avatarInvestors = investors;
       this._renderPropertyCards();
     });
+  }
+
+  // Language switched: redraw from the data already loaded
+  _handleLanguageChange() {
+    if (!this.properties.length) return;
+    this._renderPropertyCards();
+    this._renderBillingCalendar();
+    if (!this._statusLoading) this._renderMonthlySummary(false);
+    this._updateQdzHint();
+    if (this.selectedProperty && this._selectedPropRecord) {
+      this._renderFbGroups(this._selectedPropRecord);
+      this._renderSpAccount(this._selectedPropRecord);
+      this._renderChart();
+      this._renderBillsTable();
+    }
   }
 
   _bindEvents() {
@@ -368,9 +384,14 @@ class UtilityBillTrackerComponent {
     this.monthlyBillStatus = {};
     this._renderMonthlySummary(true);
 
-    this.monthlyBillStatus =
-      (await this._fetchMonthlyStatusBulk(year, month)) ||
-      (await this._fetchMonthlyStatusPerProperty(year, month));
+    this._statusLoading = true;
+    try {
+      this.monthlyBillStatus =
+        (await this._fetchMonthlyStatusBulk(year, month)) ||
+        (await this._fetchMonthlyStatusPerProperty(year, month));
+    } finally {
+      this._statusLoading = false;
+    }
 
     this._renderPropertyCards();
     this._renderMonthlySummary(false);
@@ -977,6 +998,7 @@ class UtilityBillTrackerComponent {
       ? propResult.value.property || {}
       : {};
     this.propertySubsidy = prop.subsidizedPub || 0;
+    this._selectedPropRecord = prop; // kept to redraw on language change
     this._renderFbGroups(prop);
     this._renderSpAccount(prop);
     this._renderChart();

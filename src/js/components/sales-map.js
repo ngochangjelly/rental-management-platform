@@ -1,5 +1,5 @@
 import { getRoomTypeDisplayName, compareRoomTypes } from '../utils/room-type-mapper.js';
-import i18next from '../i18n.js';
+import i18next, { onLanguageChange } from '../i18n.js';
 import { roomListingService } from '../services/room-listing-service.js';
 import { shareRoomLink, formatPriceRange } from './room-photos/room-share.js';
 import './room-photos/room-photos.css';
@@ -32,6 +32,28 @@ class SalesMapComponent {
     this._dataReady = false;
     // Photos/links edited elsewhere (e.g. Properties) → refresh cards on next visit
     window.addEventListener('room-listings:changed', () => { this._roomsStale = true; });
+    onLanguageChange(() => this._refreshLanguage());
+  }
+
+  // Language switched: relabel in place. The shell's fixed labels carry
+  // data-i18n (i18n.js updates them); markers keep their position and the
+  // map keeps its zoom.
+  _refreshLanguage() {
+    if (!this._dataReady) return;
+    this.markers.forEach(({ marker, property }) => marker.setTooltipContent(this._markerTooltipHTML(property)));
+    const list = this._activeFilter === 'all'
+      ? this.properties
+      : this.properties.filter(p => p.propertyType === this._activeFilter);
+    document.getElementById('sm-no-coords-banner')?.remove();
+    const noCoords = list.filter(p => !p.latitude || !p.longitude);
+    if (noCoords.length) this._showNoCoordsBanner(noCoords);
+    this._picker?.render(list, this.focusedPropertyId);
+    if (this.selectedProperty) this._showPanel(this.selectedProperty);
+    else this._resetPanel();
+  }
+
+  _markerTooltipHTML(prop) {
+    return `<strong>${prop.address}</strong><br>${prop.unit}<br><span style="color:#16a34a">${i18next.t('salesMap.available')}: ${prop.availableCount}/${prop.totalRooms}</span>`;
   }
 
   // ─── Called by DashboardController when section becomes visible ──────────────
@@ -96,6 +118,8 @@ class SalesMapComponent {
     const container = document.getElementById('sales-map-container');
     if (!container) return;
     const t = (k) => i18next.t(`salesMap.${k}`);
+    // Fixed labels: tagged so a language switch relabels them in place
+    const label = (k) => `<span data-i18n="salesMap.${k}">${t(k)}</span>`;
 
     container.innerHTML = `
       <!-- Stats bar -->
@@ -104,7 +128,7 @@ class SalesMapComponent {
           <i class="bi bi-building" style="font-size:1.3rem;color:#667eea;"></i>
           <div>
             <div id="sm-stat-total" style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;">—</div>
-            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${t('statTotal')}</div>
+            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${label('statTotal')}</div>
           </div>
         </div>
         <div class="sm-stat-card" style="background:white;border-radius:10px;padding:10px 18px;border:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);min-width:110px;">
@@ -118,21 +142,21 @@ class SalesMapComponent {
           <span style="width:14px;height:14px;border-radius:50%;background:#d97706;display:inline-block;flex-shrink:0;"></span>
           <div>
             <div id="sm-stat-condo" style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;">—</div>
-            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">Condo</div>
+            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${label('condo')}</div>
           </div>
         </div>
         <div class="sm-stat-card" style="background:white;border-radius:10px;padding:10px 18px;border:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);min-width:140px;">
           <i class="bi bi-door-open" style="font-size:1.3rem;color:#16a34a;"></i>
           <div>
             <div id="sm-stat-available" style="font-size:1.4rem;font-weight:800;color:#16a34a;line-height:1;">—</div>
-            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${t('statRoomsAvail')}</div>
+            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${label('statRoomsAvail')}</div>
           </div>
         </div>
         <div class="sm-stat-card" style="background:white;border-radius:10px;padding:10px 18px;border:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);min-width:140px;">
           <i class="bi bi-door-closed" style="font-size:1.3rem;color:#6b7280;"></i>
           <div>
             <div id="sm-stat-occupied" style="font-size:1.4rem;font-weight:800;color:#374151;line-height:1;">—</div>
-            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${t('statRoomsOccup')}</div>
+            <div style="font-size:0.72rem;color:#6b7280;margin-top:1px;">${label('statRoomsOccup')}</div>
           </div>
         </div>
       </div>
@@ -149,7 +173,7 @@ class SalesMapComponent {
           <!-- Loading overlay -->
           <div id="sm-loading" style="position:absolute;inset:0;background:rgba(255,255,255,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;">
             <div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;" role="status"></div>
-            <div style="margin-top:12px;color:#6c757d;">${t('loading')}</div>
+            <div style="margin-top:12px;color:#6c757d;">${label('loading')}</div>
           </div>
 
           <!-- Type filter pills -->
@@ -157,20 +181,20 @@ class SalesMapComponent {
             ${['all','hdb','condo'].map((f, i) => `
               <button class="sm-filter-btn${i===0?' sm-filter-active':''}" data-filter="${f}"
                 style="background:${i===0?'#667eea':'white'};color:${i===0?'white':'#374151'};border:1px solid ${i===0?'#667eea':'#dee2e6'};border-radius:20px;padding:4px 14px;font-size:0.78rem;cursor:pointer;font-weight:${i===0?700:400};transition:all .2s;">
-                ${f === 'all' ? t('all') : f.toUpperCase()}
+                ${f === 'all' ? label('all') : f.toUpperCase()}
               </button>`).join('')}
           </div>
 
           <!-- Legend -->
           <div style="position:absolute;bottom:28px;left:12px;background:white;border-radius:8px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:0.8rem;z-index:1000;">
-            <div style="font-weight:700;margin-bottom:6px;">${t('legend')}</div>
+            <div style="font-weight:700;margin-bottom:6px;">${label('legend')}</div>
             <div class="d-flex align-items-center gap-2 mb-1">
               <span style="width:13px;height:13px;border-radius:50%;background:#2563eb;display:inline-block;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>
-              <span>${t('hdb')}</span>
+              ${label('hdb')}
             </div>
             <div class="d-flex align-items-center gap-2">
               <span style="width:13px;height:13px;border-radius:50%;background:#d97706;display:inline-block;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>
-              <span>${t('condo')}</span>
+              ${label('condo')}
             </div>
           </div>
         </div>
@@ -178,7 +202,7 @@ class SalesMapComponent {
         <!-- Detail panel (desktop) -->
         <div id="sm-panel" style="width:300px;min-width:260px;background:#f8f9fa;border-left:1px solid #dee2e6;display:flex;flex-direction:column;overflow:hidden;">
           <div style="padding:14px 16px;border-bottom:1px solid #dee2e6;background:white;">
-            <div style="font-weight:700;font-size:0.9rem;color:#374151;">${t('panelTitle')}</div>
+            <div style="font-weight:700;font-size:0.9rem;color:#374151;">${label('panelTitle')}</div>
             <div id="sm-panel-meta" style="font-size:0.75rem;color:#9ca3af;margin-top:2px;"></div>
           </div>
           <div id="sm-panel-body" style="flex:1;overflow-y:auto;padding:14px 16px;">${this._panelHintHTML()}</div>
@@ -353,7 +377,6 @@ class SalesMapComponent {
     }
 
     const SPREAD = 0.00018; // ~20 m at Singapore latitude
-    const t = (k) => i18next.t(`salesMap.${k}`);
 
     for (const group of groups.values()) {
       group.forEach((prop, i) => {
@@ -370,7 +393,7 @@ class SalesMapComponent {
         const marker = L.marker([lat, lng], { icon, zIndexOffset: focused ? 1000 : 0 }).addTo(this.map);
 
         marker.bindTooltip(
-          `<strong>${prop.address}</strong><br>${prop.unit}<br><span style="color:#16a34a">${t('available')}: ${prop.availableCount}/${prop.totalRooms}</span>`,
+          this._markerTooltipHTML(prop),
           { permanent: false, direction: 'top', offset: [0, focused ? -52 : -38] }
         );
 

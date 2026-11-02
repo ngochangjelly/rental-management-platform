@@ -14,6 +14,8 @@
  * Everything here is a no-op or invisible on desktop.
  */
 
+import i18next, { onLanguageChange } from "../i18n.js";
+
 const MOBILE_QUERY = "(max-width: 767.98px)";
 
 export function isMobileViewport() {
@@ -121,6 +123,7 @@ export const mobileLayers = typeof window !== "undefined" ? new MobileLayerStack
  * @param {HTMLElement} opts.mount      element the chip bar is inserted before
  * @param {HTMLElement} opts.scrollEl   the scrolling container holding the sections
  * @param {HTMLElement} opts.root       where to look for [data-msec] sections
+ *   (data-msec="Label|bi-icon"; add data-msec-i18n="key" to translate the label)
  * @returns {{ refresh(): void, reset(): void }}
  */
 export function createSectionNav({ mount, scrollEl, root }) {
@@ -139,7 +142,8 @@ export function createSectionNav({ mount, scrollEl, root }) {
     sections = Array.from(root.querySelectorAll("[data-msec]"));
     bar.innerHTML = sections
       .map((el, i) => {
-        const [label, icon] = el.dataset.msec.split("|");
+        const [fallbackLabel, icon] = el.dataset.msec.split("|");
+        const label = el.dataset.msecI18n ? i18next.t(el.dataset.msecI18n) : fallbackLabel;
         return `<button type="button" class="m-secnav-chip" data-idx="${i}">${icon ? `<i class="bi ${icon}"></i>` : ""}<span>${label}</span></button>`;
       })
       .join("");
@@ -202,6 +206,13 @@ export function createSectionNav({ mount, scrollEl, root }) {
   );
 
   build();
+  // Relabel the chips in the new language, keeping hidden/active state
+  onLanguageChange(() => {
+    const idx = activeIdx;
+    build();
+    sections.forEach((el, i) => chips[i]?.classList.toggle("d-none", !visible(el)));
+    if (idx >= 0) setActive(idx);
+  });
 
   return {
     /** Re-reads which sections are visible (e.g. signature shown/hidden). */
@@ -257,7 +268,7 @@ export function openActionSheet({ title, actions }) {
         )
         .join("")}
     </div>
-    <button type="button" class="m-sheet-cancel">Cancel</button>`;
+    <button type="button" class="m-sheet-cancel">${esc(i18next.t("common.cancel"))}</button>`;
 
   document.body.append(backdrop, sheet);
   requestAnimationFrame(() => {

@@ -3,7 +3,7 @@ import {
   getRoomTypeBadgeStyle,
   ROOM_TYPE_MAP,
 } from "../utils/room-type-mapper.js";
-import i18next from "i18next";
+import i18next, { onLanguageChange } from "../i18n.js";
 import { getGroupLinkMeta } from "../utils/social-links.js";
 import {
   fetchInvestorsForAvatarStack,
@@ -45,6 +45,10 @@ class TenancyOccupancyComponent {
     this.bindEvents();
     // Initialize year display
     this.updateYearDisplay();
+    // Redraw in the new language once data is loaded (a running load renders itself)
+    onLanguageChange(() => {
+      if (this._loadPromise && !this.isLoading) this.render();
+    });
     // Investor avatars load on first loadData(), when the section opens
   }
 
@@ -378,9 +382,7 @@ class TenancyOccupancyComponent {
     const countEl = document.getElementById("tenancyOccupancyPropertyCount");
     if (countEl) {
       const count = this.selectedProperties.size;
-      countEl.textContent = `${count} ${
-        count === 1 ? "property" : "properties"
-      } selected`;
+      countEl.textContent = i18next.t("tenancyOccupancy.propertiesSelected", { count });
     }
 
     // Sync iOS toggle visual state
@@ -656,8 +658,7 @@ class TenancyOccupancyComponent {
       container.innerHTML = `
         <div class="text-center text-muted py-5">
           <i class="bi bi-building fs-1 d-block mb-3"></i>
-          <p class="mb-0">Vui lòng chọn ít nhất một căn nhà để xem thông tin thuê phòng</p>
-          <p class="small">Please select at least one property to view tenancy occupancy</p>
+          <p class="mb-0">${i18next.t("tenancyOccupancy.selectAtLeastOne")}</p>
         </div>
       `;
       return;

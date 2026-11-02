@@ -1,4 +1,4 @@
-import i18next from "./i18n.js";
+import i18next, { applyStaticTranslations, onLanguageChange } from "./i18n.js";
 
 /**
  * Dashboard Controller
@@ -25,6 +25,7 @@ class DashboardController {
     this.loadDashboardStats();
     this.setupLanguageSwitcher();
     this.updateTranslations();
+    onLanguageChange(() => this.updateCurrentDate());
 
     // Mark body as ready to show content (prevents language flash)
     document.body.classList.add("i18n-ready");
@@ -623,11 +624,10 @@ class DashboardController {
         if (option.classList.contains("active")) return;
 
         try {
+          // i18n.js re-translates static markup, saves the choice and tells
+          // every module to re-render (see onLanguageChange)
           await i18next.changeLanguage(targetLang);
-          localStorage.setItem("preferredLanguage", targetLang);
           updateToggleUI(targetLang);
-          this.updateTranslations();
-          this.updateCurrentDate();
         } catch (err) {
           console.error("Failed to switch language:", err);
         }
@@ -636,22 +636,7 @@ class DashboardController {
   }
 
   updateTranslations() {
-    // Update all elements with data-i18n
-    document.querySelectorAll("[data-i18n]").forEach((el) => {
-      const key = el.getAttribute("data-i18n");
-      const translated = i18next.t(key);
-      if (translated) {
-        el.textContent = translated;
-      }
-    });
-    // Update all elements with data-i18n-placeholder
-    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
-      const key = el.getAttribute("data-i18n-placeholder");
-      const translated = i18next.t(key);
-      if (translated) {
-        el.placeholder = translated;
-      }
-    });
+    applyStaticTranslations();
   }
 }
 

@@ -4,6 +4,8 @@
  * Reusable across all modules.
  */
 
+import i18next from "../i18n.js";
+
 /**
  * Detect whether a group URL is a WhatsApp link (chat.whatsapp.com, wa.me, whatsapp.com).
  */
@@ -131,7 +133,7 @@ export function renderTenantSocialBadges(tenant, { size = "sm" } = {}) {
     parts.push(
       `<a href="${escaped}" target="_blank" rel="noopener noreferrer"
           class="${badgeClass} bg-primary text-white text-decoration-none"
-          title="View Facebook Profile">
+          title="${escapeHtml(i18next.t("common.social.viewFacebook"))}">
         <i class="bi bi-facebook me-1"></i>Facebook
       </a>`,
     );
@@ -143,7 +145,7 @@ export function renderTenantSocialBadges(tenant, { size = "sm" } = {}) {
         `<a href="${escapedMsg}" target="_blank" rel="noopener noreferrer"
             class="${badgeClass} text-white text-decoration-none"
             style="background:#0084ff;"
-            title="Send Messenger message (type your message in the chat)">
+            title="${escapeHtml(i18next.t("common.social.messenger"))}">
           <i class="bi bi-messenger me-1"></i>Messenger
         </a>`,
       );
@@ -157,7 +159,7 @@ export function renderTenantSocialBadges(tenant, { size = "sm" } = {}) {
       parts.push(
         `<a href="${escaped}" target="_blank" rel="noopener noreferrer"
             class="${badgeClass} bg-success text-white text-decoration-none"
-            title="Send WhatsApp message asking to sign contract">
+            title="${escapeHtml(i18next.t("common.social.whatsappSign"))}">
           <i class="bi bi-whatsapp me-1"></i>WhatsApp
         </a>`,
       );

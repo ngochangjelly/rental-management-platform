@@ -6138,30 +6138,30 @@
                 id="pmPageHeader"
                 class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4"
               >
-                <h2 class="mb-2 mb-md-0">Property Management</h2>
+                <h2 data-i18n="properties.page.title" class="mb-2 mb-md-0">Property Management</h2>
                 <div class="d-flex flex-wrap gap-2">
                   <button class="btn btn-primary" id="addPropertyBtn">
-                    <i class="bi bi-plus-circle me-1"></i>Add Property
+                    <i class="bi bi-plus-circle me-1"></i><span data-i18n="properties.page.addProperty">Add Property</span>
                   </button>
                   <button
                     class="btn btn-outline-success"
                     id="exportPropertiesBtn"
                     onclick="propertyManager.openExportSelectionModal('image')"
                   >
-                    <i class="bi bi-image me-1"></i>Export Property Porfolio
+                    <i class="bi bi-image me-1"></i><span data-i18n="properties.page.exportPortfolio">Export Property Porfolio</span>
                   </button>
                   <button
                     class="btn btn-outline-primary"
                     id="copyPropertiesTextBtn"
                     onclick="propertyManager.openExportSelectionModal('text')"
                   >
-                    <i class="bi bi-table me-1"></i>Copy as Excel
+                    <i class="bi bi-table me-1"></i><span data-i18n="properties.page.copyAsExcel">Copy as Excel</span>
                   </button>
                   <button
                     class="btn btn-outline-secondary"
                     onclick="dashboardController.goToDashboard()"
                   >
-                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="common.backToDashboard">Back to Dashboard</span>
                   </button>
                 </div>
               </div>
@@ -6557,7 +6557,7 @@
                 <div class="pm-list-toolbar" style="padding: 12px 14px; border-bottom: 1px solid #e5e5e7; background: white; flex-shrink: 0;">
                   <div class="d-flex align-items-center justify-content-between mb-2 pm-toolbar-title">
                     <h5 class="mb-0 d-flex align-items-center gap-2">
-                      Properties
+                      <span data-i18n="properties.page.listTitle">Properties</span>
                       <span
                         id="propertiesTotalCountBadge"
                         class="badge bg-secondary rounded-pill"
@@ -6568,7 +6568,7 @@
                     <button
                       class="btn btn-outline-primary btn-sm pm-reload-btn"
                       onclick="propertyManager.loadProperties()"
-                      title="Reload property list"
+                      title="Reload property list" data-i18n-title="properties.page.reloadList"
                     >
                       <i class="bi bi-arrow-clockwise"></i>
                     </button>
@@ -6577,8 +6577,8 @@
                       type="button"
                       class="m-icon-btn d-md-none"
                       id="pmMobileMenuBtn"
-                      title="More actions"
-                      aria-label="More actions"
+                      title="More actions" data-i18n-title="common.moreActions"
+                      aria-label="More actions" data-i18n-aria-label="common.moreActions"
                     >
                       <i class="bi bi-three-dots"></i>
                     </button>
@@ -6592,9 +6592,9 @@
                         data-bs-toggle="dropdown"
                         data-bs-auto-close="outside"
                         aria-expanded="false"
-                        title="Filter properties by investor"
+                        title="Filter properties by investor" data-i18n-title="properties.page.filterByInvestor"
                       >
-                        <i class="bi bi-person-check me-1"></i>Investor
+                        <i class="bi bi-person-check me-1"></i><span data-i18n="properties.page.investor">Investor</span>
                         <span
                           id="propertyInvestorFilterCount"
                           class="badge bg-primary rounded-pill ms-1"
@@ -6607,7 +6607,7 @@
                         id="propertyInvestorFilterMenu"
                         style="min-width: 220px; max-height: 320px; overflow-y: auto"
                       >
-                        <div class="text-muted small px-3 py-1">Loading investors…</div>
+                        <div data-i18n="properties.page.loadingInvestors" class="text-muted small px-3 py-1">Loading investors…</div>
                       </div>
                     </div>
                     <div
@@ -6619,7 +6619,7 @@
                         class="small text-muted"
                         >0 filters applied</span
                       >
-                      <button
+                      <button data-i18n="common.reset"
                         type="button"
                         class="btn btn-link btn-sm text-decoration-none p-0"
                         id="propertyFilterResetBtn"
@@ -6631,16 +6631,16 @@
                       type="button"
                       class="btn btn-outline-secondary btn-sm ms-auto pm-copy-list-btn"
                       id="propertyCopyListBtn"
-                      title="Copy System ID and address of the properties currently shown"
+                      title="Copy System ID and address of the properties currently shown" data-i18n-title="properties.page.copyListTitle"
                     >
-                      <i class="bi bi-clipboard"></i> Copy list
+                      <i class="bi bi-clipboard"></i> <span data-i18n="properties.page.copyList">Copy list</span>
                     </button>
                   </div>
                   <div class="input-group input-group-sm pm-toolbar-search">
                     <input
                       type="text"
                       class="form-control"
-                      placeholder="Search properties..."
+                      placeholder="Search properties..." data-i18n-placeholder="properties.page.searchPlaceholder"
                       id="propertySearchInput"
                       enterkeyhint="search"
                       autocomplete="off"
@@ -6724,7 +6724,7 @@
                       type="button"
                       class="btn btn-sm btn-link text-white p-0"
                       id="pmBackToListBtn"
-                      title="Back to list"
+                      title="Back to list" data-i18n-title="common.backToList"
                       style="display: none;"
                     >
                       <i class="bi bi-arrow-left fs-5"></i>
@@ -6741,7 +6741,7 @@
                   <label
                     class="form-check form-switch d-flex align-items-center gap-2 mb-0 ms-auto me-3 flex-shrink-0 pm-stable-switch"
                     for="propertyStableToggle"
-                    title="Toggle on = Stable, off = Unstable"
+                    title="Toggle on = Stable, off = Unstable" data-i18n-title="properties.page.stableToggleTitle"
                     style="
                       background: #ffffff;
                       border-radius: 999px;
@@ -6768,15 +6768,15 @@
                     type="button"
                     class="btn-close btn-close-white flex-shrink-0"
                     id="propertyPanelCancelBtn"
-                    aria-label="Cancel"
-                    title="Cancel"
+                    aria-label="Cancel" data-i18n-aria-label="common.cancel"
+                    title="Cancel" data-i18n-title="common.cancel"
                   ></button>
                   <button
                     type="button"
                     class="m-icon-btn m-icon-btn-light d-md-none"
                     id="pmDetailMenuBtn"
-                    title="More actions"
-                    aria-label="More actions"
+                    title="More actions" data-i18n-title="common.moreActions"
+                    aria-label="More actions" data-i18n-aria-label="common.moreActions"
                   >
                     <i class="bi bi-three-dots-vertical"></i>
                   </button>
@@ -6815,7 +6815,7 @@
                     />
                     <div class="p-4">
               <!-- Required Fields Section -->
-              <div class="mb-4" data-msec="Basics|bi-house">
+              <div class="mb-4" data-msec-i18n="properties.sections.basics" data-msec="Basics|bi-house">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-primary"
                 >
@@ -6828,14 +6828,14 @@
                       style="font-size: 11px"
                     ></i>
                   </div>
-                  <h6 class="text-primary fw-bold mb-0">
+                  <h6 data-i18n="properties.form.requiredInfo" class="text-primary fw-bold mb-0">
                     Required Information
                   </h6>
                 </div>
                 <div class="row align-items-start m-2col">
                   <div class="col-md-2 mb-3">
                     <label for="propertyId" class="form-label"
-                      >Property ID <span class="text-danger">*</span></label
+                      ><span data-i18n="properties.form.propertyId">Property ID</span> <span class="text-danger">*</span></label
                     >
                     <input
                       type="text"
@@ -6843,7 +6843,7 @@
                       id="propertyId"
                       name="propertyId"
                       required
-                      placeholder="Auto-generated"
+                      placeholder="Auto-generated" data-i18n-placeholder="properties.form.autoGenerated"
                       style="text-transform: uppercase"
                     />
                     <div class="form-text" id="propertyIdHelp">
@@ -6852,7 +6852,7 @@
                   </div>
                   <div class="col-md-2 mb-3">
                     <label for="unit" class="form-label"
-                      >Unit <span class="text-danger">*</span></label
+                      ><span data-i18n="properties.form.unit">Unit</span> <span class="text-danger">*</span></label
                     >
                     <input
                       type="text"
@@ -6860,18 +6860,18 @@
                       id="unit"
                       name="unit"
                       required
-                      placeholder="e.g., #12-34"
+                      placeholder="e.g., #12-34" data-i18n-placeholder="properties.form.unitPlaceholder"
                     />
                   </div>
                   <div class="col-md-3 mb-3 m-full">
-                    <label for="postcode" class="form-label">Postal Code</label>
+                    <label data-i18n="properties.form.postalCode" for="postcode" class="form-label">Postal Code</label>
                     <div class="input-group">
                       <input
                         type="text"
                         class="form-control"
                         id="postcode"
                         name="postcode"
-                        placeholder="6-digit"
+                        placeholder="6-digit" data-i18n-placeholder="properties.form.postalPlaceholder"
                         maxlength="6"
                         inputmode="numeric"
                       />
@@ -6880,13 +6880,13 @@
                         type="button"
                         id="fetchAddressBtn"
                       >
-                        <i class="bi bi-geo"></i> Fetch
+                        <i class="bi bi-geo"></i> <span data-i18n="properties.form.fetch">Fetch</span>
                       </button>
                     </div>
                   </div>
                   <div class="col-md-5 mb-3 m-full">
                     <label for="address" class="form-label"
-                      >Address <span class="text-danger">*</span></label
+                      ><span data-i18n="properties.form.address">Address</span> <span class="text-danger">*</span></label
                     >
                     <textarea
                       class="form-control"
@@ -6894,14 +6894,14 @@
                       name="address"
                       rows="2"
                       required
-                      placeholder="Full property address"
+                      placeholder="Full property address" data-i18n-placeholder="properties.form.addressPlaceholder"
                     ></textarea>
                   </div>
                 </div>
               </div>
 
               <!-- Property Details Section -->
-              <div class="mb-4" data-msec="Details|bi-sliders">
+              <div class="mb-4" data-msec-i18n="properties.sections.details" data-msec="Details|bi-sliders">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                 >
@@ -6914,14 +6914,14 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="text-secondary fw-bold mb-0">Property Details</h6>
+                  <h6 data-i18n="properties.form.propertyDetails" class="text-secondary fw-bold mb-0">Property Details</h6>
                 </div>
                 <!-- Property Type Toggle + Investor Ownership — the toggle only
                      takes up half the row, so Investor Ownership shares the
                      rest of the blank space instead of getting its own row. -->
                 <div class="row mb-3">
                   <div class="col-md-6">
-                    <label class="form-label fw-semibold">Property Type</label>
+                    <label data-i18n="properties.form.propertyType" class="form-label fw-semibold">Property Type</label>
                     <div class="d-flex gap-2">
                       <input
                         type="radio"
@@ -6959,10 +6959,10 @@
                         "
                         id="propertyTypeCondoLabel"
                       >
-                        <i class="bi bi-buildings"></i> Condo
+                        <i class="bi bi-buildings"></i> <span data-i18n="properties.form.condo">Condo</span>
                       </label>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="properties.form.typeHint" class="form-text">
                       Affects map icon colour and card appearance.
                     </div>
                   </div>
@@ -6973,7 +6973,7 @@
                   <div class="col-md-6" id="investorOwnershipCol" style="display: none">
                     <label class="form-label d-flex align-items-center gap-1">
                       <i class="bi bi-pie-chart-fill" style="color: #a855f7"></i>
-                      Investor Ownership
+                      <span data-i18n="properties.form.investorOwnership">Investor Ownership</span>
                     </label>
                     <div
                       id="investorOwnershipContainer"
@@ -6985,7 +6985,7 @@
                 <!-- Occupancy + Lease Term + Dates + Payment Day — one desktop row -->
                 <div class="row m-2col">
                   <div class="col-md-2 mb-3">
-                    <label for="maxPax" class="form-label"
+                    <label data-i18n="properties.form.maxOccupancy" for="maxPax" class="form-label"
                       >Maximum Occupancy</label
                     >
                     <input
@@ -6997,10 +6997,10 @@
                       max="20"
                       value="1"
                     />
-                    <div class="form-text">People allowed (1-20)</div>
+                    <div data-i18n="properties.form.maxOccupancyHint" class="form-text">People allowed (1-20)</div>
                   </div>
                   <div class="col-md-2 mb-3">
-                    <label for="leaseTerm" class="form-label"
+                    <label data-i18n="properties.form.leaseTerm" for="leaseTerm" class="form-label"
                       >Lease Term (months)</label
                     >
                     <input
@@ -7010,11 +7010,11 @@
                       name="leaseTerm"
                       min="1"
                       step="1"
-                      placeholder="e.g. 12"
+                      placeholder="e.g. 12" data-i18n-placeholder="properties.form.leaseTermPlaceholder"
                     />
                   </div>
                   <div class="col-md-2 mb-3">
-                    <label for="moveInDate" class="form-label"
+                    <label data-i18n="properties.form.moveInDate" for="moveInDate" class="form-label"
                       >Move-in Date</label
                     >
                     <input
@@ -7025,7 +7025,7 @@
                     />
                   </div>
                   <div class="col-md-2 mb-3">
-                    <label for="moveOutDate" class="form-label"
+                    <label data-i18n="properties.form.moveOutDate" for="moveOutDate" class="form-label"
                       >Move-out Date</label
                     >
                     <input
@@ -7036,7 +7036,7 @@
                     />
                   </div>
                   <div class="col-md-2 mb-3">
-                    <label for="rentPaymentDate" class="form-label"
+                    <label data-i18n="properties.form.rentPaymentDate" for="rentPaymentDate" class="form-label"
                       >Rent Payment Date</label
                     >
                     <select
@@ -7079,9 +7079,9 @@
                   </div>
                 </div>
                 <!-- Financials -->
-                <div class="row m-2col" data-msec="Rent &amp; fees|bi-cash-coin">
+                <div class="row m-2col" data-msec-i18n="properties.sections.rentFees" data-msec="Rent &amp; fees|bi-cash-coin">
                   <div class="col-md-4 mb-3">
-                    <label for="depositToLandlord" class="form-label"
+                    <label data-i18n="properties.form.depositToLandlord" for="depositToLandlord" class="form-label"
                       >Deposit to Landlord (SGD)</label
                     >
                     <div class="input-group">
@@ -7099,7 +7099,7 @@
                     </div>
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="depositFromTenant" class="form-label"
+                    <label data-i18n="properties.form.depositFromTenant" for="depositFromTenant" class="form-label"
                       >Deposit from Tenant (SGD)</label
                     >
                     <div class="input-group">
@@ -7117,7 +7117,7 @@
                     </div>
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="mainTenantFee" class="form-label"
+                    <label data-i18n="properties.form.mainTenantFee" for="mainTenantFee" class="form-label"
                       >Main Tenant Fee (SGD)</label
                     >
                     <div class="input-group">
@@ -7136,7 +7136,7 @@
                   </div>
                   <div class="col-md-4 mb-3">
                     <label for="propertyCleaningFee" class="form-label">
-                      <i class="bi bi-brush me-1"></i>Cleaning Fee (SGD)
+                      <i class="bi bi-brush me-1"></i><span data-i18n="properties.form.cleaningFee">Cleaning Fee (SGD)</span>
                     </label>
                     <div class="input-group">
                       <span class="input-group-text">$</span>
@@ -7153,7 +7153,7 @@
                     </div>
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="rent" class="form-label"
+                    <label data-i18n="properties.form.monthlyRent" for="rent" class="form-label"
                       >Monthly Rent (SGD)</label
                     >
                     <div class="input-group">
@@ -7171,7 +7171,7 @@
                     </div>
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="airconUnits" class="form-label"
+                    <label data-i18n="properties.form.airconUnits" for="airconUnits" class="form-label"
                       >Number of Aircon Units</label
                     >
                     <input
@@ -7183,12 +7183,11 @@
                       value="0"
                       placeholder="0"
                     />
-                    <div class="form-text">Air conditioning units</div>
+                    <div data-i18n="properties.form.airconUnitsHint" class="form-text">Air conditioning units</div>
                   </div>
                   <div class="col-md-4 mb-3">
                     <label for="subsidizedPub" class="form-label">
-                      <i class="bi bi-lightning-charge me-1"></i>Subsidized PUB
-                      (S$)
+                      <i class="bi bi-lightning-charge me-1"></i><span data-i18n="properties.form.subsidizedPub">Subsidized PUB (S$)</span>
                     </label>
                     <div class="input-group">
                       <span class="input-group-text">$</span>
@@ -7203,18 +7202,18 @@
                         placeholder="400.00"
                       />
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="properties.form.subsidizedPubHint" class="form-text">
                       Investor's utility bill subsidy.
                     </div>
                   </div>
                 </div>
-                <div class="mb-3" data-msec="Rooms|bi-door-open">
+                <div class="mb-3" data-msec-i18n="properties.sections.rooms" data-msec="Rooms|bi-door-open">
                   <label for="propertyRooms" class="form-label">
-                    Available Rooms
+                    <span data-i18n="properties.form.availableRooms">Available Rooms</span>
                     <i
                       class="bi bi-info-circle text-muted"
                       data-bs-toggle="tooltip"
-                      title="Select all room types available in this property"
+                      title="Select all room types available in this property" data-i18n-title="properties.form.availableRoomsTitle"
                     ></i>
                   </label>
 
@@ -7250,22 +7249,22 @@
                     </div>
                   </div>
 
-                  <div class="form-text">
+                  <div data-i18n="properties.form.availableRoomsHint" class="form-text">
                     Select all room types available in this property.
                   </div>
 
                   <!-- Per-room price range, shown once rooms are selected above -->
                   <div id="propertyRoomPricesWrap" class="mt-2" style="display: none">
                     <label class="form-label mb-1">
-                      Room Pricing (SGD/month)
+                      <span data-i18n="properties.form.roomPricing">Room Pricing (SGD/month)</span>
                       <i
                         class="bi bi-info-circle text-muted"
                         data-bs-toggle="tooltip"
-                        title="Min/Max is the asking range used by the Sales Map to filter and sort rooms for prospective tenants. Actual is what the room is really listed at right now — who last set it and when is tracked automatically."
+                        title="Min/Max is the asking range used by the Sales Map to filter and sort rooms for prospective tenants. Actual is what the room is really listed at right now — who last set it and when is tracked automatically." data-i18n-title="properties.form.roomPricingTitle"
                       ></i>
                     </label>
                     <div class="room-price-head" aria-hidden="true">
-                      <span>Min</span><span>Max</span><span>Actual</span>
+                      <span data-i18n="properties.rooms.min">Min</span><span data-i18n="properties.rooms.max">Max</span><span data-i18n="properties.rooms.actual">Actual</span>
                     </div>
                     <div id="propertyRoomPricesContainer"></div>
                   </div>
@@ -7273,7 +7272,7 @@
               </div>
 
               <!-- Accountant & Manager Section -->
-              <div class="mb-4" data-msec="Roles|bi-person-gear">
+              <div class="mb-4" data-msec-i18n="properties.sections.roles" data-msec="Roles|bi-person-gear">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #198754 !important"
@@ -7292,18 +7291,18 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color: #198754">
+                  <h6 data-i18n="properties.form.accountantManager" class="fw-bold mb-0" style="color: #198754">
                     Accountant &amp; Manager
                   </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-3 mb-3">
                     <label for="accountant" class="form-label">
-                      Accountant
+                      <span data-i18n="properties.form.accountant">Accountant</span>
                       <i
                         class="bi bi-info-circle text-muted"
                         data-bs-toggle="tooltip"
-                        title="Select the investor who acts as accountant and notes in financial reports for this property"
+                        title="Select the investor who acts as accountant and notes in financial reports for this property" data-i18n-title="properties.form.accountantTitle"
                       ></i>
                     </label>
                     <select
@@ -7312,9 +7311,9 @@
                       name="accountant"
                       autocomplete="off"
                     >
-                      <option value="">-- Select Accountant --</option>
+                      <option data-i18n="properties.form.selectAccountant" value="">-- Select Accountant --</option>
                     </select>
-                    <div class="form-text">
+                    <div data-i18n="properties.form.accountantHint" class="form-text">
                       The investor responsible for financial reporting on this
                       property.
                     </div>
@@ -7348,11 +7347,11 @@
                   </div>
                   <div class="col-md-3 mb-3">
                     <label for="manager" class="form-label">
-                      Manager
+                      <span data-i18n="properties.form.manager">Manager</span>
                       <i
                         class="bi bi-info-circle text-muted"
                         data-bs-toggle="tooltip"
-                        title="Select the investor who manages this property"
+                        title="Select the investor who manages this property" data-i18n-title="properties.form.managerTitle"
                       ></i>
                     </label>
                     <select
@@ -7361,9 +7360,9 @@
                       name="manager"
                       autocomplete="off"
                     >
-                      <option value="">-- Select Manager --</option>
+                      <option data-i18n="properties.form.selectManager" value="">-- Select Manager --</option>
                     </select>
-                    <div class="form-text">
+                    <div data-i18n="properties.form.managerHint" class="form-text">
                       The investor responsible for managing this property.
                     </div>
                     <div
@@ -7398,7 +7397,7 @@
               </div>
 
               <!-- AC Service Section -->
-              <div class="mb-4" data-msec="Aircon|bi-snow">
+              <div class="mb-4" data-msec-i18n="properties.sections.aircon" data-msec="Aircon|bi-snow">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #0dcaf0 !important"
@@ -7417,18 +7416,18 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color: #0dcaf0">
+                  <h6 data-i18n="properties.form.airconService" class="fw-bold mb-0" style="color: #0dcaf0">
                     Air Conditioning Service
                   </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="acServiceCompanyId" class="form-label">
-                      AC Service Company
+                      <span data-i18n="properties.form.acCompany">AC Service Company</span>
                       <i
                         class="bi bi-info-circle text-muted"
                         data-bs-toggle="tooltip"
-                        title="Select an AC service company from the dropdown"
+                        title="Select an AC service company from the dropdown" data-i18n-title="properties.form.acCompanyTitle"
                       ></i>
                     </label>
                     <select
@@ -7436,7 +7435,7 @@
                       id="acServiceCompanyId"
                       name="acServiceCompanyId"
                     >
-                      <option value="">-- Select AC Service Company --</option>
+                      <option data-i18n="properties.form.selectAcCompany" value="">-- Select AC Service Company --</option>
                       <!-- Options will be populated dynamically -->
                     </select>
                     <div class="form-text">
@@ -7451,18 +7450,17 @@
                           return false;
                         "
                       >
-                        <i class="bi bi-plus-circle me-1"></i>Add new AC service
-                        company
+                        <i class="bi bi-plus-circle me-1"></i><span data-i18n="properties.form.addAcCompany">Add new AC service company</span>
                       </a>
                     </div>
                   </div>
                   <div class="col-md-6 mb-3">
                     <label for="acServiceDate" class="form-label">
-                      First Service Date
+                      <span data-i18n="properties.form.firstServiceDate">First Service Date</span>
                       <i
                         class="bi bi-info-circle text-muted"
                         data-bs-toggle="tooltip"
-                        title="Service will repeat every 3 months from this date"
+                        title="Service will repeat every 3 months from this date" data-i18n-title="properties.form.firstServiceDateTitle"
                       ></i>
                     </label>
                     <input
@@ -7471,7 +7469,7 @@
                       id="acServiceDate"
                       name="acServiceDate"
                     />
-                    <div class="form-text">
+                    <div data-i18n="properties.form.serviceRepeats" class="form-text">
                       Service repeats automatically every 3 months
                     </div>
                   </div>
@@ -7486,7 +7484,7 @@
                     style="display: none"
                     onclick="propertyManager.showServiceCalendar()"
                   >
-                    <i class="bi bi-calendar3 me-1"></i>View Service Calendar
+                    <i class="bi bi-calendar3 me-1"></i><span data-i18n="properties.form.viewServiceCalendar">View Service Calendar</span>
                   </button>
                 </div>
 
@@ -7498,7 +7496,7 @@
               </div>
 
               <!-- Agent Information Section -->
-              <div class="mb-4" data-msec="Agent|bi-person-badge">
+              <div class="mb-4" data-msec-i18n="properties.sections.agent" data-msec="Agent|bi-person-badge">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                 >
@@ -7511,21 +7509,21 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="text-secondary fw-bold mb-0">Agent Information</h6>
+                  <h6 data-i18n="properties.form.agentInfo" class="text-secondary fw-bold mb-0">Agent Information</h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="agentName" class="form-label">Agent Name</label>
+                    <label data-i18n="properties.form.agentName" for="agentName" class="form-label">Agent Name</label>
                     <input
                       type="text"
                       class="form-control"
                       id="agentName"
                       name="agentName"
-                      placeholder="Property agent name"
+                      placeholder="Property agent name" data-i18n-placeholder="properties.form.agentNamePlaceholder"
                     />
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="agentPhone" class="form-label"
+                    <label data-i18n="properties.form.agentPhone" for="agentPhone" class="form-label"
                       >Agent Phone</label
                     >
                     <input
@@ -7540,7 +7538,7 @@
               </div>
 
               <!-- Landlord Banking Details Section -->
-              <div class="mb-4" data-msec="Landlord bank|bi-bank">
+              <div class="mb-4" data-msec-i18n="properties.sections.landlordBank" data-msec="Landlord bank|bi-bank">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #fd7e14 !important"
@@ -7559,13 +7557,13 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color: #fd7e14">
+                  <h6 data-i18n="properties.form.landlordBanking" class="fw-bold mb-0" style="color: #fd7e14">
                     Landlord Banking Details
                   </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-4 mb-3">
-                    <label for="landlordBankName" class="form-label"
+                    <label data-i18n="properties.form.bankName" for="landlordBankName" class="form-label"
                       >Bank Name</label
                     >
                     <select
@@ -7573,7 +7571,7 @@
                       id="landlordBankName"
                       name="landlordBankName"
                     >
-                      <option value="">Select bank (optional)</option>
+                      <option data-i18n="properties.form.selectBankOptional" value="">Select bank (optional)</option>
                       <option value="DBS">DBS Bank</option>
                       <option value="OCBC">OCBC Bank</option>
                       <option value="UOB">United Overseas Bank (UOB)</option>
@@ -7583,11 +7581,11 @@
                       </option>
                       <option value="HSBC">HSBC Singapore</option>
                       <option value="Maybank">Maybank Singapore</option>
-                      <option value="Other">Other</option>
+                      <option data-i18n="common.other" value="Other">Other</option>
                     </select>
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="landlordAccountName" class="form-label"
+                    <label data-i18n="properties.form.accountHolderName" for="landlordAccountName" class="form-label"
                       >Account Holder Name</label
                     >
                     <input
@@ -7595,11 +7593,11 @@
                       class="form-control"
                       id="landlordAccountName"
                       name="landlordAccountName"
-                      placeholder="Name on bank account"
+                      placeholder="Name on bank account" data-i18n-placeholder="properties.form.accountHolderPlaceholder"
                     />
                   </div>
                   <div class="col-md-4 mb-3">
-                    <label for="landlordBankAccount" class="form-label"
+                    <label data-i18n="properties.form.bankAccountNumber" for="landlordBankAccount" class="form-label"
                       >Bank Account Number</label
                     >
                     <input
@@ -7607,14 +7605,14 @@
                       class="form-control"
                       id="landlordBankAccount"
                       name="landlordBankAccount"
-                      placeholder="Account number for rent payments"
+                      placeholder="Account number for rent payments" data-i18n-placeholder="properties.form.bankAccountPlaceholder"
                     />
                   </div>
                 </div>
               </div>
 
               <!-- Settlement Accounts Section -->
-              <div class="mb-4" data-msec="Settlement|bi-wallet2">
+              <div class="mb-4" data-msec-i18n="properties.sections.settlement" data-msec="Settlement|bi-wallet2">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #fd7e14 !important"
@@ -7633,7 +7631,7 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color: #fd7e14">
+                  <h6 data-i18n="properties.form.settlementAccounts" class="fw-bold mb-0" style="color: #fd7e14">
                     Settlement Accounts
                   </h6>
                 </div>
@@ -7642,14 +7640,13 @@
                 <div class="card mb-3">
                   <div class="card-header bg-light py-2">
                     <strong
-                      ><i class="bi bi-currency-dollar me-1"></i>SGD Account
-                      (Singapore)</strong
+                      ><i class="bi bi-currency-dollar me-1"></i><span data-i18n="properties.form.sgdAccount">SGD Account (Singapore)</span></strong
                     >
                   </div>
                   <div class="card-body">
                     <div class="row">
                       <div class="col-md-4 mb-3">
-                        <label class="form-label">Bank</label>
+                        <label data-i18n="properties.form.bank" class="form-label">Bank</label>
                         <input
                           type="hidden"
                           id="settlementSgdBank"
@@ -7680,7 +7677,7 @@
                                 onclick="
                                   selectBank('Sgd', '', 'Select bank...')
                                 "
-                                ><span class="text-muted"
+                                ><span data-i18n="properties.form.selectBank" class="text-muted"
                                   >Select bank...</span
                                 ></a
                               >
@@ -7974,14 +7971,14 @@
                                     font-weight: bold;
                                   "
                                   >...</span
-                                >Other</a
+                                ><span data-i18n="common.other">Other</span></a
                               >
                             </li>
                           </ul>
                         </div>
                       </div>
                       <div class="col-md-4 mb-3">
-                        <label
+                        <label data-i18n="properties.form.accountNumber"
                           for="settlementSgdAccountNumber"
                           class="form-label"
                           >Account Number</label
@@ -7991,11 +7988,11 @@
                           class="form-control"
                           id="settlementSgdAccountNumber"
                           name="settlementSgdAccountNumber"
-                          placeholder="Enter account number"
+                          placeholder="Enter account number" data-i18n-placeholder="properties.form.enterAccountNumber"
                         />
                       </div>
                       <div class="col-md-4 mb-3">
-                        <label
+                        <label data-i18n="properties.form.accountHolderName"
                           for="settlementSgdAccountHolder"
                           class="form-label"
                           >Account Holder Name</label
@@ -8005,7 +8002,7 @@
                           class="form-control"
                           id="settlementSgdAccountHolder"
                           name="settlementSgdAccountHolder"
-                          placeholder="Name on account"
+                          placeholder="Name on account" data-i18n-placeholder="properties.form.nameOnAccount"
                         />
                       </div>
                     </div>
@@ -8016,14 +8013,13 @@
                 <div class="card mb-3">
                   <div class="card-header bg-light py-2">
                     <strong
-                      ><i class="bi bi-currency-exchange me-1"></i>VND Account
-                      (Vietnam)</strong
+                      ><i class="bi bi-currency-exchange me-1"></i><span data-i18n="properties.form.vndAccount">VND Account (Vietnam)</span></strong
                     >
                   </div>
                   <div class="card-body">
                     <div class="row">
                       <div class="col-md-4 mb-3">
-                        <label class="form-label">Bank</label>
+                        <label data-i18n="properties.form.bank" class="form-label">Bank</label>
                         <input
                           type="hidden"
                           id="settlementVndBank"
@@ -8054,7 +8050,7 @@
                                 onclick="
                                   selectBank('Vnd', '', 'Select bank...')
                                 "
-                                ><span class="text-muted"
+                                ><span data-i18n="properties.form.selectBank" class="text-muted"
                                   >Select bank...</span
                                 ></a
                               >
@@ -8466,14 +8462,14 @@
                                     font-weight: bold;
                                   "
                                   >...</span
-                                >Other</a
+                                ><span data-i18n="common.other">Other</span></a
                               >
                             </li>
                           </ul>
                         </div>
                       </div>
                       <div class="col-md-4 mb-3">
-                        <label
+                        <label data-i18n="properties.form.accountNumber"
                           for="settlementVndAccountNumber"
                           class="form-label"
                           >Account Number</label
@@ -8483,11 +8479,11 @@
                           class="form-control"
                           id="settlementVndAccountNumber"
                           name="settlementVndAccountNumber"
-                          placeholder="Enter account number"
+                          placeholder="Enter account number" data-i18n-placeholder="properties.form.enterAccountNumber"
                         />
                       </div>
                       <div class="col-md-4 mb-3">
-                        <label
+                        <label data-i18n="properties.form.accountHolderName"
                           for="settlementVndAccountHolder"
                           class="form-label"
                           >Account Holder Name</label
@@ -8497,7 +8493,7 @@
                           class="form-control"
                           id="settlementVndAccountHolder"
                           name="settlementVndAccountHolder"
-                          placeholder="Name on account"
+                          placeholder="Name on account" data-i18n-placeholder="properties.form.nameOnAccount"
                         />
                       </div>
                     </div>
@@ -8506,7 +8502,7 @@
               </div>
 
               <!-- Telegram Bot Configuration Section -->
-              <div class="mb-4" data-msec="Telegram|bi-telegram">
+              <div class="mb-4" data-msec-i18n="properties.sections.telegram" data-msec="Telegram|bi-telegram">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #0d6efd !important"
@@ -8525,13 +8521,13 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0 text-primary">
+                  <h6 data-i18n="properties.form.telegramConfig" class="fw-bold mb-0 text-primary">
                     Telegram Bot Configuration
                   </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
-                    <label for="telegramBotToken" class="form-label"
+                    <label data-i18n="properties.form.telegramToken" for="telegramBotToken" class="form-label"
                       >Telegram Bot Token</label
                     >
                     <input
@@ -8539,14 +8535,14 @@
                       class="form-control"
                       id="telegramBotToken"
                       name="telegramBotToken"
-                      placeholder="Bot token for notifications"
+                      placeholder="Bot token for notifications" data-i18n-placeholder="properties.form.telegramTokenPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="properties.form.telegramTokenHint" class="form-text">
                       Token for sending automated notifications via Telegram
                     </div>
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="telegramChannelId" class="form-label"
+                    <label data-i18n="properties.form.telegramChannel" for="telegramChannelId" class="form-label"
                       >Telegram Channel ID</label
                     >
                     <input
@@ -8554,9 +8550,9 @@
                       class="form-control"
                       id="telegramChannelId"
                       name="telegramChannelId"
-                      placeholder="Channel ID for notifications"
+                      placeholder="Channel ID for notifications" data-i18n-placeholder="properties.form.telegramChannelPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="properties.form.telegramChannelHint" class="form-text">
                       Channel or chat ID where notifications will be sent
                     </div>
                   </div>
@@ -8567,7 +8563,7 @@
               <div class="row mb-4">
                 <div class="col-md-6">
                   <!-- WiFi Router Section -->
-                  <div class="mb-0" data-msec="WiFi|bi-wifi">
+                  <div class="mb-0" data-msec-i18n="properties.sections.wifi" data-msec="WiFi|bi-wifi">
                     <div
                       class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                     >
@@ -8580,11 +8576,11 @@
                           style="font-size: 12px"
                         ></i>
                       </div>
-                      <h6 class="text-secondary fw-bold mb-0">WiFi Router</h6>
+                      <h6 data-i18n="properties.form.wifiRouter" class="text-secondary fw-bold mb-0">WiFi Router</h6>
                     </div>
                     <div class="row">
                       <div class="col-6 mb-3">
-                        <label for="wifiAccountNumber" class="form-label"
+                        <label data-i18n="properties.form.wifiAccountNumber" for="wifiAccountNumber" class="form-label"
                           >WiFi Account Number</label
                         >
                         <input
@@ -8592,11 +8588,11 @@
                           class="form-control"
                           id="wifiAccountNumber"
                           name="wifiAccountNumber"
-                          placeholder="WiFi account number"
+                          placeholder="WiFi account number" data-i18n-placeholder="properties.form.wifiAccountNumberPlaceholder"
                         />
                       </div>
                       <div class="col-6 mb-3">
-                        <label for="wifiAccountHolderName" class="form-label"
+                        <label data-i18n="properties.form.wifiHolder" for="wifiAccountHolderName" class="form-label"
                           >WiFi Account Holder Name</label
                         >
                         <input
@@ -8604,29 +8600,29 @@
                           class="form-control"
                           id="wifiAccountHolderName"
                           name="wifiAccountHolderName"
-                          placeholder="Name on WiFi account"
+                          placeholder="Name on WiFi account" data-i18n-placeholder="properties.form.wifiHolderPlaceholder"
                         />
                       </div>
                     </div>
                     <div class="mb-3">
-                      <label class="form-label">WiFi Images</label>
+                      <label data-i18n="properties.form.wifiImages" class="form-label">WiFi Images</label>
                       <div class="d-flex gap-2 mb-2">
                         <button
                           class="btn btn-outline-primary"
                           type="button"
                           onclick="propertyManager.openWifiImagesUpload()"
                         >
-                          <i class="bi bi-cloud-upload"></i> Upload Images
+                          <i class="bi bi-cloud-upload"></i> <span data-i18n="properties.form.uploadImages">Upload Images</span>
                         </button>
                         <button
                           class="btn btn-outline-secondary"
                           type="button"
                           onclick="propertyManager.addWifiImageUrl()"
                         >
-                          <i class="bi bi-link-45deg"></i> Add URL
+                          <i class="bi bi-link-45deg"></i> <span data-i18n="properties.form.addUrl">Add URL</span>
                         </button>
                       </div>
-                      <div class="form-text">
+                      <div data-i18n="properties.form.wifiImagesHint" class="form-text">
                         Multiple WiFi router images supported - upload or paste
                         URLs
                       </div>
@@ -8638,7 +8634,7 @@
                 </div>
                 <div class="col-md-6">
                   <!-- SP Utility Account Section -->
-                  <div class="mb-0" data-msec="SP account|bi-lightning-charge">
+                  <div class="mb-0" data-msec-i18n="properties.sections.spAccount" data-msec="SP account|bi-lightning-charge">
                     <div
                       class="d-flex align-items-center mb-3 pb-2 border-bottom"
                       style="border-color: #e0e0e0 !important"
@@ -8653,7 +8649,7 @@
                           flex-shrink: 0;
                         "
                       />
-                      <h6 class="fw-bold mb-0" style="color: #e2001a">
+                      <h6 data-i18n="properties.form.spAccount" class="fw-bold mb-0" style="color: #e2001a">
                         SP Utility Account
                       </h6>
                     </div>
@@ -8673,8 +8669,7 @@
                           for="spAccountNumber"
                           class="form-label fw-semibold"
                         >
-                          <i class="bi bi-hash me-1 text-info"></i>SP Account
-                          Number
+                          <i class="bi bi-hash me-1 text-info"></i><span data-i18n="properties.form.spAccountNumber">SP Account Number</span>
                         </label>
                         <input
                           type="text"
@@ -8684,7 +8679,7 @@
                           placeholder="e.g. 8955488633"
                           autocomplete="off"
                         />
-                        <div class="form-text">
+                        <div data-i18n="properties.form.spAccountNumberHint" class="form-text">
                           Used to auto-match uploaded bill PDFs to this
                           property.
                         </div>
@@ -8694,15 +8689,14 @@
                           for="spAccountUsername"
                           class="form-label fw-semibold"
                         >
-                          <i class="bi bi-person-fill me-1 text-info"></i>SP
-                          Account Username
+                          <i class="bi bi-person-fill me-1 text-info"></i><span data-i18n="properties.form.spUsername">SP Account Username</span>
                         </label>
                         <input
                           type="text"
                           class="form-control"
                           id="spAccountUsername"
                           name="spAccountUsername"
-                          placeholder="e.g. name@email.com"
+                          placeholder="e.g. name@email.com" data-i18n-placeholder="properties.form.spUsernamePlaceholder"
                           autocomplete="off"
                         />
                       </div>
@@ -8711,20 +8705,18 @@
                           for="spAccountPassword"
                           class="form-label fw-semibold"
                         >
-                          <i class="bi bi-key-fill me-1 text-info"></i>SP
-                          Account Password
+                          <i class="bi bi-key-fill me-1 text-info"></i><span data-i18n="properties.form.spPassword">SP Account Password</span>
                         </label>
                         <input
                           type="text"
                           class="form-control"
                           id="spAccountPassword"
                           name="spAccountPassword"
-                          placeholder="SP account password"
+                          placeholder="SP account password" data-i18n-placeholder="properties.form.spPasswordPlaceholder"
                           autocomplete="off"
                         />
                         <div class="form-text text-warning">
-                          <i class="bi bi-shield-lock me-1"></i>Only visible to
-                          admins
+                          <i class="bi bi-shield-lock me-1"></i><span data-i18n="properties.form.adminOnly">Only visible to admins</span>
                         </div>
                       </div>
                     </div>
@@ -8733,7 +8725,7 @@
               </div>
 
               <!-- Facebook Groups Section -->
-              <div class="mb-4" data-msec="Groups|bi-people">
+              <div class="mb-4" data-msec-i18n="properties.sections.groups" data-msec="Groups|bi-people">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #0d6efd !important"
@@ -8752,14 +8744,14 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color: #1877f2">
+                  <h6 data-i18n="properties.form.groups" class="fw-bold mb-0" style="color: #1877f2">
                     Tenant &amp; Admin Groups
                   </h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <div class="d-flex align-items-center justify-content-between">
-                      <label for="tenantFacebookGroup" class="form-label mb-0"
+                      <label data-i18n="properties.form.tenantGroupLabel" for="tenantFacebookGroup" class="form-label mb-0"
                         >Tenant Group (Facebook or WhatsApp)</label
                       >
                       <span id="tenantFacebookGroupBadge"></span>
@@ -8769,15 +8761,15 @@
                       class="form-control"
                       id="tenantFacebookGroup"
                       name="tenantFacebookGroup"
-                      placeholder="https://facebook.com/groups/... or https://chat.whatsapp.com/... (optional)"
+                      placeholder="https://facebook.com/groups/... or https://chat.whatsapp.com/... (optional)" data-i18n-placeholder="properties.form.tenantGroupPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="properties.form.tenantGroupHint" class="form-text">
                       Facebook or WhatsApp group URL for tenants of this property
                     </div>
                   </div>
                   <div class="col-md-6 mb-3">
                     <div class="d-flex align-items-center justify-content-between">
-                      <label for="adminFacebookGroup" class="form-label mb-0"
+                      <label data-i18n="properties.form.adminGroupLabel" for="adminFacebookGroup" class="form-label mb-0"
                         >Admin Facebook Group</label
                       >
                       <span id="adminFacebookGroupBadge"></span>
@@ -8787,9 +8779,9 @@
                       class="form-control"
                       id="adminFacebookGroup"
                       name="adminFacebookGroup"
-                      placeholder="https://facebook.com/groups/... (optional)"
+                      placeholder="https://facebook.com/groups/... (optional)" data-i18n-placeholder="properties.form.adminGroupPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="properties.form.adminGroupHint" class="form-text">
                       Facebook group URL for admins of this property
                     </div>
                   </div>
@@ -8797,7 +8789,7 @@
               </div>
 
               <!-- Integration Settings Section -->
-              <div class="mb-4" data-msec="Integrations|bi-plug">
+              <div class="mb-4" data-msec-i18n="properties.sections.integrations" data-msec="Integrations|bi-plug">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-info"
                 >
@@ -8810,7 +8802,7 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="text-info fw-bold mb-0">Integration Settings</h6>
+                  <h6 data-i18n="properties.form.integrations" class="text-info fw-bold mb-0">Integration Settings</h6>
                 </div>
                 <div class="row">
                   <div class="col-12 mb-3">
@@ -8827,10 +8819,10 @@
                         for="telegramIntegrationEnabled"
                       >
                         <i class="bi bi-telegram text-primary me-1"></i>
-                        Enable Telegram Notifications
+                        <span data-i18n="properties.form.enableTelegram">Enable Telegram Notifications</span>
                       </label>
                     </div>
-                    <div class="form-text ms-4">
+                    <div data-i18n="properties.form.enableTelegramHint" class="form-text ms-4">
                       When enabled, income and expense notifications will be
                       sent to the configured Telegram channel for this property
                     </div>
@@ -8839,7 +8831,7 @@
               </div>
 
               <!-- Digital Lock Section -->
-              <div class="mb-4" data-msec="Lock|bi-shield-lock">
+              <div class="mb-4" data-msec-i18n="properties.sections.lock" data-msec="Lock|bi-shield-lock">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom"
                   style="border-color: #6f42c1 !important"
@@ -8858,7 +8850,7 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="fw-bold mb-0" style="color: #6f42c1">
+                  <h6 data-i18n="properties.form.digitalLock" class="fw-bold mb-0" style="color: #6f42c1">
                     Digital Lock
                   </h6>
                 </div>
@@ -8871,7 +8863,7 @@
                 >
                   <div class="row align-items-center">
                     <div class="col-md-6 mb-3 mb-md-0">
-                      <label class="form-label fw-semibold"
+                      <label data-i18n="properties.form.digitalLockInstalled" class="form-label fw-semibold"
                         >Digital Lock Installed?</label
                       >
                       <div class="d-flex gap-3 mt-1">
@@ -8886,7 +8878,7 @@
                           />
                           <label class="form-check-label" for="digitalLockYes">
                             <i class="bi bi-lock-fill text-success me-1"></i
-                            ><strong>Yes</strong>
+                            ><strong data-i18n="common.yes">Yes</strong>
                           </label>
                         </div>
                         <div class="form-check form-check-inline">
@@ -8902,11 +8894,11 @@
                             "
                           />
                           <label class="form-check-label" for="digitalLockNo">
-                            <i class="bi bi-unlock text-secondary me-1"></i>No
+                            <i class="bi bi-unlock text-secondary me-1"></i><span data-i18n="common.no">No</span>
                           </label>
                         </div>
                       </div>
-                      <div class="form-text">
+                      <div data-i18n="properties.form.digitalLockHint" class="form-text">
                         Indicate if this property has a digital lock installed
                       </div>
                     </div>
@@ -8919,8 +8911,7 @@
                         for="digitalLockPin"
                         class="form-label fw-semibold"
                       >
-                        <i class="bi bi-key-fill text-warning me-1"></i>Lock PIN
-                        / Access Code
+                        <i class="bi bi-key-fill text-warning me-1"></i><span data-i18n="properties.form.lockPin">Lock PIN / Access Code</span>
                       </label>
                       <div class="input-group">
                         <span
@@ -8934,7 +8925,7 @@
                           class="form-control"
                           id="digitalLockPin"
                           name="digitalLockPin"
-                          placeholder="Enter PIN or access code"
+                          placeholder="Enter PIN or access code" data-i18n-placeholder="properties.form.lockPinPlaceholder"
                           autocomplete="off"
                           style="
                             border-color: #d8b4fe;
@@ -8943,7 +8934,7 @@
                           "
                         />
                       </div>
-                      <div class="form-text">
+                      <div data-i18n="properties.form.lockPinHint" class="form-text">
                         PIN code for tenant and admin access
                       </div>
                     </div>
@@ -8952,7 +8943,7 @@
               </div>
 
               <!-- Property Image Section -->
-              <div class="mb-4" data-msec="Photo|bi-image">
+              <div class="mb-4" data-msec-i18n="properties.sections.photo" data-msec="Photo|bi-image">
                 <div
                   class="d-flex align-items-center mb-3 pb-2 border-bottom border-secondary"
                 >
@@ -8965,26 +8956,26 @@
                       style="font-size: 12px"
                     ></i>
                   </div>
-                  <h6 class="text-secondary fw-bold mb-0">Property Image</h6>
+                  <h6 data-i18n="properties.form.propertyImage" class="text-secondary fw-bold mb-0">Property Image</h6>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-image me-1"></i>Property Image
+                      <i class="bi bi-image me-1"></i><span data-i18n="properties.form.propertyImage">Property Image</span>
                     </label>
                     <div class="input-group mb-2">
                       <input
                         type="url"
                         class="form-control"
                         id="propertyImageUrl"
-                        placeholder="Paste Cloudinary URL here"
+                        placeholder="Paste Cloudinary URL here" data-i18n-placeholder="properties.form.cloudinaryPlaceholder"
                       />
                       <button
                         class="btn btn-outline-secondary"
                         type="button"
                         onclick="propertyManager.addImageFromUrl()"
                       >
-                        <i class="bi bi-plus"></i> Add
+                        <i class="bi bi-plus"></i> <span data-i18n="common.add">Add</span>
                       </button>
                     </div>
                     <div class="d-grid gap-2">
@@ -8993,16 +8984,16 @@
                         type="button"
                         onclick="propertyManager.openImageUpload()"
                       >
-                        <i class="bi bi-cloud-upload"></i> Upload Image
+                        <i class="bi bi-cloud-upload"></i> <span data-i18n="properties.form.uploadImage">Upload Image</span>
                       </button>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="properties.form.propertyImageHint" class="form-text">
                       Optional: Add a property image to help identify the
                       property visually in cards
                     </div>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Preview</label>
+                    <label data-i18n="properties.form.preview" class="form-label">Preview</label>
                     <div class="border rounded p-2" style="min-height: 120px">
                       <div
                         id="propertyImagePreview"
@@ -9011,7 +9002,7 @@
                       >
                         <div>
                           <i class="bi bi-image" style="font-size: 2rem"></i>
-                          <br /><small>No image selected</small>
+                          <br /><small data-i18n="properties.form.noImage">No image selected</small>
                         </div>
                       </div>
                     </div>
@@ -9038,7 +9029,7 @@
                     class="btn btn-outline-secondary px-4"
                     id="propertyPanelCancelBtn2"
                   >
-                    <i class="bi bi-x-circle me-1"></i>Cancel
+                    <i class="bi bi-x-circle me-1"></i><span data-i18n="common.cancel">Cancel</span>
                   </button>
                   <button
                     type="submit"
@@ -9064,7 +9055,7 @@
               type="button"
               class="m-fab d-md-none"
               id="pmMobileAddBtn"
-              aria-label="Add property"
+              aria-label="Add property" data-i18n-aria-label="properties.page.addProperty"
             >
               <i class="bi bi-plus-lg"></i>
             </button>
@@ -9077,7 +9068,7 @@
                 id="tmPageHeader"
                 class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3"
               >
-                <h2 class="mb-0">Tenant Management</h2>
+                <h2 class="mb-0" data-i18n="tenants.page.title">Tenant Management</h2>
                 <div class="d-flex align-items-center gap-2 flex-wrap tm-header-actions">
                   <div class="tm-search-wrap">
                     <div class="input-group" style="width: 300px">
@@ -9091,6 +9082,7 @@
                         type="text"
                         class="form-control form-control-sm border-start-0 border-end-0"
                         placeholder="Search all tenants — name, FIN, passport, phone…"
+                        data-i18n-placeholder="tenants.page.searchPlaceholder"
                         id="tenantSearchInput"
                         autocomplete="off"
                         enterkeyhint="search"
@@ -9101,6 +9093,7 @@
                         id="tenantSearchClearBtn"
                         style="display: none"
                         title="Clear search"
+                        data-i18n-title="tenants.page.clearSearch"
                       >
                         <i class="bi bi-x-lg" style="font-size: 11px"></i>
                       </button>
@@ -9109,7 +9102,7 @@
                       class="text-end mt-1 tm-search-hint"
                       style="font-size: 10px; color: #bbb; padding-right: 2px"
                     >
-                      Press
+                      <span data-i18n="tenants.page.searchHintPress">Press</span>
                       <kbd
                         style="
                           font-size: 9px;
@@ -9121,7 +9114,7 @@
                         "
                         >Ctrl+Shift+F</kbd
                       >
-                      to search from anywhere
+                      <span data-i18n="tenants.page.searchHintAnywhere">to search from anywhere</span>
                     </div>
                   </div>
                   <button
@@ -9129,17 +9122,19 @@
                     id="reloadTenantsBtn"
                     title="Reload tenant list"
                     aria-label="Reload tenant list"
+                    data-i18n-title="tenants.page.reloadList"
+                    data-i18n-aria-label="tenants.page.reloadList"
                   >
-                    <i class="bi bi-arrow-clockwise me-1"></i><span class="tm-reload-label">Reload</span>
+                    <i class="bi bi-arrow-clockwise me-1"></i><span class="tm-reload-label" data-i18n="common.reload">Reload</span>
                   </button>
                   <button class="btn btn-primary btn-sm" id="addTenantBtn">
-                    <i class="bi bi-plus-circle me-1"></i>Add Tenant
+                    <i class="bi bi-plus-circle me-1"></i><span data-i18n="tenants.page.addTenant">Add Tenant</span>
                   </button>
                   <button
                     class="btn btn-outline-secondary btn-sm tm-back-btn"
                     onclick="dashboardController.goToDashboard()"
                   >
-                    <i class="bi bi-arrow-left me-1"></i>Back
+                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="common.back">Back</span>
                   </button>
                 </div>
               </div>
@@ -9148,7 +9143,7 @@
               <div class="card mb-4" id="tmPropertyPickerCard">
                 <div class="card-header d-flex align-items-center justify-content-between">
                   <h5 class="mb-0">
-                    <i class="bi bi-building me-2"></i>Select Property
+                    <i class="bi bi-building me-2"></i><span data-i18n="tenants.page.selectProperty">Select Property</span>
                   </h5>
                   <!-- Phone only: switch the one-row strip to the full grid -->
                   <button
@@ -9157,14 +9152,14 @@
                     id="tmPickerToggleBtn"
                     aria-expanded="false"
                   >
-                    <i class="bi bi-grid-3x3-gap me-1"></i><span>See all</span>
+                    <i class="bi bi-grid-3x3-gap me-1"></i><span data-i18n="tenants.page.seeAll">See all</span>
                   </button>
                 </div>
                 <div class="card-body">
                   <div id="tenantPropertyCards">
                     <div class="col-12 text-center text-muted py-4">
                       <i class="bi bi-building-slash me-2"></i>
-                      Loading properties...
+                      <span data-i18n="tenants.page.loadingProperties">Loading properties...</span>
                     </div>
                   </div>
                 </div>
@@ -9176,7 +9171,7 @@
                   class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 tm-list-header"
                 >
                   <h5 class="mb-0 tm-list-title">
-                    <span class="tm-list-title-text">Tenants</span>
+                    <span class="tm-list-title-text" data-i18n="tenants.page.listTitle">Tenants</span>
                     <span
                       id="totalTenantsBadge"
                       class="badge bg-secondary ms-2"
@@ -9211,6 +9206,7 @@
                         class="btn-close btn-close-white"
                         style="font-size: 0.55rem"
                         title="Clear selection"
+                        data-i18n-title="tenants.page.clearSelection"
                         onclick="tenantManager.clearTenantSelection()"
                       ></button>
                     </span>
@@ -9222,6 +9218,8 @@
                     id="tmMobileMenuBtn"
                     title="More actions"
                     aria-label="More actions"
+                    data-i18n-title="common.moreActions"
+                    data-i18n-aria-label="common.moreActions"
                   >
                     <i class="bi bi-three-dots"></i>
                   </button>
@@ -9234,8 +9232,9 @@
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
                         title="Copy tenant lists to clipboard"
+                        data-i18n-title="tenants.menu.copyTitle"
                       >
-                        <i class="bi bi-clipboard me-1"></i> Copy
+                        <i class="bi bi-clipboard me-1"></i> <span data-i18n="tenants.menu.copy">Copy</span>
                       </button>
                       <ul
                         class="dropdown-menu dropdown-menu-end"
@@ -9246,8 +9245,9 @@
                             class="dropdown-item"
                             onclick="tenantManager.copyAllTenants()"
                             title="Copy all tenant information to clipboard"
+                            data-i18n-title="tenants.menu.copyAllTitle"
                           >
-                            <i class="bi bi-clipboard me-2"></i>Copy All
+                            <i class="bi bi-clipboard me-2"></i><span data-i18n="tenants.menu.copyAll">Copy All</span>
                           </button>
                         </li>
                         <li>
@@ -9255,9 +9255,9 @@
                             class="dropdown-item"
                             onclick="tenantManager.copyRegisteredTenants()"
                             title="Copy only registered tenant information to clipboard"
+                            data-i18n-title="tenants.menu.copyRegisteredTitle"
                           >
-                            <i class="bi bi-clipboard-check me-2"></i>Copy
-                            Registered
+                            <i class="bi bi-clipboard-check me-2"></i><span data-i18n="tenants.menu.copyRegistered">Copy Registered</span>
                           </button>
                         </li>
                         <li>
@@ -9265,9 +9265,9 @@
                             class="dropdown-item"
                             onclick="tenantManager.copyRegisteredTenantsWithDates()"
                             title="Copy registered tenants (all, including outdated) with move-in and move-out dates"
+                            data-i18n-title="tenants.menu.copyRegisteredDatesTitle"
                           >
-                            <i class="bi bi-clipboard-check me-2"></i>Copy
-                            Registered (w/ Dates)
+                            <i class="bi bi-clipboard-check me-2"></i><span data-i18n="tenants.menu.copyRegisteredDates">Copy Registered (w/ Dates)</span>
                           </button>
                         </li>
                         <li>
@@ -9277,9 +9277,9 @@
                               tenantManager.copyRegisteredAndPendingTenants(true)
                             "
                             title="Copy registered and pending tenants with move-in date"
+                            data-i18n-title="tenants.menu.regPendingTitle"
                           >
-                            <i class="bi bi-clipboard-plus me-2"></i>Reg &amp;
-                            Pending
+                            <i class="bi bi-clipboard-plus me-2"></i><span data-i18n="tenants.menu.regPending">Reg &amp; Pending</span>
                           </button>
                         </li>
                         <li>
@@ -9289,9 +9289,9 @@
                               tenantManager.copyRegisteredAndPendingTenants(false)
                             "
                             title="Copy registered and pending tenants without move-in date"
+                            data-i18n-title="tenants.menu.regPendingSimpleTitle"
                           >
-                            <i class="bi bi-clipboard me-2"></i>Reg &amp;
-                            Pending (Simple)
+                            <i class="bi bi-clipboard me-2"></i><span data-i18n="tenants.menu.regPendingSimple">Reg &amp; Pending (Simple)</span>
                           </button>
                         </li>
                         <li>
@@ -9299,9 +9299,9 @@
                             class="dropdown-item"
                             onclick="tenantManager.copyPendingDeregistrationTenants()"
                             title="Copy tenants pending deregistration with move-in and move-out dates"
+                            data-i18n-title="tenants.menu.pendingDeregTitle"
                           >
-                            <i class="bi bi-clipboard-minus me-2"></i>Pending
-                            Deregistration
+                            <i class="bi bi-clipboard-minus me-2"></i><span data-i18n="tenants.menu.pendingDereg">Pending Deregistration</span>
                           </button>
                         </li>
                         <li>
@@ -9309,8 +9309,9 @@
                             class="dropdown-item"
                             onclick="tenantManager.copyOutdatedTenants()"
                             title="Copy only outdated tenant information to clipboard"
+                            data-i18n-title="tenants.menu.copyOutdatedTitle"
                           >
-                            <i class="bi bi-clipboard-x me-2"></i>Copy Outdated
+                            <i class="bi bi-clipboard-x me-2"></i><span data-i18n="tenants.menu.copyOutdated">Copy Outdated</span>
                           </button>
                         </li>
                       </ul>
@@ -9323,6 +9324,7 @@
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
                         title="Import / export tenants as Excel"
+                        data-i18n-title="tenants.menu.excelTitle"
                       >
                         <i class="bi bi-file-earmark-excel me-1"></i> Excel
                       </button>
@@ -9335,8 +9337,9 @@
                             class="dropdown-item"
                             onclick="tenantManager.downloadTenantExcel()"
                             title="Download tenants as Excel file (sorted by active first)"
+                            data-i18n-title="tenants.menu.downloadExcelTitle"
                           >
-                            <i class="bi bi-download me-2"></i>Download Excel
+                            <i class="bi bi-download me-2"></i><span data-i18n="tenants.menu.downloadExcel">Download Excel</span>
                           </button>
                         </li>
                         <li>
@@ -9346,8 +9349,9 @@
                               document.getElementById('tenantExcelUpload').click()
                             "
                             title="Upload Excel file to bulk update tenants"
+                            data-i18n-title="tenants.menu.uploadExcelTitle"
                           >
-                            <i class="bi bi-upload me-2"></i>Upload Excel
+                            <i class="bi bi-upload me-2"></i><span data-i18n="tenants.menu.uploadExcel">Upload Excel</span>
                           </button>
                         </li>
                       </ul>
@@ -9644,7 +9648,7 @@
                     >
                       <div class="text-center text-muted py-5">
                         <i class="bi bi-building fs-1 d-block mb-3"></i>
-                        <p class="fs-5">
+                        <p class="fs-5" data-i18n="tenants.page.selectPropertyPrompt">
                           Please select a property to view tenants
                         </p>
                       </div>
@@ -9669,6 +9673,7 @@
                           class="btn btn-sm btn-link text-white p-0"
                           id="tmBackToListBtn"
                           title="Back to list"
+                          data-i18n-title="common.backToList"
                           style="display: none;"
                         >
                           <i class="bi bi-arrow-left fs-5"></i>
@@ -9679,7 +9684,7 @@
                           style="min-width: 0;"
                         >
                           <i class="bi bi-people"></i>
-                          <h5 class="mb-0 fw-bold text-truncate">Tenants</h5>
+                          <h5 class="mb-0 fw-bold text-truncate" data-i18n="tenants.page.listTitle">Tenants</h5>
                         </div>
                       </div>
                       <div
@@ -9694,7 +9699,7 @@
                     >
                       <div class="text-center text-muted py-5">
                         <i class="bi bi-person-lines-fill fs-1 d-block mb-3"></i>
-                        <p class="fs-5">
+                        <p class="fs-5" data-i18n="tenants.page.selectTenantPrompt">
                           Select a tenant from the list to view full details
                         </p>
                       </div>
@@ -9712,8 +9717,7 @@
                 >
                   <div class="d-flex flex-wrap align-items-center gap-2">
                     <h6 class="mb-0 fw-bold">
-                      <i class="bi bi-calendar-range me-2"></i>Tenant Occupancy
-                      Timeline
+                      <i class="bi bi-calendar-range me-2"></i><span data-i18n="tenants.page.occupancyTimeline">Tenant Occupancy Timeline</span>
                     </h6>
                     <div
                       id="tenantCalendarCounts"
@@ -9744,7 +9748,7 @@
                   <div id="tenantCalendarContainer">
                     <div class="text-center text-muted py-5">
                       <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
-                      <p class="fs-6">No tenant occupancy data to display</p>
+                      <p class="fs-6" data-i18n="tenants.page.noOccupancyData">No tenant occupancy data to display</p>
                     </div>
                   </div>
                 </div>
@@ -9756,6 +9760,7 @@
               class="m-fab d-md-none"
               id="tmMobileAddBtn"
               aria-label="Add tenant"
+              data-i18n-aria-label="tenants.page.addTenant"
             >
               <i class="bi bi-person-plus"></i>
             </button>
@@ -16794,7 +16799,8 @@
             displaySpan.innerHTML = badgeHtml + displayText;
           } else {
             displaySpan.classList.add("text-muted");
-            displaySpan.textContent = "Select bank...";
+            displaySpan.textContent =
+              window.i18next?.t("properties.form.selectBank") || "Select bank...";
           }
         }
       }
@@ -16825,20 +16831,20 @@
               type="button"
               class="btn-close"
               data-bs-dismiss="modal"
-              aria-label="Close"
+              aria-label="Close" data-i18n-aria-label="common.close"
             ></button>
           </div>
           <form id="tenantForm">
             <div class="modal-body">
               <!-- Required Fields Section -->
-              <div class="mb-4" data-msec="Identity|bi-person-vcard">
+              <div class="mb-4" data-msec-i18n="tenants.sections.identity" data-msec="Identity|bi-person-vcard">
                 <h6 class="text-primary mb-3">
-                  <i class="bi bi-asterisk me-1"></i>Required Information
+                  <i class="bi bi-asterisk me-1"></i><span data-i18n="tenants.form.requiredInfo">Required Information</span>
                 </h6>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="tenantName" class="form-label"
-                      >Full Name <span class="text-danger">*</span></label
+                      ><span data-i18n="tenants.form.fullName">Full Name</span> <span class="text-danger">*</span></label
                     >
                     <input
                       type="text"
@@ -16848,12 +16854,12 @@
                       required
                       minlength="2"
                       maxlength="100"
-                      placeholder="Enter full name"
+                      placeholder="Enter full name" data-i18n-placeholder="tenants.form.fullNamePlaceholder"
                     />
-                    <div class="form-text">2-100 characters</div>
+                    <div data-i18n="tenants.form.fullNameHint" class="form-text">2-100 characters</div>
                   </div>
                   <div class="col-md-6 mb-3">
-                    <label for="tenantNickname" class="form-label"
+                    <label data-i18n="tenants.form.nickname" for="tenantNickname" class="form-label"
                       >Nickname</label
                     >
                     <input
@@ -16862,14 +16868,14 @@
                       id="tenantNickname"
                       name="nickname"
                       maxlength="50"
-                      placeholder="Enter nickname (optional)"
+                      placeholder="Enter nickname (optional)" data-i18n-placeholder="tenants.form.nicknamePlaceholder"
                     />
-                    <div class="form-text">Optional, max 50 characters</div>
+                    <div data-i18n="tenants.form.nicknameHint" class="form-text">Optional, max 50 characters</div>
                   </div>
                 </div>
                 <div class="row m-2col">
                   <div class="col-md-3 mb-3">
-                    <label for="tenantFin" class="form-label">FIN/NRIC</label>
+                    <label data-i18n="tenants.form.fin" for="tenantFin" class="form-label">FIN/NRIC</label>
                     <input
                       type="text"
                       class="form-control"
@@ -16877,15 +16883,15 @@
                       name="fin"
                       maxlength="20"
                       style="text-transform: uppercase"
-                      placeholder="Enter FIN/ID number (optional)"
+                      placeholder="Enter FIN/ID number (optional)" data-i18n-placeholder="tenants.form.finPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.finHint" class="form-text">
                       FIN/ID number (will be converted to uppercase, max 20
                       characters)
                     </div>
                   </div>
                   <div class="col-md-3 mb-3">
-                    <label for="tenantPassIssueDate" class="form-label"
+                    <label data-i18n="tenants.form.passIssueDate" for="tenantPassIssueDate" class="form-label"
                       >Pass Issue Date</label
                     >
                     <input
@@ -16894,10 +16900,10 @@
                       id="tenantPassIssueDate"
                       name="passIssueDate"
                     />
-                    <div class="form-text">Optional</div>
+                    <div data-i18n="common.optional" class="form-text">Optional</div>
                   </div>
                   <div class="col-md-3 mb-3">
-                    <label for="tenantPassport" class="form-label"
+                    <label data-i18n="tenants.form.passportNumber" for="tenantPassport" class="form-label"
                       >Passport Number</label
                     >
                     <input
@@ -16908,14 +16914,14 @@
                       minlength="6"
                       maxlength="15"
                       style="text-transform: uppercase"
-                      placeholder="Enter passport number (optional)"
+                      placeholder="Enter passport number (optional)" data-i18n-placeholder="tenants.form.passportPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.passportHint" class="form-text">
                       Optional, 6-15 characters (will be converted to uppercase)
                     </div>
                   </div>
                   <div class="col-md-3 mb-3">
-                    <label for="tenantVisaIssueDate" class="form-label"
+                    <label data-i18n="tenants.form.visaIssueDate" for="tenantVisaIssueDate" class="form-label"
                       >Visa Issue Date</label
                     >
                     <input
@@ -16924,12 +16930,12 @@
                       id="tenantVisaIssueDate"
                       name="visaIssueDate"
                     />
-                    <div class="form-text">Optional</div>
+                    <div data-i18n="common.optional" class="form-text">Optional</div>
                   </div>
                 </div>
                 <div class="row m-2col">
                   <div class="col-md-3 mb-3">
-                    <label for="tenantDateOfBirth" class="form-label"
+                    <label data-i18n="tenants.form.dateOfBirth" for="tenantDateOfBirth" class="form-label"
                       >Date of Birth</label
                     >
                     <input
@@ -16940,16 +16946,16 @@
                     />
                   </div>
                   <div class="col-md-3 mb-3">
-                    <label for="tenantGender" class="form-label">Gender</label>
+                    <label data-i18n="tenants.form.gender" for="tenantGender" class="form-label">Gender</label>
                     <select class="form-select" id="tenantGender" name="gender">
-                      <option value="">Select gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
+                      <option data-i18n="tenants.form.selectGender" value="">Select gender</option>
+                      <option data-i18n="tenants.detail.genders.male" value="male">Male</option>
+                      <option data-i18n="tenants.detail.genders.female" value="female">Female</option>
+                      <option data-i18n="tenants.detail.genders.other" value="other">Other</option>
                     </select>
                   </div>
                   <div class="col-md-3 mb-3">
-                    <label for="tenantPassType" class="form-label"
+                    <label data-i18n="tenants.form.passType" for="tenantPassType" class="form-label"
                       >Pass Type</label
                     >
                     <select
@@ -16957,14 +16963,14 @@
                       id="tenantPassType"
                       name="passType"
                     >
-                      <option value="">Select pass type</option>
-                      <optgroup label="Citizenship">
-                        <option value="Citizen">Citizen</option>
-                        <option value="Permanent Resident (PR)">
+                      <option data-i18n="tenants.form.selectPassType" value="">Select pass type</option>
+                      <optgroup label="Citizenship" data-i18n-label="tenants.form.citizenship">
+                        <option data-i18n="tenants.form.citizen" value="Citizen">Citizen</option>
+                        <option data-i18n="tenants.form.permanentResident" value="Permanent Resident (PR)">
                           Permanent Resident (PR)
                         </option>
                       </optgroup>
-                      <optgroup label="Work Passes">
+                      <optgroup label="Work Passes" data-i18n-label="tenants.form.workPasses">
                         <option value="Employment Pass (EP)">
                           Employment Pass (EP)
                         </option>
@@ -16987,7 +16993,7 @@
                           Miscellaneous Work Pass
                         </option>
                       </optgroup>
-                      <optgroup label="Dependant / Visit">
+                      <optgroup label="Dependant / Visit" data-i18n-label="tenants.form.dependantVisit">
                         <option value="Dependant Pass (DP)">
                           Dependant Pass (DP)
                         </option>
@@ -16998,13 +17004,13 @@
                           Long-Term Visit Pass Plus (LTVP+)
                         </option>
                       </optgroup>
-                      <optgroup label="Student">
+                      <optgroup label="Student" data-i18n-label="tenants.form.student">
                         <option value="Student Pass">Student Pass</option>
                       </optgroup>
                     </select>
                   </div>
                   <div class="col-md-3 mb-3" id="tenantIndustryRow">
-                    <label for="tenantIndustry" class="form-label"
+                    <label data-i18n="tenants.form.industry" for="tenantIndustry" class="form-label"
                       >Industry</label
                     >
                     <input
@@ -17013,7 +17019,7 @@
                       id="tenantIndustry"
                       name="industry"
                       maxlength="100"
-                      placeholder="e.g. Information Technology, Service…"
+                      placeholder="e.g. Information Technology, Service…" data-i18n-placeholder="tenants.form.industryPlaceholder"
                     />
                   </div>
                 </div>
@@ -17023,7 +17029,7 @@
                     id="tenantUniversityRow"
                     style="display: none"
                   >
-                    <label for="tenantUniversity" class="form-label"
+                    <label data-i18n="tenants.form.university" for="tenantUniversity" class="form-label"
                       >University</label
                     >
                     <input
@@ -17032,7 +17038,7 @@
                       id="tenantUniversity"
                       name="university"
                       maxlength="150"
-                      placeholder="Select or type university name"
+                      placeholder="Select or type university name" data-i18n-placeholder="tenants.form.universityPlaceholder"
                       list="sgUniversityList"
                       autocomplete="off"
                     />
@@ -17078,9 +17084,9 @@
                     </datalist>
                   </div>
                 </div>
-                <div class="row" data-msec="Contact|bi-telephone">
+                <div class="row" data-msec-i18n="tenants.sections.contact" data-msec="Contact|bi-telephone">
                   <div class="col-md-4 mb-3">
-                    <label for="tenantPhoneNumber" class="form-label"
+                    <label data-i18n="tenants.form.phoneNumber" for="tenantPhoneNumber" class="form-label"
                       >Phone Number</label
                     >
                     <input
@@ -17090,45 +17096,45 @@
                       name="phoneNumber"
                       minlength="8"
                       maxlength="20"
-                      placeholder="Enter phone number (optional)"
+                      placeholder="Enter phone number (optional)" data-i18n-placeholder="tenants.form.phonePlaceholder"
                     />
-                    <div class="form-text">8-20 characters (optional)</div>
+                    <div data-i18n="tenants.form.phoneHint" class="form-text">8-20 characters (optional)</div>
                   </div>
                   <div class="col-md-4 mb-3">
                     <label for="tenantEmail" class="form-label">
-                      <i class="bi bi-envelope me-1"></i>Email
+                      <i class="bi bi-envelope me-1"></i><span data-i18n="tenants.form.email">Email</span>
                     </label>
                     <input
                       type="email"
                       class="form-control"
                       id="tenantEmail"
                       name="email"
-                      placeholder="Enter email (optional)"
+                      placeholder="Enter email (optional)" data-i18n-placeholder="tenants.form.emailPlaceholder"
                     />
-                    <div class="form-text">Optional</div>
+                    <div data-i18n="common.optional" class="form-text">Optional</div>
                   </div>
                   <div class="col-md-4 mb-3">
                     <label for="tenantFacebookUrl" class="form-label">
-                      <i class="bi bi-facebook me-1"></i>Facebook URL
+                      <i class="bi bi-facebook me-1"></i><span data-i18n="tenants.form.facebookUrl">Facebook URL</span>
                     </label>
                     <input
                       type="url"
                       class="form-control"
                       id="tenantFacebookUrl"
                       name="facebookUrl"
-                      placeholder="https://facebook.com/profile (optional)"
+                      placeholder="https://facebook.com/profile (optional)" data-i18n-placeholder="tenants.form.facebookPlaceholder"
                     />
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.facebookHint" class="form-text">
                       Facebook profile link (optional)
                     </div>
                   </div>
                 </div>
 
                 <!-- Financial Information -->
-                <div class="row" data-msec="Money|bi-cash-coin">
+                <div class="row" data-msec-i18n="tenants.sections.money" data-msec="Money|bi-cash-coin">
                   <div class="col-md-6 mb-3">
                     <label for="tenantDeposit" class="form-label">
-                      <i class="bi bi-shield-check me-1"></i>Deposit Amount
+                      <i class="bi bi-shield-check me-1"></i><span data-i18n="tenants.form.depositAmount">Deposit Amount</span>
                     </label>
                     <div class="input-group">
                       <span class="input-group-text">$</span>
@@ -17142,30 +17148,30 @@
                         placeholder="0.00"
                       />
                     </div>
-                    <div class="form-text">Security deposit amount in SGD</div>
+                    <div data-i18n="tenants.form.depositHint" class="form-text">Security deposit amount in SGD</div>
                   </div>
                 </div>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="tenantDepositReceiver" class="form-label">
-                      <i class="bi bi-person-badge me-1"></i>Deposit Receiver
+                      <i class="bi bi-person-badge me-1"></i><span data-i18n="tenants.form.depositReceiver">Deposit Receiver</span>
                     </label>
                     <select
                       class="form-select"
                       id="tenantDepositReceiver"
                       name="depositReceiver"
                     >
-                      <option value="">
+                      <option data-i18n="tenants.form.depositReceiverPlaceholder" value="">
                         Select investor who receives deposit...
                       </option>
                     </select>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.depositReceiverHint" class="form-text">
                       Investor who will receive and manage the deposit
                     </div>
                   </div>
                   <div class="col-md-6 mb-3">
                     <label for="tenantCleaningFee" class="form-label">
-                      <i class="bi bi-brush me-1"></i>Cleaning Fee
+                      <i class="bi bi-brush me-1"></i><span data-i18n="tenants.form.cleaningFee">Cleaning Fee</span>
                     </label>
                     <div class="input-group">
                       <span class="input-group-text">$</span>
@@ -17179,15 +17185,14 @@
                         placeholder="0.00"
                       />
                     </div>
-                    <div class="form-text">One-time cleaning fee in SGD</div>
+                    <div data-i18n="tenants.form.cleaningFeeHint" class="form-text">One-time cleaning fee in SGD</div>
                     <div
                       id="tenantCleaningFeeSubsidizedBadge"
                       class="mt-1"
                       style="display: none"
                     >
                       <span class="badge bg-warning text-dark"
-                        ><i class="bi bi-brush me-1"></i>Subsidized
-                        Cleaning</span
+                        ><i class="bi bi-brush me-1"></i><span data-i18n="tenants.form.subsidizedCleaning">Subsidized Cleaning</span></span
                       >
                     </div>
                   </div>
@@ -17206,10 +17211,10 @@
                         for="tenantIsUtilitySubsidized"
                       >
                         <i class="bi bi-lightning-charge me-1"></i
-                        ><strong>Utility Subsidized</strong>
+                        ><strong data-i18n="tenants.form.utilitySubsidized">Utility Subsidized</strong>
                       </label>
                     </div>
-                    <div class="form-text ms-4">
+                    <div data-i18n="tenants.form.utilitySubsidizedHint" class="form-text ms-4">
                       Tenant pays $0 utility fee (agreed in contract)
                     </div>
                   </div>
@@ -17226,10 +17231,10 @@
                         for="tenantIsHouseCleaner"
                       >
                         <i class="bi bi-brush me-1"></i
-                        ><strong>House Cleaner</strong>
+                        ><strong data-i18n="tenants.form.houseCleaner">House Cleaner</strong>
                       </label>
                     </div>
-                    <div class="form-text ms-4">
+                    <div data-i18n="tenants.form.houseCleanerHint" class="form-text ms-4">
                       Tenant provides cleaning services for the property
                     </div>
                   </div>
@@ -17238,7 +17243,7 @@
                 <!-- Utility Usage -->
                 <div class="row m-3col">
                   <div class="col-12 mb-1">
-                    <label class="form-label fw-semibold small text-muted"
+                    <label data-i18n="tenants.form.utilityUsage" class="form-label fw-semibold small text-muted"
                       >Utility Usage (used for bill breakdown)</label
                     >
                   </div>
@@ -17258,7 +17263,7 @@
                         <i
                           class="bi bi-lightning-charge-fill text-warning me-1"
                         ></i
-                        >Electricity
+                        ><span data-i18n="tenants.form.electricity">Electricity</span>
                       </label>
                     </div>
                   </div>
@@ -17272,7 +17277,7 @@
                         checked
                       />
                       <label class="form-check-label" for="tenantUsesWater">
-                        <i class="bi bi-droplet-fill text-info me-1"></i>Water
+                        <i class="bi bi-droplet-fill text-info me-1"></i><span data-i18n="tenants.form.water">Water</span>
                       </label>
                     </div>
                   </div>
@@ -17286,32 +17291,31 @@
                         checked
                       />
                       <label class="form-check-label" for="tenantUsesGas">
-                        <i class="bi bi-fire text-secondary me-1"></i>Gas /
-                        Others
+                        <i class="bi bi-fire text-secondary me-1"></i><span data-i18n="tenants.form.gasOthers">Gas / Others</span>
                       </label>
                     </div>
                   </div>
                 </div>
 
                 <!-- Assigned Properties Section -->
-                <div class="mb-4" data-msec="Room|bi-door-open">
+                <div class="mb-4" data-msec-i18n="tenants.sections.room" data-msec="Room|bi-door-open">
                   <h6 class="text-secondary mb-3">
-                    <i class="bi bi-building me-1"></i>Assigned Property
+                    <i class="bi bi-building me-1"></i><span data-i18n="tenants.form.assignedProperty">Assigned Property</span>
                   </h6>
                   <div id="selectedPropertiesList">
                     <!-- Property card with room assignments will be rendered here -->
-                    <div class="text-muted">No property assigned</div>
+                    <div data-i18n="tenants.form.noPropertyAssigned" class="text-muted">No property assigned</div>
                   </div>
                 </div>
 
                 <!-- Main Tenant Signature — sits right under the property card so
                      ticking "Main Tenant for this property" reveals it in place.
                      Shown/hidden by tenantManager.toggleSignatureSection(). -->
-                <div class="mb-4" id="signatureSection" style="display: none" data-msec="Signature|bi-pen">
+                <div class="mb-4" id="signatureSection" style="display: none" data-msec-i18n="tenants.sections.signature" data-msec="Signature|bi-pen">
                   <h6 class="text-secondary mb-1">
-                    <i class="bi bi-pen me-1"></i>Main Tenant Signature
+                    <i class="bi bi-pen me-1"></i><span data-i18n="tenants.form.mainTenantSignature">Main Tenant Signature</span>
                   </h6>
-                  <div class="form-text mt-0 mb-2">
+                  <div data-i18n="tenants.form.signatureHint" class="form-text mt-0 mb-2">
                     Used when signing contracts. Draw it below, or upload an
                     image.
                   </div>
@@ -17332,7 +17336,7 @@
                       data-sig-tab="draw"
                       aria-pressed="true"
                     >
-                      <i class="bi bi-pencil me-1"></i>Draw
+                      <i class="bi bi-pencil me-1"></i><span data-i18n="tenants.form.draw">Draw</span>
                     </button>
                     <button
                       type="button"
@@ -17340,7 +17344,7 @@
                       data-sig-tab="upload"
                       aria-pressed="false"
                     >
-                      <i class="bi bi-upload me-1"></i>Upload
+                      <i class="bi bi-upload me-1"></i><span data-i18n="common.upload">Upload</span>
                     </button>
                   </div>
 
@@ -17350,10 +17354,10 @@
                         id="tenantSignatureCanvas"
                         width="1000"
                         height="400"
-                        aria-label="Signature drawing pad"
+                        aria-label="Signature drawing pad" data-i18n-aria-label="tenants.form.signaturePad"
                       ></canvas>
                       <div class="tenant-sig-hint" id="tenantSigHint">
-                        <i class="bi bi-pen"></i><span>Sign here</span>
+                        <i class="bi bi-pen"></i><span data-i18n="tenants.form.signHere">Sign here</span>
                       </div>
                     </div>
                     <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
@@ -17363,7 +17367,7 @@
                         id="tenantSigClearBtn"
                         disabled
                       >
-                        <i class="bi bi-eraser me-1"></i>Clear
+                        <i class="bi bi-eraser me-1"></i><span data-i18n="common.clear">Clear</span>
                       </button>
                       <small id="tenantSigStatus" class="text-muted"></small>
                     </div>
@@ -17376,17 +17380,17 @@
                         class="form-control flex-grow-1"
                         id="tenantSignatureUrl"
                         name="signatureUrl"
-                        placeholder="Paste signature image URL..."
+                        placeholder="Paste signature image URL..." data-i18n-placeholder="tenants.form.signatureUrlPlaceholder"
                       />
                       <button
                         class="btn btn-outline-primary"
                         type="button"
                         onclick="tenantManager.openSignatureUpload()"
                       >
-                        <i class="bi bi-cloud-upload"></i> Upload Signature
+                        <i class="bi bi-cloud-upload"></i> <span data-i18n="tenants.form.uploadSignature">Upload Signature</span>
                       </button>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.uploadSignatureHint" class="form-text">
                       Upload an image file, or paste an image URL and press
                       Enter.
                     </div>
@@ -17484,25 +17488,25 @@
               </div>
 
               <!-- Roommate Relationship Section -->
-              <div class="mb-4" data-msec="Roommate|bi-people">
+              <div class="mb-4" data-msec-i18n="tenants.sections.roommate" data-msec="Roommate|bi-people">
                 <h6 class="text-secondary mb-3">
-                  <i class="bi bi-people-fill me-1"></i>Roommate Relationship
+                  <i class="bi bi-people-fill me-1"></i><span data-i18n="tenants.form.roommateRelationship">Roommate Relationship</span>
                 </h6>
                 <div class="row">
                   <div class="col-md-12 mb-3">
                     <label for="tenantRoommateId" class="form-label">
-                      <i class="bi bi-person-check me-1"></i>Shares Room With
+                      <i class="bi bi-person-check me-1"></i><span data-i18n="tenants.form.sharesRoomWith">Shares Room With</span>
                     </label>
                     <select
                       class="form-select"
                       id="tenantRoommateId"
                       name="roommateId"
                     >
-                      <option value="">
+                      <option data-i18n="tenants.form.noRoommate" value="">
                         No roommate (lives alone in room)
                       </option>
                     </select>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.roommateHint" class="form-text">
                       Select another tenant from the same property who shares
                       the same room. This helps group tenants visually in the
                       tenant list.
@@ -17512,28 +17516,28 @@
               </div>
 
               <!-- Document Images Section -->
-              <div class="mb-4" data-msec="Photos|bi-images">
+              <div class="mb-4" data-msec-i18n="tenants.sections.photos" data-msec="Photos|bi-images">
                 <h6 class="text-secondary mb-3">
-                  <i class="bi bi-images me-1"></i>Document Images (Optional)
+                  <i class="bi bi-images me-1"></i><span data-i18n="tenants.form.documentImages">Document Images (Optional)</span>
                 </h6>
                 <div class="row">
                   <div class="col-md-4 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-person-circle me-1"></i>Avatar Image
+                      <i class="bi bi-person-circle me-1"></i><span data-i18n="tenants.form.avatarImage">Avatar Image</span>
                     </label>
                     <div class="input-group mb-2">
                       <input
                         type="url"
                         class="form-control"
                         id="tenantAvatarUrl"
-                        placeholder="Paste Cloudinary URL here"
+                        placeholder="Paste Cloudinary URL here" data-i18n-placeholder="tenants.form.cloudinaryPlaceholder"
                       />
                       <button
                         class="btn btn-outline-secondary"
                         type="button"
                         onclick="tenantManager.addAvatarFromUrl()"
                       >
-                        <i class="bi bi-plus"></i> Add
+                        <i class="bi bi-plus"></i> <span data-i18n="common.add">Add</span>
                       </button>
                     </div>
                     <div class="d-grid gap-2">
@@ -17542,10 +17546,10 @@
                         type="button"
                         onclick="tenantManager.openAvatarUpload()"
                       >
-                        <i class="bi bi-cloud-upload"></i> Upload Avatar
+                        <i class="bi bi-cloud-upload"></i> <span data-i18n="tenants.form.uploadAvatar">Upload Avatar</span>
                       </button>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.avatarHint" class="form-text">
                       Upload tenant's avatar image - upload or paste URL
                     </div>
                     <div id="avatarPreview" class="mt-3">
@@ -17554,21 +17558,21 @@
                   </div>
                   <div class="col-md-4 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-passport me-1"></i>Passport Pictures
+                      <i class="bi bi-passport me-1"></i><span data-i18n="tenants.form.passportPictures">Passport Pictures</span>
                     </label>
                     <div class="input-group mb-2">
                       <input
                         type="url"
                         class="form-control"
                         id="tenantPassportPicUrl"
-                        placeholder="Paste Cloudinary URL here"
+                        placeholder="Paste Cloudinary URL here" data-i18n-placeholder="tenants.form.cloudinaryPlaceholder"
                       />
                       <button
                         class="btn btn-outline-secondary"
                         type="button"
                         onclick="tenantManager.addImageFromUrl('passport')"
                       >
-                        <i class="bi bi-plus"></i> Add
+                        <i class="bi bi-plus"></i> <span data-i18n="common.add">Add</span>
                       </button>
                     </div>
                     <div class="d-grid gap-2">
@@ -17577,10 +17581,10 @@
                         type="button"
                         onclick="tenantManager.openImageUpload('passport')"
                       >
-                        <i class="bi bi-cloud-upload"></i> Upload Images
+                        <i class="bi bi-cloud-upload"></i> <span data-i18n="tenants.form.uploadImages">Upload Images</span>
                       </button>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.passportPicsHint" class="form-text">
                       Multiple passport pages supported - upload or paste URLs
                     </div>
                     <div id="passportGallery" class="mt-3">
@@ -17589,21 +17593,21 @@
                   </div>
                   <div class="col-md-4 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-credit-card me-1"></i>Visa Pictures
+                      <i class="bi bi-credit-card me-1"></i><span data-i18n="tenants.form.visaPictures">Visa Pictures</span>
                     </label>
                     <div class="input-group mb-2">
                       <input
                         type="url"
                         class="form-control"
                         id="tenantVisaPicUrl"
-                        placeholder="Paste Cloudinary URL here"
+                        placeholder="Paste Cloudinary URL here" data-i18n-placeholder="tenants.form.cloudinaryPlaceholder"
                       />
                       <button
                         class="btn btn-outline-secondary"
                         type="button"
                         onclick="tenantManager.addImageFromUrl('visa')"
                       >
-                        <i class="bi bi-plus"></i> Add
+                        <i class="bi bi-plus"></i> <span data-i18n="common.add">Add</span>
                       </button>
                     </div>
                     <div class="d-grid gap-2">
@@ -17612,10 +17616,10 @@
                         type="button"
                         onclick="tenantManager.openImageUpload('visa')"
                       >
-                        <i class="bi bi-cloud-upload"></i> Upload Images
+                        <i class="bi bi-cloud-upload"></i> <span data-i18n="tenants.form.uploadImages">Upload Images</span>
                       </button>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.visaPicsHint" class="form-text">
                       Multiple visa pages supported - upload or paste URLs
                     </div>
                     <div id="visaGallery" class="mt-3">
@@ -17625,10 +17629,7 @@
                 </div>
                 <div class="alert alert-info">
                   <i class="bi bi-info-circle me-2"></i>
-                  <strong>Multiple Images:</strong> Upload multiple
-                  passport/visa pages or sides. Click "Upload Images" to select
-                  multiple files at once, or paste individual Cloudinary URLs.
-                  Images are automatically resized and optimized.
+                  <strong data-i18n="tenants.form.multipleImages">Multiple Images:</strong> <span data-i18n="tenants.form.multipleImagesHint">Upload multiple passport/visa pages or sides. Click "Upload Images" to select multiple files at once, or paste individual Cloudinary URLs. Images are automatically resized and optimized.</span>
                 </div>
               </div>
 
@@ -17668,14 +17669,14 @@
               <input type="hidden" id="tenantAvatar" name="avatar" />
 
               <!-- Status Information Section -->
-              <div class="mb-4" data-msec="Status|bi-check2-circle">
+              <div class="mb-4" data-msec-i18n="tenants.sections.status" data-msec="Status|bi-check2-circle">
                 <h6 class="text-secondary mb-3">
-                  <i class="bi bi-person-check me-1"></i>Status Information
+                  <i class="bi bi-person-check me-1"></i><span data-i18n="tenants.form.statusInfo">Status Information</span>
                 </h6>
                 <div class="row">
                   <div class="col-12 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-check-circle me-1"></i>Registration Status
+                      <i class="bi bi-check-circle me-1"></i><span data-i18n="tenants.form.registrationStatus">Registration Status</span>
                     </label>
                     <div class="registration-status-toggle">
                       <button
@@ -17694,7 +17695,7 @@
                         value="unregistered"
                       />
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.statusCycleHint" class="form-text">
                       Click to cycle between: Unregistered → Pending →
                       Registered
                     </div>
@@ -17703,30 +17704,30 @@
               </div>
 
               <!-- Notes and Todos Section -->
-              <div class="mb-4" data-msec="Notes|bi-journal-text">
+              <div class="mb-4" data-msec-i18n="tenants.sections.notes" data-msec="Notes|bi-journal-text">
                 <h6 class="text-secondary mb-3">
-                  <i class="bi bi-journal-text me-1"></i>Notes & Tasks
+                  <i class="bi bi-journal-text me-1"></i><span data-i18n="tenants.form.notesTasks">Notes & Tasks</span>
                 </h6>
                 <div class="row">
                   <div class="col-md-6 mb-3">
                     <label for="tenantNotes" class="form-label">
-                      <i class="bi bi-sticky me-1"></i>Notes
+                      <i class="bi bi-sticky me-1"></i><span data-i18n="tenants.form.notes">Notes</span>
                     </label>
                     <textarea
                       class="form-control"
                       id="tenantNotes"
                       name="notes"
                       rows="6"
-                      placeholder="Add notes about this tenant (optional)"
+                      placeholder="Add notes about this tenant (optional)" data-i18n-placeholder="tenants.form.notesPlaceholder"
                       maxlength="5000"
                     ></textarea>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.notesHint" class="form-text">
                       Optional notes about the tenant, max 5000 characters
                     </div>
                   </div>
                   <div class="col-md-6 mb-3">
                     <label class="form-label">
-                      <i class="bi bi-list-check me-1"></i>To-Do List
+                      <i class="bi bi-list-check me-1"></i><span data-i18n="tenants.form.todoList">To-Do List</span>
                     </label>
                     <div
                       id="tenantTodoList"
@@ -17738,7 +17739,7 @@
                           type="text"
                           class="form-control"
                           id="tenantNewTodoInput"
-                          placeholder="Add a new task..."
+                          placeholder="Add a new task..." data-i18n-placeholder="tenants.form.newTaskPlaceholder"
                           maxlength="500"
                           onkeypress="
                             if (event.key === 'Enter') {
@@ -17752,11 +17753,11 @@
                           class="btn btn-primary"
                           onclick="tenantManager.addTodoItem()"
                         >
-                          <i class="bi bi-plus-lg"></i> Add
+                          <i class="bi bi-plus-lg"></i> <span data-i18n="common.add">Add</span>
                         </button>
                       </div>
                     </div>
-                    <div class="form-text">
+                    <div data-i18n="tenants.form.todoHint" class="form-text">
                       Track tasks and to-dos for this tenant
                     </div>
                   </div>
@@ -17773,7 +17774,7 @@
                 class="btn btn-secondary"
                 data-bs-dismiss="modal"
               >
-                <i class="bi bi-x-circle me-1"></i>Cancel
+                <i class="bi bi-x-circle me-1"></i><span data-i18n="common.cancel">Cancel</span>
               </button>
               <button
                 type="submit"

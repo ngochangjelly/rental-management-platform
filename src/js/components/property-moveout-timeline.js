@@ -1,4 +1,4 @@
-import i18next from "i18next";
+import i18next, { onLanguageChange } from "../i18n.js";
 import {
   fetchInvestorsForAvatarStack,
   renderPropertyImageAvatarBadge,
@@ -20,6 +20,12 @@ class PropertyMoveoutTimeline {
     this._dragCleanup = null;
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
     this._avatarInvestorsLoaded = false;
+    // Redraw in the new language once the data is loaded
+    onLanguageChange(() => {
+      if (!this.isLoaded) return;
+      this.render();
+      this._updateUrgentBadge();
+    });
   }
 
   init() {

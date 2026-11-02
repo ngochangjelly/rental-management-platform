@@ -1,4 +1,4 @@
-import i18next from '../../i18n.js';
+import i18next, { onLanguageChange } from '../../i18n.js';
 import { roomListingService } from '../../services/room-listing-service.js';
 import { getRoomTypeDisplayName } from '../../utils/room-type-mapper.js';
 import { pickRoomPhotos, uploadRoomPhotos, getRoomUpload, uploadFraction } from './room-photo-upload.js';
@@ -26,6 +26,13 @@ const esc = (text) => {
 // The property the strips show: { container, propertyId, savedRooms, address,
 // listings: Map(room → { photos, shareUrl, minPrice, maxPrice }), loaded }
 let current = null;
+
+// Redraw the strips in the new language (the signature cache would skip them)
+onLanguageChange(() => {
+  if (!current?.propertyId) return;
+  current.container.querySelectorAll('.rp-strip').forEach((strip) => delete strip.dataset.sig);
+  current.container.querySelectorAll('.room-price-row').forEach(renderRow);
+});
 
 export const openRoomPhotoManagerLazy = (ctx) =>
   import(/* webpackChunkName: "room-photo-manager" */ './room-photo-manager.js')

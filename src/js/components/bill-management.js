@@ -12,7 +12,7 @@ import {
   renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
 import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
-import i18next from "i18next";
+import i18next, { onLanguageChange } from "../i18n.js";
 
 const t = (key, opts) => i18next.t(`billManagement.${key}`, opts);
 const monthName = (idx, short = false) => {
@@ -90,11 +90,19 @@ class BillManagementComponent {
   init() {
     this.updateMonthDisplay();
     this.bindEvents();
+    onLanguageChange(() => this.handleLanguageChange());
     this.loadProperties();
     fetchInvestorsForAvatarStack().then((investors) => {
       this._avatarInvestors = investors;
       this.renderPropertyCards(this.properties);
     });
+  }
+
+  // Language switched: redraw from the data already loaded
+  handleLanguageChange() {
+    this.updateMonthDisplay();
+    if (this.properties.length) this.renderPropertyCards(this.properties);
+    if (this.selectedProperty) this.renderBillTable();
   }
 
   bindEvents() {

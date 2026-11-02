@@ -1,6 +1,6 @@
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
-import i18next from "../i18n.js";
+import i18next, { onLanguageChange } from "../i18n.js";
 
 class DocsManagement {
   constructor() {
@@ -22,6 +22,11 @@ class DocsManagement {
   init() {
     this._injectStyles();
     this._renderContainer();
+    // Fixed labels carry data-i18n (relabelled by i18n.js, so an open editor
+    // isn't rebuilt); the doc grid's dates/counts are redrawn here.
+    onLanguageChange(() => {
+      if (this.view === "list" && this._docsLoaded) this._renderDocGrid();
+    });
   }
 
   // ─── Styles ────────────────────────────────────────────────────────────────
@@ -817,14 +822,14 @@ class DocsManagement {
         </h2>
         <div class="docs-search">
           <i class="bi bi-search search-icon"></i>
-          <input type="text" id="docsSearchInput" placeholder="${this.t("searchPlaceholder")}" value="${this._searchQuery}">
+          <input type="text" id="docsSearchInput" placeholder="${this.t("searchPlaceholder")}" data-i18n-placeholder="docs.searchPlaceholder" value="${this._searchQuery}">
         </div>
         ${
           isAdmin
             ? `
         <button class="docs-new-btn" id="docsNewBtn">
           <i class="bi bi-plus-lg"></i>
-          <span>${this.t("newDoc")}</span>
+          <span data-i18n="docs.newDoc">${this.t("newDoc")}</span>
         </button>
         `
             : ""
@@ -870,6 +875,7 @@ class DocsManagement {
       console.error("Failed to load docs:", e);
       this.docs = [];
     }
+    this._docsLoaded = true;
     this._renderDocGrid();
   }
 
@@ -901,7 +907,7 @@ class DocsManagement {
       html += `
         <div class="docs-new-card" id="docsNewCard" title="${this.t("newDoc")}">
           <i class="bi bi-plus-lg"></i>
-          <span>${this.t("newDoc")}</span>
+          <span data-i18n="docs.newDoc">${this.t("newDoc")}</span>
         </div>
       `;
     }
@@ -1139,7 +1145,7 @@ class DocsManagement {
 
     editorView.innerHTML = `
       <div class="docs-editor-topbar" id="docsEditorTopbar">
-        <button class="docs-back-btn" id="docsBackBtn" title="${this.t("backToList")}">
+        <button class="docs-back-btn" id="docsBackBtn" title="${this.t("backToList")}" data-i18n-title="docs.backToList">
           <i class="bi bi-arrow-left"></i>
         </button>
         <input
@@ -1148,6 +1154,7 @@ class DocsManagement {
           type="text"
           value="${escapeHtml(doc.title || doc.name || this.t("untitled"))}"
           placeholder="${this.t("titlePlaceholder")}"
+          data-i18n-placeholder="docs.titlePlaceholder"
           maxlength="200"
           ${isAdmin ? "" : "readonly"}
         >
@@ -1158,16 +1165,16 @@ class DocsManagement {
             <span class="d-none d-md-inline">Share</span>
             ${doc.isPublic ? '<span class="docs-share-dot"></span>' : ""}
           </button>
-          <button class="docs-action-btn" id="docsExportBtn" title="${this.t("exportImage")}">
+          <button class="docs-action-btn" id="docsExportBtn" title="${this.t("exportImage")}" data-i18n-title="docs.exportImage">
             <i class="bi bi-image"></i>
-            <span class="d-none d-md-inline">${this.t("exportImage")}</span>
+            <span class="d-none d-md-inline" data-i18n="docs.exportImage">${this.t("exportImage")}</span>
           </button>
           ${
             isAdmin
               ? `
           <button class="docs-action-btn primary" id="docsSaveBtn">
             <i class="bi bi-floppy"></i>
-            <span>${this.t("saveDoc")}</span>
+            <span data-i18n="docs.saveDoc">${this.t("saveDoc")}</span>
           </button>
           `
               : ""

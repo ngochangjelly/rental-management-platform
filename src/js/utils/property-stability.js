@@ -1,10 +1,22 @@
 // Stable / Unstable status of a property (Property.isStable on the backend).
 // Shared by Property Management (toggle + list rows) and Financial Reports
 // (on-screen header + exported image) so the label and colors stay in sync.
+import i18next from '../i18n.js';
 
+// Labels are getters so they follow the current language.
 export const STABILITY_META = {
-  stable: { label: 'Stable', color: '#198754', icon: 'bi-check-circle-fill' },
-  unstable: { label: 'Unstable', color: '#6f42c1', icon: 'bi-activity' },
+  stable: {
+    get label() { return i18next.t('common.stability.stable'); },
+    get title() { return i18next.t('common.stability.stableTitle'); },
+    color: '#198754',
+    icon: 'bi-check-circle-fill',
+  },
+  unstable: {
+    get label() { return i18next.t('common.stability.unstable'); },
+    get title() { return i18next.t('common.stability.unstableTitle'); },
+    color: '#6f42c1',
+    icon: 'bi-activity',
+  },
 };
 
 export function getStabilityMeta(isStable) {
@@ -13,7 +25,7 @@ export function getStabilityMeta(isStable) {
 
 export function renderStabilityBadge(isStable, extraStyle = '') {
   const meta = getStabilityMeta(isStable);
-  return `<span class="badge" style="background-color:${meta.color};color:#fff;${extraStyle}" title="${meta.label} property"><i class="bi ${meta.icon} me-1"></i>${meta.label}</span>`;
+  return `<span class="badge" style="background-color:${meta.color};color:#fff;${extraStyle}" title="${meta.title}"><i class="bi ${meta.icon} me-1"></i>${meta.label}</span>`;
 }
 
 // Property selection cards shown at the top of each module (tenants, bills,
@@ -40,9 +52,9 @@ export function renderStabilityStatsBadges(properties, extraStyle = '') {
   if (!list.length) return '';
   const stable = list.filter((p) => p.isStable === true).length;
   const badge = ({ color, icon, label }, count) =>
-    `<span class="badge" style="background-color:${color};color:#fff;font-size:0.7rem;${extraStyle}" title="${count} ${label.toLowerCase()} ${count === 1 ? 'property' : 'properties'}"><i class="bi ${icon} me-1"></i>${label}: ${count}</span>`;
+    `<span class="badge" style="background-color:${color};color:#fff;font-size:0.7rem;${extraStyle}" title="${i18next.t('common.stability.countTitle', { count, label: label.toLowerCase() })}"><i class="bi ${icon} me-1"></i>${label}: ${count}</span>`;
   return (
-    badge({ label: 'Total', color: '#6c757d', icon: 'bi-buildings' }, list.length) +
+    badge({ label: i18next.t('common.stability.total'), color: '#6c757d', icon: 'bi-buildings' }, list.length) +
     badge(STABILITY_META.stable, stable) +
     badge(STABILITY_META.unstable, list.length - stable)
   );

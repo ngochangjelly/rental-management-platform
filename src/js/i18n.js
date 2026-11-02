@@ -1,12 +1,32 @@
 import i18next from "i18next";
+import commonLocale from "./locales/common.js";
+import tenantsLocale from "./locales/tenants.js";
+import propertiesLocale from "./locales/properties.js";
 
 // Get stored language preference, default to Vietnamese
 const storedLang = localStorage.getItem("preferredLanguage") || "vi";
 
+// Larger modules keep their strings in src/js/locales/<module>.js (English
+// and Vietnamese side by side) instead of this file.
+const MODULE_LOCALES = {
+  common: commonLocale,
+  tenants: tenantsLocale,
+  properties: propertiesLocale,
+};
+
+function withModuleLocales(resources) {
+  for (const [namespace, locale] of Object.entries(MODULE_LOCALES)) {
+    for (const lng of Object.keys(resources)) {
+      resources[lng].translation[namespace] = locale[lng];
+    }
+  }
+  return resources;
+}
+
 i18next.init({
   lng: storedLang, // use stored language or default to Vietnamese
   fallbackLng: "en",
-  resources: {
+  resources: withModuleLocales({
     en: {
       translation: {
         sidebar: {
@@ -205,6 +225,9 @@ i18next.init({
           invalidDateRange: "Start date must be before end date",
           saveFailed: "Failed to save leave plan",
           deleteFailed: "Failed to delete leave plan",
+          propertiesSelected_one: "{{count}} property selected",
+          propertiesSelected_other: "{{count}} properties selected",
+          selectAtLeastOne: "Please select at least one property to view tenancy occupancy",
         },
         createContract: {
           title: "Create Contract",
@@ -929,6 +952,8 @@ i18next.init({
           invalidDateRange: "Ngày bắt đầu phải trước ngày kết thúc",
           saveFailed: "Lỗi lưu ngày vắng nhà",
           deleteFailed: "Lỗi xóa ngày vắng nhà",
+          propertiesSelected: "Đã chọn {{count}} nhà",
+          selectAtLeastOne: "Vui lòng chọn ít nhất một căn nhà để xem thông tin thuê phòng",
         },
         createContract: {
           title: "Tạo hợp đồng",
@@ -1454,7 +1479,68 @@ i18next.init({
         },
       },
     },
-  },
+  }),
 });
+
+// Static markup opts in with data-i18n (text), data-i18n-placeholder,
+// data-i18n-title, data-i18n-aria-label and data-i18n-label (<optgroup>).
+// For data-i18n the element's whole text is replaced, so keep icons outside
+// it (wrap the text in a span).
+const ATTRIBUTE_BINDINGS = [
+  ["data-i18n-placeholder", "placeholder"],
+  ["data-i18n-title", "title"],
+  ["data-i18n-aria-label", "aria-label"],
+  ["data-i18n-label", "label"],
+];
+
+export function applyStaticTranslations(root = document) {
+  root.querySelectorAll("[data-i18n]").forEach((el) => {
+    const translated = i18next.t(el.getAttribute("data-i18n"));
+    if (translated) el.textContent = translated;
+  });
+  for (const [dataAttr, attr] of ATTRIBUTE_BINDINGS) {
+    root.querySelectorAll(`[${dataAttr}]`).forEach((el) => {
+      const translated = i18next.t(el.getAttribute(dataAttr));
+      if (!translated) return;
+      // Bootstrap tooltips move `title` here and read it on every show
+      if (attr === "title" && el.hasAttribute("data-bs-original-title")) {
+        el.setAttribute("data-bs-original-title", translated);
+      } else {
+        el.setAttribute(attr, translated);
+      }
+    });
+  }
+}
+
+/**
+ * Run `callback(lng)` every time the language changes. Modules that build
+ * their UI in JS use this to re-render from the data they already hold —
+ * static markup is handled by applyStaticTranslations() on its own.
+ * Returns an unsubscribe function.
+ */
+export function onLanguageChange(callback) {
+  const handler = (lng) => {
+    try {
+      callback(lng);
+    } catch (error) {
+      console.error("Re-render after language change failed:", error);
+    }
+  };
+  i18next.on("languageChanged", handler);
+  return () => i18next.off("languageChanged", handler);
+}
+
+// Registered before any module subscribes, so static markup is already
+// translated when module re-renders run. Also fires the window
+// "languageChanged" event for plain scripts in the HTML pages.
+i18next.on("languageChanged", (lng) => {
+  localStorage.setItem("preferredLanguage", lng);
+  document.documentElement.lang = lng;
+  applyStaticTranslations();
+  window.dispatchEvent(new CustomEvent("languageChanged", { detail: { lng } }));
+});
+
+// For inline <script> blocks in the HTML pages, which can't import modules
+window.i18next = i18next;
 
 export default i18next;

@@ -8,7 +8,7 @@ import {
   getGroupLinkMeta,
   facebookToMessengerUrl,
 } from "../utils/social-links.js";
-import i18next from "../i18n.js";
+import i18next, { onLanguageChange } from "../i18n.js";
 import {
   getCategoryEmoji,
   getCategoryLabel,
@@ -93,6 +93,10 @@ class FinancialReportsComponent {
 
   init() {
     this.bindEvents();
+    // Property cards carry the (translated) Stable/Unstable badges
+    onLanguageChange(() => {
+      if (this.properties?.length) this.renderPropertyCards(this.properties);
+    });
     this._propertiesPromise = this.loadProperties();
     // Non-admins get only the investors of the properties they can access
     this.loadAllInvestors();

@@ -1,5 +1,7 @@
-import i18next from 'i18next';
+import i18next, { onLanguageChange } from '../i18n.js';
 import { getRoomTypeDisplayName } from '../utils/room-type-mapper.js';
+
+const t = (key, options) => i18next.t(`tenants.calendar.${key}`, options);
 
 /**
  * Tenant Timeline Calendar Component
@@ -12,6 +14,10 @@ class TenantCalendar {
         this.tenants = [];
         this.currentView = 'table'; // 'table' or 'calendar'
         this.showMovedOut = false; // moved-out tenants are collapsed by default
+        // Redraw in the new language once a property has been shown
+        onLanguageChange(() => {
+            if (this.selectedProperty) this.render();
+        });
     }
 
     /**
@@ -72,7 +78,7 @@ class TenantCalendar {
             container.innerHTML = `
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
-                    <p class="fs-6">No tenant occupancy data for this property in ${this.currentYear}</p>
+                    <p class="fs-6">${t('noDataForYear', { year: this.currentYear })}</p>
                 </div>
             `;
             return;
@@ -209,10 +215,11 @@ class TenantCalendar {
      * Generate the calendar HTML with timeline bars
      */
     generateCalendarHTML(tenants) {
-        const months = [
-            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-        ];
+        // Short month names in the current language ("Jan" / "thg 1")
+        const monthLocale = i18next.language === 'vi' ? 'vi-VN' : 'en-US';
+        const months = Array.from({ length: 12 }, (_, index) =>
+            new Date(this.currentYear, index, 1).toLocaleDateString(monthLocale, { month: 'short' })
+        );
 
         // Calculate the number of days in each month for current year
         const daysInMonths = months.map((_, index) =>
@@ -226,7 +233,7 @@ class TenantCalendar {
         const today = new Date();
         const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
         const todayMarkerHtml = todayPosition !== null ? `
-            <div class="today-marker" style="left: calc(var(--name-col-width) + (100% - var(--name-col-width)) * ${todayPosition / 100});" title="Today - ${todayFormatted}">
+            <div class="today-marker" style="left: calc(var(--name-col-width) + (100% - var(--name-col-width)) * ${todayPosition / 100});" title="${t('today', { date: todayFormatted })}">
                 <div class="today-marker-line"></div>
                 <div class="today-marker-label">${todayFormatted}</div>
             </div>
@@ -237,7 +244,7 @@ class TenantCalendar {
                 ${todayMarkerHtml}
                 <!-- Month Headers -->
                 <div class="calendar-header">
-                    <div class="tenant-name-column">Tenant</div>
+                    <div class="tenant-name-column">${t('tenant')}</div>
                     <div class="timeline-container" style="position: relative;">
         `;
 
@@ -345,7 +352,7 @@ class TenantCalendar {
         };
 
         const moveinStr = formatDate(moveinDate);
-        const moveoutStr = moveoutDate ? formatDate(moveoutDate) : 'Present';
+        const moveoutStr = moveoutDate ? formatDate(moveoutDate) : t('present');
         const duration = moveoutDate
             ? Math.ceil((moveoutDate - moveinDate) / (1000 * 60 * 60 * 24))
             : Math.ceil((new Date() - moveinDate) / (1000 * 60 * 60 * 24));
@@ -384,7 +391,7 @@ class TenantCalendar {
         // Generate move-in date badge
         const shortMoveinStr = formatShortDate(moveinDate);
         const moveinBadgeHtml = `
-                <div class="movein-date-marker" title="Move-in: ${moveinStr}">
+                <div class="movein-date-marker" title="${t('moveIn', { date: moveinStr })}">
                     <i class="bi bi-box-arrow-in-right"></i>
                     <span class="movein-date-text">${this.escapeHtml(shortMoveinStr)}</span>
                 </div>
@@ -395,7 +402,7 @@ class TenantCalendar {
         if (tenant.moveoutDate && moveoutDate) {
             const shortMoveoutStr = formatShortDate(moveoutDate);
             moveoutBadgeHtml = `
-                <div class="moveout-date-marker" title="Move-out: ${moveoutStr}">
+                <div class="moveout-date-marker" title="${t('moveOut', { date: moveoutStr })}">
                     <i class="bi bi-box-arrow-right"></i>
                     <span class="moveout-date-text">${this.escapeHtml(shortMoveoutStr)}</span>
                 </div>
@@ -434,7 +441,7 @@ class TenantCalendar {
                     <div class="leave-plan-bar"
                         data-leave-plan-id="${leavePlan.id}"
                         style="left: ${lpLeftPercent}%; width: ${lpWidthPercent}%;"
-                        title="Away/Holiday\n${lpStartStr} - ${lpEndStr}\n${lpDuration} days${reasonText}">
+                        title="${t('awayHoliday')}\n${lpStartStr} - ${lpEndStr}\n${t('days', { count: lpDuration })}${reasonText}">
                     </div>
                 `;
             });
@@ -442,7 +449,7 @@ class TenantCalendar {
 
         // Add leave days badge if any
         const leaveDaysBadgeHtml = totalLeaveDays > 0 ? `
-            <span class="leave-days-badge" title="Total leave days: ${totalLeaveDays}">
+            <span class="leave-days-badge" title="${t('totalLeaveDays', { count: totalLeaveDays })}">
                 <i class="bi bi-luggage"></i> ${totalLeaveDays}
             </span>
         ` : '';
@@ -466,7 +473,7 @@ class TenantCalendar {
                         class="occupancy-bar ${!tenant.moveoutDate ? 'current-tenant' : ''} ${isFutureMoveout ? 'future-moveout' : ''}"
                         style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${barColor};">
                         ${moveinBadgeHtml}
-                        <span class="occupancy-bar-label" title="${this.escapeHtml(displayName)}&#10;${roomDisplayName}&#10;Move-in: ${moveinStr}&#10;Move-out: ${moveoutStr}&#10;Duration: ${duration} days${totalLeaveDays > 0 ? `&#10;Total leave days: ${totalLeaveDays}` : ''}">${this.escapeHtml(displayName)}</span>
+                        <span class="occupancy-bar-label" title="${this.escapeHtml(displayName)}&#10;${roomDisplayName}&#10;${t('moveIn', { date: moveinStr })}&#10;${t('moveOut', { date: moveoutStr })}&#10;${t('duration', { count: duration })}${totalLeaveDays > 0 ? `&#10;${t('totalLeaveDays', { count: totalLeaveDays })}` : ''}">${this.escapeHtml(displayName)}</span>
                         ${moveoutBadgeHtml}
                         ${leavePlansHtml}
                     </div>

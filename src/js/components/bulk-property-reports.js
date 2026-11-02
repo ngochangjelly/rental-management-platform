@@ -22,7 +22,8 @@ import {
   getBadgeTokens,
   getSurfaceTokens,
 } from "../utils/financial-report-theme.js";
-  
+import { onLanguageChange } from "../i18n.js";
+
 class BulkPropertyReportsComponent {
   constructor() {
     this.properties = [];
@@ -37,6 +38,10 @@ class BulkPropertyReportsComponent {
   init() {
     this.bindEvents();
     this.bindExtractionEvents();
+    // Property cards carry the (translated) Stable/Unstable badges
+    onLanguageChange(() => {
+      if (this.properties.length) this.renderPropertyList();
+    });
     this.loadProperties().then(() => this.loadAllInvestors());
     this.setDefaultDate();
     this.syncExtractionDefaults();

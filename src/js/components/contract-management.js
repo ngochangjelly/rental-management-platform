@@ -2,7 +2,7 @@
  * Contract Management Component
  * Handles contract creation with editor-like interface
  */
-import i18next from "i18next";
+import i18next, { onLanguageChange } from "../i18n.js";
 import { renderTenantSocialBadges } from "../utils/social-links.js";
 import {
   getSection1BaseClauseTexts,
@@ -87,9 +87,23 @@ class ContractManagementComponent {
 
   init() {
     this.setupEventListeners();
+    onLanguageChange(() => this.handleLanguageChange());
     // Don't load tenants upfront - load them when property is selected
     this.loadInvestors();
     this.loadProperties();
+  }
+
+  // Language switched: relabel the pickers built in JS, keeping every
+  // choice already made in the contract form.
+  handleLanguageChange() {
+    const addressSelect = document.getElementById("contractAddress");
+    if (addressSelect && this.properties?.length) {
+      const chosen = addressSelect.value;
+      this.populatePropertiesDropdown(); // also redraws the property cards
+      addressSelect.value = chosen;
+    }
+    this.updateTenantBDisplayText();
+    if (this.additionalClauses?.length) this.renderAdditionalClauses();
   }
 
   setupEventListeners() {

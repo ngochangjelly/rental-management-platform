@@ -18,6 +18,14 @@ import {
   openActionSheet,
   applyMobileInputHints,
 } from "../utils/mobile-ux.js";
+import i18next, { onLanguageChange } from "../i18n.js";
+
+// `t` escapes interpolated values, for HTML templates. `tText` doesn't — use
+// it for alert/confirm/textContent, where escaping would show up as &amp;.
+const t = (key, options) => i18next.t(`tenants.${key}`, options);
+const tText = (key, options) =>
+  i18next.t(`tenants.${key}`, { ...options, interpolation: { escapeValue: false } });
+const tc = (key, options) => i18next.t(`common.${key}`, options);
 
 /**
  * Returns the effective rent for a tenant derived from their room assignments.
@@ -79,6 +87,8 @@ class TenantManagementComponent {
     this.setupEventListeners();
     this.setupAdminControls();
     this.setupMobileUx();
+    this.updateRegisteredTenantsBadge(); // header counts in the current language
+    onLanguageChange(() => this.handleLanguageChange());
     // Load properties to display property cards
     this.loadProperties();
     fetchInvestorsForAvatarStack().then((investors) => {
@@ -90,6 +100,26 @@ class TenantManagementComponent {
   // Call this when section becomes visible to ensure listeners are attached
   ensureEventListeners() {
     this.setupEventListeners();
+  }
+
+  // Language switched: redraw what this module built in JS from the data it
+  // already holds (static markup is re-translated by i18n.js). An open
+  // add/edit modal is left alone so nothing typed is lost.
+  handleLanguageChange() {
+    if (this._propertiesLoaded) this.renderPropertyCards(this.properties);
+    this.updateRegisteredTenantsBadge();
+    if (this._searchBanner) {
+      this._showSearchBanner(this._searchBanner.term, this._searchBanner.count);
+    }
+    const state = this._listState;
+    if (state?.type === "message") {
+      this.showEmptyState(state.key, state.options);
+    } else if (state?.type === "table") {
+      this.renderTenantsTable();
+    }
+    document
+      .querySelectorAll("#tenantModal [data-clipboard-enabled]")
+      .forEach((field) => this._applyPasteHint(field));
   }
 
   setupAdminControls() {
@@ -129,9 +159,11 @@ class TenantManagementComponent {
       // Filter properties if current user is an investor
       await this.filterPropertiesByInvestor();
 
+      this._propertiesLoaded = true;
       this.renderPropertyCards(this.properties);
     } catch (error) {
       console.error("Error loading properties:", error);
+      this._propertiesLoaded = true;
       this.renderPropertyCards([]);
     }
   }
@@ -212,7 +244,7 @@ class TenantManagementComponent {
       container.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center;" class="text-muted py-4">
                     <i class="bi bi-building-slash me-2"></i>
-                    No properties available
+                    ${t("cards.noProperties")}
                 </div>
             `;
       return;
@@ -231,8 +263,8 @@ class TenantManagementComponent {
                         <i class="bi bi-question-circle"></i>
                     </div>
                     <div class="text-center" style="line-height: 1.2;">
-                        <div class="fw-bold" style="font-size: 11px;">Unassigned</div>
-                        <div class="text-muted" style="font-size: 10px;">No Property</div>
+                        <div class="fw-bold" style="font-size: 11px;">${t("cards.unassigned")}</div>
+                        <div class="text-muted" style="font-size: 10px;">${t("cards.noProperty")}</div>
                     </div>
                     <i data-role="unassigned-check" class="bi bi-check-circle-fill text-warning" style="font-size: 0.85rem; display: ${isUnassignedSelected ? "inline" : "none"};"></i>
                 </div>
@@ -403,7 +435,7 @@ class TenantManagementComponent {
       }
     } catch (error) {
       console.error("Error loading tenants for property:", error);
-      this.showEmptyState("Error loading tenants. Please try again.");
+      this.showEmptyState("list.loadError");
     }
   }
 
@@ -454,7 +486,7 @@ class TenantManagementComponent {
       }
     } catch (error) {
       console.error("Error loading unassigned tenants:", error);
-      this.showEmptyState("Error loading tenants. Please try again.");
+      this.showEmptyState("list.loadError");
     }
   }
 
@@ -574,10 +606,11 @@ class TenantManagementComponent {
       // Show message to select a property
       const container = document.getElementById("tenantsContainer");
       if (container) {
+        this._listState = null;
         container.innerHTML = `
                     <div class="text-center text-muted py-5">
                         <i class="bi bi-building fs-1 d-block mb-3"></i>
-                        <p class="fs-5">Please select a property to view tenants</p>
+                        <p class="fs-5" data-i18n="tenants.page.selectPropertyPrompt">${t("page.selectPropertyPrompt")}</p>
                     </div>
                 `;
       }
@@ -587,6 +620,7 @@ class TenantManagementComponent {
   showLoadingSkeleton() {
     const container = document.getElementById("tenantsContainer");
     if (!container) return;
+    this._listState = { type: "loading" };
 
     // Add shimmer animation styles if not already present
     if (!document.getElementById("tenant-skeleton-styles")) {
@@ -647,10 +681,11 @@ class TenantManagementComponent {
     }
 
     if (!this.selectedProperty && !this._globalSearchActive) {
+      this._listState = null;
       container.innerHTML = `
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-building fs-1 d-block mb-3"></i>
-                    <p class="fs-5">Please select a property to view tenants</p>
+                    <p class="fs-5" data-i18n="tenants.page.selectPropertyPrompt">${t("page.selectPropertyPrompt")}</p>
                 </div>
             `;
       this.showTenantDetailPanel(null);
@@ -658,11 +693,11 @@ class TenantManagementComponent {
     }
 
     if (this.tenants.length === 0) {
-      const message =
-        this.selectedProperty === "UNASSIGNED"
-          ? "No unassigned tenants found"
-          : `No tenants found for ${this.selectedProperty}`;
-      this.showEmptyState(message);
+      if (this.selectedProperty === "UNASSIGNED") {
+        this.showEmptyState("list.noUnassigned");
+      } else {
+        this.showEmptyState("list.noTenantsForProperty", { property: this.selectedProperty });
+      }
       return;
     }
 
@@ -703,6 +738,7 @@ class TenantManagementComponent {
     });
 
     container.innerHTML = html;
+    this._listState = { type: "table" };
 
     // Update registered tenants badge
     this.updateRegisteredTenantsBadge();
@@ -760,7 +796,7 @@ class TenantManagementComponent {
   // property. Shared by the compact row and the detail panel so the two
   // views can never disagree on what "room info" means.
   computeTenantDisplayInfo(tenant) {
-    let roomInfo = "No property";
+    let roomInfo = t("list.noProperty");
     let roomRaw = "";
     let moveInDate = "N/A";
     let moveOutDate = "N/A";
@@ -779,7 +815,7 @@ class TenantManagementComponent {
         roomRaw = propertyInfo.room || "";
         roomInfo = propertyInfo.room
           ? getRoomTypeDisplayName(propertyInfo.room)
-          : "No room";
+          : t("list.noRoom");
         if (propertyInfo.moveinDate) {
           const date = new Date(propertyInfo.moveinDate);
           moveInDate = `${date.getDate().toString().padStart(2, "0")}/${(
@@ -797,7 +833,7 @@ class TenantManagementComponent {
             .padStart(2, "0")}/${date.getFullYear()}`;
         }
       } else {
-        roomInfo = "No room";
+        roomInfo = t("list.noRoom");
       }
     }
 
@@ -848,7 +884,7 @@ class TenantManagementComponent {
     const subsidyCell = (icon, label, active) => `
               <div class="tm-row-stat">
                 <div class="tm-row-stat-label"><i class="bi ${icon}"></i> ${label}</div>
-                <div class="tm-row-stat-value${active ? " tm-row-stat-positive" : " tm-row-stat-empty"}">${active ? "Subsidized" : "Standard"}</div>
+                <div class="tm-row-stat-value${active ? " tm-row-stat-positive" : " tm-row-stat-empty"}">${active ? t("row.subsidized") : t("row.standard")}</div>
               </div>`;
 
     const rentDisplay = typeof rentAmount === "number" ? `$${rentAmount.toFixed(2)}` : null;
@@ -860,7 +896,7 @@ class TenantManagementComponent {
            data-tenant-id="${tenant._id}"
            onclick="tenantManager.selectTenantForDetail('${tenant._id}')">
         <div class="tenant-select-check${isExportEligible ? "" : " disabled"}${isExportChecked ? " checked" : ""}"
-            title="${isExportEligible ? "Select for PDF/ZIP export" : "Not eligible for export (unregistered)"}"
+            title="${isExportEligible ? t("row.selectForExport") : t("row.notEligibleExport")}"
             onclick="event.stopPropagation();${isExportEligible ? ` tenantManager.toggleTenantSelection('${tenant._id}', this.closest('.tenant-detail-card'));` : ""}">
           <i class="bi bi-check-lg"></i>
         </div>
@@ -874,13 +910,13 @@ class TenantManagementComponent {
                 ${tenant.nickname ? `<small class="text-muted text-truncate">（${this.escapeHtml(tenant.nickname)}）</small>` : ""}
               </div>
               <div class="d-flex gap-1 align-items-center flex-shrink-0">
-                ${isMainTenant ? '<span class="badge bg-primary" style="font-size:0.6rem;">Main</span>' : ""}
-                ${isOutdated ? '<span class="badge bg-secondary" style="font-size:0.6rem;">Moved Out</span>' : ""}
+                ${isMainTenant ? `<span class="badge bg-primary" style="font-size:0.6rem;">${t("row.main")}</span>` : ""}
+                ${isOutdated ? `<span class="badge bg-secondary" style="font-size:0.6rem;">${t("row.movedOut")}</span>` : ""}
               </div>
             </div>
-            <div class="small text-muted text-truncate">${this.escapeHtml(tenant.phoneNumber || "No phone")}</div>
+            <div class="small text-muted text-truncate">${this.escapeHtml(tenant.phoneNumber || t("row.noPhone"))}</div>
           </div>
-          <button type="button" class="btn btn-sm btn-link text-secondary p-0 tm-row-edit-btn" title="Edit tenant"
+          <button type="button" class="btn btn-sm btn-link text-secondary p-0 tm-row-edit-btn" title="${t("row.editTenant")}"
                   onclick="event.stopPropagation(); tenantManager.editTenant('${tenant._id}')">
             <i class="bi bi-pencil"></i>
           </button>
@@ -894,18 +930,18 @@ class TenantManagementComponent {
         </div>
 
         <div class="tm-row-stats">
-          ${statCell("Rent", rentDisplay)}
-          ${statCell("Move-in", moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
-          ${statCell("Move-out", moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
+          ${statCell(t("row.rent"), rentDisplay)}
+          ${statCell(t("row.moveIn"), moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
+          ${statCell(t("row.moveOut"), moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
         </div>
         <div class="tm-row-stats tm-row-stats-2">
-          ${subsidyCell("bi-brush", "Cleaning", isCleaningSubsidized)}
-          ${subsidyCell("bi-lightning-charge", "Utility", isUtilitySubsidized)}
+          ${subsidyCell("bi-brush", t("row.cleaning"), isCleaningSubsidized)}
+          ${subsidyCell("bi-lightning-charge", t("row.utility"), isUtilitySubsidized)}
         </div>
 
         <div class="d-flex gap-1 tm-row-docs">
-          ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport", "sm")}
-          ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass", "sm")}
+          ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", t("row.passport"), "sm")}
+          ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", t("row.pass"), "sm")}
         </div>
       </div>`;
   }
@@ -919,7 +955,7 @@ class TenantManagementComponent {
 
     let html = `
       <div class="tm-roommate-group${isOutdated ? " tm-roommate-group-outdated" : ""}">
-        <div class="tm-roommate-group-label"><i class="bi bi-people-fill me-1"></i>Roommates</div>
+        <div class="tm-roommate-group-label"><i class="bi bi-people-fill me-1"></i>${t("row.roommates")}</div>
     `;
 
     group.forEach((tenant) => {
@@ -955,14 +991,14 @@ class TenantManagementComponent {
     });
 
     const money = (v) => (typeof v === "number" ? `$${v.toFixed(2)}` : null);
-    const yesNo = (v) => (v ? "Yes" : "No");
+    const yesNo = (v) => (v ? tc("yes") : tc("no"));
 
     const field = (label, value, copyVal) => {
       if (value === undefined || value === null || value === "") {
         return `<div class="tm-detail-field"><div class="tm-detail-label">${label}</div><div class="tm-detail-value text-muted">-</div></div>`;
       }
       const copy = copyVal !== undefined ? copyVal : value;
-      return `<div class="tm-detail-field"><div class="tm-detail-label">${label}</div><div class="tm-detail-value prop-copy-val" data-copy="${this.escapeHtml(String(copy))}" title="Click to copy" onclick="event.stopPropagation();copyToClipboardInline(this)">${value}</div></div>`;
+      return `<div class="tm-detail-field"><div class="tm-detail-label">${label}</div><div class="tm-detail-value prop-copy-val" data-copy="${this.escapeHtml(String(copy))}" title="${tc("clickToCopy")}" onclick="event.stopPropagation();copyToClipboardInline(this)">${value}</div></div>`;
     };
 
     const section = (icon, title, body) => `
@@ -990,9 +1026,9 @@ class TenantManagementComponent {
     }
 
     const utilities = [
-      ["usesElectricity", "Electricity", "bi-lightning-charge"],
-      ["usesWater", "Water", "bi-droplet"],
-      ["usesGas", "Gas", "bi-fire"],
+      ["usesElectricity", t("detail.electricity"), "bi-lightning-charge"],
+      ["usesWater", t("detail.water"), "bi-droplet"],
+      ["usesGas", t("detail.gas"), "bi-fire"],
     ]
       .map(([key, label, icon]) => {
         const uses = tenant[key] !== false; // schema default is true
@@ -1017,22 +1053,22 @@ class TenantManagementComponent {
         }
         const assignmentsHtml = assignments.length
           ? `<table class="table table-sm mb-0 tm-detail-table">
-              <thead><tr><th>Room</th><th>Move-in</th><th>Move-out</th><th>Rent</th><th>Aircon</th></tr></thead>
+              <thead><tr><th>${t("detail.room")}</th><th>${t("detail.moveIn")}</th><th>${t("detail.moveOut")}</th><th>${t("detail.rent")}</th><th>${t("detail.aircon")}</th></tr></thead>
               <tbody>${assignments
                 .map((ra) => `
                 <tr class="${ra.moveoutDate ? "" : "table-success"}">
                   <td>${ra.room ? this.escapeHtml(getRoomTypeDisplayName(ra.room)) : "-"}</td>
                   <td>${this.formatDate(ra.moveinDate) || "-"}</td>
-                  <td>${this.formatDate(ra.moveoutDate) || '<span class="text-muted">Ongoing</span>'}</td>
+                  <td>${this.formatDate(ra.moveoutDate) || `<span class="text-muted">${t("detail.ongoing")}</span>`}</td>
                   <td>${money(ra.rent) || "-"}</td>
-                  <td>${ra.noAircon ? '<span class="text-danger">No</span>' : "Yes"}</td>
+                  <td>${ra.noAircon ? `<span class="text-danger">${tc("no")}</span>` : tc("yes")}</td>
                 </tr>`)
                 .join("")}</tbody>
             </table>`
-          : '<div class="text-muted small">No room assignment</div>';
+          : `<div class="text-muted small">${t("detail.noRoomAssignment")}</div>`;
         const leaves = p.leavePlans || [];
         const leavesHtml = leaves.length
-          ? `<div class="small mt-2"><span class="tm-detail-label d-block">Leave plans</span>${leaves
+          ? `<div class="small mt-2"><span class="tm-detail-label d-block">${t("detail.leavePlans")}</span>${leaves
               .map((lp) => `<div><i class="bi bi-airplane me-1"></i>${this.formatDate(lp.startDate)} → ${this.formatDate(lp.endDate)}${lp.reason ? ` <span class="text-muted">(${this.escapeHtml(lp.reason)})</span>` : ""}</div>`)
               .join("")}</div>`
           : "";
@@ -1040,8 +1076,8 @@ class TenantManagementComponent {
           <div class="tm-detail-prop${p.propertyId === this.selectedProperty ? " tm-detail-prop-current" : ""}">
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
               <span class="fw-semibold">${this.escapeHtml(title)}</span>
-              ${p.isMainTenant ? '<span class="badge bg-primary">Main Tenant</span>' : ""}
-              ${p.propertyId === this.selectedProperty ? '<span class="badge bg-light text-dark border">Current view</span>' : ""}
+              ${p.isMainTenant ? `<span class="badge bg-primary">${t("detail.mainTenant")}</span>` : ""}
+              ${p.propertyId === this.selectedProperty ? `<span class="badge bg-light text-dark border">${t("detail.currentView")}</span>` : ""}
             </div>
             <div class="table-responsive">${assignmentsHtml}</div>
             ${leavesHtml}
@@ -1052,99 +1088,99 @@ class TenantManagementComponent {
     const todos = tenant.todos || [];
     const todosHtml = todos.length
       ? `<ul class="list-unstyled mb-0">${todos
-          .map((t) => `
+          .map((todo) => `
             <li class="d-flex gap-2 mb-1">
-              <i class="bi ${t.completed ? "bi-check-square-fill text-success" : "bi-square text-muted"}"></i>
+              <i class="bi ${todo.completed ? "bi-check-square-fill text-success" : "bi-square text-muted"}"></i>
               <div>
-                <span class="${t.completed ? "text-decoration-line-through text-muted" : ""}">${this.escapeHtml(t.text)}</span>
-                ${t.completed && (t.completedBy || t.completedAt) ? `<div class="text-muted" style="font-size:0.75rem;">Completed${t.completedBy ? ` by ${this.escapeHtml(t.completedBy)}` : ""}${t.completedAt ? ` on ${this.formatDate(t.completedAt)}` : ""}</div>` : ""}
+                <span class="${todo.completed ? "text-decoration-line-through text-muted" : ""}">${this.escapeHtml(todo.text)}</span>
+                ${todo.completed && (todo.completedBy || todo.completedAt) ? `<div class="text-muted" style="font-size:0.75rem;">${t("detail.completed")}${todo.completedBy ? t("detail.completedBy", { name: todo.completedBy }) : ""}${todo.completedAt ? t("detail.completedOn", { date: this.formatDate(todo.completedAt) }) : ""}</div>` : ""}
               </div>
             </li>`)
           .join("")}</ul>`
-      : '<div class="text-muted small">No tasks</div>';
+      : `<div class="text-muted small">${t("detail.noTasks")}</div>`;
 
     return `
       <div class="p-4">
         <div class="d-flex gap-1 align-items-center mb-3 flex-wrap">
-          ${isMainTenant ? '<span class="badge bg-primary">Main Tenant</span>' : ""}
-          ${isOutdated ? '<span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>Moved Out</span>' : ""}
+          ${isMainTenant ? `<span class="badge bg-primary">${t("detail.mainTenant")}</span>` : ""}
+          ${isOutdated ? `<span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>${t("row.movedOut")}</span>` : ""}
           ${this.getRegistrationStatusBadge(registrationStatus)}
-          ${tenant.cleaningFee === 0 ? '<span class="badge bg-warning text-dark"><i class="bi bi-brush me-1"></i>Subsidized Cleaning</span>' : ""}
-          ${tenant.isUtilitySubsidized ? '<span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>Utility Subsidized</span>' : ""}
-          ${tenant.isHouseCleaner ? '<span class="badge bg-info"><i class="bi bi-brush me-1"></i>House Cleaner</span>' : ""}
-          ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${tenant.properties.length} properties</span>` : ""}
+          ${tenant.cleaningFee === 0 ? `<span class="badge bg-warning text-dark"><i class="bi bi-brush me-1"></i>${t("detail.subsidizedCleaning")}</span>` : ""}
+          ${tenant.isUtilitySubsidized ? `<span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge me-1"></i>${t("detail.utilitySubsidized")}</span>` : ""}
+          ${tenant.isHouseCleaner ? `<span class="badge bg-info"><i class="bi bi-brush me-1"></i>${t("detail.houseCleaner")}</span>` : ""}
+          ${tenant.properties && tenant.properties.length > 1 ? `<span class="badge bg-info">${t("detail.propertyCount", { count: tenant.properties.length })}</span>` : ""}
           ${renderTenantSocialBadges(tenant)}
-          ${roommate ? `<button type="button" class="badge bg-light text-dark border" style="cursor:pointer;" onclick="event.stopPropagation();tenantManager.selectTenantForDetail('${roommate._id}')" title="View roommate"><i class="bi bi-arrow-left-right me-1"></i>Roommate: ${this.escapeHtml(roommate.name)}</button>` : ""}
+          ${roommate ? `<button type="button" class="badge bg-light text-dark border" style="cursor:pointer;" onclick="event.stopPropagation();tenantManager.selectTenantForDetail('${roommate._id}')" title="${t("detail.viewRoommate")}"><i class="bi bi-arrow-left-right me-1"></i>${t("detail.roommateBadge", { name: roommate.name })}</button>` : ""}
         </div>
 
-        ${section("bi-person-lines-fill", "Contact", `
+        ${section("bi-person-lines-fill", t("detail.contact"), `
           <div class="tm-detail-grid">
-            ${field("Phone", tenant.phoneNumber ? this.escapeHtml(tenant.phoneNumber) : null)}
-            ${field("Email", tenant.email ? this.escapeHtml(tenant.email) : null)}
-            ${field("Nickname", tenant.nickname ? this.escapeHtml(tenant.nickname) : null)}
-            ${field("Facebook", tenant.facebookUrl ? `<span class="text-break">${this.escapeHtml(tenant.facebookUrl)}</span>` : null, tenant.facebookUrl)}
+            ${field(t("detail.phone"), tenant.phoneNumber ? this.escapeHtml(tenant.phoneNumber) : null)}
+            ${field(t("detail.email"), tenant.email ? this.escapeHtml(tenant.email) : null)}
+            ${field(t("detail.nickname"), tenant.nickname ? this.escapeHtml(tenant.nickname) : null)}
+            ${field(t("detail.facebook"), tenant.facebookUrl ? `<span class="text-break">${this.escapeHtml(tenant.facebookUrl)}</span>` : null, tenant.facebookUrl)}
           </div>`)}
 
-        ${section("bi-images", "Documents", `
+        ${section("bi-images", t("detail.documents"), `
           <div class="d-flex gap-2 tenant-doc-thumbs" style="max-width: 260px;">
-            ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", "Passport")}
-            ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", "Pass")}
+            ${this.renderDocThumb(tenant.passportPics, "passport", "bi-passport", t("row.passport"))}
+            ${this.renderDocThumb(tenant.visaPics, "visa", "bi-credit-card", t("row.pass"))}
           </div>`)}
 
-        ${section("bi-person-vcard", "Identity", `
+        ${section("bi-person-vcard", t("detail.identity"), `
           <div class="tm-detail-grid">
-            ${field("FIN", tenant.fin ? this.escapeHtml(tenant.fin) : null)}
-            ${field("Passport", tenant.passportNumber ? this.escapeHtml(tenant.passportNumber) : null)}
-            ${field("DOB", tenant.dateOfBirth ? `${this.formatDate(tenant.dateOfBirth)}${age !== null ? ` <small class="text-muted">(${age} y/o)</small>` : ""}` : null, this.formatDate(tenant.dateOfBirth))}
-            ${field("Gender", tenant.gender ? this.escapeHtml(tenant.gender.charAt(0).toUpperCase() + tenant.gender.slice(1)) : null)}
-            ${field("Pass Type", tenant.passType ? this.escapeHtml(tenant.passType) : null)}
-            ${field("Pass Issue Date", tenant.passIssueDate ? this.formatDate(tenant.passIssueDate) : null)}
-            ${field("Visa Issue Date", tenant.visaIssueDate ? this.formatDate(tenant.visaIssueDate) : null)}
-            ${field("Industry", tenant.industry ? this.escapeHtml(tenant.industry) : null)}
-            ${field("University", tenant.university ? this.escapeHtml(tenant.university) : null)}
+            ${field(t("detail.fin"), tenant.fin ? this.escapeHtml(tenant.fin) : null)}
+            ${field(t("detail.passport"), tenant.passportNumber ? this.escapeHtml(tenant.passportNumber) : null)}
+            ${field(t("detail.dob"), tenant.dateOfBirth ? `${this.formatDate(tenant.dateOfBirth)}${age !== null ? ` <small class="text-muted">${t("detail.age", { age })}</small>` : ""}` : null, this.formatDate(tenant.dateOfBirth))}
+            ${field(t("detail.gender"), tenant.gender ? this.escapeHtml(this.genderLabel(tenant.gender)) : null)}
+            ${field(t("detail.passType"), tenant.passType ? this.escapeHtml(tenant.passType) : null)}
+            ${field(t("detail.passIssueDate"), tenant.passIssueDate ? this.formatDate(tenant.passIssueDate) : null)}
+            ${field(t("detail.visaIssueDate"), tenant.visaIssueDate ? this.formatDate(tenant.visaIssueDate) : null)}
+            ${field(t("detail.industry"), tenant.industry ? this.escapeHtml(tenant.industry) : null)}
+            ${field(t("detail.university"), tenant.university ? this.escapeHtml(tenant.university) : null)}
           </div>`)}
 
-        ${section("bi-door-open", "Tenancy", `
+        ${section("bi-door-open", t("detail.tenancy"), `
           <div class="tm-detail-grid">
-            ${field("Room", this.escapeHtml(roomInfo))}
-            ${field("Rent", money(rentAmount) || rentAmount, typeof rentAmount === "number" ? rentAmount : undefined)}
-            ${field("Move-in", moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
-            ${field("Move-out", moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
-            ${field("Aircon", currentProp && typeof currentProp === "object" ? (currentProp.noAircon ? "No aircon" : "Yes") : null)}
-            ${field("Main Tenant", yesNo(isMainTenant))}
-            ${field("Roommate", roommateName ? this.escapeHtml(roommateName) : null)}
-            ${field("House Cleaner", yesNo(tenant.isHouseCleaner))}
+            ${field(t("detail.room"), this.escapeHtml(roomInfo))}
+            ${field(t("detail.rent"), money(rentAmount) || rentAmount, typeof rentAmount === "number" ? rentAmount : undefined)}
+            ${field(t("detail.moveIn"), moveInDate !== "N/A" ? this.escapeHtml(moveInDate) : null)}
+            ${field(t("detail.moveOut"), moveOutDate !== "N/A" ? this.escapeHtml(moveOutDate) : null)}
+            ${field(t("detail.aircon"), currentProp && typeof currentProp === "object" ? (currentProp.noAircon ? t("detail.noAircon") : tc("yes")) : null)}
+            ${field(t("detail.mainTenant"), yesNo(isMainTenant))}
+            ${field(t("detail.roommate"), roommateName ? this.escapeHtml(roommateName) : null)}
+            ${field(t("detail.houseCleaner"), yesNo(tenant.isHouseCleaner))}
           </div>`)}
 
-        ${section("bi-cash-coin", "Financial", `
+        ${section("bi-cash-coin", t("detail.financial"), `
           <div class="tm-detail-grid mb-2">
-            ${field("Deposit", money(tenant.deposit), tenant.deposit)}
-            ${field("Deposit Receiver", depositReceiverDisplay, tenant.depositReceiver)}
-            ${field("Cleaning Fee", money(tenant.cleaningFee), tenant.cleaningFee)}
-            ${field("Utility Subsidized", yesNo(tenant.isUtilitySubsidized))}
+            ${field(t("detail.deposit"), money(tenant.deposit), tenant.deposit)}
+            ${field(t("detail.depositReceiver"), depositReceiverDisplay, tenant.depositReceiver)}
+            ${field(t("detail.cleaningFee"), money(tenant.cleaningFee), tenant.cleaningFee)}
+            ${field(t("detail.utilitySubsidized"), yesNo(tenant.isUtilitySubsidized))}
           </div>
-          <div class="tm-detail-label">Utilities used</div>
+          <div class="tm-detail-label">${t("detail.utilitiesUsed")}</div>
           <div class="d-flex gap-1 flex-wrap">${utilities}</div>`)}
 
-        ${section("bi-building", `Properties &amp; Room History (${(tenant.properties || []).length})`,
-          propertiesHtml || '<div class="text-muted small">Not assigned to any property</div>')}
+        ${section("bi-building", t("detail.propertiesHistory", { count: (tenant.properties || []).length }),
+          propertiesHtml || `<div class="text-muted small">${t("detail.notAssigned")}</div>`)}
 
-        ${section("bi-list-task", `Tasks (${todos.filter((t) => !t.completed).length} pending / ${todos.length})`, todosHtml)}
+        ${section("bi-list-task", t("detail.tasks", { pending: todos.filter((todo) => !todo.completed).length, total: todos.length }), todosHtml)}
 
-        ${section("bi-sticky", "Notes",
+        ${section("bi-sticky", t("detail.notes"),
           tenant.notes && tenant.notes.trim()
             ? `<div class="text-muted" style="white-space: pre-wrap; font-size:0.9em;">${this.escapeHtml(tenant.notes.trim())}</div>`
-            : '<div class="text-muted small">No notes</div>')}
+            : `<div class="text-muted small">${t("detail.noNotes")}</div>`)}
 
         ${isMainTenant || tenant.signature
-          ? section("bi-pen", "Signature",
+          ? section("bi-pen", t("detail.signature"),
             tenant.signature
-              ? `<img src="${this.normalizeImageUrl(tenant.signature)}" alt="Signature" class="tm-detail-signature" loading="lazy" onclick="event.stopPropagation();window.open(this.src, '_blank')">`
-              : '<div class="text-muted small">No signature</div>')
+              ? `<img src="${this.normalizeImageUrl(tenant.signature)}" alt="${t("detail.signature")}" class="tm-detail-signature" loading="lazy" onclick="event.stopPropagation();window.open(this.src, '_blank')">`
+              : `<div class="text-muted small">${t("detail.noSignature")}</div>`)
           : ""}
 
         <div class="text-muted pt-2 border-top" style="font-size:0.75rem;">
-          ${tenant.createdAt ? `Created ${this.formatDate(tenant.createdAt)}` : ""}${tenant.updatedAt ? ` · Updated ${this.formatDate(tenant.updatedAt)}` : ""}
+          ${tenant.createdAt ? t("detail.created", { date: this.formatDate(tenant.createdAt) }) : ""}${tenant.updatedAt ? t("detail.updated", { date: this.formatDate(tenant.updatedAt) }) : ""}
         </div>
       </div>`;
   }
@@ -1167,14 +1203,14 @@ class TenantManagementComponent {
 
     if (!tenant) {
       if (headerContent) {
-        headerContent.innerHTML = `<i class="bi bi-people"></i><h5 class="mb-0 fw-bold text-truncate">Tenants</h5>`;
+        headerContent.innerHTML = `<i class="bi bi-people"></i><h5 class="mb-0 fw-bold text-truncate">${t("page.listTitle")}</h5>`;
       }
       if (headerActions) headerActions.innerHTML = "";
       if (footer) footer.innerHTML = "";
       body.innerHTML = `
         <div class="text-center text-muted py-5">
           <i class="bi bi-person-lines-fill fs-1 d-block mb-3"></i>
-          <p class="fs-5">No tenants found</p>
+          <p class="fs-5">${t("list.noTenants")}</p>
         </div>`;
       return;
     }
@@ -1189,16 +1225,16 @@ class TenantManagementComponent {
     }
     if (headerActions) {
       headerActions.innerHTML = `
-        <button type="button" class="btn btn-sm btn-light" title="Edit tenant" onclick="tenantManager.editTenant('${tenant._id}')"><i class="bi bi-pencil"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Copy tenant details" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
-        <button type="button" class="btn btn-sm btn-outline-light" title="Delete tenant" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>`;
+        <button type="button" class="btn btn-sm btn-light" title="${t("detail.editTenant")}" onclick="tenantManager.editTenant('${tenant._id}')"><i class="bi bi-pencil"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="${t("detail.copyDetails")}" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-light" title="${t("detail.deleteTenant")}" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>`;
     }
     // Phone bottom bar (hidden on desktop): same actions, within thumb reach.
     if (footer) {
       footer.innerHTML = `
-        <button type="button" class="btn btn-light border tm-footer-icon" title="Copy tenant details" aria-label="Copy tenant details" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
-        <button type="button" class="btn btn-light border text-danger tm-footer-icon" title="Delete tenant" aria-label="Delete tenant" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>
-        <button type="button" class="btn btn-primary tm-footer-main" onclick="tenantManager.editTenant('${tenant._id}')"><i class="bi bi-pencil-square me-1"></i>Edit tenant</button>`;
+        <button type="button" class="btn btn-light border tm-footer-icon" title="${t("detail.copyDetails")}" aria-label="${t("detail.copyDetails")}" onclick="tenantManager.copyTenantDetails('${tenant._id}', this)"><i class="bi bi-clipboard"></i></button>
+        <button type="button" class="btn btn-light border text-danger tm-footer-icon" title="${t("detail.deleteTenant")}" aria-label="${t("detail.deleteTenant")}" onclick="tenantManager.deleteTenant('${tenant._id}')"><i class="bi bi-trash"></i></button>
+        <button type="button" class="btn btn-primary tm-footer-main" onclick="tenantManager.editTenant('${tenant._id}')"><i class="bi bi-pencil-square me-1"></i>${t("detail.editTenant")}</button>`;
     }
 
     // A different tenant starts at the top on phones (desktop keeps its scroll).
@@ -1317,7 +1353,7 @@ class TenantManagementComponent {
 
   // Back gesture while the add/edit modal is open on a phone.
   handleTenantModalBack() {
-    if (this.hasUnsavedTenantChanges() && !confirm("Discard your unsaved changes to this tenant?")) {
+    if (this.hasUnsavedTenantChanges() && !confirm(tText("msg.discardChanges"))) {
       return false;
     }
     window.bootstrap?.Modal.getInstance(document.getElementById("tenantModal"))?.hide();
@@ -1365,8 +1401,8 @@ class TenantManagementComponent {
     if (btn) {
       btn.setAttribute("aria-expanded", String(expanded));
       btn.innerHTML = expanded
-        ? '<i class="bi bi-chevron-up me-1"></i><span>Show less</span>'
-        : '<i class="bi bi-grid-3x3-gap me-1"></i><span>See all</span>';
+        ? `<i class="bi bi-chevron-up me-1"></i><span data-i18n="tenants.page.showLess">${t("page.showLess")}</span>`
+        : `<i class="bi bi-grid-3x3-gap me-1"></i><span data-i18n="tenants.page.seeAll">${t("page.seeAll")}</span>`;
     }
     if (!expanded) this.scrollSelectedPropertyCardIntoView();
   }
@@ -1408,19 +1444,19 @@ class TenantManagementComponent {
     const exportButtons = ["generateTenantPdfBtn", "generateTenantPdfNoBriefingBtn", "generateTenantZipBtn"]
       .map((id) => document.getElementById(id))
       .filter(isShown)
-      .map((el) => ({ icon: iconOf(el), label: labelOf(el), hint: "Selected tenants", onClick: () => el.click() }));
+      .map((el) => ({ icon: iconOf(el), label: labelOf(el), hint: tText("menu.selectedTenantsHint"), onClick: () => el.click() }));
 
     const actions = [];
     if (exportButtons.length) {
       actions.push(...exportButtons);
       if (this.selectedTenantIds.size) {
-        actions.push({ icon: "bi-x-circle", label: "Clear selection", onClick: () => this.clearTenantSelection() });
+        actions.push({ icon: "bi-x-circle", label: tText("page.clearSelection"), onClick: () => this.clearTenantSelection() });
       }
       actions.push("divider");
     }
     actions.push(...fromMenu("tenantCopyDropdownButton"), "divider", ...fromMenu("tenantExcelDropdownButton"));
 
-    openActionSheet({ title: "Tenants", actions });
+    openActionSheet({ title: tText("page.listTitle"), actions });
   }
 
   renderDocThumb(pics, type, icon, label, size) {
@@ -1431,7 +1467,7 @@ class TenantManagementComponent {
 
     return `
                 <div class="tenant-doc-thumb${sizeClass}${hasPics ? "" : " tenant-doc-thumb-empty"}"
-                    title="${hasPics ? `${label}: ${count} image${count > 1 ? "s" : ""} uploaded (click to view)` : `${label}: not uploaded yet`}"
+                    title="${hasPics ? t("row.docUploaded", { label, count }) : t("row.docNotUploaded", { label })}"
                     ${hasPics ? `onclick="event.stopPropagation();window.open('${url}', '_blank')"` : ""}>
                     ${hasPics
         ? `<img src="${url}" alt="${label}" loading="lazy" onerror="this.closest('.tenant-doc-thumb').classList.add('tenant-doc-thumb-broken')">`
@@ -2056,7 +2092,7 @@ class TenantManagementComponent {
     }).length;
 
     // Update badge text
-    badge.textContent = `${registeredCount} registered`;
+    badge.textContent = tText("page.registeredCount", { count: registeredCount });
 
     // Total + active (not past their move-out date) tenant counts
     const totalCount = this.tenants.length;
@@ -2065,10 +2101,10 @@ class TenantManagementComponent {
     ).length;
 
     const totalBadge = document.getElementById("totalTenantsBadge");
-    if (totalBadge) totalBadge.textContent = `${totalCount} total`;
+    if (totalBadge) totalBadge.textContent = tText("page.totalCount", { count: totalCount });
 
     const activeBadge = document.getElementById("activeTenantsBadge");
-    if (activeBadge) activeBadge.textContent = `${activeCount} active`;
+    if (activeBadge) activeBadge.textContent = tText("page.activeCount", { count: activeCount });
 
     // Show/hide PDF + ZIP buttons: only when a real property is selected and eligible tenants exist
     const eligibleCount = this.tenants.filter((t) => {
@@ -2080,17 +2116,17 @@ class TenantManagementComponent {
     const pdfBtn = document.getElementById("generateTenantPdfBtn");
     if (pdfBtn) {
       pdfBtn.style.display = showDocBtns ? "inline-flex" : "none";
-      if (showDocBtns) pdfBtn.title = `Generate PDF for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+      if (showDocBtns) pdfBtn.title = tText("menu.pdfEligibleTitle", { count: eligibleCount });
     }
     const pdfNoBriefingBtn = document.getElementById("generateTenantPdfNoBriefingBtn");
     if (pdfNoBriefingBtn) {
       pdfNoBriefingBtn.style.display = showDocBtns ? "inline-flex" : "none";
-      if (showDocBtns) pdfNoBriefingBtn.title = `Generate PDF (no briefing page) for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+      if (showDocBtns) pdfNoBriefingBtn.title = tText("menu.pdfNoCoverEligibleTitle", { count: eligibleCount });
     }
     const zipBtn = document.getElementById("generateTenantZipBtn");
     if (zipBtn) {
       zipBtn.style.display = showDocBtns ? "inline-flex" : "none";
-      if (showDocBtns) zipBtn.title = `Download image ZIP for ${eligibleCount} registered/pending tenant${eligibleCount !== 1 ? "s" : ""}`;
+      if (showDocBtns) zipBtn.title = tText("menu.zipEligibleTitle", { count: eligibleCount });
     }
 
     const fbBadgesEl = document.getElementById("tenantFbGroupBadges");
@@ -2103,8 +2139,8 @@ class TenantManagementComponent {
       const adminFacebookGroup = selectedPropertyData?.adminFacebookGroup;
       const tenantGroupMeta = getGroupLinkMeta(tenantFacebookGroup);
       fbBadgesEl.innerHTML = `
-        ${tenantFacebookGroup ? `<a href="${this.escapeHtml(tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(tenantFacebookGroup)}" class="badge text-decoration-none" style="background-color:${tenantGroupMeta.color};color:#fff;" title="Tenant ${tenantGroupMeta.brand} Group"><i class="bi ${tenantGroupMeta.icon} me-1"></i>Tenant Group</a>` : ""}
-        ${adminFacebookGroup ? `<a href="${this.escapeHtml(adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="Admin Facebook Group"><i class="bi bi-facebook me-1"></i>Admin Group</a>` : ""}
+        ${tenantFacebookGroup ? `<a href="${this.escapeHtml(tenantFacebookGroup)}" onclick="event.preventDefault(); openTenantFbGroup(this);" data-fb-url="${this.escapeHtml(tenantFacebookGroup)}" class="badge text-decoration-none" style="background-color:${tenantGroupMeta.color};color:#fff;" title="${t("groups.tenantGroupTitle", { brand: tenantGroupMeta.brand })}"><i class="bi ${tenantGroupMeta.icon} me-1"></i>${t("groups.tenantGroup")}</a>` : ""}
+        ${adminFacebookGroup ? `<a href="${this.escapeHtml(adminFacebookGroup)}" target="_blank" rel="noopener noreferrer" class="badge bg-dark text-decoration-none" title="${t("groups.adminGroupTitle")}"><i class="bi bi-facebook me-1"></i>${t("groups.adminGroup")}</a>` : ""}
       `;
     }
 
@@ -2155,42 +2191,38 @@ class TenantManagementComponent {
     const bar = document.getElementById("tenantSelectionBar");
     if (bar) bar.style.display = count > 0 ? "inline-flex" : "none";
     const countEl = document.getElementById("tenantSelectionCount");
-    if (countEl) countEl.textContent = `${count} selected`;
+    if (countEl) countEl.textContent = tText("page.selectedCount", { count });
+
+    const suffix = count > 0 ? ` (${count})` : "";
 
     const pdfBtn = document.getElementById("generateTenantPdfBtn");
     if (pdfBtn && pdfBtn.style.display !== "none") {
-      pdfBtn.innerHTML = count > 0
-        ? `<i class="bi bi-file-earmark-pdf me-1"></i> PDF (${count})`
-        : `<i class="bi bi-file-earmark-pdf me-1"></i> PDF`;
+      pdfBtn.innerHTML = `<i class="bi bi-file-earmark-pdf me-1"></i> ${t("menu.pdf")}${suffix}`;
       pdfBtn.title = count > 0
-        ? `Generate PDF for ${count} selected tenant${count !== 1 ? "s" : ""}`
-        : "Generate PDF tenant list (registered & pending only) for landlord submission";
+        ? tText("menu.pdfSelectedTitle", { count })
+        : tText("menu.pdfAllTitle");
     }
 
     const pdfNoBriefingBtn = document.getElementById("generateTenantPdfNoBriefingBtn");
     if (pdfNoBriefingBtn && pdfNoBriefingBtn.style.display !== "none") {
-      pdfNoBriefingBtn.innerHTML = count > 0
-        ? `<i class="bi bi-file-earmark-pdf me-1"></i> PDF no cover (${count})`
-        : `<i class="bi bi-file-earmark-pdf me-1"></i> PDF no cover`;
+      pdfNoBriefingBtn.innerHTML = `<i class="bi bi-file-earmark-pdf me-1"></i> ${t("menu.pdfNoCover")}${suffix}`;
       pdfNoBriefingBtn.title = count > 0
-        ? `Generate PDF (no briefing page) for ${count} selected tenant${count !== 1 ? "s" : ""}`
-        : "Generate PDF tenant list without the briefing page (registered & pending only)";
+        ? tText("menu.pdfNoCoverSelectedTitle", { count })
+        : tText("menu.pdfNoCoverAllTitle");
     }
 
     const zipBtn = document.getElementById("generateTenantZipBtn");
     if (zipBtn && zipBtn.style.display !== "none") {
-      zipBtn.innerHTML = count > 0
-        ? `<i class="bi bi-file-earmark-zip me-1"></i> ZIP (${count})`
-        : `<i class="bi bi-file-earmark-zip me-1"></i> ZIP`;
+      zipBtn.innerHTML = `<i class="bi bi-file-earmark-zip me-1"></i> ${t("menu.zip")}${suffix}`;
       zipBtn.title = count > 0
-        ? `Download image ZIP for ${count} selected tenant${count !== 1 ? "s" : ""}`
-        : "Download all tenant document images as a ZIP (registered & pending only)";
+        ? tText("menu.zipSelectedTitle", { count })
+        : tText("menu.zipAllTitle");
     }
   }
 
   async generateTenantListZIP() {
     if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
-      alert("Please select a property first.");
+      alert(tText("msg.selectPropertyFirst"));
       return;
     }
 
@@ -2198,7 +2230,7 @@ class TenantManagementComponent {
     const originalHtml = btn ? btn.innerHTML : "";
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> ${t("menu.generating")}`;
     }
 
     const selectedTenantIds = Array.from(this.selectedTenantIds);
@@ -2238,7 +2270,7 @@ class TenantManagementComponent {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("ZIP generation error:", err);
-      alert(`Failed to generate ZIP: ${err.message}`);
+      alert(tText("msg.zipFailed", { error: err.message }));
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -2304,7 +2336,7 @@ class TenantManagementComponent {
     document.head.appendChild(style);
   }
 
-  showPdfExportOverlay(message = "Generating PDF…") {
+  showPdfExportOverlay(message = tText("menu.generatingPdf")) {
     this.addPdfExportOverlayStyles();
     let overlay = document.getElementById("pdfExportOverlay");
     if (!overlay) {
@@ -2315,7 +2347,7 @@ class TenantManagementComponent {
         <div class="pdf-export-overlay-card">
           <div class="spinner-border" role="status"></div>
           <div class="pdf-export-overlay-title" data-role="pdf-export-title"></div>
-          <div class="pdf-export-overlay-sub">Please wait, this can take a moment for many tenants…</div>
+          <div class="pdf-export-overlay-sub" data-i18n="tenants.menu.pleaseWait">${t("menu.pleaseWait")}</div>
         </div>
       `;
       document.body.appendChild(overlay);
@@ -2332,7 +2364,7 @@ class TenantManagementComponent {
 
   async generateTenantListPDF() {
     if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
-      alert("Please select a property first.");
+      alert(tText("msg.selectPropertyFirst"));
       return;
     }
 
@@ -2363,9 +2395,9 @@ class TenantManagementComponent {
     const originalHtml = btn ? btn.innerHTML : "";
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> ${t("menu.generating")}`;
     }
-    this.showPdfExportOverlay("Generating PDF…");
+    this.showPdfExportOverlay(tText("menu.generatingPdf"));
 
     const selectedTenantIds = Array.from(this.selectedTenantIds);
 
@@ -2406,7 +2438,7 @@ class TenantManagementComponent {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("PDF generation error:", err);
-      alert(`Failed to generate PDF: ${err.message}`);
+      alert(tText("msg.pdfFailed", { error: err.message }));
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -2420,7 +2452,7 @@ class TenantManagementComponent {
   // briefing/summary page — everything else (header, sorting, selection) is identical.
   async generateTenantListPDFNoBriefing() {
     if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
-      alert("Please select a property first.");
+      alert(tText("msg.selectPropertyFirst"));
       return;
     }
 
@@ -2451,9 +2483,9 @@ class TenantManagementComponent {
     const originalHtml = btn ? btn.innerHTML : "";
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> ${t("menu.generating")}`;
     }
-    this.showPdfExportOverlay("Generating PDF…");
+    this.showPdfExportOverlay(tText("menu.generatingPdf"));
 
     const selectedTenantIds = Array.from(this.selectedTenantIds);
 
@@ -2495,7 +2527,7 @@ class TenantManagementComponent {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("PDF generation error:", err);
-      alert(`Failed to generate PDF: ${err.message}`);
+      alert(tText("msg.pdfFailed", { error: err.message }));
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -2505,14 +2537,17 @@ class TenantManagementComponent {
     }
   }
 
-  showEmptyState(message = "No tenants found") {
+  // `key` is a tenants.* translation key; kept so a language switch can
+  // redraw the same message.
+  showEmptyState(key = "list.noTenants", options = undefined) {
     const container = document.getElementById("tenantsContainer");
     if (!container) return;
+    this._listState = { type: "message", key, options };
 
     container.innerHTML = `
             <div class="text-center text-muted py-5">
                 <i class="bi bi-people fs-1 d-block mb-3"></i>
-                <p class="fs-5">${message}</p>
+                <p class="fs-5">${t(key, options)}</p>
             </div>
         `;
     this.showTenantDetailPanel(null);
@@ -2536,6 +2571,7 @@ class TenantManagementComponent {
     if (!searchTerm.trim()) {
       this._globalSearchActive = false;
       this._hideSearchBanner();
+      this._searchBanner = null;
       // Revert to property view
       if (!this.selectedProperty) return;
       if (this.selectedProperty === "UNASSIGNED") {
@@ -2550,10 +2586,11 @@ class TenantManagementComponent {
     this._globalSearchActive = true;
     const container = document.getElementById("tenantsContainer");
     if (container) {
+      this._listState = { type: "loading" };
       container.innerHTML = `
         <div class="d-flex align-items-center justify-content-center py-5 gap-2 text-muted">
           <span class="spinner-border spinner-border-sm"></span>
-          <span>Searching all tenants…</span>
+          <span data-i18n="tenants.list.searching">${t("list.searching")}</span>
         </div>`;
     }
 
@@ -2566,7 +2603,7 @@ class TenantManagementComponent {
       this._showSearchBanner(searchTerm.trim(), found.length);
 
       if (found.length === 0) {
-        this.showEmptyState(`No tenants match "${searchTerm}"`);
+        this.showEmptyState("list.noMatch", { term: searchTerm });
         return;
       }
 
@@ -2580,11 +2617,15 @@ class TenantManagementComponent {
       await this.renderTenantsTable();
     } catch (err) {
       console.error("Global tenant search error:", err);
-      if (container) container.innerHTML = `<div class="text-center text-danger py-4">Search failed. Please try again.</div>`;
+      if (container) {
+        this._listState = null;
+        container.innerHTML = `<div class="text-center text-danger py-4" data-i18n="tenants.list.searchFailed">${t("list.searchFailed")}</div>`;
+      }
     }
   }
 
   _showSearchBanner(term, count) {
+    this._searchBanner = { term, count };
     let banner = document.getElementById("tenantSearchBanner");
     if (!banner) {
       banner = document.createElement("div");
@@ -2596,10 +2637,10 @@ class TenantManagementComponent {
     banner.innerHTML = `
       <div class="alert alert-info py-2 px-3 mb-2 d-flex align-items-center gap-2" style="font-size:13px;">
         <i class="bi bi-search"></i>
-        <span>Showing <strong>${count}</strong> result${count !== 1 ? "s" : ""} across all properties for <strong>"${escapeHtml(term)}"</strong></span>
+        <span>${t("list.searchBanner", { count, term })}</span>
         <button class="btn btn-sm btn-outline-secondary ms-auto py-0 px-2" style="font-size:11px;"
           onclick="document.getElementById('tenantSearchInput').value='';window.tenantManager?.filterTenants('')">
-          Clear search
+          ${t("page.clearSearch")}
         </button>
       </div>`;
   }
@@ -2611,7 +2652,7 @@ class TenantManagementComponent {
   showAddTenantModal() {
     // Check if a property is selected
     if (!this.selectedProperty || this.selectedProperty === "UNASSIGNED") {
-      alert("Please select a property first before adding a tenant");
+      alert(tText("msg.selectPropertyBeforeAdding"));
       return;
     }
     this.showTenantModal();
@@ -2621,12 +2662,12 @@ class TenantManagementComponent {
     // Update modal title and button text
     const isEdit = !!tenant;
     document.getElementById("tenantModalTitle").textContent = isEdit
-      ? "Edit Tenant"
-      : "Add New Tenant";
+      ? tText("form.editTitle")
+      : tText("form.addTitle");
     const submitBtn = document.getElementById("tenantSubmitBtn");
     submitBtn.innerHTML = isEdit
-      ? '<i class="bi bi-person-check me-1"></i><span id="tenantSubmitText">Update Tenant</span>'
-      : '<i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">Add Tenant</span>';
+      ? `<i class="bi bi-person-check me-1"></i><span id="tenantSubmitText">${t("form.updateSubmit")}</span>`
+      : `<i class="bi bi-person-plus me-1"></i><span id="tenantSubmitText">${t("form.addSubmit")}</span>`;
 
     // Reset and populate form
     const form = document.getElementById("tenantForm");
@@ -3079,13 +3120,12 @@ class TenantManagementComponent {
     if (!dropdown) return;
 
     // Clear existing options except the first one
-    dropdown.innerHTML =
-      '<option value="">Select investor who receives deposit...</option>';
+    dropdown.innerHTML = `<option value="">${t("form.depositReceiverPlaceholder")}</option>`;
 
     if (investors.length === 0) {
       const option = document.createElement("option");
       option.value = "";
-      option.textContent = "No investors available";
+      option.textContent = tText("form.noInvestors");
       option.disabled = true;
       dropdown.appendChild(option);
       return;
@@ -3147,13 +3187,12 @@ class TenantManagementComponent {
     if (!dropdown) return;
 
     // Clear existing options
-    dropdown.innerHTML =
-      '<option value="">No roommate (lives alone in room)</option>';
+    dropdown.innerHTML = `<option value="">${t("form.noRoommate")}</option>`;
 
     if (tenants.length === 0) {
       const option = document.createElement("option");
       option.value = "";
-      option.textContent = "Assign properties first to see potential roommates";
+      option.textContent = tText("form.assignPropertiesFirst");
       option.disabled = true;
       dropdown.appendChild(option);
       return;
@@ -3162,8 +3201,8 @@ class TenantManagementComponent {
     tenants.forEach((tenant) => {
       const option = document.createElement("option");
       option.value = tenant._id;
-      const tenantName = tenant.name || "Unnamed Tenant";
-      const tenantRoom = tenant.properties?.[0]?.room || "No room";
+      const tenantName = tenant.name || tText("form.unnamedTenant");
+      const tenantRoom = tenant.properties?.[0]?.room || tText("list.noRoom");
       option.textContent = `${tenantName} (${tenantRoom})`;
       dropdown.appendChild(option);
     });
@@ -3192,7 +3231,7 @@ class TenantManagementComponent {
   }
 
   removePropertyFromTenant(propertyId) {
-    if (!confirm('Remove this property assignment from the tenant?')) return;
+    if (!confirm(tText("msg.removePropertyConfirm"))) return;
     this.selectedProperties = this.selectedProperties.filter(id => id !== propertyId);
     this.selectedPropertiesDetails = this.selectedPropertiesDetails.filter(p => p.propertyId !== propertyId);
     this.updateSelectedPropertiesList();
@@ -3213,8 +3252,7 @@ class TenantManagementComponent {
     }
 
     if (this.selectedProperties.length === 0) {
-      listContainer.innerHTML =
-        '<div class="text-muted">No property assigned. Please select a property first.</div>';
+      listContainer.innerHTML = `<div class="text-muted">${t("form.noPropertySelectFirst")}</div>`;
       hiddenInput.value = "";
     } else {
       let html = "";
@@ -3261,26 +3299,26 @@ class TenantManagementComponent {
               <div class="card-body p-2">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <small class="text-muted">
-                    ${isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Historical</span>'}
+                    ${isActive ? `<span class="badge bg-success">${t("form.active")}</span>` : `<span class="badge bg-secondary">${t("form.historical")}</span>`}
                   </small>
                   ${canDelete ? `
                     <button type="button" class="btn btn-sm btn-link text-danger p-0"
                             onclick="tenantManager.removeRoomAssignment('${propertyId}', '${ra.id}')"
-                            title="Remove this room assignment">
+                            title="${t("form.removeRoomAssignment")}">
                       <i class="bi bi-trash"></i>
                     </button>
                   ` : ''}
                 </div>
                 <div class="row g-2">
                   <div class="col-6 col-md-3">
-                    <label class="form-label small mb-1">Room</label>
+                    <label class="form-label small mb-1">${t("form.room")}</label>
                     <select class="form-select form-select-sm"
                             onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'room', this.value)">
                       ${getRoomTypeOptions(ra.room)}
                     </select>
                   </div>
                   <div class="col-6 col-md-2">
-                    <label class="form-label small mb-1">Rent</label>
+                    <label class="form-label small mb-1">${t("form.rent")}</label>
                     <div class="input-group input-group-sm">
                       <span class="input-group-text">$</span>
                       <input type="number" class="form-control form-control-sm"
@@ -3291,13 +3329,13 @@ class TenantManagementComponent {
                     </div>
                   </div>
                   <div class="col-6 col-md-3">
-                    <label class="form-label small mb-1">Move-in</label>
+                    <label class="form-label small mb-1">${t("form.moveIn")}</label>
                     <input type="date" class="form-control form-control-sm"
                            value="${ra.moveinDate ? ra.moveinDate.split('T')[0] : ''}"
                            onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'moveinDate', this.value)">
                   </div>
                   <div class="col-6 col-md-4">
-                    <label class="form-label small mb-1">Move-out</label>
+                    <label class="form-label small mb-1">${t("form.moveOut")}</label>
                     <input type="date" class="form-control form-control-sm"
                            value="${ra.moveoutDate ? ra.moveoutDate.split('T')[0] : ''}"
                            onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'moveoutDate', this.value)">
@@ -3309,7 +3347,7 @@ class TenantManagementComponent {
                              ${ra.noAircon ? "checked" : ""}
                              onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'noAircon', this.checked)">
                       <label class="form-check-label small" for="noAircon_${propertyId}_${ra.id}">
-                        <i class="bi bi-wind me-1 text-muted"></i>Without AC (no air-conditioning in this room)
+                        <i class="bi bi-wind me-1 text-muted"></i>${t("form.withoutAc")}
                       </label>
                     </div>
                   </div>
@@ -3328,8 +3366,8 @@ class TenantManagementComponent {
                                 </h6>
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                         onclick="tenantManager.removePropertyFromTenant('${propertyId}')"
-                                        title="Remove property assignment">
-                                    <i class="bi bi-trash"></i> Remove
+                                        title="${t("form.removePropertyAssignment")}">
+                                    <i class="bi bi-trash"></i> ${t("form.remove")}
                                 </button>
                             </div>
 
@@ -3342,7 +3380,7 @@ class TenantManagementComponent {
                                                ${propertyDetails.isMainTenant ? "checked" : ""}
                                                onchange="tenantManager.updatePropertyDetail('${propertyId}', 'isMainTenant', this.checked)">
                                         <label class="form-check-label" for="mainTenant_${propertyId}">
-                                            Main Tenant for this property
+                                            ${t("form.mainTenantForProperty")}
                                         </label>
                                     </div>
                                 </div>
@@ -3351,14 +3389,14 @@ class TenantManagementComponent {
                             <!-- Room Assignments Section -->
                             <div class="room-assignments-section">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label class="form-label small mb-0 fw-bold">Room Assignments</label>
+                                    <label class="form-label small mb-0 fw-bold">${t("form.roomAssignments")}</label>
                                     <button type="button" class="btn btn-sm btn-outline-primary"
                                             onclick="tenantManager.addRoomAssignment('${propertyId}')">
-                                        <i class="bi bi-plus"></i> Add Room
+                                        <i class="bi bi-plus"></i> ${t("form.addRoom")}
                                     </button>
                                 </div>
                                 <div id="roomAssignments_${propertyId}">
-                                    ${roomAssignmentsHtml || '<div class="text-muted small">No room assignments. Click "Add Room" to add one.</div>'}
+                                    ${roomAssignmentsHtml || `<div class="text-muted small">${t("form.noRoomAssignments")}</div>`}
                                 </div>
                             </div>
                         </div>
@@ -3523,7 +3561,7 @@ class TenantManagementComponent {
 
     // Only allow deletion if more than one assignment exists
     if (propertyDetail.roomAssignments.length <= 1) {
-      alert('Cannot delete the only room assignment. Remove the property instead.');
+      alert(tText("msg.cannotDeleteOnlyAssignment"));
       return;
     }
 
@@ -3730,13 +3768,13 @@ class TenantManagementComponent {
 
       // Validate required fields
       if (!tenantData.name) {
-        alert("Please fill in the required field: Name");
+        alert(tText("msg.nameRequired"));
         return;
       }
 
       // Validate property is assigned
       if (!tenantData.properties || tenantData.properties.length === 0) {
-        alert("Please select a property before adding a tenant");
+        alert(tText("msg.propertyRequired"));
         return;
       }
 
@@ -3745,7 +3783,7 @@ class TenantManagementComponent {
         const assignments = prop.roomAssignments || [];
         for (const ra of assignments) {
           if (!ra.moveinDate || ra.moveinDate.trim() === '') {
-            alert(`Please enter a move-in date for all room assignments in property ${prop.propertyId}, or remove incomplete assignments.`);
+            alert(tText("msg.moveInRequired", { property: prop.propertyId }));
             return;
           }
         }
@@ -3753,7 +3791,7 @@ class TenantManagementComponent {
 
       // Validate FIN length if provided
       if (tenantData.fin && tenantData.fin.length > 20) {
-        alert("FIN cannot exceed 20 characters");
+        alert(tText("msg.finTooLong"));
         return;
       }
 
@@ -3763,7 +3801,7 @@ class TenantManagementComponent {
         (tenantData.passportNumber.length < 6 ||
           tenantData.passportNumber.length > 15)
       ) {
-        alert("Passport number must be between 6 and 15 characters");
+        alert(tText("msg.passportLength"));
         return;
       }
 
@@ -3773,7 +3811,7 @@ class TenantManagementComponent {
         (tenantData.phoneNumber.length < 8 ||
           tenantData.phoneNumber.length > 20)
       ) {
-        alert("Phone number must be between 8 and 20 characters");
+        alert(tText("msg.phoneLength"));
         return;
       }
 
@@ -3782,7 +3820,7 @@ class TenantManagementComponent {
         tenantData.email &&
         !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(tenantData.email)
       ) {
-        alert("Please enter a valid email address");
+        alert(tText("msg.invalidEmail"));
         return;
       }
 
@@ -3792,7 +3830,7 @@ class TenantManagementComponent {
         tenantData.moveinDate &&
         new Date(tenantData.moveoutDate) <= new Date(tenantData.moveinDate)
       ) {
-        alert("Move-out date must be after move-in date");
+        alert(tText("msg.moveOutAfterMoveIn"));
         return;
       }
 
@@ -3802,8 +3840,8 @@ class TenantManagementComponent {
       this._tenantSaving = true;
       submitBtn.disabled = true;
       submitBtn.innerHTML = isEdit
-        ? '<i class="bi bi-hourglass-split me-1"></i>Updating Tenant...'
-        : '<i class="bi bi-hourglass-split me-1"></i>Adding Tenant...';
+        ? `<i class="bi bi-hourglass-split me-1"></i>${t("form.updating")}`
+        : `<i class="bi bi-hourglass-split me-1"></i>${t("form.adding")}`;
 
       // A signature drawn on the pad is uploaded now and saved with the
       // tenant. If that fails, stop rather than save without it.
@@ -3817,9 +3855,7 @@ class TenantManagementComponent {
           this.updateSignaturePreview();
         } catch (sigError) {
           console.error("Error uploading drawn signature:", sigError);
-          alert(
-            `Couldn't save the drawn signature (${sigError.message}). The tenant was not saved — please try again.`,
-          );
+          alert(tText("msg.signatureSaveFailed", { error: sigError.message }));
           this._tenantSaving = false;
           submitBtn.disabled = false;
           submitBtn.innerHTML = originalText;
@@ -3860,10 +3896,7 @@ class TenantManagementComponent {
       this._tenantSaving = false;
       console.error("Error in handleTenantSubmit:", error);
       const isEdit = event.target.getAttribute("data-mode") === "edit";
-      alert(
-        `An error occurred while ${isEdit ? "updating" : "adding"
-        } the tenant. Please try again.`,
-      );
+      alert(tText(isEdit ? "msg.saveErrorUpdate" : "msg.saveErrorAdd"));
 
       // Reset button state
       const submitBtn = event.target.querySelector('button[type="submit"]');
@@ -3927,11 +3960,11 @@ class TenantManagementComponent {
           await this.loadTenants();
         }
       } else {
-        alert("Failed to add tenant: " + result.error);
+        alert(tText("msg.addFailed", { error: result.error }));
       }
     } catch (error) {
       console.error("Error adding tenant:", error);
-      alert("Error adding tenant. Please try again.");
+      alert(tText("msg.addError"));
     }
   }
 
@@ -3954,7 +3987,7 @@ class TenantManagementComponent {
     // Find the tenant to edit by ID
     const tenant = this.tenants.find((t) => t._id === tenantId);
     if (!tenant) {
-      alert("Tenant not found");
+      alert(tText("msg.notFound"));
       return;
     }
 
@@ -4027,11 +4060,11 @@ class TenantManagementComponent {
           }
         }
       } else {
-        alert("Failed to update tenant: " + result.error);
+        alert(tText("msg.updateFailed", { error: result.error }));
       }
     } catch (error) {
       console.error("Error updating tenant:", error);
-      alert("Error updating tenant: " + error.message);
+      alert(tText("msg.updateError", { error: error.message }));
       throw error; // Re-throw to handle in form submission
     }
   }
@@ -4040,11 +4073,11 @@ class TenantManagementComponent {
     // Find the tenant to get their name for the confirmation message
     const tenant = this.tenants.find((t) => t._id === tenantId);
     if (!tenant) {
-      alert("Tenant not found");
+      alert(tText("msg.notFound"));
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete tenant ${tenant.name}?`)) {
+    if (!confirm(tText("msg.deleteConfirm", { name: tenant.name }))) {
       return;
     }
 
@@ -4078,11 +4111,11 @@ class TenantManagementComponent {
           await this.loadTenants();
         }
       } else {
-        alert("Failed to delete tenant: " + result.error);
+        alert(tText("msg.deleteFailed", { error: result.error }));
       }
     } catch (error) {
       console.error("Error deleting tenant:", error);
-      alert("Error deleting tenant. Please try again.");
+      alert(tText("msg.deleteError"));
     }
   }
 
@@ -4091,7 +4124,7 @@ class TenantManagementComponent {
   copyTenantDetails(tenantId, btnEl = null) {
     const tenant = this.tenants.find((t) => t._id === tenantId);
     if (!tenant) {
-      alert("Tenant not found");
+      alert(tText("msg.notFound"));
       return;
     }
 
@@ -4114,13 +4147,13 @@ class TenantManagementComponent {
     navigator.clipboard
       .writeText(copyText)
       .then(() => {
-        this.showCopySuccessMessage(1, `Copied ${tenant.name}'s details to clipboard!`);
+        this.showCopySuccessMessage(1, t("msg.detailsCopied", { name: tenant.name }));
 
         if (btnEl) {
           const originalHTML = btnEl.innerHTML;
           btnEl.disabled = true;
           btnEl.classList.add("tenant-copy-btn-success");
-          btnEl.innerHTML = '<i class="bi bi-check-lg"></i> Copied';
+          btnEl.innerHTML = `<i class="bi bi-check-lg"></i> ${t("detail.copied")}`;
           setTimeout(() => {
             btnEl.classList.remove("tenant-copy-btn-success");
             btnEl.innerHTML = originalHTML;
@@ -4130,7 +4163,7 @@ class TenantManagementComponent {
       })
       .catch((err) => {
         console.error("Failed to copy tenant details:", err);
-        alert("Copy failed. Here's the text to copy manually:\n\n" + copyText);
+        alert(`${tc("copyFailedManual")}\n\n${copyText}`);
       });
   }
 
@@ -4184,17 +4217,26 @@ class TenantManagementComponent {
   }
 
   // Method to get registration status badge
+  // "male" → "Male"/"Nam"; unknown values are shown as stored, capitalised.
+  genderLabel(gender) {
+    const key = String(gender).toLowerCase();
+    if (["male", "female", "other"].includes(key)) {
+      return tText(`detail.genders.${key}`);
+    }
+    return gender.charAt(0).toUpperCase() + gender.slice(1);
+  }
+
   getRegistrationStatusBadge(status) {
     switch (status) {
       case "registered":
-        return '<span class="badge bg-success">Registered</span>';
+        return `<span class="badge bg-success">${t("status.registered")}</span>`;
       case "pending":
-        return '<span class="badge bg-warning">Pending Registration</span>';
+        return `<span class="badge bg-warning">${t("status.pending")}</span>`;
       case "pending_deregistration":
-        return '<span class="badge bg-info">Pending Deregistration</span>';
+        return `<span class="badge bg-info">${t("status.pendingDeregistration")}</span>`;
       case "unregistered":
       default:
-        return '<span class="badge bg-secondary">Unregistered</span>';
+        return `<span class="badge bg-secondary">${t("status.unregistered")}</span>`;
     }
   }
 
@@ -4221,7 +4263,7 @@ class TenantManagementComponent {
             month: "2-digit",
             year: "numeric",
           });
-          todoHtml += `<div class="todo-completion-info">Completed by ${this.escapeHtml(todo.completedBy)} on ${dateStr}</div>`;
+          todoHtml += `<div class="todo-completion-info">${t("todo.completedByOn", { name: todo.completedBy, date: dateStr })}</div>`;
         }
 
         todoHtml += "</div>";
@@ -4241,7 +4283,7 @@ class TenantManagementComponent {
       >
         <i class="bi bi-list-task"></i> ${pendingTodos.length}
         <div class="tenant-todo-popover" id="${popoverId}" style="display: none;">
-          <div class="popover-header">Pending Tasks (${pendingTodos.length})</div>
+          <div class="popover-header">${t("todo.pendingTasks", { count: pendingTodos.length })}</div>
           <div class="popover-body">${todoListHtml}</div>
         </div>
       </span>
@@ -4314,17 +4356,17 @@ class TenantManagementComponent {
     // Update button text
     switch (status) {
       case "registered":
-        statusText.textContent = "Registered";
+        statusText.textContent = tText("status.registered");
         break;
       case "pending":
-        statusText.textContent = "Pending Registration";
+        statusText.textContent = tText("status.pending");
         break;
       case "pending_deregistration":
-        statusText.textContent = "Pending Deregistration";
+        statusText.textContent = tText("status.pendingDeregistration");
         break;
       case "unregistered":
       default:
-        statusText.textContent = "Unregistered";
+        statusText.textContent = tText("status.unregistered");
     }
 
     // Check for changes to update the submit button state
@@ -4375,7 +4417,7 @@ class TenantManagementComponent {
     try {
       // Show loading state
       uploadButton.disabled = true;
-      uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> Uploading ${files.length} image(s)...`;
+      uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t("form.uploadingImages", { count: files.length })}`;
 
       const uploadPromises = files.map((file) => this.uploadSingleImage(file));
       const results = await Promise.all(uploadPromises);
@@ -4416,13 +4458,11 @@ class TenantManagementComponent {
       );
 
       if (successCount < files.length) {
-        alert(
-          `${successCount}/${files.length} images uploaded successfully. Some uploads failed.`,
-        );
+        alert(tText("msg.someUploadsFailed", { ok: successCount, total: files.length }));
       }
     } catch (error) {
       console.error(`Error uploading ${type} images:`, error);
-      alert(`Error uploading ${type} images. Please try again.`);
+      alert(tText("msg.uploadImagesError"));
     } finally {
       // Restore button state
       uploadButton.disabled = false;
@@ -4463,7 +4503,7 @@ class TenantManagementComponent {
     const url = urlInput.value.trim();
 
     if (!url) {
-      alert("Please enter a valid image URL");
+      alert(tText("msg.invalidImageUrl"));
       return;
     }
 
@@ -4475,7 +4515,7 @@ class TenantManagementComponent {
       urlInput.value = ""; // Clear input after adding
       this.checkForChanges();
     } else {
-      alert("This image URL is already added");
+      alert(tText("msg.imageAlreadyAdded"));
     }
   }
 
@@ -4555,8 +4595,7 @@ class TenantManagementComponent {
     hiddenInput.value = JSON.stringify(imageArray);
 
     if (imageArray.length === 0) {
-      gallery.innerHTML =
-        '<div class="text-muted small">No images uploaded yet</div>';
+      gallery.innerHTML = `<div class="text-muted small">${t("form.noImagesYet")}</div>`;
       return;
     }
 
@@ -4579,12 +4618,11 @@ class TenantManagementComponent {
                                 style="padding: 2px; font-size: 0.8rem; opacity: 0.9; border-radius: 50%; width: 28px; height: 28px; display: flex !important; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 1000; background-color: #dc3545 !important; border: 2px solid white; line-height: 1;"
                                 onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'"
                                 onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'"
-                                title="Delete image">
+                                title="${t("form.deleteImage")}">
                             ✕
                         </button>
                         <div class="position-absolute bottom-0 start-0 end-0 bg-primary bg-opacity-90 text-white text-center py-2">
-                            <small><i class="bi ${icon} me-1"></i>${type.charAt(0).toUpperCase() + type.slice(1)
-        } ${index + 1}</small>
+                            <small><i class="bi ${icon} me-1"></i>${t(type === "passport" ? "form.passportImage" : "form.visaImage", { n: index + 1 })}</small>
                         </div>
                     </div>
                 </div>
@@ -4623,8 +4661,7 @@ class TenantManagementComponent {
     try {
       // Show loading state
       uploadButton.disabled = true;
-      uploadButton.innerHTML =
-        '<i class="bi bi-hourglass-split"></i> Uploading avatar...';
+      uploadButton.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t("form.uploadingAvatar")}`;
 
       const result = await this.uploadSingleImage(file);
 
@@ -4649,11 +4686,11 @@ class TenantManagementComponent {
 
         console.log("✅ Avatar set to:", this.avatar);
       } else {
-        alert("Failed to upload avatar: " + result.error);
+        alert(tText("msg.avatarUploadFailed", { error: result.error }));
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      alert("Error uploading avatar. Please try again.");
+      alert(tText("msg.avatarUploadError"));
     } finally {
       // Restore button state
       uploadButton.disabled = false;
@@ -4666,7 +4703,7 @@ class TenantManagementComponent {
     const url = urlInput.value.trim();
 
     if (!url) {
-      alert("Please enter a valid image URL");
+      alert(tText("msg.invalidImageUrl"));
       return;
     }
 
@@ -4706,8 +4743,7 @@ class TenantManagementComponent {
     hiddenInput.value = this.avatar;
 
     if (!this.avatar) {
-      preview.innerHTML =
-        '<div class="text-muted small">No avatar selected</div>';
+      preview.innerHTML = `<div class="text-muted small">${t("form.noAvatar")}</div>`;
       return;
     }
 
@@ -4726,11 +4762,11 @@ class TenantManagementComponent {
                         class="btn btn-danger position-absolute top-0 end-0"
                         onclick="tenantManager.removeAvatar()"
                         style="padding: 2px; font-size: 0.7rem; border-radius: 50%; width: 24px; height: 24px; display: flex !important; align-items: center; justify-content: center; transform: translate(25%, -25%);"
-                        title="Remove avatar">
+                        title="${t("form.removeAvatar")}">
                     ✕
                 </button>
                 <div class="text-center mt-2">
-                    <small class="text-muted">Avatar Preview</small>
+                    <small class="text-muted">${t("form.avatarPreview")}</small>
                 </div>
             </div>
         `;
@@ -4819,19 +4855,16 @@ class TenantManagementComponent {
     const isEdit =
       document.getElementById("tenantForm")?.getAttribute("data-mode") ===
       "edit";
-    const saveLabel = isEdit ? "Update Tenant" : "Add Tenant";
+    const saveLabel = tText(isEdit ? "form.updateSubmit" : "form.addSubmit");
     if (hasInk) {
       status.className = "text-success";
-      status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${
-        this.signature
-          ? "This will replace the current signature"
-          : "Signature will be saved"
-      } when you click <strong>${saveLabel}</strong>.`;
+      status.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${t("form.sigWhenYouClick", {
+        action: tText(this.signature ? "form.sigWillReplace" : "form.sigWillSave"),
+        button: saveLabel,
+      })}`;
     } else {
       status.className = "text-muted";
-      status.textContent = this.signature
-        ? "Draw here to replace the current signature."
-        : "";
+      status.textContent = this.signature ? tText("form.sigDrawToReplace") : "";
     }
   }
 
@@ -4897,7 +4930,7 @@ class TenantManagementComponent {
       if (uploadButton) {
         uploadButton.disabled = true;
         uploadButton.innerHTML =
-          '<i class="bi bi-hourglass-split"></i> Uploading signature...';
+          `<i class="bi bi-hourglass-split"></i> ${t("form.uploadingSignature")}`;
       }
 
       const result = await this.uploadSingleImage(file);
@@ -4910,11 +4943,11 @@ class TenantManagementComponent {
         this.checkForChanges();
         console.log("✅ Signature set to:", this.signature);
       } else {
-        alert("Failed to upload signature: " + result.error);
+        alert(tText("msg.signatureUploadFailed", { error: result.error }));
       }
     } catch (error) {
       console.error("Error uploading signature:", error);
-      alert("Error uploading signature. Please try again.");
+      alert(tText("msg.signatureUploadError"));
     } finally {
       if (uploadButton) {
         uploadButton.disabled = false;
@@ -4928,7 +4961,7 @@ class TenantManagementComponent {
     const url = urlInput.value.trim();
 
     if (!url) {
-      alert("Please enter a valid image URL");
+      alert(tText("msg.invalidImageUrl"));
       return;
     }
 
@@ -4956,16 +4989,16 @@ class TenantManagementComponent {
         ? `
           <div class="tenant-sig-current d-inline-flex align-items-start gap-2">
             <div>
-              <div class="small text-muted mb-1">Current signature</div>
-              <img src="${this.escapeHtml(this.signature)}" alt="Current signature"
+              <div class="small text-muted mb-1">${t("form.currentSignature")}</div>
+              <img src="${this.escapeHtml(this.signature)}" alt="${t("form.currentSignature")}"
                    class="img-thumbnail" onclick="window.open(this.src, '_blank')" />
             </div>
             <button type="button" class="btn btn-sm btn-outline-danger mt-4"
-                    onclick="tenantManager.removeSignature()" title="Remove signature">
+                    onclick="tenantManager.removeSignature()" title="${t("form.removeSignature")}">
               <i class="bi bi-trash"></i>
             </button>
           </div>`
-        : '<div class="text-muted small fst-italic">No signature on file yet.</div>';
+        : `<div class="text-muted small fst-italic">${t("form.noSignatureYet")}</div>`;
     }
     // The status line under the pad depends on whether one exists
     this._renderSignaturePadState();
@@ -5250,7 +5283,7 @@ class TenantManagementComponent {
     submitBtn.classList.toggle("btn-primary", hasChanges);
     submitBtn.classList.toggle("btn-secondary", !hasChanges);
     if (hasChanges) submitBtn.removeAttribute("title");
-    else submitBtn.title = "No changes to update";
+    else submitBtn.title = tText("form.noChanges");
   }
 
   arraysEqual(arr1, arr2) {
@@ -5325,13 +5358,7 @@ class TenantManagementComponent {
       });
 
       // Add visual feedback for paste capability
-      const currentPlaceholder =
-        field.placeholder || "Paste Cloudinary URL here";
-      if (!currentPlaceholder.includes("Ctrl+V")) {
-        field.placeholder =
-          currentPlaceholder + " (Ctrl+V to paste from clipboard)";
-      }
-      field.title = "You can paste images from clipboard here (Ctrl+V)";
+      this._applyPasteHint(field);
 
       // Add a visual indicator
       field.style.borderLeft = "3px solid #0d6efd";
@@ -5339,6 +5366,16 @@ class TenantManagementComponent {
 
       console.log(`✅ Clipboard paste listener added to ${fieldId}`);
     }
+  }
+
+  // Adds the "(Ctrl+V …)" hint to a paste-enabled field, in the current
+  // language. The base text comes from the field's data-i18n-placeholder.
+  _applyPasteHint(field) {
+    const key = field.getAttribute("data-i18n-placeholder");
+    if (!field.dataset.pasteBase) field.dataset.pasteBase = field.placeholder;
+    const base = key ? i18next.t(key) : field.dataset.pasteBase;
+    field.placeholder = base + tText("form.pasteHintSuffix");
+    field.title = tText("form.pasteHintTitle");
   }
 
   async handleImagePaste(event, fieldId) {
@@ -5386,16 +5423,12 @@ class TenantManagementComponent {
         } else {
           console.log("No image found in clipboard");
           // Show a brief message to user
-          this.showPasteMessage(
-            fieldId,
-            "No image found in clipboard",
-            "warning",
-          );
+          this.showPasteMessage(fieldId, t("msg.noImageInClipboard"), "warning");
         }
       }
     } catch (error) {
       console.error("Error handling clipboard paste:", error);
-      this.showPasteMessage(fieldId, "Error pasting from clipboard", "error");
+      this.showPasteMessage(fieldId, t("msg.pasteError"), "error");
     }
   }
 
@@ -5405,7 +5438,7 @@ class TenantManagementComponent {
 
     try {
       // Show uploading state
-      field.placeholder = "Uploading image from clipboard...";
+      field.placeholder = tText("form.uploadingFromClipboard");
       field.disabled = true;
 
       // Upload the image using existing upload method
@@ -5436,25 +5469,17 @@ class TenantManagementComponent {
           this.setSignatureFromUrl();
         }
 
-        this.showPasteMessage(
-          fieldId,
-          "Image uploaded successfully!",
-          "success",
-        );
+        this.showPasteMessage(fieldId, t("msg.pasteUploaded"), "success");
         console.log(
           `✅ Clipboard image uploaded successfully to ${fieldId}:`,
           imageUrl,
         );
       } else {
-        this.showPasteMessage(
-          fieldId,
-          "Failed to upload image: " + result.error,
-          "error",
-        );
+        this.showPasteMessage(fieldId, t("msg.pasteUploadFailed", { error: result.error }), "error");
       }
     } catch (error) {
       console.error("Error uploading clipboard image:", error);
-      this.showPasteMessage(fieldId, "Error uploading image", "error");
+      this.showPasteMessage(fieldId, t("msg.pasteUploadError"), "error");
     } finally {
       // Restore field state
       field.placeholder = originalPlaceholder;
@@ -5558,7 +5583,7 @@ class TenantManagementComponent {
       const tenantsInProperty = groupedTenants[propertyId];
 
       if (!tenantsInProperty || tenantsInProperty.length === 0) {
-        alert("No tenants found for this property");
+        alert(tText("msg.noTenantsForThisProperty"));
         return;
       }
 
@@ -5599,12 +5624,12 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
+            `${tc("copyFailedManual")}\n\n${copyText}`,
           );
         });
     } catch (error) {
       console.error("Error copying tenant list:", error);
-      alert("Error copying tenant list. Please try again.");
+      alert(tText("msg.copyListError"));
     }
   }
 
@@ -5612,7 +5637,7 @@ class TenantManagementComponent {
     try {
       // Check if a property is selected
       if (!this.selectedProperty) {
-        alert("Please select a property first");
+        alert(tText("msg.selectPropertyFirst"));
         return;
       }
 
@@ -5620,8 +5645,8 @@ class TenantManagementComponent {
       if (!this.tenants || this.tenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No unassigned tenants to copy"
-            : "No tenants found for this property";
+            ? tText("msg.noUnassignedToCopy")
+            : tText("msg.noTenantsForThisProperty");
         alert(message);
         return;
       }
@@ -5632,7 +5657,7 @@ class TenantManagementComponent {
       );
 
       if (activeTenants.length === 0) {
-        alert("No active tenants to copy (all tenants are outdated)");
+        alert(tText("msg.noActiveToCopy"));
         return;
       }
 
@@ -5694,12 +5719,12 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
+            `${tc("copyFailedManual")}\n\n${copyText}`,
           );
         });
     } catch (error) {
       console.error("Error copying tenant list:", error);
-      alert("Error copying tenant list. Please try again.");
+      alert(tText("msg.copyListError"));
     }
   }
 
@@ -5707,7 +5732,7 @@ class TenantManagementComponent {
     try {
       // Check if a property is selected
       if (!this.selectedProperty) {
-        alert("Please select a property first");
+        alert(tText("msg.selectPropertyFirst"));
         return;
       }
 
@@ -5715,8 +5740,8 @@ class TenantManagementComponent {
       if (!this.tenants || this.tenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No unassigned tenants to copy"
-            : "No tenants found for this property";
+            ? tText("msg.noUnassignedToCopy")
+            : tText("msg.noTenantsForThisProperty");
         alert(message);
         return;
       }
@@ -5733,8 +5758,8 @@ class TenantManagementComponent {
       if (registeredTenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No registered unassigned tenants to copy"
-            : "No registered tenants found for this property";
+            ? tText("msg.noRegisteredUnassigned")
+            : tText("msg.noRegisteredForProperty");
         alert(message);
         return;
       }
@@ -5797,12 +5822,12 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
+            `${tc("copyFailedManual")}\n\n${copyText}`,
           );
         });
     } catch (error) {
       console.error("Error copying registered tenant list:", error);
-      alert("Error copying registered tenant list. Please try again.");
+      alert(tText("msg.copyRegisteredError"));
     }
   }
 
@@ -5810,7 +5835,7 @@ class TenantManagementComponent {
     try {
       // Check if a property is selected
       if (!this.selectedProperty) {
-        alert("Please select a property first");
+        alert(tText("msg.selectPropertyFirst"));
         return;
       }
 
@@ -5818,8 +5843,8 @@ class TenantManagementComponent {
       if (!this.tenants || this.tenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No unassigned tenants to copy"
-            : "No tenants found for this property";
+            ? tText("msg.noUnassignedToCopy")
+            : tText("msg.noTenantsForThisProperty");
         alert(message);
         return;
       }
@@ -5836,8 +5861,8 @@ class TenantManagementComponent {
       if (registeredTenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No registered unassigned tenants to copy"
-            : "No registered tenants found for this property";
+            ? tText("msg.noRegisteredUnassigned")
+            : tText("msg.noRegisteredForProperty");
         alert(message);
         return;
       }
@@ -5903,12 +5928,12 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
+            `${tc("copyFailedManual")}\n\n${copyText}`,
           );
         });
     } catch (error) {
       console.error("Error copying registered tenant list:", error);
-      alert("Error copying registered tenant list. Please try again.");
+      alert(tText("msg.copyRegisteredError"));
     }
   }
 
@@ -5916,7 +5941,7 @@ class TenantManagementComponent {
     try {
       // Check if a property is selected
       if (!this.selectedProperty) {
-        alert("Please select a property first");
+        alert(tText("msg.selectPropertyFirst"));
         return;
       }
 
@@ -5924,8 +5949,8 @@ class TenantManagementComponent {
       if (!this.tenants || this.tenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No unassigned tenants to copy"
-            : "No tenants found for this property";
+            ? tText("msg.noUnassignedToCopy")
+            : tText("msg.noTenantsForThisProperty");
         alert(message);
         return;
       }
@@ -5951,8 +5976,8 @@ class TenantManagementComponent {
       if (totalCount === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No registered or pending unassigned tenants to copy"
-            : "No registered or pending tenants found for this property";
+            ? tText("msg.noRegPendingUnassigned")
+            : tText("msg.noRegPendingForProperty");
         alert(message);
         return;
       }
@@ -6017,11 +6042,11 @@ class TenantManagementComponent {
         })
         .catch((err) => {
           console.error("Failed to copy to clipboard:", err);
-          alert("Copy failed. Here's the text to copy manually:\n\n" + copyText);
+          alert(`${tc("copyFailedManual")}\n\n${copyText}`);
         });
     } catch (error) {
       console.error("Error copying registered and pending tenant list:", error);
-      alert("Error copying tenant list. Please try again.");
+      alert(tText("msg.copyListError"));
     }
   }
 
@@ -6030,7 +6055,7 @@ class TenantManagementComponent {
   copyPendingDeregistrationTenants() {
     try {
       if (!this.selectedProperty) {
-        alert("Please select a property first");
+        alert(tText("msg.selectPropertyFirst"));
         return;
       }
 
@@ -6044,8 +6069,8 @@ class TenantManagementComponent {
       if (pendingDeregTenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No unassigned tenants pending deregistration"
-            : "No tenants pending deregistration for this property";
+            ? tText("msg.noPendingDeregUnassigned")
+            : tText("msg.noPendingDeregForProperty");
         alert(message);
         return;
       }
@@ -6093,11 +6118,11 @@ class TenantManagementComponent {
         })
         .catch((err) => {
           console.error("Failed to copy to clipboard:", err);
-          alert("Copy failed. Here's the text to copy manually:\n\n" + copyText);
+          alert(`${tc("copyFailedManual")}\n\n${copyText}`);
         });
     } catch (error) {
       console.error("Error copying pending deregistration tenant list:", error);
-      alert("Error copying tenant list. Please try again.");
+      alert(tText("msg.copyListError"));
     }
   }
 
@@ -6105,7 +6130,7 @@ class TenantManagementComponent {
     try {
       // Check if a property is selected
       if (!this.selectedProperty) {
-        alert("Please select a property first");
+        alert(tText("msg.selectPropertyFirst"));
         return;
       }
 
@@ -6113,8 +6138,8 @@ class TenantManagementComponent {
       if (!this.tenants || this.tenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No unassigned tenants to copy"
-            : "No tenants found for this property";
+            ? tText("msg.noUnassignedToCopy")
+            : tText("msg.noTenantsForThisProperty");
         alert(message);
         return;
       }
@@ -6128,8 +6153,8 @@ class TenantManagementComponent {
       if (outdatedTenants.length === 0) {
         const message =
           this.selectedProperty === "UNASSIGNED"
-            ? "No outdated unassigned tenants to copy"
-            : "No outdated tenants found for this property";
+            ? tText("msg.noOutdatedUnassigned")
+            : tText("msg.noOutdatedForProperty");
         alert(message);
         return;
       }
@@ -6215,12 +6240,12 @@ class TenantManagementComponent {
           console.error("Failed to copy to clipboard:", err);
           // Fallback: show the text in an alert
           alert(
-            "Copy failed. Here's the text to copy manually:\n\n" + copyText,
+            `${tc("copyFailedManual")}\n\n${copyText}`,
           );
         });
     } catch (error) {
       console.error("Error copying outdated tenant list:", error);
-      alert("Error copying outdated tenant list. Please try again.");
+      alert(tText("msg.copyOutdatedError"));
     }
   }
 
@@ -6258,9 +6283,7 @@ class TenantManagementComponent {
             min-width: 300px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;
-    const text =
-      customMessage ||
-      `Copied ${tenantCount} tenant${tenantCount !== 1 ? "s" : ""} to clipboard!`;
+    const text = customMessage || t("msg.tenantsCopied", { count: tenantCount });
     messageDiv.innerHTML = `
             <i class="bi bi-check-circle me-2"></i>
             ${text}
@@ -6287,7 +6310,7 @@ class TenantManagementComponent {
    */
   async downloadTenantExcel() {
     if (!this.selectedProperty) {
-      alert("Please select a property first");
+      alert(tText("msg.selectPropertyFirst"));
       return;
     }
 
@@ -6296,7 +6319,7 @@ class TenantManagementComponent {
       let tenants = this.tenants || [];
 
       if (tenants.length === 0) {
-        alert("No tenants to download for this property");
+        alert(tText("msg.noTenantsToDownload"));
         return;
       }
 
@@ -6409,11 +6432,11 @@ class TenantManagementComponent {
       XLSX.writeFile(wb, filename);
 
       this.showSuccessMessage(
-        `Downloaded ${tenants.length} tenant(s) to ${filename}`,
+        t("msg.excelDownloaded", { count: tenants.length, filename }),
       );
     } catch (error) {
       console.error("Error downloading Excel:", error);
-      alert("Failed to download Excel file: " + error.message);
+      alert(tText("msg.excelDownloadFailed", { error: error.message }));
     }
   }
 
@@ -6423,7 +6446,7 @@ class TenantManagementComponent {
   async handleExcelUpload(event) {
     // Check admin permission
     if (!isAdmin()) {
-      alert("Only administrators can upload tenant data");
+      alert(tText("msg.adminOnlyUpload"));
       return;
     }
 
@@ -6434,7 +6457,7 @@ class TenantManagementComponent {
     event.target.value = "";
 
     if (!this.selectedProperty) {
-      alert("Please select a property first");
+      alert(tText("msg.selectPropertyFirst"));
       return;
     }
 
@@ -6455,7 +6478,7 @@ class TenantManagementComponent {
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
           if (jsonData.length === 0) {
-            alert("No data found in Excel file");
+            alert(tText("msg.excelNoData"));
             return;
           }
 
@@ -6468,15 +6491,15 @@ class TenantManagementComponent {
 
             // Validate required fields
             if (!row["Tenant ID"]) {
-              errors.push(`Row ${rowNum}: Missing Tenant ID`);
+              errors.push(tText("msg.excelRowMissingId", { row: rowNum }));
               return;
             }
             if (!row["Name"]) {
-              errors.push(`Row ${rowNum}: Missing Name`);
+              errors.push(tText("msg.excelRowMissingName", { row: rowNum }));
               return;
             }
             if (!row["Passport Number"]) {
-              errors.push(`Row ${rowNum}: Missing Passport Number`);
+              errors.push(tText("msg.excelRowMissingPassport", { row: rowNum }));
               return;
             }
 
@@ -6516,15 +6539,13 @@ class TenantManagementComponent {
           });
 
           if (errors.length > 0) {
-            alert("Validation errors:\n\n" + errors.join("\n"));
+            alert(`${tText("msg.excelValidationErrors")}\n\n${errors.join("\n")}`);
             return;
           }
 
           // Confirm before updating
           const confirmed = confirm(
-            `Upload ${updates.length} tenant update(s)?\n\n` +
-            "This will update existing tenants based on Tenant ID.\n" +
-            "Make sure the data is correct before proceeding.",
+            tText("msg.excelUploadConfirm", { count: updates.length }),
           );
 
           if (!confirmed) return;
@@ -6533,14 +6554,14 @@ class TenantManagementComponent {
           await this.bulkUpdateTenants(updates);
         } catch (parseError) {
           console.error("Error parsing Excel:", parseError);
-          alert("Failed to parse Excel file: " + parseError.message);
+          alert(tText("msg.excelParseFailed", { error: parseError.message }));
         }
       };
 
       reader.readAsArrayBuffer(file);
     } catch (error) {
       console.error("Error uploading Excel:", error);
-      alert("Failed to upload Excel file: " + error.message);
+      alert(tText("msg.excelUploadFailed", { error: error.message }));
     }
   }
 
@@ -6564,8 +6585,7 @@ class TenantManagementComponent {
           window.dashboardController.markTenantDataChanged();
         }
         this.showSuccessMessage(
-          `Successfully updated ${result.updatedCount || updates.length
-          } tenant(s)`,
+          t("msg.bulkUpdated", { count: result.updatedCount || updates.length }),
         );
 
         // Reload tenants for current property
@@ -6575,11 +6595,11 @@ class TenantManagementComponent {
           await this.loadTenantsForProperty(this.selectedProperty);
         }
       } else {
-        alert("Failed to update tenants: " + (result.error || "Unknown error"));
+        alert(tText("msg.bulkUpdateFailed", { error: result.error || tText("msg.unknownError") }));
       }
     } catch (error) {
       console.error("Error in bulk update:", error);
-      alert("Failed to update tenants: " + error.message);
+      alert(tText("msg.bulkUpdateFailed", { error: error.message }));
     }
   }
 
@@ -6618,12 +6638,12 @@ class TenantManagementComponent {
     const text = input.value.trim();
 
     if (!text) {
-      alert("Please enter a task");
+      alert(tText("msg.enterTask"));
       return;
     }
 
     if (text.length > 500) {
-      alert("Task text cannot exceed 500 characters");
+      alert(tText("msg.taskTooLong"));
       return;
     }
 
@@ -6675,7 +6695,7 @@ class TenantManagementComponent {
     if (!container) return;
 
     if (this.todos.length === 0) {
-      container.innerHTML = '<p class="text-muted mb-0">No tasks yet</p>';
+      container.innerHTML = `<p class="text-muted mb-0">${t("todo.noTasksYet")}</p>`;
       return;
     }
 
@@ -6703,7 +6723,9 @@ class TenantManagementComponent {
         completionInfo = `
           <div class="small text-muted mt-1">
             <i class="bi bi-check-circle-fill text-success me-1"></i>
-            Completed by ${this.escapeHtml(todo.completedBy)} ${dateStr ? "on " + dateStr : ""}
+            ${dateStr
+              ? t("todo.completedByOn", { name: todo.completedBy, date: dateStr })
+              : t("todo.completedBy", { name: todo.completedBy })}
           </div>
         `;
       }
