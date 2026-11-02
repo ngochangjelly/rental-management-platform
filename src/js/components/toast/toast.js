@@ -1,4 +1,7 @@
 function showToast(message, type = "success", duration = 3000) {
+  // Bootstrap's name for it; many callers use it
+  if (type === "danger") type = "error";
+
   // Create toast container if it doesn't exist
   let toastContainer = document.getElementById("toast-container");
   if (!toastContainer) {

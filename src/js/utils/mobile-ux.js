@@ -318,12 +318,16 @@ export function openActionSheet({ title, actions }) {
  * Calls onEdit() whenever the user (not code) changes something inside `root`:
  * typing, selects/checkboxes, buttons that edit (add room, remove photo,
  * status...), dropdown picks and signature strokes. Toggles that only open a
- * menu or panel ([data-bs-toggle]) don't count.
+ * menu or panel ([data-bs-toggle]) don't count, and neither do controls inside
+ * [data-saves-itself] (e.g. room photos, which are saved the moment they change).
  */
 export function trackUserEdits(root, onEdit) {
   if (!root) return;
+  // The path as dispatched, so it still holds when a click redrew (detached) its target
+  const savesItself = (e) =>
+    e.composedPath().some((el) => el instanceof Element && el.hasAttribute("data-saves-itself"));
   const mark = (e) => {
-    if (e.isTrusted) onEdit();
+    if (e.isTrusted && !savesItself(e)) onEdit();
   };
   root.addEventListener("input", mark);
   root.addEventListener("change", mark);

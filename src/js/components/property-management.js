@@ -22,7 +22,6 @@ import {
   createSectionNav,
   openActionSheet,
   applyMobileInputHints,
-  trackUserEdits,
 } from '../utils/mobile-ux.js';
 import { syncRoomPhotoStrips } from './room-photos/room-photo-strip.js';
 
@@ -1578,7 +1577,8 @@ class PropertyManagementComponent {
     }
     // Phone "⋯" menu (archive, view tenants...) only applies to a saved property.
     document.getElementById("pmDetailMenuBtn")?.classList.toggle('d-none', !isEdit);
-    this._formDirty = false;
+    this._formTouched = false;
+    this._savedSignature = null;
     // A different record starts at the top of the form; re-showing the same
     // one (e.g. after Save) keeps the scroll position.
     const panelKey = property?.propertyId || '__new__';
@@ -1978,6 +1978,9 @@ class PropertyManagementComponent {
     // now (no modal to gate on), and the listener is idempotent (guarded by
     // its own data-paste-listener-added flag), so it's safe to call every time.
     this.setupPropertyImageClipboardListener();
+
+    // Update button starts disabled when editing (nothing changed yet)
+    this.refreshSubmitState();
   }
 
   // Sync the header toggle + its Stable (green) / Unstable (purple) badge
@@ -2091,16 +2094,39 @@ class PropertyManagementComponent {
       this._secNav = createSectionNav({ mount: body, scrollEl: body, root: form });
       applyMobileInputHints(form);
 
-      // Remember whether the user has changed anything since the panel was
-      // (re)loaded, so a back gesture can ask before throwing it away.
-      trackUserEdits(form, () => {
-        this._formDirty = true;
-      });
+      this.setupChangeDetection(form);
     }
 
     document.getElementById('pmMobileAddBtn')?.addEventListener('click', () => this.showAddPropertyPanel());
     document.getElementById('pmMobileMenuBtn')?.addEventListener('click', () => this.openMobileListMenu());
     document.getElementById('pmDetailMenuBtn')?.addEventListener('click', () => this.openMobileDetailMenu());
+  }
+
+  // Keeps the Update button disabled until the form really differs from the
+  // loaded property (refreshSubmitState). Some fields change without an input
+  // event (bank pickers, room checkboxes, photo uploads), so it re-checks
+  // after any interaction too, once the page's own handlers have run.
+  setupChangeDetection(form) {
+    // Right before the first interaction, the form still shows the loaded
+    // property: that's the reference "no changes" is measured against
+    const markTouched = () => {
+      if (this._formTouched) return;
+      this._savedSignature = this.formSignature();
+      this._formTouched = true;
+    };
+    ['pointerdown', 'keydown'].forEach((type) => form.addEventListener(type, markTouched, true));
+
+    let queued = false;
+    const recheck = () => {
+      if (queued) return;
+      queued = true;
+      setTimeout(() => {
+        queued = false;
+        this.refreshSubmitState();
+      }, 0);
+    };
+    // Document-wide: some pickers open menus outside the form
+    ['input', 'change', 'click', 'keyup'].forEach((type) => document.addEventListener(type, recheck, true));
   }
 
   // Swaps the mobile stacked layout from list-view to detail-view. No-op
@@ -2128,7 +2154,7 @@ class PropertyManagementComponent {
   // Back arrow / back gesture on the phone detail view. Asks before
   // discarding typed changes; returning false keeps the view open.
   handleMobileBack() {
-    if (this._formDirty) {
+    if (this.hasUnsavedChanges()) {
       if (!confirm('Discard your unsaved changes to this property?')) return false;
       this.handlePanelCancel(); // reloads the saved values, then exits
     } else {
@@ -2250,86 +2276,136 @@ class PropertyManagementComponent {
     };
   }
 
+  // What Save would send, read from the form. Also used to tell whether the
+  // form differs from the loaded property (see refreshSubmitState).
+  buildPropertyData(form) {
+    const formData = new FormData(form);
+    const isEdit = form.getAttribute("data-mode") === "edit";
+
+    // Get AC service date and handle empty strings
+    const acServiceDateValue = formData.get("acServiceDate")?.trim();
+
+    // Get selected rooms from multi-select
+    const roomsSelect = document.getElementById("propertyRooms");
+    const selectedRooms = roomsSelect ? Array.from(roomsSelect.selectedOptions).map(option => option.value) : [];
+
+    // When editing, spread existing property first to preserve unchanged fields (like propertyImage)
+    const propertyData = {
+      ...(isEdit && this.editingProperty ? this.editingProperty : {}),
+      propertyId: (formData.get("propertyId") || this.getNextPropertyId().toString()).trim().toUpperCase(),
+      postcode: formData.get("postcode")?.trim() || "",
+      address: formData.get("address").trim(),
+      unit: formData.get("unit").trim(),
+      maxPax: parseInt(formData.get("maxPax")) || 1,
+      leaseTerm: formData.get("leaseTerm")?.trim()
+        ? parseInt(formData.get("leaseTerm"))
+        : null,
+      moveInDate:
+        formData.get("moveInDate") || new Date().toISOString().split("T")[0],
+      moveOutDate: formData.get("moveOutDate")?.trim() || null,
+      rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
+      depositToLandlord: parseFloat(formData.get("depositToLandlord")) || 0,
+      depositFromTenant: parseFloat(formData.get("depositFromTenant")) || 0,
+      mainTenantFee: parseFloat(formData.get("mainTenantFee")) || 0,
+      cleaningFee: parseFloat(formData.get("cleaningFee")) || 0,
+      rent: parseFloat(formData.get("rent")) || 0,
+      airconUnits: parseInt(formData.get("airconUnits")) || 0,
+      subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
+      rooms: selectedRooms,
+      roomPrices: this.getRoomPricesFromInputs(),
+      agentName: formData.get("agentName")?.trim() || "",
+      agentPhone: formData.get("agentPhone")?.trim() || "",
+      landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",
+      landlordBankName: formData.get("landlordBankName")?.trim() || "",
+      landlordAccountName: formData.get("landlordAccountName")?.trim() || "",
+      settlementSgd: {
+        bankName: formData.get("settlementSgdBank")?.trim() || "",
+        accountNumber: formData.get("settlementSgdAccountNumber")?.trim() || "",
+        accountHolderName: formData.get("settlementSgdAccountHolder")?.trim() || "",
+      },
+      settlementVnd: {
+        bankName: formData.get("settlementVndBank")?.trim() || "",
+        accountNumber: formData.get("settlementVndAccountNumber")?.trim() || "",
+        accountHolderName: formData.get("settlementVndAccountHolder")?.trim() || "",
+      },
+      tenantFacebookGroup: formData.get("tenantFacebookGroup")?.trim() || "",
+      adminFacebookGroup: formData.get("adminFacebookGroup")?.trim() || "",
+      telegramIntegrationEnabled: formData.get("telegramIntegrationEnabled") === "true",
+      telegramBotToken: formData.get("telegramBotToken")?.trim() || "",
+      telegramChannelId: formData.get("telegramChannelId")?.trim() || "",
+      wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
+      wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
+      wifiImages: this.currentWifiImages || [],
+      // Use hidden field as primary source (more reliable), fallback to this.propertyImage and existing value
+      propertyImage: formData.get("propertyImage")?.trim() || this.propertyImage || this.editingProperty?.propertyImage || "",
+      acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
+      acServiceDate: acServiceDateValue || null,
+      accountant: formData.get("accountant")?.trim() || "",
+      manager: formData.get("manager")?.trim() || "",
+      digitalLockEnabled: formData.get("digitalLockEnabled") === "true",
+      digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
+      spAccountNumber: formData.get("spAccountNumber")?.trim() || "",
+      spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
+      spAccountPassword: formData.get("spAccountPassword")?.trim() || "",
+      propertyType: formData.get("propertyType") || 'hdb',
+      isStable: document.getElementById("propertyStableToggle")?.checked === true,
+    };
+    return propertyData;
+  }
+
+  // The payload as text, minus the Stable flag (in edit mode that toggle
+  // saves on its own). Same text as when loaded = nothing to update.
+  formSignature() {
+    const form = document.getElementById("propertyForm");
+    if (!form) return null;
+    try {
+      const { isStable, ...data } = this.buildPropertyData(form);
+      return JSON.stringify(data);
+    } catch {
+      return null; // couldn't read the form: treat as changed rather than block saving
+    }
+  }
+
+  hasUnsavedChanges() {
+    const signature = this.formSignature();
+    return signature === null || signature !== this._savedSignature;
+  }
+
+  // Update button: disabled while the form matches the loaded property.
+  // Until the user first touches the form, the reference is re-taken, so
+  // values filled in late (e.g. dropdowns whose options load afterwards)
+  // never count as changes.
+  refreshSubmitState() {
+    const btn = document.getElementById("propertySubmitBtn");
+    const form = document.getElementById("propertyForm");
+    if (!btn || !form || form.classList.contains("pm-saving")) return;
+    if (!this._formTouched) this._savedSignature = this.formSignature();
+    if (form.getAttribute("data-mode") !== "edit") {
+      btn.disabled = false; // a new property can always be added
+      btn.removeAttribute("title");
+      return;
+    }
+    const unchanged = !this.hasUnsavedChanges();
+    btn.disabled = unchanged;
+    if (unchanged) btn.title = "No changes to update";
+    else btn.removeAttribute("title");
+  }
+
   async handlePropertySubmit(event) {
     try {
       const form = event.target;
-      const formData = new FormData(form);
       const isEdit = form.getAttribute("data-mode") === "edit";
       const originalPropertyId = form.getAttribute("data-property-id");
 
-      // Get AC service date and handle empty strings
-      const acServiceDateValue = formData.get("acServiceDate")?.trim();
+      // Enter in a field can still submit; nothing changed = nothing to send
+      if (isEdit && !this.hasUnsavedChanges()) {
+        this.refreshSubmitState();
+        return;
+      }
 
-      // Get selected rooms from multi-select
-      const roomsSelect = document.getElementById("propertyRooms");
-      const selectedRooms = roomsSelect ? Array.from(roomsSelect.selectedOptions).map(option => option.value) : [];
-
-      // When editing, spread existing property first to preserve unchanged fields (like propertyImage)
-      const propertyData = {
-        ...(isEdit && this.editingProperty ? this.editingProperty : {}),
-        propertyId: (formData.get("propertyId") || this.getNextPropertyId().toString()).trim().toUpperCase(),
-        postcode: formData.get("postcode")?.trim() || "",
-        address: formData.get("address").trim(),
-        unit: formData.get("unit").trim(),
-        maxPax: parseInt(formData.get("maxPax")) || 1,
-        leaseTerm: formData.get("leaseTerm")?.trim()
-          ? parseInt(formData.get("leaseTerm"))
-          : null,
-        moveInDate:
-          formData.get("moveInDate") || new Date().toISOString().split("T")[0],
-        moveOutDate: formData.get("moveOutDate")?.trim() || null,
-        rentPaymentDate: parseInt(formData.get("rentPaymentDate")) || 1,
-        depositToLandlord: parseFloat(formData.get("depositToLandlord")) || 0,
-        depositFromTenant: parseFloat(formData.get("depositFromTenant")) || 0,
-        mainTenantFee: parseFloat(formData.get("mainTenantFee")) || 0,
-        cleaningFee: parseFloat(formData.get("cleaningFee")) || 0,
-        rent: parseFloat(formData.get("rent")) || 0,
-        airconUnits: parseInt(formData.get("airconUnits")) || 0,
-        subsidizedPub: parseFloat(formData.get("subsidizedPub")) || 400,
-        rooms: selectedRooms,
-        roomPrices: this.getRoomPricesFromInputs(),
-        agentName: formData.get("agentName")?.trim() || "",
-        agentPhone: formData.get("agentPhone")?.trim() || "",
-        landlordBankAccount: formData.get("landlordBankAccount")?.trim() || "",
-        landlordBankName: formData.get("landlordBankName")?.trim() || "",
-        landlordAccountName: formData.get("landlordAccountName")?.trim() || "",
-        settlementSgd: {
-          bankName: formData.get("settlementSgdBank")?.trim() || "",
-          accountNumber: formData.get("settlementSgdAccountNumber")?.trim() || "",
-          accountHolderName: formData.get("settlementSgdAccountHolder")?.trim() || "",
-        },
-        settlementVnd: {
-          bankName: formData.get("settlementVndBank")?.trim() || "",
-          accountNumber: formData.get("settlementVndAccountNumber")?.trim() || "",
-          accountHolderName: formData.get("settlementVndAccountHolder")?.trim() || "",
-        },
-        tenantFacebookGroup: formData.get("tenantFacebookGroup")?.trim() || "",
-        adminFacebookGroup: formData.get("adminFacebookGroup")?.trim() || "",
-        telegramIntegrationEnabled: formData.get("telegramIntegrationEnabled") === "true",
-        telegramBotToken: formData.get("telegramBotToken")?.trim() || "",
-        telegramChannelId: formData.get("telegramChannelId")?.trim() || "",
-        wifiAccountNumber: formData.get("wifiAccountNumber")?.trim() || "",
-        wifiAccountHolderName: formData.get("wifiAccountHolderName")?.trim() || "",
-        wifiImages: this.currentWifiImages || [],
-        // Use hidden field as primary source (more reliable), fallback to this.propertyImage and existing value
-        propertyImage: formData.get("propertyImage")?.trim() || this.propertyImage || this.editingProperty?.propertyImage || "",
-        acServiceCompanyId: formData.get("acServiceCompanyId")?.trim() || "",
-        acServiceDate: acServiceDateValue || null,
-        accountant: formData.get("accountant")?.trim() || "",
-        manager: formData.get("manager")?.trim() || "",
-        digitalLockEnabled: formData.get("digitalLockEnabled") === "true",
-        digitalLockPin: formData.get("digitalLockPin")?.trim() || "",
-        spAccountNumber: formData.get("spAccountNumber")?.trim() || "",
-        spAccountUsername: formData.get("spAccountUsername")?.trim() || "",
-        spAccountPassword: formData.get("spAccountPassword")?.trim() || "",
-        propertyType: formData.get("propertyType") || 'hdb',
-        isStable: document.getElementById("propertyStableToggle")?.checked === true,
-      };
+      const propertyData = this.buildPropertyData(form);
 
       // Debug: Log property data being saved
-      console.log('🧾 DEBUG - accountant from form:', formData.get("accountant"));
-      console.log('🔍 DEBUG - Postcode from form:', formData.get("postcode"));
-      console.log('🔍 DEBUG - Hidden field propertyImage:', formData.get("propertyImage"));
       console.log('🔍 DEBUG - this.propertyImage:', this.propertyImage);
       console.log('🔍 DEBUG - editingProperty.propertyImage:', this.editingProperty?.propertyImage);
       console.log('🔍 DEBUG - Final propertyImage being saved:', propertyData.propertyImage);
@@ -2633,6 +2709,7 @@ class PropertyManagementComponent {
   renderWifiImagesGallery() {
     const gallery = document.getElementById('wifiImagesGallery');
     if (!gallery) return;
+    queueMicrotask(() => this.refreshSubmitState());
 
     if (!this.currentWifiImages || this.currentWifiImages.length === 0) {
       gallery.innerHTML = '<p class="text-muted">No WiFi images added yet.</p>';
@@ -2736,6 +2813,7 @@ class PropertyManagementComponent {
   updatePropertyImagePreview() {
     const preview = document.getElementById('propertyImagePreview');
     if (!preview) return;
+    queueMicrotask(() => this.refreshSubmitState()); // after the hidden field below is synced
 
     // Always sync the hidden field with this.propertyImage
     const hiddenField = document.getElementById('propertyImageHidden');

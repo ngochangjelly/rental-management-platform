@@ -17,7 +17,6 @@ import {
   createSectionNav,
   openActionSheet,
   applyMobileInputHints,
-  trackUserEdits,
 } from "../utils/mobile-ux.js";
 
 /**
@@ -1274,14 +1273,34 @@ class TenantManagementComponent {
     this._modalSecNav = createSectionNav({ mount: body, scrollEl: body, root: form });
     applyMobileInputHints(form);
 
-    // Tracked on the modal body (not the form) so tapping the section chips,
-    // which sit inside the form, doesn't count as an edit.
-    trackUserEdits(body, () => {
+    // Right before the first interaction the form still shows the tenant as
+    // loaded: that's the reference "no changes" is measured against
+    const markTouched = () => {
+      if (this._tenantFormTouched) return;
+      this._tenantSavedSignature = this.tenantFormSignature();
       this._tenantFormTouched = true;
-    });
+    };
+    ["pointerdown", "keydown"].forEach((type) => modalEl.addEventListener(type, markTouched, true));
+
+    // Some fields change without an input event (pickers, photos, room
+    // assignments), so also re-check after any interaction in the modal,
+    // once the page's own handlers have run
+    let queued = false;
+    ["input", "change", "click", "keyup"].forEach((type) =>
+      modalEl.addEventListener(type, () => {
+        if (queued) return;
+        queued = true;
+        setTimeout(() => {
+          queued = false;
+          this.checkForChanges();
+        }, 0);
+      }, true),
+    );
 
     modalEl.addEventListener("show.bs.modal", () => {
       this._tenantFormTouched = false;
+      this._tenantSavedSignature = null;
+      this.checkForChanges();
       if (isMobileViewport()) {
         mobileLayers.open("tm-modal", () => this.handleTenantModalBack());
       }
@@ -1290,11 +1309,10 @@ class TenantManagementComponent {
     modalEl.addEventListener("hidden.bs.modal", () => mobileLayers.close("tm-modal"));
   }
 
-  // Whether the user changed anything since the modal opened. (Not
-  // hasDataChanged(): it reports a change for some tenants straight after
-  // opening, which would prompt on every back.)
+  // Whether the form differs from the tenant as loaded
   hasUnsavedTenantChanges() {
-    return !!this._tenantFormTouched;
+    const signature = this.tenantFormSignature();
+    return signature === null || signature !== this._tenantSavedSignature;
   }
 
   // Back gesture while the add/edit modal is open on a phone.
@@ -2939,6 +2957,9 @@ class TenantManagementComponent {
       this.loadInvestorsForSelect(),
       this.loadRoommatesForSelect(tenant?._id),
     ]).then(() => {
+      // These values come from the tenant, not the user: if nothing else
+      // changed yet, move the "no changes" reference along with them
+      const before = this.tenantFormSignature();
       // Populate select values now that options are rendered
       if (isEdit && tenant && tenant.depositReceiver) {
         const el = document.getElementById("tenantDepositReceiver");
@@ -2954,8 +2975,8 @@ class TenantManagementComponent {
       }
       // Re-render property list now that cache has property names
       this.updateSelectedPropertiesList();
-      // Check for changes now that all data is loaded
-      if (isEdit) this.checkForChanges();
+      if (this._tenantSavedSignature === before) this._tenantSavedSignature = this.tenantFormSignature();
+      this.checkForChanges();
     });
   }
 
@@ -3577,7 +3598,6 @@ class TenantManagementComponent {
             this.syncLegacyFieldsFromRoomAssignments(prop);
           }
         });
-        console.log("📋 Using synced properties:", syncedProperties);
         return syncedProperties;
       }
     }
@@ -3590,12 +3610,10 @@ class TenantManagementComponent {
           this.syncLegacyFieldsFromRoomAssignments(prop);
         }
       });
-      console.log("📋 Using selectedPropertiesDetails:", this.selectedPropertiesDetails);
       return this.selectedPropertiesDetails;
     }
 
     if (this.originalPropertiesDetails && this.originalPropertiesDetails.length > 0) {
-      console.log("📋 Using originalPropertiesDetails (fallback):", this.originalPropertiesDetails);
       return this.originalPropertiesDetails;
     }
 
@@ -3627,66 +3645,79 @@ class TenantManagementComponent {
     return mapped;
   }
 
+  // What Save would send, read from the form. Also used to tell whether the
+  // form differs from the tenant as loaded (see checkForChanges).
+  buildTenantData(form) {
+    const formData = new FormData(form);
+    const tenantData = {
+      name: formData.get("name").trim(),
+      nickname: formData.get("nickname")?.trim() || null,
+      fin: formData.get("fin").trim().toUpperCase() || null,
+      passIssueDate: formData.get("passIssueDate") || null,
+      passportNumber: formData.get("passportNumber").trim().toUpperCase(),
+      visaIssueDate: formData.get("visaIssueDate") || null,
+      dateOfBirth: formData.get("dateOfBirth") || null,
+      gender: formData.get("gender")?.trim() || null,
+      passType: formData.get("passType")?.trim() || null,
+      industry: formData.get("industry")?.trim() || null,
+      university: formData.get("university")?.trim() || null,
+      phoneNumber: formData.get("phoneNumber").trim() || null,
+      email: formData.get("email")?.trim() || null,
+      facebookUrl: formData.get("facebookUrl")?.trim() || null,
+      registrationStatus:
+        document.getElementById("tenantRegistrationStatusHidden").value ||
+        "unregistered",
+      // Keep backward compatibility with isRegistered field
+      isRegistered:
+        document.getElementById("tenantRegistrationStatusHidden").value ===
+        "registered",
+      properties: this.getPropertiesToSubmit(),
+      passportPics: this.passportPics,
+      visaPics: this.visaPics,
+      avatar: this.avatar || null,
+      signature: this.signature || null, // Send null instead of empty string
+      // New financial fields
+      deposit: formData.get("deposit")
+        ? parseFloat(formData.get("deposit"))
+        : null,
+      depositReceiver: formData.get("depositReceiver").trim() || null,
+      cleaningFee: formData.get("cleaningFee")
+        ? parseFloat(formData.get("cleaningFee"))
+        : null,
+      isUtilitySubsidized:
+        document.getElementById("tenantIsUtilitySubsidized")?.checked ||
+        false,
+      isHouseCleaner:
+        document.getElementById("tenantIsHouseCleaner")?.checked || false,
+      usesElectricity:
+        document.getElementById("tenantUsesElectricity")?.checked ?? true,
+      usesWater:
+        document.getElementById("tenantUsesWater")?.checked ?? true,
+      usesGas:
+        document.getElementById("tenantUsesGas")?.checked ?? true,
+      // Roommate relationship
+      roommateId: formData.get("roommateId")?.trim() || null,
+      // Notes and todos
+      notes: formData.get("notes")?.trim() || null,
+      todos: this.todos || [],
+    };
+    return tenantData;
+  }
+
   async handleTenantSubmit(event) {
     try {
       const form = event.target;
-      const formData = new FormData(form);
       const isEdit = form.getAttribute("data-mode") === "edit";
       const tenantId = form.getAttribute("data-tenant-id");
       const originalPassport = form.getAttribute("data-tenant-passport");
 
-      const tenantData = {
-        name: formData.get("name").trim(),
-        nickname: formData.get("nickname")?.trim() || null,
-        fin: formData.get("fin").trim().toUpperCase() || null,
-        passIssueDate: formData.get("passIssueDate") || null,
-        passportNumber: formData.get("passportNumber").trim().toUpperCase(),
-        visaIssueDate: formData.get("visaIssueDate") || null,
-        dateOfBirth: formData.get("dateOfBirth") || null,
-        gender: formData.get("gender")?.trim() || null,
-        passType: formData.get("passType")?.trim() || null,
-        industry: formData.get("industry")?.trim() || null,
-        university: formData.get("university")?.trim() || null,
-        phoneNumber: formData.get("phoneNumber").trim() || null,
-        email: formData.get("email")?.trim() || null,
-        facebookUrl: formData.get("facebookUrl")?.trim() || null,
-        registrationStatus:
-          document.getElementById("tenantRegistrationStatusHidden").value ||
-          "unregistered",
-        // Keep backward compatibility with isRegistered field
-        isRegistered:
-          document.getElementById("tenantRegistrationStatusHidden").value ===
-          "registered",
-        properties: this.getPropertiesToSubmit(),
-        passportPics: this.passportPics,
-        visaPics: this.visaPics,
-        avatar: this.avatar || null,
-        signature: this.signature || null, // Send null instead of empty string
-        // New financial fields
-        deposit: formData.get("deposit")
-          ? parseFloat(formData.get("deposit"))
-          : null,
-        depositReceiver: formData.get("depositReceiver").trim() || null,
-        cleaningFee: formData.get("cleaningFee")
-          ? parseFloat(formData.get("cleaningFee"))
-          : null,
-        isUtilitySubsidized:
-          document.getElementById("tenantIsUtilitySubsidized")?.checked ||
-          false,
-        isHouseCleaner:
-          document.getElementById("tenantIsHouseCleaner")?.checked || false,
-        usesElectricity:
-          document.getElementById("tenantUsesElectricity")?.checked ?? true,
-        usesWater:
-          document.getElementById("tenantUsesWater")?.checked ?? true,
-        usesGas:
-          document.getElementById("tenantUsesGas")?.checked ?? true,
-        // Roommate relationship
-        roommateId: formData.get("roommateId")?.trim() || null,
-        // Notes and todos
-        notes: formData.get("notes")?.trim() || null,
-        todos: this.todos || [],
-      };
+      // Enter in a field can still submit; nothing changed = nothing to send
+      if (isEdit && !this.hasUnsavedTenantChanges()) {
+        this.checkForChanges();
+        return;
+      }
+
+      const tenantData = this.buildTenantData(form);
 
       // Debug: log the properties being sent
       console.log("🔄 Tenant update data:", {
@@ -3768,6 +3799,7 @@ class TenantManagementComponent {
       // Show loading state
       const submitBtn = event.target.querySelector('button[type="submit"]');
       const originalText = submitBtn.innerHTML;
+      this._tenantSaving = true;
       submitBtn.disabled = true;
       submitBtn.innerHTML = isEdit
         ? '<i class="bi bi-hourglass-split me-1"></i>Updating Tenant...'
@@ -3788,6 +3820,7 @@ class TenantManagementComponent {
           alert(
             `Couldn't save the drawn signature (${sigError.message}). The tenant was not saved — please try again.`,
           );
+          this._tenantSaving = false;
           submitBtn.disabled = false;
           submitBtn.innerHTML = originalText;
           return;
@@ -3820,9 +3853,11 @@ class TenantManagementComponent {
       }, 300);
 
       // Reset button state
+      this._tenantSaving = false;
       submitBtn.disabled = false;
       submitBtn.innerHTML = originalText;
     } catch (error) {
+      this._tenantSaving = false;
       console.error("Error in handleTenantSubmit:", error);
       const isEdit = event.target.getAttribute("data-mode") === "edit";
       alert(
@@ -5188,194 +5223,34 @@ class TenantManagementComponent {
     this.checkForChanges();
   }
 
+  // The payload as text (plus a signature drawn but not uploaded yet).
+  // Same text as when the modal opened = nothing to update.
+  tenantFormSignature() {
+    const form = document.getElementById("tenantForm");
+    if (!form) return null;
+    try {
+      return JSON.stringify(this.buildTenantData(form)) + (this._hasPendingDrawnSignature() ? "|drawn" : "");
+    } catch {
+      return null; // couldn't read the form: treat as changed rather than block saving
+    }
+  }
+
+  // Update button: disabled while the form matches the tenant as loaded.
+  // Until the user first touches the form the reference is re-taken, so
+  // values filled in late (dropdowns whose options load afterwards) never
+  // count as changes. Called from every place that edits tenant data.
   checkForChanges() {
-    if (!this.originalTenantData) {
-      return; // No original data to compare against
-    }
-
-    const currentData = this.getCurrentFormData();
-    const hasChanges = this.hasDataChanged(
-      this.originalTenantData,
-      currentData,
-    );
-
+    const form = document.getElementById("tenantForm");
     const submitBtn = document.getElementById("tenantSubmitBtn");
-    if (submitBtn) {
-      submitBtn.disabled = !hasChanges;
-      if (hasChanges) {
-        submitBtn.classList.remove("btn-secondary");
-        submitBtn.classList.add("btn-primary");
-      } else {
-        submitBtn.classList.remove("btn-primary");
-        submitBtn.classList.add("btn-secondary");
-      }
-    }
-  }
-
-  getCurrentFormData() {
-    return {
-      name: (document.getElementById("tenantName")?.value || "").trim(),
-      nickname: (document.getElementById("tenantNickname")?.value || "").trim(),
-      fin: (document.getElementById("tenantFin")?.value || "").trim(),
-      passIssueDate: document.getElementById("tenantPassIssueDate")?.value || null,
-      passportNumber: (
-        document.getElementById("tenantPassport")?.value || ""
-      ).trim(),
-      visaIssueDate: document.getElementById("tenantVisaIssueDate")?.value || null,
-      dateOfBirth: document.getElementById("tenantDateOfBirth")?.value || null,
-      gender: (document.getElementById("tenantGender")?.value || "").trim(),
-      passType: (document.getElementById("tenantPassType")?.value || "").trim(),
-      industry: (document.getElementById("tenantIndustry")?.value || "").trim(),
-      university: (document.getElementById("tenantUniversity")?.value || "").trim(),
-      phoneNumber: (
-        document.getElementById("tenantPhoneNumber")?.value || ""
-      ).trim(),
-      email: (
-        document.getElementById("tenantEmail")?.value || ""
-      ).trim(),
-      facebookUrl: (
-        document.getElementById("tenantFacebookUrl")?.value || ""
-      ).trim(),
-      registrationStatus:
-        document.getElementById("tenantRegistrationStatusHidden")?.value ||
-        "unregistered",
-      properties: this.selectedPropertiesDetails || [],
-      passportPics: this.passportPics || [],
-      visaPics: this.visaPics || [],
-      avatar: this.avatar || "",
-      signature: this.signature || "",
-      // Drawn on the pad but not uploaded yet — uploaded on save
-      hasPendingDrawnSignature: this._hasPendingDrawnSignature(),
-      // New financial fields
-      deposit: document.getElementById("tenantDeposit")?.value
-        ? parseFloat(document.getElementById("tenantDeposit").value)
-        : null,
-      depositReceiver: (
-        document.getElementById("tenantDepositReceiver")?.value || ""
-      ).trim(),
-      cleaningFee: document.getElementById("tenantCleaningFee")?.value
-        ? parseFloat(document.getElementById("tenantCleaningFee").value)
-        : null,
-      isUtilitySubsidized:
-        document.getElementById("tenantIsUtilitySubsidized")?.checked || false,
-      isHouseCleaner:
-        document.getElementById("tenantIsHouseCleaner")?.checked || false,
-      usesElectricity:
-        document.getElementById("tenantUsesElectricity")?.checked ?? true,
-      usesWater:
-        document.getElementById("tenantUsesWater")?.checked ?? true,
-      usesGas:
-        document.getElementById("tenantUsesGas")?.checked ?? true,
-      // Roommate relationship
-      roommateId: (
-        document.getElementById("tenantRoommateId")?.value || ""
-      ).trim(),
-      // Notes and todos
-      notes: (document.getElementById("tenantNotes")?.value || "").trim(),
-      todos: this.todos || [],
-    };
-  }
-
-  hasDataChanged(original, current) {
-    // A freshly drawn signature is a change even before it's uploaded
-    if (current.hasPendingDrawnSignature) return true;
-
-    // Compare basic fields
-    const fieldsToCompare = [
-      "name",
-      "nickname",
-      "fin",
-      "passIssueDate",
-      "passportNumber",
-      "visaIssueDate",
-      "dateOfBirth",
-      "gender",
-      "passType",
-      "industry",
-      "university",
-      "phoneNumber",
-      "email",
-      "facebookUrl",
-      "registrationStatus",
-      "avatar",
-      "signature",
-      "deposit",
-      "depositReceiver",
-      "cleaningFee",
-      "isUtilitySubsidized",
-      "isHouseCleaner",
-      "usesElectricity",
-      "usesWater",
-      "usesGas",
-      "roommateId",
-      "notes",
-    ];
-
-    // Numeric fields that should be compared as numbers
-    const numericFields = ["deposit", "cleaningFee"];
-    // Boolean fields that should be compared as booleans
-    const booleanFields = ["isUtilitySubsidized", "isHouseCleaner", "usesElectricity", "usesWater", "usesGas"];
-
-    for (const field of fieldsToCompare) {
-      if (numericFields.includes(field)) {
-        // For numeric fields, compare as numbers (treat null, undefined, and empty string as null)
-        const originalValue =
-          original[field] === null ||
-            original[field] === undefined ||
-            original[field] === ""
-            ? null
-            : Number(original[field]);
-        const currentValue =
-          current[field] === null ||
-            current[field] === undefined ||
-            current[field] === ""
-            ? null
-            : Number(current[field]);
-        if (originalValue !== currentValue) {
-          return true;
-        }
-      } else if (booleanFields.includes(field)) {
-        // For boolean fields, compare as booleans
-        const originalValue =
-          original[field] === true || original[field] === "true";
-        const currentValue =
-          current[field] === true || current[field] === "true";
-        if (originalValue !== currentValue) {
-          return true;
-        }
-      } else {
-        // For string fields, compare as strings
-        const originalValue = (original[field] || "").toString().trim();
-        const currentValue = (current[field] || "").toString().trim();
-        if (originalValue !== currentValue) {
-          return true;
-        }
-      }
-    }
-
-    // Compare arrays (passportPics, visaPics)
-    if (
-      !this.arraysEqual(original.passportPics || [], current.passportPics || [])
-    ) {
-      return true;
-    }
-    if (!this.arraysEqual(original.visaPics || [], current.visaPics || [])) {
-      return true;
-    }
-
-    // Compare properties array
-    if (
-      !this.propertiesEqual(original.properties || [], current.properties || [])
-    ) {
-      return true;
-    }
-
-    // Compare todos array
-    if (!this.todosEqual(original.todos || [], current.todos || [])) {
-      return true;
-    }
-
-    return false;
+    if (!form || !submitBtn || this._tenantSaving) return;
+    if (!this._tenantFormTouched) this._tenantSavedSignature = this.tenantFormSignature();
+    const isEdit = form.getAttribute("data-mode") === "edit";
+    const hasChanges = !isEdit || this.hasUnsavedTenantChanges();
+    submitBtn.disabled = !hasChanges;
+    submitBtn.classList.toggle("btn-primary", hasChanges);
+    submitBtn.classList.toggle("btn-secondary", !hasChanges);
+    if (hasChanges) submitBtn.removeAttribute("title");
+    else submitBtn.title = "No changes to update";
   }
 
   arraysEqual(arr1, arr2) {

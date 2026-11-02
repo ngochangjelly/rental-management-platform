@@ -1,22 +1,99 @@
-/* Room photos: manager dialog, full-screen viewer, property-form strip and
-   sales-map room cards. Every class is prefixed rp- to stay isolated. */
+/* Room photos: property-form strip, manager dialog, full-screen viewer,
+   bottom "link ready" bar and sales-map room cards. Every class is prefixed
+   rp- to stay isolated. */
 
-/* ─── Property form strip (under each room price row) ─────────────────── */
-.rp-strip { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-.rp-strip-thumbs { display: flex; gap: 4px; cursor: pointer; }
-.rp-strip-thumb {
-  width: 44px; height: 33px; border-radius: 6px; object-fit: cover; background: #eef0f5;
-  border: 1px solid #e5e7eb;
+/* ─── Property form strip (end of each room's price row) ──────────────── */
+.rp-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: 4px; }
+.rp-strip:empty { display: none; }
+.rp-strip .btn {
+  font-size: 0.75rem; padding: 0 12px; min-height: 30px; border-radius: 999px; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; position: relative;
 }
+.rp-strip .rp-strip-add { width: 30px; padding: 0; }
+
+/* Thumbnails, each with an X to remove it */
+.rp-strip-thumbs { display: flex; gap: 10px; margin-right: 4px; }
+.rp-strip-thumb { position: relative; flex: none; width: 40px; height: 30px; }
+.rp-strip-open {
+  display: block; position: relative; width: 100%; height: 100%; padding: 0; cursor: pointer;
+  border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; background: #eef0f5;
+}
+.rp-strip-open img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .rp-strip-more {
-  width: 44px; height: 33px; border-radius: 6px; background: #f3f4f6; color: #4b5563;
-  font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; justify-content: center;
+  position: absolute; inset: 0; background: rgba(17, 24, 39, 0.55); color: #fff;
+  font-size: 0.72rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
-.rp-strip .btn { font-size: 0.75rem; padding: 2px 10px; border-radius: 999px; }
+.rp-strip-x {
+  position: absolute; top: -6px; right: -6px; z-index: 1; width: 18px; height: 18px; padding: 0;
+  border: 0; border-radius: 50%; background: #374151; color: #fff; box-shadow: 0 0 0 2px #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 0.5rem; line-height: 1;
+}
+.rp-strip-x::after { content: ''; position: absolute; inset: -4px -6px -6px; border-radius: 50%; } /* bigger tap area */
+.rp-strip-x:hover, .rp-strip-x:focus-visible { background: #dc2626; }
+.rp-strip-x i { -webkit-text-stroke: 0.6px; }
+
+/* Upload progress, drawn inside the add button it replaces */
+.rp-strip .btn.rp-loading { cursor: default; color: #4338ca; border-color: #c7d2fe; }
+.rp-strip .rp-strip-camera.rp-loading {
+  background: linear-gradient(90deg, #c7d2fe calc(var(--p, 0) * 100%), #eef2ff 0);
+}
+.rp-strip-camera.rp-loading .rp-add-label { visibility: hidden; } /* keeps the button's width */
+.rp-loading-face {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-weight: 600;
+}
+.rp-loading-face .spinner-border { width: 0.8rem; height: 0.8rem; border-width: 0.15em; flex: none; }
+.rp-pct { font-variant-numeric: tabular-nums; }
+/* "+" button: a progress ring with the percentage inside */
+.rp-strip .rp-strip-add.rp-loading {
+  border-color: transparent;
+  background: conic-gradient(#4f46e5 calc(var(--p, 0) * 360deg), #c7d2fe 0);
+}
+.rp-strip-add.rp-loading::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #fff; }
+.rp-strip-add.rp-loading .rp-pct { position: relative; font-size: 0.55rem; font-weight: 700; letter-spacing: -0.02em; }
+
+.rp-strip-count { display: none; }
 .rp-strip-hint { font-size: 0.75rem; color: #9ca3af; font-style: italic; }
-.rp-strip-inline { margin-top: 0; margin-left: 4px; }
-.rp-strip-inline .rp-strip-thumb, .rp-strip-inline .rp-strip-more { width: 40px; height: 30px; }
-.rp-shared-dot { color: #16a34a; font-size: 0.7rem; }
+.room-price-row.rp-drop-target {
+  outline: 2px dashed #6366f1; outline-offset: 3px; border-radius: 8px; background: #eef2ff;
+}
+
+@media (max-width: 767.98px) {
+  /* Phones: Min / Max / Actual and the photo controls share one line. The
+     photo column has a fixed width so the MIN/MAX/ACTUAL header lines up. */
+  #propertyRoomPricesWrap:has(.rp-strip) { --rp-photo-col: 132px; }
+  #propertyRoomPricesWrap:has(.rp-strip) .room-price-head,
+  .room-price-fields:has(> .rp-strip) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) var(--rp-photo-col, 132px);
+  }
+  /* No room for "$" boxes; the header already says SGD/month */
+  .room-price-fields:has(> .rp-strip) .room-price-input .input-group-text { display: none; }
+  .room-price-fields:has(> .rp-strip) .room-price-input .form-control {
+    border-radius: var(--bs-border-radius) !important; margin-left: 0 !important; padding-left: 8px; padding-right: 4px;
+  }
+  .room-price-fields > .rp-strip { margin: 0; width: 100%; flex-wrap: nowrap; gap: 6px; }
+  .room-price-fields > .rp-strip:has(.rp-strip-hint) { grid-column: 1 / -1; } /* long text: own line */
+
+  .rp-strip .btn { min-height: 44px; font-size: 0.85rem; padding: 0 10px; }
+  .rp-strip .rp-strip-camera { width: 100%; }
+  .rp-strip .rp-strip-add, .rp-strip .rp-strip-share { width: 40px; padding: 0; }
+  .rp-strip .rp-strip-share { margin-left: auto; }
+  .rp-share-text { display: none; }
+
+  .rp-strip-thumbs { margin-right: 0; }
+  .rp-strip-thumb { width: 40px; height: 44px; }
+  .rp-strip-thumb:nth-child(n + 2) { display: none; }
+  .rp-strip-count {
+    display: block; position: absolute; left: 3px; bottom: 3px; padding: 0 5px; border-radius: 999px;
+    background: rgba(17, 24, 39, 0.75); color: #fff; font-size: 0.65rem; font-weight: 700; line-height: 1.5;
+  }
+  .rp-strip-x { width: 22px; height: 22px; top: -8px; right: -8px; font-size: 0.6rem; }
+  .rp-strip-add.rp-loading .rp-pct { font-size: 0.62rem; }
+}
+@media (max-width: 374.98px) {
+  #propertyRoomPricesWrap:has(.rp-strip) { --rp-photo-col: 120px; }
+  .rp-strip .rp-strip-add, .rp-strip .rp-strip-share, .rp-strip-thumb { width: 36px; }
+}
 
 /* ─── Manager dialog ──────────────────────────────────────────────────── */
 .rp-backdrop {
@@ -26,9 +103,21 @@
 }
 @keyframes rp-fade { from { opacity: 0; } to { opacity: 1; } }
 .rp-dialog {
-  background: #fff; border-radius: 16px; width: 100%; max-width: 880px; max-height: 100%;
+  position: relative; background: #fff; border-radius: 16px; width: 100%; max-width: 880px; max-height: 100%;
   display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
 }
+.rp-head-add { border-radius: 999px; white-space: nowrap; flex: none; }
+.rp-status {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px;
+  border-radius: 10px; background: #eef2ff; color: #4338ca; font-size: 0.82rem;
+}
+.rp-drop-overlay {
+  position: absolute; inset: 8px; border: 2px dashed #6366f1; border-radius: 12px;
+  background: rgba(238, 242, 255, 0.94); color: #4338ca; font-weight: 600; pointer-events: none;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+}
+.rp-drop-overlay i { font-size: 2rem; }
+.rp-backdrop.rp-dragging .rp-drop-overlay { display: flex; }
 .rp-head {
   display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #eef0f3;
 }
@@ -41,12 +130,6 @@
 }
 .rp-icon-btn:hover { background: #e5e7eb; }
 .rp-body { padding: 16px 18px 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.rp-drop {
-  border: 2px dashed #d1d5db; border-radius: 12px; padding: 14px; display: flex; align-items: center;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 14px; transition: border-color 0.15s, background 0.15s;
-}
-.rp-drop.rp-drag { border-color: #6366f1; background: #eef2ff; }
-.rp-drop-hint { flex: 1; min-width: 180px; font-size: 0.8rem; color: #6b7280; }
 .rp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .rp-tile {
   position: relative; border-radius: 10px; overflow: hidden; background: #eef0f5; aspect-ratio: 4 / 3;
@@ -64,29 +147,17 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 .rp-tile-actions button:hover { background: #fff; }
-.rp-tile-actions button.rp-danger { color: #dc2626; }
+.rp-tile-actions .rp-tile-x { color: #111827; font-size: 0.8rem; }
+.rp-tile-actions .rp-tile-x:hover, .rp-tile-actions .rp-tile-x:focus-visible { color: #dc2626; }
+/* The X is always there; "make cover" shows on hover where there is hover */
 @media (hover: hover) {
-  .rp-tile .rp-tile-actions { opacity: 0; transition: opacity 0.15s; }
-  .rp-tile:hover .rp-tile-actions, .rp-tile:focus-within .rp-tile-actions { opacity: 1; }
-}
-.rp-tile-pending { display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 1.6rem; }
-.rp-tile-pending img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
-.rp-progress {
-  position: absolute; left: 8px; right: 8px; bottom: 8px; height: 5px; border-radius: 3px;
-  background: rgba(255, 255, 255, 0.7); overflow: hidden;
-}
-.rp-progress span { display: block; height: 100%; width: 0; background: #4f46e5; transition: width 0.2s; }
-.rp-tile-error {
-  position: absolute; inset: 0; background: rgba(254, 242, 242, 0.95); color: #b91c1c; font-size: 0.75rem;
-  padding: 10px; display: flex; flex-direction: column; justify-content: center; gap: 6px; text-align: center;
+  .rp-tile .rp-tile-cover { opacity: 0; transition: opacity 0.15s; }
+  .rp-tile:hover .rp-tile-cover, .rp-tile:focus-within .rp-tile-cover { opacity: 1; }
 }
 .rp-empty { text-align: center; color: #9ca3af; padding: 28px 0; font-size: 0.9rem; }
 .rp-empty i { font-size: 2rem; display: block; margin-bottom: 6px; }
-.rp-share { margin-top: 18px; border-top: 1px solid #eef0f3; padding-top: 14px; }
-.rp-share-title { font-weight: 700; font-size: 0.9rem; color: #111827; display: flex; align-items: center; gap: 6px; }
-.rp-share-hint { font-size: 0.78rem; color: #6b7280; margin: 4px 0 10px; }
-.rp-share-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.rp-share-row input { flex: 1 1 220px; min-width: 0; font-size: 0.82rem; }
+.rp-empty-hint { font-size: 0.8rem; margin-top: 4px; }
+@media (pointer: coarse) { .rp-empty-hint { display: none; } }
 
 @media (max-width: 767.98px) {
   .rp-backdrop { padding: 0; align-items: stretch; }
@@ -94,7 +165,6 @@
   .rp-head { padding: calc(10px + env(safe-area-inset-top)) 14px 10px; }
   .rp-body { padding: 14px 14px calc(24px + env(safe-area-inset-bottom)); }
   .rp-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .rp-share-row .btn { flex: 1 1 auto; }
 }
 
 /* ─── Full-screen viewer ──────────────────────────────────────────────── */
@@ -126,6 +196,52 @@
 .rp-viewer-nav.prev { left: 14px; }
 .rp-viewer-nav.next { right: 14px; }
 @media (hover: hover) and (min-width: 768px) { .rp-viewer-nav { display: block; } }
+
+/* ─── Bottom bar: "5 photos added · Share" ─────────────────────────────── */
+.rp-snack {
+  position: fixed; left: 50%; bottom: 24px; z-index: 1100;
+  width: max-content; max-width: min(600px, calc(100vw - 24px));
+  display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 12px;
+  background: #111827; color: #fff; border-radius: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  opacity: 0; transform: translate(-50%, 16px); transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.rp-snack.rp-show { opacity: 1; transform: translate(-50%, 0); }
+.rp-snack:not(.rp-show) { pointer-events: none; } /* fading out */
+.rp-snack-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; }
+.rp-snack-icon { font-size: 1.5rem; flex: none; color: #4ade80; }
+.rp-snack-warn .rp-snack-icon { color: #fbbf24; }
+.rp-snack-error .rp-snack-icon { color: #f87171; }
+.rp-snack-text { flex: 1; min-width: 0; }
+.rp-snack-title { font-weight: 700; font-size: 0.9rem; }
+.rp-snack-sub { font-size: 0.78rem; color: #d1d5db; margin-top: 2px; }
+.rp-snack-actions { display: flex; gap: 8px; flex: none; }
+.rp-snack-actions:empty { display: none; }
+.rp-snack-btn {
+  border: 0; border-radius: 999px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600;
+  background: rgba(255, 255, 255, 0.14); color: #fff; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.rp-snack-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.rp-snack-btn.rp-primary { background: #fff; color: #111827; }
+.rp-snack-btn.rp-primary:hover { background: #e5e7eb; }
+.rp-snack-close {
+  flex: none; border: 0; background: none; color: #9ca3af; width: 32px; height: 32px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.rp-snack-close:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+@media (max-width: 767.98px) {
+  /* Above the property form's sticky Save bar; buttons get their own full-width line */
+  .rp-snack {
+    left: 10px; right: 10px; width: auto; max-width: none; bottom: calc(80px + env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: auto 1fr auto; column-gap: 12px; row-gap: 10px;
+    transform: translateY(16px);
+  }
+  .rp-snack.rp-show { transform: translateY(0); }
+  .rp-snack-actions { grid-column: 1 / -1; grid-row: 2; }
+  .rp-snack-btn { flex: 1; min-height: 44px; font-size: 0.95rem; }
+}
+@media (prefers-reduced-motion: reduce) { .rp-snack { transition: none; } }
 
 /* ─── Sales map room cards ────────────────────────────────────────────── */
 .rp-room-card {

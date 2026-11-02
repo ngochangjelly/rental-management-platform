@@ -116,7 +116,7 @@ export const roomListingService = {
     // Registrations run one after another so the server never races itself
     let saveChain = Promise.resolve();
     const register = (result) => {
-      saveChain = saveChain.then(async () => {
+      const save = saveChain.then(async () => {
         const data = await readJson(
           await window.API.post(endpoints().ROOM_PHOTOS(propertyId, room), {
             photos: [
@@ -134,7 +134,8 @@ export const roomListingService = {
         );
         return data.photos;
       });
-      return saveChain;
+      saveChain = save.catch(() => {}); // one failed save mustn't fail the ones queued after it
+      return save;
     };
 
     let failed = 0;
@@ -155,8 +156,11 @@ export const roomListingService = {
     return { failed };
   },
 
-  async deletePhoto(propertyId, room, photoId) {
-    const data = await readJson(await window.API.delete(endpoints().ROOM_PHOTO(propertyId, room, photoId)));
+  /** `keepalive` lets the request finish even if the page is closing. */
+  async deletePhoto(propertyId, room, photoId, { keepalive = false } = {}) {
+    const data = await readJson(
+      await window.API.delete(endpoints().ROOM_PHOTO(propertyId, room, photoId), keepalive ? { keepalive } : {}),
+    );
     notifyChanged(propertyId, room);
     return data.photos;
   },
@@ -175,10 +179,5 @@ export const roomListingService = {
     const data = await readJson(await window.API.post(endpoints().ROOM_SHARE(propertyId, room)));
     notifyChanged(propertyId, room);
     return { shareUrl: data.shareUrl, sharedAt: data.sharedAt };
-  },
-
-  async disableShare(propertyId, room) {
-    await readJson(await window.API.delete(endpoints().ROOM_SHARE(propertyId, room)));
-    notifyChanged(propertyId, room);
   },
 };
