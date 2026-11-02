@@ -507,7 +507,7 @@ class SalesMapComponent {
     if (mBody) mBody.innerHTML = html;
 
     document.querySelectorAll('.sm-geocode-btn').forEach(btn =>
-      btn.addEventListener('click', () => this._geocode(prop))
+      btn.addEventListener('click', () => this._geocode(prop, btn))
     );
 
     this._prefetchRoomListings(prop);
@@ -680,8 +680,7 @@ class SalesMapComponent {
 
   // ─── Geocoding ────────────────────────────────────────────────────────────────
 
-  async _geocode(prop) {
-    const btn = document.querySelector('.sm-geocode-btn');
+  async _geocode(prop, btn) {
     if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${i18next.t('salesMap.geocoding')}`; }
     try {
       const res = await API.post(API_CONFIG.ENDPOINTS.SALES_GEOCODE(prop.propertyId));
@@ -690,6 +689,7 @@ class SalesMapComponent {
 
       prop.latitude = data.latitude;
       prop.longitude = data.longitude;
+      if (data.postcode) prop.postcode = data.postcode;
       const idx = this.properties.findIndex(p => p.propertyId === prop.propertyId);
       if (idx !== -1) this.properties[idx] = prop;
 
@@ -698,7 +698,7 @@ class SalesMapComponent {
       if (window.showToast) showToast(i18next.t('salesMap.geocodeSuccess'), 'success');
     } catch (err) {
       console.error('[SalesMap] geocode error:', err);
-      if (window.showToast) showToast(i18next.t('salesMap.geocodeFailed'), 'danger');
+      if (window.showToast) showToast(`${i18next.t('salesMap.geocodeFailed')}: ${err.message}`, 'danger');
       if (btn) { btn.disabled = false; btn.innerHTML = `<i class="bi bi-geo-alt me-1"></i>${i18next.t('salesMap.geocode')}`; }
     }
   }
