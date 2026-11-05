@@ -35,6 +35,16 @@
     <!-- Webpack will inject scripts here automatically -->
 
     <style>
+      /* Investor icon: man in a suit in front of a rising chart */
+      .icon-investor {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        background-color: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='m'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cg stroke='black' stroke-width='1.6'%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3C/g%3E%3C/mask%3E%3Cg mask='url%28%23m%29'%3E%3Crect x='7' y='10.2' width='2.2' height='5.3' rx='.3'/%3E%3Crect x='10.2' y='8.2' width='2.2' height='7.3' rx='.3'/%3E%3Crect x='13.4' y='6.2' width='2.2' height='9.3' rx='.3'/%3E%3Cpath d='M8.2 7.4 11.2 4.4l1.6 1.4 2-2.2' fill='none' stroke='black' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.8 1.6 15.6 4.9 12.7 2.3z'/%3E%3C/g%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3Cpath d='M4.6 9.8h.8l.3 2.2-.7 1.1-.7-1.1z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='m'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cg stroke='black' stroke-width='1.6'%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3C/g%3E%3C/mask%3E%3Cg mask='url%28%23m%29'%3E%3Crect x='7' y='10.2' width='2.2' height='5.3' rx='.3'/%3E%3Crect x='10.2' y='8.2' width='2.2' height='7.3' rx='.3'/%3E%3Crect x='13.4' y='6.2' width='2.2' height='9.3' rx='.3'/%3E%3Cpath d='M8.2 7.4 11.2 4.4l1.6 1.4 2-2.2' fill='none' stroke='black' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.8 1.6 15.6 4.9 12.7 2.3z'/%3E%3C/g%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3Cpath d='M4.6 9.8h.8l.3 2.2-.7 1.1-.7-1.1z'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
       body {
         font-family: 'Noto Serif', serif;
       }
@@ -179,7 +189,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link active" href="/investor-management.html">
-                <i class="bi bi-person-badge me-2"></i
+                <i class="icon-investor me-2"></i
                 ><span data-i18n="sidebar.investors">Investors</span>
               </a>
             </li>
@@ -237,7 +247,7 @@
                     class="card-header d-flex justify-content-between align-items-center"
                   >
                     <h5 class="mb-0">
-                      <i class="bi bi-person-badge me-2"></i>All Investors
+                      <i class="icon-investor me-2"></i>All Investors
                     </h5>
                     <span class="badge bg-primary" id="investorCount"
                       >Loading...</span

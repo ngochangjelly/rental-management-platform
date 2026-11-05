@@ -1286,7 +1286,7 @@ class FinancialReportsComponent {
     const accent = isIncome ? "#198754" : "#dc3545";
     const lastCount = isIncome ? this._lastIncomeCount : this._lastExpenseCount;
     const count = Math.min(Math.max(lastCount || 3, 2), 10);
-    const GRID = "18px 26px minmax(140px,2fr) 54px 58px 76px 90px 112px";
+    const GRID = "16px 22px minmax(100px,1fr) 48px 48px 52px 86px 112px";
     const cell = (content, opts = {}) => `
       <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}">${content}</div>`;
 
@@ -1328,7 +1328,7 @@ class FinancialReportsComponent {
 
     return `
       <div class="d-none d-md-block" style="overflow-x:auto;">
-        <div style="min-width:700px;">
+        <div style="min-width:520px;">
           <div style="display:grid;grid-template-columns:${GRID};gap:4px;align-items:center;padding:6px 4px;background:${headerBg};border-radius:4px 4px 0 0;">
             ${cell("")}${cell("")}
             ${cell("Item", { cls: "small fw-semibold" })}
@@ -1472,13 +1472,13 @@ class FinancialReportsComponent {
     // small subtext line under the Amount value instead (same treatment as
     // the exported report image) — frees up a column's worth of width.
     const INCOME_GRID_COLUMNS =
-      "18px 26px minmax(140px,2fr) 54px 58px 76px 90px 112px";
+      "16px 22px minmax(100px,1fr) 48px 48px 52px 86px 112px";
     const gridCell = (content, opts = {}) => `
       <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
     let tableHtml = `
       <div class="d-none d-md-block" id="incomeTable" style="overflow-x:auto;">
-        <div style="min-width:700px;">
+        <div style="min-width:520px;">
           <div style="display:grid;grid-template-columns:${INCOME_GRID_COLUMNS};gap:4px;align-items:center;padding:6px 4px;background:#d1e7dd;border-radius:4px 4px 0 0;">
             ${gridCell("")}
             ${gridCell(`<input type="checkbox" class="form-check-input" id="selectAllIncome"
@@ -1654,7 +1654,7 @@ class FinancialReportsComponent {
           ${gridCell(this.renderPaidByAvatar(item.paidBy), { cls: "small" })}
           ${gridCell(
             `$${item.amount.toFixed(2)}<div style="font-size:10px;font-weight:600;color:#6c757d;letter-spacing:.3px;">${item.currency || "SGD"}</div>`,
-            { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#198754"};` },
+            { cls: "fw-bold", align: "right", style: `font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${item.isPending ? "#b45309" : "#198754"};` },
           )}
           ${gridCell(`<div class="fr-action-btns">${evidenceBtn}${categoryBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
         </div>`;
@@ -1799,13 +1799,13 @@ class FinancialReportsComponent {
     // Desktop table — CSS Grid "table", same pattern as updateIncomeDisplay().
     // Trimmed the same way as INCOME_GRID_COLUMNS (see comment there).
     const EXPENSE_GRID_COLUMNS =
-      "18px 26px minmax(140px,2fr) 54px 58px 76px 90px 112px";
+      "16px 22px minmax(100px,1fr) 48px 48px 52px 86px 112px";
     const gridCell = (content, opts = {}) => `
       <div class="${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
 
     let tableHtml = `
       <div class="d-none d-md-block" id="expenseTable" style="overflow-x:auto;">
-        <div style="min-width:660px;">
+        <div style="min-width:520px;">
           <div style="display:grid;grid-template-columns:${EXPENSE_GRID_COLUMNS};gap:4px;align-items:center;padding:6px 4px;background:#f8d7da;border-radius:4px 4px 0 0;">
             ${gridCell("")}
             ${gridCell(`<input type="checkbox" class="form-check-input" id="selectAllExpenses"
@@ -1982,7 +1982,7 @@ class FinancialReportsComponent {
           ${gridCell(transactionDate, { cls: "small" })}
           ${gridCell(`<div class="d-flex align-items-center justify-content-center">${investorAvatarDesktop}</div>`)}
           ${gridCell(paidToAvatarHtml, { cls: "small", align: "center" })}
-          ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;color:${item.isPending ? "#b45309" : "#dc3545"};` })}
+          ${gridCell(`$${item.amount.toFixed(2)}`, { cls: "fw-bold", align: "right", style: `font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${item.isPending ? "#b45309" : "#dc3545"};` })}
           ${gridCell(`<div class="fr-action-btns">${evidenceBtn}${categoryBtn}${editBtn}${deleteBtn}</div>`, { cls: "actions-column", align: "center" })}
         </div>`;
 

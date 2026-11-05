@@ -558,6 +558,17 @@
         }
       }
 
+      /* Investor icon: man in a suit in front of a rising chart */
+      .icon-investor {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        background-color: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='m'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cg stroke='black' stroke-width='1.6'%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3C/g%3E%3C/mask%3E%3Cg mask='url%28%23m%29'%3E%3Crect x='7' y='10.2' width='2.2' height='5.3' rx='.3'/%3E%3Crect x='10.2' y='8.2' width='2.2' height='7.3' rx='.3'/%3E%3Crect x='13.4' y='6.2' width='2.2' height='9.3' rx='.3'/%3E%3Cpath d='M8.2 7.4 11.2 4.4l1.6 1.4 2-2.2' fill='none' stroke='black' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.8 1.6 15.6 4.9 12.7 2.3z'/%3E%3C/g%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3Cpath d='M4.6 9.8h.8l.3 2.2-.7 1.1-.7-1.1z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='m'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cg stroke='black' stroke-width='1.6'%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3C/g%3E%3C/mask%3E%3Cg mask='url%28%23m%29'%3E%3Crect x='7' y='10.2' width='2.2' height='5.3' rx='.3'/%3E%3Crect x='10.2' y='8.2' width='2.2' height='7.3' rx='.3'/%3E%3Crect x='13.4' y='6.2' width='2.2' height='9.3' rx='.3'/%3E%3Cpath d='M8.2 7.4 11.2 4.4l1.6 1.4 2-2.2' fill='none' stroke='black' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.8 1.6 15.6 4.9 12.7 2.3z'/%3E%3C/g%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3Cpath d='M4.6 9.8h.8l.3 2.2-.7 1.1-.7-1.1z'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
+
       /* Desktop Sidebar Collapse - iOS-like Animation */
       @media (min-width: 768px) {
         .sidebar {
@@ -567,7 +578,9 @@
           left: 0;
           top: 0;
           height: 100vh;
-          z-index: 100;
+          /* Above page content (Leaflet maps use up to 1000, sticky 1020)
+             but under Bootstrap modals/offcanvas (1040+) */
+          z-index: 1030;
           transition:
             width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
             min-width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
@@ -610,6 +623,19 @@
           pointer-events: none;
           position: absolute;
           visibility: hidden;
+        }
+
+        /* Links that wrap icon + label in an extra span (Properties,
+           Tenants, Investors): keep the icon, hide only the label */
+        .sidebar.collapsed .nav-link > span:has(> i) {
+          opacity: 1;
+          visibility: visible;
+          position: static;
+        }
+
+        /* Hovering a collapsed sidebar expands it over the content */
+        .sidebar.hover-expanded {
+          box-shadow: 8px 0 24px rgba(0, 0, 0, 0.25);
         }
 
         /* Sidebar header (logo area) */
@@ -738,9 +764,8 @@
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .sidebar.collapsed .nav-link:hover::after {
-          opacity: 1;
-          visibility: visible;
+        .sidebar.collapsed .nav-link::after {
+          display: none;
         }
       }
 
@@ -5407,7 +5432,7 @@
                 data-section="investors"
               >
                 <span>
-                  <i class="bi bi-person-badge me-2"></i
+                  <i class="icon-investor me-2"></i
                   ><span data-i18n="sidebar.investors">Investors</span>
                 </span>
                 <span
@@ -5938,7 +5963,7 @@
                   <div class="card feature-card h-100" data-section="investors">
                     <div class="card-body text-center p-4">
                       <i
-                        class="bi bi-person-badge text-info"
+                        class="icon-investor text-info"
                         style="font-size: 3rem"
                       ></i>
                       <h5
@@ -13951,7 +13976,7 @@
                         class="card-header d-flex justify-content-between align-items-center"
                       >
                         <h5 class="mb-0">
-                          <i class="bi bi-person-badge me-2"></i>All Investors
+                          <i class="icon-investor me-2"></i>All Investors
                         </h5>
                         <span class="badge bg-primary" id="investorCount"
                           >Loading...</span
@@ -16494,7 +16519,8 @@
         if (!sidebar || !collapseToggle) return;
 
         // Storage key for persistence
-        const STORAGE_KEY = "sidebarCollapsed";
+        // New key so everyone starts collapsed (old key saved "false" = open)
+        const STORAGE_KEY = "sidebarPinnedOpen";
 
         // Add tooltips to nav links dynamically
         function updateNavLinkTooltips() {
@@ -16509,38 +16535,61 @@
           });
         }
 
-        // Toggle collapse state
-        function toggleSidebar() {
-          const isCollapsed = sidebar.classList.toggle("collapsed");
-          document.body.classList.toggle("sidebar-collapsed", isCollapsed);
+        // Collapsed by default. Hovering expands it over the content; the
+        // toggle button pins it open (saved) or collapses it again.
+        const toggleIcon = collapseToggle.querySelector("i");
+        let pinnedOpen = false;
+        let hoverTimer = null;
 
-          // Save state to localStorage
+        function applyState(hovering) {
+          const expanded = pinnedOpen || hovering;
+          sidebar.classList.toggle("collapsed", !expanded);
+          sidebar.classList.toggle("hover-expanded", hovering && !pinnedOpen);
+          // Content keeps the narrow margin while hover-expanded (overlay)
+          document.body.classList.toggle("sidebar-collapsed", !pinnedOpen);
+          if (toggleIcon) {
+            toggleIcon.className =
+              hovering && !pinnedOpen ? "bi bi-pin-angle" : "bi bi-chevron-left";
+          }
+          collapseToggle.title = pinnedOpen
+            ? "Collapse sidebar"
+            : "Pin sidebar open";
+        }
+
+        function toggleSidebar() {
+          pinnedOpen = !pinnedOpen;
           try {
-            localStorage.setItem(STORAGE_KEY, isCollapsed ? "true" : "false");
+            localStorage.setItem(STORAGE_KEY, pinnedOpen ? "true" : "false");
           } catch (e) {
             console.warn("Could not save sidebar state to localStorage");
           }
-
-          // Dispatch custom event for any components that need to respond
+          applyState(!pinnedOpen && sidebar.matches(":hover"));
           window.dispatchEvent(
             new CustomEvent("sidebarToggle", {
-              detail: { collapsed: isCollapsed },
+              detail: { collapsed: !pinnedOpen },
             }),
           );
         }
 
-        // Restore saved state
         function restoreSidebarState() {
           try {
-            const savedState = localStorage.getItem(STORAGE_KEY);
-            if (savedState === "true") {
-              sidebar.classList.add("collapsed");
-              document.body.classList.add("sidebar-collapsed");
-            }
+            pinnedOpen = localStorage.getItem(STORAGE_KEY) === "true";
           } catch (e) {
             console.warn("Could not read sidebar state from localStorage");
           }
+          applyState(false);
         }
+
+        const canHover = window.matchMedia("(hover: hover)");
+        sidebar.addEventListener("mouseenter", () => {
+          if (pinnedOpen || !canHover.matches || window.innerWidth < 768) return;
+          clearTimeout(hoverTimer);
+          hoverTimer = setTimeout(() => applyState(true), 120);
+        });
+        sidebar.addEventListener("mouseleave", () => {
+          clearTimeout(hoverTimer);
+          if (!pinnedOpen) applyState(false);
+        });
 
         // Initialize
         updateNavLinkTooltips();

@@ -590,7 +590,7 @@ class InvestorManagementComponent {
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Preview</label>
-                    <div id="avatarPreview" class="text-center">
+                    <div id="investorAvatarPreview" class="text-center">
                       <div class="text-muted small">No avatar selected</div>
                     </div>
                   </div>
@@ -1356,7 +1356,7 @@ class InvestorManagementComponent {
   }
 
   updateAvatarPreview() {
-    const preview = document.getElementById('avatarPreview');
+    const preview = document.getElementById('investorAvatarPreview');
     const hiddenInput = document.getElementById('investorAvatar');
     
     if (!preview || !hiddenInput) {

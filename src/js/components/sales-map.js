@@ -164,7 +164,7 @@ class SalesMapComponent {
       <!-- Property picker (focus the map on one property) -->
       <div id="sm-property-picker"></div>
 
-      <div class="sales-map-layout d-flex gap-0" style="height:calc(100vh - 370px);min-height:460px;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+      <div class="sales-map-layout d-flex gap-0" style="isolation:isolate;height:calc(100vh - 370px);min-height:460px;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
 
         <!-- Map pane -->
         <div style="position:relative;flex:1 1 0;min-width:0;">
