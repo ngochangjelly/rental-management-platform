@@ -2098,6 +2098,9 @@ class FinancialReportsComponent {
                 const propertyData = investor.properties.find(
                   (p) => p.propertyId === this.selectedProperty,
                 );
+                // Hide investors with no share in this property
+                if (!propertyData || !(Number(propertyData.percentage) > 0))
+                  return "";
                 return this._investorGridRowSkeletonHtml({
                   avatar: investor.avatar,
                   name: investor.name,
@@ -2190,6 +2193,9 @@ class FinancialReportsComponent {
       // Formula: Final = Profit Share + Paid - Received
       const finalAmount = profitShare + paidAmount - receivedAmount;
 
+      if (!this._shouldShowInvestor({ percentage, paidAmount, receivedAmount }))
+        return;
+
       const actionsHtml = this._investorActionsHtml(investor.investorId);
 
       html += this._investorGridRowHtml({
@@ -2224,6 +2230,13 @@ class FinancialReportsComponent {
   // #investorDistribution container, so both call these same helpers to stay
   // visually identical on the columns they share; the live view adds a
   // trailing Actions column the snapshot view omits.
+  // Investors with a 0% share are hidden from the distribution table and
+  // every export (image/PDF), unless they paid or received money in this
+  // report — otherwise money owed to/by them would silently disappear.
+  _shouldShowInvestor({ percentage, paidAmount, receivedAmount }) {
+    return Number(percentage) > 0 || !!paidAmount || !!receivedAmount;
+  }
+
   _investorActionsHtml(investorId) {
     return `
       <div class="btn-group btn-group-sm">
@@ -2334,6 +2347,9 @@ class FinancialReportsComponent {
         receivedAmount,
         finalAmount,
       } = investorData;
+
+      if (!this._shouldShowInvestor({ percentage, paidAmount, receivedAmount }))
+        return;
 
       html += this._investorGridRowHtml({
         avatar,
@@ -7052,6 +7068,7 @@ class FinancialReportsComponent {
         pdf.setFont("NotoSerif", "normal");
 
         // Process investor distribution
+        let rowIdx = 0; // counts rendered rows only, for striping
         for (let idx = 0; idx < investorDataSource.length; idx++) {
           let investorName,
             percentage,
@@ -7108,8 +7125,17 @@ class FinancialReportsComponent {
             finalAmount = investorShare + expensesPaid - incomeReceived;
           }
 
+          if (
+            !this._shouldShowInvestor({
+              percentage,
+              paidAmount: expensesPaid,
+              receivedAmount: incomeReceived,
+            })
+          )
+            continue;
+
           // Alternating row colors
-          if (idx % 2 === 0) {
+          if (rowIdx++ % 2 === 0) {
             pdf.setFillColor(250, 250, 250);
             pdf.rect(margin, yPos - 3.5, contentWidth, 4, "F");
           }
@@ -7445,15 +7471,17 @@ class FinancialReportsComponent {
     const isClosed = this.currentReport?.isClosed;
     const snapshot = this.currentReport?.investorSnapshot;
     if (isClosed && snapshot?.length > 0) {
-      return snapshot.map((s) => ({
-        name: s.name,
-        avatar: s.avatar || null,
-        percentage: s.percentage,
-        profitShare: s.profitShare,
-        paidAmount: s.paidAmount,
-        receivedAmount: s.receivedAmount,
-        finalAmount: s.finalAmount,
-      }));
+      return snapshot
+        .map((s) => ({
+          name: s.name,
+          avatar: s.avatar || null,
+          percentage: s.percentage,
+          profitShare: s.profitShare,
+          paidAmount: s.paidAmount,
+          receivedAmount: s.receivedAmount,
+          finalAmount: s.finalAmount,
+        }))
+        .filter((inv) => this._shouldShowInvestor(inv));
     }
 
     if (!this.investors || this.investors.length === 0) return [];
@@ -7463,7 +7491,7 @@ class FinancialReportsComponent {
         (this.currentReport.totalExpenses || 0)
       : 0;
 
-    return this.investors.map((investor) => {
+    const rows = this.investors.map((investor) => {
       const tx = this.currentReport?.investorTransactions?.find(
         (t) => t.investorId === investor.investorId,
       );
@@ -7492,6 +7520,7 @@ class FinancialReportsComponent {
         finalAmount: profitShare + paidAmount - receivedAmount,
       };
     });
+    return rows.filter((inv) => this._shouldShowInvestor(inv));
   }
 
   /** Fetch avatar images and return a map of original URL → base64 data URI */

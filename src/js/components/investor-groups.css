@@ -1,0 +1,213 @@
+/* Group investors: list filter, group badges, cap table, memberships, modal editor */
+
+/* ── List: All / Individuals / Groups ─────────────────────────────────────── */
+.inv-kind-filter {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #eef0f5;
+}
+.inv-kind {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #e6e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #4a5068;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.inv-kind:hover { background: #f4f5fb; }
+.inv-kind.active { background: #667eea; border-color: #667eea; color: #fff; }
+.inv-kind-count {
+  min-width: 18px;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 0.7rem;
+}
+.inv-kind.active .inv-kind-count { background: rgba(255, 255, 255, 0.25); }
+
+/* ── Group badges + avatar ────────────────────────────────────────────────── */
+.inv-avatar.inv-avatar-group { border-radius: 28%; }
+.inv-avatar-initial.inv-avatar-group {
+  background: linear-gradient(135deg, #12b886 0%, #1c7ed6 100%);
+}
+.inv-group-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #e6fcf5;
+  color: #087f5b;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: 0.15em;
+}
+.inv-group-pill-lg { font-size: 0.7rem; padding: 0.1rem 0.5rem; margin-left: 0.25rem; }
+
+/* Three stats (Properties · Total · Members/Groups) */
+.inv-stats.inv-stats-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 600px;
+}
+
+/* ── Ownership bar + status line ──────────────────────────────────────────── */
+.inv-alloc-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  background: #eceef6;
+  overflow: hidden;
+}
+.inv-alloc-bar > span { display: block; height: 100%; }
+.inv-alloc-bar > span + span { box-shadow: inset 2px 0 0 #fff; }
+.inv-alloc-text {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.inv-alloc-full .inv-alloc-text { color: #2b8a3e; }
+.inv-alloc-partial .inv-alloc-text { color: #b35c00; }
+.inv-alloc-over .inv-alloc-text { color: #c92a2a; }
+.inv-alloc-over .inv-alloc-bar { box-shadow: 0 0 0 2px #ffc9c9; }
+.inv-alloc-empty .inv-alloc-text { color: #7a8090; font-weight: 500; }
+
+/* ── Group detail: members ────────────────────────────────────────────────── */
+.inv-members-card {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 0.85rem 0.35rem;
+  border: 1px solid #e6e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.inv-members { margin: 0.5rem -0.85rem 0; }
+.inv-member {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.45rem 0.85rem;
+  border: 0;
+  border-top: 1px solid #eef0f5;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.inv-member:not(:disabled):hover { background: #fafbfe; }
+.inv-member:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+.inv-member-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
+.inv-member-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.inv-member-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-member-meta { font-size: 0.72rem; color: #7a8090; }
+.inv-member-share { flex: 0 0 110px; display: flex; flex-direction: column; gap: 4px; }
+.inv-member-pct { font-weight: 700; color: #4f5bd5; font-size: 0.9rem; text-align: right; }
+
+/* ── Individual detail: group memberships + look-through ──────────────────── */
+.inv-memberships { display: flex; flex-direction: column; gap: 0.75rem; }
+.inv-membership {
+  border: 1px solid #e6e8f0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.inv-membership-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.55rem 0.85rem;
+  border: 0;
+  background: #f8fafc;
+  color: inherit;
+  text-align: left;
+}
+.inv-membership-head:hover { background: #f1f4fa; }
+.inv-membership-head:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+.inv-membership-share { flex-shrink: 0; font-size: 0.78rem; color: #4a5068; white-space: nowrap; }
+.inv-membership-share strong { color: #087f5b; font-size: 0.95rem; }
+.inv-look { padding: 0.5rem 0.85rem 0.65rem; }
+.inv-look-empty { font-size: 0.8rem; color: #7a8090; }
+.inv-look-title {
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9aa0ad;
+}
+.inv-look-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 64px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  font-size: 0.82rem;
+}
+.inv-look-row + .inv-look-row { border-top: 1px dashed #eef0f5; }
+.inv-look-addr { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-look-calc { color: #9aa0ad; font-size: 0.75rem; white-space: nowrap; }
+.inv-look-pct { font-weight: 700; color: #4f5bd5; text-align: right; }
+
+/* ── Modal: group toggle + members editor ─────────────────────────────────── */
+.inv-group-toggle {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #e6e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.inv-group-toggle .form-check-input { width: 2.5em; height: 1.35em; margin-top: 0.1em; cursor: pointer; }
+.inv-group-toggle .form-check-input:checked { background-color: #12b886; border-color: #12b886; }
+.inv-group-toggle .form-check-label { margin-left: 0.35rem; cursor: pointer; }
+.inv-group-toggle .form-check-input:disabled ~ .form-check-label { cursor: not-allowed; }
+.inv-member-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+.inv-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #e6e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+.inv-member-input { flex: 0 0 130px; width: 130px; }
+.inv-member-input .form-control { text-align: right; }
+.inv-member-remove { flex-shrink: 0; width: 34px; height: 34px; padding: 0; }
+
+/* Phones: bigger targets, share input drops under the name */
+@media (max-width: 575.98px) {
+  .inv-kind { min-height: 36px; }
+  .inv-stats.inv-stats-3 .inv-stat { padding: 0.55rem 0.6rem; }
+  .inv-stats.inv-stats-3 .inv-stat-value { font-size: 1.15rem; }
+  .inv-member-share { flex-basis: 84px; }
+  .inv-membership-head .inv-member-name { white-space: normal; overflow-wrap: anywhere; }
+  .inv-member-row { flex-wrap: wrap; }
+  .inv-member-row .inv-member-text { flex-basis: calc(100% - 32px - 8px - 40px - 1.8rem); }
+  .inv-member-input { flex: 1 1 auto; width: auto; order: 5; margin-left: calc(8px + 32px + 1.2rem); }
+  .inv-member-input .form-control,
+  .inv-member-input .input-group-text { min-height: 40px; font-size: 1rem; }
+  .inv-member-remove { width: 40px; height: 40px; }
+  .inv-look-row { grid-template-columns: minmax(0, 1fr) 56px; }
+  .inv-look-calc { grid-column: 1; grid-row: 2; margin-top: -0.2rem; }
+  .inv-look-pct { grid-row: 1 / span 2; grid-column: 2; }
+}

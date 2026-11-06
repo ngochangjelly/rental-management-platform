@@ -3,6 +3,13 @@
  * Handles comprehensive investor management with properties and percentages
  */
 import { ManagementFeePanel } from "./investor-management-fee.js";
+import "./investor-groups.css";
+
+// Member colours for the group ownership bar (cap table)
+const MEMBER_COLORS = ['#667eea', '#12b886', '#f59f00', '#e8590c', '#7048e8', '#1c7ed6', '#d6336c', '#2f9e44'];
+
+// Shares are entered to 2 decimals; rounding keeps 33.33 + 33.33 + 33.34 at 100
+const roundShare = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 class InvestorManagementComponent {
   constructor() {
@@ -14,9 +21,13 @@ class InvestorManagementComponent {
     // List/detail view state
     this.selectedInvestorId = null;
     this._search = '';        // investor list search
+    this._kindFilter = 'all'; // investor list: 'all' | 'individual' | 'group'
     this._propFilter = '';    // selected investor's property filter
     this._propSort = 'default';
     this._mobileDetail = false; // mobile: detail view open instead of the list
+    // Investor modal: group members being edited [{ investorId, percentage }]
+    this._modalMembers = [];
+    this._modalWasGroup = false;
     this.feePanel = new ManagementFeePanel({
       containerId: 'managementFeePanel',
       getData: () => ({ investors: this.investors, properties: this.properties }),
@@ -165,25 +176,34 @@ class InvestorManagementComponent {
   }
 
   _avatarHtml(investor, size) {
-    const initial = escapeHtml((investor.name || '?').charAt(0).toUpperCase());
+    // Groups get a rounded-square avatar with a people icon instead of an initial
+    const isGroup = this._isGroup(investor);
+    const initial = isGroup
+      ? '<i class="bi bi-people-fill"></i>'
+      : escapeHtml((investor.name || '?').charAt(0).toUpperCase());
     const box = `width:${size}px;height:${size}px;`;
+    const shape = isGroup ? ' inv-avatar-group' : '';
     const initialHtml = (hidden) =>
-      `<span class="inv-avatar inv-avatar-initial" style="${box}font-size:${Math.round(size * 0.4)}px;${hidden ? 'display:none;' : ''}">${initial}</span>`;
+      `<span class="inv-avatar inv-avatar-initial${shape}" style="${box}font-size:${Math.round(size * 0.4)}px;${hidden ? 'display:none;' : ''}">${initial}</span>`;
     if (investor.avatar) {
       // On a broken image, swap to the initial
       return `<img src="${escapeHtml(this.getOptimizedAvatarUrl(investor.avatar, 'small'))}" alt=""
-                   class="inv-avatar" style="${box}"
+                   class="inv-avatar${shape}" style="${box}"
                    onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" />${initialHtml(true)}`;
     }
     return initialHtml(false);
   }
 
-  // Matches the investor's own details first, then their property addresses
-  // and IDs. `viaProps` counts holdings that matched when the investor didn't.
+  // Matches the investor's own details first (for a group, also its members'
+  // names), then their property addresses and IDs. `viaProps` counts holdings
+  // that matched when the investor didn't.
   _investorMatch(investor, q) {
     const own = [investor.name, investor.investorId, investor.username, investor.email, investor.phone]
       .filter(Boolean).join(' ').toLowerCase();
     if (own.includes(q)) return { match: true, viaProps: 0 };
+    const viaMembers = this._groupMembers(investor)
+      .filter(m => (m.investor?.name || '').toLowerCase().includes(q)).length;
+    if (viaMembers) return { match: true, viaProps: 0, viaMembers };
     const viaProps = this._activeHoldings(investor).filter(h =>
       this._holdingMatches(h, q)
     ).length;
@@ -193,6 +213,101 @@ class InvestorManagementComponent {
   _holdingMatches(holding, q) {
     const label = this._propertyLabel(this._propertyById(holding.propertyId), holding.propertyId);
     return `${label} ${holding.propertyId}`.toLowerCase().includes(q);
+  }
+
+  // ─── Group investors ──────────────────────────────────────────────────────
+  // A group holds property shares like any investor; its own ownership is
+  // split between individual investors (members), each owning a % of it.
+  // A member's look-through share of a property = group share × member share.
+
+  _isGroup(investor) {
+    return !!investor?.isGroup;
+  }
+
+  _investorById(investorId) {
+    return this.investors.find(i => String(i.investorId) === String(investorId));
+  }
+
+  // Members of a group, each with the investor record when it's loaded
+  _groupMembers(group) {
+    if (!this._isGroup(group)) return [];
+    return (group.members || []).map(m => ({ ...m, investor: this._investorById(m.investorId) }));
+  }
+
+  // Groups this investor is a member of, with their share of each
+  _membershipsOf(investorId) {
+    return this.investors
+      .filter(g => this._isGroup(g))
+      .map(group => ({ group, member: (group.members || []).find(m => String(m.investorId) === String(investorId)) }))
+      .filter(x => x.member);
+  }
+
+  _shareTotal(members) {
+    return roundShare((members || []).reduce((sum, m) => sum + (Number(m.percentage) || 0), 0));
+  }
+
+  _fmtShare(n) {
+    return String(roundShare(n));
+  }
+
+  _memberColor(index) {
+    return MEMBER_COLORS[index % MEMBER_COLORS.length];
+  }
+
+  _memberName(member) {
+    return member.investor?.name || `Investor ${member.investorId}`;
+  }
+
+  // escapeHtml leaves quotes alone; this is safe inside attribute values
+  _attr(value) {
+    return escapeHtml(String(value ?? '')).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Stacked bar of member shares plus a one-line allocation status
+  _allocationHtml(members) {
+    const total = this._shareTotal(members);
+    const segments = members.map((m, i) => {
+      const pct = Math.max(0, Math.min(Number(m.percentage) || 0, 100));
+      return `<span style="width:${pct}%;background:${this._memberColor(i)}"></span>`;
+    }).join('');
+    const withoutShare = members.filter(m => !(Number(m.percentage) > 0)).length;
+    let state, icon, text;
+    if (members.length === 0) {
+      state = 'empty'; icon = 'info-circle';
+      text = 'No members yet — add the investors who own this group';
+    } else if (withoutShare > 0 && total <= 100) {
+      state = 'partial'; icon = 'exclamation-triangle';
+      text = `Enter a share for ${withoutShare} member${withoutShare === 1 ? '' : 's'} · ${this._fmtShare(total)}% allocated`;
+    } else if (total > 100) {
+      state = 'over'; icon = 'exclamation-octagon';
+      text = `Over-allocated: ${this._fmtShare(total)}% — reduce by ${this._fmtShare(total - 100)}%`;
+    } else if (total === 100) {
+      state = 'full'; icon = 'check-circle-fill';
+      text = 'Fully allocated · 100%';
+    } else {
+      state = 'partial'; icon = 'exclamation-triangle';
+      text = `${this._fmtShare(total)}% allocated · ${this._fmtShare(100 - total)}% unallocated`;
+    }
+    return `
+      <div class="inv-alloc inv-alloc-${state}">
+        <div class="inv-alloc-bar" role="img" aria-label="${this._attr(text)}">${segments}</div>
+        <div class="inv-alloc-text"><i class="bi bi-${icon}"></i>${escapeHtml(text)}</div>
+      </div>`;
+  }
+
+  // Opens an investor from a link inside the detail view (member ↔ group)
+  openInvestor(investorId) {
+    const inv = this._investorById(investorId);
+    if (!inv) return;
+    const hiddenByKind = this._kindFilter !== 'all' && (this._kindFilter === 'group') !== this._isGroup(inv);
+    if (hiddenByKind) this._kindFilter = 'all';
+    if (this._search.trim() && !this._investorMatch(inv, this._search.trim().toLowerCase()).match) {
+      this._search = '';
+      const input = document.getElementById('invSearch');
+      if (input) input.value = '';
+    }
+    this._renderKindFilter();
+    this.selectInvestor(String(inv.investorId));
   }
 
   renderInvestors() {
@@ -234,6 +349,7 @@ class InvestorManagementComponent {
                    placeholder="Search investor or property…" autocomplete="off"
                    value="${escapeHtml(this._search)}" aria-label="Search investors or properties">
           </div>
+          <div class="inv-kind-filter" id="invKindFilter" role="group" aria-label="Show investors"></div>
           <div class="inv-list" id="invList" role="list"></div>
           <div class="inv-master-foot">
             <button class="btn btn-outline-secondary btn-sm w-100" id="exportInvestorReportBtn" onclick="window.investorManager.exportInvestorReport()">
@@ -249,22 +365,58 @@ class InvestorManagementComponent {
       this._search = e.target.value;
       this._renderInvestorListPane();
     });
+    document.getElementById('invKindFilter').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-kind]');
+      if (!btn) return;
+      this._kindFilter = btn.dataset.kind;
+      this._renderKindFilter();
+      this._renderInvestorListPane();
+    });
 
+    this._renderKindFilter();
     this._renderInvestorListPane();
     this._renderInvestorDetail();
     this._applyMobileState();
+  }
+
+  // All / Individuals / Groups switch — only shown once a group exists
+  _renderKindFilter() {
+    const el = document.getElementById('invKindFilter');
+    if (!el) return;
+    const groups = this.investors.filter(i => this._isGroup(i)).length;
+    if (groups === 0) {
+      this._kindFilter = 'all';
+      el.innerHTML = '';
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    const kinds = [
+      ['all', 'All', this.investors.length],
+      ['individual', 'Individuals', this.investors.length - groups],
+      ['group', 'Groups', groups],
+    ];
+    el.innerHTML = kinds.map(([kind, label, count]) => `
+      <button type="button" data-kind="${kind}" class="inv-kind ${this._kindFilter === kind ? 'active' : ''}"
+              aria-pressed="${this._kindFilter === kind}">
+        ${label}<span class="inv-kind-count">${count}</span>
+      </button>`).join('');
   }
 
   _renderInvestorListPane() {
     const el = document.getElementById('invList');
     if (!el) return;
     const q = this._search.trim().toLowerCase();
+    const kind = this._kindFilter;
     const rows = this.investors
+      .filter(inv => kind === 'all' || (kind === 'group') === this._isGroup(inv))
       .map(inv => ({ inv, m: q ? this._investorMatch(inv, q) : { match: true, viaProps: 0 } }))
       .filter(r => r.m.match);
 
     if (rows.length === 0) {
-      el.innerHTML = `<div class="inv-list-empty">No investor or property matches “${escapeHtml(this._search.trim())}”</div>`;
+      el.innerHTML = q
+        ? `<div class="inv-list-empty">No investor or property matches “${escapeHtml(this._search.trim())}”</div>`
+        : `<div class="inv-list-empty">No ${kind === 'group' ? 'groups' : 'individual investors'} yet</div>`;
       return;
     }
 
@@ -272,17 +424,29 @@ class InvestorManagementComponent {
       const id = escapeHtml(inv.investorId);
       const count = this._activeHoldings(inv).length;
       const active = inv.investorId === this.selectedInvestorId;
-      const sub = m.viaProps
-        ? `${m.viaProps} matching propert${m.viaProps === 1 ? 'y' : 'ies'}`
-        : `ID ${id}`;
+      const isGroup = this._isGroup(inv);
+      let sub = `ID ${id}`;
+      if (m.viaProps) {
+        sub = `${m.viaProps} matching propert${m.viaProps === 1 ? 'y' : 'ies'}`;
+      } else if (m.viaMembers) {
+        sub = `${m.viaMembers} matching member${m.viaMembers === 1 ? '' : 's'}`;
+      } else if (isGroup) {
+        const n = (inv.members || []).length;
+        sub += ` · ${n} member${n === 1 ? '' : 's'}`;
+      } else {
+        const groups = this._membershipsOf(inv.investorId);
+        if (groups.length === 1) sub += ` · in ${escapeHtml(groups[0].group.name)}`;
+        else if (groups.length > 1) sub += ` · in ${groups.length} groups`;
+      }
+      const highlight = m.viaProps || m.viaMembers;
       return `
         <button type="button" role="listitem" class="inv-item ${active ? 'active' : ''}"
                 ${active ? 'aria-current="true"' : ''}
                 onclick="window.investorManager.selectInvestor('${id}')">
           ${this._avatarHtml(inv, 36)}
           <span class="inv-item-text">
-            <span class="inv-item-name">${escapeHtml(inv.name)}${inv.facebookUrl ? ' <i class="bi bi-facebook text-primary" style="font-size:0.75rem;"></i>' : ''}</span>
-            <span class="inv-item-sub ${m.viaProps ? 'text-primary' : ''}">${sub}</span>
+            <span class="inv-item-name">${escapeHtml(inv.name)}${isGroup ? ' <span class="inv-group-pill">Group</span>' : ''}${inv.facebookUrl ? ' <i class="bi bi-facebook text-primary" style="font-size:0.75rem;"></i>' : ''}</span>
+            <span class="inv-item-sub ${highlight ? 'text-primary' : ''}">${sub}</span>
           </span>
           <span class="inv-item-count" title="${count} propert${count === 1 ? 'y' : 'ies'}">${count}</span>
           <i class="bi bi-chevron-right inv-item-chevron d-lg-none"></i>
@@ -347,6 +511,31 @@ class InvestorManagementComponent {
     ].join('');
 
     const showTools = holdings.length > 5;
+    const isGroup = this._isGroup(investor);
+    const members = this._groupMembers(investor);
+    const memberships = isGroup ? [] : this._membershipsOf(investor.investorId);
+
+    const stats = [
+      `<div class="inv-stat">
+          <div class="inv-stat-value">${holdings.length}</div>
+          <div class="inv-stat-label">Propert${holdings.length === 1 ? 'y' : 'ies'}</div>
+        </div>`,
+      `<div class="inv-stat inv-stat-accent">
+          <div class="inv-stat-value">${totalPercentage}%</div>
+          <div class="inv-stat-label">Total Investment</div>
+        </div>`,
+    ];
+    if (isGroup) {
+      stats.push(`<div class="inv-stat">
+          <div class="inv-stat-value">${members.length}</div>
+          <div class="inv-stat-label">Member${members.length === 1 ? '' : 's'}</div>
+        </div>`);
+    } else if (memberships.length > 0) {
+      stats.push(`<div class="inv-stat">
+          <div class="inv-stat-value">${memberships.length}</div>
+          <div class="inv-stat-label">Group${memberships.length === 1 ? '' : 's'}</div>
+        </div>`);
+    }
 
     el.innerHTML = `
       <button type="button" class="btn btn-link btn-sm inv-back d-lg-none" onclick="window.investorManager.backToInvestorList()">
@@ -357,9 +546,10 @@ class InvestorManagementComponent {
         <div class="inv-detail-title">
           <h5 class="mb-0">
             ${escapeHtml(investor.name)}
+            ${isGroup ? '<span class="inv-group-pill inv-group-pill-lg"><i class="bi bi-people-fill"></i>Group</span>' : ''}
             ${investor.facebookUrl ? `<a href="${escapeHtml(investor.facebookUrl)}" target="_blank" rel="noopener noreferrer" title="View Facebook Profile"><i class="bi bi-facebook text-primary"></i></a>` : ''}
           </h5>
-          <div class="text-muted small">ID ${id}</div>
+          <div class="text-muted small">ID ${id}${isGroup ? ' · Investor group' : ''}</div>
         </div>
         <div class="inv-detail-actions">
           <button class="btn btn-sm btn-outline-success" onclick="window.investorManager.copyInvestorText('${id}')" title="Copy to Messenger">
@@ -378,16 +568,11 @@ class InvestorManagementComponent {
       </div>
       ${chips ? `<div class="inv-chips">${chips}</div>` : ''}
 
-      <div class="inv-stats">
-        <div class="inv-stat">
-          <div class="inv-stat-value">${holdings.length}</div>
-          <div class="inv-stat-label">Propert${holdings.length === 1 ? 'y' : 'ies'}</div>
-        </div>
-        <div class="inv-stat inv-stat-accent">
-          <div class="inv-stat-value">${totalPercentage}%</div>
-          <div class="inv-stat-label">Total Investment</div>
-        </div>
+      <div class="inv-stats ${stats.length > 2 ? 'inv-stats-3' : ''}">
+        ${stats.join('')}
       </div>
+
+      ${isGroup ? this._groupMembersSectionHtml(investor, members) : ''}
 
       <div class="inv-props-head">
         <h6 class="mb-0">Properties</h6>
@@ -409,6 +594,7 @@ class InvestorManagementComponent {
       </div>
       <div id="invPropRows" class="inv-props"></div>
       ${archivedCount > 0 ? `<div class="inv-archived-note"><i class="bi bi-archive me-1"></i>${archivedCount} archived propert${archivedCount === 1 ? 'y' : 'ies'} not shown</div>` : ''}
+      ${memberships.length > 0 ? this._membershipsSectionHtml(memberships) : ''}
     `;
 
     if (showTools) {
@@ -429,7 +615,10 @@ class InvestorManagementComponent {
     if (!el) return;
     const holdings = this._activeHoldings(investor);
     if (holdings.length === 0) {
-      el.innerHTML = `<div class="inv-props-empty">No property investments</div>`;
+      const viaGroups = !this._isGroup(investor) && this._membershipsOf(investor.investorId).length > 0;
+      el.innerHTML = viaGroups
+        ? `<div class="inv-props-empty">No direct property investments — see group holdings below</div>`
+        : `<div class="inv-props-empty">No property investments</div>`;
       return;
     }
 
@@ -494,6 +683,88 @@ class InvestorManagementComponent {
     }).join('');
   }
 
+  // Group detail: who owns the group and how much (the cap table)
+  _groupMembersSectionHtml(group, members) {
+    const gid = escapeHtml(group.investorId);
+    const fmtDate = (d) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+    const rows = members
+      .map((m, i) => ({ m, color: this._memberColor(i) }))
+      .sort((a, b) => (Number(b.m.percentage) || 0) - (Number(a.m.percentage) || 0))
+      .map(({ m, color }) => {
+        const mid = this._attr(m.investorId);
+        const name = escapeHtml(this._memberName(m));
+        const avatar = m.investor ? this._avatarHtml(m.investor, 32) : `<span class="inv-avatar inv-avatar-initial" style="width:32px;height:32px;font-size:13px;">?</span>`;
+        const meta = `ID ${mid}${m.joinedAt ? ` · joined ${escapeHtml(fmtDate(m.joinedAt))}` : ''}`;
+        const pct = Math.max(0, Math.min(Number(m.percentage) || 0, 100));
+        return `
+          <button type="button" class="inv-member" ${m.investor ? `onclick="window.investorManager.openInvestor('${mid}')"` : 'disabled'}
+                  title="${m.investor ? `Open ${this._attr(this._memberName(m))}` : 'Investor not loaded'}">
+            <span class="inv-member-dot" style="background:${color}"></span>
+            ${avatar}
+            <span class="inv-member-text">
+              <span class="inv-member-name">${name}</span>
+              <span class="inv-member-meta">${meta}</span>
+            </span>
+            <span class="inv-member-share">
+              <span class="inv-member-pct">${this._fmtShare(m.percentage)}%</span>
+              <span class="inv-prop-bar"><span style="width:${pct}%;background:${color}"></span></span>
+            </span>
+          </button>`;
+      }).join('');
+
+    return `
+      <div class="inv-props-head">
+        <h6 class="mb-0"><i class="bi bi-diagram-3 me-1"></i>Members &amp; ownership</h6>
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.investorManager.editInvestor('${gid}')">
+          <i class="bi bi-people me-1"></i>Manage members
+        </button>
+      </div>
+      <div class="inv-members-card">
+        ${this._allocationHtml(members)}
+        ${rows ? `<div class="inv-members">${rows}</div>` : ''}
+      </div>`;
+  }
+
+  // Individual detail: groups they belong to, and what that means per property
+  _membershipsSectionHtml(memberships) {
+    const cards = memberships.map(({ group, member }) => {
+      const gid = this._attr(group.investorId);
+      const memberPct = Number(member.percentage) || 0;
+      const holdings = this._activeHoldings(group);
+      const lookThrough = holdings.map(h => {
+        const label = this._propertyLabel(this._propertyById(h.propertyId), h.propertyId);
+        const effective = roundShare((Number(h.percentage) || 0) * memberPct / 100);
+        return `
+          <div class="inv-look-row">
+            <span class="inv-look-addr" title="${this._attr(label)}">${escapeHtml(label)}</span>
+            <span class="inv-look-calc">${this._fmtShare(h.percentage)}% × ${this._fmtShare(memberPct)}%</span>
+            <span class="inv-look-pct">${this._fmtShare(effective)}%</span>
+          </div>`;
+      }).join('');
+      return `
+        <div class="inv-membership">
+          <button type="button" class="inv-membership-head" onclick="window.investorManager.openInvestor('${gid}')" title="Open group">
+            ${this._avatarHtml(group, 32)}
+            <span class="inv-member-text">
+              <span class="inv-member-name">${escapeHtml(group.name)}</span>
+              <span class="inv-member-meta">${holdings.length} propert${holdings.length === 1 ? 'y' : 'ies'} · ID ${gid}</span>
+            </span>
+            <span class="inv-membership-share"><strong>${this._fmtShare(memberPct)}%</strong> of group</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </button>
+          ${lookThrough
+            ? `<div class="inv-look"><div class="inv-look-title">Effective share through this group</div>${lookThrough}</div>`
+            : `<div class="inv-look inv-look-empty">This group has no active property holdings yet</div>`}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="inv-props-head mt-4">
+        <h6 class="mb-0"><i class="bi bi-people me-1"></i>Group memberships</h6>
+      </div>
+      <div class="inv-memberships">${cards}</div>`;
+  }
+
   showInvestorModal(investorId = null) {
     if (this.isModalOpen) return;
     this.isModalOpen = true;
@@ -514,16 +785,29 @@ class InvestorManagementComponent {
             </div>
             <form id="investorForm">
               <div class="modal-body">
+                <div class="inv-group-toggle mb-3">
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="invIsGroup" aria-describedby="invGroupToggleHelp">
+                    <label class="form-check-label fw-semibold" for="invIsGroup">
+                      <i class="bi bi-people-fill me-1"></i>Group investor
+                    </label>
+                  </div>
+                  <div class="small text-muted" id="invGroupToggleHelp">
+                    A group holds property shares for several investors. Each member owns a % of the group.
+                  </div>
+                  <div class="small text-danger mt-1" id="invGroupDissolveNote" hidden></div>
+                </div>
+
                 <div class="row">
                   <div class="col-md-6">
                     <div class="mb-3">
-                      <label class="form-label">Username <span class="text-danger">*</span></label>
+                      <label class="form-label">Username <span class="text-danger" id="invUsernameRequired">*</span></label>
                       <input type="text" class="form-control" name="username" required>
                     </div>
                   </div>
                   <div class="col-md-6">
                     <div class="mb-3">
-                      <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                      <label class="form-label"><span id="invNameLabel">Full Name</span> <span class="text-danger">*</span></label>
                       <input type="text" class="form-control" name="name" required>
                     </div>
                   </div>
@@ -544,7 +828,7 @@ class InvestorManagementComponent {
                   </div>
                 </div>
                 
-                <div class="row">
+                <div class="row" id="invIdDocsRow">
                   <div class="col-md-6">
                     <div class="mb-3">
                       <label class="form-label">FIN Number</label>
@@ -566,6 +850,20 @@ class InvestorManagementComponent {
                       <input type="url" class="form-control" name="facebookUrl" placeholder="https://facebook.com/...">
                     </div>
                   </div>
+                </div>
+
+                <div id="invMembersSection" hidden>
+                  <hr>
+                  <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+                    <h6 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Members &amp; ownership</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="invSplitEvenBtn">
+                      <i class="bi bi-distribute-horizontal me-1"></i>Split evenly
+                    </button>
+                  </div>
+                  <div class="small text-muted mb-2">Each member's % of this group. Their share of a property = group's share × their %.</div>
+                  <div id="invMemberRows" class="inv-member-rows"></div>
+                  <select id="invMemberPicker" class="form-select mt-2" aria-label="Add a member to this group"></select>
+                  <div id="invMemberAllocation" class="mt-3"></div>
                 </div>
 
                 <hr>
@@ -636,6 +934,7 @@ class InvestorManagementComponent {
       this.updateAvatarPreview();
       this.renderPropertiesInModal([]);
     }
+    this._setupGroupSection(isEdit ? this._investorById(investorId) : null);
 
     // Set up clipboard paste functionality after modal is shown
     document.getElementById('investorModal').addEventListener('shown.bs.modal', () => {
@@ -752,6 +1051,173 @@ class InvestorManagementComponent {
     }
     
     propertiesList.innerHTML = html;
+  }
+
+  // ─── Investor modal: group toggle + members editor ───────────────────────
+
+  _setupGroupSection(investor) {
+    const toggle = document.getElementById('invIsGroup');
+    if (!toggle) return;
+    this._modalWasGroup = this._isGroup(investor);
+    this._modalMembers = this._isGroup(investor)
+      ? (investor.members || []).map(m => ({ investorId: String(m.investorId), percentage: m.percentage }))
+      : [];
+    toggle.checked = this._modalWasGroup;
+
+    // Groups can't be nested: a member of a group can't become a group
+    const parents = investor && !this._modalWasGroup ? this._membershipsOf(investor.investorId) : [];
+    if (parents.length > 0) {
+      toggle.disabled = true;
+      const names = parents.map(p => `“${p.group.name}”`).join(', ');
+      document.getElementById('invGroupToggleHelp').textContent =
+        `${investor.name} is a member of ${names}. Remove them from that group first to turn them into a group.`;
+    }
+
+    toggle.addEventListener('change', () => this._applyGroupMode());
+
+    document.getElementById('invMemberPicker').addEventListener('change', (e) => {
+      if (e.target.value) this._addMember(e.target.value);
+    });
+    document.getElementById('invSplitEvenBtn').addEventListener('click', () => this._splitMembersEvenly());
+
+    const rows = document.getElementById('invMemberRows');
+    rows.addEventListener('input', (e) => {
+      const row = e.target.closest('[data-member-id]');
+      if (!row || !e.target.matches('input[type="number"]')) return;
+      const m = this._modalMembers.find(x => x.investorId === row.dataset.memberId);
+      if (m) m.percentage = e.target.value;
+      this._renderMemberAllocation();
+    });
+    rows.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove-member]');
+      if (btn) this._removeMember(btn.dataset.removeMember);
+    });
+
+    this._applyGroupMode();
+  }
+
+  // Shows or hides the group-only parts of the form
+  _applyGroupMode() {
+    const on = !!document.getElementById('invIsGroup')?.checked;
+    const form = document.getElementById('investorForm');
+    if (!form) return;
+
+    document.getElementById('invMembersSection').hidden = !on;
+    // A group is not a person: no FIN/passport (values are kept, just hidden)
+    document.getElementById('invIdDocsRow').hidden = on;
+    // A group may not need its own login, so username is optional
+    form.querySelector('[name="username"]').required = !on;
+    document.getElementById('invUsernameRequired').hidden = on;
+    document.getElementById('invNameLabel').textContent = on ? 'Group Name' : 'Full Name';
+
+    const note = document.getElementById('invGroupDissolveNote');
+    const dissolving = !on && this._modalWasGroup && this._modalMembers.length > 0;
+    note.hidden = !dissolving;
+    if (dissolving) {
+      const n = this._modalMembers.length;
+      note.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>Saving will dissolve this group and remove its ${n} member${n === 1 ? '' : 's'}. The investors themselves are kept.`;
+    }
+
+    // Member inputs only exist while the toggle is on, so hidden fields can't block saving
+    if (on) {
+      this._renderMemberEditor();
+    } else {
+      document.getElementById('invMemberRows').innerHTML = '';
+    }
+  }
+
+  _renderMemberEditor() {
+    const rowsEl = document.getElementById('invMemberRows');
+    const picker = document.getElementById('invMemberPicker');
+    if (!rowsEl || !picker) return;
+
+    rowsEl.innerHTML = this._modalMembers.map((m, i) => {
+      const inv = this._investorById(m.investorId);
+      const label = inv?.name || `Investor ${m.investorId}`;
+      const name = escapeHtml(label);
+      const mid = this._attr(m.investorId);
+      const avatar = inv ? this._avatarHtml(inv, 32) : `<span class="inv-avatar inv-avatar-initial" style="width:32px;height:32px;font-size:13px;">?</span>`;
+      return `
+        <div class="inv-member-row" data-member-id="${mid}">
+          <span class="inv-member-dot" style="background:${this._memberColor(i)}"></span>
+          ${avatar}
+          <span class="inv-member-text">
+            <span class="inv-member-name">${name}</span>
+            <span class="inv-member-meta">ID ${mid}</span>
+          </span>
+          <div class="input-group input-group-sm inv-member-input">
+            <input type="number" class="form-control" min="0.01" max="100" step="0.01" required
+                   inputmode="decimal" value="${this._attr(m.percentage)}" placeholder="0"
+                   aria-label="${this._attr(`${label}'s share of the group`)}">
+            <span class="input-group-text">%</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-danger inv-member-remove"
+                  data-remove-member="${mid}" title="Remove member" aria-label="${this._attr(`Remove ${label}`)}">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>`;
+    }).join('');
+
+    // Picker: individual investors not already in the group (never groups, never itself)
+    const taken = new Set(this._modalMembers.map(m => m.investorId));
+    const options = this.investors
+      .filter(i => !this._isGroup(i) && String(i.investorId) !== String(this.editingInvestorId) && !taken.has(String(i.investorId)))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    picker.innerHTML = options.length
+      ? `<option value="">+ Add a member…</option>` +
+        options.map(i => `<option value="${this._attr(i.investorId)}">${escapeHtml(i.name)} · ID ${escapeHtml(i.investorId)}</option>`).join('')
+      : `<option value="">${this._modalMembers.length ? 'All individual investors are already members' : 'No individual investors to add yet'}</option>`;
+    picker.disabled = options.length === 0;
+
+    document.getElementById('invSplitEvenBtn').disabled = this._modalMembers.length < 2;
+    this._renderMemberAllocation();
+  }
+
+  _renderMemberAllocation() {
+    const el = document.getElementById('invMemberAllocation');
+    if (el) el.innerHTML = this._allocationHtml(this._modalMembers);
+  }
+
+  _addMember(investorId) {
+    if (this._modalMembers.some(m => m.investorId === String(investorId))) return;
+    // Start the new member on whatever is still unallocated
+    const remaining = roundShare(100 - this._shareTotal(this._modalMembers));
+    this._modalMembers.push({ investorId: String(investorId), percentage: remaining > 0 ? remaining : '' });
+    this._renderMemberEditor();
+    const input = document.querySelector(`#invMemberRows [data-member-id="${CSS.escape(String(investorId))}"] input`);
+    input?.focus();
+    input?.select();
+  }
+
+  _removeMember(investorId) {
+    this._modalMembers = this._modalMembers.filter(m => m.investorId !== String(investorId));
+    this._renderMemberEditor();
+  }
+
+  // 100% split across members in 0.01 steps; leftover cents go to the first rows
+  _splitMembersEvenly() {
+    const n = this._modalMembers.length;
+    if (n === 0) return;
+    const base = Math.floor(10000 / n);
+    let extra = 10000 - base * n;
+    this._modalMembers.forEach(m => {
+      m.percentage = (base + (extra-- > 0 ? 1 : 0)) / 100;
+    });
+    this._renderMemberEditor();
+  }
+
+  // Same rules as the server, checked before saving
+  _memberValidationError() {
+    for (const m of this._modalMembers) {
+      const p = Number(m.percentage);
+      if (!(p > 0 && p <= 100)) {
+        const name = this._investorById(m.investorId)?.name || `Investor ${m.investorId}`;
+        return `Enter a share above 0% and up to 100% for ${name}`;
+      }
+    }
+    const total = this._shareTotal(this._modalMembers);
+    if (total > 100) return `Member shares add up to ${this._fmtShare(total)}% — the total cannot exceed 100%`;
+    return null;
   }
 
   bindModalEvents() {
@@ -909,6 +1375,24 @@ class InvestorManagementComponent {
         }
       });
 
+      // Group investor: its members and their share of the group
+      const isGroup = !!document.getElementById('invIsGroup')?.checked;
+      investorData.isGroup = isGroup;
+      investorData.members = [];
+      if (isGroup) {
+        const memberError = this._memberValidationError();
+        if (memberError) {
+          this.showError(memberError);
+          return;
+        }
+        investorData.members = this._modalMembers.map(m => ({
+          investorId: m.investorId,
+          percentage: roundShare(m.percentage),
+        }));
+        // Username is optional for groups; don't store an empty one
+        if (!investorData.username?.trim()) delete investorData.username;
+      }
+
       console.log("Final investor data to save:", investorData);
 
       if (this.editingInvestorId) {
@@ -991,8 +1475,17 @@ class InvestorManagementComponent {
     const investor = this.investors.find(inv => inv.investorId === investorId);
     if (!investor) return;
 
-    const confirmMessage = `Are you sure you want to delete investor "${investor.name}"?\n\nThis will remove them from all properties and cannot be undone.`;
-    
+    let confirmMessage = `Are you sure you want to delete investor "${investor.name}"?\n\nThis will remove them from all properties and cannot be undone.`;
+    if (this._isGroup(investor) && (investor.members || []).length > 0) {
+      const n = investor.members.length;
+      confirmMessage += `\n\nThis group's ${n} member${n === 1 ? '' : 's'} will no longer be linked to it. The member investors themselves are kept.`;
+    }
+    const memberships = this._membershipsOf(investorId);
+    if (memberships.length > 0) {
+      const list = memberships.map(({ group, member }) => `• ${group.name} (${this._fmtShare(member.percentage)}%)`).join('\n');
+      confirmMessage += `\n\nThey will also be removed from these groups, leaving their share unallocated:\n${list}`;
+    }
+
     if (!confirm(confirmMessage)) return;
 
     try {
@@ -1567,6 +2060,20 @@ class InvestorManagementComponent {
       lines.push(`📊 Total Investment: ${totalPct}%`);
     }
 
+    // Groups list their members; members list the groups they belong to
+    const members = this._groupMembers(investor);
+    if (members.length > 0) {
+      lines.push(divider);
+      lines.push('👥 Members:');
+      members.forEach(m => lines.push(`  • ${this._memberName(m)} → ${this._fmtShare(m.percentage)}% of group`));
+    }
+    const memberships = this._isGroup(investor) ? [] : this._membershipsOf(investor.investorId);
+    if (memberships.length > 0) {
+      lines.push(divider);
+      lines.push('🤝 Group memberships:');
+      memberships.forEach(({ group, member }) => lines.push(`  • ${group.name} → ${this._fmtShare(member.percentage)}% of group`));
+    }
+
     const text = lines.join('\n');
 
     navigator.clipboard.writeText(text).then(() => {
@@ -1745,6 +2252,10 @@ class InvestorManagementComponent {
       const tx = PAD + AV + 12;
       body += `<text x="${tx}" y="${startY + 22}" font-size="15" font-weight="bold" fill="#212121">${esc(investor.name)}</text>`;
       const metaParts = [`ID: ${investor.investorId}`, `${activeProps.length} propert${activeProps.length !== 1 ? 'ies' : 'y'}`];
+      if (this._isGroup(investor)) {
+        const n = (investor.members || []).length;
+        metaParts.push(`Group · ${n} member${n === 1 ? '' : 's'}`);
+      }
       if (investor.email) metaParts.push(investor.email);
       body += `<text x="${tx}" y="${startY + 40}" font-size="11" fill="#757575">${esc(metaParts.join('  ·  '))}</text>`;
 
