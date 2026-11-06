@@ -26,7 +26,7 @@ const toast = (message, type) => window.showToast?.(message, type);
  * @param {object} ctx
  * @param {string} ctx.propertyId
  * @param {string} ctx.room        room key, e.g. COMMON_1
- * @param {string} ctx.roomLabel   display name, e.g. "Common 1"
+ * @param {string} ctx.roomLabel   display name, e.g. "Common 1" 
  * @param {string} [ctx.address]   shown under the title
  */
 export function openRoomPhotoManager(ctx) {
