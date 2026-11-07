@@ -39,6 +39,22 @@ class investorProfitChartComponent {
     this.startYear = startDate.getFullYear();
     this.startMonth = startDate.getMonth() + 1;
 
+    // Property view: one property at a time, its whole monthly profit
+    this.view = this._load("iprView") === "property" ? "property" : "investors";
+    this.properties = [];
+    this.propertiesLoading = false;
+    this.propertiesError = null;
+    this._propertiesRequested = false;
+    this.propertySearch = "";
+    this.selectedPropertyId = null;
+    this.propertyReports = new Map(); // propertyId -> financial reports
+    this.propertyReportsLoading = false;
+    this.propertyReportsError = null;
+    this._propertyRequestSeq = 0;
+    this._shownPropertyId = null;
+    this.propertyChart = null;
+    this.propertyChartType = "bar"; // bar | line
+
     this.init();
   }
 
@@ -53,6 +69,10 @@ class investorProfitChartComponent {
 
   // Language switched: redraw from the data already loaded
   handleLanguageChange() {
+    if (this._propertiesRequested) {
+      this.renderPropertyList();
+      this.renderPropertyView();
+    }
     if (!this._investorsRequested) return;
     this.renderInvestorList();
     this.updateSelectionCount();
@@ -65,9 +85,85 @@ class investorProfitChartComponent {
 
   /** Called by the dashboard controller each time the section opens. */
   ensureInvestorsLoaded() {
-    if (this._investorsRequested) return;
-    this._investorsRequested = true;
-    this.loadInvestors();
+    this.syncYearOptions();
+    this.setView(this.view);
+  }
+
+  /** Switch between the investor and the property view. */
+  setView(view) {
+    this.view = view === "property" ? "property" : "investors";
+    this._store("iprView", this.view);
+
+    const section = document.getElementById("investor-profit-report-section");
+    if (section) {
+      section.querySelectorAll("[data-ipr-pane]").forEach((el) => {
+        el.hidden = el.dataset.iprPane !== this.view;
+      });
+      section.querySelectorAll(".ipr-view-tab").forEach((tab) => {
+        const active = tab.dataset.iprView === this.view;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", String(active));
+      });
+      // Doughnut compares investors; one property has nothing to split
+      const doughnut = section.querySelector(
+        '.chart-type-btn[data-chart-type="doughnut"]',
+      );
+      if (doughnut) doughnut.hidden = this.view === "property";
+    }
+    this.updateChartTypeButtons();
+
+    if (this.view === "property") {
+      this.ensurePropertiesLoaded();
+      this.renderPropertyView();
+    } else if (!this._investorsRequested) {
+      this._investorsRequested = true;
+      this.loadInvestors();
+    } else {
+      this.renderChart(); // it may have been drawn while hidden
+    }
+  }
+
+  // Year pickers cover 2023 → this year (and any year already chosen)
+  syncYearOptions() {
+    const first = Math.min(2023, this.startYear, this.endYear);
+    const last = Math.max(new Date().getFullYear(), this.startYear, this.endYear);
+    ["investorProfitStartYear", "investorProfitEndYear"].forEach((id) => {
+      const select = document.getElementById(id);
+      if (!select) return;
+      const years = Array.from(select.options).map((o) => Number(o.value));
+      if (years[0] === first && years[years.length - 1] === last && years.length === last - first + 1) return;
+      const value = select.value;
+      select.innerHTML = Array.from({ length: last - first + 1 }, (_, i) => first + i)
+        .map((y) => `<option value="${y}">${y}</option>`)
+        .join("");
+      select.value = value;
+    });
+  }
+
+  _load(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  _store(key, value) {
+    try {
+      if (value == null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    } catch {
+      // storage unavailable (private mode) — nothing to remember
+    }
+  }
+
+  /** Whether year/month falls inside the chosen date range. */
+  isInRange(year, month) {
+    const k = year * 12 + month - 1;
+    return (
+      k >= this.startYear * 12 + this.startMonth - 1 &&
+      k <= this.endYear * 12 + this.endMonth - 1
+    );
   }
 
   /**
@@ -314,7 +410,12 @@ class investorProfitChartComponent {
           continue;
         }
         if (result.success) {
-          this.profitDataMap.set(investorId, result.data);
+          const data = result.data || {};
+          // The API returns the whole year when start and end share a year
+          data.monthlyProfits = (data.monthlyProfits || []).filter((m) =>
+            this.isInRange(m.year, m.month),
+          );
+          this.profitDataMap.set(investorId, data);
         }
       }
     } catch (error) {
@@ -348,6 +449,8 @@ class investorProfitChartComponent {
       if (this.selectedInvestors.size > 0) {
         this.loadProfitData();
       }
+      // Property view already holds every report; just redraw
+      if (this._propertiesRequested) this.renderPropertyView();
     }
   }
 
@@ -355,6 +458,13 @@ class investorProfitChartComponent {
    * Handle chart type change
    */
   handleChartTypeChange(type) {
+    if (this.view === "property") {
+      if (type === "doughnut") return;
+      this.propertyChartType = type;
+      this.updateChartTypeButtons();
+      this.renderPropertyChart();
+      return;
+    }
     this.chartType = type;
     this.updateChartTypeButtons();
     this.renderChart();
@@ -365,8 +475,11 @@ class investorProfitChartComponent {
    */
   updateChartTypeButtons() {
     const buttons = document.querySelectorAll(".chart-type-btn");
+    const active =
+      this.view === "property" ? this.propertyChartType : this.chartType;
     buttons.forEach((btn) => {
-      if (btn.dataset.chartType === this.chartType) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.chartType === active));
+      if (btn.dataset.chartType === active) {
         btn.classList.remove("btn-outline-primary");
         btn.classList.add("btn-primary");
       } else {
@@ -1113,7 +1226,9 @@ class investorProfitChartComponent {
    * Open fullscreen chart modal
    */
   openFullscreenChart() {
-    if (this.profitDataMap.size === 0) {
+    if (this.view === "property") {
+      if (!this.getPropertyMonths().some((m) => m.hasReport)) return;
+    } else if (this.profitDataMap.size === 0) {
       return;
     }
 
@@ -1159,6 +1274,13 @@ class investorProfitChartComponent {
     }
 
     const ctx = canvas.getContext("2d");
+    if (this.view === "property") {
+      this.fullscreenChart = new Chart(
+        ctx,
+        this.buildPropertyChartConfig(this.getPropertyMonths(), true),
+      );
+      return;
+    }
     const allMonths = this.getAllMonthLabels();
 
     if (allMonths.length === 0) return;
@@ -1390,6 +1512,701 @@ class investorProfitChartComponent {
    */
   refresh() {
     this.loadInvestors();
+    if (this._propertiesRequested) this.loadProperties();
+  }
+
+  // ───────────────────────── Property view ─────────────────────────
+  // A property's profit for a month = confirmed income − confirmed expenses of
+  // that month's financial report, for the whole property (before any
+  // investor split). Same rule as FinancialReport.calculateTotals on the
+  // backend: pending items are left out; amounts are SGD (VND items store
+  // their SGD value in `amount`).
+
+  t(key, fallback, options = {}) {
+    return i18next.t(`investorProfitChart.${key}`, {
+      ...options,
+      defaultValue: fallback,
+    });
+  }
+
+  ensurePropertiesLoaded() {
+    if (!this._propertiesRequested) {
+      this._propertiesRequested = true;
+      this.loadProperties();
+      return;
+    }
+    // Refetch the open property so edits made in Financial Reports show up
+    if (this.selectedPropertyId && !this.propertyReportsLoading) {
+      this.loadPropertyReports(this.selectedPropertyId);
+    }
+  }
+
+  /** Properties the user can access (same filter as the Properties list). */
+  async loadProperties() {
+    this.propertiesLoading = true;
+    this.propertiesError = null;
+    this.renderPropertyList();
+    try {
+      let all = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const res = await API.get(
+          `${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${page}&limit=200&fields=summary`,
+        );
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+          throw new Error(result.message || `HTTP ${res.status}`);
+        }
+        all = all.concat(result.properties || []);
+        totalPages = result.pagination?.totalPages || 1;
+        page++;
+      } while (page <= totalPages && page <= 20);
+      this.properties = all.sort((a, b) =>
+        String(a.propertyId).localeCompare(String(b.propertyId), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+    } catch (error) {
+      console.error("Error loading properties:", error);
+      this.properties = [];
+      this.propertiesError = error;
+    } finally {
+      this.propertiesLoading = false;
+    }
+
+    if (!this.properties.some((p) => p.propertyId === this.selectedPropertyId)) {
+      this.selectedPropertyId = null;
+    }
+    this.renderPropertyList();
+    if (this.selectedPropertyId) {
+      this.loadPropertyReports(this.selectedPropertyId);
+      return;
+    }
+    // Reopen the last property viewed, or the only one there is
+    const saved = this._load("iprPropertyId");
+    const pick =
+      this.properties.find((p) => p.propertyId === saved) ||
+      (this.properties.length === 1 ? this.properties[0] : null);
+    if (pick) this.selectProperty(pick.propertyId);
+    else this.renderPropertyView();
+  }
+
+  selectProperty(propertyId) {
+    if (!propertyId || propertyId === this.selectedPropertyId) return;
+    this.selectedPropertyId = propertyId;
+    this._store("iprPropertyId", propertyId);
+    this.renderPropertyList();
+    this.loadPropertyReports(propertyId);
+  }
+
+  async loadPropertyReports(propertyId) {
+    const seq = ++this._propertyRequestSeq;
+    this.propertyReportsLoading = true;
+    this.propertyReportsError = null;
+    this.renderPropertyView();
+
+    let error = null;
+    try {
+      const res = await API.get(
+        API_CONFIG.ENDPOINTS.FINANCIAL_REPORTS_BY_PROPERTY(
+          encodeURIComponent(propertyId),
+        ),
+      );
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.message || `HTTP ${res.status}`);
+      }
+      this.propertyReports.set(
+        propertyId,
+        Array.isArray(result.data) ? result.data : [],
+      );
+    } catch (e) {
+      console.error(`Error loading reports for property ${propertyId}:`, e);
+      error = e;
+    }
+    if (seq !== this._propertyRequestSeq) return; // a newer pick took over
+    this.propertyReportsError = error;
+    this.propertyReportsLoading = false;
+    this.renderPropertyView();
+  }
+
+  retryPropertyReports() {
+    if (this.selectedPropertyId) this.loadPropertyReports(this.selectedPropertyId);
+  }
+
+  handlePropertySearch(value) {
+    this.propertySearch = value || "";
+    this.renderPropertyList();
+  }
+
+  getSelectedProperty() {
+    return this.properties.find((p) => p.propertyId === this.selectedPropertyId);
+  }
+
+  // "56 Havelock Rd, S161056" → "56 Havelock Rd"
+  shortAddress(address) {
+    return (address || "")
+      .replace(/,?\s*(Singapore|S)\s*\(?\d{6}\)?\s*$/i, "")
+      .replace(/\s+\d{6}$/, "")
+      .trim();
+  }
+
+  _normalize(text) {
+    return (text || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "");
+  }
+
+  renderPropertyList() {
+    const container = document.getElementById("iprPropertyList");
+    const countEl = document.getElementById("iprPropertyCount");
+    if (!container) return;
+    if (countEl) countEl.textContent = "";
+
+    if (this.propertiesLoading) {
+      container.innerHTML = `<div class="py-2"><div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">${this.t("loading", "Loading...")}</span></div></div>`;
+      return;
+    }
+    if (this.propertiesError) {
+      container.innerHTML = `<div class="text-danger small py-2">${this.t("loadPropertiesError", "Couldn't load properties.")} <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="investorProfitChart.loadProperties()">${this.t("retry", "Retry")}</button></div>`;
+      return;
+    }
+    if (this.properties.length === 0) {
+      container.innerHTML = `<div class="text-muted small py-2"><i class="bi bi-building-x me-1"></i>${this.t("noPropertiesAccess", "No properties you can access")}</div>`;
+      return;
+    }
+    if (countEl) {
+      countEl.textContent = `${this.properties.length} ${this.t("propertiesAvailable", "properties you can access")}`;
+    }
+
+    const query = this._normalize(this.propertySearch.trim());
+    const list = query
+      ? this.properties.filter((p) =>
+          this._normalize(`${p.propertyId} ${p.unit || ""} ${p.address || ""}`).includes(query),
+        )
+      : this.properties;
+
+    if (list.length === 0) {
+      container.innerHTML = `<div class="text-muted small py-2">${this.t("noPropertiesMatch", "No properties match your search")}</div>`;
+      return;
+    }
+
+    container.innerHTML = list
+      .map((p) => {
+        const selected = p.propertyId === this.selectedPropertyId;
+        const img = p.propertyImage
+          ? ImageUtils.getOptimizedImageUrl(p.propertyImage, "small")
+          : null;
+        const addr = this.shortAddress(p.address);
+        const full = [p.unit, p.address].filter(Boolean).join(", ");
+        return `
+          <button type="button" class="ipr-prop-chip${selected ? " selected" : ""}"
+            data-property-id="${this.escapeHtml(p.propertyId)}"
+            aria-pressed="${selected}" title="${this.escapeHtml(full)}">
+            ${img ? `<img src="${img}" class="ipr-prop-thumb" alt="" loading="lazy">` : `<span class="ipr-prop-thumb"><i class="bi bi-building"></i></span>`}
+            <span class="ipr-prop-chip-id">${this.escapeHtml(p.propertyId)}</span>
+            ${addr ? `<span class="ipr-prop-chip-addr">${this.escapeHtml(addr)}</span>` : ""}
+            ${selected ? '<i class="bi bi-check-lg" aria-hidden="true"></i>' : ""}
+          </button>`;
+      })
+      .join("");
+
+    container.querySelectorAll(".ipr-prop-chip").forEach((chip) => {
+      chip.addEventListener("click", () =>
+        this.selectProperty(chip.dataset.propertyId),
+      );
+    });
+
+    // On the swipeable phone row, keep the selected chip in view
+    const sel = container.querySelector(".ipr-prop-chip.selected");
+    if (sel && container.scrollWidth > container.clientWidth) {
+      const c = container.getBoundingClientRect();
+      const s = sel.getBoundingClientRect();
+      if (s.left < c.left || s.right > c.right) {
+        container.scrollLeft += s.left - c.left - 16;
+      }
+    }
+  }
+
+  _round2(value) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  /** Confirmed and pending totals of one report (pending never counts). */
+  computeReportTotals(report) {
+    const sum = (items, pending) =>
+      (items || []).reduce(
+        (s, item) =>
+          !!item.isPending === pending ? s + (Number(item.amount) || 0) : s,
+        0,
+      );
+    const income = this._round2(sum(report.income, false));
+    const expenses = this._round2(sum(report.expenses, false));
+    return {
+      income,
+      expenses,
+      net: this._round2(income - expenses),
+      pendingIncome: this._round2(sum(report.income, true)),
+      pendingExpenses: this._round2(sum(report.expenses, true)),
+    };
+  }
+
+  /** Every month in the date range for the selected property. */
+  getPropertyMonths() {
+    const reports = this.propertyReports.get(this.selectedPropertyId);
+    if (!reports) return [];
+    const byMonth = new Map(reports.map((r) => [r.year * 12 + r.month - 1, r]));
+    const start = this.startYear * 12 + this.startMonth - 1;
+    const end = this.endYear * 12 + this.endMonth - 1;
+    const months = [];
+    for (let k = start; k <= end && months.length < 240; k++) {
+      const year = Math.floor(k / 12);
+      const month = (k % 12) + 1;
+      const report = byMonth.get(k);
+      if (!report) {
+        months.push({ year, month, hasReport: false });
+        continue;
+      }
+      months.push({
+        year,
+        month,
+        hasReport: true,
+        ...this.computeReportTotals(report),
+        isClosed: !!report.isClosed,
+        isSettled: !!report.isSettled,
+      });
+    }
+    return months;
+  }
+
+  sumMonths(months) {
+    const total = { income: 0, expenses: 0, net: 0 };
+    for (const m of months) {
+      total.income += m.income;
+      total.expenses += m.expenses;
+      total.net += m.net;
+    }
+    return {
+      income: this._round2(total.income),
+      expenses: this._round2(total.expenses),
+      net: this._round2(total.net),
+    };
+  }
+
+  fmtMoney(value, { sign = false, decimals = 2 } = {}) {
+    const abs = Math.abs(value).toLocaleString("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    const isZero = Number(abs.replace(/,/g, "")) === 0;
+    const prefix = isZero ? "" : value < 0 ? "-" : sign ? "+" : "";
+    return `${prefix}$${abs}`;
+  }
+
+  fmtAxisMoney(value) {
+    const abs = Math.abs(value);
+    const text =
+      abs >= 1000
+        ? `${(abs / 1000).toLocaleString("en-US", { maximumFractionDigits: abs >= 10000 ? 0 : 1 })}k`
+        : abs.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    return `${value < 0 ? "-" : ""}$${text}`;
+  }
+
+  monthLabel(year, month, style = "short") {
+    const vi = (i18next.language || "").startsWith("vi");
+    const shortNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const longNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const name = vi
+      ? style === "long" ? `Tháng ${month}` : `Th${month}`
+      : style === "long" ? longNames[month - 1] : shortNames[month - 1];
+    return `${name} ${year}`;
+  }
+
+  /** Link to that month's Financial Report, when the user may open it. */
+  reportHref(m) {
+    if (!m.hasReport || !window.SlugUtils) return null;
+    if (typeof window.canAccessModule === "function" && !window.canAccessModule("financial")) {
+      return null;
+    }
+    const property = this.getSelectedProperty();
+    const slug = property ? window.SlugUtils.propertySlug(property) : "";
+    return slug ? `#/financial/${slug}/${m.year}/${m.month}` : null;
+  }
+
+  renderPropertyView() {
+    const ids = ["iprPropertyStats", "iprPropertyChartContainer", "iprPropertyMonthly"];
+    const els = ids.map((id) => document.getElementById(id));
+    const hasData = this.propertyReports.has(this.selectedPropertyId);
+
+    // While fresh data loads, keep what's on screen (dimmed) rather than
+    // flashing a spinner
+    const dim = this.propertyReportsLoading && (hasData || this._shownPropertyId);
+    els.forEach((el) => el?.classList.toggle("ipr-refreshing", !!dim));
+    if (this.propertyReportsLoading && !hasData && this._shownPropertyId) return;
+
+    const months = this.getPropertyMonths();
+    this.renderPropertySubtitle();
+    this.renderPropertyStats(months);
+    this.renderPropertyChartArea(months);
+    this.renderPropertyChart();
+    this.renderPropertyMonthly(months);
+    this._shownPropertyId = hasData ? this.selectedPropertyId : null;
+  }
+
+  renderPropertySubtitle() {
+    const el = document.getElementById("iprPropertyChartSubtitle");
+    if (!el) return;
+    const p = this.getSelectedProperty();
+    const base = this.t("netProfitPerMonth", "Net profit per month");
+    el.textContent = p
+      ? `${base} · ${p.propertyId}${p.unit ? ` ${p.unit}` : ""} ${this.shortAddress(p.address)}`.trim()
+      : base;
+  }
+
+  renderPropertyStats(months) {
+    const el = document.getElementById("iprPropertyStats");
+    if (!el) return;
+    const reported = months.filter((m) => m.hasReport);
+    if (reported.length === 0) {
+      el.innerHTML = "";
+      return;
+    }
+    const total = this.sumMonths(reported);
+    const avg = this._round2(total.net / reported.length);
+    const best = reported.reduce((a, b) => (b.net > a.net ? b : a));
+    const worst = reported.reduce((a, b) => (b.net < a.net ? b : a));
+    const pct = total.income > 0 ? Math.round((total.expenses / total.income) * 100) : null;
+    const signClass = (v) => (v < 0 ? "ipr-neg" : "ipr-pos");
+
+    const tile = (label, value, sub, icon, iconBg, iconColor, valueClass = "") => `
+      <div class="col-6 col-lg-3">
+        <div class="ipr-stat-card ipr-pstat-card card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+              <div style="min-width:0">
+                <div class="ipr-pstat-label">${label}</div>
+                <div class="ipr-pstat-value ${valueClass}">${value}</div>
+              </div>
+              <div class="ipr-stat-icon d-none d-sm-flex" style="background:${iconBg}">
+                <i class="bi ${icon}" style="color:${iconColor}"></i>
+              </div>
+            </div>
+            <div class="ipr-pstat-sub">${sub}</div>
+          </div>
+        </div>
+      </div>`;
+
+    el.innerHTML = [
+      tile(
+        this.t("netProfit", "Net profit"),
+        this.fmtMoney(total.net, { sign: true }),
+        this.t("avgPerMonth", "Avg {{value}} / month", { value: this.fmtMoney(avg, { sign: true }) }),
+        "bi-currency-dollar", "#eef2ff", "#4f46e5", signClass(total.net),
+      ),
+      tile(
+        this.t("income", "Income"),
+        this.fmtMoney(total.income),
+        this.t("monthsReported", "{{n}} of {{total}} months reported", { n: reported.length, total: months.length }),
+        "bi-arrow-down-left-circle", "#f0fdf4", "#15803d",
+      ),
+      tile(
+        this.t("expenses", "Expenses"),
+        this.fmtMoney(total.expenses),
+        pct === null ? "&nbsp;" : this.t("ofIncome", "{{pct}}% of income", { pct }),
+        "bi-arrow-up-right-circle", "#fef2f2", "#b91c1c",
+      ),
+      tile(
+        this.t("bestMonth", "Best month"),
+        this.monthLabel(best.year, best.month, "long"),
+        `<span class="${signClass(best.net)} fw-semibold">${this.fmtMoney(best.net, { sign: true })}</span>${
+          reported.length > 1
+            ? ` · ${this.t("lowest", "Lowest")}: ${this.monthLabel(worst.year, worst.month)} <span class="${signClass(worst.net)}">${this.fmtMoney(worst.net, { sign: true })}</span>`
+            : ""
+        }`,
+        "bi-trophy", "#fffbeb", "#d97706",
+      ),
+    ].join("");
+  }
+
+  renderPropertyChartArea(months) {
+    const el = document.getElementById("iprPropertyChartContainer");
+    const fsBtn = document.getElementById("iprPropertyFullscreenBtn");
+    if (!el) return;
+    if (this.propertyChart) {
+      this.propertyChart.destroy();
+      this.propertyChart = null;
+    }
+    const empty = (icon, text, extra = "") => `
+      <div class="text-center text-muted py-5">
+        <i class="bi ${icon} fs-1 mb-3 d-block" style="color:#d1d5db"></i>
+        <p class="mb-0">${text}</p>${extra}
+      </div>`;
+    const hasData = this.propertyReports.has(this.selectedPropertyId);
+    const reported = months.some((m) => m.hasReport);
+    if (fsBtn) fsBtn.disabled = !reported;
+
+    if (!this.selectedPropertyId) {
+      el.innerHTML = empty("bi-building", this.t("selectPropertyToView", "Select a property to see its monthly profit"));
+    } else if (!hasData && this.propertyReportsLoading) {
+      el.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">${this.t("loadingData", "Loading data...")}</span></div></div>`;
+    } else if (!hasData) {
+      el.innerHTML = empty(
+        "bi-exclamation-triangle",
+        this.t("loadReportsError", "Couldn't load this property's financial reports."),
+        `<button type="button" class="btn btn-sm btn-outline-primary mt-3" onclick="investorProfitChart.retryPropertyReports()">${this.t("retry", "Retry")}</button>`,
+      );
+    } else if (months.length === 0) {
+      el.innerHTML = empty("bi-calendar-x", this.t("startAfterEnd", "The start month is after the end month."));
+    } else if (!reported) {
+      el.innerHTML = empty("bi-inbox", this.t("noReportsForPeriod", "No financial reports for this property in the selected period"));
+    } else {
+      el.innerHTML = `<div class="ipr-pchart-wrap"><canvas id="iprPropertyChart" role="img" aria-label="${this.escapeHtml(this.t("netProfitPerMonth", "Net profit per month"))}"></canvas></div>`;
+    }
+  }
+
+  renderPropertyChart() {
+    const canvas = document.getElementById("iprPropertyChart");
+    if (this.propertyChart) {
+      this.propertyChart.destroy();
+      this.propertyChart = null;
+    }
+    if (!canvas || typeof Chart === "undefined") return;
+    const months = this.getPropertyMonths();
+    if (!months.some((m) => m.hasReport)) return;
+    this.propertyChart = new Chart(
+      canvas.getContext("2d"),
+      this.buildPropertyChartConfig(months, false),
+    );
+  }
+
+  buildPropertyChartConfig(months, fullscreen) {
+    const type = this.propertyChartType === "line" ? "line" : "bar";
+    // Validated pairs: profit/loss diverging blue↔red; lines blue/aqua/orange
+    const C = {
+      profit: "#2a78d6",
+      loss: "#e34948",
+      income: "#1baf7a",
+      expenses: "#eb6834",
+      grid: "#eceef1",
+      zero: "#c3c7cf",
+      tick: "#6b7280",
+      ink: "#374151",
+    };
+    const fontSize = fullscreen ? 13 : 11;
+    const font = { size: fontSize };
+    // Month on line 1; year only under the first month and each January
+    const labels = months.map((m, i) => {
+      const name = this.monthLabel(m.year, m.month).split(" ")[0];
+      return i === 0 || m.month === 1 ? [name, String(m.year)] : [name];
+    });
+    const series = (key) => months.map((m) => (m.hasReport ? m[key] : null));
+    const net = series("net");
+    const netLabel = this.t("netProfit", "Net profit");
+    const incomeLabel = this.t("income", "Income");
+    const expensesLabel = this.t("expenses", "Expenses");
+    const point = { pointRadius: 4, pointHoverRadius: 6, pointBorderColor: "#fff", pointBorderWidth: 2, tension: 0.3, spanGaps: false };
+
+    const datasets =
+      type === "line"
+        ? [
+            { label: netLabel, data: net, borderColor: C.profit, backgroundColor: C.profit, borderWidth: 2.5, fill: { target: "origin", above: "rgba(42,120,214,0.08)", below: "rgba(227,73,72,0.10)" }, order: 1, ...point },
+            { label: incomeLabel, data: series("income"), borderColor: C.income, backgroundColor: C.income, borderWidth: 2, borderDash: [6, 4], fill: false, order: 2, ...point },
+            { label: expensesLabel, data: series("expenses"), borderColor: C.expenses, backgroundColor: C.expenses, borderWidth: 2, borderDash: [2, 3], fill: false, order: 3, ...point },
+          ]
+        : [
+            {
+              label: netLabel,
+              data: net,
+              backgroundColor: net.map((v) => (v < 0 ? C.loss : C.profit)),
+              hoverBackgroundColor: net.map((v) => (v < 0 ? C.loss : C.profit)),
+              borderRadius: 4,
+              borderSkipped: "start",
+              maxBarThickness: fullscreen ? 64 : 44,
+              categoryPercentage: 0.7,
+              barPercentage: 0.9,
+            },
+          ];
+
+    // Direct-label only the best and worst month; the table has the rest
+    const extremes = new Set();
+    const reportedIdx = months.map((m, i) => (m.hasReport ? i : -1)).filter((i) => i >= 0);
+    if (reportedIdx.length) {
+      let hi = reportedIdx[0];
+      let lo = reportedIdx[0];
+      for (const i of reportedIdx) {
+        if (net[i] > net[hi]) hi = i;
+        if (net[i] < net[lo]) lo = i;
+      }
+      extremes.add(hi);
+      extremes.add(lo);
+    }
+    const extremeLabels = {
+      id: "iprExtremeLabels",
+      afterDatasetsDraw: (chart) => {
+        if (type !== "bar") return;
+        const meta = chart.getDatasetMeta(0);
+        const { ctx } = chart;
+        ctx.save();
+        ctx.font = `600 ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+        ctx.fillStyle = C.ink;
+        ctx.textAlign = "center";
+        extremes.forEach((i) => {
+          const bar = meta.data[i];
+          const v = net[i];
+          if (!bar || v == null) return;
+          const below = v < 0;
+          ctx.textBaseline = below ? "top" : "bottom";
+          ctx.fillText(this.fmtMoney(v, { sign: true, decimals: 0 }), bar.x, bar.y + (below ? 4 : -4));
+        });
+        ctx.restore();
+      },
+    };
+
+    return {
+      type,
+      data: { labels, datasets },
+      plugins: [extremeLabels],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        interaction: { mode: "index", intersect: false },
+        layout: { padding: { top: type === "bar" ? 18 : 6 } },
+        plugins: {
+          legend: {
+            display: type === "line",
+            position: "top",
+            align: "start",
+            labels: { usePointStyle: true, pointStyle: "line", pointStyleWidth: 26, color: C.ink, font },
+          },
+          tooltip: {
+            filter: (item) => item.raw !== null && item.raw !== undefined,
+            callbacks: {
+              title: (items) => {
+                const m = items.length ? months[items[0].dataIndex] : null;
+                return m ? this.monthLabel(m.year, m.month, "long") : "";
+              },
+              label: (ctx) =>
+                `${ctx.dataset.label}: ${this.fmtMoney(ctx.raw, { sign: ctx.datasetIndex === 0 })}`,
+              afterBody: (items) => {
+                const m = items.length ? months[items[0].dataIndex] : null;
+                if (!m || !m.hasReport) return [];
+                const lines = [];
+                if (type === "bar") {
+                  lines.push(`${incomeLabel}: ${this.fmtMoney(m.income)}`, `${expensesLabel}: ${this.fmtMoney(m.expenses)}`);
+                }
+                const pending = this.pendingParts(m);
+                if (pending.length) {
+                  lines.push(`${this.t("pendingNotCounted", "Pending, not counted")}: ${pending.join(" · ")}`);
+                }
+                return lines;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { color: C.zero },
+            ticks: { color: C.tick, font, maxRotation: 0, autoSkip: true, autoSkipPadding: 8 },
+          },
+          y: {
+            beginAtZero: true,
+            grace: "10%",
+            border: { display: false },
+            grid: { color: (c) => (c.tick && c.tick.value === 0 ? C.zero : C.grid) },
+            ticks: { color: C.tick, font, maxTicksLimit: 6, callback: (v) => this.fmtAxisMoney(v) },
+          },
+        },
+      },
+    };
+  }
+
+  pendingParts(m) {
+    const parts = [];
+    if (m.pendingIncome) parts.push(`${this.t("income", "Income")} ${this.fmtMoney(m.pendingIncome)}`);
+    if (m.pendingExpenses) parts.push(`${this.t("expenses", "Expenses")} ${this.fmtMoney(m.pendingExpenses)}`);
+    return parts;
+  }
+
+  renderPropertyMonthly(months) {
+    const el = document.getElementById("iprPropertyMonthly");
+    if (!el) return;
+    const reported = months.filter((m) => m.hasReport);
+    if (reported.length === 0) {
+      el.innerHTML = "";
+      return;
+    }
+    const total = this.sumMonths(reported);
+    const signClass = (v) => (v < 0 ? "ipr-neg" : "ipr-pos");
+    const inLabel = this.t("inShort", "In");
+    const outLabel = this.t("outShort", "Out");
+
+    const rows = [...months]
+      .reverse() // newest first, like a statement
+      .map((m) => {
+        const label = this.monthLabel(m.year, m.month, "long");
+        if (!m.hasReport) {
+          return `<div class="ipr-pm-row is-empty">
+              <div class="ipr-pm-month">${label}</div>
+              <div class="ipr-pm-empty">${this.t("noReport", "No report")}</div>
+            </div>`;
+        }
+        const href = this.reportHref(m);
+        const tag = href ? "a" : "div";
+        const attrs = href
+          ? `href="${href}" title="${this.escapeHtml(this.t("openReport", "Open this month's financial report"))}"`
+          : "";
+        const status = m.isSettled
+          ? `<span class="ipr-pm-chip is-settled"><i class="bi bi-check2-circle"></i>${this.t("settled", "Settled")}</span>`
+          : m.isClosed
+            ? `<span class="ipr-pm-chip is-closed"><i class="bi bi-lock-fill"></i>${this.t("closed", "Closed")}</span>`
+            : `<span class="ipr-pm-chip is-open"><i class="bi bi-pencil"></i>${this.t("open", "Open")}</span>`;
+        const pending = this.pendingParts(m);
+        return `<${tag} class="ipr-pm-row" ${attrs}>
+            <div class="ipr-pm-month">${label}</div>
+            <div class="ipr-pm-num ipr-pm-income"><span class="ipr-pm-label">${inLabel}</span>${this.fmtMoney(m.income)}</div>
+            <div class="ipr-pm-num ipr-pm-expenses"><span class="ipr-pm-label">${outLabel}</span>${this.fmtMoney(m.expenses)}</div>
+            <div class="ipr-pm-num ipr-pm-net ${signClass(m.net)}">${this.fmtMoney(m.net, { sign: true })}</div>
+            <div class="ipr-pm-status">${status}</div>
+            <div class="ipr-pm-go" aria-hidden="true">${href ? '<i class="bi bi-chevron-right"></i>' : ""}</div>
+            ${pending.length ? `<div class="ipr-pm-note"><i class="bi bi-hourglass-split me-1"></i>${this.t("pendingNotCounted", "Pending, not counted")}: ${pending.join(" · ")}</div>` : ""}
+          </${tag}>`;
+      })
+      .join("");
+
+    el.innerHTML = `
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <div class="ipr-stat-icon" style="background:#eef2ff;width:38px;height:38px;border-radius:10px">
+          <i class="bi bi-calendar3" style="color:#4f46e5"></i>
+        </div>
+        <div>
+          <h6 class="mb-0 fw-semibold">${this.t("monthlyBreakdown", "Monthly Breakdown")}</h6>
+          <small class="text-muted">${this.t("propertyMonthlyHint", "Profit = income − expenses for the whole property. Pending items are not counted.")}</small>
+        </div>
+      </div>
+      <div class="ipr-pm-list">
+        <div class="ipr-pm-head">
+          <div>${this.t("month", "Month")}</div>
+          <div class="ipr-pm-num">${this.t("income", "Income")}</div>
+          <div class="ipr-pm-num">${this.t("expenses", "Expenses")}</div>
+          <div class="ipr-pm-num">${this.t("netProfit", "Net profit")}</div>
+          <div class="ipr-pm-status">${this.t("status", "Status")}</div>
+          <div class="ipr-pm-go"></div>
+        </div>
+        ${rows}
+        <div class="ipr-pm-total">
+          <div class="ipr-pm-month">${this.t("total", "Total")}</div>
+          <div class="ipr-pm-num ipr-pm-income"><span class="ipr-pm-label">${inLabel}</span>${this.fmtMoney(total.income)}</div>
+          <div class="ipr-pm-num ipr-pm-expenses"><span class="ipr-pm-label">${outLabel}</span>${this.fmtMoney(total.expenses)}</div>
+          <div class="ipr-pm-num ipr-pm-net ${signClass(total.net)}">${this.fmtMoney(total.net, { sign: true })}</div>
+          <div class="ipr-pm-status"><small class="text-muted fw-normal">${this.t("monthsCount", "{{n}} months", { n: reported.length })}</small></div>
+          <div class="ipr-pm-go"></div>
+        </div>
+      </div>`;
   }
 }
 

@@ -4865,6 +4865,379 @@
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.09);
       }
 
+      /* View switch (segmented control): By investor / By property */
+      .ipr-view-switch {
+        display: inline-flex;
+        gap: 2px;
+        padding: 3px;
+        background: #e4e6eb;
+        border-radius: 10px;
+      }
+      .ipr-view-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 0;
+        background: transparent;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #4b5563;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          box-shadow 0.15s;
+      }
+      .ipr-view-tab:hover {
+        color: #111827;
+      }
+      .ipr-view-tab.active {
+        background: #fff;
+        color: #4f46e5;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      }
+      .ipr-view-tab:focus-visible {
+        outline: 2px solid #4f46e5;
+        outline-offset: 1px;
+      }
+
+      /* Property picker: pill chips, one selectable */
+      .ipr-prop-search {
+        position: relative;
+        width: 240px;
+      }
+      .ipr-prop-search .bi-search {
+        position: absolute;
+        left: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        font-size: 0.8rem;
+        pointer-events: none;
+      }
+      .ipr-prop-search input {
+        padding-left: 30px;
+        border-radius: 999px;
+      }
+      .ipr-prop-picker {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .ipr-prop-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 280px;
+        padding: 3px 12px 3px 3px;
+        border: 1.5px solid #e8eaed;
+        border-radius: 999px;
+        background: #fff;
+        font-size: 0.8rem;
+        color: #111827;
+        text-align: left;
+        user-select: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s,
+          background 0.15s;
+      }
+      .ipr-prop-chip:hover:not(.selected) {
+        border-color: #4f46e5;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
+      }
+      .ipr-prop-chip.selected {
+        border-color: #4f46e5;
+        background: #eef2ff;
+        box-shadow: 0 1px 4px rgba(79, 70, 229, 0.18);
+      }
+      .ipr-prop-chip:focus-visible {
+        outline: 2px solid #4f46e5;
+        outline-offset: 2px;
+      }
+      .ipr-prop-thumb {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: #f1f3f5;
+        color: #9ca3af;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+      }
+      .ipr-prop-chip-id {
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .ipr-prop-chip-addr {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #6b7280;
+      }
+      .ipr-prop-chip .bi-check-lg {
+        color: #4f46e5;
+        flex-shrink: 0;
+      }
+
+      /* Property view: stat tiles, chart, month table */
+      .ipr-pstat-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+      .ipr-pstat-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        line-height: 1.15;
+        color: #111827;
+        overflow-wrap: anywhere;
+      }
+      .ipr-pstat-sub {
+        font-size: 0.78rem;
+        color: #6b7280;
+        margin-top: 6px;
+      }
+      .ipr-pos {
+        color: #15803d;
+      }
+      .ipr-neg {
+        color: #b91c1c;
+      }
+      .ipr-pchart-wrap {
+        position: relative;
+        height: 340px;
+      }
+      .ipr-refreshing {
+        opacity: 0.45;
+        pointer-events: none;
+        transition: opacity 0.15s;
+      }
+      .ipr-pm-head,
+      .ipr-pm-row,
+      .ipr-pm-total {
+        display: grid;
+        grid-template-columns:
+          minmax(120px, 1.3fr) repeat(3, minmax(96px, 1fr))
+          minmax(110px, 1fr) 16px;
+        align-items: center;
+        column-gap: 12px;
+        padding: 10px 12px;
+      }
+      .ipr-pm-head {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #6b7280;
+        border-bottom: 1px solid #e8eaed;
+      }
+      .ipr-pm-row {
+        border-bottom: 1px solid #f1f3f5;
+        color: inherit;
+        text-decoration: none;
+        font-size: 0.875rem;
+      }
+      a.ipr-pm-row:hover {
+        background: #fafafe;
+        color: inherit;
+      }
+      a.ipr-pm-row:focus-visible {
+        outline: 2px solid #4f46e5;
+        outline-offset: -2px;
+        border-radius: 8px;
+      }
+      .ipr-pm-row.is-empty {
+        color: #9ca3af;
+      }
+      .ipr-pm-total {
+        font-size: 0.875rem;
+        font-weight: 700;
+        background: #f8f9fb;
+        border-radius: 10px;
+        margin-top: 6px;
+      }
+      .ipr-pm-month {
+        font-weight: 600;
+      }
+      .ipr-pm-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .ipr-pm-net {
+        font-weight: 700;
+      }
+      .ipr-pm-status {
+        text-align: right;
+      }
+      .ipr-pm-go {
+        color: #9ca3af;
+        font-size: 0.8rem;
+      }
+      /* In/Out labels: read by screen readers on desktop, shown on phones */
+      .ipr-pm-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      .ipr-pm-empty {
+        grid-column: 2 / 5;
+        text-align: right;
+        font-size: 0.8rem;
+      }
+      /* Doughnut hidden in property view: round the new last button */
+      .btn-group > .chart-type-btn:has(+ .chart-type-btn[hidden]) {
+        border-top-right-radius: var(--bs-btn-border-radius);
+        border-bottom-right-radius: var(--bs-btn-border-radius);
+      }
+      .ipr-pm-note {
+        grid-column: 1 / -1;
+        font-size: 0.75rem;
+        color: #b45309;
+        margin-top: 2px;
+      }
+      .ipr-pm-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .ipr-pm-chip.is-settled {
+        background: #e6f9f0;
+        color: #15803d;
+      }
+      .ipr-pm-chip.is-closed {
+        background: #f1f3f5;
+        color: #4b5563;
+      }
+      .ipr-pm-chip.is-open {
+        background: #eef2ff;
+        color: #4338ca;
+      }
+
+      @media (max-width: 767.98px) {
+        .ipr-body {
+          padding: 1rem !important;
+        }
+        .ipr-view-switch {
+          display: flex;
+          width: 100%;
+        }
+        .ipr-view-tab {
+          flex: 1;
+          padding: 9px 10px;
+        }
+        .ipr-prop-search {
+          width: 100%;
+        }
+        .ipr-prop-search input {
+          font-size: 16px; /* stops iOS zooming into the field */
+        }
+        /* One swipeable row of chips instead of a tall wrapped block */
+        .ipr-prop-picker {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          margin: 0 -1rem;
+          padding: 2px 1rem 6px;
+        }
+        .ipr-prop-picker::-webkit-scrollbar {
+          display: none;
+        }
+        .ipr-prop-chip {
+          flex: 0 0 auto;
+          max-width: 230px;
+          min-height: 40px;
+          padding: 5px 12px 5px 5px;
+          scroll-snap-align: start;
+        }
+        .ipr-pstat-card .card-body {
+          padding: 0.9rem !important;
+        }
+        .ipr-pstat-value {
+          font-size: 1.1rem;
+        }
+        .ipr-pchart-wrap {
+          height: 270px;
+        }
+        .ipr-pm-head {
+          display: none;
+        }
+        /* Rows become two-line list items: month + net, then in/out + status */
+        .ipr-pm-row,
+        .ipr-pm-total {
+          grid-template-columns: auto auto 1fr;
+          grid-template-areas:
+            "month month net"
+            "income expenses status";
+          row-gap: 3px;
+          column-gap: 10px;
+          padding: 11px 4px;
+        }
+        .ipr-pm-total {
+          padding: 11px 10px;
+        }
+        .ipr-pm-month {
+          grid-area: month;
+        }
+        .ipr-pm-net {
+          grid-area: net;
+        }
+        .ipr-pm-income {
+          grid-area: income;
+        }
+        .ipr-pm-expenses {
+          grid-area: expenses;
+        }
+        .ipr-pm-status {
+          grid-area: status;
+        }
+        .ipr-pm-income,
+        .ipr-pm-expenses {
+          text-align: left;
+          font-size: 0.78rem;
+          color: #6b7280;
+          font-weight: 400;
+        }
+        .ipr-pm-label {
+          position: static;
+          width: auto;
+          height: auto;
+          overflow: visible;
+          clip: auto;
+          margin-right: 3px;
+        }
+        .ipr-pm-empty {
+          grid-area: net;
+        }
+        .ipr-chart-card .card-body,
+        .ipr-section-card .card-body.p-4 {
+          padding: 1rem !important;
+        }
+        .ipr-pm-go {
+          display: none;
+        }
+      }
+
       @media (max-width: 576px) {
         .ipr-topbar {
           padding: 0.75rem 1rem;
@@ -15461,12 +15834,104 @@
               </button>
             </div>
 
-            <div class="p-4">
+            <div class="p-4 ipr-body">
+              <!-- View switch: by investor / by property -->
+              <div
+                class="ipr-view-switch mb-4"
+                role="tablist"
+                aria-label="Report view"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  id="iprViewTabInvestors"
+                  class="ipr-view-tab active"
+                  data-ipr-view="investors"
+                  aria-selected="true"
+                  onclick="investorProfitChart.setView('investors')"
+                >
+                  <i class="bi bi-people"></i>
+                  <span data-i18n="investorProfitChart.byInvestor"
+                    >By investor</span
+                  >
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="iprViewTabProperty"
+                  class="ipr-view-tab"
+                  data-ipr-view="property"
+                  aria-selected="false"
+                  onclick="investorProfitChart.setView('property')"
+                >
+                  <i class="bi bi-building"></i>
+                  <span data-i18n="investorProfitChart.byProperty"
+                    >By property</span
+                  >
+                </button>
+              </div>
+
               <!-- Summary Stats -->
-              <div id="investorProfitSummaryStats" class="row g-3 mb-4"></div>
+              <div
+                id="investorProfitSummaryStats"
+                class="row g-3 mb-4"
+                data-ipr-pane="investors"
+              ></div>
+
+              <!-- Property view: summary stats -->
+              <div
+                id="iprPropertyStats"
+                class="row g-3 mb-4"
+                data-ipr-pane="property"
+                hidden
+              ></div>
+
+              <!-- Property view: property picker (single select) -->
+              <div
+                class="ipr-section-card card mb-4"
+                data-ipr-pane="property"
+                hidden
+              >
+                <div class="card-body p-3">
+                  <div
+                    class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"
+                  >
+                    <div>
+                      <h6
+                        class="mb-0 fw-bold"
+                        data-i18n="investorProfitChart.selectProperty"
+                      >
+                        Select a property
+                      </h6>
+                      <small id="iprPropertyCount" class="text-muted"></small>
+                    </div>
+                    <div class="ipr-prop-search">
+                      <i class="bi bi-search" aria-hidden="true"></i>
+                      <input
+                        type="search"
+                        id="iprPropertySearch"
+                        class="form-control form-control-sm"
+                        placeholder="Search properties"
+                        data-i18n-placeholder="investorProfitChart.searchProperties"
+                        aria-label="Search properties"
+                        autocomplete="off"
+                        oninput="investorProfitChart.handlePropertySearch(this.value)"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    id="iprPropertyList"
+                    class="ipr-prop-picker"
+                    role="group"
+                    aria-label="Properties"
+                  >
+                    <!-- Property chips rendered by JS -->
+                  </div>
+                </div>
+              </div>
 
               <!-- Investor Selection -->
-              <div class="ipr-section-card card mb-4">
+              <div class="ipr-section-card card mb-4" data-ipr-pane="investors">
                 <div class="card-body p-3">
                   <div
                     class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"
@@ -15647,7 +16112,7 @@
               </div>
 
               <!-- Chart Area -->
-              <div class="ipr-chart-card card mb-4">
+              <div class="ipr-chart-card card mb-4" data-ipr-pane="investors">
                 <div class="card-body p-4">
                   <div
                     class="d-flex justify-content-between align-items-center mb-4"
@@ -15689,11 +16154,60 @@
               </div>
 
               <!-- Monthly Details -->
-              <div class="ipr-section-card card">
+              <div class="ipr-section-card card" data-ipr-pane="investors">
                 <div class="card-body p-4">
                   <div id="investorProfitMonthlyDetails">
                     <!-- Monthly breakdown rendered by JS -->
                   </div>
+                </div>
+              </div>
+
+              <!-- Property view: monthly profit chart -->
+              <div
+                class="ipr-chart-card card mb-4"
+                data-ipr-pane="property"
+                hidden
+              >
+                <div class="card-body p-4">
+                  <div
+                    class="d-flex justify-content-between align-items-start gap-2 mb-3"
+                  >
+                    <div style="min-width: 0">
+                      <h6 class="mb-0 fw-bold">
+                        <span data-i18n="investorProfitChart.propertyProfit"
+                          >Property Profit</span
+                        >
+                      </h6>
+                      <small
+                        id="iprPropertyChartSubtitle"
+                        class="text-muted d-block text-truncate"
+                      ></small>
+                    </div>
+                    <button
+                      type="button"
+                      id="iprPropertyFullscreenBtn"
+                      class="btn btn-sm btn-outline-secondary px-3 flex-shrink-0"
+                      onclick="investorProfitChart.openFullscreenChart()"
+                      title="View fullscreen"
+                      aria-label="View fullscreen"
+                      disabled
+                    >
+                      <i class="bi bi-arrows-fullscreen"></i
+                      ><span class="d-none d-md-inline ms-1">Fullscreen</span>
+                    </button>
+                  </div>
+                  <div id="iprPropertyChartContainer"></div>
+                </div>
+              </div>
+
+              <!-- Property view: month-by-month table -->
+              <div
+                class="ipr-section-card card"
+                data-ipr-pane="property"
+                hidden
+              >
+                <div class="card-body p-4">
+                  <div id="iprPropertyMonthly"></div>
                 </div>
               </div>
             </div>
