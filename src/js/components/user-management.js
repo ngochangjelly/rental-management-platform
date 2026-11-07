@@ -12,6 +12,8 @@ class UserManagement {
     this.editingUserId = null;
     this.userModal = null;
     this.isLoadingUsers = false; // Prevent duplicate loads
+    this.listQuery = ''; // search box on the users list
+    this.listRole = 'all'; // all | user | admin
 
     // Set global instance immediately
     window.userManagement = this;
@@ -87,6 +89,53 @@ class UserManagement {
       togglePasswordBtn.addEventListener('click', (e) => this.togglePasswordVisibility(e));
     }
 
+    // Users list: search, role filter, tap a row to edit
+    document.getElementById('umSearch')?.addEventListener('input', (e) => {
+      this.listQuery = e.target.value.trim().toLowerCase();
+      this.renderUsers();
+    });
+    document.getElementById('umRoleFilter')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-role]');
+      if (!btn) return;
+      this.listRole = btn.dataset.role;
+      document.querySelectorAll('#umRoleFilter button').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      this.renderUsers();
+    });
+    const list = document.getElementById('usersTableBody');
+    list?.addEventListener('click', (e) => {
+      if (e.target.closest('button, a')) return; // Edit/Delete have their own handlers
+      const row = e.target.closest('.um-row[data-edit]');
+      if (row) this.editUser(row.dataset.edit);
+    });
+    list?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = e.target.closest('.um-row[data-edit]');
+      if (row && e.target === row) {
+        e.preventDefault();
+        this.editUser(row.dataset.edit);
+      }
+    });
+
+    // Dialog: role cards drive the hidden #userRole select
+    document.querySelectorAll('input[name="umRoleChoice"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const select = document.getElementById('userRole');
+        if (!select || !radio.checked) return;
+        select.value = radio.value;
+        select.dispatchEvent(new Event('change'));
+      });
+    });
+
+    // Dialog: property filter + select all/none (visible rows only)
+    document.getElementById('umPropertySearch')?.addEventListener('input', () => this.filterPropertyList());
+    document.getElementById('umPropertySelectAllBtn')?.addEventListener('click', () => this.setVisibleProperties(true));
+    document.getElementById('umPropertySelectNoneBtn')?.addEventListener('click', () => this.setVisibleProperties(false));
+    document.getElementById('umGeneratePasswordBtn')?.addEventListener('click', () => this.generatePassword());
+
+    // Live "x of y" counters
+    document.getElementById('userForm')?.addEventListener('change', () => this.updateAccessCounters());
+
     // Modal reset on close
     const modalElement = document.getElementById('userModal');
     if (modalElement) {
@@ -117,11 +166,10 @@ class UserManagement {
       console.error('❌ Error loading users:', error);
       this.showError('Failed to load users');
       document.getElementById('usersTableBody').innerHTML = `
-        <tr>
-          <td colspan="6" class="text-center text-danger">
-            Failed to load users. Please try again.
-          </td>
-        </tr>
+        <div class="um-empty text-danger">
+          <i class="bi bi-exclamation-triangle text-danger"></i>
+          Failed to load users. Please try again.
+        </div>
       `;
     } finally {
       this.isLoadingUsers = false;
@@ -212,13 +260,15 @@ class UserManagement {
           <p class="mt-2 mb-0">No properties available</p>
         </div>
       `;
+      this.updateAccessCounters();
       return;
     }
 
     container.innerHTML = this.properties.map(property => {
       const isChecked = selectedProperties.includes(property.propertyId);
+      const address = [property.address || 'N/A', property.unit].filter(Boolean).join(' ');
       return `
-        <div class="form-check mb-2">
+        <label class="um-prop-item" for="property-${property.propertyId}">
           <input
             class="form-check-input property-access-checkbox"
             type="checkbox"
@@ -226,12 +276,57 @@ class UserManagement {
             id="property-${property.propertyId}"
             ${isChecked ? 'checked' : ''}
           />
-          <label class="form-check-label" for="property-${property.propertyId}">
-            <strong>${property.propertyId}</strong> - ${property.address || 'N/A'}
-          </label>
-        </div>
+          <span class="um-prop-id">${this.escapeHtml(String(property.propertyId))}</span>
+          <span class="um-prop-addr" title="${this.escapeHtml(address)}">${this.escapeHtml(address)}</span>
+        </label>
       `;
     }).join('');
+    this.filterPropertyList();
+    this.updateAccessCounters();
+  }
+
+  // Hide property rows that don't match the dialog's filter box
+  filterPropertyList() {
+    const words = (document.getElementById('umPropertySearch')?.value || '')
+      .trim().toLowerCase().split(/\s+/).filter(Boolean);
+    document.querySelectorAll('#propertyAccessContainer .um-prop-item').forEach(item => {
+      const text = item.textContent.toLowerCase();
+      item.hidden = !words.every(w => text.includes(w));
+    });
+  }
+
+  setVisibleProperties(checked) {
+    document.querySelectorAll('#propertyAccessContainer .um-prop-item:not([hidden]) .property-access-checkbox')
+      .forEach(cb => { cb.checked = checked; });
+    this.updateAccessCounters();
+  }
+
+  updateAccessCounters() {
+    const count = (selector) => document.querySelectorAll(selector).length;
+    const modules = document.getElementById('umModuleCount');
+    if (modules) {
+      const total = count('.module-access-checkbox');
+      modules.textContent = total ? `${count('.module-access-checkbox:checked')} of ${total}` : '';
+    }
+    const props = document.getElementById('umPropertyCount');
+    if (props) {
+      const total = count('.property-access-checkbox');
+      props.textContent = total ? `${count('.property-access-checkbox:checked')} of ${total}` : '';
+    }
+  }
+
+  // Strong random password, shown so it can be copied to the new user
+  generatePassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const bytes = new Uint32Array(12);
+    crypto.getRandomValues(bytes);
+    const password = Array.from(bytes, b => chars[b % chars.length]).join('');
+    const input = document.getElementById('userPassword');
+    if (!input) return;
+    input.value = password;
+    if (input.type === 'password') this.togglePasswordVisibility();
+    input.focus();
+    input.select();
   }
 
   // Non-admins with the Users module can only grant modules they hold
@@ -248,30 +343,30 @@ class UserManagement {
       (groups[module.group] = groups[module.group] || []).push(module);
     });
 
-    container.innerHTML = `
-      <div class="row g-3">
-        ${Object.entries(groups).map(([group, modules]) => `
-          <div class="col-sm-6">
-            <div class="small text-uppercase text-muted fw-semibold mb-1">${group}</div>
-            ${modules.map(module => `
-              <div class="form-check">
-                <input
-                  class="form-check-input module-access-checkbox"
-                  type="checkbox"
-                  value="${module.key}"
-                  id="module-${module.key}"
-                  ${selectedModules.includes(module.key) ? 'checked' : ''}
-                  ${this.canGrantModule(module.key) ? '' : 'disabled'}
-                />
-                <label class="form-check-label" for="module-${module.key}">
-                  <i class="bi ${module.icon} me-1"></i>${module.label}
-                </label>
-              </div>
-            `).join('')}
-          </div>
-        `).join('')}
+    // Toggle tiles (Bootstrap btn-check): the inputs are still the
+    // .module-access-checkbox checkboxes the submit reads
+    container.innerHTML = Object.entries(groups).map(([group, modules]) => `
+      <div class="um-mod-group">
+        <div class="um-mod-group-title">${group}</div>
+        <div class="um-mod-grid">
+          ${modules.map(module => `
+            <input
+              class="btn-check module-access-checkbox"
+              type="checkbox"
+              value="${module.key}"
+              id="module-${module.key}"
+              autocomplete="off"
+              ${selectedModules.includes(module.key) ? 'checked' : ''}
+              ${this.canGrantModule(module.key) ? '' : 'disabled'}
+            />
+            <label class="btn" for="module-${module.key}">
+              <i class="bi ${module.icon}"></i>${module.label}
+              <i class="bi bi-check-circle-fill um-check"></i>
+            </label>
+          `).join('')}
+        </div>
       </div>
-    `;
+    `).join('');
 
     this.updateModuleAccessForRole();
   }
@@ -304,83 +399,147 @@ class UserManagement {
         ? 'Admins can access every module.'
         : 'Sidebar modules this user can open. Dashboard is always available.';
     }
+
+    this.syncRoleCards();
+    this.updateAccessCounters();
+  }
+
+  syncPasswordRequired() {
+    const star = document.getElementById('umPasswordRequired');
+    if (star) star.hidden = !document.getElementById('userPassword')?.required;
+  }
+
+  // Mirror the hidden #userRole select onto the role cards
+  syncRoleCards() {
+    const select = document.getElementById('userRole');
+    if (!select) return;
+    document.querySelectorAll('.um-role-card').forEach(card => {
+      const option = select.querySelector(`option[value="${card.dataset.role}"]`);
+      const radio = card.querySelector('input');
+      card.hidden = !option || option.disabled;
+      const active = select.value === card.dataset.role;
+      card.classList.toggle('is-active', active);
+      if (radio) radio.checked = active;
+    });
   }
 
   setAllModules(checked) {
     document.querySelectorAll('.module-access-checkbox:not(:disabled)').forEach(cb => {
       cb.checked = checked;
     });
+    this.updateAccessCounters();
   }
 
+  // Module access for the list: count + a row of module icons
   renderModuleSummary(user) {
     if (user.role === 'admin') {
-      return '<span class="text-muted">All modules</span>';
+      return '<span class="um-modules-label">All modules</span>';
     }
-    const labels = APP_MODULES
-      .filter(m => getModuleAccess(user).includes(m.key))
-      .map(m => m.label);
-    if (labels.length === 0) {
-      return '<span class="text-muted">No access</span>';
+    const granted = APP_MODULES.filter(m => getModuleAccess(user).includes(m.key));
+    if (granted.length === 0) {
+      return '<span class="um-modules-label none">No modules</span>';
     }
-    return `<span class="small">${this.escapeHtml(labels.join(', '))}</span>`;
+    const shown = granted.slice(0, 8);
+    const names = this.escapeHtml(granted.map(m => m.label).join(', '));
+    return `
+      <span class="um-modules-label">${granted.length} of ${APP_MODULES.length} modules</span>
+      <span class="um-icons" title="${names}">
+        ${shown.map(m => `<span class="um-icon"><i class="bi ${m.icon}"></i></span>`).join('')}
+        ${granted.length > shown.length ? `<span class="um-icon more">+${granted.length - shown.length}</span>` : ''}
+      </span>`;
+  }
+
+  renderPropertySummary(user) {
+    if (user.role === 'admin') {
+      return '<span class="um-props"><i class="bi bi-buildings"></i>All properties</span>';
+    }
+    const n = user.propertyAccess?.length || 0;
+    if (n === 0) return '<span class="um-props none"><i class="bi bi-buildings"></i>No properties</span>';
+    return `<span class="um-props" title="Property IDs: ${this.escapeHtml(user.propertyAccess.join(', '))}">
+      <i class="bi bi-buildings"></i>${n} ${n === 1 ? 'property' : 'properties'}</span>`;
   }
 
   renderUsers() {
-    const tbody = document.getElementById('usersTableBody');
-    if (!tbody) return;
+    const list = document.getElementById('usersTableBody');
+    if (!list) return;
+
+    // Role filter counts
+    const counts = {
+      all: this.users.length,
+      user: this.users.filter(u => u.role !== 'admin').length,
+      admin: this.users.filter(u => u.role === 'admin').length,
+    };
+    document.querySelectorAll('#umRoleFilter [data-count]').forEach(el => {
+      el.textContent = counts[el.dataset.count] ?? '';
+    });
 
     if (this.users.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" class="text-center text-muted">
-            No users found. Click "Add User" to create one.
-          </td>
-        </tr>
+      list.innerHTML = `
+        <div class="um-empty">
+          <i class="bi bi-people"></i>
+          No users yet. Click "Add user" to create one.
+        </div>
       `;
       return;
     }
 
-    tbody.innerHTML = this.users.map(user => `
-      <tr>
-        <td data-label="Username">
-          <strong>${this.escapeHtml(user.username)}</strong>
-        </td>
-        <td data-label="Role">
-          <span class="badge bg-${user.role === 'admin' ? 'danger' : 'primary'}">
-            ${user.role.toUpperCase()}
-          </span>
-        </td>
-        <td data-label="Modules">
-          ${this.renderModuleSummary(user)}
-        </td>
-        <td data-label="Property Access">
-          ${user.role === 'admin'
-            ? '<span class="text-muted">All Properties</span>'
-            : user.propertyAccess && user.propertyAccess.length > 0
-              ? `<span class="badge bg-info">${user.propertyAccess.length} ${user.propertyAccess.length === 1 ? 'property' : 'properties'}</span>`
-              : '<span class="text-muted">No access</span>'
-          }
-        </td>
-        <td data-label="Created">${new Date(user.createdAt).toLocaleDateString()}</td>
-        <td data-label="Actions">
-          ${user.role === 'admin' && !isAdmin() ? '<span class="text-muted small">Admin only</span>' : `
+    const users = this.users.filter(user =>
+      (this.listRole === 'all' || (this.listRole === 'admin') === (user.role === 'admin')) &&
+      (!this.listQuery || user.username.toLowerCase().includes(this.listQuery)));
+
+    if (users.length === 0) {
+      list.innerHTML = `
+        <div class="um-empty">
+          <i class="bi bi-search"></i>
+          No users match your search.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = users.map(user => {
+      const canEdit = !(user.role === 'admin' && !isAdmin());
+      const name = this.escapeHtml(user.username);
+      const hue = [...user.username].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+      const created = new Date(user.createdAt).toLocaleDateString(undefined, {
+        day: 'numeric', month: 'short', year: 'numeric',
+      });
+      return `
+      <div class="um-row${canEdit ? ' is-clickable' : ''}"
+        ${canEdit ? `data-edit="${user._id}" tabindex="0" role="button" aria-label="Edit ${name}"` : ''}>
+        <div class="um-avatar" style="--h:${hue}" aria-hidden="true">${this.escapeHtml(user.username.charAt(0))}</div>
+        <div class="um-main">
+          <div class="um-name">
+            <span>${name}</span>
+            <span class="um-role um-role-${user.role === 'admin' ? 'admin' : 'user'}">${user.role}</span>
+          </div>
+          <div class="um-meta">Added ${created}</div>
+        </div>
+        <div class="um-access">
+          <div class="um-modules">${this.renderModuleSummary(user)}</div>
+          ${this.renderPropertySummary(user)}
+        </div>
+        <div class="um-actions">
+          ${canEdit ? `
           <button
-            class="btn btn-sm btn-outline-primary me-1"
+            class="btn btn-sm btn-outline-primary"
             onclick="userManagement.editUser('${user._id}')"
             title="Edit"
+            aria-label="Edit ${name}"
           >
             <i class="bi bi-pencil"></i>
           </button>
           <button
             class="btn btn-sm btn-outline-danger"
-            onclick="userManagement.deleteUser('${user._id}', '${this.escapeHtml(user.username)}')"
+            onclick="userManagement.deleteUser('${user._id}', '${name}')"
             title="Delete"
+            aria-label="Delete ${name}"
           >
             <i class="bi bi-trash"></i>
-          </button>`}
-        </td>
-      </tr>
-    `).join('');
+          </button>` : '<span class="um-locked"><i class="bi bi-lock me-1"></i>Admin only</span>'}
+        </div>
+      </div>`;
+    }).join('');
   }
 
   async showAddUserModal() {
@@ -396,6 +555,7 @@ class UserManagement {
     if (passwordInput) {
       passwordInput.required = true;
     }
+    this.syncPasswordRequired();
 
     // New users start with no modules; the admin picks what they need
     this.restrictRoleOptions();
@@ -439,6 +599,7 @@ class UserManagement {
     if (passwordInput) {
       passwordInput.required = false;
     }
+    this.syncPasswordRequired();
 
     // Load properties and select the ones user has access to
     await this.loadProperties();
@@ -579,6 +740,9 @@ class UserManagement {
       toggleIcon.classList.remove('bi-eye-slash');
       toggleIcon.classList.add('bi-eye');
     }
+
+    const propertySearch = document.getElementById('umPropertySearch');
+    if (propertySearch) propertySearch.value = '';
 
     // Clear property checkboxes
     const container = document.getElementById('propertyAccessContainer');

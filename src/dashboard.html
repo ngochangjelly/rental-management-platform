@@ -5314,6 +5314,491 @@
         cursor: pointer;
       }
     </style>
+    <!-- User Management (components/user-management.js) -->
+    <style>
+      .um {
+        --um-border: #e5e7eb;
+        --um-accent: #4f46e5;
+      }
+      .um-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .um-header-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+      }
+      .um-toolbar {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+      }
+      .um-search {
+        flex: 1 1 260px;
+        max-width: 420px;
+      }
+      .um-filter {
+        display: inline-flex;
+        gap: 2px;
+        padding: 3px;
+        border-radius: 10px;
+        background: #eceef3;
+      }
+      .um-filter button {
+        border: 0;
+        background: none;
+        border-radius: 8px;
+        padding: 0.35rem 0.8rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #495057;
+        white-space: nowrap;
+      }
+      .um-filter button.active {
+        background: #fff;
+        color: var(--um-accent);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      }
+      .um-filter-count {
+        color: #868e96;
+        font-weight: 500;
+        margin-left: 2px;
+      }
+
+      /* User rows */
+      .um-list {
+        background: #fff;
+        border: 1px solid var(--um-border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .um-row {
+        display: grid;
+        grid-template-columns: 44px minmax(170px, 1fr) minmax(0, 2.2fr) auto;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.875rem 1rem;
+        border-bottom: 1px solid #f1f3f5;
+      }
+      .um-row:last-child {
+        border-bottom: 0;
+      }
+      .um-row.is-clickable {
+        cursor: pointer;
+      }
+      .um-row.is-clickable:hover {
+        background: #f8f9fb;
+      }
+      .um-row:focus-visible {
+        outline: 2px solid var(--um-accent);
+        outline-offset: -2px;
+      }
+      .um-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #fff;
+        background: hsl(var(--h, 240) 55% 55%);
+        text-transform: uppercase;
+      }
+      .um-name {
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+      .um-name > span:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .um-role {
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        background: #e7e9ff;
+        color: var(--um-accent);
+      }
+      .um-role-admin {
+        background: #fde8e8;
+        color: #c92a2a;
+      }
+      .um-meta {
+        font-size: 0.8rem;
+        color: #868e96;
+        margin-top: 2px;
+      }
+      .um-access {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        min-width: 0;
+      }
+      .um-modules {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+        flex: 1;
+      }
+      .um-modules-label,
+      .um-props {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #495057;
+        white-space: nowrap;
+      }
+      .um-icons {
+        display: flex;
+        gap: 4px;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .um-icon {
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f3f9;
+        color: #5c6bc0;
+        font-size: 0.82rem;
+      }
+      .um-icon.more {
+        width: auto;
+        padding: 0 6px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #6c757d;
+      }
+      .um-props {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        background: #e6f6fb;
+        color: #0b7285;
+      }
+      .um-props.none,
+      .um-modules-label.none {
+        background: #fff4e6;
+        color: #d9480f;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+      }
+      .um-actions {
+        display: flex;
+        gap: 0.375rem;
+        justify-content: flex-end;
+      }
+      .um-actions .btn {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .um-locked {
+        font-size: 0.8rem;
+        color: #868e96;
+        white-space: nowrap;
+      }
+      .um-empty {
+        padding: 2.5rem 1rem;
+        text-align: center;
+        color: #6c757d;
+      }
+      .um-empty .bi {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #adb5bd;
+      }
+      .um-skeleton {
+        height: 72px;
+        background: linear-gradient(90deg, #f4f5f7 25%, #eceef1 50%, #f4f5f7 75%);
+        background-size: 200% 100%;
+        animation: um-shimmer 1.2s infinite;
+      }
+      @keyframes um-shimmer {
+        to {
+          background-position: -200% 0;
+        }
+      }
+
+      /* Add / edit dialog. The <form> sits between .modal-content and
+         .modal-body, so it joins the flex column: the body scrolls and the
+         Cancel / Save footer stays pinned. */
+      .um-form {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .um-modal .modal-body {
+        background: #f6f7fb;
+        overflow-y: auto;
+      }
+      .um-sec {
+        background: #fff;
+        border: 1px solid var(--um-border);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.875rem;
+      }
+      .um-sec:last-child {
+        margin-bottom: 0;
+      }
+      .um-sec-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+      }
+      .um-sec-title .bi {
+        color: var(--um-accent, #4f46e5);
+      }
+      .um-sec-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.375rem;
+      }
+      .um-counter {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #6c757d;
+        background: #f1f3f5;
+        border-radius: 999px;
+        padding: 0.1rem 0.55rem;
+      }
+      .um-roles {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.625rem;
+      }
+      .um-role-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        border: 1.5px solid var(--um-border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .um-role-card input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .um-role-card > .bi {
+        font-size: 1.3rem;
+        color: #868e96;
+        margin-top: 2px;
+      }
+      .um-role-card strong {
+        display: block;
+      }
+      .um-role-card small {
+        color: #6c757d;
+        line-height: 1.3;
+        display: block;
+      }
+      .um-role-card.is-active {
+        border-color: var(--um-accent, #4f46e5);
+        background: #f3f3ff;
+      }
+      .um-role-card.is-active > .bi {
+        color: var(--um-accent, #4f46e5);
+      }
+      .um-role-card:has(input:focus-visible) {
+        outline: 2px solid var(--um-accent, #4f46e5);
+        outline-offset: 2px;
+      }
+      .um-mod-group + .um-mod-group {
+        margin-top: 0.75rem;
+      }
+      .um-mod-group-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #868e96;
+        margin-bottom: 0.375rem;
+      }
+      .um-mod-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 0.375rem;
+      }
+      .um-mod-grid .btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-align: left;
+        font-size: 0.85rem;
+        padding: 0.45rem 0.625rem;
+        border-color: var(--um-border);
+        color: #343a40;
+        background: #fff;
+      }
+      .um-mod-grid .btn .um-check {
+        margin-left: auto;
+        opacity: 0;
+      }
+      .um-mod-grid .btn-check:checked + .btn {
+        background: #eef0ff;
+        border-color: var(--um-accent, #4f46e5);
+        color: #2b2f8f;
+      }
+      .um-mod-grid .btn-check:checked + .btn .um-check {
+        opacity: 1;
+      }
+      .um-mod-grid .btn-check:disabled + .btn {
+        opacity: 0.55;
+      }
+      .um-prop-list {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid var(--um-border);
+        border-radius: 10px;
+      }
+      .um-prop-item {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0.5rem 0.75rem;
+        margin: 0;
+        border-bottom: 1px solid #f1f3f5;
+        cursor: pointer;
+      }
+      .um-prop-item:last-child {
+        border-bottom: 0;
+      }
+      .um-prop-item:hover {
+        background: #f8f9fb;
+      }
+      .um-prop-item .form-check-input {
+        margin: 0;
+        flex-shrink: 0;
+      }
+      .um-prop-id {
+        flex-shrink: 0;
+        min-width: 34px;
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border-radius: 6px;
+        padding: 0.1rem 0.375rem;
+        background: #e7f1ff;
+        color: #0d6efd;
+      }
+      .um-prop-addr {
+        font-size: 0.875rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .um-prop-item[hidden] {
+        display: none !important;
+      }
+
+      @media (max-width: 991.98px) {
+        .um-row {
+          grid-template-columns: 44px minmax(0, 1fr) auto;
+        }
+        .um-access {
+          grid-column: 2 / -1;
+          grid-row: 2;
+          flex-wrap: wrap;
+          gap: 0.5rem 1rem;
+        }
+      }
+      @media (max-width: 767.98px) {
+        .um-hide-sm {
+          display: none !important;
+        }
+        .um-header h2 {
+          font-size: 1.35rem;
+        }
+        .um-search {
+          max-width: none;
+          flex-basis: 100%;
+        }
+        .um-filter {
+          width: 100%;
+        }
+        .um-filter button {
+          flex: 1;
+        }
+        .um-list {
+          background: none;
+          border: 0;
+          border-radius: 0;
+          overflow: visible;
+        }
+        .um-row {
+          background: #fff;
+          border: 1px solid var(--um-border);
+          border-radius: 12px;
+          margin-bottom: 0.625rem;
+          gap: 0.625rem 0.75rem;
+          padding: 0.875rem;
+        }
+        .um-row:last-child {
+          border-bottom: 1px solid var(--um-border);
+        }
+        .um-access {
+          grid-column: 1 / -1;
+        }
+        .um-actions .btn {
+          width: 40px;
+          height: 40px;
+        }
+        #users-section {
+          padding-bottom: 88px;
+        }
+        .um-roles {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .um-mod-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .um-mod-grid .btn {
+          min-height: 44px;
+        }
+        .um-prop-item {
+          min-height: 46px;
+        }
+        .um-prop-list {
+          max-height: none;
+        }
+      }
+    </style>
+
     <!-- Create Contract workspace (components/contract-form-ux.js) -->
     <style>
       #contractWorkspace {
@@ -15216,72 +15701,82 @@
 
           <!-- Users Section (Admin Only) -->
           <div id="users-section" class="content-section">
-            <div class="p-4">
+            <div class="p-4 um">
               <!-- Header -->
-              <div
-                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center mb-4"
-              >
-                <h2>User Management</h2>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                  <button
-                    type="button"
-                    class="btn btn-primary me-2"
-                    id="addUserBtn"
-                  >
-                    <i class="bi bi-plus-circle me-1"></i>Add User
-                  </button>
+              <div class="um-header">
+                <div class="um-header-text">
+                  <h2 class="mb-1">User Management</h2>
+                  <div class="text-muted small">
+                    Who can sign in, which modules they see and which
+                    properties they manage.
+                  </div>
+                </div>
+                <div class="um-header-actions">
                   <button
                     class="btn btn-outline-secondary"
                     onclick="dashboardController.goToDashboard()"
+                    title="Back to Dashboard"
+                    aria-label="Back to Dashboard"
                   >
-                    <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+                    <i class="bi bi-arrow-left"></i
+                    ><span class="ms-1 um-hide-sm">Back to Dashboard</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary um-hide-sm"
+                    id="addUserBtn"
+                  >
+                    <i class="bi bi-person-plus me-1"></i>Add user
                   </button>
                 </div>
               </div>
 
-              <!-- Users Content -->
+              <!-- Search + role filter -->
+              <div class="um-toolbar">
+                <div class="input-group um-search">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input
+                    type="search"
+                    class="form-control"
+                    id="umSearch"
+                    placeholder="Search by username…"
+                    autocomplete="off"
+                    aria-label="Search users"
+                  />
+                </div>
+                <div class="um-filter" role="tablist" id="umRoleFilter">
+                  <button type="button" class="active" data-role="all" role="tab">
+                    All <span class="um-filter-count" data-count="all"></span>
+                  </button>
+                  <button type="button" data-role="user" role="tab">
+                    Users <span class="um-filter-count" data-count="user"></span>
+                  </button>
+                  <button type="button" data-role="admin" role="tab">
+                    Admins <span class="um-filter-count" data-count="admin"></span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Users list (rendered by user-management.js) -->
               <div id="usersContent">
-                <div class="row mb-4">
-                  <div class="col-12">
-                    <div class="card">
-                      <div class="card-header">
-                        <h5 class="mb-0">System Users</h5>
-                      </div>
-                      <div class="card-body">
-                        <div class="table-responsive">
-                          <table class="table table-hover">
-                            <thead>
-                              <tr>
-                                <th>Username</th>
-                                <th>Role</th>
-                                <th>Modules</th>
-                                <th>Property Access</th>
-                                <th>Created</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                              <tr>
-                                <td colspan="6" class="text-center">
-                                  <div
-                                    class="spinner-border text-primary"
-                                    role="status"
-                                  >
-                                    <span class="visually-hidden"
-                                      >Loading...</span
-                                    >
-                                  </div>
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div class="um-list" id="usersTableBody" aria-live="polite">
+                  <div class="um-row um-skeleton"></div>
+                  <div class="um-row um-skeleton"></div>
+                  <div class="um-row um-skeleton"></div>
                 </div>
               </div>
             </div>
+
+            <!-- Phones: floating "add user" button -->
+            <button
+              type="button"
+              class="m-fab"
+              onclick="userManagement.showAddUserModal()"
+              aria-label="Add user"
+              title="Add user"
+            >
+              <i class="bi bi-person-plus"></i>
+            </button>
           </div>
 
           <!-- Docs Section -->
@@ -17171,8 +17666,10 @@
       aria-labelledby="userModalLabel"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+      <div
+        class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down"
+      >
+        <div class="modal-content um-modal">
           <div class="modal-header">
             <h5 class="modal-title" id="userModalLabel">Add User</h5>
             <button
@@ -17182,69 +17679,105 @@
               aria-label="Close"
             ></button>
           </div>
-          <form id="userForm">
+          <form id="userForm" class="um-form">
             <div class="modal-body">
-              <div class="mb-3">
-                <label for="userUsername" class="form-label"
-                  >Username <span class="text-danger">*</span></label
-                >
-                <input
-                  type="text"
-                  class="form-control"
-                  id="userUsername"
-                  required
-                  minlength="3"
-                  maxlength="50"
-                />
-              </div>
-
-              <div class="mb-3">
-                <label for="userPassword" class="form-label"
-                  >Password <span class="text-danger">*</span></label
-                >
-                <div class="input-group">
-                  <input
-                    type="password"
-                    class="form-control"
-                    id="userPassword"
-                    required
-                    minlength="6"
-                    autocomplete="new-password"
-                  />
-                  <button
-                    class="btn btn-outline-secondary"
-                    type="button"
-                    id="togglePasswordBtn"
-                    title="Show/Hide Password"
-                  >
-                    <i class="bi bi-eye" id="togglePasswordIcon"></i>
-                  </button>
+              <!-- Account -->
+              <section class="um-sec">
+                <h6 class="um-sec-title">
+                  <i class="bi bi-person-badge"></i>Account
+                </h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="userUsername" class="form-label"
+                      >Username <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="userUsername"
+                      required
+                      minlength="3"
+                      maxlength="50"
+                      autocomplete="off"
+                      autocapitalize="none"
+                      spellcheck="false"
+                    />
+                  </div>
+                  <div class="col-md-6">
+                    <label for="userPassword" class="form-label"
+                      >Password
+                      <span class="text-danger" id="umPasswordRequired">*</span></label
+                    >
+                    <div class="input-group">
+                      <input
+                        type="password"
+                        class="form-control"
+                        id="userPassword"
+                        required
+                        minlength="6"
+                        autocomplete="new-password"
+                      />
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        id="togglePasswordBtn"
+                        title="Show/Hide Password"
+                        aria-label="Show or hide password"
+                      >
+                        <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                      </button>
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        id="umGeneratePasswordBtn"
+                        title="Generate a strong password"
+                        aria-label="Generate a strong password"
+                      >
+                        <i class="bi bi-magic"></i>
+                      </button>
+                    </div>
+                    <div class="form-text" id="umPasswordHelp">
+                      Minimum 6 characters. Leave blank to keep the existing
+                      password when editing.
+                    </div>
+                  </div>
                 </div>
-                <div class="form-text">
-                  Minimum 6 characters. Leave blank to keep existing password
-                  when editing.
-                </div>
-              </div>
+              </section>
 
-              <div class="mb-3">
-                <label for="userRole" class="form-label"
-                  >Role <span class="text-danger">*</span></label
-                >
-                <select class="form-select" id="userRole" required>
+              <!-- Role: cards drive the (hidden) select the logic reads -->
+              <section class="um-sec">
+                <h6 class="um-sec-title"><i class="bi bi-shield-lock"></i>Role</h6>
+                <select class="d-none" id="userRole" required aria-hidden="true" tabindex="-1">
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
-                <div class="form-text">
-                  Admins have full access. Users only see assigned modules and
-                  properties.
+                <div class="um-roles" role="radiogroup" aria-label="Role">
+                  <label class="um-role-card" data-role="user">
+                    <input type="radio" name="umRoleChoice" value="user" />
+                    <i class="bi bi-person"></i>
+                    <span>
+                      <strong>User</strong>
+                      <small>Only the modules and properties you pick below</small>
+                    </span>
+                  </label>
+                  <label class="um-role-card" data-role="admin">
+                    <input type="radio" name="umRoleChoice" value="admin" />
+                    <i class="bi bi-shield-check"></i>
+                    <span>
+                      <strong>Admin</strong>
+                      <small>Every module and property, including users</small>
+                    </span>
+                  </label>
                 </div>
-              </div>
+              </section>
 
-              <div class="mb-3">
-                <div
-                  class="d-flex justify-content-between align-items-center mb-2"
-                >
-                  <label class="form-label mb-0">Module Access</label>
+              <!-- Modules -->
+              <section class="um-sec">
+                <div class="um-sec-head">
+                  <h6 class="um-sec-title mb-0">
+                    <i class="bi bi-grid"></i>Modules
+                    <span class="um-counter" id="umModuleCount"></span>
+                  </h6>
                   <div class="btn-group btn-group-sm" role="group">
                     <button
                       type="button"
@@ -17262,20 +17795,50 @@
                     </button>
                   </div>
                 </div>
-                <div id="moduleAccessContainer" class="border rounded p-3"></div>
-                <div class="form-text" id="moduleAccessHelp">
+                <div class="form-text mt-0 mb-2" id="moduleAccessHelp">
                   Sidebar modules this user can open. Dashboard is always
                   available.
                 </div>
-              </div>
+                <div id="moduleAccessContainer"></div>
+              </section>
 
-              <div class="mb-3">
-                <label class="form-label">Property Access</label>
-                <div
-                  id="propertyAccessContainer"
-                  class="border rounded p-3"
-                  style="max-height: 300px; overflow-y: auto"
-                >
+              <!-- Properties -->
+              <section class="um-sec">
+                <div class="um-sec-head">
+                  <h6 class="um-sec-title mb-0">
+                    <i class="bi bi-buildings"></i>Properties
+                    <span class="um-counter" id="umPropertyCount"></span>
+                  </h6>
+                  <div class="btn-group btn-group-sm" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      id="umPropertySelectAllBtn"
+                      title="Select all properties in the list below"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      id="umPropertySelectNoneBtn"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div class="input-group input-group-sm mb-2">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input
+                    type="search"
+                    class="form-control"
+                    id="umPropertySearch"
+                    placeholder="Filter by ID or address…"
+                    autocomplete="off"
+                    aria-label="Filter properties"
+                  />
+                </div>
+                <div id="propertyAccessContainer" class="um-prop-list">
                   <div class="text-center text-muted">
                     <div class="spinner-border spinner-border-sm" role="status">
                       <span class="visually-hidden">Loading properties...</span>
@@ -17284,14 +17847,14 @@
                   </div>
                 </div>
                 <div class="form-text">
-                  Select which properties this user can access
+                  Which properties this user can see and manage.
                 </div>
-              </div>
+              </section>
             </div>
             <div class="modal-footer">
               <button
                 type="button"
-                class="btn btn-secondary"
+                class="btn btn-light"
                 data-bs-dismiss="modal"
               >
                 Cancel
