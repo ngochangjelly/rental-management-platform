@@ -381,11 +381,14 @@ const APP_MODULES = [
   { key: "investors", label: "Investors", icon: "bi-person-badge", group: "Administration" },
   { key: "investor-profit-report", label: "Investor Profit Report", icon: "bi-graph-up-arrow", group: "Administration" },
   { key: "users", label: "User Management", icon: "bi-people-fill", group: "Administration" },
+  // Feature permission (no sidebar section): see each member's earnings
+  // inside a group investor in Financial Reports
+  { key: "investor-group-breakdown", label: "Investor Group Breakdown", icon: "bi-diagram-3", group: "Finance" },
 ];
 
 // Used when a stored session predates module access (the backend returns
 // the same defaults for legacy users and investors).
-const ADMIN_ONLY_DEFAULT_MODULES = ["investors", "investor-profit-report", "users"];
+const ADMIN_ONLY_DEFAULT_MODULES = ["investors", "investor-profit-report", "users", "investor-group-breakdown"];
 const DEFAULT_USER_MODULES = APP_MODULES.map((m) => m.key).filter(
   (key) => !ADMIN_ONLY_DEFAULT_MODULES.includes(key),
 );

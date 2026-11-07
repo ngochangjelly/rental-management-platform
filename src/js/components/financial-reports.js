@@ -1519,6 +1519,7 @@ class FinancialReportsComponent {
         ];
     const showIncomeGroupHeaders = incomeIsClosed && incomeGroups.length > 1;
 
+    const groupCtx = this._groupContext();
     incomeGroups.forEach((group, groupIdx) => {
       if (showIncomeGroupHeaders) {
         const headerColor = group.key === "__pending__" ? "#b45309" : "#6c757d";
@@ -1540,9 +1541,7 @@ class FinancialReportsComponent {
       }
 
       // Find investor name by ID (for income, show investor responsible instead of tenant)
-      const investor = this.investors.find(
-        (inv) => inv.investorId === item.personInCharge,
-      );
+      const investor = this._findInvestor(item.personInCharge);
       // Items imported without a personInCharge resolve to nothing — fall back
       // to a "?" circle with an explanatory tooltip rather than rendering a
       // blank avatar and an empty data-bs-title (which Bootstrap rejects).
@@ -1595,13 +1594,18 @@ class FinancialReportsComponent {
       );
 
       // Shared: investor avatar (both desktop and mobile use slightly different sizes)
-      const investorAvatarDesktop = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
+      // Group + member avatar when this item counts toward a group investor
+      const investorAvatarDesktop = this._personInChargeAvatarHtml(
+        item.personInCharge,
+        36,
+        groupCtx,
+      );
 
-      const investorAvatarMobile = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
+      const investorAvatarMobile = this._personInChargeAvatarHtml(
+        item.personInCharge,
+        26,
+        groupCtx,
+      );
 
       // Shared: action buttons (desktop)
       const evidenceBtn = hasEvidence
@@ -1844,6 +1848,7 @@ class FinancialReportsComponent {
         ];
     const showExpenseGroupHeaders = expenseIsClosed && expenseGroups.length > 1;
 
+    const groupCtx = this._groupContext();
     expenseGroups.forEach((group, groupIdx) => {
       if (showExpenseGroupHeaders) {
         const headerColor = group.key === "__pending__" ? "#b45309" : "#6c757d";
@@ -1858,9 +1863,7 @@ class FinancialReportsComponent {
       }
 
       // Find investor name by ID
-      const investor = this.investors.find(
-        (inv) => inv.investorId === item.personInCharge,
-      );
+      const investor = this._findInvestor(item.personInCharge);
       // See updateIncomeDisplay() — blank personInCharge must still produce a
       // renderable initial and a non-empty tooltip title.
       const investorName = (investor ? investor.name : item.personInCharge) || "";
@@ -1910,13 +1913,18 @@ class FinancialReportsComponent {
       );
 
       // Shared: investor avatar
-      const investorAvatarDesktop = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:36px;height:36px;font-size:15px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
+      // Group + member avatar when this item counts toward a group investor
+      const investorAvatarDesktop = this._personInChargeAvatarHtml(
+        item.personInCharge,
+        36,
+        groupCtx,
+      );
 
-      const investorAvatarMobile = investorAvatar
-        ? `<img src="${this.getOptimizedAvatarUrl(investorAvatar, "small")}" alt="${escapeHtml(investorTooltip)}" class="rounded-circle" style="width:26px;height:26px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">`
-        : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:26px;height:26px;font-size:12px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(investorTooltip)}">${escapeHtml(investorInitial)}</div>`;
+      const investorAvatarMobile = this._personInChargeAvatarHtml(
+        item.personInCharge,
+        26,
+        groupCtx,
+      );
 
       // paid-to avatar: desktop (flex-column with badge) vs mobile (inline)
       const unknownCircle = `<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center text-muted" style="width:32px;height:32px;font-size:16px;" data-bs-toggle="tooltip" data-bs-title="Unknown recipient"><i class="bi bi-person"></i></div>`;
@@ -2153,54 +2161,22 @@ class FinancialReportsComponent {
           ${this._investorGridHeaderHtml(true)}
     `;
 
-    this.investors.forEach((investor) => {
-      // Try to get percentage from report's investorTransactions (snapshot) first
-      const investorTransaction =
-        this.currentReport?.investorTransactions?.find(
-          (t) => t.investorId === investor.investorId,
-        );
-      // Fall back to live investor data if no snapshot exists
-      const propertyData = investor.properties.find(
-        (p) => p.propertyId === this.selectedProperty,
-      );
-      const percentage =
-        investorTransaction?.percentage ??
-        (propertyData ? propertyData.percentage : 0);
-      const profitShare = (netProfit * percentage) / 100;
-
-      // Calculate paid amount (expenses paid by this investor, excluding pending)
-      // Note: For expenses, the person who paid is stored in 'personInCharge' field
-      const paidAmount =
-        this.currentReport && this.currentReport.expenses
-          ? this.currentReport.expenses
-              .filter(
-                (e) => !e.isPending && e.personInCharge === investor.investorId,
-              )
-              .reduce((sum, e) => sum + (e.amount || 0), 0)
-          : 0;
-
-      // Calculate received amount (income received by this investor, excluding pending)
-      const receivedAmount =
-        this.currentReport && this.currentReport.income
-          ? this.currentReport.income
-              .filter(
-                (i) => !i.isPending && i.personInCharge === investor.investorId,
-              )
-              .reduce((sum, i) => sum + (i.amount || 0), 0)
-          : 0;
-
-      // Calculate final amount (everything in SGD)
-      // Formula: Final = Profit Share + Paid - Received
-      const finalAmount = profitShare + paidAmount - receivedAmount;
+    // Final = Profit Share + Paid − Received (everything in SGD); expenses'
+    // payer and income's collector are the item's personInCharge, counted
+    // toward their group when they're a merged group member
+    const showBreakdown = this._canSeeGroupBreakdown();
+    this._computeInvestorRows().forEach((row) => {
+      const { percentage, profitShare, paidAmount, receivedAmount, finalAmount } = row;
 
       if (!this._shouldShowInvestor({ percentage, paidAmount, receivedAmount }))
         return;
 
-      const actionsHtml = this._investorActionsHtml(investor.investorId);
+      const actionsHtml = this._investorActionsHtml(row.investorId);
 
       html += this._investorGridRowHtml({
-        avatar: investor.avatar,
-        name: investor.name,
+        avatar: row.avatar,
+        name: row.name,
+        isGroup: row.isGroup,
         percentage,
         profitShare,
         paidAmount,
@@ -2208,6 +2184,10 @@ class FinancialReportsComponent {
         finalAmount,
         actionsHtml,
       });
+
+      if (showBreakdown && row.breakdown) {
+        html += this._groupBreakdownRowsHtml(row, true);
+      }
     });
 
     html += `
@@ -2249,6 +2229,268 @@ class FinancialReportsComponent {
       </div>`;
   }
 
+  // ─── Group investors (after a merger) ─────────────────────────────────────
+  // A group investor (e.g. a company formed by merging individuals) holds the
+  // property share. Its members still collect income and pay expenses in
+  // their own name, so items keep the member as person in charge. Within a
+  // report, a member's items count toward their group when the group holds a
+  // share and the member holds none of their own: the same rule the backend
+  // uses for investorTransactions. Reports from before a merger, when the
+  // member still had their own %, stay exactly as they were.
+
+  // Property investors first, then every investor the user can see
+  _findInvestor(investorId) {
+    if (!investorId) return null;
+    return (
+      this.investors.find((i) => i.investorId === investorId) ||
+      this.allInvestors?.find((i) => i.investorId === investorId) ||
+      null
+    );
+  }
+
+  // The % used for this report: the report's stored % first, otherwise the
+  // investor's % in effect on the 1st of the report month (same lookup as
+  // the backend's getPercentageAtDate; investors without history get their
+  // current %, exactly as before)
+  _reportPercentage(investor) {
+    const tx = this.currentReport?.investorTransactions?.find(
+      (t) => t.investorId === investor.investorId,
+    );
+    if (tx?.percentage != null) return tx.percentage;
+    const propertyData = investor.properties?.find(
+      (p) => p.propertyId === this.selectedProperty,
+    );
+    if (!propertyData) return 0;
+    const history = propertyData.history || [];
+    if (history.length === 0) return propertyData.percentage;
+    const year = this.currentReport?.year ?? this.currentDate.getFullYear();
+    const month = this.currentReport?.month ?? this.currentDate.getMonth() + 1;
+    const reportDate = Date.UTC(year, month - 1, 1);
+    const entry = history.find(
+      (h) =>
+        new Date(h.effectiveFrom).getTime() <= reportDate &&
+        (!h.effectiveTo || new Date(h.effectiveTo).getTime() > reportDate),
+    );
+    return entry?.percentage ?? propertyData.percentage ?? 0;
+  }
+
+  // groupOf(personId) → the group a person's items count toward, or null
+  // ownerOf(personId) → investor ID whose paid/received an item counts toward
+  // activeGroups       → [{ group, memberIds }] groups holding a share here,
+  //                      with the members whose items roll up into them
+  _groupContext() {
+    const pct = new Map(
+      (this.investors || []).map((i) => [
+        i.investorId,
+        Number(this._reportPercentage(i)) || 0,
+      ]),
+    );
+    const groupsOf = new Map();
+    const activeGroups = [];
+    (this.investors || []).forEach((group) => {
+      if (!group.isGroup || !(pct.get(group.investorId) > 0)) return;
+      const memberIds = [];
+      (group.members || []).forEach((m) => {
+        if ((pct.get(m.investorId) || 0) > 0) return;
+        groupsOf.set(m.investorId, [...(groupsOf.get(m.investorId) || []), group]);
+        memberIds.push(m.investorId);
+      });
+      activeGroups.push({ group, memberIds });
+    });
+    // A member of two groups that both hold this property can't be
+    // attributed, so their items stay with them (backend does the same)
+    const groupOf = (personId) => {
+      const groups = groupsOf.get(personId);
+      return groups && groups.length === 1 ? groups[0] : null;
+    };
+    activeGroups.forEach((a) => {
+      a.memberIds = a.memberIds.filter((id) => groupOf(id) === a.group);
+    });
+    return {
+      groupOf,
+      ownerOf: (personId) => groupOf(personId)?.investorId ?? personId,
+      activeGroups,
+    };
+  }
+
+  // Who may see each member's earnings inside a group. A grantable
+  // permission (User Management → "Investor Group Breakdown"); admins have it.
+  _canSeeGroupBreakdown() {
+    return typeof window.canAccessModule === "function"
+      ? window.canAccessModule("investor-group-breakdown")
+      : !!window.isAdmin?.();
+  }
+
+  // The one investor calculation used by the table, PDF and image export:
+  // Final = Profit Share + Paid − Received, with group members' items
+  // counted toward their group. Groups also get a per-member breakdown.
+  _computeInvestorRows() {
+    const report = this.currentReport;
+    const netProfit = report
+      ? (report.totalIncome || 0) - (report.totalExpenses || 0)
+      : 0;
+    const ctx = this._groupContext();
+    const total = (items, match) =>
+      (items || [])
+        .filter((x) => !x.isPending && match(x.personInCharge))
+        .reduce((sum, x) => sum + (x.amount || 0), 0);
+
+    return (this.investors || []).map((investor) => {
+      const id = investor.investorId;
+      const percentage = this._reportPercentage(investor);
+      const profitShare = (netProfit * percentage) / 100;
+      const paidAmount = total(report?.expenses, (p) => ctx.ownerOf(p) === id);
+      const receivedAmount = total(report?.income, (p) => ctx.ownerOf(p) === id);
+      const row = {
+        investor,
+        investorId: id,
+        name: investor.name,
+        avatar: investor.avatar || null,
+        isGroup: !!investor.isGroup,
+        percentage,
+        profitShare,
+        paidAmount,
+        receivedAmount,
+        finalAmount: profitShare + paidAmount - receivedAmount,
+        breakdown: null,
+      };
+      const active = ctx.activeGroups.find((a) => a.group.investorId === id);
+      if (active) row.breakdown = this._groupBreakdown(row, active.memberIds, total);
+      return row;
+    });
+  }
+
+  // Each member's part of the group's result:
+  //   member final = group profit share × member % + member paid − member received
+  // Paid/received only include items that rolled up into the group, so the
+  // member rows (plus any unallocated/group-account row) add up to the
+  // group's own Final.
+  _groupBreakdown(groupRow, rolledUpIds, total) {
+    const group = groupRow.investor;
+    const members = group.members || [];
+    // Shares are hidden by the server for users without the permission
+    if (members.some((m) => typeof m.percentage !== "number")) return null;
+    const report = this.currentReport;
+    const rolledUp = new Set(rolledUpIds);
+
+    const rows = members.map((m) => {
+      const inv = this._findInvestor(m.investorId);
+      const share = Number(m.percentage) || 0;
+      const own = (p) => rolledUp.has(m.investorId) && p === m.investorId;
+      const profitShare = (groupRow.profitShare * share) / 100;
+      const paidAmount = total(report?.expenses, own);
+      const receivedAmount = total(report?.income, own);
+      return {
+        investorId: m.investorId,
+        name: inv?.name || `Investor ${m.investorId}`,
+        avatar: inv?.avatar || null,
+        groupPercentage: share,
+        propertyPercentage: (groupRow.percentage * share) / 100,
+        profitShare,
+        paidAmount,
+        receivedAmount,
+        finalAmount: profitShare + paidAmount - receivedAmount,
+      };
+    });
+
+    // Whatever isn't owned by a member: unallocated % of the group, plus
+    // items recorded against the group itself
+    const allocated = Math.round(rows.reduce((s, r) => s + r.groupPercentage, 0) * 100) / 100;
+    const unallocated = Math.max(0, Math.round((100 - allocated) * 100) / 100);
+    const isGroupItself = (p) => p === group.investorId;
+    const groupPaid = total(report?.expenses, isGroupItself);
+    const groupReceived = total(report?.income, isGroupItself);
+    let remainder = null;
+    if (unallocated > 0 || groupPaid || groupReceived) {
+      const profitShare = (groupRow.profitShare * unallocated) / 100;
+      remainder = {
+        name: unallocated > 0 ? `Unallocated (${unallocated}% of group)` : "Group account",
+        groupPercentage: unallocated,
+        propertyPercentage: (groupRow.percentage * unallocated) / 100,
+        profitShare,
+        paidAmount: groupPaid,
+        receivedAmount: groupReceived,
+        finalAmount: profitShare + groupPaid - groupReceived,
+      };
+    }
+    return { members: rows, remainder };
+  }
+
+  _miniAvatarHtml(name, avatar, size, extraStyle = "") {
+    return avatar
+      ? `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="" class="rounded-circle" style="width:${size}px;height:${size}px;object-fit:cover;flex-shrink:0;${extraStyle}">`
+      : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px;flex-shrink:0;${extraStyle}">${escapeHtml((name || "?").charAt(0).toUpperCase())}</div>`;
+  }
+
+  // Group avatar with the member's small avatar overlapping its corner
+  _groupMemberAvatarHtml(group, member, size, tooltip) {
+    const mini = Math.round(size * 0.58);
+    const tip = tooltip
+      ? ` data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}"`
+      : "";
+    return `<span class="position-relative d-inline-block flex-shrink-0" style="width:${size}px;height:${size}px;"${tip}>
+        ${this._miniAvatarHtml(group.name, group.avatar, size)}
+        <span class="position-absolute" style="right:-${Math.round(mini * 0.3)}px;bottom:-${Math.round(mini * 0.3)}px;line-height:0;">
+          ${this._miniAvatarHtml(member?.name, member?.avatar, mini, "box-shadow:0 0 0 2px #fff;")}
+        </span>
+      </span>`;
+  }
+
+  // Avatar for an item's person in charge: plain, or group + member when the
+  // item counts toward a group. Same markup as before for everyone else.
+  _personInChargeAvatarHtml(personId, size, ctx = this._groupContext()) {
+    const person = this._findInvestor(personId);
+    const name = (person ? person.name : personId) || "";
+    const group = ctx.groupOf(personId);
+    if (group) {
+      return this._groupMemberAvatarHtml(
+        group,
+        person || { name },
+        size,
+        `${name || "Unknown"} · ${group.name}`,
+      );
+    }
+    const tooltip = name || "No person in charge";
+    const fontSize = size >= 36 ? 15 : 12;
+    return person?.avatar
+      ? `<img src="${this.getOptimizedAvatarUrl(person.avatar, "small")}" alt="${escapeHtml(tooltip)}" class="rounded-circle" style="width:${size}px;height:${size}px;object-fit:cover;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}">`
+      : `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold" style="width:${size}px;height:${size}px;font-size:${fontSize}px;" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(tooltip)}">${escapeHtml(name.charAt(0).toUpperCase() || "?")}</div>`;
+  }
+
+  // Sub-rows under a group in the distribution table (permission only)
+  _groupBreakdownRowsHtml(row, withActions) {
+    const { members, remainder } = row.breakdown;
+    const cell = (content, opts = {}) => `
+      <div class="small ${opts.cls || ""}" style="${opts.align ? `text-align:${opts.align};` : ""}${opts.style || ""}">${content}</div>`;
+    const fmtPct = (n) => `${Math.round(n * 100) / 100}%`;
+    const money = (n, cls) =>
+      cell(`$${n.toFixed(2)}`, { align: "right", cls, style: "font-size:14px;" });
+    const subRow = (r, avatarHtml) => `
+      <div style="display:grid;grid-template-columns:${this._investorGridColumns(withActions)};gap:8px;align-items:center;padding:6px 8px 6px 20px;background:#f8f9fb;border-bottom:1px solid #eef0f4;">
+        ${cell(`<div class="d-flex align-items-center gap-2" style="border-left:2px solid #cfd6e4;padding-left:10px;">${avatarHtml}<span>${escapeHtml(r.name)}</span></div>`)}
+        ${cell(`<div class="fw-semibold">${fmtPct(r.groupPercentage)}</div><div class="text-muted" style="font-size:0.7rem;">${fmtPct(r.propertyPercentage)} of property</div>`, { align: "center" })}
+        ${money(r.profitShare, r.profitShare >= 0 ? "text-primary" : "text-danger")}
+        ${money(r.paidAmount, r.paidAmount > 0 ? "text-warning" : "text-muted")}
+        ${money(r.receivedAmount, r.receivedAmount > 0 ? "text-info" : "text-muted")}
+        ${money(r.finalAmount, `fw-bold ${r.finalAmount >= 0 ? "text-success" : "text-danger"}`)}
+        ${withActions ? cell("") : ""}
+      </div>`;
+
+    let html = `
+      <div class="d-flex align-items-center gap-2 small text-muted" style="padding:6px 8px 4px 20px;background:#f8f9fb;">
+        <i class="bi bi-diagram-3"></i>
+        <span>${escapeHtml(row.name)} members · each member's % of the group</span>
+        <span class="badge bg-light text-secondary border ms-auto" style="font-weight:500;"><i class="bi bi-shield-lock me-1"></i>Admin view · not in exports</span>
+      </div>`;
+    members.forEach((m) => {
+      html += subRow(m, this._groupMemberAvatarHtml(row.investor, m, 28));
+    });
+    if (remainder) {
+      html += subRow(remainder, this._miniAvatarHtml(row.name, row.avatar, 28, "opacity:0.6;"));
+    }
+    return html;
+  }
+
   _investorGridColumns(withActions) {
     const base =
       "minmax(160px,2fr) 90px minmax(110px,1fr) minmax(100px,1fr) minmax(100px,1fr) minmax(110px,1fr)";
@@ -2273,6 +2515,7 @@ class FinancialReportsComponent {
   _investorGridRowHtml({
     avatar,
     name,
+    isGroup = false,
     percentage,
     profitShare,
     paidAmount,
@@ -2300,7 +2543,7 @@ class FinancialReportsComponent {
 
     return `
       <div style="display:grid;grid-template-columns:${this._investorGridColumns(!!actionsHtml)};gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5;">
-        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold">${escapeHtml(name)}</span></div>`)}
+        ${cell(`<div class="d-flex align-items-center gap-2">${avatarHtml}<span class="fw-semibold">${escapeHtml(name)}</span>${isGroup ? '<span class="badge rounded-pill" style="background:#e6fcf5;color:#087f5b;font-size:0.62rem;"><i class="bi bi-people-fill me-1"></i>GROUP</span>' : ""}</div>`)}
         ${cell(`${percentage}%`, { align: "center", cls: "fw-bold" })}
         ${cell(`$${profitShare.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: profitShare >= 0 ? "text-primary" : "text-danger" })}
         ${cell(`$${paidAmount.toFixed(2)}`, { align: "right", style: "font-size:16px;", cls: paidAmount > 0 ? "text-warning" : "text-muted" })}
@@ -3064,6 +3307,9 @@ class FinancialReportsComponent {
       // Setup file upload handling
       this.setupFileUploadHandling();
 
+      // Person in charge picker (avatars; group members under their group)
+      this.setupPersonInChargeDropdown();
+
       // Display existing bill evidence if editing
       if (
         existingItem &&
@@ -3197,6 +3443,164 @@ class FinancialReportsComponent {
         })</option>`;
       })
       .join("");
+  }
+
+  // People who can be in charge of an income/expense item. A group investor
+  // that took over this property is listed through its members (they still
+  // collect and pay in their own name); the group itself is only offered if
+  // it has no members here or is the item's current value. Everyone else is
+  // listed as before.
+  _personInChargeChoices(selectedValue = "") {
+    const ctx = this._groupContext();
+    const groups = ctx.activeGroups
+      .filter((a) => a.memberIds.length > 0)
+      .map((a) => ({
+        group: a.group,
+        people: a.memberIds.map((id) => {
+          const inv = this._findInvestor(id);
+          return {
+            id,
+            name: inv?.name || `Investor ${id}`,
+            avatar: inv?.avatar || null,
+            group: a.group,
+          };
+        }),
+      }));
+    const groupIdsWithMembers = new Set(groups.map((g) => g.group.investorId));
+    const others = (this.investors || [])
+      .filter(
+        (inv) =>
+          !ctx.groupOf(inv.investorId) &&
+          (!groupIdsWithMembers.has(inv.investorId) ||
+            inv.investorId === selectedValue),
+      )
+      .map((inv) => ({
+        id: inv.investorId,
+        name: inv.name,
+        avatar: inv.avatar || null,
+        group: null,
+      }));
+
+    // Never drop the item's current value, even if that person isn't listed
+    const listed = [...groups.flatMap((g) => g.people), ...others];
+    if (selectedValue && !listed.some((p) => p.id === selectedValue)) {
+      const inv = this._findInvestor(selectedValue);
+      others.push({
+        id: selectedValue,
+        name: inv?.name || selectedValue,
+        avatar: inv?.avatar || null,
+        group: ctx.groupOf(selectedValue),
+      });
+    }
+    return { groups, others };
+  }
+
+  // Options for the real (hidden) <select name="personInCharge">
+  generatePersonInChargeOptions(selectedValue = "") {
+    const { groups, others } = this._personInChargeChoices(selectedValue);
+    const option = (p) =>
+      `<option value="${escapeHtml(p.id)}"${p.id === selectedValue ? " selected" : ""}>${escapeHtml(p.name)} (ID: ${escapeHtml(p.id)})</option>`;
+    let html = groups
+      .map(
+        (g) =>
+          `<optgroup label="${escapeHtml(g.group.name)}">${g.people.map(option).join("")}</optgroup>`,
+      )
+      .join("");
+    html += others.map(option).join("");
+    return html || '<option value="" disabled>No investors available for this property</option>';
+  }
+
+  // Visible picker: members grouped under their group, with avatars
+  generatePersonInChargeItems(selectedValue = "") {
+    const { groups, others } = this._personInChargeChoices(selectedValue);
+    const header = (html) =>
+      `<div class="d-flex align-items-center gap-2 px-3 pt-2 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">${html}</div>`;
+    const item = (p) => {
+      const avatar = p.group
+        ? this._groupMemberAvatarHtml(p.group, p, 30)
+        : this._miniAvatarHtml(p.name, p.avatar, 30);
+      const sub = p.group
+        ? `<span class="d-block text-muted" style="font-size:0.72rem;">${escapeHtml(p.group.name)} member</span>`
+        : `<span class="d-block text-muted" style="font-size:0.72rem;">ID: ${escapeHtml(p.id)}</span>`;
+      const selected = p.id === selectedValue;
+      return `<button type="button" class="dropdown-item d-flex align-items-center gap-2 px-3 py-2 pic-item${selected ? " bg-light fw-semibold" : ""}" data-value="${escapeHtml(p.id)}" style="min-height:48px;white-space:normal;">
+          ${avatar}
+          <span class="flex-grow-1 small" style="min-width:0;">${escapeHtml(p.name)}${sub}</span>
+          ${selected ? '<i class="bi bi-check2"></i>' : ""}
+        </button>`;
+    };
+
+    let html = "";
+    groups.forEach((g, i) => {
+      if (i > 0) html += '<div class="border-top mx-2 my-1"></div>';
+      html += header(
+        `${this._miniAvatarHtml(g.group.name, g.group.avatar, 18)}${escapeHtml(g.group.name)}<span class="badge rounded-pill" style="background:#e6fcf5;color:#087f5b;font-size:0.6rem;">GROUP</span>`,
+      );
+      html += g.people.map(item).join("");
+    });
+    if (others.length > 0) {
+      if (groups.length > 0) {
+        html += '<div class="border-top mx-2 my-1"></div>';
+        html += header("Investors");
+      }
+      html += others.map(item).join("");
+    }
+    return html || `<div class="px-3 py-2 text-muted small">No investors available for this property</div>`;
+  }
+
+  setupPersonInChargeDropdown() {
+    const select = document.getElementById("picSelect");
+    const toggleBtn = document.getElementById("picToggleBtn");
+    const panel = document.getElementById("picPanel");
+    const label = document.getElementById("picBtnLabel");
+    if (!select || !toggleBtn || !panel || !label) return;
+    // The modal's focus fix makes every field clickable/tabbable; this one
+    // only backs the button, so keep it out of the way
+    select.style.pointerEvents = "none";
+    select.tabIndex = -1;
+
+    const renderLabel = () => {
+      const value = select.value;
+      if (!value) {
+        label.innerHTML = `<span class="text-muted">Select investor...</span>`;
+        return;
+      }
+      const ctx = this._groupContext();
+      const person = this._findInvestor(value);
+      const name = person?.name || value;
+      const group = ctx.groupOf(value);
+      const avatar = group
+        ? `<span style="margin-right:4px;line-height:0;">${this._groupMemberAvatarHtml(group, person || { name }, 26)}</span>`
+        : this._miniAvatarHtml(name, person?.avatar, 26);
+      label.innerHTML = `${avatar}<span class="text-truncate">${escapeHtml(name)}${group ? `<span class="text-muted small"> · ${escapeHtml(group.name)}</span>` : ""}</span>`;
+    };
+
+    panel.addEventListener("click", (e) => {
+      const btn = e.target.closest(".pic-item");
+      if (!btn) return;
+      select.value = btn.dataset.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      panel.querySelectorAll(".pic-item").forEach((el) => {
+        const on = el === btn;
+        el.classList.toggle("bg-light", on);
+        el.classList.toggle("fw-semibold", on);
+        el.querySelector(".bi-check2")?.remove();
+        if (on) el.insertAdjacentHTML("beforeend", '<i class="bi bi-check2"></i>');
+      });
+      renderLabel();
+      bootstrap.Dropdown.getOrCreateInstance(toggleBtn).hide();
+      toggleBtn.focus();
+    });
+
+    // The hidden select can still be the one the browser flags as missing
+    select.addEventListener("invalid", () => {
+      toggleBtn.classList.add("border-danger");
+    });
+    select.addEventListener("change", () => {
+      toggleBtn.classList.remove("border-danger");
+    });
+
+    renderLabel();
   }
 
   generateTenantOptions(selectedValue = "") {
@@ -3932,12 +4336,30 @@ class FinancialReportsComponent {
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Person in Charge <span class="text-danger">*</span></label>
-                                    <select class="form-select" name="personInCharge" required>
-                                        <option value="">Select investor...</option>
-                                        ${this.generateInvestorOptions(
-                                          personInChargeValue,
-                                        )}
-                                    </select>
+                                    <div class="dropdown position-relative" id="picDropdownWrapper">
+                                        <!-- Real form field (keeps "required" validation); the button below picks for it -->
+                                        <select class="form-select" name="personInCharge" id="picSelect" required tabindex="-1"
+                                                style="position:absolute;inset:0;opacity:0;pointer-events:none;">
+                                            <option value="">Select investor...</option>
+                                            ${this.generatePersonInChargeOptions(
+                                              personInChargeValue,
+                                            )}
+                                        </select>
+                                        <button type="button"
+                                                class="btn btn-outline-secondary w-100 text-start d-flex align-items-center justify-content-between gap-2"
+                                                data-bs-toggle="dropdown"
+                                                aria-expanded="false"
+                                                id="picToggleBtn"
+                                                style="min-height:44px;">
+                                            <span id="picBtnLabel" class="d-flex align-items-center gap-2" style="min-width:0;"></span>
+                                            <i class="bi bi-chevron-down small ms-1"></i>
+                                        </button>
+                                        <div class="dropdown-menu w-100 p-0 shadow-sm" style="max-height:320px;overflow-y:auto;" id="picPanel">
+                                            ${this.generatePersonInChargeItems(
+                                              personInChargeValue,
+                                            )}
+                                        </div>
+                                    </div>
                                     <div class="form-text">Select the ${
                                       isIncome
                                         ? "investor responsible for collecting this income"
@@ -6631,9 +7053,7 @@ class FinancialReportsComponent {
         // Process income items with avatars
         for (let idx = 0; idx < this.currentReport.income.length; idx++) {
           const item = this.currentReport.income[idx];
-          const investor = this.investors.find(
-            (inv) => inv.investorId === item.personInCharge,
-          );
+          const investor = this._findInvestor(item.personInCharge);
           const paidByData = getPaidByForPDF(item.paidBy);
           const dateStr = item.date
             ? new Date(item.date).toLocaleDateString("en-US", {
@@ -6834,9 +7254,7 @@ class FinancialReportsComponent {
         // Process expense items with avatars
         for (let idx = 0; idx < this.currentReport.expenses.length; idx++) {
           const item = this.currentReport.expenses[idx];
-          const investor = this.investors.find(
-            (inv) => inv.investorId === item.personInCharge,
-          );
+          const investor = this._findInvestor(item.personInCharge);
           const paidToData = getPaidByForPDF(
             item.paidTo === "unknown" ? null : item.paidTo,
           );
@@ -7041,10 +7459,12 @@ class FinancialReportsComponent {
         this.currentReport.investorSnapshot.length > 0;
 
       // Determine which data source to use
+      // Live rows come from the shared calculation (group members' items
+      // count toward their group; exports never show the member breakdown)
       const investorDataSource =
         isClosed && hasSnapshot
           ? this.currentReport.investorSnapshot
-          : this.investors;
+          : this._computeInvestorRows();
 
       if (investorDataSource && investorDataSource.length > 0) {
         pdf.setFontSize(11);
@@ -7087,42 +7507,14 @@ class FinancialReportsComponent {
             incomeReceived = snapshotData.receivedAmount;
             finalAmount = snapshotData.finalAmount;
           } else {
-            // Calculate dynamically (for open reports)
-            const investor = investorDataSource[idx];
-            investorName = investor.name;
-            // Try to get percentage from report's investorTransactions (snapshot) first
-            const investorTransaction =
-              this.currentReport?.investorTransactions?.find(
-                (t) => t.investorId === investor.investorId,
-              );
-            // Fall back to live investor data if no snapshot exists
-            const propertyData = investor.properties.find(
-              (p) => p.propertyId === this.selectedProperty,
-            );
-            percentage =
-              investorTransaction?.percentage ??
-              (propertyData ? propertyData.percentage : 0);
-            investorShare = (netProfit * percentage) / 100;
-
-            expensesPaid = this.currentReport.expenses
-              ? this.currentReport.expenses
-                  .filter(
-                    (e) =>
-                      !e.isPending && e.personInCharge === investor.investorId,
-                  )
-                  .reduce((sum, e) => sum + e.amount, 0)
-              : 0;
-
-            incomeReceived = this.currentReport.income
-              ? this.currentReport.income
-                  .filter(
-                    (i) =>
-                      !i.isPending && i.personInCharge === investor.investorId,
-                  )
-                  .reduce((sum, i) => sum + i.amount, 0)
-              : 0;
-
-            finalAmount = investorShare + expensesPaid - incomeReceived;
+            // Calculated live (see _computeInvestorRows)
+            const row = investorDataSource[idx];
+            investorName = row.name;
+            percentage = row.percentage;
+            investorShare = row.profitShare;
+            expensesPaid = row.paidAmount;
+            incomeReceived = row.receivedAmount;
+            finalAmount = row.finalAmount;
           }
 
           if (
@@ -7143,11 +7535,19 @@ class FinancialReportsComponent {
           // Show investor name
           pdf.setTextColor(0, 0, 0);
           pdf.setFontSize(8);
-          let truncInvName = investorName;
-          truncInvName =
-            truncInvName.length > 30
-              ? truncInvName.substring(0, 28) + ".."
-              : truncInvName;
+          // Truncate by measured width (name starts at +1mm, Share at
+          // +48mm) so a long name never runs into the Share column.
+          const maxInvNameW = 45;
+          let truncInvName = String(investorName ?? "");
+          if (pdf.getTextWidth(truncInvName) > maxInvNameW) {
+            while (
+              truncInvName.length > 1 &&
+              pdf.getTextWidth(truncInvName + "..") > maxInvNameW
+            ) {
+              truncInvName = truncInvName.slice(0, -1);
+            }
+            truncInvName = truncInvName.trimEnd() + "..";
+          }
           pdf.text(truncInvName, margin + 1, yPos);
 
           pdf.text(`${percentage}%`, margin + 48, yPos);
@@ -7449,12 +7849,33 @@ class FinancialReportsComponent {
     return palette[h % palette.length];
   }
 
-  /** Truncate text to maxChars, appending ellipsis if needed */
-  _svgTrunc(text, maxChars) {
-    if (!text) return "";
-    return text.length > maxChars
-      ? text.substring(0, maxChars - 1) + "\u2026"
-      : text;
+  /**
+   * Returns width(text, fontSize) in px for bold text in the exported
+   * image, measured with the same Noto Serif Bold the image embeds, so
+   * text can be fitted to a column instead of guessed by character count.
+   * Falls back to a generous estimate if the font can't be loaded.
+   */
+  async _svgBoldTextMeasurer(fontBoldUri) {
+    const FAMILY = "FRExportMeasure";
+    if (!this._svgMeasureFont) {
+      this._svgMeasureFont = (async () => {
+        if (!fontBoldUri || !window.FontFace || !document.fonts) return false;
+        const face = new FontFace(FAMILY, `url(${fontBoldUri})`, {
+          weight: "700",
+        });
+        await face.load();
+        document.fonts.add(face);
+        return true;
+      })().catch(() => false);
+    }
+    const ready = await this._svgMeasureFont;
+    if (!ready) this._svgMeasureFont = null; // retry on the next export
+    const ctx = ready ? document.createElement("canvas").getContext("2d") : null;
+    return (text, size) => {
+      if (!ctx) return text.length * size * 0.7;
+      ctx.font = `700 ${size}px ${FAMILY}`;
+      return ctx.measureText(text).width;
+    };
   }
 
   /** XML-escape a value for safe embedding in SVG attributes / text */
@@ -7486,40 +7907,17 @@ class FinancialReportsComponent {
 
     if (!this.investors || this.investors.length === 0) return [];
 
-    const netProfit = this.currentReport
-      ? (this.currentReport.totalIncome || 0) -
-        (this.currentReport.totalExpenses || 0)
-      : 0;
-
-    const rows = this.investors.map((investor) => {
-      const tx = this.currentReport?.investorTransactions?.find(
-        (t) => t.investorId === investor.investorId,
-      );
-      const propData = investor.properties?.find(
-        (p) => p.propertyId === this.selectedProperty,
-      );
-      const percentage = tx?.percentage ?? (propData ? propData.percentage : 0);
-      const profitShare = (netProfit * percentage) / 100;
-      const paidAmount = (this.currentReport?.expenses || [])
-        .filter(
-          (e) => !e.isPending && e.personInCharge === investor.investorId,
-        )
-        .reduce((sum, e) => sum + (e.amount || 0), 0);
-      const receivedAmount = (this.currentReport?.income || [])
-        .filter(
-          (i) => !i.isPending && i.personInCharge === investor.investorId,
-        )
-        .reduce((sum, i) => sum + (i.amount || 0), 0);
-      return {
-        name: investor.name,
-        avatar: investor.avatar || null,
-        percentage,
-        profitShare,
-        paidAmount,
-        receivedAmount,
-        finalAmount: profitShare + paidAmount - receivedAmount,
-      };
-    });
+    // Shared calculation; exports show the group as one investor, never the
+    // per-member breakdown
+    const rows = this._computeInvestorRows().map((r) => ({
+      name: r.name,
+      avatar: r.avatar,
+      percentage: r.percentage,
+      profitShare: r.profitShare,
+      paidAmount: r.paidAmount,
+      receivedAmount: r.receivedAmount,
+      finalAmount: r.finalAmount,
+    }));
     return rows.filter((inv) => this._shouldShowInvestor(inv));
   }
 
@@ -7612,6 +8010,7 @@ class FinancialReportsComponent {
       @font-face { font-family: 'Noto Serif'; font-weight: 700; src: url('${fontBoldUri}') format('truetype'); }
     </style>`
         : "";
+    const boldTextWidth = await this._svgBoldTextMeasurer(fontBoldUri);
 
     // Property info
     const property = this.properties?.find(
@@ -7796,6 +8195,20 @@ class FinancialReportsComponent {
           `<text x="${cx}" y="${cy + Math.round(r * 0.44)}" font-size="${Math.round(r * 0.95)}" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc((name || "?").charAt(0).toUpperCase())}</text>`,
         );
       }
+    };
+
+    // Person in charge: plain avatar, or the group's avatar with the member's
+    // small avatar on its corner when the item counts toward a group investor
+    const svgGroupCtx = this._groupContext();
+    const renderPersonInChargeAvatar = (personId, investor, name, cx, cy) => {
+      const group = svgGroupCtx.groupOf(personId);
+      if (!group) {
+        renderCircleAvatar(investor?.avatar || null, name, cx, cy);
+        return;
+      }
+      renderCircleAvatar(group.avatar || null, group.name, cx, cy);
+      p(`<circle cx="${cx + 10}" cy="${cy + 10}" r="8.5" fill="#ffffff"/>`);
+      renderCircleAvatar(investor?.avatar || null, name, cx + 10, cy + 10, 7);
     };
 
     // Render a compact cluster of person avatars + short name + optional room badge
@@ -8253,13 +8666,11 @@ class FinancialReportsComponent {
           `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="${pendingTokensSvg.bg}"/>`,
         );
       }
-      const investor = this.investors.find(
-        (inv) => inv.investorId === item.personInCharge,
-      );
+      const investor = this._findInvestor(item.personInCharge);
       const name = investor ? investor.name : item.personInCharge || "?";
       const cx = colX + 16;
       const cy = rowY + Math.floor(pairH / 2);
-      renderCircleAvatar(investor?.avatar || null, name, cx, cy);
+      renderPersonInChargeAvatar(item.personInCharge, investor, name, cx, cy);
       meta.descLines.forEach((line, li) => {
         p(
           `<text x="${colX + 34}" y="${rowY + 18 + li * 18}" font-size="15" fill="${TEXT_PRIMARY}">${this._svgEsc(line)}</text>`,
@@ -8325,13 +8736,11 @@ class FinancialReportsComponent {
           `<rect x="${colX}" y="${rowY}" width="${colW}" height="${pairH}" fill="${pendingTokensSvg.bg}"/>`,
         );
       }
-      const investor = this.investors.find(
-        (inv) => inv.investorId === item.personInCharge,
-      );
+      const investor = this._findInvestor(item.personInCharge);
       const name = investor ? investor.name : item.personInCharge || "?";
       const cx = colX + 16;
       const cy = rowY + Math.floor(pairH / 2);
-      renderCircleAvatar(investor?.avatar || null, name, cx, cy);
+      renderPersonInChargeAvatar(item.personInCharge, investor, name, cx, cy);
       meta.descLines.forEach((line, li) => {
         p(
           `<text x="${colX + 34}" y="${rowY + 18 + li * 18}" font-size="15" fill="${TEXT_PRIMARY}">${this._svgEsc(line)}</text>`,
@@ -8439,13 +8848,33 @@ class FinancialReportsComponent {
       );
       y += 32;
     } else {
+      // Money columns sit 112px apart (fits "$-12345.67" with a gap), which
+      // leaves ~200px for the investor name before the Share column.
       const IC = {
         name: { x: M + 34, anchor: "start" },
-        share: { x: M + 205, anchor: "middle" },
-        profit: { x: M + 360, anchor: "end" },
-        paid: { x: M + 490, anchor: "end" },
-        recv: { x: M + 624, anchor: "end" },
+        share: { x: M + 275, anchor: "middle" },
+        profit: { x: M + 416, anchor: "end" },
+        paid: { x: M + 528, anchor: "end" },
+        recv: { x: M + 640, anchor: "end" },
         final: { x: M + CW, anchor: "end" },
+      };
+      // Name must end before the widest share text ("33.33%") begins.
+      const NAME_MAX_W = IC.share.x - IC.name.x - 36;
+      // Long names shrink a little first, then get an ellipsis, so they
+      // never run into the Share column.
+      const fitName = (name) => {
+        const chars = Array.from(String(name || ""));
+        const text = chars.join("");
+        for (let size = 15; size >= 13; size--) {
+          if (boldTextWidth(text, size) <= NAME_MAX_W) return { text, size };
+        }
+        while (
+          chars.length > 1 &&
+          boldTextWidth(chars.join("") + "…", 13) > NAME_MAX_W
+        ) {
+          chars.pop();
+        }
+        return { text: chars.join("").trimEnd() + "…", size: 13 };
       };
       p(
         `<rect x="${M}" y="${y}" width="${CW}" height="${THDR_H}" fill="${COL_HDR_BG}"/>`,
@@ -8469,8 +8898,9 @@ class FinancialReportsComponent {
         const cx = M + 16;
         const cy = rowY + Math.floor(INV_ROW_H / 2);
         renderCircleAvatar(inv.avatar || null, inv.name, cx, cy);
+        const nameFit = fitName(inv.name);
         p(
-          `<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" font-weight="600">${this._svgEsc(this._svgTrunc(inv.name, 22))}</text>`,
+          `<text x="${IC.name.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="${nameFit.size}" fill="${TEXT_PRIMARY}" font-weight="600">${this._svgEsc(nameFit.text)}</text>`,
         );
         p(
           `<text x="${IC.share.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="15" fill="${TEXT_PRIMARY}" text-anchor="middle">${inv.percentage}%</text>`,
