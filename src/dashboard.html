@@ -569,6 +569,17 @@
         mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='m'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cg stroke='black' stroke-width='1.6'%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3C/g%3E%3C/mask%3E%3Cg mask='url%28%23m%29'%3E%3Crect x='7' y='10.2' width='2.2' height='5.3' rx='.3'/%3E%3Crect x='10.2' y='8.2' width='2.2' height='7.3' rx='.3'/%3E%3Crect x='13.4' y='6.2' width='2.2' height='9.3' rx='.3'/%3E%3Cpath d='M8.2 7.4 11.2 4.4l1.6 1.4 2-2.2' fill='none' stroke='black' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.8 1.6 15.6 4.9 12.7 2.3z'/%3E%3C/g%3E%3Ccircle cx='5' cy='5' r='2.4'/%3E%3Cpath d='M.5 15.5v-2.5C.5 11 1.9 9.5 3.4 9.5L5 13.4 6.6 9.5c1.5 0 2.9 1.5 2.9 3.5v2.5z'/%3E%3Cpath d='M4.6 9.8h.8l.3 2.2-.7 1.1-.7-1.1z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
+      /* Tenant bill icon: bill with a dollar coin */
+      .icon-tenant-bill {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        background-color: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='d'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cpath d='M4 3.6h5M4 6.1h5M4 8.6h2.6' stroke='black' stroke-width='1.2' stroke-linecap='round'/%3E%3Ccircle cx='11.6' cy='11.6' r='5.1'/%3E%3C/mask%3E%3Cmask id='c'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cpath d='M13 10.2c-.3-.4-.8-.6-1.4-.6-.8 0-1.4.4-1.4 1 0 1.4 2.9.7 2.9 2.1 0 .6-.6 1-1.5 1-.6 0-1.2-.2-1.5-.6M11.6 8.5v1.1M11.6 13.7v1.1' fill='none' stroke='black' stroke-width='1' stroke-linecap='round'/%3E%3C/mask%3E%3Crect x='1.5' y='.5' width='10' height='13' rx='1.4' mask='url%28%23d%29'/%3E%3Ccircle cx='11.6' cy='11.6' r='4.1' mask='url%28%23c%29'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cmask id='d'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cpath d='M4 3.6h5M4 6.1h5M4 8.6h2.6' stroke='black' stroke-width='1.2' stroke-linecap='round'/%3E%3Ccircle cx='11.6' cy='11.6' r='5.1'/%3E%3C/mask%3E%3Cmask id='c'%3E%3Crect width='16' height='16' fill='white'/%3E%3Cpath d='M13 10.2c-.3-.4-.8-.6-1.4-.6-.8 0-1.4.4-1.4 1 0 1.4 2.9.7 2.9 2.1 0 .6-.6 1-1.5 1-.6 0-1.2-.2-1.5-.6M11.6 8.5v1.1M11.6 13.7v1.1' fill='none' stroke='black' stroke-width='1' stroke-linecap='round'/%3E%3C/mask%3E%3Crect x='1.5' y='.5' width='10' height='13' rx='1.4' mask='url%28%23d%29'/%3E%3Ccircle cx='11.6' cy='11.6' r='4.1' mask='url%28%23c%29'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
+
       /* Desktop Sidebar Collapse - iOS-like Animation */
       @media (min-width: 768px) {
         .sidebar {
@@ -660,40 +671,58 @@
           font-size: 1.25rem;
         }
 
-        /* Toggle button styles - separate line at top */
+        /* Brand row: logo on the left, collapse toggle on the right.
+           Collapsed: logo hides, toggle centers in the rail. */
+        .sidebar-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-shrink: 0;
+          min-height: 36px;
+        }
+
+        .sidebar-top .sidebar-header {
+          min-width: 0;
+          text-decoration: none;
+        }
+
+        .sidebar.collapsed .sidebar-top {
+          justify-content: center;
+        }
+
         .sidebar-collapse-toggle {
-          width: 100%;
-          height: 36px;
+          width: 34px;
+          height: 34px;
+          flex-shrink: 0;
           border-radius: 8px;
-          background: rgba(255, 255, 255, 0.1);
+          background: transparent;
           border: none;
-          color: rgba(255, 255, 255, 0.9);
+          color: rgba(255, 255, 255, 0.75);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 14px;
-          margin-bottom: 16px;
-          transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+          font-size: 1.1rem;
+          position: relative;
+          transition:
+            background 0.15s ease,
+            color 0.15s ease;
         }
 
-        .sidebar-collapse-toggle:hover {
-          background: rgba(255, 255, 255, 0.2);
+        .sidebar-collapse-toggle:hover,
+        .sidebar-collapse-toggle:focus-visible {
+          background: rgba(255, 255, 255, 0.15);
+          color: #fff;
+        }
+
+        .sidebar-collapse-toggle:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, 0.8);
+          outline-offset: 1px;
         }
 
         .sidebar-collapse-toggle:active {
           background: rgba(255, 255, 255, 0.25);
-          transform: scale(0.98);
-        }
-
-        .sidebar.collapsed .sidebar-collapse-toggle {
-          width: 40px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-
-        .sidebar.collapsed .sidebar-collapse-toggle i {
-          transform: rotate(180deg);
         }
 
         /* Main content adjustment */
@@ -766,6 +795,71 @@
         }
       }
 
+      /* Desktop: fit every menu item in one screen height, no scrolling.
+         Rows share the free height (up to their normal size) and shrink
+         on short screens. Scrolling stays as a fallback below min-height. */
+      @media (min-width: 768px) {
+        .sidebar {
+          display: flex !important;
+          flex-direction: column;
+        }
+
+        /* Never shrink below the rows' minimum size, so the menu can't
+           slide under the bottom widgets; spare height goes to the rows */
+        .sidebar > .nav {
+          flex: 1 0 auto;
+          flex-wrap: nowrap;
+        }
+
+        .sidebar > .nav > .nav-item {
+          flex: 1 1 0;
+          min-height: 26px;
+          max-height: 48px;
+          display: flex;
+        }
+
+        .sidebar > .nav > .nav-item > .nav-link {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          padding-top: 0;
+          padding-bottom: 0;
+          margin-bottom: 2px;
+        }
+
+        .sidebar.collapsed {
+          padding-top: 0.75rem !important;
+          padding-bottom: 0.75rem !important;
+        }
+
+        /* The Dashboard menu item already links home, so drop the logo
+           when collapsed instead of showing two home icons */
+        .sidebar.collapsed .sidebar-header {
+          display: none !important;
+        }
+
+        .sidebar.collapsed .mt-auto {
+          padding-top: 0.5rem !important;
+          flex-shrink: 0;
+        }
+
+        .sidebar.collapsed > .nav > .nav-item > .nav-link {
+          padding-left: 0;
+          padding-right: 0;
+          justify-content: center !important;
+        }
+
+        /* Icon + label wrappers (Properties, Tenants...) stretch to fill
+           the link; center their icon when collapsed */
+        .sidebar.collapsed .nav-link.d-flex > span:has(> i) {
+          text-align: center;
+        }
+
+        .sidebar.collapsed .nav-link i {
+          font-size: clamp(1rem, 2.6vh, 1.25rem);
+        }
+      }
+
       /* Large screens - wider sidebar */
       @media (min-width: 992px) {
         .sidebar:not(.collapsed) {
@@ -820,6 +914,14 @@
 
       .nav-link i {
         width: 20px;
+      }
+
+      /* Same icon box for every sidebar link, including icons wrapped in
+         a span (Properties, Tenants...), so icons and labels line up */
+      .sidebar .nav-link i {
+        display: inline-block;
+        text-align: center;
+        flex-shrink: 0;
       }
 
       /* Sidebar badge styles */
@@ -5225,30 +5327,37 @@
           class="col-md-3 col-lg-2 d-md-block sidebar px-3 py-4"
           id="sidebar"
         >
-          <!-- Desktop Collapse Toggle Button -->
-          <button
-            class="sidebar-collapse-toggle d-none d-md-flex"
-            id="sidebarCollapseToggle"
-            title="Toggle Sidebar"
-          >
-            <i class="bi bi-chevron-left"></i>
-          </button>
-
-          <a
-            class="d-flex align-items-center mb-4 sidebar-header"
-            href="#"
-            data-section="dashboard"
-          >
-            <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
-            <h4 class="text-white mb-0 sidebar-title" data-i18n="sidebar.title">
-              Rental Hub
-            </h4>
-          </a>
+          <!-- Brand + desktop collapse toggle share one row -->
+          <div class="sidebar-top mb-3">
+            <a
+              class="d-flex align-items-center sidebar-header"
+              href="#"
+              data-section="dashboard"
+            >
+              <i class="bi bi-house-door-fill text-white me-2 fs-4"></i>
+              <h4
+                class="text-white mb-0 sidebar-title"
+                data-i18n="sidebar.title"
+              >
+                Rental Hub
+              </h4>
+            </a>
+            <button
+              type="button"
+              class="sidebar-collapse-toggle d-none d-md-flex"
+              id="sidebarCollapseToggle"
+              aria-controls="sidebar"
+              aria-expanded="false"
+              aria-label="Expand sidebar"
+            >
+              <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+          </div>
 
           <ul class="nav nav-pills flex-column">
             <li class="nav-item">
               <a class="nav-link active" href="#" data-section="dashboard">
-                <i class="bi bi-speedometer2 me-2"></i
+                <i class="bi bi-house-door me-2"></i
                 ><span data-i18n="sidebar.dashboard">Dashboard</span>
               </a>
             </li>
@@ -5263,7 +5372,7 @@
                   font-weight: 700;
                 "
               >
-                <i class="bi bi-house-door me-2"></i
+                <i class="bi bi-eyeglasses me-2"></i
                 ><span>Chuyên gia xem nhà</span>
                 <span
                   class="badge bg-warning text-dark ms-auto"
@@ -5302,7 +5411,7 @@
                 data-section="properties"
               >
                 <span>
-                  <i class="bi bi-building me-2"></i
+                  <i class="bi bi-buildings me-2"></i
                   ><span data-i18n="sidebar.properties">Properties</span>
                 </span>
                 <span
@@ -5358,7 +5467,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="bills">
-                <i class="bi bi-receipt me-2"></i
+                <i class="icon-tenant-bill me-2"></i
                 ><span data-i18n="sidebar.billManagement">Bill Management</span>
               </a>
             </li>
@@ -5659,7 +5768,7 @@
                         class="card-body d-flex align-items-center gap-3 py-3 px-4"
                       >
                         <span style="font-size: 2.2rem; line-height: 1"
-                          >🏠</span
+                          >🥽</span
                         >
                         <div class="flex-grow-1">
                           <div
@@ -5852,7 +5961,7 @@
                   >
                     <div class="card-body text-center p-4">
                       <i
-                        class="bi bi-building text-success"
+                        class="bi bi-buildings text-success"
                         style="font-size: 3rem"
                       ></i>
                       <h5
@@ -16536,12 +16645,24 @@
         // collapses it again. Hovering does not expand it.
         let pinnedOpen = false;
 
+        // Ctrl+\ (⌘\ on Mac) toggles the sidebar, like Notion
+        const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+        const shortcutLabel = isMac ? "⌘\\" : "Ctrl+\\";
+        const toggleIcon = collapseToggle.querySelector("i");
+
         function applyState() {
           sidebar.classList.toggle("collapsed", !pinnedOpen);
           document.body.classList.toggle("sidebar-collapsed", !pinnedOpen);
-          collapseToggle.title = pinnedOpen
-            ? "Collapse sidebar"
-            : "Expand sidebar";
+          const label = pinnedOpen ? "Collapse sidebar" : "Expand sidebar";
+          collapseToggle.title = `${label} (${shortcutLabel})`;
+          collapseToggle.setAttribute("aria-label", label);
+          collapseToggle.setAttribute("aria-expanded", String(pinnedOpen));
+          // Filled panel = sidebar open; outline panel = collapsed
+          if (toggleIcon) {
+            toggleIcon.className = pinnedOpen
+              ? "bi bi-layout-sidebar-inset"
+              : "bi bi-layout-sidebar";
+          }
         }
 
         function toggleSidebar() {
@@ -16574,6 +16695,14 @@
 
         // Event listener for toggle button
         collapseToggle.addEventListener("click", toggleSidebar);
+
+        document.addEventListener("keydown", (e) => {
+          if (e.key !== "\\" || e.altKey || e.shiftKey) return;
+          if (!(isMac ? e.metaKey : e.ctrlKey)) return;
+          if (window.innerWidth < 768) return; // mobile uses the slide-out menu
+          e.preventDefault();
+          toggleSidebar();
+        });
 
         // Update tooltips when language changes
         window.addEventListener("languageChanged", updateNavLinkTooltips);

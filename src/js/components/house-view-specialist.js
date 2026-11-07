@@ -251,7 +251,7 @@ class HouseViewSpecialistComponent {
       <div class="hvs-list-view">
         <div class="hvs-list-header">
           <div class="hvs-list-title-row">
-            <h1 class="hvs-title"><i class="bi bi-house-door me-2"></i>Xem nhà</h1>
+            <h1 class="hvs-title"><i class="bi bi-eyeglasses me-2"></i>Xem nhà</h1>
             <span class="hvs-record-count">${this.records.length} căn</span>
           </div>
           <button class="hvs-btn-fab" onclick="houseViewSpecialist.startNewViewing()">

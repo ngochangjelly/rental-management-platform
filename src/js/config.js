@@ -361,16 +361,16 @@ const isAdmin = () => {
 // `data-section` values and the backend's MODULE_KEYS. "dashboard" is always
 // accessible and is not listed.
 const APP_MODULES = [
-  { key: "house-view-specialist", label: "Chuyên gia xem nhà", icon: "bi-house-door", group: "Leasing" },
+  { key: "house-view-specialist", label: "Chuyên gia xem nhà", icon: "bi-eyeglasses", group: "Leasing" },
   { key: "sales-map", label: "Sales Map", icon: "bi-map", group: "Leasing" },
-  { key: "properties", label: "Properties", icon: "bi-building", group: "Leasing" },
+  { key: "properties", label: "Properties", icon: "bi-buildings", group: "Leasing" },
   { key: "tenants", label: "Tenants", icon: "bi-people", group: "Leasing" },
   { key: "tenancy-occupancy", label: "Tenancy Occupancy", icon: "bi-calendar-range", group: "Leasing" },
   { key: "analysis", label: "Contract Analysis", icon: "bi-file-text", group: "Contracts" },
   { key: "contracts", label: "Create Contract", icon: "bi-file-text", group: "Contracts" },
   { key: "loi", label: "Letter of Intent", icon: "bi-pen", group: "Contracts" },
   { key: "financial", label: "Financial Reports", icon: "bi-graph-up", group: "Finance" },
-  { key: "bills", label: "Bill Management", icon: "bi-receipt", group: "Finance" },
+  { key: "bills", label: "Bill Management", icon: "icon-tenant-bill", group: "Finance" },
   { key: "utility-bills", label: "Utility Bill Tracker", icon: "bi-lightning-charge-fill", group: "Finance" },
   { key: "bulk-reports", label: "Bulk Property Reports", icon: "bi-bar-chart-fill", group: "Finance" },
   { key: "exchange-rate", label: "Tỷ giá SGD/VND", icon: "bi-currency-exchange", group: "Finance" },
