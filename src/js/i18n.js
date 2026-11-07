@@ -347,6 +347,7 @@ i18next.init({
           // Create Contract layout (components/contract-form-ux.js)
           ux: {
             tabForm: "Details",
+            properties: "Properties",
             tabPreview: "Preview",
             secProperty: "Property & room",
             secTenants: "Tenants",
@@ -1113,6 +1114,7 @@ i18next.init({
           // Create Contract layout (components/contract-form-ux.js)
           ux: {
             tabForm: "Thông tin",
+            properties: "Danh sách nhà",
             tabPreview: "Xem trước",
             secProperty: "Nhà & phòng",
             secTenants: "Người thuê",

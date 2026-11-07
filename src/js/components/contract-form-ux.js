@@ -21,6 +21,9 @@ import {
 } from "../utils/mobile-ux.js";
 
 const OPEN_KEY = "contractSectionsOpen";
+// Workspace width for the properties | form | preview layout. Keep in sync
+// with the @container ctws rule in dashboard.html.
+const WIDE_MIN = 1100;
 const DEFAULT_OPEN = {
   property: true,
   tenants: true,
@@ -101,8 +104,14 @@ export function initContractFormUx(manager) {
   const cancelPick = $("ctPropCancel");
   const addressSelect = $("contractAddress");
 
+  const paneBody = $("ctPropPaneBody");
+  const paneCount = $("ctPropCount");
+  const pickerHome = document.createComment("property picker");
+  picker.before(pickerHome);
+
   let pickerOpen = null; // null: open only while nothing is chosen
   let pendingId = null; // card tapped, the manager is still loading it
+  let wide = false; // picker lives in its own column, always open
 
   const idOf = (p) => String(p?.propertyId || p?.id || p?._id || "");
   const findProperty = (id) => (manager.properties || []).find((p) => idOf(p) === String(id));
@@ -149,6 +158,11 @@ export function initContractFormUx(manager) {
   };
 
   const syncPicker = () => {
+    if (wide) {
+      picker.hidden = false;
+      current.hidden = true;
+      return;
+    }
     const selected = hasSelection();
     const open = pickerOpen === null ? !selected : pickerOpen;
     picker.hidden = !open;
@@ -181,9 +195,36 @@ export function initContractFormUx(manager) {
 
   const closePicker = () => {
     pickerOpen = null;
-    search.value = "";
-    applyFilter();
+    // In the side column the list stays as filtered
+    if (!wide) {
+      search.value = "";
+      applyFilter();
+    }
     syncPicker();
+  };
+
+  // Keep the chosen property in view inside the side column's list
+  const revealSelected = () => {
+    if (!wide) return;
+    const chosen = cards.querySelector(".selected-card:not([hidden])");
+    if (!chosen) return;
+    const top = chosen.offsetTop - cards.offsetTop;
+    if (top < cards.scrollTop || top + chosen.offsetHeight > cards.scrollTop + cards.clientHeight) {
+      cards.scrollTop = Math.max(0, top - cards.clientHeight / 2 + chosen.offsetHeight / 2);
+    }
+  };
+
+  // Move the picker between its own column (wide) and the Property section
+  const placePicker = () => {
+    const nowWide = Boolean(paneBody) && root.clientWidth >= WIDE_MIN;
+    if (nowWide === wide && (wide ? picker.parentElement === paneBody : true)) return;
+    wide = nowWide;
+    root.classList.toggle("ct-wide", wide);
+    if (wide) paneBody.append(picker);
+    else pickerHome.after(picker);
+    pickerOpen = null;
+    syncPicker();
+    revealSelected();
   };
 
   current.addEventListener("click", (e) => {
@@ -416,6 +457,9 @@ export function initContractFormUx(manager) {
     });
   }
 
+  if (window.ResizeObserver) new ResizeObserver(placePicker).observe(root);
+  placePicker();
+
   applyMobileInputHints(root);
   refresh();
 
@@ -425,11 +469,14 @@ export function initContractFormUx(manager) {
     onPropertyChange() {
       pendingId = null;
       refresh();
+      revealSelected();
     },
     /** The card grid was redrawn (properties loaded, language switched). */
     onCardsRendered() {
       applyFilter();
+      if (paneCount) paneCount.textContent = String(cards.querySelectorAll(".property-card-compact").length || "");
       refresh();
+      revealSelected();
     },
   };
 }
