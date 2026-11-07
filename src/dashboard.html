@@ -633,10 +633,6 @@
           position: static;
         }
 
-        /* Hovering a collapsed sidebar expands it over the content */
-        .sidebar.hover-expanded {
-          box-shadow: 8px 0 24px rgba(0, 0, 0, 0.25);
-        }
 
         /* Sidebar header (logo area) */
         .sidebar .sidebar-header {
@@ -764,8 +760,9 @@
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .sidebar.collapsed .nav-link::after {
-          display: none;
+        .sidebar.collapsed .nav-link:hover::after {
+          opacity: 1;
+          visibility: visible;
         }
       }
 
@@ -16535,25 +16532,16 @@
           });
         }
 
-        // Collapsed by default. Hovering expands it over the content; the
-        // toggle button pins it open (saved) or collapses it again.
-        const toggleIcon = collapseToggle.querySelector("i");
+        // Collapsed by default; the toggle button opens it (saved) or
+        // collapses it again. Hovering does not expand it.
         let pinnedOpen = false;
-        let hoverTimer = null;
 
-        function applyState(hovering) {
-          const expanded = pinnedOpen || hovering;
-          sidebar.classList.toggle("collapsed", !expanded);
-          sidebar.classList.toggle("hover-expanded", hovering && !pinnedOpen);
-          // Content keeps the narrow margin while hover-expanded (overlay)
+        function applyState() {
+          sidebar.classList.toggle("collapsed", !pinnedOpen);
           document.body.classList.toggle("sidebar-collapsed", !pinnedOpen);
-          if (toggleIcon) {
-            toggleIcon.className =
-              hovering && !pinnedOpen ? "bi bi-pin-angle" : "bi bi-chevron-left";
-          }
           collapseToggle.title = pinnedOpen
             ? "Collapse sidebar"
-            : "Pin sidebar open";
+            : "Expand sidebar";
         }
 
         function toggleSidebar() {
@@ -16563,7 +16551,7 @@
           } catch (e) {
             console.warn("Could not save sidebar state to localStorage");
           }
-          applyState(!pinnedOpen && sidebar.matches(":hover"));
+          applyState();
           window.dispatchEvent(
             new CustomEvent("sidebarToggle", {
               detail: { collapsed: !pinnedOpen },
@@ -16577,19 +16565,8 @@
           } catch (e) {
             console.warn("Could not read sidebar state from localStorage");
           }
-          applyState(false);
+          applyState();
         }
-
-        const canHover = window.matchMedia("(hover: hover)");
-        sidebar.addEventListener("mouseenter", () => {
-          if (pinnedOpen || !canHover.matches || window.innerWidth < 768) return;
-          clearTimeout(hoverTimer);
-          hoverTimer = setTimeout(() => applyState(true), 120);
-        });
-        sidebar.addEventListener("mouseleave", () => {
-          clearTimeout(hoverTimer);
-          if (!pinnedOpen) applyState(false);
-        });
 
         // Initialize
         updateNavLinkTooltips();

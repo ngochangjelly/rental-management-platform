@@ -2,6 +2,7 @@ import i18next from "i18next";
 import commonLocale from "./locales/common.js";
 import tenantsLocale from "./locales/tenants.js";
 import propertiesLocale from "./locales/properties.js";
+import contractExtensionLocale from "./locales/contract-extension.js";
 
 // Get stored language preference, default to Vietnamese
 const storedLang = localStorage.getItem("preferredLanguage") || "vi";
@@ -12,6 +13,7 @@ const MODULE_LOCALES = {
   common: commonLocale,
   tenants: tenantsLocale,
   properties: propertiesLocale,
+  contractExtension: contractExtensionLocale,
 };
 
 function withModuleLocales(resources) {

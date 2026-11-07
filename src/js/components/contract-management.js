@@ -27,6 +27,9 @@ import {
 import { renderPropertyImageAvatarBadge } from "../utils/investor-avatar-stack.js";
 import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
 import { getRoomTypeDisplayName, getRoomTypeBadgeStyle } from "../utils/room-type-mapper.js";
+import { isFeatureEnabled } from "../utils/feature-flags.js";
+import { todayISO } from "../utils/lease-dates.js";
+import { ContractExtensionDialog, CONTRACT_EXTENSION_FLAG } from "./contract-extension.js";
 
 class ContractManagementComponent {
   constructor() {
@@ -87,6 +90,7 @@ class ContractManagementComponent {
 
   init() {
     this.setupEventListeners();
+    this.renderExtendTenancyButton();
     onLanguageChange(() => this.handleLanguageChange());
     // Don't load tenants upfront - load them when property is selected
     this.loadInvestors();
@@ -108,6 +112,143 @@ class ContractManagementComponent {
 
   setupEventListeners() {
     // Event listeners will be added when modal is shown
+  }
+
+  // ─── Extend Tenancy ──────────────────────────────────────────────────────
+
+  // "Extend Tenancy" button next to the page title, only for users the
+  // contractExtension feature flag allows.
+  renderExtendTenancyButton() {
+    const title = document.querySelector(
+      '#contracts-section h2[data-i18n="createContract.title"]',
+    );
+    const header = title?.parentElement;
+    if (!header || header.querySelector("#extendTenancyBtn")) return;
+    if (!isFeatureEnabled(CONTRACT_EXTENSION_FLAG)) return;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "extendTenancyBtn";
+    button.className = "btn btn-primary";
+    button.title = i18next.t("contractExtension.buttonTitle");
+    button.setAttribute("data-i18n-title", "contractExtension.buttonTitle");
+    button.innerHTML = `<i class="bi bi-calendar-plus me-1" aria-hidden="true"></i><span data-i18n="contractExtension.button">${escapeHtml(i18next.t("contractExtension.button"))}</span>`;
+    button.addEventListener("click", () => this.openTenancyExtension());
+
+    // Keep it beside the back button; both wrap under the title on phones
+    const actions = document.createElement("div");
+    actions.className = "d-flex flex-wrap gap-2";
+    const backButton = header.querySelector(":scope > button");
+    if (backButton) backButton.replaceWith(actions);
+    else header.append(actions);
+    actions.append(button);
+    if (backButton) actions.append(backButton);
+    header.classList.add("flex-wrap", "gap-2");
+  }
+
+  openTenancyExtension() {
+    if (!isFeatureEnabled(CONTRACT_EXTENSION_FLAG)) return;
+    this._extensionDialog ??= new ContractExtensionDialog(this);
+    this._extensionDialog.open();
+  }
+
+  /**
+   * Fills the form for an extended tenancy, after the Tenant B records were
+   * saved with their new move-out: same property and tenants, original
+   * move-in, new move-out, agreement dated today.
+   * @param {object} p
+   * @param {string} p.propertyId
+   * @param {{type: "tenant"|"investor", record: object}} p.tenantA
+   * @param {object[]} p.tenantsB    tenant records as saved
+   * @param {string} p.moveInDate    "YYYY-MM-DD" ("" keeps what the form has)
+   * @param {string} p.moveOutDate   "YYYY-MM-DD"
+   * @param {string} [p.leasePeriod] e.g. "12 months"; "" works it out from the dates
+   * @param {string} [p.clauseText]  extension clause, added to Additional Clauses
+   */
+  async applyTenancyExtension({
+    propertyId,
+    tenantA,
+    tenantsB,
+    moveInDate,
+    moveOutDate,
+    leasePeriod = "",
+    clauseText = "",
+  }) {
+    const sameId = (a, b) => String(a ?? "").toUpperCase() === String(b ?? "").toUpperCase();
+    const property = this.properties.find((p) =>
+      sameId(p.propertyId || p.id || p._id, propertyId),
+    );
+    if (!property) throw new Error(`Property ${propertyId} not found`);
+
+    // Same address value the property dropdown uses
+    const baseAddress = property.address || property.location || property.name || "";
+    const address = property.unit ? `${baseAddress}, ${property.unit}` : baseAddress;
+    const addressSelect = document.getElementById("contractAddress");
+    if (addressSelect) addressSelect.value = address;
+    // Reloads this property's tenants, which now carry the new move-out
+    await this.handleAddressSelection(address);
+    if (!sameId(this.selectedPropertyId, propertyId)) {
+      throw new Error(`Couldn't select property ${propertyId} in the form`);
+    }
+
+    // The form lists up to 100 tenants per property; make sure everyone on
+    // this contract is among them.
+    const people = [...tenantsB, ...(tenantA?.type === "tenant" ? [tenantA.record] : [])];
+    const missing = people.filter((p) => !this.tenants.some((t) => t._id === p._id));
+    if (missing.length) {
+      this.tenants.push(...missing);
+      this.populateTenantsDropdown();
+    }
+
+    // Signatures from an earlier contract must not carry over; saved
+    // signatures come back as the tenants are selected below.
+    this.signatures = { tenantA: null, tenantB: null };
+
+    const tenantASelect = document.getElementById("contractTenantA");
+    const optionA = tenantA && tenantASelect
+      ? Array.from(tenantASelect.options).find((option) => {
+          const index = Number(option.dataset.index);
+          return tenantA.type === "investor"
+            ? option.dataset.type === "investor" &&
+                this.investors[index]?.investorId === tenantA.record.investorId
+            : option.dataset.type === "tenant" &&
+                this.tenants[index]?._id === tenantA.record._id;
+        })
+      : null;
+    if (optionA) {
+      tenantASelect.value = optionA.value;
+      this.handleTenantSelection("A", optionA.value);
+    }
+
+    const tenantBIds = new Set(tenantsB.map((t) => t._id));
+    document
+      .querySelectorAll("#tenantB_add_new, #tenantB_custom")
+      .forEach((box) => (box.checked = false));
+    document.querySelectorAll(".tenant-b-checkbox").forEach((box) => {
+      const tenant =
+        box.dataset.type === "tenant" ? this.tenants[Number(box.dataset.index)] : null;
+      box.checked = !!tenant && tenantBIds.has(tenant._id);
+    });
+    // Fills room, rent, deposit and cleaning fee from Tenant B
+    this.handleTenantBCheckboxChange();
+
+    const setField = (inputId, field, value) => {
+      const input = document.getElementById(inputId);
+      if (input) input.value = value;
+      this.contractData[field] = value;
+    };
+    if (moveInDate) setField("contractMoveInDate", "moveInDate", moveInDate);
+    setField("contractMoveOutDate", "moveOutDate", moveOutDate);
+    // Never keep a lease period typed for an earlier contract
+    setField("contractLeasePeriod", "leasePeriod", leasePeriod);
+    setField("contractAgreementDate", "agreementDate", todayISO());
+
+    // At most one extension clause, replaced on each extension
+    this.additionalClauses = this.additionalClauses.filter((c) => c.kind !== "extension");
+    if (clauseText) {
+      this.additionalClauses.push({ id: Date.now(), text: clauseText, kind: "extension" });
+    }
+    this.renderAdditionalClauses(); // also refreshes the preview
   }
 
   async reloadTenants() {
