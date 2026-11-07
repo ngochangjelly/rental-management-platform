@@ -202,6 +202,8 @@ module.exports = {
         warnings: false,
         runtimeErrors: (error) => {
           if (/Failed to connect to MetaMask/i.test(error.message)) return false;
+          // Benign browser warning, not a real crash
+          if (/ResizeObserver loop/i.test(error.message)) return false;
           return true;
         },
       },

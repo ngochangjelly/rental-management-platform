@@ -457,7 +457,15 @@ export function initContractFormUx(manager) {
     });
   }
 
-  if (window.ResizeObserver) new ResizeObserver(placePicker).observe(root);
+  // placePicker moves DOM, which resizes root again; deferring to the next
+  // frame avoids the "ResizeObserver loop" error.
+  if (window.ResizeObserver) {
+    let frame = 0;
+    new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(placePicker);
+    }).observe(root);
+  }
   placePicker();
 
   applyMobileInputHints(root);
