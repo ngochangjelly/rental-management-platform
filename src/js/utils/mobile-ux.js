@@ -238,8 +238,10 @@ export function createSectionNav({ mount, scrollEl, root }) {
  * @param {Array<{icon?:string,label:string,hint?:string,danger?:boolean,opensScreen?:boolean,onClick:Function}|'divider'>} opts.actions
  *   Set opensScreen on actions that navigate or open another back-gesture
  *   layer; they run once the sheet has fully closed.
+ * @param {Function} [opts.onClose]  called once when the sheet closes, with the
+ *   picked action, or null when dismissed
  */
-export function openActionSheet({ title, actions }) {
+export function openActionSheet({ title, actions, onClose }) {
   const esc = (text) => {
     const div = document.createElement("div");
     div.textContent = text ?? "";
@@ -281,10 +283,11 @@ export function openActionSheet({ title, actions }) {
   const onKey = (e) => {
     if (e.key === "Escape") close();
   };
-  const teardown = () => {
+  const teardown = (picked = null) => {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onKey);
+    onClose?.(picked);
     backdrop.classList.remove("show");
     sheet.classList.remove("show");
     setTimeout(() => {
@@ -292,8 +295,8 @@ export function openActionSheet({ title, actions }) {
       sheet.remove();
     }, 250);
   };
-  function close() {
-    teardown();
+  function close(picked = null) {
+    teardown(picked);
     return mobileLayers ? mobileLayers.close(layerName) : Promise.resolve();
   }
 
@@ -302,8 +305,8 @@ export function openActionSheet({ title, actions }) {
   });
 
   document.addEventListener("keydown", onKey);
-  backdrop.addEventListener("click", close);
-  sheet.querySelector(".m-sheet-cancel").addEventListener("click", close);
+  backdrop.addEventListener("click", () => close());
+  sheet.querySelector(".m-sheet-cancel").addEventListener("click", () => close());
   sheet.addEventListener("click", (e) => {
     const btn = e.target.closest(".m-sheet-item");
     if (!btn) return;
@@ -311,11 +314,11 @@ export function openActionSheet({ title, actions }) {
     if (action.opensScreen) {
       // Wait until the sheet's history entry is gone, so the screen it opens
       // gets its own clean back-gesture entry.
-      close().then(() => action.onClick?.());
+      close(action).then(() => action.onClick?.());
     } else {
       // Run inside the tap itself: iOS only allows clipboard writes and file
       // pickers during the user's gesture.
-      close();
+      close(action);
       action.onClick?.();
     }
   });

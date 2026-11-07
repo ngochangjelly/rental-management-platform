@@ -34,6 +34,7 @@ import {
   renderUnclosedCountBadge,
   renderUnclosedReportBadge,
 } from "../utils/unclosed-report-badge.js";
+import { isMobileViewport, openActionSheet } from "../utils/mobile-ux.js";
 
 /**
  * Financial Reports Component
@@ -3128,45 +3129,204 @@ class FinancialReportsComponent {
     }
   }
 
-  // Resolve the utility bill for a given year/month: the Utility Bill Tracker
-  // entry when there is one, otherwise the tenant bill. Returns
-  // { amount, details } or null when neither exists.
-  async _lookupUtilityBill(trackerBills, year, month) {
-    const ubEntry = trackerBills.find(
-      (b) => b.year === year && b.month === month,
-    );
-    if (ubEntry) {
-      const fmt = (d) =>
-        d
-          ? new Date(d).toLocaleDateString("en-SG", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })
-          : null;
-      const start = fmt(ubEntry.billingPeriodStart);
-      const end = fmt(ubEntry.billingPeriodEnd);
-      return {
-        amount: ubEntry.totalAmount ?? 0,
-        details: start && end ? `${start} – ${end}` : start || "",
-      };
+  // How many months before the report month the Utility Bill button offers.
+  // Some properties' bills lag a month behind, so their report is filled
+  // with the previous month's bill.
+  static get UTILITY_BILL_LOOKBACK_MONTHS() {
+    return 2;
+  }
+
+  // Every utility bill the report month could use: the Utility Bill Tracker
+  // entries for the report month and the months before it, falling back to
+  // the tenant bill for months the tracker has nothing for. Newest first.
+  // Each: { year, month, monthLabel, amount, details, offset }.
+  async _collectUtilityBillOptions(trackerBills, year, month) {
+    const fmt = (d) =>
+      d
+        ? new Date(d).toLocaleDateString("en-SG", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : null;
+    const months = [];
+    for (
+      let offset = 0;
+      offset <= FinancialReportsComponent.UTILITY_BILL_LOOKBACK_MONTHS;
+      offset++
+    ) {
+      const d = new Date(year, month - 1 - offset, 1);
+      months.push({
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        offset,
+        monthLabel: d.toLocaleString("en-SG", {
+          month: "long",
+          year: "numeric",
+        }),
+      });
     }
 
-    // Fall back to tenant bill
-    const res = await API.get(
-      API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(
-        this.selectedProperty,
-        year,
-        month,
-      ),
+    const perMonth = await Promise.all(
+      months.map(async (m) => {
+        const tracked = trackerBills
+          .filter((b) => b.year === m.year && b.month === m.month)
+          .sort(
+            (a, b) =>
+              new Date(a.billingPeriodStart || 0) -
+              new Date(b.billingPeriodStart || 0),
+          );
+        if (tracked.length) {
+          return tracked.map((b) => {
+            const start = fmt(b.billingPeriodStart);
+            const end = fmt(b.billingPeriodEnd);
+            return {
+              ...m,
+              amount: b.totalAmount ?? 0,
+              details: start && end ? `${start} – ${end}` : start || "",
+            };
+          });
+        }
+        // Fall back to the tenant bill for that month
+        try {
+          const res = await API.get(
+            API_CONFIG.ENDPOINTS.BILL_BY_PROPERTY_MONTH(
+              this.selectedProperty,
+              m.year,
+              m.month,
+            ),
+          );
+          if (!res.ok) return [];
+          const data = await res.json();
+          if (!data.success || !data.bill) return [];
+          return [
+            {
+              ...m,
+              amount: data.bill.utilityFee ?? 0,
+              details: data.bill.billingPeriod || "",
+            },
+          ];
+        } catch {
+          return [];
+        }
+      }),
     );
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.success || !data.bill) return null;
-    return {
-      amount: data.bill.utilityFee ?? 0,
-      details: data.bill.billingPeriod || "",
+    return perMonth.flat();
+  }
+
+  // Remember, per property, how many months back the last picked bill was,
+  // so a property whose bills lag a month gets that bill suggested first.
+  _utilityBillOffsetKey() {
+    return `fr.utilityBillOffset.${this.selectedProperty}`;
+  }
+
+  // Let the admin pick which bill to use. Bottom sheet on phones, a small
+  // menu under the button on desktop. Resolves with the option or null.
+  _pickUtilityBill(options, reportMonthLabel) {
+    const lastOffset = Number(
+      localStorage.getItem(this._utilityBillOffsetKey()),
+    );
+    const money = (n) =>
+      `$${Number(n || 0).toLocaleString("en-SG", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    const hintFor = (o) => {
+      const parts = [];
+      if (o.details) parts.push(o.details);
+      if (o.offset === 0) parts.push("This report's month");
+      else if (o.offset === 1) parts.push("Previous month");
+      else parts.push(`${o.offset} months back`);
+      if (o.offset === lastOffset) parts.push("used last time");
+      return parts.join(" · ");
     };
+    const title = `Which utility bill for ${reportMonthLabel}?`;
+
+    return new Promise((resolve) => {
+      if (isMobileViewport()) {
+        openActionSheet({
+          title,
+          actions: options.map((o) => ({
+            icon: "bi-lightning-charge-fill",
+            label: `${o.monthLabel} — ${money(o.amount)}`,
+            hint: hintFor(o),
+            // Open the expense form only after the sheet's back-gesture
+            // entry is gone.
+            opensScreen: true,
+            onClick: () => resolve(o),
+          })),
+          // A pick resolves via onClick above.
+          onClose: (picked) => {
+            if (!picked) resolve(null);
+          },
+        });
+        return;
+      }
+
+      const btn = document.getElementById("fillUtilityBillBtn");
+      document.getElementById("utilityBillPickerMenu")?.remove();
+      const menu = document.createElement("div");
+      menu.id = "utilityBillPickerMenu";
+      menu.className = "dropdown-menu show shadow";
+      menu.setAttribute("role", "menu");
+      menu.style.cssText =
+        "position:fixed;z-index:1080;min-width:280px;max-width:360px;padding:6px 0;";
+      menu.innerHTML = `
+        <h6 class="dropdown-header">${escapeHtml(title)}</h6>
+        ${options
+          .map(
+            (o, i) => `
+          <button type="button" class="dropdown-item py-2" data-i="${i}" role="menuitem">
+            <div class="d-flex justify-content-between gap-3">
+              <span class="fw-semibold">${escapeHtml(o.monthLabel)}</span>
+              <span class="fw-semibold">${escapeHtml(money(o.amount))}</span>
+            </div>
+            <small class="text-muted d-block text-wrap">${escapeHtml(hintFor(o))}</small>
+          </button>`,
+          )
+          .join("")}`;
+      document.body.appendChild(menu);
+
+      const rect = btn?.getBoundingClientRect();
+      if (rect) {
+        const width = menu.offsetWidth;
+        const left = Math.max(
+          8,
+          Math.min(rect.right - width, window.innerWidth - width - 8),
+        );
+        let top = rect.bottom + 4;
+        if (top + menu.offsetHeight > window.innerHeight - 8) {
+          top = Math.max(8, rect.top - menu.offsetHeight - 4);
+        }
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+      }
+      menu.querySelector(".dropdown-item")?.focus();
+
+      const finish = (value) => {
+        menu.remove();
+        document.removeEventListener("mousedown", onOutside, true);
+        document.removeEventListener("keydown", onKey, true);
+        window.removeEventListener("resize", onDismiss);
+        window.removeEventListener("scroll", onDismiss, true);
+        resolve(value);
+      };
+      const onOutside = (e) => {
+        if (!menu.contains(e.target)) finish(null);
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") finish(null);
+      };
+      const onDismiss = () => finish(null);
+      menu.addEventListener("click", (e) => {
+        const item = e.target.closest(".dropdown-item");
+        if (item) finish(options[Number(item.dataset.i)]);
+      });
+      document.addEventListener("mousedown", onOutside, true);
+      document.addEventListener("keydown", onKey, true);
+      window.addEventListener("resize", onDismiss);
+      window.addEventListener("scroll", onDismiss, true);
+    });
   }
 
   async fillUtilityBillExpense() {
@@ -3178,11 +3338,15 @@ class FinancialReportsComponent {
       showToast("Cannot add items — this month is closed", "error");
       return;
     }
+    if (document.getElementById("utilityBillPickerMenu")) return;
+    const btn = document.getElementById("fillUtilityBillBtn");
     try {
+      if (btn) btn.disabled = true;
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth() + 1;
-      const monthName = this.currentDate.toLocaleString("en-SG", {
+      const reportMonthLabel = this.currentDate.toLocaleString("en-SG", {
         month: "long",
+        year: "numeric",
       });
 
       const ubRes = await API.get(
@@ -3191,47 +3355,46 @@ class FinancialReportsComponent {
       const ubData = await ubRes.json();
       const trackerBills = ubData.bills || [];
 
-      // The bill for a month often arrives after that month's report is
-      // being filled, so when the report month has no bill yet, fall back
-      // to the previous month's bill.
-      const prevDate = new Date(year, month - 2, 1);
-      const prevYear = prevDate.getFullYear();
-      const prevMonth = prevDate.getMonth() + 1;
-      const prevMonthName = prevDate.toLocaleString("en-SG", {
-        month: "long",
-      });
-
-      let billMonthLabel = `${monthName} ${year}`;
-      let found = await this._lookupUtilityBill(trackerBills, year, month);
-      if (!found) {
-        found = await this._lookupUtilityBill(
-          trackerBills,
-          prevYear,
-          prevMonth,
-        );
-        if (!found) {
-          showToast(
-            `No utility bill found for ${monthName} ${year} or ${prevMonthName} ${prevYear}. Add one in Utility Bill Tracker first.`,
-            "warning",
-          );
-          return;
-        }
-        billMonthLabel = `${prevMonthName} ${prevYear}`;
+      const options = await this._collectUtilityBillOptions(
+        trackerBills,
+        year,
+        month,
+      );
+      if (btn) btn.disabled = false;
+      if (!options.length) {
         showToast(
-          `No utility bill for ${monthName} ${year} — using ${billMonthLabel}'s bill instead.`,
+          `No utility bill found for ${reportMonthLabel} or the ${FinancialReportsComponent.UTILITY_BILL_LOOKBACK_MONTHS} months before. Add one in Utility Bill Tracker first.`,
+          "warning",
+        );
+        return;
+      }
+
+      // One bill → use it straight away; several → let the admin choose
+      // (e.g. a property whose bills lag a month uses the previous month's).
+      const chosen =
+        options.length === 1
+          ? options[0]
+          : await this._pickUtilityBill(options, reportMonthLabel);
+      if (!chosen) return;
+      if (options.length === 1 && chosen.offset > 0) {
+        showToast(
+          `No utility bill for ${reportMonthLabel} — using ${chosen.monthLabel}'s bill instead.`,
           "warning",
         );
       }
-      const { amount, details } = found;
+      localStorage.setItem(this._utilityBillOffsetKey(), String(chosen.offset));
 
-      const itemTitle = details
-        ? `Utility Bill — ${details}`
-        : `Utility Bill — ${billMonthLabel}`;
+      const itemTitle = chosen.details
+        ? `Utility Bill — ${chosen.details}`
+        : `Utility Bill — ${chosen.monthLabel}`;
       const prefilled = {
         item: itemTitle,
-        amount,
-        date: new Date(year, month - 1, 1).toISOString().split("T")[0],
-        details: "",
+        amount: chosen.amount,
+        // Dated in the report month: the expense belongs to this report,
+        // whichever month's bill it pays.
+        // Built by hand: toISOString() would shift the 1st back a day in UTC+8.
+        date: `${year}-${String(month).padStart(2, "0")}-01`,
+        details: chosen.offset > 0 ? `${chosen.monthLabel} bill` : "",
         recipientAccountDetail: "",
         personInCharge: "",
         currency: "SGD",
@@ -3243,6 +3406,8 @@ class FinancialReportsComponent {
     } catch (err) {
       console.error("fillUtilityBillExpense error:", err);
       showToast("Failed to fetch utility bill: " + err.message, "error");
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
