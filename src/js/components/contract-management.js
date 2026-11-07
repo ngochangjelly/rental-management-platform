@@ -30,6 +30,7 @@ import { getRoomTypeDisplayName, getRoomTypeBadgeStyle } from "../utils/room-typ
 import { isFeatureEnabled } from "../utils/feature-flags.js";
 import { todayISO } from "../utils/lease-dates.js";
 import { ContractExtensionDialog, CONTRACT_EXTENSION_FLAG } from "./contract-extension.js";
+import { initContractFormUx } from "./contract-form-ux.js";
 
 class ContractManagementComponent {
   constructor() {
@@ -89,6 +90,8 @@ class ContractManagementComponent {
   }
 
   init() {
+    // Layout layer: collapsible sections, property picker, templates drawer
+    this.ux = initContractFormUx(this);
     this.setupEventListeners();
     this.renderExtendTenancyButton();
     onLanguageChange(() => this.handleLanguageChange());
@@ -1525,14 +1528,12 @@ class ContractManagementComponent {
     const container = document.getElementById("contractPropertyCards");
     if (!container) return;
 
-    container.style.display = "grid";
-    container.style.gridTemplateColumns =
-      "repeat(auto-fill, minmax(110px, 1fr))";
-    container.style.gap = "0.5rem";
+    // Grid layout comes from .ct-prop-grid (dashboard.html)
     container.innerHTML = "";
 
     if (!this.properties || this.properties.length === 0) {
       container.innerHTML = `<div class="text-muted small py-2">No properties available</div>`;
+      this.ux?.onCardsRendered();
       return;
     }
 
@@ -1589,6 +1590,7 @@ class ContractManagementComponent {
       `;
       container.innerHTML += cardHtml;
     });
+    this.ux?.onCardsRendered();
   }
 
   updatePropertyCardSelection() {
@@ -1610,6 +1612,7 @@ class ContractManagementComponent {
       const check = card.querySelector('[data-role="no-image-check"]');
       if (check) check.style.display = isSelected ? "inline" : "none";
     });
+    this.ux?.onPropertyChange();
   }
 
   selectPropertyCard(propertyId) {
@@ -3738,6 +3741,7 @@ class ContractManagementComponent {
                 </div>
             </div>
         `;
+    this.ux?.refresh();
   }
 
   // Helper method to calculate total rental amount

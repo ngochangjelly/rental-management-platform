@@ -5314,6 +5314,453 @@
         cursor: pointer;
       }
     </style>
+    <!-- Create Contract workspace (components/contract-form-ux.js) -->
+    <style>
+      #contractWorkspace {
+        --ct-accent: #4f46e5;
+        --ct-border: #e5e7eb;
+      }
+      #contractWorkspace [hidden],
+      #contractTemplatesDrawer [hidden] {
+        display: none !important;
+      }
+
+      /* Toolbar above the form: Templates / Save / Reset */
+      .ct-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+      }
+      .ct-toolbar-actions {
+        display: flex;
+        gap: 0.375rem;
+        flex-wrap: wrap;
+      }
+
+      /* Numbered, collapsible form sections */
+      .ct-sec {
+        background: #fff;
+        border: 1px solid var(--ct-border);
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+      }
+      .ct-sec-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.8rem 1rem;
+        background: none;
+        border: 0;
+        border-radius: 12px;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .ct-sec-head:hover {
+        background: #f8f9fb;
+      }
+      .ct-sec-head:focus-visible {
+        outline: 2px solid var(--ct-accent);
+        outline-offset: -2px;
+      }
+      .ct-sec.is-open .ct-sec-head {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .ct-sec-step {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #eef0ff;
+        color: var(--ct-accent);
+        font-size: 0.8rem;
+        font-weight: 700;
+        transition: background 0.2s, color 0.2s;
+      }
+      .ct-sec-step .bi {
+        display: none;
+      }
+      .ct-sec.is-done .ct-sec-step {
+        background: #198754;
+        color: #fff;
+      }
+      .ct-sec.is-done .ct-sec-step .bi {
+        display: inline;
+        font-size: 1rem;
+      }
+      .ct-sec.is-done .ct-sec-num {
+        display: none;
+      }
+      .ct-sec-titles {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .ct-sec-title {
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      .ct-sec-summary {
+        font-size: 0.82rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ct-sec.is-open .ct-sec-summary {
+        display: none;
+      }
+      .ct-sec-chevron {
+        flex-shrink: 0;
+        color: #6c757d;
+        transition: transform 0.2s;
+      }
+      .ct-sec.is-open .ct-sec-chevron {
+        transform: rotate(180deg);
+      }
+      .ct-sec-body {
+        padding: 1rem 1rem 0.25rem;
+        border-top: 1px solid #f1f3f5;
+      }
+      .ct-sec:not(.is-open) .ct-sec-body {
+        display: none;
+      }
+
+      /* Two-column field grids (one column on small phones, except the
+         "tight" ones: dates and month counts) */
+      .ct-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 1rem;
+      }
+      .ct-grid > .ct-span-2 {
+        grid-column: 1 / -1;
+      }
+      @media (max-width: 575.98px) {
+        .ct-grid:not(.ct-grid-tight) {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .ct-grid-tight {
+          column-gap: 0.625rem;
+        }
+      }
+
+      /* Property picker */
+      .ct-prop-current {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.625rem 0.5rem 0.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid #c7d2fe;
+        border-radius: 10px;
+        background: #f5f7ff;
+      }
+      .ct-prop-thumb {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 8px;
+        background: #e0e7ff center / cover no-repeat;
+        color: var(--ct-accent);
+        font-size: 1.35rem;
+      }
+      .ct-prop-meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .ct-prop-addr {
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ct-prop-sub {
+        font-size: 0.82rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ct-prop-change {
+        flex-shrink: 0;
+      }
+      .ct-prop-picker {
+        margin-bottom: 1rem;
+      }
+      .ct-prop-tools {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+      }
+      .ct-prop-search {
+        flex: 1 1 220px;
+      }
+      .ct-prop-modes {
+        display: flex;
+        gap: 0.375rem;
+        flex-wrap: wrap;
+      }
+      .ct-prop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+        gap: 0.5rem;
+        max-height: min(340px, 46vh);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 2px 4px 2px 2px;
+      }
+      .ct-prop-nomatch {
+        padding: 1rem;
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+      }
+
+      /* Preview + export actions */
+      .ct-preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .ct-preview-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 1.05rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ct-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+      }
+      .ct-actions .btn {
+        white-space: nowrap;
+      }
+      .ct-btn-wa {
+        background: #25d366;
+        border-color: #25d366;
+        color: #fff;
+      }
+      .ct-btn-wa:hover,
+      .ct-btn-wa:focus-visible {
+        background: #1ebe5b;
+        border-color: #1ebe5b;
+        color: #fff;
+      }
+      .ct-more-btn .ct-busy-spinner,
+      .ct-more-btn.is-busy .bi {
+        display: none;
+      }
+      .ct-more-btn.is-busy .ct-busy-spinner {
+        display: inline-block;
+      }
+      .ct-preview-body {
+        overflow-y: auto;
+      }
+      #contractPreview {
+        overflow-x: auto;
+      }
+
+      #contractTemplatesDrawer {
+        --bs-offcanvas-width: min(460px, 100vw);
+      }
+      #templatesList .template-item[hidden] {
+        display: none !important;
+      }
+
+      /* Desktop: preview stays in view while the form scrolls */
+      @media (min-width: 992px) {
+        .ct-viewtabs {
+          display: none;
+        }
+        /* One row: the title gives way first, Share goes icon-only */
+        .ct-preview-head {
+          flex-wrap: nowrap;
+        }
+        .ct-actions [onclick="contractManager.sharePDF()"] span {
+          display: none;
+        }
+        .ct-actions [onclick="contractManager.sharePDF()"] .bi {
+          margin-right: 0 !important;
+        }
+        .ct-preview-card {
+          position: sticky;
+          top: 1rem;
+          height: calc(100vh - 2rem);
+        }
+        .ct-preview-body {
+          flex: 1;
+          min-height: 0;
+        }
+      }
+
+      /* Phones and tablets: Details | Preview tabs + export bar pinned to
+         the bottom of the screen */
+      @media (max-width: 991.98px) {
+        .ct-viewtabs {
+          position: sticky;
+          top: 0;
+          z-index: 985;
+          display: flex;
+          gap: 4px;
+          padding: 4px;
+          margin-bottom: 0.75rem;
+          border-radius: 12px;
+          background: #e9ebf2;
+          box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+        }
+        .ct-viewtab {
+          flex: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-height: 40px;
+          border: 0;
+          border-radius: 9px;
+          background: none;
+          color: #495057;
+          font-weight: 600;
+        }
+        .ct-viewtab.active {
+          background: #fff;
+          color: var(--ct-accent);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+        .ct-toolbar-title {
+          display: none;
+        }
+        #contractWorkspace[data-view="preview"] .ct-form-col {
+          display: none;
+        }
+        #contractWorkspace[data-view="form"] .ct-preview-card {
+          border: 0;
+          background: none;
+        }
+        #contractWorkspace[data-view="form"] .ct-preview-card > .card-header {
+          padding: 0;
+          border: 0;
+          background: none;
+        }
+        #contractWorkspace[data-view="form"] .ct-preview-title,
+        #contractWorkspace[data-view="form"] .ct-preview-body {
+          display: none;
+        }
+        .ct-preview-body {
+          padding: 0.75rem;
+        }
+        .ct-actions {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 990; /* under the slide-out sidebar's dimmer (999) */
+          padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+          border-top: 1px solid var(--ct-border);
+          background: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(8px);
+          box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.06);
+        }
+        .ct-actions > .btn {
+          flex: 1 1 0;
+          min-width: 0;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .ct-more-btn {
+          width: 44px;
+          min-height: 44px;
+        }
+        #contracts-section {
+          padding-bottom: 76px;
+        }
+      }
+      /* Tablets: the sidebar rail stays on screen, keep the bar beside it */
+      @media (min-width: 768px) and (max-width: 991.98px) {
+        .ct-actions {
+          left: 280px;
+        }
+        body.sidebar-collapsed .ct-actions {
+          left: 70px;
+        }
+      }
+      @media (max-width: 767.98px) {
+        #contracts-section h2 {
+          font-size: 1.35rem;
+        }
+        #contracts-section > .p-4 > .d-flex.mb-4 {
+          margin-bottom: 0.75rem !important;
+        }
+        .ct-sec-body {
+          padding: 0.875rem 0.875rem 0.125rem;
+        }
+        .ct-sec-head {
+          padding: 0.75rem 0.875rem;
+        }
+        .ct-prop-grid {
+          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        }
+        /* Back button: phones navigate with the menu, keep it to an icon */
+        #contracts-section [onclick="dashboardController.goToDashboard()"] span {
+          display: none;
+        }
+        #contracts-section [onclick="dashboardController.goToDashboard()"] .bi {
+          margin-right: 0 !important;
+        }
+        /* Toolbar: Templates keeps its label and count, Save and Reset
+           become icon buttons (title + aria-label carry the names) */
+        .ct-toolbar-actions {
+          flex-wrap: nowrap;
+          width: 100%;
+        }
+        .ct-toolbar-actions .btn {
+          min-height: 38px;
+        }
+        .ct-toolbar-actions .btn:first-child {
+          flex: 1 1 auto;
+        }
+        .ct-toolbar-actions .btn:not(:first-child) {
+          flex: 0 0 44px;
+        }
+        .ct-toolbar-actions .btn:not(:first-child) span {
+          display: none;
+        }
+        .ct-toolbar-actions .btn:not(:first-child) .bi {
+          margin-right: 0 !important;
+        }
+        /* Icon-only on phones (its label is plain text the code rewrites) */
+        #reloadTenantsBtn {
+          font-size: 0;
+          padding: 4px !important;
+        }
+        #reloadTenantsBtn .bi {
+          font-size: 1.1rem;
+          margin: 0 !important;
+        }
+      }
+    </style>
   </head>
 
   <body>
@@ -10241,414 +10688,590 @@
                 </button>
               </div>
 
-              <div class="row">
+              <div class="ct-root" id="contractWorkspace" data-view="form">
+                <!-- Below 992px: switch between the form and the preview -->
+                <div class="ct-viewtabs" role="tablist">
+                  <button
+                    type="button"
+                    class="ct-viewtab active"
+                    data-ct-view="form"
+                    role="tab"
+                    aria-selected="true"
+                  >
+                    <i class="bi bi-pencil-square"></i
+                    ><span data-i18n="createContract.ux.tabForm">Details</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="ct-viewtab"
+                    data-ct-view="preview"
+                    role="tab"
+                    aria-selected="false"
+                  >
+                    <i class="bi bi-file-earmark-text"></i
+                    ><span data-i18n="createContract.ux.tabPreview">Preview</span>
+                  </button>
+                </div>
+
+                <div class="row g-4">
                 <!-- Contract Input Form -->
-                <div class="col-lg-6">
-                  <div class="card">
-                    <div
-                      class="card-header d-flex justify-content-between align-items-center"
+                <div class="col-lg-6 col-xxl-7 ct-form-col">
+                  <div class="ct-toolbar">
+                    <h5
+                      class="mb-0 ct-toolbar-title"
+                      data-i18n="createContract.contractDetails"
                     >
-                      <h5
-                        class="mb-0"
-                        data-i18n="createContract.contractDetails"
-                      >
-                        Contract Details
-                      </h5>
+                      Contract Details
+                    </h5>
+                    <div class="ct-toolbar-actions">
                       <button
-                        class="btn btn-sm btn-outline-secondary"
-                        onclick="contractManager.reloadTenants()"
-                        title="Reload tenants"
-                        id="reloadTenantsBtn"
+                        type="button"
+                        class="btn btn-sm btn-outline-primary"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#contractTemplatesDrawer"
+                        aria-controls="contractTemplatesDrawer"
                       >
-                        <i class="bi bi-arrow-clockwise me-1"></i>Reload Tenants
+                        <i class="bi bi-bookmark me-1"></i
+                        ><span data-i18n="createContract.ux.templates"
+                          >Templates</span
+                        >
+                        <span
+                          class="badge rounded-pill text-bg-primary ms-1"
+                          id="contractTemplateCount"
+                          hidden
+                          >0</span
+                        >
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        id="saveTemplateBtn"
+                        onclick="contractManager.showSaveTemplateModal()"
+                        title="Save Template"
+                        aria-label="Save Template"
+                        data-i18n-title="createContract.saveTemplate"
+                        data-i18n-aria-label="createContract.saveTemplate"
+                      >
+                        <i class="bi bi-save me-1"></i
+                        ><span data-i18n="createContract.saveTemplate"
+                          >Save Template</span
+                        >
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        onclick="contractManager.resetForm()"
+                        title="Reset Form"
+                        aria-label="Reset Form"
+                        data-i18n-title="createContract.resetForm"
+                        data-i18n-aria-label="createContract.resetForm"
+                      >
+                        <i class="bi bi-arrow-counterclockwise me-1"></i
+                        ><span data-i18n="createContract.resetForm"
+                          >Reset Form</span
+                        >
                       </button>
                     </div>
-                    <div class="card-body">
-                      <!-- Property Selection Cards -->
-                      <div class="mb-3">
-                        <label class="form-label fw-semibold">
-                          <i class="bi bi-building me-1"></i>Select Property
-                        </label>
-                        <div id="contractPropertyCards"></div>
-                      </div>
+                  </div>
 
-                      <!-- Property Details -->
-                      <div class="mb-3">
-                        <label
-                          for="contractAddress"
-                          class="form-label"
-                          data-i18n="createContract.propertyAddress"
-                          >Property Address</label
+                  <section class="ct-sec" data-ct-sec="property">
+                    <button
+                      type="button"
+                      class="ct-sec-head"
+                      aria-expanded="true"
+                      aria-controls="ctSec-property"
+                    >
+                      <span class="ct-sec-step"
+                        ><span class="ct-sec-num">1</span
+                        ><i class="bi bi-check-lg"></i
+                      ></span>
+                      <span class="ct-sec-titles">
+                        <span class="ct-sec-title" data-i18n="createContract.ux.secProperty"
+                          >Property &amp; room</span
                         >
-                        <select class="form-select" id="contractAddress">
-                          <option
-                            value=""
-                            data-i18n="createContract.selectPropertyAddress"
-                          >
-                            Select property address
-                          </option>
-                        </select>
-
-                        <!-- Custom Text Input (initially hidden) -->
-                        <div
-                          id="customAddressField"
-                          class="mt-2"
-                          style="display: none"
-                        >
-                          <input
-                            type="text"
-                            class="form-control"
-                            id="customAddressText"
-                            placeholder="Enter property address manually"
-                          />
+                        <span class="ct-sec-summary" data-ct-summary></span>
+                      </span>
+                      <i class="bi bi-chevron-down ct-sec-chevron" aria-hidden="true"></i>
+                    </button>
+                    <div class="ct-sec-body" id="ctSec-property">
+                        <div class="ct-prop-current" id="ctPropCurrent" hidden></div>
+                        <div class="ct-prop-picker" id="ctPropPicker">
+                          <div class="ct-prop-tools">
+                            <div class="input-group input-group-sm ct-prop-search">
+                              <span class="input-group-text"><i class="bi bi-search"></i></span>
+                              <input
+                                type="search"
+                                class="form-control"
+                                id="ctPropSearch"
+                                placeholder="Search address, unit or ID…"
+                                data-i18n-placeholder="createContract.ux.searchProperty"
+                                autocomplete="off"
+                                enterkeyhint="search"
+                              />
+                            </div>
+                            <div class="ct-prop-modes">
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                data-ct-address-mode="ADD_NEW_PROPERTY"
+                              >
+                                <i class="bi bi-plus-lg me-1"></i
+                                ><span data-i18n="createContract.ux.newProperty">New property</span>
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                data-ct-address-mode="CUSTOM_TEXT"
+                              >
+                                <i class="bi bi-pencil me-1"></i
+                                ><span data-i18n="createContract.ux.typeAddress">Type address</span>
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-link text-decoration-none"
+                                id="ctPropCancel"
+                                hidden
+                              >
+                                <span data-i18n="createContract.ux.cancel">Cancel</span>
+                              </button>
+                            </div>
+                          </div>
+                          <div id="contractPropertyCards" class="ct-prop-grid"></div>
+                          <div class="ct-prop-nomatch" id="ctPropNoMatch" hidden>
+                            <i class="bi bi-search me-1"></i
+                            ><span data-i18n="createContract.ux.noPropertyMatch"
+                              >No property matches your search</span
+                            >
+                          </div>
                         </div>
-
-                        <!-- New Property Fields (initially hidden) -->
-                        <div
-                          id="newPropertyFields"
-                          class="mt-3"
-                          style="display: none"
+                        <div class="ct-address-extra">
+                          <label
+                            for="contractAddress"
+                            class="form-label d-none"
+                            data-i18n="createContract.propertyAddress"
+                            >Property Address</label
+                          >
+                          <select
+                          class="form-select d-none"
+                          id="contractAddress"
+                          tabindex="-1"
+                          aria-hidden="true"
                         >
-                          <div class="mb-3">
-                            <label for="newPropertyAddress" class="form-label">
-                              <i class="bi bi-geo-alt me-1"></i>Property Address
-                              <span class="text-danger">*</span>
-                            </label>
+                            <option
+                              value=""
+                              data-i18n="createContract.selectPropertyAddress"
+                            >
+                              Select property address
+                            </option>
+                          </select>
+
+                          <!-- Custom Text Input (initially hidden) -->
+                          <div
+                            id="customAddressField"
+                            class="mt-2"
+                            style="display: none"
+                          >
                             <input
                               type="text"
                               class="form-control"
-                              id="newPropertyAddress"
-                              placeholder="Enter property address"
+                              id="customAddressText"
+                              placeholder="Enter property address manually"
                             />
                           </div>
-                          <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-1"></i>
-                            <small
-                              >This property will be used for this contract
-                              only. Complete property information can be added
-                              later in Property Management.</small
-                            >
-                          </div>
-                        </div>
-                      </div>
 
-                      <div class="mb-3">
-                        <label for="contractRoom" class="form-label"
-                          >Room Type</label
-                        >
-                        <select class="form-select" id="contractRoom">
-                          <option value="">Select room type</option>
-                          <option value="COMMON1">Common 1</option>
-                          <option value="COMMON2">Common 2</option>
-                          <option value="MASTER">Master</option>
-                          <option value="COMPARTMENT1">Compartment 1</option>
-                          <option value="COMPARTMENT2">Compartment 2</option>
-                          <option value="STORE">Store</option>
-                          <option value="COMMON_1_PAX">Common 1 Pax</option>
-                          <option value="COMMON_2_PAX">Common 2 Pax</option>
-                          <option value="COMMON_3_PAX">Common 3 Pax</option>
-                          <option value="SMALL_SINGLE_1_PAX">
-                            Small Single 1 Pax
-                          </option>
-                          <option value="SMALL_SINGLE_2_PAX">
-                            Small Single 2 Pax
-                          </option>
-                          <option value="BIG_SINGLE_1_PAX">
-                            Big Single 1 Pax
-                          </option>
-                          <option value="BIG_SINGLE_2_PAX">
-                            Big Single 2 Pax
-                          </option>
-                          <option value="SINGLE_1_PAX_NO_AIRCON">
-                            Single 1 Pax No Aircon
-                          </option>
-                          <option value="SINGLE_2_PAX_NO_AIRCON">
-                            Single 2 Pax No Aircon
-                          </option>
-                        </select>
-                      </div>
-
-                      <!-- Tenant Selection -->
-                      <div class="mb-3">
-                        <label
-                          for="contractTenantA"
-                          class="form-label"
-                          data-i18n="createContract.tenantAMain"
-                          >Tenant A (Main Tenant)</label
-                        >
-                        <select class="form-select" id="contractTenantA">
-                          <option
-                            value=""
-                            data-i18n="createContract.selectTenantA"
+                          <!-- New Property Fields (initially hidden) -->
+                          <div
+                            id="newPropertyFields"
+                            class="mt-3"
+                            style="display: none"
                           >
-                            Select Tenant A
-                          </option>
-                        </select>
-
-                        <!-- Custom Text Input (initially hidden) -->
-                        <div
-                          id="customTenantAField"
-                          class="mt-2"
-                          style="display: none"
-                        >
-                          <input
-                            type="text"
-                            class="form-control"
-                            id="customTenantAText"
-                            placeholder="Enter tenant name manually"
-                          />
-                        </div>
-
-                        <!-- New Tenant A Fields (initially hidden) -->
-                        <div
-                          id="newTenantAFields"
-                          class="mt-3"
-                          style="display: none"
-                        >
-                          <div class="row">
-                            <div class="col-md-6 mb-3">
-                              <label for="newTenantAName" class="form-label">
-                                <i class="bi bi-person me-1"></i>Tenant A Name
+                            <div class="mb-3">
+                              <label for="newPropertyAddress" class="form-label">
+                                <i class="bi bi-geo-alt me-1"></i>Property Address
                                 <span class="text-danger">*</span>
                               </label>
                               <input
                                 type="text"
                                 class="form-control"
-                                id="newTenantAName"
-                                placeholder="Enter full name"
+                                id="newPropertyAddress"
+                                placeholder="Enter property address"
                               />
                             </div>
-                            <div class="col-md-6 mb-3">
-                              <label
-                                for="newTenantAPassport"
-                                class="form-label"
+                            <div class="alert alert-info">
+                              <i class="bi bi-info-circle me-1"></i>
+                              <small
+                                >This property will be used for this contract
+                                only. Complete property information can be added
+                                later in Property Management.</small
                               >
-                                <i class="bi bi-card-text me-1"></i>Passport
-                                Number
-                              </label>
-                              <input
-                                type="text"
-                                class="form-control"
-                                id="newTenantAPassport"
-                                placeholder="Enter passport number"
-                              />
                             </div>
                           </div>
-                          <div class="row">
-                            <div class="col-md-6 mb-3">
-                              <label for="newTenantAFin" class="form-label">
-                                <i class="bi bi-credit-card me-1"></i>FIN Number
+                        </div>
+                        <div class="mb-3">
+                          <label for="contractRoom" class="form-label"
+                            >Room Type</label
+                          >
+                          <select class="form-select" id="contractRoom">
+                            <option value="">Select room type</option>
+                            <option value="COMMON1">Common 1</option>
+                            <option value="COMMON2">Common 2</option>
+                            <option value="MASTER">Master</option>
+                            <option value="COMPARTMENT1">Compartment 1</option>
+                            <option value="COMPARTMENT2">Compartment 2</option>
+                            <option value="STORE">Store</option>
+                            <option value="COMMON_1_PAX">Common 1 Pax</option>
+                            <option value="COMMON_2_PAX">Common 2 Pax</option>
+                            <option value="COMMON_3_PAX">Common 3 Pax</option>
+                            <option value="SMALL_SINGLE_1_PAX">
+                              Small Single 1 Pax
+                            </option>
+                            <option value="SMALL_SINGLE_2_PAX">
+                              Small Single 2 Pax
+                            </option>
+                            <option value="BIG_SINGLE_1_PAX">
+                              Big Single 1 Pax
+                            </option>
+                            <option value="BIG_SINGLE_2_PAX">
+                              Big Single 2 Pax
+                            </option>
+                            <option value="SINGLE_1_PAX_NO_AIRCON">
+                              Single 1 Pax No Aircon
+                            </option>
+                            <option value="SINGLE_2_PAX_NO_AIRCON">
+                              Single 2 Pax No Aircon
+                            </option>
+                          </select>
+                        </div>
+                    </div>
+                  </section>
+
+                  <section class="ct-sec" data-ct-sec="tenants">
+                    <button
+                      type="button"
+                      class="ct-sec-head"
+                      aria-expanded="true"
+                      aria-controls="ctSec-tenants"
+                    >
+                      <span class="ct-sec-step"
+                        ><span class="ct-sec-num">2</span
+                        ><i class="bi bi-check-lg"></i
+                      ></span>
+                      <span class="ct-sec-titles">
+                        <span class="ct-sec-title" data-i18n="createContract.ux.secTenants"
+                          >Tenants</span
+                        >
+                        <span class="ct-sec-summary" data-ct-summary></span>
+                      </span>
+                      <i class="bi bi-chevron-down ct-sec-chevron" aria-hidden="true"></i>
+                    </button>
+                    <div class="ct-sec-body" id="ctSec-tenants">
+                        <div class="mb-3">
+                          <div
+                            class="d-flex align-items-center justify-content-between gap-2 mb-2"
+                          >
+                            <label
+                              for="contractTenantA"
+                              class="form-label mb-0"
+                              data-i18n="createContract.tenantAMain"
+                              >Tenant A (Main Tenant)</label
+                            >
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-link text-decoration-none p-0"
+                              onclick="contractManager.reloadTenants()"
+                              title="Reload tenants"
+                              id="reloadTenantsBtn"
+                            >
+                              <i class="bi bi-arrow-clockwise me-1"></i>Reload Tenants
+                            </button>
+                          </div>
+                          <select class="form-select" id="contractTenantA">
+                            <option
+                              value=""
+                              data-i18n="createContract.selectTenantA"
+                            >
+                              Select Tenant A
+                            </option>
+                          </select>
+
+                          <!-- Custom Text Input (initially hidden) -->
+                          <div
+                            id="customTenantAField"
+                            class="mt-2"
+                            style="display: none"
+                          >
+                            <input
+                              type="text"
+                              class="form-control"
+                              id="customTenantAText"
+                              placeholder="Enter tenant name manually"
+                            />
+                          </div>
+
+                          <!-- New Tenant A Fields (initially hidden) -->
+                          <div
+                            id="newTenantAFields"
+                            class="mt-3"
+                            style="display: none"
+                          >
+                            <div class="row">
+                              <div class="col-md-6 mb-3">
+                                <label for="newTenantAName" class="form-label">
+                                  <i class="bi bi-person me-1"></i>Tenant A Name
+                                  <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="newTenantAName"
+                                  placeholder="Enter full name"
+                                />
+                              </div>
+                              <div class="col-md-6 mb-3">
+                                <label
+                                  for="newTenantAPassport"
+                                  class="form-label"
+                                >
+                                  <i class="bi bi-card-text me-1"></i>Passport
+                                  Number
+                                </label>
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="newTenantAPassport"
+                                  placeholder="Enter passport number"
+                                />
+                              </div>
+                            </div>
+                            <div class="row">
+                              <div class="col-md-6 mb-3">
+                                <label for="newTenantAFin" class="form-label">
+                                  <i class="bi bi-credit-card me-1"></i>FIN Number
+                                </label>
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="newTenantAFin"
+                                  placeholder="Enter FIN number"
+                                />
+                              </div>
+                            </div>
+                            <div class="mb-3">
+                              <label for="newTenantAEmail" class="form-label">
+                                <i class="bi bi-envelope me-1"></i>Email Address
                               </label>
                               <input
-                                type="text"
+                                type="email"
                                 class="form-control"
-                                id="newTenantAFin"
-                                placeholder="Enter FIN number"
+                                id="newTenantAEmail"
+                                placeholder="Enter email address"
                               />
                             </div>
+                            <div class="alert alert-info">
+                              <i class="bi bi-info-circle me-1"></i>
+                              <small
+                                >This tenant will be created as a temporary entry
+                                for this contract. Complete tenant information can
+                                be added later in Tenant Management.</small
+                              >
+                            </div>
+                          </div>
+                        </div>
+                        <div class="mb-3">
+                          <div
+                            class="form-check rounded mb-0"
+                            style="
+                              padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+                              background: #f0f4ff;
+                              border: 1px solid #c5d3f0;
+                            "
+                          >
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              id="showSettlementAccounts"
+                            />
+                            <label
+                              class="form-check-label fw-semibold"
+                              for="showSettlementAccounts"
+                              style="color: #3a5fc8"
+                            >
+                              <i class="bi bi-bank me-1"></i>Show settlement
+                              accounts
+                            </label>
+                          </div>
+                          <div
+                            id="settlementAccountsDisplay"
+                            style="display: none"
+                            class="mt-2"
+                          ></div>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label"
+                            ><span data-i18n="createContract.tenantB"
+                              >Tenant B</span
+                            >
+                            <small class="text-muted"
+                              >(<span data-i18n="createContract.canSelectMultiple"
+                                >Can select multiple</span
+                              >)</small
+                            ></label
+                          >
+
+                          <!-- Hidden select for backend compatibility -->
+                          <select
+                            class="form-select d-none"
+                            id="contractTenantB"
+                            multiple
+                          ></select>
+
+                          <!-- Custom checkbox dropdown -->
+                          <div class="dropdown w-100">
+                            <button
+                              class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
+                              type="button"
+                              id="tenantBDropdownButton"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                              style="min-height: 38px; padding-right: 40px"
+                            >
+                              <span
+                                id="tenantBSelectedText"
+                                class="text-muted"
+                                data-i18n="createContract.selectTenants"
+                                >Select tenants...</span
+                              >
+                            </button>
+                            <div
+                              class="dropdown-menu w-100 p-0"
+                              aria-labelledby="tenantBDropdownButton"
+                              id="tenantBDropdownMenu"
+                              style="max-height: 400px; overflow-y: auto"
+                            >
+                              <!-- Options will be populated by JavaScript -->
+                            </div>
+                          </div>
+
+                          <!-- Social links shown after Tenant B is selected -->
+                          <div id="tenantBSocialPanel"></div>
+
+                          <!-- Custom Text Input (initially hidden) -->
+                          <div
+                            id="customTenantBField"
+                            class="mt-2"
+                            style="display: none"
+                          >
+                            <input
+                              type="text"
+                              class="form-control"
+                              id="customTenantBText"
+                              placeholder="Enter tenant name manually"
+                            />
+                          </div>
+
+                          <!-- New Tenant Fields (initially hidden) -->
+                          <div
+                            id="newTenantFields"
+                            class="mt-3"
+                            style="display: none"
+                          >
+                            <div class="row">
+                              <div class="col-md-6 mb-3">
+                                <label for="newTenantBName" class="form-label">
+                                  <i class="bi bi-person me-1"></i>Tenant B Name
+                                  <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="newTenantBName"
+                                  placeholder="Enter full name"
+                                />
+                              </div>
+                              <div class="col-md-6 mb-3">
+                                <label
+                                  for="newTenantBPassport"
+                                  class="form-label"
+                                >
+                                  <i class="bi bi-card-text me-1"></i>Passport
+                                  Number
+                                </label>
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="newTenantBPassport"
+                                  placeholder="Enter passport number"
+                                />
+                              </div>
+                            </div>
+                            <div class="row">
+                              <div class="col-md-6 mb-3">
+                                <label for="newTenantBFin" class="form-label">
+                                  <i class="bi bi-credit-card me-1"></i>FIN Number
+                                </label>
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="newTenantBFin"
+                                  placeholder="Enter FIN number"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                    </div>
+                  </section>
+
+                  <section class="ct-sec" data-ct-sec="dates">
+                    <button
+                      type="button"
+                      class="ct-sec-head"
+                      aria-expanded="true"
+                      aria-controls="ctSec-dates"
+                    >
+                      <span class="ct-sec-step"
+                        ><span class="ct-sec-num">3</span
+                        ><i class="bi bi-check-lg"></i
+                      ></span>
+                      <span class="ct-sec-titles">
+                        <span class="ct-sec-title" data-i18n="createContract.ux.secDates"
+                          >Dates</span
+                        >
+                        <span class="ct-sec-summary" data-ct-summary></span>
+                      </span>
+                      <i class="bi bi-chevron-down ct-sec-chevron" aria-hidden="true"></i>
+                    </button>
+                    <div class="ct-sec-body" id="ctSec-dates">
+                        <div class="ct-grid ct-grid-tight">
+                          <div class="mb-3">
+                            <label
+                              for="contractAgreementDate"
+                              class="form-label"
+                              data-i18n="createContract.agreementDate"
+                              >Agreement Date</label
+                            >
+                            <input
+                              type="date"
+                              class="form-control"
+                              id="contractAgreementDate"
+                            />
                           </div>
                           <div class="mb-3">
-                            <label for="newTenantAEmail" class="form-label">
-                              <i class="bi bi-envelope me-1"></i>Email Address
-                            </label>
+                            <label
+                              for="contractLeasePeriod"
+                              class="form-label"
+                              data-i18n="createContract.leasePeriod"
+                              >Lease Period</label
+                            >
                             <input
-                              type="email"
+                              type="text"
                               class="form-control"
-                              id="newTenantAEmail"
-                              placeholder="Enter email address"
+                              id="contractLeasePeriod"
+                              placeholder="e.g., 6 months"
+                              data-i18n-placeholder="createContract.leasePeriodPlaceholder"
                             />
                           </div>
-                          <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-1"></i>
-                            <small
-                              >This tenant will be created as a temporary entry
-                              for this contract. Complete tenant information can
-                              be added later in Tenant Management.</small
-                            >
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Settlement Accounts Toggle -->
-                      <div class="mb-3">
-                        <div
-                          class="form-check p-2 rounded"
-                          style="background: #f0f4ff; border: 1px solid #c5d3f0"
-                        >
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            id="showSettlementAccounts"
-                          />
-                          <label
-                            class="form-check-label fw-semibold"
-                            for="showSettlementAccounts"
-                            style="color: #3a5fc8"
-                          >
-                            <i class="bi bi-bank me-1"></i>Show settlement
-                            accounts
-                          </label>
-                        </div>
-                        <div
-                          id="settlementAccountsDisplay"
-                          style="display: none"
-                          class="mt-2"
-                        ></div>
-                      </div>
-
-                      <div class="mb-3">
-                        <label class="form-label"
-                          ><span data-i18n="createContract.tenantB"
-                            >Tenant B</span
-                          >
-                          <small class="text-muted"
-                            >(<span data-i18n="createContract.canSelectMultiple"
-                              >Can select multiple</span
-                            >)</small
-                          ></label
-                        >
-
-                        <!-- Hidden select for backend compatibility -->
-                        <select
-                          class="form-select d-none"
-                          id="contractTenantB"
-                          multiple
-                        ></select>
-
-                        <!-- Custom checkbox dropdown -->
-                        <div class="dropdown w-100">
-                          <button
-                            class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
-                            type="button"
-                            id="tenantBDropdownButton"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                            style="min-height: 38px; padding-right: 40px"
-                          >
-                            <span
-                              id="tenantBSelectedText"
-                              class="text-muted"
-                              data-i18n="createContract.selectTenants"
-                              >Select tenants...</span
-                            >
-                          </button>
-                          <div
-                            class="dropdown-menu w-100 p-0"
-                            aria-labelledby="tenantBDropdownButton"
-                            id="tenantBDropdownMenu"
-                            style="max-height: 400px; overflow-y: auto"
-                          >
-                            <!-- Options will be populated by JavaScript -->
-                          </div>
-                        </div>
-
-                        <!-- Social links shown after Tenant B is selected -->
-                        <div id="tenantBSocialPanel"></div>
-
-                        <!-- Custom Text Input (initially hidden) -->
-                        <div
-                          id="customTenantBField"
-                          class="mt-2"
-                          style="display: none"
-                        >
-                          <input
-                            type="text"
-                            class="form-control"
-                            id="customTenantBText"
-                            placeholder="Enter tenant name manually"
-                          />
-                        </div>
-
-                        <!-- New Tenant Fields (initially hidden) -->
-                        <div
-                          id="newTenantFields"
-                          class="mt-3"
-                          style="display: none"
-                        >
-                          <div class="row">
-                            <div class="col-md-6 mb-3">
-                              <label for="newTenantBName" class="form-label">
-                                <i class="bi bi-person me-1"></i>Tenant B Name
-                                <span class="text-danger">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                class="form-control"
-                                id="newTenantBName"
-                                placeholder="Enter full name"
-                              />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                              <label
-                                for="newTenantBPassport"
-                                class="form-label"
-                              >
-                                <i class="bi bi-card-text me-1"></i>Passport
-                                Number
-                              </label>
-                              <input
-                                type="text"
-                                class="form-control"
-                                id="newTenantBPassport"
-                                placeholder="Enter passport number"
-                              />
-                            </div>
-                          </div>
-                          <div class="row">
-                            <div class="col-md-6 mb-3">
-                              <label for="newTenantBFin" class="form-label">
-                                <i class="bi bi-credit-card me-1"></i>FIN Number
-                              </label>
-                              <input
-                                type="text"
-                                class="form-control"
-                                id="newTenantBFin"
-                                placeholder="Enter FIN number"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Contract Details -->
-                      <div class="mb-3">
-                        <label
-                          for="contractAgreementDate"
-                          class="form-label"
-                          data-i18n="createContract.agreementDate"
-                          >Agreement Date</label
-                        >
-                        <input
-                          type="date"
-                          class="form-control"
-                          id="contractAgreementDate"
-                        />
-                      </div>
-
-                      <div class="mb-3">
-                        <label
-                          for="contractLeasePeriod"
-                          class="form-label"
-                          data-i18n="createContract.leasePeriod"
-                          >Lease Period</label
-                        >
-                        <input
-                          type="text"
-                          class="form-control"
-                          id="contractLeasePeriod"
-                          placeholder="e.g., 6 months"
-                          data-i18n-placeholder="createContract.leasePeriodPlaceholder"
-                        />
-                      </div>
-
-                      <div class="mb-3">
-                        <label
-                          class="form-label"
-                          data-i18n="createContract.tenancyPeriod"
-                          >Tenancy Period</label
-                        >
-                        <div class="row">
-                          <div class="col-md-6">
+                          <div class="mb-3">
                             <label
                               for="contractMoveInDate"
                               class="form-label"
@@ -10661,7 +11284,7 @@
                               id="contractMoveInDate"
                             />
                           </div>
-                          <div class="col-md-6">
+                          <div class="mb-3">
                             <label
                               for="contractMoveOutDate"
                               class="form-label"
@@ -10675,571 +11298,494 @@
                             />
                           </div>
                         </div>
-                      </div>
+                    </div>
+                  </section>
 
-                      <!-- Financial Details -->
-                      <div class="mb-3">
-                        <label
-                          for="contractMonthlyRental"
-                          class="form-label"
-                          data-i18n="createContract.monthlyRental"
-                          >Monthly Rental (S$)</label
+                  <section class="ct-sec" data-ct-sec="payment">
+                    <button
+                      type="button"
+                      class="ct-sec-head"
+                      aria-expanded="true"
+                      aria-controls="ctSec-payment"
+                    >
+                      <span class="ct-sec-step"
+                        ><span class="ct-sec-num">4</span
+                        ><i class="bi bi-check-lg"></i
+                      ></span>
+                      <span class="ct-sec-titles">
+                        <span class="ct-sec-title" data-i18n="createContract.ux.secPayment"
+                          >Rent &amp; deposit</span
                         >
-                        <input
-                          type="number"
-                          class="form-control"
-                          id="contractMonthlyRental"
-                          placeholder="1350"
-                        />
-                        <div class="form-check mt-2">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            id="contractFullPaymentReceived"
-                          />
-                          <label
-                            class="form-check-label"
-                            for="contractFullPaymentReceived"
-                          >
-                            <small
-                              class="text-muted"
-                              data-i18n="createContract.fullPaymentReceived"
-                              >Tenant A has fully received rent for the entire
-                              tenancy period</small
+                        <span class="ct-sec-summary" data-ct-summary></span>
+                      </span>
+                      <i class="bi bi-chevron-down ct-sec-chevron" aria-hidden="true"></i>
+                    </button>
+                    <div class="ct-sec-body" id="ctSec-payment">
+                        <div class="ct-grid">
+                          <div class="mb-3">
+                            <label
+                              for="contractMonthlyRental"
+                              class="form-label"
+                              data-i18n="createContract.monthlyRental"
+                              >Monthly Rental (S$)</label
                             >
-                          </label>
-                        </div>
-                      </div>
-
-                      <div class="mb-3">
-                        <label
-                          for="contractSecurityDeposit"
-                          class="form-label"
-                          data-i18n="createContract.securityDeposit"
-                          >Security Deposit (S$)</label
-                        >
-                        <input
-                          type="number"
-                          class="form-control"
-                          id="contractSecurityDeposit"
-                          placeholder="1350"
-                        />
-                        <div class="form-check mt-2">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            id="contractPartialDepositReceived"
-                          />
-                          <label
-                            class="form-check-label"
-                            for="contractPartialDepositReceived"
-                          >
-                            <small
-                              class="text-muted"
-                              data-i18n="createContract.partialDepositReceived"
-                              >Tenant A has received partial deposit</small
-                            >
-                          </label>
-                        </div>
-                        <div
-                          class="mt-2"
-                          id="partialDepositAmountContainer"
-                          style="display: none"
-                        >
-                          <label
-                            for="contractPartialDepositAmount"
-                            class="form-label"
-                            data-i18n="createContract.partialDepositAmount"
-                            >Partial Deposit Amount (S$)</label
-                          >
-                          <input
-                            type="number"
-                            class="form-control"
-                            id="contractPartialDepositAmount"
-                            placeholder="500"
-                          />
-                        </div>
-                      </div>
-
-                      <div class="row mb-3">
-                        <div class="col-md-6">
-                          <label
-                            for="contractDepositMonths"
-                            class="form-label"
-                            data-i18n="createContract.depositMonths"
-                            >Deposit (Months)</label
-                          >
-                          <input
-                            type="number"
-                            class="form-control"
-                            id="contractDepositMonths"
-                            value="1"
-                            min="0"
-                            step="0.5"
-                          />
-                          <small
-                            class="text-muted"
-                            data-i18n="createContract.paidOnAgreementDate"
-                            >Paid on agreement date</small
-                          >
-                        </div>
-                        <div class="col-md-6">
-                          <label
-                            for="contractAdvanceMonths"
-                            class="form-label"
-                            data-i18n="createContract.advanceMonths"
-                            >Advance (Months)</label
-                          >
-                          <input
-                            type="number"
-                            class="form-control"
-                            id="contractAdvanceMonths"
-                            value="1"
-                            min="0"
-                            step="0.5"
-                          />
-                          <small
-                            class="text-muted"
-                            data-i18n="createContract.paidOnMoveInDate"
-                            >Paid on move-in date</small
-                          >
-                        </div>
-                      </div>
-
-                      <div class="mb-3">
-                        <label
-                          for="contractElectricityBudget"
-                          class="form-label"
-                          data-i18n="createContract.electricityBudget"
-                          >Electricity Budget (S$)</label
-                        >
-                        <div class="input-group">
-                          <input
-                            type="number"
-                            class="form-control"
-                            id="contractElectricityBudget"
-                            value="400"
-                          />
-                          <span class="input-group-text">
                             <input
-                              class="form-check-input mt-0 me-2"
+                              type="number"
+                              class="form-control"
+                              id="contractMonthlyRental"
+                              placeholder="1350"
+                            />
+                            <div class="form-check mt-2">
+                              <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="contractFullPaymentReceived"
+                              />
+                              <label
+                                class="form-check-label"
+                                for="contractFullPaymentReceived"
+                              >
+                                <small
+                                  class="text-muted"
+                                  data-i18n="createContract.fullPaymentReceived"
+                                  >Tenant A has fully received rent for the entire
+                                  tenancy period</small
+                                >
+                              </label>
+                            </div>
+                          </div>
+                          <div class="mb-3">
+                            <label
+                              for="contractSecurityDeposit"
+                              class="form-label"
+                              data-i18n="createContract.securityDeposit"
+                              >Security Deposit (S$)</label
+                            >
+                            <input
+                              type="number"
+                              class="form-control"
+                              id="contractSecurityDeposit"
+                              placeholder="1350"
+                            />
+                            <div class="form-check mt-2">
+                              <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="contractPartialDepositReceived"
+                              />
+                              <label
+                                class="form-check-label"
+                                for="contractPartialDepositReceived"
+                              >
+                                <small
+                                  class="text-muted"
+                                  data-i18n="createContract.partialDepositReceived"
+                                  >Tenant A has received partial deposit</small
+                                >
+                              </label>
+                            </div>
+                            <div
+                              class="mt-2"
+                              id="partialDepositAmountContainer"
+                              style="display: none"
+                            >
+                              <label
+                                for="contractPartialDepositAmount"
+                                class="form-label"
+                                data-i18n="createContract.partialDepositAmount"
+                                >Partial Deposit Amount (S$)</label
+                              >
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="contractPartialDepositAmount"
+                                placeholder="500"
+                              />
+                            </div>
+                          </div>
+                          <div class="ct-grid ct-grid-tight ct-span-2">
+                            <div class="mb-3">
+                              <label
+                                for="contractDepositMonths"
+                                class="form-label"
+                                data-i18n="createContract.depositMonths"
+                                >Deposit (Months)</label
+                              >
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="contractDepositMonths"
+                                value="1"
+                                min="0"
+                                step="0.5"
+                              />
+                              <small
+                                class="text-muted"
+                                data-i18n="createContract.paidOnAgreementDate"
+                                >Paid on agreement date</small
+                              >
+                            </div>
+                            <div class="mb-3">
+                              <label
+                                for="contractAdvanceMonths"
+                                class="form-label"
+                                data-i18n="createContract.advanceMonths"
+                                >Advance (Months)</label
+                              >
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="contractAdvanceMonths"
+                                value="1"
+                                min="0"
+                                step="0.5"
+                              />
+                              <small
+                                class="text-muted"
+                                data-i18n="createContract.paidOnMoveInDate"
+                                >Paid on move-in date</small
+                              >
+                            </div>
+                          </div>
+                          <div class="mb-3">
+                            <label
+                              for="contractElectricityBudget"
+                              class="form-label"
+                              data-i18n="createContract.electricityBudget"
+                              >Electricity Budget (S$)</label
+                            >
+                            <div class="input-group">
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="contractElectricityBudget"
+                                value="400"
+                              />
+                              <span class="input-group-text">
+                                <input
+                                  class="form-check-input mt-0 me-2"
+                                  type="checkbox"
+                                  value=""
+                                  id="electricityFree"
+                                />
+                                <label
+                                  class="form-check-label"
+                                  for="electricityFree"
+                                  >Free</label
+                                >
+                              </span>
+                            </div>
+                          </div>
+                          <div class="mb-3">
+                            <label
+                              for="contractCleaningFee"
+                              class="form-label"
+                              data-i18n="createContract.cleaningFee"
+                              >Cleaning Fee (S$)</label
+                            >
+                            <div class="input-group">
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="contractCleaningFee"
+                                value="20"
+                                placeholder="20"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          <div class="mb-3">
+                            <label
+                              for="contractPaymentMethod"
+                              class="form-label"
+                              data-i18n="createContract.paymentMethod"
+                              >Payment Method</label
+                            >
+                            <select class="form-select" id="contractPaymentMethod">
+                              <option
+                                value="CASH"
+                                data-i18n="createContract.paymentMethods.cash"
+                              >
+                                Cash
+                              </option>
+                              <option
+                                value="BANK_TRANSFER"
+                                selected
+                                data-i18n="createContract.paymentMethods.bankTransfer"
+                              >
+                                Bank Transfer
+                              </option>
+                              <option
+                                value="CHECK"
+                                data-i18n="createContract.paymentMethods.check"
+                              >
+                                Check
+                              </option>
+                            </select>
+                          </div>
+                        </div>
+                    </div>
+                  </section>
+
+                  <section class="ct-sec" data-ct-sec="clauses">
+                    <button
+                      type="button"
+                      class="ct-sec-head"
+                      aria-expanded="true"
+                      aria-controls="ctSec-clauses"
+                    >
+                      <span class="ct-sec-step"
+                        ><span class="ct-sec-num">5</span
+                        ><i class="bi bi-check-lg"></i
+                      ></span>
+                      <span class="ct-sec-titles">
+                        <span class="ct-sec-title" data-i18n="createContract.ux.secClauses"
+                          >Clauses &amp; options</span
+                        >
+                        <span class="ct-sec-summary" data-ct-summary></span>
+                      </span>
+                      <i class="bi bi-chevron-down ct-sec-chevron" aria-hidden="true"></i>
+                    </button>
+                    <div class="ct-sec-body" id="ctSec-clauses">
+                        <div class="mb-3">
+                          <div class="form-check">
+                            <input
+                              class="form-check-input"
                               type="checkbox"
                               value=""
-                              id="electricityFree"
+                              id="pestControlClause"
                             />
                             <label
                               class="form-check-label"
-                              for="electricityFree"
-                              >Free</label
+                              for="pestControlClause"
                             >
-                          </span>
-                        </div>
-                      </div>
-
-                      <div class="mb-3">
-                        <label
-                          for="contractCleaningFee"
-                          class="form-label"
-                          data-i18n="createContract.cleaningFee"
-                          >Cleaning Fee (S$)</label
-                        >
-                        <div class="input-group">
-                          <input
-                            type="number"
-                            class="form-control"
-                            id="contractCleaningFee"
-                            value="20"
-                            placeholder="20"
-                            min="0"
-                          />
-                        </div>
-                      </div>
-
-                      <div class="mb-3">
-                        <label
-                          for="contractPaymentMethod"
-                          class="form-label"
-                          data-i18n="createContract.paymentMethod"
-                          >Payment Method</label
-                        >
-                        <select class="form-select" id="contractPaymentMethod">
-                          <option
-                            value="CASH"
-                            data-i18n="createContract.paymentMethods.cash"
-                          >
-                            Cash
-                          </option>
-                          <option
-                            value="BANK_TRANSFER"
-                            selected
-                            data-i18n="createContract.paymentMethods.bankTransfer"
-                          >
-                            Bank Transfer
-                          </option>
-                          <option
-                            value="CHECK"
-                            data-i18n="createContract.paymentMethods.check"
-                          >
-                            Check
-                          </option>
-                        </select>
-                      </div>
-
-                      <!-- Pest Control Clause -->
-                      <div class="mb-3">
-                        <div class="form-check">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            value=""
-                            id="pestControlClause"
-                          />
-                          <label
-                            class="form-check-label"
-                            for="pestControlClause"
-                          >
-                            <strong data-i18n="createContract.pestControlClause"
-                              >Pest Control Clause</strong
-                            >
-                          </label>
-                        </div>
-                        <small
-                          class="text-muted"
-                          data-i18n="createContract.pestControlClauseDesc"
-                          >If checked, adds a pest infestation liability clause
-                          to the contract</small
-                        >
-                      </div>
-
-                      <!-- Aircon Free of Charge -->
-                      <div class="mb-3">
-                        <div class="form-check">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            value=""
-                            id="airconFreeOfCharge"
-                          />
-                          <label
-                            class="form-check-label"
-                            for="airconFreeOfCharge"
-                          >
-                            <strong
-                              data-i18n="createContract.airconFreeOfCharge"
-                              >Aircon Servicing Free of Charge</strong
-                            >
-                          </label>
-                        </div>
-                        <small
-                          class="text-muted"
-                          data-i18n="createContract.airconFreeOfChargeDesc"
-                          >If checked, the aircon deduction clause is kept in
-                          the contract but the deduction is waived for this
-                          tenant as a special arrangement</small
-                        >
-                      </div>
-
-                      <!-- Forfeit AC Cleaning Fee -->
-                      <div class="mb-3">
-                        <div class="form-check">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            value=""
-                            id="forfeitAcCleanFee"
-                          />
-                          <label
-                            class="form-check-label"
-                            for="forfeitAcCleanFee"
-                          >
-                            <strong>Forfeit AC Cleaning Fee</strong>
-                          </label>
-                        </div>
-                        <small class="text-muted"
-                          >If checked, the air-conditioner servicing deduction
-                          clause is left out of the contract. Does not affect
-                          the room cleaning fee.</small
-                        >
-                      </div>
-
-                      <!-- AC Deduction Amounts -->
-                      <div class="mb-3">
-                        <label class="form-label">AC Deduction Amounts (SGD)</label>
-                        <div class="row g-2">
-                          <div class="col-6">
-                            <label class="form-label small text-muted mb-1"
-                              >6-Month Agreement</label
-                            >
-                            <input
-                              type="number"
-                              class="form-control"
-                              id="acDeduction6Month"
-                              value="100"
-                              min="0"
-                            />
+                              <strong data-i18n="createContract.pestControlClause"
+                                >Pest Control Clause</strong
+                              >
+                            </label>
                           </div>
-                          <div class="col-6">
-                            <label class="form-label small text-muted mb-1"
-                              >1-Year Agreement</label
-                            >
+                          <small
+                            class="text-muted"
+                            data-i18n="createContract.pestControlClauseDesc"
+                            >If checked, adds a pest infestation liability clause
+                            to the contract</small
+                          >
+                        </div>
+                        <div class="mb-3">
+                          <div class="form-check">
                             <input
-                              type="number"
-                              class="form-control"
-                              id="acDeduction1Year"
-                              value="200"
-                              min="0"
+                              class="form-check-input"
+                              type="checkbox"
+                              value=""
+                              id="airconFreeOfCharge"
                             />
-                          </div>
-                        </div>
-                        <small class="text-muted"
-                          >Amount deducted from the deposit for
-                          air-conditioner servicing, shown in the contract
-                          clause. Only applies to rooms with an
-                          air-conditioner.</small
-                        >
-                      </div>
-
-                      <!-- Additional Clauses -->
-                      <div class="mb-3">
-                        <div
-                          class="d-flex justify-content-between align-items-center mb-2"
-                        >
-                          <label
-                            class="form-label mb-0"
-                            data-i18n="createContract.additionalClauses"
-                            >Additional Clauses</label
-                          >
-                          <button
-                            type="button"
-                            class="btn btn-sm btn-outline-primary"
-                            onclick="contractManager.addClause()"
-                          >
-                            <i class="bi bi-plus"></i>
-                            <span data-i18n="createContract.addClause"
-                              >Add Clause</span
+                            <label
+                              class="form-check-label"
+                              for="airconFreeOfCharge"
                             >
-                          </button>
+                              <strong
+                                data-i18n="createContract.airconFreeOfCharge"
+                                >Aircon Servicing Free of Charge</strong
+                              >
+                            </label>
+                          </div>
+                          <small
+                            class="text-muted"
+                            data-i18n="createContract.airconFreeOfChargeDesc"
+                            >If checked, the aircon deduction clause is kept in
+                            the contract but the deduction is waived for this
+                            tenant as a special arrangement</small
+                          >
                         </div>
-                        <div id="additionalClausesContainer">
-                          <!-- Dynamic clauses will be added here -->
+                        <div class="mb-3">
+                          <div class="form-check">
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              value=""
+                              id="forfeitAcCleanFee"
+                            />
+                            <label
+                              class="form-check-label"
+                              for="forfeitAcCleanFee"
+                            >
+                              <strong>Forfeit AC Cleaning Fee</strong>
+                            </label>
+                          </div>
+                          <small class="text-muted"
+                            >If checked, the air-conditioner servicing deduction
+                            clause is left out of the contract. Does not affect
+                            the room cleaning fee.</small
+                          >
                         </div>
-                      </div>
-
-                      <!-- Signature Upload -->
-                      <div class="mb-3">
-                        <label
-                          class="form-label"
-                          data-i18n="createContract.signatures"
-                          >Signatures</label
-                        >
-
+                        <div class="mb-3">
+                          <label class="form-label">AC Deduction Amounts (SGD)</label>
+                          <div class="row g-2">
+                            <div class="col-6">
+                              <label class="form-label small text-muted mb-1"
+                                >6-Month Agreement</label
+                              >
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="acDeduction6Month"
+                                value="100"
+                                min="0"
+                              />
+                            </div>
+                            <div class="col-6">
+                              <label class="form-label small text-muted mb-1"
+                                >1-Year Agreement</label
+                              >
+                              <input
+                                type="number"
+                                class="form-control"
+                                id="acDeduction1Year"
+                                value="200"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          <small class="text-muted"
+                            >Amount deducted from the deposit for
+                            air-conditioner servicing, shown in the contract
+                            clause. Only applies to rooms with an
+                            air-conditioner.</small
+                          >
+                        </div>
                         <div class="mb-3">
                           <div
                             class="d-flex justify-content-between align-items-center mb-2"
                           >
-                            <span
-                              class="small"
-                              data-i18n="createContract.tenantASignature"
-                              >Tenant A Signature</span
+                            <label
+                              class="form-label mb-0"
+                              data-i18n="createContract.additionalClauses"
+                              >Additional Clauses</label
                             >
                             <button
                               type="button"
                               class="btn btn-sm btn-outline-primary"
-                              onclick="
-                                contractManager.openSignatureUpload('tenantA')
-                              "
+                              onclick="contractManager.addClause()"
                             >
                               <i class="bi bi-plus"></i>
-                              <span data-i18n="createContract.upload"
-                                >Upload</span
+                              <span data-i18n="createContract.addClause"
+                                >Add Clause</span
                               >
                             </button>
                           </div>
-                          <div id="signatureAPreview">
-                            <div
-                              class="text-center p-3 border border-dashed rounded"
-                            >
-                              <i class="bi bi-pen fs-2 text-muted"></i>
-                              <p class="text-muted mb-0">
-                                No signature uploaded
-                              </p>
-                            </div>
+                          <div id="additionalClausesContainer">
+                            <!-- Dynamic clauses will be added here -->
                           </div>
                         </div>
-
-                        <div class="mb-3">
-                          <div
-                            class="d-flex justify-content-between align-items-center mb-2"
-                          >
-                            <span
-                              class="small"
-                              data-i18n="createContract.tenantBSignature"
-                              >Tenant B Signature</span
-                            >
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-primary"
-                              onclick="
-                                contractManager.openSignatureUpload('tenantB')
-                              "
-                            >
-                              <i class="bi bi-plus"></i>
-                              <span data-i18n="createContract.upload"
-                                >Upload</span
-                              >
-                            </button>
-                          </div>
-                          <div id="signatureBPreview">
-                            <div
-                              class="text-center p-3 border border-dashed rounded"
-                            >
-                              <i class="bi bi-pen fs-2 text-muted"></i>
-                              <p class="text-muted mb-0">
-                                No signature uploaded
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <section class="ct-sec" data-ct-sec="signatures">
+                    <button
+                      type="button"
+                      class="ct-sec-head"
+                      aria-expanded="true"
+                      aria-controls="ctSec-signatures"
+                    >
+                      <span class="ct-sec-step"
+                        ><span class="ct-sec-num">6</span
+                        ><i class="bi bi-check-lg"></i
+                      ></span>
+                      <span class="ct-sec-titles">
+                        <span class="ct-sec-title" data-i18n="createContract.ux.secSignatures"
+                          >Signatures</span
+                        >
+                        <span class="ct-sec-summary" data-ct-summary></span>
+                      </span>
+                      <i class="bi bi-chevron-down ct-sec-chevron" aria-hidden="true"></i>
+                    </button>
+                    <div class="ct-sec-body" id="ctSec-signatures">
+                        <div class="ct-grid">
+                          <div class="mb-3">
+                            <div
+                              class="d-flex justify-content-between align-items-center mb-2"
+                            >
+                              <span
+                                class="small"
+                                data-i18n="createContract.tenantASignature"
+                                >Tenant A Signature</span
+                              >
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                onclick="
+                                  contractManager.openSignatureUpload('tenantA')
+                                "
+                              >
+                                <i class="bi bi-plus"></i>
+                                <span data-i18n="createContract.upload"
+                                  >Upload</span
+                                >
+                              </button>
+                            </div>
+                            <div id="signatureAPreview">
+                              <div
+                                class="text-center p-3 border border-dashed rounded"
+                              >
+                                <i class="bi bi-pen fs-2 text-muted"></i>
+                                <p class="text-muted mb-0">
+                                  No signature uploaded
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mb-3">
+                            <div
+                              class="d-flex justify-content-between align-items-center mb-2"
+                            >
+                              <span
+                                class="small"
+                                data-i18n="createContract.tenantBSignature"
+                                >Tenant B Signature</span
+                              >
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                onclick="
+                                  contractManager.openSignatureUpload('tenantB')
+                                "
+                              >
+                                <i class="bi bi-plus"></i>
+                                <span data-i18n="createContract.upload"
+                                  >Upload</span
+                                >
+                              </button>
+                            </div>
+                            <div id="signatureBPreview">
+                              <div
+                                class="text-center p-3 border border-dashed rounded"
+                              >
+                                <i class="bi bi-pen fs-2 text-muted"></i>
+                                <p class="text-muted mb-0">
+                                  No signature uploaded
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                    </div>
+                  </section>
                 </div>
 
-                <!-- Contract Preview -->
-                <div class="col-lg-6">
-                  <!-- Template Section -->
-                  <div class="card mb-3">
-                    <div class="card-header">
-                      <div
-                        class="d-flex justify-content-between align-items-center"
-                      >
-                        <h5 class="mb-0">
-                          <i class="bi bi-bookmark me-1"></i
-                          ><span data-i18n="createContract.contractTemplates"
-                            >Contract Templates</span
-                          >
-                        </h5>
-                        <div class="btn-group">
-                          <button
-                            class="btn btn-outline-secondary btn-sm"
-                            onclick="contractManager.resetForm()"
-                          >
-                            <i class="bi bi-arrow-clockwise me-1"></i
-                            ><span data-i18n="createContract.resetForm"
-                              >Reset Form</span
-                            >
-                          </button>
-                          <button
-                            class="btn btn-outline-primary btn-sm"
-                            id="saveTemplateBtn"
-                            onclick="contractManager.showSaveTemplateModal()"
-                          >
-                            <i class="bi bi-save me-1"></i
-                            ><span data-i18n="createContract.saveTemplate"
-                              >Save Template</span
-                            >
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="card-body p-2">
-                      <div
-                        id="templatesList"
-                        style="
-                          min-height: 120px;
-                          max-height: 220px;
-                          overflow-y: auto;
-                        "
-                      >
-                        <!-- Initial Loading Skeleton -->
-                        <div class="loading-skeleton" style="min-height: 120px">
-                          <div
-                            class="skeleton-item mb-2 p-3 border rounded bg-light"
-                            style="animation: pulse 1.5s ease-in-out infinite"
-                          >
-                            <div
-                              style="
-                                height: 20px;
-                                background: #d1d5db;
-                                border-radius: 4px;
-                                margin-bottom: 8px;
-                                width: 70%;
-                              "
-                            ></div>
-                            <div
-                              style="
-                                height: 14px;
-                                background: #e5e7eb;
-                                border-radius: 4px;
-                                width: 50%;
-                              "
-                            ></div>
-                          </div>
-                          <div
-                            class="skeleton-item mb-2 p-3 border rounded bg-light"
-                            style="
-                              animation: pulse 1.5s ease-in-out infinite;
-                              animation-delay: 0.2s;
-                            "
-                          >
-                            <div
-                              style="
-                                height: 20px;
-                                background: #d1d5db;
-                                border-radius: 4px;
-                                margin-bottom: 8px;
-                                width: 65%;
-                              "
-                            ></div>
-                            <div
-                              style="
-                                height: 14px;
-                                background: #e5e7eb;
-                                border-radius: 4px;
-                                width: 45%;
-                              "
-                            ></div>
-                          </div>
-                        </div>
-                        <style>
-                          @keyframes pulse {
-                            0%,
-                            100% {
-                              opacity: 1;
-                            }
-                            50% {
-                              opacity: 0.5;
-                            }
-                          }
-                        </style>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Contract Preview -->
-                  <div class="card">
-                    <div
-                      class="card-header d-flex justify-content-between align-items-center"
-                    >
-                      <h5
-                        class="mb-0"
-                        data-i18n="createContract.contractPreview"
-                      >
-                        Contract Preview
-                      </h5>
-                      <div class="d-flex gap-2 align-items-center">
-                        <button
-                          type="button"
-                          class="btn btn-sm btn-outline-secondary"
-                          style="white-space: nowrap"
-                          onclick="contractManager.downloadContractTemplate()"
-                          title="Download blank contract template for editing in Word"
+                <!-- Contract Preview: sticky beside the form on desktop -->
+                <div class="col-lg-6 col-xxl-5 ct-preview-col">
+                  <div class="card ct-preview-card">
+                    <div class="card-header ct-preview-head">
+                      <h5 class="mb-0 ct-preview-title">
+                        <i class="bi bi-file-earmark-text me-1"></i
+                        ><span data-i18n="createContract.contractPreview"
+                          >Contract Preview</span
                         >
-                          <i class="bi bi-download me-1"></i>
-                          <span data-i18n="createContract.downloadTemplate"
-                            >Download Template</span
-                          >
-                        </button>
+                      </h5>
+                      <!-- One button per export: the export code finds each
+                           button by its onclick to show a spinner on it.
+                           Below 992px this bar is pinned to the bottom. -->
+                      <div class="ct-actions" id="contractActions">
                         <button
                           type="button"
                           class="btn btn-sm btn-success"
@@ -11249,30 +11795,6 @@
                           ><span data-i18n="createContract.exportPdf"
                             >Export PDF</span
                           >
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn-sm"
-                          style="
-                            background-color: #da251d;
-                            color: #fff;
-                            border-color: #da251d;
-                          "
-                          onclick="contractManager.exportToPDFVietnamese()"
-                          title="Export a professionally translated Vietnamese version of this contract"
-                        >
-                          <i class="bi bi-file-earmark-pdf-fill me-1"></i
-                          ><span data-i18n="createContract.exportPdfVi"
-                            >Export Vietnamese PDF</span
-                          >
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn-sm btn-info text-white"
-                          onclick="contractManager.exportToDOCX()"
-                          title="Export contract as editable Word document"
-                        >
-                          <i class="bi bi-file-word me-1"></i>Export DOCX
                         </button>
                         <button
                           type="button"
@@ -11287,12 +11809,7 @@
                         </button>
                         <button
                           type="button"
-                          class="btn btn-sm"
-                          style="
-                            background-color: #25d366;
-                            color: #fff;
-                            border-color: #25d366;
-                          "
+                          class="btn btn-sm ct-btn-wa"
                           onclick="contractManager.shareViaWhatsApp()"
                           title="Send PDF via WhatsApp"
                         >
@@ -11301,30 +11818,187 @@
                             >WhatsApp</span
                           >
                         </button>
-                      </div>
-                    </div>
-                    <div
-                      class="card-body"
-                      style="height: 90vh; overflow-y: auto"
-                    >
-                      <div
-                        id="contractPreview"
-                        class="border p-3 bg-white"
-                        style="min-height: 100%"
-                      >
-                        <div class="text-center text-muted">
-                          <i class="bi bi-file-text fs-1"></i>
-                          <p
-                            class="mt-2"
-                            data-i18n="createContract.contractPreviewPlaceholder"
+                        <div class="dropdown ct-more">
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary ct-more-btn"
+                            id="contractMoreBtn"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            aria-label="More export options"
+                            data-i18n-aria-label="createContract.ux.moreExports"
+                            title="More export options"
+                            data-i18n-title="createContract.ux.moreExports"
                           >
-                            Contract preview will appear here after filling in
-                            the details
-                          </p>
+                            <i class="bi bi-three-dots"></i
+                            ><span
+                              class="spinner-border spinner-border-sm ct-busy-spinner"
+                              aria-hidden="true"
+                            ></span>
+                          </button>
+                          <ul
+                            class="dropdown-menu dropdown-menu-end"
+                            id="contractMoreMenu"
+                          >
+                            <li>
+                              <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="contractManager.exportToPDFVietnamese()"
+                                title="Export a professionally translated Vietnamese version of this contract"
+                              >
+                                <i class="bi bi-file-earmark-pdf-fill me-1"></i
+                                ><span data-i18n="createContract.exportPdfVi"
+                                  >Export Vietnamese PDF</span
+                                >
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="contractManager.exportToDOCX()"
+                                title="Export contract as editable Word document"
+                              >
+                                <i class="bi bi-file-word me-1"></i>Export DOCX
+                              </button>
+                            </li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                              <button
+                                type="button"
+                                class="dropdown-item"
+                                onclick="contractManager.downloadContractTemplate()"
+                                title="Download blank contract template for editing in Word"
+                              >
+                                <i class="bi bi-download me-1"></i
+                                ><span data-i18n="createContract.downloadTemplate"
+                                  >Download Template</span
+                                >
+                              </button>
+                            </li>
+                          </ul>
                         </div>
                       </div>
                     </div>
+                    <div class="card-body ct-preview-body">
+                    <div
+                      id="contractPreview"
+                      class="border p-3 bg-white"
+                      style="min-height: 100%"
+                    >
+                      <div class="text-center text-muted">
+                        <i class="bi bi-file-text fs-1"></i>
+                        <p
+                          class="mt-2"
+                          data-i18n="createContract.contractPreviewPlaceholder"
+                        >
+                          Contract preview will appear here after filling in
+                          the details
+                        </p>
+                      </div>
+                    </div>
+                    </div>
                   </div>
+                </div>
+                </div>
+              </div>
+
+              <!-- Saved templates: slide-out drawer -->
+              <div
+                class="offcanvas offcanvas-end ct-drawer"
+                tabindex="-1"
+                id="contractTemplatesDrawer"
+                aria-labelledby="contractTemplatesDrawerLabel"
+              >
+                <div class="offcanvas-header">
+                  <h5 class="offcanvas-title" id="contractTemplatesDrawerLabel">
+                    <i class="bi bi-bookmark me-1"></i
+                    ><span data-i18n="createContract.contractTemplates"
+                      >Contract Templates</span
+                    >
+                  </h5>
+                  <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="offcanvas"
+                    aria-label="Close"
+                  ></button>
+                </div>
+                <div class="offcanvas-body">
+                  <input
+                    type="search"
+                    class="form-control mb-3"
+                    id="contractTemplateSearch"
+                    placeholder="Search templates…"
+                    data-i18n-placeholder="createContract.ux.searchTemplates"
+                    autocomplete="off"
+                  />
+              <div
+                id="templatesList"
+              >
+                <!-- Initial Loading Skeleton -->
+                <div class="loading-skeleton" style="min-height: 120px">
+                  <div
+                    class="skeleton-item mb-2 p-3 border rounded bg-light"
+                    style="animation: pulse 1.5s ease-in-out infinite"
+                  >
+                    <div
+                      style="
+                        height: 20px;
+                        background: #d1d5db;
+                        border-radius: 4px;
+                        margin-bottom: 8px;
+                        width: 70%;
+                      "
+                    ></div>
+                    <div
+                      style="
+                        height: 14px;
+                        background: #e5e7eb;
+                        border-radius: 4px;
+                        width: 50%;
+                      "
+                    ></div>
+                  </div>
+                  <div
+                    class="skeleton-item mb-2 p-3 border rounded bg-light"
+                    style="
+                      animation: pulse 1.5s ease-in-out infinite;
+                      animation-delay: 0.2s;
+                    "
+                  >
+                    <div
+                      style="
+                        height: 20px;
+                        background: #d1d5db;
+                        border-radius: 4px;
+                        margin-bottom: 8px;
+                        width: 65%;
+                      "
+                    ></div>
+                    <div
+                      style="
+                        height: 14px;
+                        background: #e5e7eb;
+                        border-radius: 4px;
+                        width: 45%;
+                      "
+                    ></div>
+                  </div>
+                </div>
+                <style>
+                  @keyframes pulse {
+                    0%,
+                    100% {
+                      opacity: 1;
+                    }
+                    50% {
+                      opacity: 0.5;
+                    }
+                  }
+                </style>
+              </div>
                 </div>
               </div>
             </div>
