@@ -2423,6 +2423,42 @@ class FinancialReportsComponent {
     return { members: rows, remainder };
   }
 
+  // Group members for exports: only each member's own Paid / Received
+  // (items that rolled up into the group). Their % and profit stay
+  // private to the admin breakdown, so they're left out here.
+  _exportGroupMembers(groupId, ctx = this._groupContext()) {
+    const active = ctx.activeGroups.find((a) => a.group.investorId === groupId);
+    if (!active) return [];
+    const report = this.currentReport;
+    const total = (items, id) =>
+      (items || [])
+        .filter((x) => !x.isPending && x.personInCharge === id)
+        .reduce((sum, x) => sum + (x.amount || 0), 0);
+    const rolledUp = new Set(active.memberIds);
+    const rows = (active.group.members || []).map((m) => {
+      const inv = this._findInvestor(m.investorId);
+      const counts = rolledUp.has(m.investorId);
+      return {
+        name: inv?.name || `Investor ${m.investorId}`,
+        avatar: inv?.avatar || null,
+        paidAmount: counts ? total(report?.expenses, m.investorId) : 0,
+        receivedAmount: counts ? total(report?.income, m.investorId) : 0,
+      };
+    });
+    // Items recorded against the group itself
+    const groupPaid = total(report?.expenses, groupId);
+    const groupReceived = total(report?.income, groupId);
+    if (groupPaid || groupReceived) {
+      rows.push({
+        name: "Group account",
+        avatar: active.group.avatar || null,
+        paidAmount: groupPaid,
+        receivedAmount: groupReceived,
+      });
+    }
+    return rows;
+  }
+
   _miniAvatarHtml(name, avatar, size, extraStyle = "") {
     return avatar
       ? `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" alt="" class="rounded-circle" style="width:${size}px;height:${size}px;object-fit:cover;flex-shrink:0;${extraStyle}">`
@@ -2487,7 +2523,7 @@ class FinancialReportsComponent {
       <div class="d-flex align-items-center gap-2 small text-muted" style="padding:6px 8px 4px 20px;background:#f8f9fb;">
         <i class="bi bi-diagram-3"></i>
         <span>${escapeHtml(row.name)} members · each member's % of the group</span>
-        <span class="badge bg-light text-secondary border ms-auto" style="font-weight:500;"><i class="bi bi-shield-lock me-1"></i>Admin view · not in exports</span>
+        <span class="badge bg-light text-secondary border ms-auto" style="font-weight:500;"><i class="bi bi-shield-lock me-1"></i>Admin view · % &amp; profit not in exports</span>
       </div>`;
     members.forEach((m) => {
       html += subRow(m, this._groupMemberAvatarHtml(row.investor, m, 28));
@@ -7908,14 +7944,16 @@ class FinancialReportsComponent {
           paidAmount: s.paidAmount,
           receivedAmount: s.receivedAmount,
           finalAmount: s.finalAmount,
+          members: s.investorId ? this._exportGroupMembers(s.investorId) : [],
         }))
         .filter((inv) => this._shouldShowInvestor(inv));
     }
 
     if (!this.investors || this.investors.length === 0) return [];
 
-    // Shared calculation; exports show the group as one investor, never the
-    // per-member breakdown
+    // Shared calculation; groups list their members with Paid / Received
+    // only (members' % and profit are private to the admin breakdown)
+    const ctx = this._groupContext();
     const rows = this._computeInvestorRows().map((r) => ({
       name: r.name,
       avatar: r.avatar,
@@ -7924,6 +7962,7 @@ class FinancialReportsComponent {
       paidAmount: r.paidAmount,
       receivedAmount: r.receivedAmount,
       finalAmount: r.finalAmount,
+      members: r.isGroup ? this._exportGroupMembers(r.investorId, ctx) : [],
     }));
     return rows.filter((inv) => this._shouldShowInvestor(inv));
   }
@@ -8134,6 +8173,7 @@ class FinancialReportsComponent {
     const SEC_H = 36;
     const THDR_H = 26;
     const INV_ROW_H = 46; // fixed height for investor rows
+    const MEMBER_ROW_H = 32; // group member sub-rows under a group
     const SEC_PAD = 10;
 
     const nodes = [];
@@ -8925,10 +8965,45 @@ class FinancialReportsComponent {
         p(
           `<text x="${IC.final.x}" y="${rowY + Math.floor(INV_ROW_H / 2) + 5}" font-size="16" fill="${finC}" font-weight="700" text-anchor="end">$${inv.finalAmount.toFixed(2)}</text>`,
         );
-        p(
-          `<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
-        );
+        const members = inv.members || [];
+        if (members.length === 0) {
+          p(
+            `<line x1="${M}" y1="${rowY + INV_ROW_H}" x2="${M + CW}" y2="${rowY + INV_ROW_H}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
+          );
+        }
         y += INV_ROW_H;
+
+        // Group members: name + their own Paid / Received only
+        members.forEach((m, mi) => {
+          const subY = y;
+          const midY = subY + Math.floor(MEMBER_ROW_H / 2);
+          const last = mi === members.length - 1;
+          // Tree connector from the group avatar down to each member
+          p(
+            `<line x1="${cx}" y1="${subY - (mi === 0 ? 8 : 0)}" x2="${cx}" y2="${last ? midY : subY + MEMBER_ROW_H}" stroke="${META_TXT}" stroke-opacity="0.5" stroke-width="1.5"/>`,
+          );
+          p(
+            `<line x1="${cx}" y1="${midY}" x2="${cx + 16}" y2="${midY}" stroke="${META_TXT}" stroke-opacity="0.5" stroke-width="1.5"/>`,
+          );
+          renderCircleAvatar(m.avatar || null, m.name, cx + 28, midY, 11);
+          const mName = fitName(m.name);
+          p(
+            `<text x="${cx + 46}" y="${midY + 5}" font-size="${Math.min(mName.size, 14)}" fill="${TEXT_PRIMARY}" fill-opacity="0.85">${this._svgEsc(mName.text)}</text>`,
+          );
+          const amt = (n, x) =>
+            p(
+              `<text x="${x}" y="${midY + 5}" font-size="14" fill="${n ? TEXT_PRIMARY : META_TXT}" fill-opacity="${n ? 0.85 : 0.7}" text-anchor="end">$${n.toFixed(2)}</text>`,
+            );
+          amt(m.paidAmount, IC.paid.x);
+          amt(m.receivedAmount, IC.recv.x);
+          y += MEMBER_ROW_H;
+        });
+        if (members.length > 0) {
+          y += 4;
+          p(
+            `<line x1="${M}" y1="${y}" x2="${M + CW}" y2="${y}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
+          );
+        }
       });
     }
 
