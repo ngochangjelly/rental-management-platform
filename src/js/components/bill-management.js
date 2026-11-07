@@ -3894,6 +3894,29 @@ class BillManagementComponent {
     return this._avatarDataUri(optimized);
   }
 
+  // Starts copying a PNG to the clipboard right away, while the click still
+  // counts as a user gesture (Safari rejects clipboard writes made after a
+  // long await). The image is handed over later via resolve(blob).
+  // Returns null when the browser can't copy images.
+  _startClipboardImageCopy() {
+    if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write)
+      return null;
+    let resolve, reject;
+    const blobPromise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    blobPromise.catch(() => {}); // a failed render is reported elsewhere
+    const done = navigator.clipboard
+      .write([new ClipboardItem({ "image/png": blobPromise })])
+      .then(() => true)
+      .catch((err) => {
+        console.warn("[BillManagement] bill image clipboard copy failed:", err);
+        return false;
+      });
+    return { resolve, reject, done };
+  }
+
   _triggerDownload(blob, fileName) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -3949,6 +3972,9 @@ class BillManagementComponent {
     if (this.selectedTenants.size === 0) return;
 
     await this._withBusyButton("billDownloadSelectedBtn", async () => {
+      // The clipboard holds one image, so only copy when one bill is picked.
+      const clip =
+        this.selectedTenants.size === 1 ? this._startClipboardImageCopy() : null;
       try {
         const { tenantBills, ctx } = await this._getExportSource();
         const targets = tenantBills.filter((tb) =>
@@ -3995,14 +4021,22 @@ class BillManagementComponent {
 
           const { blob, fileName } = result.value;
           this._triggerDownload(blob, fileName);
+          clip?.resolve(blob);
           succeeded++;
 
           if (i < renderResults.length - 1)
             await new Promise((r) => setTimeout(r, 250));
         }
 
+        if (succeeded === 0) clip?.reject(new Error("no bill rendered"));
+        const copied = clip ? await clip.done : false;
+
         if (succeeded === targets.length) {
-          showToast(t("billDownloadSuccess", { count: succeeded }), "success");
+          showToast(
+            t("billDownloadSuccess", { count: succeeded }) +
+              (copied ? t("billImageCopiedSuffix") : ""),
+            "success",
+          );
         } else if (succeeded > 0) {
           showToast(
             t("billDownloadPartial", { succeeded, total: targets.length }),
@@ -4012,6 +4046,7 @@ class BillManagementComponent {
           showToast(t("billDownloadFailed"), "error");
         }
       } catch (err) {
+        clip?.reject(err);
         console.error("[BillManagement] download bills error:", err);
         showToast(t("billDownloadFailed"), "error");
       }
@@ -4029,6 +4064,7 @@ class BillManagementComponent {
     }
 
     await this._withBusyButton("billDownloadCombinedBtn", async () => {
+      const clip = this._startClipboardImageCopy();
       try {
         const { tenantBills, ctx } = await this._getExportSource();
         const targets = this._groupByRoom(
@@ -4059,16 +4095,19 @@ class BillManagementComponent {
         });
         const blob = await this._renderCardToBlob(cardHtml);
         this._triggerDownload(blob, this._billFileName(targets, ctx));
+        clip?.resolve(blob);
+        const copied = clip ? await clip.done : false;
 
         const total = sumCents(targets.map((tb) => tb.totalAmount));
         showToast(
           t("billCombinedDownloadSuccess", {
             count: targets.length,
             amount: fmtMoney(total),
-          }),
+          }) + (copied ? t("billImageCopiedSuffix") : ""),
           "success",
         );
       } catch (err) {
+        clip?.reject(err);
         console.error("[BillManagement] combined bill download error:", err);
         showToast(t("billCombinedDownloadFailed"), "error");
       }
