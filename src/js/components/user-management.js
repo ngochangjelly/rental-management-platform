@@ -264,8 +264,12 @@ class UserManagement {
       return;
     }
 
+    // Only one property to grant: tick it for new users so it isn't missed.
+    // Existing users keep exactly what they were given.
+    const autoSelectSole = this.properties.length === 1 && !this.editingUserId;
+
     container.innerHTML = this.properties.map(property => {
-      const isChecked = selectedProperties.includes(property.propertyId);
+      const isChecked = autoSelectSole || selectedProperties.includes(property.propertyId);
       const address = [property.address || 'N/A', property.unit].filter(Boolean).join(' ');
       return `
         <label class="um-prop-item" for="property-${property.propertyId}">

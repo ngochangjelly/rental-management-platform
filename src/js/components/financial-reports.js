@@ -407,6 +407,13 @@ class FinancialReportsComponent {
       this.renderPropertyCards(allProperties);
       // Load report statuses for all properties (async, will re-render when done)
       this.loadPropertyReportStatuses();
+
+      // Only one property to choose from: open it straight away. Skipped when
+      // the URL already points at a property — the router opens that one.
+      const deepLinked = /^#\/financial\/[^/]+/.test(window.location.hash || "");
+      if (this.properties.length === 1 && !this.selectedProperty && !deepLinked) {
+        this.selectProperty(this.properties[0].propertyId);
+      }
     } catch (error) {
       console.error("Error loading properties:", error);
       this.showError(

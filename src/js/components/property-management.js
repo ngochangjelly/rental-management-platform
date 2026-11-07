@@ -1030,13 +1030,14 @@ class PropertyManagementComponent {
   autoSelectFirstPropertyOnce() {
     if (this._hasAutoSelected || this.selectedPropertyId) return;
     this._hasAutoSelected = true;
-    // Phones show the list first and the detail panel is off-screen, so
-    // there's nothing to pre-fill — and doing so would point the URL at a
-    // property, reopening it on refresh.
-    if (isMobileViewport()) return;
 
     const visible = this.getVisibleProperties();
     const sorted = this.sortPropertiesForDisplay(visible);
+    // Phones show the list first and the detail panel is off-screen, so
+    // there's nothing to pre-fill — and doing so would point the URL at a
+    // property, reopening it on refresh. Exception: with only one property
+    // there's nothing to choose, so open it on phones too.
+    if (isMobileViewport() && sorted.length !== 1) return;
     if (sorted.length > 0) {
       this.showPropertyPanel(sorted[0]);
     }
