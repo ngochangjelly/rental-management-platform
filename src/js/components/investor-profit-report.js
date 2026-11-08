@@ -54,6 +54,9 @@ class investorProfitChartComponent {
     this._shownPropertyId = null;
     this.propertyChart = null;
     this.propertyChartType = "bar"; // bar | line
+    // Property view starts at the property's first month; a start picked by
+    // hand sticks until another property is chosen: { propertyId, key }
+    this.propertyStartOverride = null;
 
     this.init();
   }
@@ -111,6 +114,7 @@ class investorProfitChartComponent {
       if (doughnut) doughnut.hidden = this.view === "property";
     }
     this.updateChartTypeButtons();
+    this.syncPeriodInputs();
 
     if (this.view === "property") {
       this.ensurePropertiesLoaded();
@@ -125,7 +129,10 @@ class investorProfitChartComponent {
 
   // Year pickers cover 2023 → this year (and any year already chosen)
   syncYearOptions() {
-    const first = Math.min(2023, this.startYear, this.endYear);
+    const propertyStartYear = this.selectedPropertyId
+      ? Math.floor(this.getPropertyStartKey() / 12)
+      : this.startYear;
+    const first = Math.min(2023, this.startYear, this.endYear, propertyStartYear);
     const last = Math.max(new Date().getFullYear(), this.startYear, this.endYear);
     ["investorProfitStartYear", "investorProfitEndYear"].forEach((id) => {
       const select = document.getElementById(id);
@@ -439,10 +446,35 @@ class investorProfitChartComponent {
     const endMonthInput = document.getElementById("investorProfitEndMonth");
 
     if (startYearInput && startMonthInput && endYearInput && endMonthInput) {
+      const endYear = parseInt(endYearInput.value) || this.endYear;
+      const endMonth = parseInt(endMonthInput.value) || this.endMonth;
+
+      // Property tab: the start belongs to this property only
+      if (this.view === "property" && this.selectedPropertyId) {
+        const sy = parseInt(startYearInput.value);
+        const sm = parseInt(startMonthInput.value);
+        if (sy && sm) {
+          const key = sy * 12 + sm - 1;
+          this.propertyStartOverride =
+            key === this.getPropertyAutoStartKey()
+              ? null
+              : { propertyId: this.selectedPropertyId, key };
+        }
+        const endChanged = endYear !== this.endYear || endMonth !== this.endMonth;
+        this.endYear = endYear;
+        this.endMonth = endMonth;
+        if (endChanged) {
+          this.profitDataMap.clear();
+          if (this.selectedInvestors.size > 0) this.loadProfitData();
+        }
+        this.renderPropertyView();
+        return;
+      }
+
       this.startYear = parseInt(startYearInput.value) || this.startYear;
       this.startMonth = parseInt(startMonthInput.value) || this.startMonth;
-      this.endYear = parseInt(endYearInput.value) || this.endYear;
-      this.endMonth = parseInt(endMonthInput.value) || this.endMonth;
+      this.endYear = endYear;
+      this.endMonth = endMonth;
 
       // Clear cached data and reload
       this.profitDataMap.clear();
@@ -1543,6 +1575,7 @@ class investorProfitChartComponent {
   selectProperty(propertyId) {
     if (!propertyId || propertyId === this.selectedPropertyId) return;
     this.selectedPropertyId = propertyId;
+    this.propertyStartOverride = null;
     this._store("iprPropertyId", propertyId);
     this.renderPropertyList();
     this.loadPropertyReports(propertyId);
@@ -1702,11 +1735,47 @@ class investorProfitChartComponent {
   }
 
   /** Every month in the date range for the selected property. */
+  /**
+   * Month key (year * 12 + month - 1) the property's profit starts at: its
+   * lease start or its first financial report, whichever is earlier.
+   */
+  getPropertyAutoStartKey() {
+    const keys = (this.propertyReports.get(this.selectedPropertyId) || []).map(
+      (r) => r.year * 12 + r.month - 1,
+    );
+    const moveIn = this.getSelectedProperty()?.moveInDate;
+    const d = moveIn ? new Date(moveIn) : null;
+    if (d && !Number.isNaN(d.getTime())) keys.push(d.getFullYear() * 12 + d.getMonth());
+    return keys.length ? Math.min(...keys) : this.startYear * 12 + this.startMonth - 1;
+  }
+
+  getPropertyStartKey() {
+    const o = this.propertyStartOverride;
+    return o && o.propertyId === this.selectedPropertyId ? o.key : this.getPropertyAutoStartKey();
+  }
+
+  /** Date pickers show the range of the tab in view. */
+  syncPeriodInputs() {
+    this.syncYearOptions();
+    const startKey =
+      this.view === "property" && this.selectedPropertyId
+        ? this.getPropertyStartKey()
+        : this.startYear * 12 + this.startMonth - 1;
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = String(v);
+    };
+    set("investorProfitStartYear", Math.floor(startKey / 12));
+    set("investorProfitStartMonth", (startKey % 12) + 1);
+    set("investorProfitEndYear", this.endYear);
+    set("investorProfitEndMonth", this.endMonth);
+  }
+
   getPropertyMonths() {
     const reports = this.propertyReports.get(this.selectedPropertyId);
     if (!reports) return [];
     const byMonth = new Map(reports.map((r) => [r.year * 12 + r.month - 1, r]));
-    const start = this.startYear * 12 + this.startMonth - 1;
+    const start = this.getPropertyStartKey();
     const end = this.endYear * 12 + this.endMonth - 1;
     const months = [];
     for (let k = start; k <= end && months.length < 240; k++) {
@@ -1980,6 +2049,7 @@ class investorProfitChartComponent {
     if (this.propertyReportsLoading && !hasData && this._shownPropertyId) return;
 
     const months = this.getPropertyMonths();
+    if (this.view === "property") this.syncPeriodInputs();
     this.renderPropertySubtitle();
     this.renderPropertyStats(months);
     this.renderPropertyChartArea(months);
@@ -2322,7 +2392,6 @@ class investorProfitChartComponent {
           <div class="ipr-pm-status">${this.t("status", "Status")}</div>
           <div class="ipr-pm-go"></div>
         </div>
-        ${rows}
         <div class="ipr-pm-total">
           <div class="ipr-pm-month">${this.t("total", "Total")}</div>
           <div class="ipr-pm-num ipr-pm-income"><span class="ipr-pm-label">${inLabel}</span>${this.fmtMoney(total.income)}</div>
@@ -2331,6 +2400,7 @@ class investorProfitChartComponent {
           <div class="ipr-pm-status"><small class="text-muted fw-normal">${this.t("monthsCount", "{{n}} months", { n: reported.length })}</small></div>
           <div class="ipr-pm-go"></div>
         </div>
+        ${rows}
       </div>`;
   }
 }

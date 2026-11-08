@@ -33,33 +33,33 @@
     "npm": ">=8.0.0"
   },
   "optionalDependencies": {
-    "serve": "^14.2.0"
+    "serve": "^10.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",
     "@babel/preset-env": "^7.28.3",
     "babel-loader": "^10.0.0",
-    "copy-webpack-plugin": "^13.0.1",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.2",
     "eslint": "^8.55.0",
     "html-webpack-plugin": "^5.6.4",
-    "serve": "^14.2.0",
+    "serve": "^10.0.2",
     "style-loader": "^4.0.0",
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.2"
+    "webpack-dev-server": "^6.1.0"
   },
   "dependencies": {
     "bignumber.js": "^11.1.1",
     "docx": "^9.5.1",
     "html2canvas": "^1.4.1",
     "i18next": "^25.8.0",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.2.1",
     "mammoth": "^1.11.0",
     "mongodb": "^7.2.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.530",
-    "quill": "^2.0.3",
+    "quill": "^2.0.2",
     "xlsx": "^0.18.5"
   }
 }

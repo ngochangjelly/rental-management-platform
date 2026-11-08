@@ -546,6 +546,11 @@ class DashboardController {
     if (!window.investorProfitChart) return;
 
     const component = window.investorProfitChart;
+    // The component knows which tab's range to show (property tab has its own start)
+    if (typeof component.syncPeriodInputs === "function") {
+      component.syncPeriodInputs();
+      return;
+    }
     const startYearSelect = document.getElementById("investorProfitStartYear");
     const startMonthSelect = document.getElementById(
       "investorProfitStartMonth",
