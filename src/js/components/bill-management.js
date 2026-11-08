@@ -1588,7 +1588,12 @@ class BillManagementComponent {
     // early would miss that, letting the innerHTML wipe below destroy the
     // toolbar's actual DOM node for the rest of the session. Detach right
     // before the wipe instead (see comment there).
+    const bill = this.currentBill;
     const profileMap = await this._loadTenantProfileMap();
+
+    // The bill can change (or become null) during the await above when the
+    // user switches month/property — a newer render will handle that state.
+    if (this.currentBill !== bill) return;
 
     const tenantBills = this.currentBill.tenantBills || [];
 
