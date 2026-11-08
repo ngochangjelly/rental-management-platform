@@ -36,6 +36,11 @@ import {
 } from "../utils/unclosed-report-badge.js";
 import { isMobileViewport, openActionSheet } from "../utils/mobile-ux.js";
 
+// Property picker cards: report-status colours and photo banner height
+const LOCKED_COLOR = "#495057";
+const SETTLED_COLOR = "#0d9488";
+const CARD_BANNER_HEIGHT = 55;
+
 /**
  * Financial Reports Component
  * Handles monthly financial report management with income, expenses, and investor calculations
@@ -590,22 +595,29 @@ class FinancialReportsComponent {
       return;
     }
 
-    // Filter bar
+    const statusesReady = this.reportStatusesReady();
+    const monthLabel = this.reportMonthLabel();
+    const statusOf = (p) => this.propertyReportStatus[p.propertyId] || {};
+    const lockedCount = properties.filter((p) => statusOf(p).isClosed).length;
+    const settledCount = properties.filter((p) => statusOf(p).isSettled).length;
+
+    // Filter bar. Counts appear once this month's statuses have loaded.
     const filterDef = [
-      { key: "all",         label: "All",                                                          color: "#6c757d" },
-      { key: "settled",     label: '<i class="bi bi-cash-coin me-1"></i>Settled',                  color: "#0d9488" },
-      { key: "not-settled", label: '<i class="bi bi-cash-coin me-1"></i>Not Settled',              color: "#0d9488" },
-      { key: "locked",      label: '<i class="bi bi-lock-fill me-1"></i>Locked',                   color: "#198754" },
-      { key: "not-locked",  label: '<i class="bi bi-unlock-fill me-1"></i>Not Locked',             color: "#198754" },
+      { key: "all",         label: "All",                                              color: "#6c757d",        count: properties.length },
+      { key: "settled",     label: '<i class="bi bi-cash-coin me-1"></i>Settled',      color: SETTLED_COLOR,    count: settledCount },
+      { key: "not-settled", label: '<i class="bi bi-cash-coin me-1"></i>Not Settled',  color: SETTLED_COLOR,    count: properties.length - settledCount },
+      { key: "locked",      label: '<i class="bi bi-lock-fill me-1"></i>Locked',       color: LOCKED_COLOR,     count: lockedCount },
+      { key: "not-locked",  label: '<i class="bi bi-unlock-fill me-1"></i>Not Locked', color: LOCKED_COLOR,     count: properties.length - lockedCount },
     ];
     const filterBar = document.createElement("div");
     filterBar.style.cssText = "grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap;";
-    filterBar.innerHTML = filterDef.map(({ key, label, color }) => {
+    filterBar.innerHTML = filterDef.map(({ key, label, color, count }) => {
       const active = this.propertyFilter === key;
       const baseStyle = `font-size: 11px; padding: 2px 10px; border-radius: 20px; border: 1.5px solid; cursor: pointer; transition: all 0.15s;`;
       const activeStyle  = `background:${color}; border-color:${color}; color:#fff;`;
       const inactiveStyle = `background:transparent; border-color:${color}; color:${color};`;
-      return `<button style="${baseStyle}${active ? activeStyle : inactiveStyle}" onclick="window.financialReports.setPropertyFilter('${key}')">${label}</button>`;
+      const countHtml = statusesReady ? `<span class="fr-filter-count">${count}</span>` : "";
+      return `<button type="button" aria-pressed="${active}" style="${baseStyle}${active ? activeStyle : inactiveStyle}" onclick="window.financialReports.setPropertyFilter('${key}')">${label}${countHtml}</button>`;
     }).join("");
     container.appendChild(filterBar);
 
@@ -629,14 +641,12 @@ class FinancialReportsComponent {
       container.appendChild(empty);
       return;
     }
-    const statusesReady = this.reportStatusesReady();
-    const monthLabel = this.reportMonthLabel();
     sortedProperties.forEach((property) => {
       const isSelected =
         String(this.selectedProperty) === String(property.propertyId);
       const reportStatus = this.propertyReportStatus[property.propertyId];
-      const isReportClosed = reportStatus && reportStatus.isClosed;
-      const isReportSettled = reportStatus && reportStatus.isSettled;
+      const isReportClosed = !!reportStatus?.isClosed;
+      const isReportSettled = !!reportStatus?.isSettled;
       // Yellow warning marker: this month's report is not closed yet. Its
       // hover tooltip links to the report in a new tab.
       const unclosedBadge =
@@ -648,49 +658,58 @@ class FinancialReportsComponent {
               monthLabel,
             })
           : "";
-      const cardStatusColor = isReportSettled
-        ? "#0d9488"
+      // A locked report is done for the month, so its card is faded and
+      // greyed (styles in dashboard.html) and the open ones stand out.
+      // Settled reports are locked too; only their seal differs.
+      const lock = isReportSettled
+        ? { state: "settled", icon: "bi-cash-coin", label: "Settled", title: `${monthLabel} report settled (locked, investors paid)` }
         : isReportClosed
-          ? "#198754"
+          ? { state: "locked", icon: "bi-lock-fill", label: "Locked", title: `${monthLabel} report locked (done, no more edits)` }
           : null;
+      const idColor = isReportSettled ? SETTLED_COLOR : isReportClosed ? "#6c757d" : "#0d6efd";
+      const idText = escapeHtml(property.propertyId.toString().substring(0, 3));
+      const stabilityCardBadge = renderStabilityCardBadge(property);
       const cardHtml = `
-        <div class="card property-grid-card property-card-compact ${isSelected ? "selected-card" : ""} ${isReportSettled ? "property-card-settled" : isReportClosed ? "property-card-closed" : ""} overflow-hidden"
-             style="cursor: pointer; transition: all 0.2s ease;"
+        <div class="card property-grid-card property-card-compact fr-prop-card ${isSelected ? "selected-card" : ""} ${lock ? "property-card-locked" : ""} overflow-hidden"
              data-property-id="${property.propertyId}"
+             ${lock ? `title="${escapeHtml(lock.title)}"` : ""}
              onclick="window.financialReports.selectProperty('${property.propertyId}')">
           ${
             property.propertyImage
-              ? `<div data-role="property-image" style="height: 55px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
+              ? `<div data-role="property-image" style="height: ${CARD_BANNER_HEIGHT}px; background-image: url('${property.propertyImage}'); background-size: cover; background-position: center; position: relative;">
                  <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
-                      style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2; background-color: ${cardStatusColor || "#0d6efd"};">
-                   ${escapeHtml(property.propertyId.toString().substring(0, 3))}
+                      style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2; background-color: ${idColor};">
+                   ${idText}
                  </div>
                  ${renderPropertyImageAvatarBadge(this.allInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
-                 <div class="position-absolute bottom-0 start-0 p-1 d-flex align-items-center gap-1" style="z-index: 3; line-height: 1;">${renderStabilityBadge(property.isStable, "font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);")}${isReportClosed ? '<span class="badge bg-success" style="font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);" title="Report closed"><i class="bi bi-lock-fill"></i></span>' : ""}</div>
+                 <div class="position-absolute bottom-0 start-0 p-1 d-flex align-items-center gap-1" style="z-index: 3; line-height: 1;">${renderStabilityBadge(property.isStable, "font-size: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.45);")}</div>
                  ${unclosedBadge ? `<div class="position-absolute bottom-0 end-0 p-1" style="z-index: 3; line-height: 1;">${unclosedBadge}</div>` : ""}
-                 ${isReportSettled ? `<div style="position: absolute; inset: 0; background: rgba(13,148,136,0.42); display: ${isSelected ? "none" : "flex"}; align-items: center; justify-content: center;"><i class="bi bi-cash-coin text-white" style="font-size: 1.3rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i></div>` : ""}
                  <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
-               </div>`
+               </div>
+               ${
+                 lock
+                   ? `<div class="fr-lock-layer" style="height: ${CARD_BANNER_HEIGHT}px;"><span class="fr-lock-seal fr-lock-seal--${lock.state}" role="img" aria-label="${escapeHtml(lock.title)}"><i class="bi ${lock.icon}" aria-hidden="true"></i><span class="fr-lock-seal-text" aria-hidden="true">${lock.label}</span></span></div>`
+                   : ""
+               }`
               : ""
           }
-          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : isReportSettled ? "rgba(13,148,136,0.07)" : "#fff"};">
+          <div data-role="card-body" class="d-flex flex-column align-items-center p-2" style="gap: 3px;">
             ${
               !property.propertyImage
-                ? `<div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
-                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${cardStatusColor || "#0d6efd"};">
-              ${escapeHtml(property.propertyId.toString().substring(0, 3))}
+                ? `<div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold fr-dim"
+                 style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; background-color: ${idColor};">
+              ${idText}
             </div>`
                 : ""
             }
-            <div class="text-center" style="line-height: 1.2; width: 100%;">
+            <div class="text-center fr-dim" style="line-height: 1.2; width: 100%;">
               <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${escapeHtml(property.address || "")}">${escapeHtml(property.address || property.propertyId)}</div>
               <div class="text-muted text-truncate" style="font-size: 10px;">${escapeHtml(property.unit || "")}</div>
             </div>
-            ${renderStabilityCardBadge(property)}
+            ${stabilityCardBadge ? `<span class="fr-dim">${stabilityCardBadge}</span>` : ""}
             ${!property.propertyImage ? unclosedBadge : ""}
             ${!property.propertyImage ? `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>` : ""}
-            ${!property.propertyImage && isReportSettled && !isSelected ? `<span class="badge" style="font-size: 8px;background:#0d9488;"><i class="bi bi-cash-coin me-1"></i>Settled</span>` : ""}
-            ${!property.propertyImage && isReportClosed && !isReportSettled && !isSelected ? '<span class="badge bg-success" style="font-size: 8px;"><i class="bi bi-lock-fill me-1"></i>Done</span>' : ""}
+            ${!property.propertyImage && lock ? `<span class="badge fr-lock-badge fr-lock-badge--${lock.state}"><i class="bi ${lock.icon} me-1" aria-hidden="true"></i>${lock.label}</span>` : ""}
           </div>
         </div>
       `;
@@ -857,7 +876,9 @@ class FinancialReportsComponent {
   }
 
   updatePropertyCardSelection() {
-    const allCards = document.querySelectorAll(".property-card-compact");
+    // Only this module's grid — other modules render .property-card-compact too.
+    // The selected/locked tints and the lock seal follow the classes via CSS.
+    const allCards = document.querySelectorAll("#propertyCards .property-card-compact");
     allCards.forEach((card) => {
       const isSelected =
         String(card.dataset.propertyId) === String(this.selectedProperty);
@@ -867,12 +888,6 @@ class FinancialReportsComponent {
       const overlay = card.querySelector('[data-role="selected-overlay"]');
       if (overlay) {
         overlay.style.display = isSelected ? "flex" : "none";
-      }
-
-      // Update body background
-      const body = card.querySelector('[data-role="card-body"]');
-      if (body) {
-        body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
       }
 
       // Update check icon for cards without images

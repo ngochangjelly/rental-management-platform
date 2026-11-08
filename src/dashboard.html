@@ -1971,17 +1971,124 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
 
-      /* Financial Reports status borders (same 2px box as every other state) */
-      .property-grid-card.property-card-closed {
-        border-color: #198754;
+      /* Financial Reports picker: a locked report is done for the month, so
+         its card steps back (greyscale photo, faded text, quiet border) and
+         the open ones, still to do, stand out. Hover or select brings the
+         colour back. Settled reports are locked too; only the seal differs. */
+      .fr-prop-card.selected-card [data-role="card-body"] {
+        background: rgba(13, 110, 253, 0.07);
       }
 
-      .property-grid-card.property-card-settled {
-        border-color: #0d9488;
+      .property-grid-card.property-card-locked {
+        border-color: #e9ecef;
+        background: #f8f9fa;
+      }
+
+      .property-card-locked [data-role="property-image"] {
+        filter: grayscale(1);
+        opacity: 0.4;
+        transition:
+          filter 0.2s ease,
+          opacity 0.2s ease;
+      }
+
+      .property-card-locked .fr-dim {
+        opacity: 0.5;
+        transition: opacity 0.2s ease;
+      }
+
+      /* Selected + locked: stays grey and keeps its "Locked" seal so it still
+         reads as locked; the green ring, blue body tint and the seal turning
+         solid mark the selection (the blue photo wash would hide the seal). */
+      .property-card-locked.selected-card [data-role="property-image"] {
+        filter: grayscale(1);
+        opacity: 0.7;
+      }
+
+      .property-card-locked [data-role="selected-overlay"] {
+        display: none !important;
+      }
+
+      .property-card-locked.selected-card .fr-dim {
+        opacity: 0.75;
+      }
+
+      @media (hover: hover) {
+        .property-grid-card.property-card-locked:hover {
+          border-color: #0d6efd;
+        }
+
+        .property-card-locked:hover [data-role="property-image"] {
+          filter: none;
+          opacity: 1;
+        }
+
+        .property-card-locked:hover .fr-dim {
+          opacity: 1;
+        }
+      }
+
+      /* The seal sits over the photo, outside its faded layer so it stays
+         crisp. */
+      .fr-lock-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+        pointer-events: none;
+      }
+
+      .fr-lock-seal {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px 3px 8px;
+        border-radius: 999px;
+        background: #fff;
+        color: #343a40;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
         box-shadow:
-          0 0 0 2px rgba(13, 148, 136, 0.18),
-          0 2px 8px rgba(13, 148, 136, 0.15);
-        background: rgba(13, 148, 136, 0.04);
+          0 0 0 1px rgba(0, 0, 0, 0.08),
+          0 2px 6px rgba(0, 0, 0, 0.18);
+      }
+
+      .fr-lock-seal--settled {
+        color: #0d9488;
+      }
+
+      .selected-card .fr-lock-seal {
+        background: #343a40;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+
+      .selected-card .fr-lock-seal--settled {
+        background: #0d9488;
+      }
+
+      /* Cards without a photo carry the status as a badge in the body */
+      .fr-lock-badge {
+        font-size: 8px;
+        background: #495057;
+      }
+
+      .fr-lock-badge--settled {
+        background: #0d9488;
+      }
+
+      .fr-filter-count {
+        margin-left: 5px;
+        font-weight: 700;
+        opacity: 0.75;
       }
 
       .property-select-card.selected,
