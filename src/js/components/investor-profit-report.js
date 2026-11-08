@@ -666,6 +666,7 @@ class investorProfitChartComponent {
         // Add trend line for this investor
         datasets.push({
           label: `${investor?.name || investorId} (Trend)`,
+          isTrend: true,
           data: profitValues,
           type: "line",
           borderColor: color.border,
@@ -696,38 +697,8 @@ class investorProfitChartComponent {
     // Chart configuration based on type
     let chartConfig;
 
-    // Custom plugin to display data labels on top of bars
-    const dataLabelsPlugin = {
-      id: "dataLabels",
-      afterDatasetsDraw: (chart) => {
-        if (this.chartType !== "bar") return;
-
-        const ctx = chart.ctx;
-        chart.data.datasets.forEach((dataset, datasetIndex) => {
-          // Skip trend line datasets
-          if (dataset.label.includes("(Trend)")) return;
-
-          const meta = chart.getDatasetMeta(datasetIndex);
-          meta.data.forEach((bar, index) => {
-            const value = dataset.data[index];
-            if (value === 0) return;
-
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.textBaseline = "bottom";
-            ctx.font = "bold 11px sans-serif";
-            ctx.fillStyle = value >= 0 ? "#198754" : "#dc3545";
-
-            const text = `${value >= 0 ? "+" : "-"}$${Math.abs(value).toFixed(0)}`;
-            const x = bar.x;
-            const y = bar.y - 5;
-
-            ctx.fillText(text, x, y);
-            ctx.restore();
-          });
-        });
-      },
-    };
+    // Value on every bar / point, so no hover is needed
+    const dataLabelsPlugin = this.investorValueLabels("dataLabels", 11);
 
     if (this.chartType === "bar" || this.chartType === "line") {
       chartConfig = {
@@ -775,6 +746,7 @@ class investorProfitChartComponent {
             },
             y: {
               beginAtZero: true,
+              grace: "15%", // headroom for the value labels
               ticks: {
                 callback: (value) => `$${value}`,
               },
@@ -827,10 +799,12 @@ class investorProfitChartComponent {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              position: "right",
+              // Totals sit in the legend; below the ring on phones
+              position: canvas.parentElement?.clientWidth < 576 ? "bottom" : "right",
               labels: {
                 boxWidth: 12,
                 padding: 10,
+                generateLabels: this.doughnutLegendWithValues(investorTotals),
               },
             },
             tooltip: {
@@ -1329,6 +1303,7 @@ class investorProfitChartComponent {
         // Add trend line for this investor
         datasets.push({
           label: `${investor?.name || investorId} (Trend)`,
+          isTrend: true,
           data: profitValues,
           type: "line",
           borderColor: color.border,
@@ -1356,38 +1331,8 @@ class investorProfitChartComponent {
       }
     }
 
-    // Custom plugin for data labels in fullscreen
-    const dataLabelsPlugin = {
-      id: "fullscreenDataLabels",
-      afterDatasetsDraw: (chart) => {
-        if (this.chartType !== "bar") return;
-
-        const ctx = chart.ctx;
-        chart.data.datasets.forEach((dataset, datasetIndex) => {
-          // Skip trend line datasets
-          if (dataset.label.includes("(Trend)")) return;
-
-          const meta = chart.getDatasetMeta(datasetIndex);
-          meta.data.forEach((bar, index) => {
-            const value = dataset.data[index];
-            if (value === 0) return;
-
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.textBaseline = "bottom";
-            ctx.font = "bold 14px sans-serif";
-            ctx.fillStyle = value >= 0 ? "#198754" : "#dc3545";
-
-            const text = `${value >= 0 ? "+" : "-"}$${Math.abs(value).toFixed(0)}`;
-            const x = bar.x;
-            const y = bar.y - 8;
-
-            ctx.fillText(text, x, y);
-            ctx.restore();
-          });
-        });
-      },
-    };
+    // Value on every bar / point, so no hover is needed
+    const dataLabelsPlugin = this.investorValueLabels("fullscreenDataLabels", 14);
 
     let chartConfig;
 
@@ -1432,6 +1377,7 @@ class investorProfitChartComponent {
             },
             y: {
               beginAtZero: true,
+              grace: "15%", // headroom for the value labels
               ticks: {
                 callback: (value) => `$${value}`,
                 font: { size: 12 },
@@ -1484,11 +1430,12 @@ class investorProfitChartComponent {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              position: "right",
+              position: canvas.parentElement?.clientWidth < 576 ? "bottom" : "right",
               labels: {
                 boxWidth: 16,
                 padding: 16,
                 font: { size: 14 },
+                generateLabels: this.doughnutLegendWithValues(investorTotals),
               },
             },
             tooltip: {
@@ -1815,6 +1762,191 @@ class investorProfitChartComponent {
     return `${value < 0 ? "-" : ""}$${text}`;
   }
 
+  /** Short money for chart labels: $850, $1.2k, $15k, $1.3M */
+  fmtShortMoney(value, { sign = false } = {}) {
+    const abs = Math.abs(value);
+    let text;
+    if (abs >= 999500) text = `${+(abs / 1e6).toFixed(abs >= 9.95e6 ? 0 : 1)}M`;
+    else if (abs >= 999.5) text = `${+(abs / 1000).toFixed(abs >= 9950 ? 0 : 1)}k`;
+    else text = String(Math.round(abs));
+    const prefix = text === "0" ? "" : value < 0 ? "-" : sign ? "+" : "";
+    return `${prefix}$${text}`;
+  }
+
+  /**
+   * Chart.js plugin that prints the value of every bar and line point, so
+   * nothing needs a hover. Labels are measured before drawing:
+   *  - every label in a chart uses one format, the widest that fits:
+   *    +$1,234 → +$1.2k → 1.2k;
+   *  - a label never covers another label, another bar or another point;
+   *  - bars: value at the tip (below the bar for a loss);
+   *  - lines: the top line labels above its points, the bottom line below,
+   *    a middle line on the side with more room; then the other side;
+   *  - a label with no free spot is left out (the tooltip still has it).
+   * Layout uses the final (post-animation) positions so labels don't
+   * flicker while bars grow; they are drawn at the current position.
+   */
+  valueLabelsPlugin(
+    id,
+    {
+      fontSize = 11,
+      skipZero = false, // investor charts use 0 for "no data that month"
+      skipDataset = () => false,
+      sign = () => false,
+      color = () => "#374151",
+      weight = () => 600,
+    } = {},
+  ) {
+    const FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    const GAP = 4; // mark → its label
+    const SPACE = 2; // clear space between two labels
+    const formats = [
+      { size: fontSize, text: (v, s) => this.fmtMoney(v, { sign: s, decimals: 0 }) },
+      { size: fontSize, text: (v, s) => this.fmtShortMoney(v, { sign: s }) },
+      { size: Math.max(10, fontSize - 1), text: (v) => this.fmtShortMoney(v).replace("$", "") },
+    ];
+    const hits = (a, b, pad) =>
+      a.x < b.x + b.w + pad &&
+      b.x < a.x + a.w + pad &&
+      a.y < b.y + b.h + pad &&
+      b.y < a.y + a.h + pad;
+
+    // Every visible bar / point, with the box it covers
+    const collectMarks = (chart) => {
+      const marks = [];
+      chart.data.datasets.forEach((ds, di) => {
+        if (!chart.isDatasetVisible(di) || skipDataset(ds, di)) return;
+        const meta = chart.getDatasetMeta(di);
+        const isBar = meta.type === "bar";
+        // Point labels clear the dot (radius + border), not just its centre
+        const r = isBar ? 0 : (ds.pointRadius ?? 3) + (ds.pointBorderWidth ?? 1);
+        meta.data.forEach((el, i) => {
+          const v = ds.data[i];
+          if (v == null || !Number.isFinite(v)) return;
+          const p = el.getProps(["x", "y", "base", "width"], true);
+          const box = isBar
+            ? { x: p.x - p.width / 2, y: Math.min(p.y, p.base), w: p.width, h: Math.abs(p.base - p.y) }
+            : { x: p.x - r, y: p.y - r, w: 2 * r, h: 2 * r };
+          marks.push({ ds, di, i, el, v, isBar, p, r, box, labelled: !(skipZero && v === 0) });
+        });
+      });
+      for (const m of marks) {
+        if (m.isBar) continue;
+        let up = Infinity;
+        let down = Infinity; // distance to the nearest other line, same month
+        for (const o of marks) {
+          if (o.isBar || o.i !== m.i || o.di === m.di) continue;
+          if (o.p.y < m.p.y) up = Math.min(up, m.p.y - o.p.y);
+          else if (o.p.y > m.p.y) down = Math.min(down, o.p.y - m.p.y);
+        }
+        m.below = up !== Infinity && (down === Infinity || down > up);
+      }
+      return marks;
+    };
+
+    const layout = (chart, marks, f, minY) => {
+      const { ctx, chartArea: area } = chart;
+      const metrics = new Map(); // font → { ascent, h }
+      const taken = [];
+      const labels = [];
+      let dropped = 0;
+
+      for (const m of marks) {
+        if (!m.labelled) continue;
+        const font = `${weight(m.ds, m.di)} ${f.size}px ${FAMILY}`;
+        ctx.font = font;
+        if (!metrics.has(font)) {
+          const t = ctx.measureText("$0123456789,");
+          metrics.set(font, { ascent: t.actualBoundingBoxAscent, h: t.actualBoundingBoxAscent + t.actualBoundingBoxDescent });
+        }
+        const { ascent, h } = metrics.get(font);
+        const text = f.text(m.v, sign(m.ds, m.di));
+        const w = ctx.measureText(text).width;
+        const clampX = (x) => Math.max(area.left, Math.min(x, chart.width - w - 1));
+        const above = m.p.y - m.r - GAP - h;
+        const below = m.p.y + m.r + GAP;
+        const ys = m.isBar ? [m.v < 0 ? below : above] : m.below ? [below, above] : [above, below];
+        // Centred; a bar label may also line up with either edge of its bar
+        // to step away from a taller neighbour in a group
+        const xs = [m.p.x - w / 2];
+        if (m.isBar) xs.push(m.box.x + m.box.w - w, m.box.x);
+        const spot = ys
+          .flatMap((y) => xs.map((x) => ({ x: clampX(x), y, w, h })))
+          .find(
+            (b) =>
+              b.y >= minY &&
+              b.y + b.h <= area.bottom &&
+              !taken.some((o) => hits(o, b, SPACE)) &&
+              !marks.some((o) => o !== m && hits(o.box, b, 0)),
+          );
+        if (!spot) {
+          dropped++;
+          continue;
+        }
+        taken.push(spot);
+        labels.push({ el: m.el, text, font, dx: spot.x - m.p.x, dy: spot.y - m.p.y + ascent, fill: color(m.v, m.ds, m.di) });
+      }
+      return { labels, dropped };
+    };
+
+    return {
+      id,
+      afterDatasetsDraw: (chart) => {
+        const { ctx, chartArea: area } = chart;
+        // Labels may rise into the gap under a top legend, never into it
+        const lg = chart.legend;
+        const minY =
+          lg?.options?.display && lg.options.position === "top" && Number.isFinite(lg.bottom)
+            ? Math.min(lg.bottom + 2, area.top)
+            : 0;
+        const marks = collectMarks(chart);
+        ctx.save();
+        let best = null;
+        for (const f of formats) {
+          const res = layout(chart, marks, f, minY);
+          if (!best || res.labels.length > best.labels.length) best = res;
+          if (res.dropped === 0) break;
+        }
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.92)"; // halo over lines/grid
+        for (const l of best.labels) {
+          const { x, y } = l.el.getProps(["x", "y"]);
+          ctx.font = l.font;
+          ctx.strokeText(l.text, x + l.dx, y + l.dy);
+          ctx.fillStyle = l.fill;
+          ctx.fillText(l.text, x + l.dx, y + l.dy);
+        }
+        ctx.restore();
+      },
+    };
+  }
+
+  /** Investor charts: green profit / red loss with a sign; trend lines unlabeled. */
+  investorValueLabels(id, fontSize) {
+    return this.valueLabelsPlugin(id, {
+      fontSize,
+      skipZero: true,
+      skipDataset: (ds) => ds.isTrend,
+      sign: () => true,
+      color: (v) => (v >= 0 ? "#198754" : "#dc3545"),
+      weight: () => 700,
+    });
+  }
+
+  /** Doughnut legend items with each investor's total after the name. */
+  doughnutLegendWithValues(totals) {
+    return (chart) =>
+      Chart.overrides.doughnut.plugins.legend.labels
+        .generateLabels(chart)
+        .map((item) => ({
+          ...item,
+          text: `${item.text}  ${this.fmtMoney(totals[item.index]?.profit ?? 0, { sign: true, decimals: 0 })}`,
+        }));
+  }
+
   monthLabel(year, month, style = "short") {
     const vi = (i18next.language || "").startsWith("vi");
     const shortNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -2030,45 +2162,19 @@ class investorProfitChartComponent {
             },
           ];
 
-    // Direct-label only the best and worst month; the table has the rest
-    const extremes = new Set();
-    const reportedIdx = months.map((m, i) => (m.hasReport ? i : -1)).filter((i) => i >= 0);
-    if (reportedIdx.length) {
-      let hi = reportedIdx[0];
-      let lo = reportedIdx[0];
-      for (const i of reportedIdx) {
-        if (net[i] > net[hi]) hi = i;
-        if (net[i] < net[lo]) lo = i;
-      }
-      extremes.add(hi);
-      extremes.add(lo);
-    }
-    const extremeLabels = {
-      id: "iprExtremeLabels",
-      afterDatasetsDraw: (chart) => {
-        if (type !== "bar") return;
-        const meta = chart.getDatasetMeta(0);
-        const { ctx } = chart;
-        ctx.save();
-        ctx.font = `600 ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-        ctx.fillStyle = C.ink;
-        ctx.textAlign = "center";
-        extremes.forEach((i) => {
-          const bar = meta.data[i];
-          const v = net[i];
-          if (!bar || v == null) return;
-          const below = v < 0;
-          ctx.textBaseline = below ? "top" : "bottom";
-          ctx.fillText(this.fmtMoney(v, { sign: true, decimals: 0 }), bar.x, bar.y + (below ? 4 : -4));
-        });
-        ctx.restore();
-      },
-    };
+    // Value on every point. Net profit (dataset 0) is placed first and in
+    // dark ink; income/expenses lines get lighter labels.
+    const valueLabels = this.valueLabelsPlugin("iprValueLabels", {
+      fontSize,
+      sign: (ds, di) => di === 0,
+      color: (v, ds, di) => (di === 0 ? C.ink : C.tick),
+      weight: (ds, di) => (di === 0 ? 600 : 500),
+    });
 
     return {
       type,
       data: { labels, datasets },
-      plugins: [extremeLabels],
+      plugins: [valueLabels],
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -2080,7 +2186,26 @@ class investorProfitChartComponent {
             display: type === "line",
             position: "top",
             align: "start",
-            labels: { usePointStyle: true, pointStyle: "line", pointStyleWidth: 26, color: C.ink, font },
+            labels: {
+              usePointStyle: true,
+              pointStyle: "line",
+              pointStyleWidth: 26,
+              color: C.ink,
+              font,
+              // Key = a short piece of each line (colour + dash). The default
+              // takes the point style, whose white border made keys invisible.
+              generateLabels: (chart) =>
+                Chart.defaults.plugins.legend.labels.generateLabels(chart).map((item) => {
+                  const ds = chart.data.datasets[item.datasetIndex];
+                  return {
+                    ...item,
+                    strokeStyle: ds.borderColor,
+                    fillStyle: ds.borderColor,
+                    lineWidth: ds.borderWidth,
+                    lineDash: ds.borderDash || [],
+                  };
+                }),
+            },
           },
           tooltip: {
             filter: (item) => item.raw !== null && item.raw !== undefined,
