@@ -84,6 +84,7 @@ class BillManagementComponent {
     this._utilityBillsAll = []; // all tracked utility bills for the selected property (for cycle picker)
     this._selectedCycleIds = null; // Set of utility-bill _id's chosen for the dynamic preview; null = not yet defaulted
     this._avatarInvestors = []; // Investors list (with linked properties) for the card image avatar badge
+    this._depositOffsetKeys = new Set(); // move-out tenants whose bill nets last rent against the deposit (see _isDepositOffset)
     this.init();
   }
 
@@ -1177,24 +1178,68 @@ class BillManagementComponent {
     return deposit - rentAmount;
   }
 
+  // How a move-out tenant's last bill treats the deposit. Default (off): a
+  // normal bill — rent, cleaning and PUB for the days they stayed, collected
+  // at month start like everyone else — with the deposit settled separately
+  // after the move-out check. On: the bill also shows the deposit refund
+  // (deposit − last month's rent). Chosen per tenant, per property + month,
+  // for this session only.
+  _depositOffsetKey(tenantId) {
+    const y = this.currentDate.getFullYear();
+    const m = this.currentDate.getMonth() + 1;
+    return `${(this.selectedProperty || "").toUpperCase()}|${y}-${m}|${String(tenantId || "").toUpperCase()}`;
+  }
+
+  _isDepositOffset(tenantId) {
+    return this._depositOffsetKeys.has(this._depositOffsetKey(tenantId));
+  }
+
+  _setDepositOffset(tenantId, on) {
+    const key = this._depositOffsetKey(tenantId);
+    if (on) this._depositOffsetKeys.add(key);
+    else this._depositOffsetKeys.delete(key);
+  }
+
   // Deposit Refund table cell shared by the live preview and the generated
-  // bill table: a dash for anyone not moving out this month, a muted "no
-  // deposit on file" note if we can't compute it, otherwise the refund in
-  // green — or, in the (unusual) case the last month's rent exceeds the
-  // deposit on file, the shortfall in red since that's now an extra amount
-  // owed rather than money going back to the tenant.
-  _depositRefundCellHtml(isMovingOut, deposit, refund, fmt) {
+  // bill table: a dash for anyone not moving out this month. A move-out
+  // tenant gets a "Deduct rent from deposit" switch. Off (normal bill): the
+  // deposit on file, settled after move-out. On: the refund in green — or,
+  // when the last month's rent exceeds the deposit, the shortfall in red —
+  // or a "no deposit on file" note if it can't be computed. Both views are
+  // rendered and the switch just flips which one shows (see
+  // bindCheckboxEvents), so toggling doesn't re-render the table.
+  _depositRefundCellHtml(tenantId, isMovingOut, deposit, refund, fmt) {
     if (!isMovingOut) return '<span class="text-muted">-</span>';
+    const offset = this._isDepositOffset(tenantId);
+
+    const normalHtml =
+      deposit == null
+        ? `<span class="text-muted" style="font-size:0.72rem;">${t("noDepositOnFile")}</span>`
+        : `<div class="fw-semibold text-secondary">${fmt(deposit)}</div>
+      <div class="text-muted" style="font-size:0.66rem;">${t("depositSettleAfterMoveOut")}</div>`;
+
+    let offsetHtml;
     if (deposit == null) {
-      return `<span class="text-muted" style="font-size:0.72rem;" title="${escapeHtml(t("noDepositOnFile"))}"><i class="bi bi-exclamation-triangle me-1"></i>${t("noDepositOnFile")}</span>`;
-    }
-    const isShortfall = refund < 0;
-    const color = isShortfall ? "#c92a2a" : "#2b8a3e";
-    const mainLabel = isShortfall
-      ? t("depositRefundOwed", { amount: fmt(Math.abs(refund)) })
-      : fmt(refund);
-    return `<div class="fw-semibold" style="color:${color};">${mainLabel}</div>
+      offsetHtml = `<span class="text-muted" style="font-size:0.72rem;" title="${escapeHtml(t("noDepositOnFile"))}"><i class="bi bi-exclamation-triangle me-1"></i>${t("noDepositOnFile")}</span>`;
+    } else {
+      const isShortfall = refund < 0;
+      const color = isShortfall ? "#c92a2a" : "#2b8a3e";
+      const mainLabel = isShortfall
+        ? t("depositRefundOwed", { amount: fmt(Math.abs(refund)) })
+        : fmt(refund);
+      offsetHtml = `<div class="fw-semibold" style="color:${color};">${mainLabel}</div>
       <div class="text-muted" style="font-size:0.66rem;">${t("depositRefundOf", { deposit: fmt(deposit) })}</div>`;
+    }
+
+    return `
+      <div class="deposit-cell">
+        <div class="deposit-mode-normal${offset ? " d-none" : ""}">${normalHtml}</div>
+        <div class="deposit-mode-offset${offset ? "" : " d-none"}">${offsetHtml}</div>
+        <label class="d-inline-flex align-items-center gap-1 mt-1 mb-0 text-muted" style="font-size:0.68rem;cursor:pointer;line-height:1.2;" title="${escapeHtml(t("depositOffsetToggleHint"))}">
+          <span class="form-switch p-0 m-0" style="min-height:0;line-height:1;"><input type="checkbox" role="switch" class="form-check-input deposit-offset-toggle m-0" style="cursor:pointer;" data-tenant-id="${escapeHtml(String(tenantId || ""))}" ${offset ? "checked" : ""}></span>
+          <span class="text-start">${t("depositOffsetToggle")}</span>
+        </label>
+      </div>`;
   }
 
   // Vietnamese sentence describing how much of the billing month a tenant
@@ -1492,6 +1537,7 @@ class BillManagementComponent {
         ${gridCell(`<span class="fw-bold">${fmt(r.total)}</span>`, { align: "right" })}
         ${gridCell(
           this._depositRefundCellHtml(
+            r.tenantId,
             r.isMovingOut,
             r.deposit,
             r.depositRefund,
@@ -1756,6 +1802,7 @@ class BillManagementComponent {
           ${gridCell(`<strong>$${tenantBill.totalAmount.toFixed(2)}</strong>`, { align: "right" })}
           ${gridCell(
             this._depositRefundCellHtml(
+              tenantBill.tenantId,
               rowIsMovingOut,
               profile.deposit,
               rowDepositRefund,
@@ -2292,6 +2339,21 @@ class BillManagementComponent {
       });
     });
 
+    // Move-out "Deduct rent from deposit" switch — remembers the choice for
+    // the bill export and flips the cell between its two prerendered views.
+    document.querySelectorAll(".deposit-offset-toggle").forEach((input) => {
+      input.addEventListener("change", () => {
+        this._setDepositOffset(input.dataset.tenantId, input.checked);
+        const cell = input.closest(".deposit-cell");
+        cell
+          ?.querySelector(".deposit-mode-normal")
+          ?.classList.toggle("d-none", input.checked);
+        cell
+          ?.querySelector(".deposit-mode-offset")
+          ?.classList.toggle("d-none", !input.checked);
+      });
+    });
+
     // Tap/click anywhere on the row to toggle selection — the checkbox alone
     // is a small target that's fiddly on mobile. Clicks on actual controls
     // inside the row (links, buttons, the checkbox itself) still work normally.
@@ -2309,7 +2371,7 @@ class BillManagementComponent {
           row.style.background = "";
       });
       row.addEventListener("click", (e) => {
-        if (e.target.closest("input, button, a")) return;
+        if (e.target.closest("input, button, a, label")) return;
         const checkbox = row.querySelector(".tenant-checkbox");
         if (checkbox && !checkbox.disabled) checkbox.click();
       });
@@ -3185,6 +3247,7 @@ class BillManagementComponent {
         isSubsidized: r.isSubsidized,
         avatar: r.avatar,
         isMovingOut: r.isMovingOut,
+        depositOffset: this._isDepositOffset(r.tenantId),
         deposit: r.deposit,
         depositRefund: r.depositRefund,
       };
@@ -3351,6 +3414,7 @@ class BillManagementComponent {
         ],
         avatar: full?.avatar || null,
         isMovingOut,
+        depositOffset: this._isDepositOffset(tb.tenantId),
         deposit,
         depositRefund: this._computeDepositRefund(
           isMovingOut,
@@ -3379,6 +3443,11 @@ class BillManagementComponent {
 
   static get PAST_CYCLE_NOTE_VI() {
     return "Bao gồm tiền điện nước kỳ trước chưa thu";
+  }
+
+  // Normal move-out bill: the deposit isn't used for this month's charges.
+  static get DEPOSIT_AFTER_MOVEOUT_NOTE_VI() {
+    return "Tiền cọc sẽ được quyết toán sau khi trả phòng và kiểm tra phòng.";
   }
 
   static get BILL_FOOTER_NOTE_VI() {
@@ -3532,9 +3601,17 @@ class BillManagementComponent {
   // month. Rendered as its own callout block (not another line in the fee
   // list) since it's money flowing the other way: back to the tenant,
   // netted against their last partial month's rent, rather than another
-  // charge added to the total they owe.
+  // charge added to the total they owe. A normal move-out bill (the
+  // "Deduct rent from deposit" switch off) gets just a one-line note that
+  // the deposit is settled after the move-out check.
   _billDepositCalloutHtml(tenantBill, info, { fmt, dense = false }) {
     if (!info.isMovingOut) return "";
+    if (!info.depositOffset) {
+      return `
+      <div style="${dense ? "margin:6px 0 8px;padding:8px 12px;" : "margin-top:14px;padding:10px 14px;"}background:#f8f9fa;border-radius:10px;font-size:12px;color:#868e96;line-height:1.5;">
+        🔑 ${BillManagementComponent.DEPOSIT_AFTER_MOVEOUT_NOTE_VI}
+      </div>`;
+    }
     if (info.deposit == null) {
       return `
       <div style="${dense ? "margin:6px 0 8px;padding:10px 12px;" : "margin-top:14px;padding:12px 16px;"}background:#fff9db;border-radius:10px;font-size:12px;color:#846200;line-height:1.5;">
@@ -3779,7 +3856,12 @@ class BillManagementComponent {
       lines.push(`Phí vệ sinh máy lạnh: ${fmt(tenantBill.acCleanFee)}`);
     lines.push("", `TỔNG CỘNG: ${fmt(tenantBill.totalAmount)}`);
 
-    if (info.isMovingOut) {
+    if (info.isMovingOut && !info.depositOffset) {
+      lines.push(
+        "",
+        `🔑 ${BillManagementComponent.DEPOSIT_AFTER_MOVEOUT_NOTE_VI}`,
+      );
+    } else if (info.isMovingOut) {
       if (info.deposit == null) {
         lines.push("", t("depositMissingNote"));
       } else {

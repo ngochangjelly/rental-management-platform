@@ -3139,6 +3139,8 @@ class FinancialReportsComponent {
   // Every utility bill the report month could use: the Utility Bill Tracker
   // entries for the report month and the months before it, falling back to
   // the tenant bill for months the tracker has nothing for. Newest first.
+  // $0 amounts don't count: generating a month's rent bills saves a tenant
+  // bill with a $0 utility fee before the utility bill has arrived.
   // Each: { year, month, monthLabel, amount, details, offset }.
   async _collectUtilityBillOptions(trackerBills, year, month) {
     const fmt = (d) =>
@@ -3170,7 +3172,12 @@ class FinancialReportsComponent {
     const perMonth = await Promise.all(
       months.map(async (m) => {
         const tracked = trackerBills
-          .filter((b) => b.year === m.year && b.month === m.month)
+          .filter(
+            (b) =>
+              b.year === m.year &&
+              b.month === m.month &&
+              Number(b.totalAmount) > 0,
+          )
           .sort(
             (a, b) =>
               new Date(a.billingPeriodStart || 0) -
@@ -3198,7 +3205,9 @@ class FinancialReportsComponent {
           );
           if (!res.ok) return [];
           const data = await res.json();
-          if (!data.success || !data.bill) return [];
+          if (!data.success || !(Number(data.bill?.utilityFee) > 0)) {
+            return [];
+          }
           return [
             {
               ...m,

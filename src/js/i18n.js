@@ -613,6 +613,12 @@ i18next.init({
           depositRefundFormula: "Deposit {{deposit}} − last month's rent {{rent}}",
           depositMissingNote:
             "⚠️ No deposit amount on file for this tenant — please settle manually.",
+          // Move-out month: normal bill by default; the switch nets the
+          // last month's rent against the deposit on the exported bill instead.
+          depositSettleAfterMoveOut: "Settled after move-out",
+          depositOffsetToggle: "Deduct rent from deposit",
+          depositOffsetToggleHint:
+            "Off: normal bill (rent, cleaning, PUB for the days stayed) — deposit settled after move-out check. On: the bill also shows the deposit refund (deposit − last month's rent).",
           // Per-tenant bill export (download image / copy text)
           billDownloadSuccess: "Downloaded {{count}} bill(s)",
           billDownloadPartial: "Downloaded {{succeeded}} of {{total}} bill(s) — some failed, check console",
@@ -1416,6 +1422,10 @@ i18next.init({
           depositRefundFormula: "Tiền cọc {{deposit}} − tiền thuê tháng cuối {{rent}}",
           depositMissingNote:
             "⚠️ Chưa có thông tin tiền cọc của người thuê này trên hệ thống — vui lòng đối chiếu thủ công.",
+          depositSettleAfterMoveOut: "Quyết toán sau khi trả phòng",
+          depositOffsetToggle: "Trừ tiền thuê vào cọc",
+          depositOffsetToggleHint:
+            "Tắt: hóa đơn bình thường (tiền thuê, vệ sinh, điện nước theo số ngày ở) — tiền cọc quyết toán sau khi trả phòng. Bật: hóa đơn hiện thêm phần hoàn cọc (tiền cọc − tiền thuê tháng cuối).",
           // Per-tenant bill export (download image / copy text)
           billDownloadSuccess: "Đã tải {{count}} hóa đơn",
           billDownloadPartial: "Đã tải {{succeeded}}/{{total}} hóa đơn — một số bị lỗi, xem console",
