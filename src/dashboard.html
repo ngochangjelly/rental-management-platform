@@ -15650,12 +15650,26 @@
                     </div>
                     <div class="col-md-3">
                       <label class="form-label fw-semibold">
-                        <i class="bi bi-person-fill text-success me-1"></i>Paid
-                        To (payee)
+                        <i class="bi bi-people-fill text-success me-1"></i>Paid
+                        To (payees)
                       </label>
-                      <select class="form-select" id="extractPayeeSelect">
-                        <option value="">Loading investors…</option>
-                      </select>
+                      <div id="extractPayeePicker">
+                        <button
+                          class="form-select text-start text-truncate"
+                          type="button"
+                          id="extractPayeeToggle"
+                          aria-haspopup="listbox"
+                          aria-expanded="false"
+                        >
+                          Loading investors…
+                        </button>
+                        <!-- Moved to <body> while open so no card can clip it -->
+                        <div
+                          class="dropdown-menu p-2 shadow"
+                          id="extractPayeeMenu"
+                          style="max-height: 340px; overflow-y: auto"
+                        ></div>
+                      </div>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
                       <button

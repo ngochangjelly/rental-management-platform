@@ -3,6 +3,8 @@ import {
   getRoomTypeDisplayName,
   getRoomTypeColor,
   getRoomTypeBadgeStyle,
+  parseRoomType,
+  compareRoomTypes,
 } from "../utils/room-type-mapper.js";
 import {
   getGroupLinkMeta,
@@ -375,6 +377,7 @@ class FinancialReportsComponent {
       // Fetch all properties with pagination
       // Summary fields only (cards, slugs, report header/image basics); the
       // selected property's full record is merged in by _loadPropertySubsidyAndBills
+      // Active properties only — expired ones (returned to landlord) are hidden
       let allProperties = [];
       let currentPage = 1;
       const itemsPerPage = 200;
@@ -382,7 +385,7 @@ class FinancialReportsComponent {
 
       while (hasMorePages) {
         const response = await API.get(
-          `${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}&fields=summary`,
+          `${API_CONFIG.ENDPOINTS.PROPERTIES}?page=${currentPage}&limit=${itemsPerPage}&fields=summary&excludeExpired=true`,
         );
         const result = await response.json();
 
@@ -3975,10 +3978,23 @@ class FinancialReportsComponent {
     if (this.tenants && this.tenants.length > 0) {
       const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      const activeItems = [];
-      const outdatedItems = [];
-
+      const activeTenants = [];
+      const outdatedTenants = [];
+      const moveoutOf = (tenant) => {
+        const record = tenant.properties?.find(
+          (p) => p.propertyId === this.selectedProperty,
+        );
+        return record?.moveoutDate ? new Date(record.moveoutDate) : null;
+      };
       this.tenants.forEach((tenant) => {
+        const moveoutDate = moveoutOf(tenant);
+        (moveoutDate && moveoutDate < oneMonthAgo
+          ? outdatedTenants
+          : activeTenants
+        ).push(tenant);
+      });
+
+      const tenantRow = ({ tenant, room }, { outdated, inGroup }) => {
         const tenantValue = `tenant_${tenant._id || tenant.tenantId || tenant.id || tenant.fin}`;
         const isChecked = vals.includes(tenantValue) ? " checked" : "";
         const baseName = tenant.name || "Unknown Tenant";
@@ -3987,48 +4003,72 @@ class FinancialReportsComponent {
           : baseName;
         const mini = makeMiniAvatar(displayName, tenant.avatar, "bg-info");
 
-        const additionalInfo = [];
-        if (tenant.roomType)
-          additionalInfo.push(this.getRoomTypeDisplayName(tenant.roomType));
-        if (tenant.monthlyRent) additionalInfo.push(`$${tenant.monthlyRent}`);
-        const infoStr = additionalInfo.length
-          ? `<span class="text-muted ms-1" style="font-size:0.8em;">${additionalInfo.join(" · ")}</span>`
-          : "";
-
-        const propertyRecord = tenant.properties?.find(
-          (p) => p.propertyId === this.selectedProperty,
-        );
-        const moveoutDate = propertyRecord?.moveoutDate
-          ? new Date(propertyRecord.moveoutDate)
-          : null;
-        const isOutdated = moveoutDate && moveoutDate < oneMonthAgo;
-
-        if (isOutdated) {
-          const movedOutStr = moveoutDate.toLocaleDateString("en-GB", {
+        const meta = [];
+        const rent = Number(tenant.monthlyRent);
+        if (rent) meta.push(`$${rent.toLocaleString("en-US")}/mo`);
+        if (outdated) {
+          const movedOutStr = moveoutOf(tenant).toLocaleDateString("en-GB", {
             month: "short",
             year: "2-digit",
           });
-          outdatedItems.push(`<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item paid-by-outdated" style="cursor:pointer;opacity:0.6;" data-value="${tenantValue}">
-            <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${tenantValue}"${isChecked}>
-            ${mini}
-            <span class="small flex-grow-1 fst-italic text-muted">${escapeHtml(displayName)}${infoStr} <span class="badge bg-secondary ms-1" style="font-size:0.6rem;">↩ out ${escapeHtml(movedOutStr)}</span></span>
-          </label>`);
-        } else {
-          activeItems.push(`<label class="d-flex align-items-center gap-2 px-3 py-2 paid-by-item" style="cursor:pointer;" data-value="${tenantValue}">
-            <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${tenantValue}"${isChecked}>
-            ${mini}
-            <span class="small flex-grow-1">${escapeHtml(displayName)}${infoStr}</span>
-          </label>`);
+          meta.push(
+            `<span class="badge bg-secondary" style="font-size:0.6rem;">↩ out ${escapeHtml(movedOutStr)}</span>`,
+          );
         }
-      });
+        // Roommates share the one badge on their group header
+        const badge = room && !inGroup ? this._roomBadgeHtml(room) : "";
 
-      if (activeItems.length > 0) {
+        return `<label class="d-flex align-items-center gap-2 py-2 paid-by-item${outdated ? " paid-by-outdated" : ""}" style="cursor:pointer;min-height:44px;padding-left:${inGroup ? 13 : 16}px;padding-right:16px;${outdated ? "opacity:0.6;" : ""}" data-value="${tenantValue}">
+            <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${tenantValue}"${isChecked}>
+            ${mini}
+            <span class="small flex-grow-1" style="min-width:0;">
+              <span class="d-block${outdated ? " fst-italic text-muted" : ""}">${escapeHtml(displayName)}</span>
+              ${meta.length ? `<span class="d-flex align-items-center gap-1 text-muted" style="font-size:0.72rem;">${meta.join('<span aria-hidden="true">·</span>')}</span>` : ""}
+            </span>
+            ${badge}
+          </label>`;
+      };
+
+      // Roommates sit in one tinted block (left bar in their room's colour,
+      // like the Tenants page groups) with a header checkbox that ticks
+      // everyone in the room at once — rent for a shared room is often
+      // paid together.
+      const renderSection = (tenants, outdated) =>
+        this._groupPaidByTenants(tenants)
+          .map((group) => {
+            if (group.length === 1)
+              return tenantRow(group[0], { outdated, inGroup: false });
+            const room = group[0].room;
+            const { hue, saturation, lightness } = getRoomTypeColor(room);
+            const accent = outdated
+              ? "#adb5bd"
+              : `hsl(${hue} ${saturation}% ${lightness}%)`;
+            const tint = outdated
+              ? "rgba(173,181,189,0.1)"
+              : `hsl(${hue} ${saturation}% ${lightness}% / 0.07)`;
+            const roomName = this.getRoomTypeDisplayName(room);
+            const selectLabel =
+              group.length === 2
+                ? `Select both roommates in ${roomName}`
+                : `Select all ${group.length} roommates in ${roomName}`;
+            return `<div class="paid-by-group my-1" style="border-left:3px solid ${accent};background:${tint};">
+              <label class="d-flex align-items-center gap-2 pt-2 pb-1 paid-by-group-head" style="cursor:pointer;padding-left:13px;padding-right:16px;${outdated ? "opacity:0.6;" : ""}" title="${escapeHtml(selectLabel)}">
+                <input type="checkbox" class="form-check-input m-0 flex-shrink-0 paid-by-group-toggle" aria-label="${escapeHtml(selectLabel)}">
+                <span class="flex-grow-1 text-uppercase fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;color:${outdated ? "#6c757d" : accent};"><i class="bi bi-people-fill me-1"></i>Roommates</span>
+                ${this._roomBadgeHtml(room)}
+              </label>
+              ${group.map((entry) => tenantRow(entry, { outdated, inGroup: true })).join("")}
+            </div>`;
+          })
+          .join("");
+
+      if (activeTenants.length > 0) {
         html += `<div class="border-top mx-2 my-1"></div><div class="px-3 pt-1 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">Tenants</div>`;
-        html += activeItems.join("");
+        html += renderSection(activeTenants, false);
       }
-      if (outdatedItems.length > 0) {
+      if (outdatedTenants.length > 0) {
         html += `<div class="border-top mx-2 my-1"></div><div class="px-3 pt-1 pb-1 text-uppercase text-muted fw-semibold" style="font-size:0.65rem;letter-spacing:0.06em;">Moved Out</div>`;
-        html += outdatedItems.join("");
+        html += renderSection(outdatedTenants, true);
       }
     }
 
@@ -4036,6 +4076,92 @@ class FinancialReportsComponent {
       html ||
       `<div class="px-3 py-2 text-muted small">No investors or tenants available</div>`
     );
+  }
+
+  // Coloured room badge, same family-hue colours as the rest of the app
+  _roomBadgeHtml(room, fontSize = "0.65rem") {
+    return `<span class="badge flex-shrink-0" style="font-size:${fontSize};padding:2px 6px;${getRoomTypeBadgeStyle(room)}">${escapeHtml(this.getRoomTypeDisplayName(room))}</span>`;
+  }
+
+  // A tenant's room at the selected property (the one the report table's
+  // badge shows) and the dates they held it, taken from the matching room
+  // assignment when there is one.
+  _paidByTenantRoomStay(tenant) {
+    const record = tenant.properties?.find(
+      (p) => p.propertyId === this.selectedProperty,
+    );
+    const room = record?.room || tenant.roomType || null;
+    const toTime = (value, fallback) => {
+      const time = value ? new Date(value).getTime() : NaN;
+      return Number.isNaN(time) ? fallback : time;
+    };
+    const assignment = room
+      ? (record?.roomAssignments || [])
+          .filter((ra) => ra.room === room)
+          .sort((a, b) => toTime(b.moveinDate, 0) - toTime(a.moveinDate, 0))[0]
+      : null;
+    const stay = assignment || record || {};
+    return {
+      room,
+      start: toTime(stay.moveinDate, -Infinity),
+      end: toTime(stay.moveoutDate, Infinity),
+    };
+  }
+
+  // Splits tenants into roommate groups for the Paid By picker. Roommates
+  // share a room at this property and either stayed there together for
+  // over a week (a move-out/move-in handover doesn't count) or are linked
+  // as roommates on their profiles. Many real roommate pairs have no link
+  // set, so the dates matter too. Groups come back in room order (Master,
+  // Common 1, …, no room last), most recent move-in first within a room.
+  _groupPaidByTenants(tenants) {
+    const MIN_SHARED_MS = 7 * 24 * 60 * 60 * 1000;
+    const entries = tenants.map((tenant, index) => ({
+      tenant,
+      index,
+      ...this._paidByTenantRoomStay(tenant),
+    }));
+    const idOf = (t) => String(t._id || t.tenantId || t.id || t.fin);
+    const linkOf = (t) => String(t.roommateId?._id || t.roommateId || "");
+
+    const parent = entries.map((_, i) => i);
+    const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    entries.forEach((a, i) => {
+      entries.slice(i + 1).forEach((b) => {
+        if (!a.room || a.room !== b.room) return;
+        const sharedMs = Math.min(a.end, b.end) - Math.max(a.start, b.start);
+        const linked =
+          linkOf(a.tenant) === idOf(b.tenant) ||
+          linkOf(b.tenant) === idOf(a.tenant);
+        if (sharedMs > MIN_SHARED_MS || linked)
+          parent[find(b.index)] = find(i);
+      });
+    });
+
+    const rank = (room) => (!room ? 2 : parseRoomType(room).family ? 0 : 1);
+    const byRoom = (a, b) =>
+      rank(a.room) - rank(b.room) ||
+      (rank(a.room) === 0
+        ? compareRoomTypes(a.room, b.room)
+        : String(a.room || "").localeCompare(String(b.room || ""))) ||
+      b.start - a.start ||
+      (a.tenant.name || "").localeCompare(b.tenant.name || "");
+
+    const groups = new Map();
+    [...entries].sort(byRoom).forEach((entry) => {
+      const root = find(entry.index);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root).push(entry);
+    });
+    return [...groups.values()];
+  }
+
+  // Compact payer name for the picker button and pills: the last two words,
+  // so Vietnamese names show the given name rather than just "Nguyen"
+  // (same rule as the exported report)
+  _shortPersonName(name) {
+    const words = (name || "").trim().split(/\s+/).filter(Boolean);
+    return words.length >= 2 ? words.slice(-2).join(" ") : name || "Unknown";
   }
 
   setupPaidByDropdown() {
@@ -4048,11 +4174,24 @@ class FinancialReportsComponent {
 
     if (!toggleBtn || !panel || !hiddenSelect || !wrapper) return;
 
+    const PAYER_BOX = '.paid-by-item input[type="checkbox"]';
+
+    // Roommate header checkbox: ticked when every roommate is, a dash when
+    // only some are
+    const syncGroupToggles = () => {
+      panel.querySelectorAll(".paid-by-group").forEach((group) => {
+        const toggle = group.querySelector(".paid-by-group-toggle");
+        const boxes = [...group.querySelectorAll(PAYER_BOX)];
+        const checked = boxes.filter((box) => box.checked).length;
+        toggle.checked = checked > 0 && checked === boxes.length;
+        toggle.indeterminate = checked > 0 && checked < boxes.length;
+      });
+    };
+
     const updateState = () => {
-      const checkedBoxes = panel.querySelectorAll(
-        'input[type="checkbox"]:checked',
-      );
+      const checkedBoxes = panel.querySelectorAll(`${PAYER_BOX}:checked`);
       const values = Array.from(checkedBoxes).map((cb) => cb.value);
+      syncGroupToggles();
 
       Array.from(hiddenSelect.options).forEach((opt) => {
         opt.selected = values.includes(opt.value);
@@ -4061,13 +4200,10 @@ class FinancialReportsComponent {
       if (values.length === 0) {
         btnLabel.innerHTML = `<span class="text-muted">Select who paid (optional)...</span>`;
       } else {
-        const getFirstName = (v) => {
-          const info = this._resolvePaidByPerson(v);
-          return info
-            ? info.displayName.split(" ").slice(0, 2).join(" ")
-            : "Unknown";
-        };
-        const first = escapeHtml(getFirstName(values[0]));
+        const info = this._resolvePaidByPerson(values[0]);
+        const first = escapeHtml(
+          info ? this._shortPersonName(info.displayName) : "Unknown",
+        );
         btnLabel.innerHTML =
           values.length === 1
             ? first
@@ -4083,22 +4219,34 @@ class FinancialReportsComponent {
             const avatarEl = info?.avatar
               ? `<img src="${this.getOptimizedAvatarUrl(info.avatar, "small")}" class="rounded-circle" style="width:16px;height:16px;object-fit:cover;" alt="">`
               : `<span class="rounded-circle bg-info d-inline-flex align-items-center justify-content-center text-white" style="width:16px;height:16px;font-size:8px;">${escapeHtml(initial)}</span>`;
-            return `<span class="badge d-inline-flex align-items-center gap-1" style="background:#e9ecef;color:#495057;font-weight:500;padding:4px 8px;border-radius:20px;font-size:0.78rem;">${avatarEl}${escapeHtml(name.split(" ")[0])}</span>`;
+            const roomBadge = info?.roomType
+              ? this._roomBadgeHtml(info.roomType, "0.6rem")
+              : "";
+            return `<span class="badge d-inline-flex align-items-center gap-1" style="background:#e9ecef;color:#495057;font-weight:500;padding:4px 8px;border-radius:20px;font-size:0.78rem;">${avatarEl}${escapeHtml(this._shortPersonName(name))}${roomBadge}</span>`;
           })
           .join("");
       }
     };
 
+    const HOVER_ROWS = ".paid-by-item, .paid-by-group-head";
     panel.addEventListener("mouseover", (e) => {
-      const item = e.target.closest(".paid-by-item");
-      if (item) item.style.backgroundColor = "#f8f9fa";
+      const item = e.target.closest(HOVER_ROWS);
+      if (item) item.style.backgroundColor = "rgba(0,0,0,0.04)";
     });
     panel.addEventListener("mouseout", (e) => {
-      const item = e.target.closest(".paid-by-item");
+      const item = e.target.closest(HOVER_ROWS);
       if (item) item.style.backgroundColor = "";
     });
 
     panel.addEventListener("change", (e) => {
+      if (e.target.classList.contains("paid-by-group-toggle")) {
+        // An unticked or part-ticked header ticks every roommate
+        const checked = e.target.checked;
+        e.target
+          .closest(".paid-by-group")
+          .querySelectorAll(PAYER_BOX)
+          .forEach((box) => (box.checked = checked));
+      }
       if (e.target.type === "checkbox") updateState();
     });
 
@@ -4336,7 +4484,7 @@ class FinancialReportsComponent {
           <div class="d-flex align-items-center justify-content-center mb-1">
             ${this._renderAvatarCircle(info)}
           </div>
-          ${info.roomType ? `<div class="badge" style="font-size: 0.65rem; padding: 2px 6px;${getRoomTypeBadgeStyle(info.roomType)}">${escapeHtml(this.getRoomTypeDisplayName(info.roomType))}</div>` : ""}
+          ${info.roomType ? this._roomBadgeHtml(info.roomType) : ""}
         </div>
       `;
     }
@@ -4345,8 +4493,7 @@ class FinancialReportsComponent {
     const tooltipText = persons
       .map((p) => (p ? p.displayName : "Unknown"))
       .join(", ");
-    const renderRoomBadge = (roomType) =>
-      `<div class="badge" style="font-size: 0.65rem; padding: 2px 6px;${getRoomTypeBadgeStyle(roomType)}">${escapeHtml(this.getRoomTypeDisplayName(roomType))}</div>`;
+    const renderRoomBadge = (roomType) => this._roomBadgeHtml(roomType);
     const renderAvatarStack = (group) =>
       group
         .map((info, i) => {
@@ -4613,7 +4760,7 @@ class FinancialReportsComponent {
                                             <span id="paidByBtnLabel" class="text-muted">Select who paid (optional)...</span>
                                             <i class="bi bi-chevron-down small ms-1"></i>
                                         </button>
-                                        <div class="dropdown-menu w-100 p-0 shadow-sm" style="max-height:260px;overflow-y:auto;" id="paidByPanel">
+                                        <div class="dropdown-menu w-100 p-0 shadow-sm" style="max-height:min(380px, 55vh);overflow-y:auto;" id="paidByPanel">
                                             ${this.generatePaidByDropdownItems(paidByValues)}
                                         </div>
                                     </div>
@@ -4621,7 +4768,7 @@ class FinancialReportsComponent {
                                         ${this.generatePaidByOptions(paidByValues)}
                                     </select>
                                     <div id="paidBySelectedPills" class="mt-2 d-flex flex-wrap gap-1"></div>
-                                    <div class="form-text">Select one or multiple payers. Outdated tenants (moved out &gt;1 month) appear dimmed at the bottom.</div>
+                                    <div class="form-text">Select one or more payers. Roommates are grouped by room; tick the group to select them all. Tenants who moved out over a month ago are dimmed at the bottom.</div>
                                 </div>
                                 `
                                     : `

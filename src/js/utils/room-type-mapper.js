@@ -131,16 +131,20 @@ export function compareRoomTypes(a, b) {
  * with more Commons than the default), it's included too so it stays
  * selectable/visible.
  * @param {string} selectedValue - Currently selected room type value
+ * @param {string[]} propertyRooms - Rooms configured on the property
  * @returns {string} HTML string for select options
  */
-export function getRoomTypeOptions(selectedValue = "") {
+export function getRoomTypeOptions(selectedValue = "", propertyRooms = []) {
   let options = '<option value="">Select room</option>';
 
+  // Defaults + the property's own rooms (e.g. COMMON_3) + the current value.
   const values = [...DEFAULT_ROOM_TYPES];
-  if (selectedValue && !values.includes(selectedValue) && parseRoomType(selectedValue).family) {
-    values.push(selectedValue);
-    values.sort(compareRoomTypes);
-  }
+  [...(propertyRooms || []), selectedValue].forEach((room) => {
+    if (room && !values.includes(room) && parseRoomType(room).family) {
+      values.push(room);
+    }
+  });
+  values.sort(compareRoomTypes);
 
   values.forEach((value) => {
     const selected = value === selectedValue ? " selected" : "";

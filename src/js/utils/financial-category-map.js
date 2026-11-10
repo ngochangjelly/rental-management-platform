@@ -125,7 +125,12 @@ export function groupItemsByCategory(items, type) {
   // on the expense side.
   const clusterKeyFn =
     type === "income" ? paidByKey : (item) => item.personInCharge;
-  const cluster = (entries) => clusterByPayee(entries, clusterKeyFn);
+
+  // A list with no categories at all was entered in a deliberate order
+  // (e.g. several months combined into one report), so keep it as entered.
+  const keepEnteredOrder = !items.some((item) => item.category);
+  const cluster = (entries) =>
+    keepEnteredOrder ? entries : clusterByPayee(entries, clusterKeyFn);
 
   const categoryRank = (item) => {
     const rank = categories.findIndex((cat) => cat.value === item.category);

@@ -3314,7 +3314,7 @@ class TenantManagementComponent {
                     <label class="form-label small mb-1">${t("form.room")}</label>
                     <select class="form-select form-select-sm"
                             onchange="tenantManager.updateRoomAssignment('${propertyId}', '${ra.id}', 'room', this.value)">
-                      ${getRoomTypeOptions(ra.room)}
+                      ${getRoomTypeOptions(ra.room, propertyInfo?.rooms)}
                     </select>
                   </div>
                   <div class="col-6 col-md-2">

@@ -443,6 +443,301 @@ class BulkPropertyReportsComponent {
     });
   }
 
+  // The % used for a report: the report's stored % first, otherwise the
+  // investor's % in effect on the 1st of the report month (same lookup as
+  // financial-reports.js _reportPercentage and the backend's getPercentageAtDate)
+  reportPercentage(investor, report, propertyId, year, month) {
+    const tx = report?.investorTransactions?.find(
+      (t) => t.investorId === investor.investorId,
+    );
+    if (tx?.percentage != null) return Number(tx.percentage) || 0;
+    const propertyData = investor.properties?.find(
+      (p) => p.propertyId === propertyId,
+    );
+    if (!propertyData) return 0;
+    const history = propertyData.history || [];
+    if (history.length === 0) return Number(propertyData.percentage) || 0;
+    const reportDate = Date.UTC(
+      Number(report?.year ?? year),
+      Number(report?.month ?? month) - 1,
+      1,
+    );
+    const entry = history.find(
+      (h) =>
+        new Date(h.effectiveFrom).getTime() <= reportDate &&
+        (!h.effectiveTo || new Date(h.effectiveTo).getTime() > reportDate),
+    );
+    return Number(entry?.percentage ?? propertyData.percentage) || 0;
+  }
+
+  // personInCharge → investor ID whose paid/received an item counts toward.
+  // A member's items count toward their group when the group holds a share
+  // and the member holds none of their own (same rule as the backend's
+  // buildGroupOwnerResolver and financial-reports.js _groupContext). A member
+  // of two groups holding the same property keeps their own items.
+  buildGroupOwnerResolver(investors, pctById) {
+    const groupsOf = new Map();
+    investors.forEach((group) => {
+      if (!group.isGroup || !((pctById.get(group.investorId) || 0) > 0)) return;
+      (group.members || []).forEach((m) => {
+        if ((pctById.get(m.investorId) || 0) > 0) return;
+        groupsOf.set(m.investorId, [
+          ...(groupsOf.get(m.investorId) || []),
+          group.investorId,
+        ]);
+      });
+    });
+    return (personId) => {
+      const groups = groupsOf.get(personId);
+      return groups && groups.length === 1 ? groups[0] : personId;
+    };
+  }
+
+  // Who may see each member's part of a group (admins by default; grantable
+  // in User Management). Same check as financial-reports.js.
+  canSeeGroupBreakdown() {
+    return typeof window.canAccessModule === "function"
+      ? window.canAccessModule("investor-group-breakdown")
+      : !!window.isAdmin?.();
+  }
+
+  // One property's group result split per member, same formula as the
+  // single-property report (financial-reports.js _groupBreakdown):
+  //   member final = group profit share × member % + member paid − member received
+  // Paid/received only count items that rolled up into the group. Anything
+  // not owned by a member (unallocated %, items on the group itself, and the
+  // group's already paid/received) goes to a "Group account" row, so the
+  // rows always add up to the group's own final.
+  computeGroupMemberBreakdown(
+    groupRow,
+    group,
+    report,
+    ownerOf,
+    lookupInvestors = [],
+  ) {
+    if (!this.canSeeGroupBreakdown()) return null;
+    const members = group?.members || [];
+    // The server hides member % from users without the permission
+    if (
+      !members.length ||
+      members.some((m) => typeof m.percentage !== "number")
+    )
+      return null;
+
+    const sumOwn = (items, personId) =>
+      (items || [])
+        .filter(
+          (x) =>
+            !x.isPending &&
+            x.personInCharge === personId &&
+            ownerOf(personId) === group.investorId,
+        )
+        .reduce((sum, x) => sum + (parseFloat(x.amount) || 0), 0);
+    const findInvestor = (id) =>
+      lookupInvestors.find((i) => i.investorId === id) ||
+      (this.allInvestors || []).find((i) => i.investorId === id);
+
+    const rows = members.map((m) => {
+      const inv = findInvestor(m.investorId);
+      const share = Number(m.percentage) || 0;
+      const profitShare = (groupRow.profitShare * share) / 100;
+      const paid = sumOwn(report.expenses, m.investorId);
+      const received = sumOwn(report.income, m.investorId);
+      return {
+        investorId: m.investorId,
+        name: inv?.name || inv?.username || `Investor ${m.investorId}`,
+        avatar: inv?.avatar || null,
+        groupPercentage: share,
+        profitShare,
+        paid,
+        received,
+        final: profitShare + paid - received,
+      };
+    });
+
+    const memberFinal = rows.reduce((sum, r) => sum + r.final, 0);
+    const rest = groupRow.final - memberFinal;
+    const allocated = rows.reduce((sum, r) => sum + r.groupPercentage, 0);
+    const unallocated = Math.max(0, Math.round((100 - allocated) * 100) / 100);
+    if (Math.abs(rest) >= 0.005 || unallocated > 0) {
+      rows.push({
+        investorId: `${group.investorId}:account`,
+        name:
+          unallocated > 0
+            ? `Unallocated (${unallocated}% of group)`
+            : "Group account",
+        avatar: null,
+        isRemainder: true,
+        groupPercentage: unallocated,
+        profitShare: (groupRow.profitShare * unallocated) / 100,
+        paid: groupRow.expensesPaid - rows.reduce((s, r) => s + r.paid, 0),
+        received:
+          groupRow.incomeReceived - rows.reduce((s, r) => s + r.received, 0),
+        final: rest,
+      });
+    }
+    return rows;
+  }
+
+  // Sum each group's member breakdown across all fetched properties
+  aggregateGroupBreakdowns(reports) {
+    const groups = new Map();
+    reports.forEach((r) => {
+      (r.report?.investors || []).forEach((inv) => {
+        if (!inv.memberBreakdown) return;
+        if (!groups.has(inv.investorId)) {
+          groups.set(inv.investorId, {
+            investorId: inv.investorId,
+            name: inv.investorName,
+            avatar: inv.avatar,
+            final: 0,
+            propertyCount: 0,
+            members: new Map(),
+          });
+        }
+        const g = groups.get(inv.investorId);
+        g.final += inv.final;
+        g.propertyCount += 1;
+        inv.memberBreakdown.forEach((m) => {
+          if (!g.members.has(m.investorId)) {
+            g.members.set(m.investorId, {
+              ...m,
+              profitShare: 0,
+              paid: 0,
+              received: 0,
+              final: 0,
+            });
+          }
+          const t = g.members.get(m.investorId);
+          t.profitShare += m.profitShare;
+          t.paid += m.paid;
+          t.received += m.received;
+          t.final += m.final;
+        });
+      });
+    });
+    return Array.from(groups.values()).map((g) => ({
+      ...g,
+      // Members first (largest share first), group account last; skip an
+      // all-zero group account row
+      members: Array.from(g.members.values())
+        .filter(
+          (m) =>
+            !m.isRemainder ||
+            Math.abs(m.final) >= 0.005 ||
+            m.groupPercentage > 0,
+        )
+        .sort(
+          (a, b) =>
+            Number(!!a.isRemainder) - Number(!!b.isRemainder) ||
+            b.groupPercentage - a.groupPercentage,
+        ),
+    }));
+  }
+
+  // Member rows nested under a group in the Investor Summary table (tree
+  // style, like the financial report's investor distribution)
+  renderGroupMemberSummaryRows(group) {
+    if (!group) return "";
+    const money = (v) => `${v < -0.005 ? "-" : ""}$${Math.abs(v).toFixed(2)}`;
+    return group.members
+      .map((m, i) => {
+        const last = i === group.members.length - 1;
+        const tone =
+          m.final > 0.005
+            ? "text-success"
+            : m.final < -0.005
+              ? "text-danger"
+              : "text-muted";
+        const avatar = m.isRemainder
+          ? ""
+          : m.avatar
+            ? `<img src="${this.getOptimizedAvatarUrl(m.avatar, "small")}" alt="" class="rounded-circle me-2" style="width:22px;height:22px;object-fit:cover;" onerror="this.style.display='none'">`
+            : `<span class="rounded-circle me-2 d-inline-flex align-items-center justify-content-center bg-secondary text-white" style="width:22px;height:22px;font-size:10px;">${escapeHtml((m.name || "?").charAt(0).toUpperCase())}</span>`;
+        return `
+          <tr class="small" style="background:#fafbfc;">
+            <td class="ps-3 py-1 border-0">
+              <div class="d-flex align-items-center">
+                <span class="text-muted me-2" style="font-family:monospace;">${last ? "└" : "├"}</span>
+                ${avatar}
+                <span class="${m.isRemainder ? "fst-italic text-muted" : ""}">${escapeHtml(m.name)}</span>
+                ${m.groupPercentage ? `<span class="text-muted ms-2">${m.groupPercentage}%</span>` : ""}
+              </div>
+            </td>
+            <td class="py-1 border-0"></td>
+            <td class="text-end pe-3 py-1 border-0"><span class="${tone}">${money(m.final)}</span></td>
+            <td class="text-end pe-3 py-1 border-0">
+              <small class="text-muted" title="Profit share ${money(m.profitShare)} + paid ${money(m.paid)} − received ${money(m.received)}">
+                paid ${money(m.paid)} · recv ${money(m.received)}
+              </small>
+            </td>
+          </tr>`;
+      })
+      .join("");
+  }
+
+  renderGroupBreakdownHtml(groupBreakdowns) {
+    if (!groupBreakdowns.length) return "";
+    const money = (v) => `${v < -0.005 ? "-" : ""}$${Math.abs(v).toFixed(2)}`;
+    return groupBreakdowns
+      .map((g) => {
+        const status =
+          g.final > 0.005
+            ? `<span class="badge bg-success">Group receives ${money(g.final)}</span>`
+            : g.final < -0.005
+              ? `<span class="badge bg-danger">Group pays ${money(-g.final)}</span>`
+              : `<span class="badge bg-secondary">Balanced</span>`;
+        const rows = g.members
+          .map((m) => {
+            const finalClass =
+              m.final > 0.005
+                ? "text-success"
+                : m.final < -0.005
+                  ? "text-danger"
+                  : "text-muted";
+            const avatar = m.avatar
+              ? `<img src="${this.getOptimizedAvatarUrl(m.avatar, "small")}" alt="" class="rounded-circle me-2" style="width:24px;height:24px;object-fit:cover;" onerror="this.style.display='none'">`
+              : `<span class="rounded-circle me-2 d-inline-flex align-items-center justify-content-center bg-secondary text-white" style="width:24px;height:24px;font-size:11px;">${escapeHtml((m.name || "?").charAt(0).toUpperCase())}</span>`;
+            return `
+              <tr${m.isRemainder ? ' class="text-muted fst-italic"' : ""}>
+                <td class="ps-2"><div class="d-flex align-items-center">${m.isRemainder ? "" : avatar}<span>${escapeHtml(m.name)}</span></div></td>
+                <td class="text-end">${m.groupPercentage ? `${m.groupPercentage}%` : "—"}</td>
+                <td class="text-end d-none d-md-table-cell">${money(m.profitShare)}</td>
+                <td class="text-end d-none d-md-table-cell">${money(m.paid)}</td>
+                <td class="text-end d-none d-md-table-cell">${money(m.received)}</td>
+                <td class="text-end pe-2 fw-bold ${finalClass}">${money(m.final)}</td>
+              </tr>`;
+          })
+          .join("");
+        return `
+          <div class="mt-3 border rounded">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 py-2 bg-light border-bottom">
+              <div class="fw-bold"><i class="bi bi-people-fill me-2 text-primary"></i>Inside ${escapeHtml(g.name)} <small class="text-muted fw-normal">· ${g.propertyCount} propert${g.propertyCount === 1 ? "y" : "ies"}</small></div>
+              ${status}
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light small">
+                  <tr>
+                    <th class="ps-2">Member</th>
+                    <th class="text-end">Group %</th>
+                    <th class="text-end d-none d-md-table-cell">Profit share</th>
+                    <th class="text-end d-none d-md-table-cell">Paid</th>
+                    <th class="text-end d-none d-md-table-cell">Received</th>
+                    <th class="text-end pe-2">Final</th>
+                  </tr>
+                </thead>
+                <tbody class="small">${rows}</tbody>
+              </table>
+            </div>
+            <div class="small text-muted px-3 py-2 border-top">
+              Final = profit share + paid − received, summed over every property. Positive: ${escapeHtml(g.name)} owes the member. Negative: the member holds money for ${escapeHtml(g.name)}. Rows add up to ${escapeHtml(g.name)}'s ${money(g.final)}.
+            </div>
+          </div>`;
+      })
+      .join("");
+  }
+
   async fetchBulkReports() {
     const month = document.getElementById("bulkReportMonth")?.value;
     const year = document.getElementById("bulkReportYear")?.value;
@@ -494,20 +789,49 @@ class BulkPropertyReportsComponent {
                     const totalExpenses = report.totalExpenses || 0;
                     const netProfit = totalIncome - totalExpenses;
 
-                    // Calculate investor distribution
-                    report.investors = investorsResult.data
-                      .map((investor) => {
-                        // Find this investor's percentage for the current property
-                        const propertyInfo = investor.properties?.find(
-                          (p) => p.propertyId === propertyId
+                    // Same rules as the single-property report
+                    // (financial-reports.js _computeInvestorRows): the %
+                    // in effect for the report month, and group members'
+                    // items counted toward their group, so settlements
+                    // are between the group and the other investors.
+                    const propertyInvestors = investorsResult.data.filter(
+                      (inv) =>
+                        inv.properties?.some(
+                          (p) => p.propertyId === propertyId,
+                        ),
+                    );
+                    const pctById = new Map(
+                      propertyInvestors.map((inv) => [
+                        inv.investorId,
+                        this.reportPercentage(
+                          inv,
+                          report,
+                          propertyId,
+                          year,
+                          month,
+                        ),
+                      ]),
+                    );
+                    const ownerOf = this.buildGroupOwnerResolver(
+                      propertyInvestors,
+                      pctById,
+                    );
+                    const totalFor = (items, investorId) =>
+                      (items || [])
+                        .filter(
+                          (x) =>
+                            !x.isPending &&
+                            ownerOf(x.personInCharge) === investorId,
+                        )
+                        .reduce(
+                          (sum, x) => sum + (parseFloat(x.amount) || 0),
+                          0,
                         );
 
-                        // Skip if investor doesn't have this property
-                        if (!propertyInfo) {
-                          return null;
-                        }
-
-                        const percentage = propertyInfo.percentage || 0;
+                    report.investors = propertyInvestors
+                      .map((investor) => {
+                        const percentage =
+                          pctById.get(investor.investorId) || 0;
                         const profitShare = (netProfit * percentage) / 100;
 
                         // Get already paid/received from investor transactions
@@ -516,46 +840,23 @@ class BulkPropertyReportsComponent {
                               (t) => t.investorId === investor.investorId
                             )
                           : null;
-                        const alreadyPaid = existingTransaction
-                          ? existingTransaction.alreadyPaid
-                          : 0;
-                        const alreadyReceived = existingTransaction
-                          ? existingTransaction.alreadyReceived
-                          : 0;
+                        const alreadyPaid =
+                          existingTransaction?.alreadyPaid || 0;
+                        const alreadyReceived =
+                          existingTransaction?.alreadyReceived || 0;
 
-                        // Calculate expenses paid by this investor on behalf of the group
-                        // (excluding pending items, to match the single-property report)
-                        let expensesPaidByInvestor = 0;
-                        if (report.expenses && Array.isArray(report.expenses)) {
-                          expensesPaidByInvestor = report.expenses
-                            .filter(
-                              (exp) =>
-                                !exp.isPending &&
-                                exp.personInCharge === investor.investorId
-                            )
-                            .reduce(
-                              (sum, exp) => sum + (parseFloat(exp.amount) || 0),
-                              0
-                            );
-                        }
+                        // Paid / received for the property (pending items
+                        // excluded); a group's include its members' items
+                        const expensesPaidByInvestor = totalFor(
+                          report.expenses,
+                          investor.investorId,
+                        );
+                        const incomeReceivedByInvestor = totalFor(
+                          report.income,
+                          investor.investorId,
+                        );
 
-                        // Calculate income received by this investor on behalf of the group
-                        // (excluding pending items, to match the single-property report)
-                        let incomeReceivedByInvestor = 0;
-                        if (report.income && Array.isArray(report.income)) {
-                          incomeReceivedByInvestor = report.income
-                            .filter(
-                              (inc) =>
-                                !inc.isPending &&
-                                inc.personInCharge === investor.investorId
-                            )
-                            .reduce(
-                              (sum, inc) => sum + (parseFloat(inc.amount) || 0),
-                              0
-                            );
-                        }
-
-                        // Final amount = investor's share - what they already paid + what they received + expenses they paid on behalf of group - income they received on behalf of group
+                        // Final = share − already paid + already received + paid − received
                         const final =
                           profitShare -
                           alreadyPaid +
@@ -563,13 +864,23 @@ class BulkPropertyReportsComponent {
                           expensesPaidByInvestor -
                           incomeReceivedByInvestor;
 
-                        // Use final amount as SGD amount (everything converted to SGD)
-                        const sgdAmount = final;
+                        // Members whose items rolled into their group, and
+                        // anyone else with 0% and nothing to settle, drop out
+                        if (
+                          percentage === 0 &&
+                          !alreadyPaid &&
+                          !alreadyReceived &&
+                          !expensesPaidByInvestor &&
+                          !incomeReceivedByInvestor
+                        ) {
+                          return null;
+                        }
 
                         return {
                           investorName: investor.name || investor.username,
                           investorId: investor.investorId,
                           avatar: investor.avatar || null,
+                          isGroup: !!investor.isGroup,
                           sharePercentage: percentage,
                           profitShare: profitShare,
                           expensesPaid: expensesPaidByInvestor,
@@ -577,10 +888,25 @@ class BulkPropertyReportsComponent {
                           alreadyPaid: alreadyPaid,
                           alreadyReceived: alreadyReceived,
                           final: final,
-                          sgdAmount: sgdAmount,
+                          sgdAmount: final,
                         };
                       })
-                      .filter((inv) => inv !== null); // Remove investors that don't have this property
+                      .filter((inv) => inv !== null);
+
+                    // Each group's result split across its members
+                    report.investors.forEach((row) => {
+                      if (!row.isGroup) return;
+                      const group = propertyInvestors.find(
+                        (i) => i.investorId === row.investorId,
+                      );
+                      row.memberBreakdown = this.computeGroupMemberBreakdown(
+                        row,
+                        group,
+                        report,
+                        ownerOf,
+                        investorsResult.data,
+                      );
+                    });
 
                     // Calculate per-property settlements
                     if (report.investors && report.investors.length > 0) {
@@ -730,6 +1056,8 @@ class BulkPropertyReportsComponent {
     // Save settlements + reports for image export
     this.lastSettlements = settlements;
     this.lastReports = reports;
+    const groupBreakdowns = this.aggregateGroupBreakdowns(reports);
+    this.lastGroupBreakdowns = groupBreakdowns;
 
     // Create investor summary HTML
     let investorSummaryHtml = "";
@@ -792,6 +1120,7 @@ class BulkPropertyReportsComponent {
                         }
                       </td>
                     </tr>
+                    ${this.renderGroupMemberSummaryRows(groupBreakdowns.find((g) => g.investorId === inv.investorId))}
                   `;
                       }
                     )
@@ -836,11 +1165,25 @@ class BulkPropertyReportsComponent {
                 <i class="bi bi-image"></i> Image
               </button>
               <button
+                id="exportSettlementByPayerBtn"
+                class="btn btn-sm btn-light me-1"
+                title="Export a phone-friendly image grouped by who pays"
+                style="border: none;">
+                <i class="bi bi-person-lines-fill"></i> By payer
+              </button>
+              <button
                 id="copySettlementBtn"
-                class="btn btn-sm btn-light"
+                class="btn btn-sm btn-light me-1"
                 title="Copy settlement instructions to clipboard"
                 style="border: none;">
                 <i class="bi bi-clipboard"></i> Copy
+              </button>
+              <button
+                id="copySettlementExcelBtn"
+                class="btn btn-sm btn-light"
+                title="Copy as a table to paste into Excel / Google Sheets"
+                style="border: none;">
+                <i class="bi bi-file-earmark-excel text-success"></i> Excel
               </button>
             </div>
           </div>
@@ -979,6 +1322,7 @@ class BulkPropertyReportsComponent {
                 )
                 .join("")}
             </div>
+            ${this.renderGroupBreakdownHtml(groupBreakdowns)}
             ${
               settlements.length > 0
                 ? `
@@ -1242,6 +1586,204 @@ class BulkPropertyReportsComponent {
       copyBtn.addEventListener("click", () => {
         this.copySettlementInstructions();
       });
+    }
+    const excelBtn = document.getElementById("copySettlementExcelBtn");
+    if (excelBtn) {
+      excelBtn.addEventListener("click", () =>
+        this.copySettlementAsSpreadsheet(excelBtn),
+      );
+    }
+  }
+
+  /*
+   * Settlement as a spreadsheet table (paste into Excel / Google Sheets),
+   * grouped by who pays, one row per property line. Built to read at a
+   * glance: each payer's name is one merged cell over all their rows, and
+   * each transfer's #, recipient and "Total to send" are merged over that
+   * transfer's property rows. "#" is the transfer number on the page and
+   * in the image.
+   *
+   * Amounts are plain numbers (no $ or thousands separators) so they paste
+   * as numbers. "Amount (SGD)" is what a property adds to the transfer
+   * (negative = it reduces it); a transfer's amounts add up to its "Total
+   * to send". Ends with the grand total and the number of transfers.
+   *
+   * Returns rows of cells: { v, rowspan?, num?, strong? }, or null where a
+   * merged cell above covers that spot.
+   */
+  buildSettlementSpreadsheetRows() {
+    const settlements = this.lastSettlements || [];
+    const num = (v) => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2);
+    const monthLabel =
+      document
+        .getElementById("bulkReportMonth")
+        ?.selectedOptions?.[0]?.textContent?.trim() || "";
+    const year = document.getElementById("bulkReportYear")?.value || "";
+    const linesOf = (st) =>
+      Array.isArray(st.propertyBreakdown) && st.propertyBreakdown.length
+        ? st.propertyBreakdown
+        : [{ propertyName: "", amount: st.amount }];
+
+    // Group transfers by payer, keeping each payer's transfers in page
+    // order; payers who pay the most come first
+    const byFrom = new Map();
+    settlements.forEach((st, i) => {
+      if (!byFrom.has(st.fromName))
+        byFrom.set(st.fromName, { total: 0, items: [] });
+      const g = byFrom.get(st.fromName);
+      g.total += st.amount;
+      g.items.push({ st, n: String(i + 1) });
+    });
+    const groups = [...byFrom.entries()].sort(
+      (a, b) => b[1].total - a[1].total,
+    );
+
+    const COLS = 6;
+    const rows = [
+      [
+        {
+          v: `Settlement ${[monthLabel, year].filter(Boolean).join(" ")}`.trim(),
+          strong: true,
+        },
+      ],
+      [
+        "#",
+        "From (pays)",
+        "To (receives)",
+        "Property",
+        "Amount (SGD)",
+        "Total to send (SGD)",
+      ].map((v) => ({
+        v,
+        header: true,
+      })),
+    ];
+    groups.forEach(([fromName, g]) => {
+      const groupRows = g.items.reduce(
+        (sum, { st }) => sum + linesOf(st).length,
+        0,
+      );
+      let firstOfGroup = true;
+      g.items.forEach(({ st, n }) => {
+        const lines = linesOf(st);
+        lines.forEach((line, li) => {
+          const first = li === 0;
+          rows.push([
+            first ? { v: n, rowspan: lines.length } : null,
+            firstOfGroup
+              ? { v: fromName, rowspan: groupRows, strong: true }
+              : null,
+            first ? { v: st.toName, rowspan: lines.length } : null,
+            { v: line.propertyName || line.propertyId || "" },
+            // Breakdown amounts already add up to the transfer amount
+            { v: num(line.amount), num: true },
+            first
+              ? {
+                  v: num(st.amount),
+                  rowspan: lines.length,
+                  num: true,
+                  strong: true,
+                }
+              : null,
+          ]);
+          firstOfGroup = false;
+        });
+      });
+    });
+    const total = settlements.reduce((sum, st) => sum + st.amount, 0);
+    rows.push([]);
+    rows.push([
+      { v: "" },
+      { v: "" },
+      { v: "" },
+      { v: "" },
+      { v: "Total", strong: true },
+      { v: num(total), num: true, strong: true },
+    ]);
+    rows.push([
+      { v: "" },
+      { v: "" },
+      { v: "" },
+      { v: "" },
+      { v: "Transfers", strong: true },
+      { v: String(settlements.length), strong: true },
+    ]);
+    rows.COLS = COLS;
+    return rows;
+  }
+
+  async copySettlementAsSpreadsheet(btn) {
+    const rows = this.buildSettlementSpreadsheetRows();
+    // Tabs/newlines inside a cell would split it, so flatten them
+    const clean = (c) =>
+      String(c?.v ?? "")
+        .replace(/[\t\r\n]+/g, " ")
+        .trim();
+
+    // Plain text (no merges possible): a merged value sits on its first row
+    const tsv = rows
+      .map((r) => r.map((c) => (c ? clean(c) : "")).join("\t"))
+      .join("\n");
+
+    // HTML table: Excel and Google Sheets keep rowspan as merged cells
+    const border = "border:1px solid #b7b7b7;";
+    const html = `<table style="border-collapse:collapse;">${rows
+      .map((r) => {
+        if (r.length === 0) return `<tr><td colspan="${rows.COLS}"></td></tr>`;
+        return `<tr>${r
+          .map((c) => {
+            if (!c) return ""; // covered by a merged cell above
+            const tag = c.header ? "th" : "td";
+            const attrs = c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : "";
+            const styles = [
+              c.header || clean(c) ? border : "",
+              "vertical-align:middle;",
+              c.header
+                ? "background:#d9ead3;font-weight:bold;text-align:center;"
+                : "",
+              c.strong ? "font-weight:bold;" : "",
+              c.num ? "text-align:right;mso-number-format:'0.00';" : "",
+            ].join("");
+            return `<${tag}${attrs} style="${styles}">${escapeHtml(clean(c))}</${tag}>`;
+          })
+          .join("")}</tr>`;
+      })
+      .join("")}</table>`;
+
+    const flash = (ok) => {
+      const original = btn.innerHTML;
+      btn.innerHTML = ok
+        ? '<i class="bi bi-check-lg"></i> Copied!'
+        : '<i class="bi bi-x-lg"></i> Failed';
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.disabled = false;
+      }, 2000);
+    };
+
+    try {
+      if (window.ClipboardItem && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([tsv], { type: "text/plain" }),
+            "text/html": new Blob([html], { type: "text/html" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(tsv);
+      }
+      flash(true);
+      if (typeof showToast === "function") {
+        showToast(
+          "Table copied — paste into Excel or Google Sheets",
+          "success",
+          3500,
+        );
+      }
+    } catch (err) {
+      console.error("Spreadsheet copy failed:", err);
+      flash(false);
     }
   }
 
@@ -2299,6 +2841,7 @@ class BulkPropertyReportsComponent {
           investorId: inv.investorId,
           name: inv.name || inv.username || inv.investorId,
           avatar: inv.avatar || null,
+          isGroup: !!inv.isGroup,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (err) {
@@ -2310,82 +2853,352 @@ class BulkPropertyReportsComponent {
 
   populateExtractionDropdowns() {
     const payerSel = document.getElementById("extractPayerSelect");
-    const payeeSel = document.getElementById("extractPayeeSelect");
-    if (!payerSel || !payeeSel) return;
+    if (!payerSel) return;
+    const investors = this.allInvestors || [];
+    const label = (inv) =>
+      `${escapeHtml(inv.name)}${inv.isGroup ? " (group)" : ""}`;
 
-    const opts = (this.allInvestors || [])
-      .map((inv) => `<option value="${inv.investorId}">${escapeHtml(inv.name)}</option>`)
-      .join("");
+    payerSel.innerHTML = `<option value="">Select payer…</option>${investors
+      .map(
+        (inv) =>
+          `<option value="${escapeHtml(inv.investorId)}">${label(inv)}</option>`,
+      )
+      .join("")}`;
 
-    payerSel.innerHTML = `<option value="">Select payer…</option>${opts}`;
-    payeeSel.innerHTML = `<option value="">Select payee…</option>${opts}`;
+    if (!this.extractPayeeIds) this.extractPayeeIds = new Set();
+    const menu = document.getElementById("extractPayeeMenu");
+    if (menu) {
+      menu.innerHTML = `
+        <input type="search" class="form-control form-control-sm mb-2" id="extractPayeeSearch" placeholder="Search investors…" autocomplete="off">
+        <div class="d-flex justify-content-between small mb-1 px-1">
+          <a href="#" id="extractPayeeAll">Select all</a>
+          <a href="#" id="extractPayeeNone" class="text-muted">Clear</a>
+        </div>
+        <div id="extractPayeeList">
+          ${investors
+            .map(
+              (inv) => `
+            <label class="dropdown-item d-flex align-items-center gap-2 rounded py-2" data-name="${escapeHtml(inv.name.toLowerCase())}" data-id="${escapeHtml(inv.investorId)}" style="cursor:pointer;">
+              <input type="checkbox" class="form-check-input m-0 flex-shrink-0" value="${escapeHtml(inv.investorId)}">
+              <span class="text-truncate">${escapeHtml(inv.name)}</span>
+              ${inv.isGroup ? '<span class="badge bg-primary-subtle text-primary ms-auto">Group</span>' : ""}
+            </label>`,
+            )
+            .join("")}
+        </div>`;
+
+      const list = menu.querySelector("#extractPayeeList");
+      list.addEventListener("change", (e) => {
+        const box = e.target.closest('input[type="checkbox"]');
+        if (!box) return;
+        if (box.checked) this.extractPayeeIds.add(box.value);
+        else this.extractPayeeIds.delete(box.value);
+        this.updatePayeePickerLabel();
+      });
+      menu
+        .querySelector("#extractPayeeSearch")
+        .addEventListener("input", (e) => {
+          const q = e.target.value.trim().toLowerCase();
+          list.querySelectorAll("label[data-name]").forEach((row) => {
+            row.classList.toggle(
+              "d-none",
+              !!q && !row.dataset.name.includes(q),
+            );
+          });
+        });
+      const setAll = (checked) => (e) => {
+        e.preventDefault();
+        const payerId = payerSel.value;
+        list.querySelectorAll("label[data-id]").forEach((row) => {
+          if (row.classList.contains("d-none")) return; // respects the search filter
+          const id = row.dataset.id;
+          if (checked && id === payerId) return; // never the payer themselves
+          row.querySelector("input").checked = checked;
+          if (checked) this.extractPayeeIds.add(id);
+          else this.extractPayeeIds.delete(id);
+        });
+        this.updatePayeePickerLabel();
+      };
+      menu
+        .querySelector("#extractPayeeAll")
+        .addEventListener("click", setAll(true));
+      menu
+        .querySelector("#extractPayeeNone")
+        .addEventListener("click", setAll(false));
+    }
+
+    this.bindPayeePickerPopup();
+
+    // The payer can't also be a payee
+    payerSel.addEventListener("change", () => this.syncPayeeOptionsWithPayer());
+    this.syncPayeeOptionsWithPayer();
   }
 
+  // Payee checklist popup. It's moved to <body> and placed under the button
+  // with page coordinates, so the card it sits in can't clip it.
+  bindPayeePickerPopup() {
+    const toggle = document.getElementById("extractPayeeToggle");
+    const menu = document.getElementById("extractPayeeMenu");
+    if (!toggle || !menu || toggle.dataset.bound) return;
+    toggle.dataset.bound = "1";
+    document.body.appendChild(menu);
+    Object.assign(menu.style, {
+      position: "absolute",
+      zIndex: "1035",
+      margin: "0",
+    });
+
+    const place = () => {
+      const r = toggle.getBoundingClientRect();
+      const width = Math.min(Math.max(r.width, 260), window.innerWidth - 32);
+      const left = Math.min(
+        Math.max(16, r.left),
+        window.innerWidth - 16 - width,
+      );
+      menu.style.width = `${width}px`;
+      menu.style.left = `${left + window.scrollX}px`;
+      menu.style.top = `${r.bottom + 4 + window.scrollY}px`;
+    };
+    const isOpen = () => menu.classList.contains("show");
+    const open = () => {
+      place();
+      menu.classList.add("show");
+      toggle.setAttribute("aria-expanded", "true");
+      menu.querySelector("#extractPayeeSearch")?.focus({ preventScroll: true });
+    };
+    const close = () => {
+      menu.classList.remove("show");
+      toggle.setAttribute("aria-expanded", "false");
+    };
+
+    toggle.addEventListener("click", () => (isOpen() ? close() : open()));
+    document.addEventListener("mousedown", (e) => {
+      if (isOpen() && !menu.contains(e.target) && !toggle.contains(e.target))
+        close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && isOpen()) {
+        close();
+        toggle.focus();
+      }
+    });
+    window.addEventListener("resize", () => isOpen() && place());
+    // Keep it under the button when any scroll container moves (capture
+    // phase catches scrolling inside the dashboard's own panels too)
+    document.addEventListener(
+      "scroll",
+      (e) => {
+        if (isOpen() && !menu.contains(e.target)) place();
+      },
+      true,
+    );
+    // Close when the page section changes (button no longer visible)
+    window.addEventListener("hashchange", close);
+    this._closePayeePicker = close;
+  }
+
+  syncPayeeOptionsWithPayer() {
+    const payerId = document.getElementById("extractPayerSelect")?.value;
+    document
+      .querySelectorAll("#extractPayeeList label[data-id]")
+      .forEach((row) => {
+        const isPayer = !!payerId && row.dataset.id === payerId;
+        const box = row.querySelector("input");
+        box.disabled = isPayer;
+        row.classList.toggle("opacity-50", isPayer);
+        if (isPayer && box.checked) {
+          box.checked = false;
+          this.extractPayeeIds?.delete(row.dataset.id);
+        }
+      });
+    this.updatePayeePickerLabel();
+  }
+
+  updatePayeePickerLabel() {
+    const toggle = document.getElementById("extractPayeeToggle");
+    if (!toggle) return;
+    const ids = [...(this.extractPayeeIds || [])];
+    const names = ids.map(
+      (id) =>
+        (this.allInvestors || []).find((i) => i.investorId === id)?.name || id,
+    );
+    toggle.textContent =
+      names.length === 0
+        ? "Select payees…"
+        : names.length <= 2
+          ? names.join(", ")
+          : `${names.slice(0, 2).join(", ")} +${names.length - 2} more`;
+    toggle.title = names.join(", ");
+  }
+
+  /*
+   * Settlement Extraction rules (recorded expense items only):
+   *  - Only confirmed items: pending items are left out, the same as every
+   *    profit / settlement calculation, and counted separately so nothing
+   *    disappears silently.
+   *  - Payer: the item's person in charge is the payer, or is a member of
+   *    the payer group whose items count toward that group for that
+   *    property and month (same group rule as the profit split).
+   *  - Payee: the item's "paid to" is one of the chosen payees. When it's a
+   *    group member and the member isn't picked, it counts toward their
+   *    group (if picked) by the same rule. Each item goes to exactly one
+   *    payee, so it can never be counted twice.
+   *  - Amounts are SGD (VND items store their SGD amount plus the rate).
+   */
   async fetchSettlementExtraction() {
     const month   = document.getElementById("extractMonth")?.value;
     const year    = document.getElementById("extractYear")?.value;
     const payerId = document.getElementById("extractPayerSelect")?.value;
-    const payeeId = document.getElementById("extractPayeeSelect")?.value;
+    const payeeIds = [...(this.extractPayeeIds || [])].filter(
+      (id) => id !== payerId,
+    );
+    this._closePayeePicker?.();
 
-    if (!month || !year || !payerId || !payeeId) {
-      this.showError("Please select month, year, payer, and payee.");
+    if (!month || !year || !payerId || payeeIds.length === 0) {
+      this.showError(
+        "Please select month, year, a payer and at least one payee.",
+      );
       return;
     }
-    if (payerId === payeeId) {
-      this.showError("Payer and payee must be different investors.");
-      return;
-    }
 
-    const payerInvestor = (this.allInvestors || []).find((i) => i.investorId === payerId);
-    const payeeInvestor = (this.allInvestors || []).find((i) => i.investorId === payeeId);
+    const findInvestor = (id) =>
+      (this.allInvestors || []).find((i) => i.investorId === id);
+    const payerInvestor = findInvestor(payerId) || {
+      investorId: payerId,
+      name: payerId,
+    };
+    const payeeInvestors = payeeIds.map(
+      (id) => findInvestor(id) || { investorId: id, name: id },
+    );
+    const payeeSet = new Set(payeeIds);
 
     document.getElementById("extractionLoading").style.display = "block";
     document.getElementById("extractionResultsArea").style.display = "none";
 
     try {
       const results = [];
+      let pendingSkipped = 0;
+      const failed = [];
 
       await Promise.all(
         (this.properties || []).map(async (property) => {
+          const propertyId = property.propertyId;
           try {
             const resp = await API.get(
-              API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(property.propertyId, year, month),
+              API_CONFIG.ENDPOINTS.FINANCIAL_REPORT(propertyId, year, month),
             );
-            if (!resp.ok) return;
+            if (resp.status === 404) return; // no report this month
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
             if (!data.success || !data.data) return;
             const report = data.data;
 
-            const matching = (report.expenses || []).filter(
-              (exp) => exp.personInCharge === payerId && exp.paidTo === payeeId,
+            // Who holds what for this property and month → group roll-up
+            let ownerOf = (id) => id;
+            const invResp = await API.get(
+              API_CONFIG.ENDPOINTS.INVESTORS_BY_PROPERTY(propertyId),
             );
-            const expenseTotal = matching.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            // Without the investor list the group rule can't be applied, so
+            // treat it as a failed property rather than guess
+            if (!invResp.ok)
+              throw new Error(`investors HTTP ${invResp.status}`);
+            {
+              const invResult = await invResp.json();
+              const propertyInvestors = (invResult.data || []).filter((inv) =>
+                inv.properties?.some((p) => p.propertyId === propertyId),
+              );
+              const pctById = new Map(
+                propertyInvestors.map((inv) => [
+                  inv.investorId,
+                  this.reportPercentage(inv, report, propertyId, year, month),
+                ]),
+              );
+              ownerOf = this.buildGroupOwnerResolver(
+                propertyInvestors,
+                pctById,
+              );
+            }
 
-            // Deliberately excludes profit-share settlement amounts — that
-            // has its own dedicated section in "Property Profit Results"
-            // (see calculateSettlementsForCurrency / calculatePropertySettlements
-            // above, used by fetchBulkReports()). This tool only surfaces raw
-            // recorded expense reimbursements between the two investors so the
-            // two totals are never double-shown/double-counted across sections.
+            const payeeFor = (paidTo) => {
+              if (!paidTo) return null;
+              if (payeeSet.has(paidTo)) return paidTo;
+              const owner = ownerOf(paidTo);
+              return payeeSet.has(owner) ? owner : null;
+            };
+
+            const matching = [];
+            (report.expenses || []).forEach((exp) => {
+              const fromPayer =
+                exp.personInCharge === payerId ||
+                ownerOf(exp.personInCharge) === payerId;
+              const payee = fromPayer ? payeeFor(exp.paidTo) : null;
+              if (!payee || payee === payerId) return;
+              if (exp.isPending) {
+                pendingSkipped += 1;
+                return;
+              }
+              matching.push({
+                ...exp,
+                _payeeId: payee,
+                // Recorded by a group member on the group's behalf
+                _viaId:
+                  exp.personInCharge !== payerId ? exp.personInCharge : null,
+                // Paid to a member, counted toward their group
+                _paidToId: exp.paidTo !== payee ? exp.paidTo : null,
+              });
+            });
+
             if (matching.length > 0) {
               results.push({
-                propertyId:   property.propertyId,
+                propertyId,
                 propertyData: property,
-                expenses:     matching,
-                total:        expenseTotal,
+                expenses: matching,
+                total: matching.reduce(
+                  (sum, e) => sum + (parseFloat(e.amount) || 0),
+                  0,
+                ),
               });
             }
-          } catch { /* skip */ }
+          } catch (err) {
+            console.error(`Extraction failed for ${propertyId}:`, err);
+            failed.push(property);
+          }
         }),
       );
 
       // Highest total first
       results.sort((a, b) => b.total - a.total);
 
-      // Cache for export
-      this.lastExtractionData = { results, payerInvestor, payeeInvestor, month, year };
+      // Per-payee totals
+      const payeeTotals = payeeInvestors
+        .map((inv) => {
+          const items = results.flatMap((r) =>
+            r.expenses.filter((e) => e._payeeId === inv.investorId),
+          );
+          return {
+            ...inv,
+            count: items.length,
+            total: items.reduce(
+              (sum, e) => sum + (parseFloat(e.amount) || 0),
+              0,
+            ),
+          };
+        })
+        .sort((a, b) => b.total - a.total);
 
-      this.displaySettlementExtraction(results, payerInvestor, payeeInvestor, month, year);
+      // Cache for export
+      this.lastExtractionData = {
+        results,
+        payerInvestor,
+        payeeInvestors,
+        payeeTotals,
+        pendingSkipped,
+        failedCount: failed.length,
+        month,
+        year,
+      };
+
+      this.displaySettlementExtraction(this.lastExtractionData);
     } catch (err) {
       console.error("Extraction error:", err);
       this.showError("Failed to extract settlements. Please try again.");
@@ -2394,27 +3207,67 @@ class BulkPropertyReportsComponent {
     }
   }
 
-  displaySettlementExtraction(results, payerInvestor, payeeInvestor, month, year) {
+  // Name lookup for the extraction view
+  _extractName(id) {
+    return (
+      (this.allInvestors || []).find((i) => i.investorId === id)?.name ||
+      id ||
+      "Unknown"
+    );
+  }
+
+  // SGD amount, plus the VND figure for VND items
+  _extractAmountLabel(exp) {
+    const amt = parseFloat(exp.amount) || 0;
+    const sgd = `$${amt.toFixed(2)}`;
+    if (exp.currency === "VND" && exp.exchangeRate) {
+      return `${sgd} (₫${(amt * exp.exchangeRate).toLocaleString("vi-VN", { maximumFractionDigits: 0 })})`;
+    }
+    return sgd;
+  }
+
+  displaySettlementExtraction({
+    results,
+    payerInvestor,
+    payeeInvestors,
+    payeeTotals,
+    pendingSkipped,
+    failedCount,
+    month,
+    year,
+  }) {
     const MONTH_NAMES = [
       "January","February","March","April","May","June",
       "July","August","September","October","November","December",
     ];
-    const monthName   = MONTH_NAMES[parseInt(month) - 1];
-    const grandTotal  = results.reduce((s, r) => s + r.total, 0);
-    const grandExpenseTotal = results.reduce(
-      (s, r) => s + r.expenses.reduce((es, e) => es + (parseFloat(e.amount) || 0), 0),
-      0,
-    );
-    const totalTx     = results.reduce((s, r) => s + r.expenses.length, 0);
-    const payerName   = payerInvestor?.name || "Unknown";
-    const payeeName   = payeeInvestor?.name || "Unknown";
+    const monthName = MONTH_NAMES[parseInt(month) - 1];
+    const grandTotal = results.reduce((s, r) => s + r.total, 0);
+    const totalTx = results.reduce((s, r) => s + r.expenses.length, 0);
+    const payerName = payerInvestor?.name || "Unknown";
+    const multi = payeeInvestors.length > 1;
+    const payeeNames = payeeInvestors.map((p) => p.name).join(", ");
 
-    const renderAvatar = (avatar, name, bgColor) => {
+    const renderAvatar = (avatar, name, bgColor, size = 26) => {
       if (avatar) {
-        return `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" class="rounded-circle me-1" style="width:26px;height:26px;object-fit:cover;" alt="${escapeHtml(name)}">`;
+        return `<img src="${this.getOptimizedAvatarUrl(avatar, "small")}" class="rounded-circle me-1 flex-shrink-0" style="width:${size}px;height:${size}px;object-fit:cover;" alt="${escapeHtml(name)}">`;
       }
-      return `<div class="rounded-circle me-1 d-inline-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0" style="width:26px;height:26px;font-size:11px;background:${bgColor};">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
+      return `<div class="rounded-circle me-1 d-inline-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px;background:${bgColor};">${escapeHtml((name || "?").charAt(0).toUpperCase())}</div>`;
     };
+
+    const warnings = [];
+    if (pendingSkipped > 0) {
+      warnings.push(
+        `${pendingSkipped} pending item${pendingSkipped !== 1 ? "s" : ""} between them ${pendingSkipped !== 1 ? "are" : "is"} not included until confirmed.`,
+      );
+    }
+    if (failedCount > 0) {
+      warnings.push(
+        `${failedCount} propert${failedCount !== 1 ? "ies" : "y"} couldn't be loaded, so the totals may be incomplete. Try again.`,
+      );
+    }
+    const warningHtml = warnings.length
+      ? `<div class="alert alert-warning py-2 small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>${warnings.map(escapeHtml).join(" ")}</div>`
+      : "";
 
     let html = `
       <div class="card border-success">
@@ -2434,41 +3287,62 @@ class BulkPropertyReportsComponent {
 
     if (results.length === 0) {
       html += `
+          ${warningHtml}
           <div class="text-center text-muted py-5">
             <i class="bi bi-inbox fs-1 mb-3 d-block"></i>
-            <p>No expense transactions found where <strong>${escapeHtml(payerName)}</strong> owes <strong>${escapeHtml(payeeName)}</strong> in ${escapeHtml(monthName)} ${escapeHtml(year)}.</p>
+            <p>No confirmed expense payments from <strong>${escapeHtml(payerName)}</strong> to <strong>${escapeHtml(payeeNames)}</strong> in ${escapeHtml(monthName)} ${escapeHtml(year)}.</p>
           </div>`;
     } else {
-      // Info alert
       html += `
           <div class="alert alert-info mb-3">
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <i class="bi bi-lightbulb me-1"></i>
-              <span>Found <strong>${totalTx} transaction${totalTx !== 1 ? "s" : ""}</strong> across <strong>${results.length} propert${results.length !== 1 ? "ies" : "y"}</strong> where</span>
+              <span>Found <strong>${totalTx} payment${totalTx !== 1 ? "s" : ""}</strong> across <strong>${results.length} propert${results.length !== 1 ? "ies" : "y"}</strong> where</span>
               <span class="d-inline-flex align-items-center">
                 ${renderAvatar(payerInvestor?.avatar, payerName, "#dc3545")}
                 <strong class="text-danger">${escapeHtml(payerName)}</strong>
               </span>
               <span>owes</span>
-              <span class="d-inline-flex align-items-center">
-                ${renderAvatar(payeeInvestor?.avatar, payeeName, "#198754")}
-                <strong class="text-success">${escapeHtml(payeeName)}</strong>
-              </span>
+              <strong class="text-success">${multi ? `${payeeInvestors.length} payees` : escapeHtml(payeeNames)}</strong>
               <span>— Grand Total: <strong class="text-dark">$${grandTotal.toFixed(2)} SGD</strong></span>
             </div>
             <div class="small text-muted mt-1">
-              Recorded expense payments: <strong>$${grandExpenseTotal.toFixed(2)}</strong>
-              &nbsp;·&nbsp; Profit-share settlement is not included here — see the "Profit Share Settlement" section under Property Profit Results.
+              Confirmed expense payments only. Group members' items count toward their group. Profit-share settlement is not included here — see Settlement Instructions above.
+            </div>
+          </div>
+          ${warningHtml}`;
+
+      // Per-payee totals
+      if (multi) {
+        html += `
+          <div class="border rounded mb-3">
+            <div class="px-3 py-2 bg-light border-bottom small fw-bold text-uppercase text-muted">Owed to each payee</div>
+            ${payeeTotals
+              .map(
+                (t) => `
+              <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                <div class="d-flex align-items-center">
+                  ${renderAvatar(t.avatar, t.name, "#198754", 24)}
+                  <span class="${t.count ? "fw-semibold" : "text-muted"}">${escapeHtml(t.name)}</span>
+                  <small class="text-muted ms-2">${t.count} payment${t.count !== 1 ? "s" : ""}</small>
+                </div>
+                <strong class="${t.count ? "" : "text-muted"}">$${t.total.toFixed(2)}</strong>
+              </div>`,
+              )
+              .join("")}
+            <div class="d-flex justify-content-between px-3 py-2 fw-bold">
+              <span>Total</span><span>$${grandTotal.toFixed(2)}</span>
             </div>
           </div>`;
+      }
 
       // Property cards
       html += `<div class="list-group mb-3">`;
       results.forEach((result) => {
-        const prop    = result.propertyData || {};
-        const unit    = prop.unit    || "";
-        const address = prop.address || result.propertyId;
-        const propLabel = [unit, address].filter(Boolean).join(" · ");
+        const prop = result.propertyData || {};
+        const propLabel = [prop.unit || "", prop.address || result.propertyId]
+          .filter(Boolean)
+          .join(" · ");
 
         html += `
           <div class="list-group-item px-3 py-3">
@@ -2478,40 +3352,45 @@ class BulkPropertyReportsComponent {
                 <span class="fw-semibold">${escapeHtml(propLabel)}</span>
               </div>
               <span class="badge bg-warning text-dark fs-6 px-3 py-1 flex-shrink-0">$${result.total.toFixed(2)}</span>
-            </div>`;
+            </div>
+            <div class="ps-2 border-start border-3 border-info mb-2">`;
 
-        if (result.expenses.length > 0) {
+        result.expenses.forEach((exp) => {
+          const dateStr = exp.date
+            ? new Date(exp.date).toLocaleDateString("en-SG", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "—";
+          const notes = [];
+          if (multi)
+            notes.push(
+              `→ <strong class="text-success">${escapeHtml(this._extractName(exp._payeeId))}</strong>`,
+            );
+          if (exp._viaId)
+            notes.push(
+              `recorded by ${escapeHtml(this._extractName(exp._viaId))}`,
+            );
+          if (exp._paidToId)
+            notes.push(
+              `paid to ${escapeHtml(this._extractName(exp._paidToId))}`,
+            );
+
           html += `
-            <div class="ps-2 border-start border-3 border-info mb-2">
-              <small class="text-muted fw-bold d-block mb-1">Recorded Expense Payments:</small>`;
-
-          result.expenses.forEach((exp) => {
-            const dateStr = exp.date
-              ? new Date(exp.date).toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" })
-              : "—";
-            const curr = exp.currency || "SGD";
-            const amt  = parseFloat(exp.amount) || 0;
-            const amtStr = curr === "VND"
-              ? `₫${amt.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
-              : `$${amt.toFixed(2)}`;
-
-            html += `
               <div class="d-flex justify-content-between align-items-start py-1 border-bottom border-light">
                 <div class="flex-grow-1 me-2">
                   <span class="fw-medium">${escapeHtml(exp.item || "—")}</span>
                   <small class="text-muted ms-2">· ${escapeHtml(dateStr)}</small>
+                  ${notes.length ? `<br><small class="text-muted">${notes.join(" · ")}</small>` : ""}
                   ${exp.details ? `<br><small class="text-muted fst-italic">${escapeHtml(exp.details)}</small>` : ""}
                 </div>
-                <small class="badge bg-danger d-flex align-items-center gap-1 flex-shrink-0">
-                  <i class="bi bi-plus-circle-fill"></i> +${escapeHtml(amtStr)}
-                </small>
+                <small class="badge bg-danger flex-shrink-0">+${escapeHtml(this._extractAmountLabel(exp))}</small>
               </div>`;
-          });
-
-          html += `</div>`;
-        }
+        });
 
         html += `
+            </div>
           </div>`;
       });
       html += `</div>`;
@@ -2523,10 +3402,7 @@ class BulkPropertyReportsComponent {
               <span class="text-muted">Properties:</span><strong>${results.length}</strong>
             </div>
             <div class="d-flex justify-content-between mb-1">
-              <span class="text-muted">Total Transactions:</span><strong>${totalTx}</strong>
-            </div>
-            <div class="d-flex justify-content-between mb-1">
-              <span class="text-muted"><i class="bi bi-plus-circle-fill text-danger me-1"></i>Recorded Expense Payments:</span><strong>$${grandExpenseTotal.toFixed(2)}</strong>
+              <span class="text-muted">Payments:</span><strong>${totalTx}</strong>
             </div>
             <hr class="my-2">
             <div class="d-flex justify-content-between align-items-center">
@@ -2542,7 +3418,6 @@ class BulkPropertyReportsComponent {
     area.innerHTML = html;
     area.style.display = "block";
 
-    // Bind export button
     const exportBtn = document.getElementById("exportExtractionBtn");
     if (exportBtn) {
       exportBtn.addEventListener("click", () => this.exportExtractionAsImage());
@@ -2569,7 +3444,9 @@ class BulkPropertyReportsComponent {
 
       // Show preview modal first (non-blocking)
       const payerName = data.payerInvestor?.name || "Payer";
-      const payeeName = data.payeeInvestor?.name || "Payee";
+      const payees = data.payeeInvestors || [];
+      const payeeName =
+        payees.length === 1 ? payees[0].name : `${payees.length}_payees`;
       const monthYear = [data.month, data.year].filter(Boolean).join("/");
       this._showImagePreview(blob, {
         fileName: `Settlement_Extraction_${payerName}_to_${payeeName}_${monthYear}.png`.replace(/\s+/g, "_"),
@@ -2649,9 +3526,18 @@ class BulkPropertyReportsComponent {
    * and weight — totals are simply bigger/bolder) and the row's own label
    * text, not color, for a flatter, more editorial "statement" look.
    */
-  async _generateExtractionSVG({ results, payerInvestor, payeeInvestor, month, year }) {
-    const W       = 430;
-    const M       = 16;
+  async _generateExtractionSVG({
+    results,
+    payerInvestor,
+    payeeInvestors = [],
+    payeeTotals = [],
+    month,
+    year,
+  }) {
+    const multi = payeeInvestors.length > 1;
+    const payeeInvestor = multi ? null : payeeInvestors[0];
+    const W = 430;
+    const M = 16;
     const CARD_MX = 4;
     const cardX   = M + CARD_MX;            // 20
     const cardW   = W - 2 * (M + CARD_MX); // 390
@@ -2692,7 +3578,7 @@ class BulkPropertyReportsComponent {
     // Fetch avatars
     const urls = new Set();
     if (payerInvestor?.avatar) urls.add(payerInvestor.avatar);
-    if (payeeInvestor?.avatar) urls.add(payeeInvestor.avatar);
+    payeeInvestors.forEach((inv) => inv.avatar && urls.add(inv.avatar));
     const avatarCache = {};
     await Promise.all([...urls].map(async (url) => {
       try {
@@ -2781,9 +3667,11 @@ class BulkPropertyReportsComponent {
     const genDate   = new Date().toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
 
     const grandTotal = results.reduce((s, r) => s + r.total, 0);
-    const totalTx    = results.reduce((s, r) => s + r.expenses.length, 0);
-    const payerName  = payerInvestor?.name || "Unknown";
-    const payeeName  = payeeInvestor?.name || "Unknown";
+    const totalTx = results.reduce((s, r) => s + r.expenses.length, 0);
+    const payerName = payerInvestor?.name || "Unknown";
+    const payeeName = multi
+      ? `${payeeInvestors.length} payees`
+      : payeeInvestor?.name || "Unknown";
 
     // ── Header — logo + kicker + period only. The payer/payee identity
     // deliberately does NOT repeat here — it used to (a second, more
@@ -2836,9 +3724,25 @@ class BulkPropertyReportsComponent {
     // Payee — right-anchored, always receive/green like the report's INCOME_CLR.
     // Anchored independently of the payer block above, so it can never be
     // pushed into (or overlap) anything else on this row.
-    const toCx = INNER_R - avatarR;
-    renderCircleAvatar(payeeInvestor?.avatar, payeeName, toCx, row1MidY, avatarR, RECEIVE_CLR);
-    p(`<text x="${toCx - avatarR - 6}" y="${row1MidY + 5}" font-size="14" fill="${RECEIVE_CLR}" font-weight="700" text-anchor="end">Payee</text>`);
+    // Several payees: overlapping avatars (up to 3), rightmost first
+    const shown = multi ? payeeInvestors.slice(0, 3) : [payeeInvestor];
+    const STEP = avatarR * 1.4;
+    for (let i = shown.length - 1; i >= 0; i--) {
+      const inv = shown[i];
+      renderCircleAvatar(
+        inv?.avatar,
+        inv?.name || "?",
+        INNER_R - avatarR - i * STEP,
+        row1MidY,
+        avatarR,
+        RECEIVE_CLR,
+      );
+    }
+    const leftmostCx = INNER_R - avatarR - (shown.length - 1) * STEP;
+    const payeeLabel = multi ? `${payeeInvestors.length} Payees` : "Payee";
+    p(
+      `<text x="${leftmostCx - avatarR - 6}" y="${row1MidY + 5}" font-size="14" fill="${RECEIVE_CLR}" font-weight="700" text-anchor="end">${payeeLabel}</text>`,
+    );
 
     // Arrow — fixed at the row's horizontal center, independent of either name's length.
     p(`<text x="${(INNER_L + INNER_R) / 2}" y="${row1MidY + 5}" font-size="18" fill="${TEXT_MED}" text-anchor="middle">&#x2192;</text>`);
@@ -2914,21 +3818,29 @@ class BulkPropertyReportsComponent {
           : "—";
         p(`<text x="${INNER_L}" y="${rowY + 15}" font-size="9" fill="${TEXT_MED}" opacity="0.85">${this._svgEsc(dateStr)}</text>`);
 
-        // Description
-        const descStr = this._svgTrunc(exp.item || "—", 34);
-        p(`<text x="${INNER_L + 46}" y="${rowY + 15}" font-size="10" fill="${TEXT_HI}">${this._svgEsc(descStr)}</text>`);
+        // Description (+ who it's owed to, when there are several payees)
+        const descStr = this._svgTrunc(exp.item || "—", multi ? 22 : 34);
+        p(
+          `<text x="${INNER_L + 46}" y="${rowY + 15}" font-size="10" fill="${TEXT_HI}">${this._svgEsc(descStr)}</text>`,
+        );
+        if (multi) {
+          const toStr = `→ ${this._svgTrunc(this._extractName(exp._payeeId), 14)}`;
+          p(
+            `<text x="${INNER_R - 78}" y="${rowY + 15}" font-size="9" fill="${RECEIVE_CLR}" font-weight="600" text-anchor="end">${this._svgEsc(toStr)}</text>`,
+          );
+        }
 
         // Amount — plain text, no colored badge: sign prefix carries the
         // direction (+ owed / - credited), same baseline as the date and
         // description to its left.
-        const curr   = exp.currency || "SGD";
-        const amt    = parseFloat(exp.amount) || 0;
-        const sign   = amt < 0 ? "-" : "+";
-        const absAmt = Math.abs(amt);
-        const amtStr = curr === "VND"
-          ? `${sign}₫${absAmt.toLocaleString("vi-VN", { maximumFractionDigits: 0 })}`
-          : `${sign}$${absAmt.toFixed(2)}`;
-        p(`<text x="${INNER_R}" y="${rowY + 15}" font-size="11" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(amtStr)}</text>`);
+        // Always the SGD amount (VND items store SGD + rate), so rows add
+        // up to the totals below
+        const amt = parseFloat(exp.amount) || 0;
+        const sign = amt < 0 ? "-" : "+";
+        const amtStr = `${sign}$${Math.abs(amt).toFixed(2)}`;
+        p(
+          `<text x="${INNER_R}" y="${rowY + 15}" font-size="11" fill="${TEXT_HI}" font-weight="700" text-anchor="end">${this._svgEsc(amtStr)}</text>`,
+        );
 
         // Row separator — soft edge-to-edge fade, same treatment the
         // report export uses between its item rows, instead of an
@@ -2950,6 +3862,33 @@ class BulkPropertyReportsComponent {
 
       y += cardH + CARD_GAP;
     });
+
+    // ── Owed to each payee (several payees only) ───────────────────────────
+    if (multi) {
+      const ROW = 22;
+      const boxH = 22 + payeeTotals.length * ROW + 6;
+      p(
+        `<rect x="${cardX}" y="${y}" width="${cardW}" height="${boxH}" rx="8" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`,
+      );
+      p(
+        `<text x="${INNER_L}" y="${y + 16}" font-size="9.5" fill="${TEXT_MED}" font-weight="600" letter-spacing="0.5">OWED TO EACH PAYEE</text>`,
+      );
+      payeeTotals.forEach((t, i) => {
+        const ry = y + 22 + i * ROW;
+        const cy = ry + ROW / 2;
+        renderCircleAvatar(t.avatar, t.name, INNER_L + 8, cy, 8, RECEIVE_CLR);
+        p(
+          `<text x="${INNER_L + 22}" y="${cy + 4}" font-size="10.5" fill="${t.count ? TEXT_HI : TEXT_MED}" font-weight="600">${this._svgEsc(this._svgTrunc(t.name, 30))}</text>`,
+        );
+        p(
+          `<text x="${INNER_R - 90}" y="${cy + 4}" font-size="9" fill="${TEXT_MED}" text-anchor="end">${t.count} payment${t.count !== 1 ? "s" : ""}</text>`,
+        );
+        p(
+          `<text x="${INNER_R}" y="${cy + 4}" font-size="11.5" fill="${t.count ? TEXT_HI : TEXT_MED}" font-weight="700" text-anchor="end">$${t.total.toFixed(2)}</text>`,
+        );
+      });
+      y += boxH + 8;
+    }
 
     // ── Grand total card — mirrors the report's summary-bar convention ────
     const gtH = 48;
@@ -2987,6 +3926,533 @@ class BulkPropertyReportsComponent {
     if (btn) {
       btn.addEventListener("click", () => this.exportSettlementAsImage());
     }
+    const byPayerBtn = document.getElementById("exportSettlementByPayerBtn");
+    if (byPayerBtn) {
+      byPayerBtn.addEventListener("click", () =>
+        this.exportSettlementByPayerImage(byPayerBtn),
+      );
+    }
+  }
+
+  // Transfers grouped by payer (same order as the Excel copy): payers who
+  // pay the most first, each payer's transfers in page order, "#" = the
+  // transfer number on the page.
+  _groupSettlementsByPayer(settlements) {
+    const byFrom = new Map();
+    settlements.forEach((st, i) => {
+      if (!byFrom.has(st.fromName)) {
+        byFrom.set(st.fromName, {
+          name: st.fromName,
+          avatar: st.fromAvatar,
+          total: 0,
+          transfers: [],
+        });
+      }
+      const g = byFrom.get(st.fromName);
+      g.total += st.amount;
+      g.transfers.push({ ...st, n: i + 1 });
+    });
+    return [...byFrom.values()].sort((a, b) => b.total - a.total);
+  }
+
+  async exportSettlementByPayerImage(btn) {
+    const settlements = (this.lastSettlements || []).filter(
+      (s) => s.currency !== "VND",
+    );
+    if (settlements.length === 0) {
+      alert("No settlement data to export.");
+      return;
+    }
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    btn.disabled = true;
+    try {
+      const monthLabel =
+        document
+          .getElementById("bulkReportMonth")
+          ?.selectedOptions?.[0]?.textContent?.trim() || "";
+      const year = document.getElementById("bulkReportYear")?.value || "";
+      // Properties that fed the calculation (report loaded), same count as
+      // the page's "Showing X of Y reports" and the other image
+      const propertyCount = (this.lastReports || []).filter(
+        (r) => r.report,
+      ).length;
+      const svgStr = await this._generateSettlementByPayerSVG(
+        settlements,
+        monthLabel,
+        year,
+        propertyCount,
+      );
+      const blob = await this._svgToPngBlob(svgStr);
+      this._showImagePreview(blob, {
+        fileName:
+          `Settlement_By_Payer_${[monthLabel, year].filter(Boolean).join("_") || "export"}.png`.replace(
+            /\s+/g,
+            "_",
+          ),
+        title: "Settlement by Payer",
+        subtitle: [monthLabel, year].filter(Boolean).join(" "),
+      });
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        if (typeof showToast === "function") {
+          const isMac = /Mac|iPhone|iPad|iPod/.test(
+            navigator.platform || navigator.userAgent,
+          );
+          showToast(
+            `Image copied! Paste with ${isMac ? "⌘ Cmd+V" : "Ctrl+V"}`,
+            "success",
+            4000,
+          );
+        }
+      } catch {
+        // Clipboard is optional — the preview is the main result
+      }
+    } catch (err) {
+      console.error("By-payer export error:", err);
+      alert(`Failed to export image: ${err.message}`);
+    } finally {
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }
+  }
+
+  /*
+   * Phone-first settlement image, grouped by payer (430px wide, portrait).
+   * Per payer: a header with avatar, name and what they pay in total; then
+   * each transfer as "#n → recipient ……… amount" with its property lines
+   * underneath (what each property adds; negative = it reduces the
+   * transfer). Every number comes straight from the settlement data, so the
+   * lines add up to the transfer and transfers to the payer's total.
+   * Text is measured with a canvas so names/addresses are cut to fit and
+   * never run into the amounts.
+   */
+  async _generateSettlementByPayerSVG(
+    settlements,
+    monthLabel = "",
+    year = "",
+    propertyCount = null,
+  ) {
+    const groups = this._groupSettlementsByPayer(settlements);
+
+    // Two 430px columns side by side (one when there's a single payer). A
+    // tall narrow image gets shrunk hard by chat apps (they cap the longest
+    // side), which made text blurry; two columns halve the height, like the
+    // other settlement image and the report export.
+    const COL_W = 430;
+    const COLS = groups.length > 1 ? 2 : 1;
+    const W = COL_W * COLS;
+    const M = 14; // page / column margin
+    const PAD = 16; // card inner padding
+    // Geometry of the area being drawn: full width for header, summary and
+    // footer; one column for each payer card (see useColumn)
+    let cardX = M;
+    let cardW = W - 2 * M;
+    let IL = cardX + PAD; // inner left
+    let IR = cardX + cardW - PAD; // inner right
+    const useFullWidth = () => {
+      cardX = M;
+      cardW = W - 2 * M;
+      IL = cardX + PAD;
+      IR = cardX + cardW - PAD;
+    };
+    const useColumn = (col) => {
+      cardX = col * COL_W + M;
+      cardW = COL_W - 2 * M;
+      IL = cardX + PAD;
+      IR = cardX + cardW - PAD;
+    };
+
+    const CARD_GAP = 12;
+
+    const grandTotal = settlements.reduce((sum, st) => sum + st.amount, 0);
+
+    const nodes = [];
+    const defs = [];
+    let clipIdx = 0;
+    const p = (str) => nodes.push(str);
+    const esc = (t) => this._svgEsc(t);
+    const money = (v) =>
+      `${v < -0.005 ? "\u2212" : ""}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // Text fitting with real measurements (same font family as the image)
+    const ctx = document.createElement("canvas").getContext("2d");
+    const fit = (text, maxPx, size, weight = 400) => {
+      const t = String(text || "");
+      ctx.font = `${weight} ${size}px "Noto Serif", serif`;
+      if (ctx.measureText(t).width <= maxPx) return t;
+      let lo = 0;
+      let hi = t.length;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (ctx.measureText(t.slice(0, mid) + "\u2026").width <= maxPx)
+          lo = mid;
+        else hi = mid - 1;
+      }
+      return t.slice(0, lo).trimEnd() + "\u2026";
+    };
+    const textW = (text, size, weight = 400) => {
+      ctx.font = `${weight} ${size}px "Noto Serif", serif`;
+      return ctx.measureText(String(text || "")).width;
+    };
+
+    const fontFaceStyle = await this._loadFontFaceStyle();
+    let logoDataUri = null;
+    try {
+      const logoResp = await fetch("/logo.png");
+      if (logoResp.ok) {
+        const logoBlob = await logoResp.blob();
+        logoDataUri = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.readAsDataURL(logoBlob);
+        });
+      }
+    } catch {
+      /* logo optional */
+    }
+    const avatarCache = await this._fetchSettlementAvatarsAsBase64(settlements);
+
+    // Same palette as the other exports
+    const expenseTokens = getModeTokens(false);
+    const receiveTokens = getModeTokens(true);
+    const neutralTokens = getNeutralTokens();
+    const badgeTokens = getBadgeTokens();
+    const surfaceTokens = getSurfaceTokens();
+    const BASE_BG = expenseTokens.base;
+    const PANEL_BG = expenseTokens.panel;
+    const SUMMARY_BG = expenseTokens.summaryBg;
+    const FOOTER_BG = expenseTokens.footerBg;
+    const BRAND = neutralTokens.brand;
+    const TEXT_HI = neutralTokens.textPrimary;
+    const TEXT_MED = neutralTokens.textMuted;
+    const DIVIDER = neutralTokens.dividerNeutral;
+    const CARD_BG = PANEL_BG;
+    const CARD_BORDER = surfaceTokens.border;
+    const PAY_CLR = expenseTokens.accent;
+    const GET_CLR = receiveTokens.accent;
+    const CHIP_BG = badgeTokens.bg;
+    const CHIP_TXT = badgeTokens.text;
+    const NUM = 'style="font-variant-numeric:tabular-nums"';
+
+    defs.push(
+      `<radialGradient id="bpHaze" cx="50%" cy="0%" r="90%">
+        <stop offset="0%" stop-color="${PAY_CLR}" stop-opacity="0.18"/>
+        <stop offset="45%" stop-color="${PAY_CLR}" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="${PAY_CLR}" stop-opacity="0"/>
+      </radialGradient>`,
+    );
+
+    const avatar = (url, name, cx, cy, r, ring) => {
+      const dataUri = url ? avatarCache[url] : null;
+      if (dataUri) {
+        const id = `bpa${clipIdx++}`;
+        defs.push(
+          `<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>`,
+        );
+        p(
+          `<image href="${dataUri}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#${id})" preserveAspectRatio="xMidYMid slice"/>`,
+        );
+      } else {
+        p(
+          `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${this._getAvatarColor(name)}"/>`,
+        );
+        p(
+          `<text x="${cx}" y="${cy + r * 0.36}" font-size="${Math.round(r * 1.0)}" fill="#fff" font-weight="700" text-anchor="middle">${esc((name || "?").charAt(0).toUpperCase())}</text>`,
+        );
+      }
+      if (ring)
+        p(
+          `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ring}" stroke-width="1.5"/>`,
+        );
+    };
+
+    const genDate = new Date().toLocaleDateString("en-SG", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const period = [monthLabel, year].filter(Boolean).join(" ");
+    let y = 0;
+
+    // ── Header ──────────────────────────────────────────────────────────
+    const HDR_H = 60;
+    p(`<rect x="0" y="0" width="${W}" height="${HDR_H}" fill="${PANEL_BG}"/>`);
+    const LOGO = 30;
+    if (logoDataUri)
+      p(
+        `<image href="${logoDataUri}" x="${M}" y="${(HDR_H - LOGO) / 2}" width="${LOGO}" height="${LOGO}"/>`,
+      );
+    const TX = M + (logoDataUri ? LOGO + 10 : 0);
+    p(
+      `<text x="${TX}" y="${HDR_H / 2 - 3}" font-size="9.5" fill="#ffffff" font-weight="600" letter-spacing="2" opacity="0.7">SETTLEMENT BY PAYER</text>`,
+    );
+    p(
+      `<text x="${TX}" y="${HDR_H / 2 + 14}" font-size="9.5" fill="#ffffff" opacity="0.6">Generated ${esc(genDate)}</text>`,
+    );
+    if (period)
+      p(
+        `<text x="${W - M}" y="${HDR_H / 2 + 7}" font-size="19" fill="#ffffff" font-weight="700" text-anchor="end">${esc(period)}</text>`,
+      );
+    y = HDR_H;
+
+    // ── Hero: total to transfer + key counts ─────────────────────────────
+    const linesOf = (st) =>
+      Array.isArray(st.propertyBreakdown) && st.propertyBreakdown.length
+        ? st.propertyBreakdown
+        : [];
+    const propsOf = (sts) =>
+      new Set(
+        sts.flatMap((st) =>
+          linesOf(st).map((l) => l.propertyId || l.propertyName),
+        ),
+      ).size;
+    const HERO_H = 104;
+    y += 12;
+    p(
+      `<rect x="${cardX}" y="${y}" width="${cardW}" height="${HERO_H}" rx="14" fill="${SUMMARY_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`,
+    );
+    p(
+      `<text x="${IL}" y="${y + 24}" font-size="8.5" fill="${TEXT_MED}" font-weight="700" letter-spacing="1.4">TOTAL TO TRANSFER · SGD</text>`,
+    );
+    p(
+      `<text x="${IL}" y="${y + 56}" font-size="30" fill="${TEXT_HI}" font-weight="800" ${NUM}>${esc(money(grandTotal))}</text>`,
+    );
+    const stats = [
+      [
+        String(settlements.length),
+        settlements.length === 1 ? "transfer" : "transfers",
+      ],
+      [String(groups.length), groups.length === 1 ? "payer" : "payers"],
+      [String(propertyCount ?? propsOf(settlements)), "properties"],
+    ];
+    const statW = (IR - IL) / stats.length;
+    p(
+      `<line x1="${IL}" y1="${y + 70}" x2="${IR}" y2="${y + 70}" stroke="${DIVIDER}" stroke-width="0.8"/>`,
+    );
+    stats.forEach(([v, label], i) => {
+      const sx = IL + i * statW;
+      if (i > 0)
+        p(
+          `<line x1="${sx}" y1="${y + 78}" x2="${sx}" y2="${y + 96}" stroke="${DIVIDER}" stroke-width="0.8"/>`,
+        );
+      const tx = i === 0 ? sx : sx + 12;
+      p(
+        `<text x="${tx}" y="${y + 92}" font-size="13" fill="${TEXT_HI}" font-weight="700" ${NUM}>${esc(v)}<tspan font-size="9.5" fill="${TEXT_MED}" font-weight="400" dx="4">${esc(label)}</tspan></text>`,
+      );
+    });
+    y += HERO_H + 16;
+
+    // ── One card per payer ─────────────────────────────────────────────
+    // Payer at the top; a thin connector runs down from their avatar to
+    // each person they pay, with that transfer's properties underneath.
+    const HEAD_H = 64;
+    const ROW_H = 34; // transfer row
+    const PL_H = 18; // property line
+    const AFTER = 8; // space after a transfer
+    const AR = 17; // payer avatar radius
+    const RR = 11; // recipient avatar radius
+    // Connector x (under payer avatar), recipient avatar centre x and
+    // recipient name / property text x, for the current column
+    let vx = 0;
+    let rcxBase = 0;
+    let nameX = 0;
+
+    // "#06-16, 3 Geylang East Ave 1" → unit + address
+    const splitProp = (label) => {
+      const t = String(label || "");
+      const m = t.match(/^(#[^,]+),\s*(.*)$/);
+      return m ? [m[1], m[2]] : ["", t];
+    };
+
+    const cardHeight = (g) =>
+      HEAD_H +
+      g.transfers.reduce(
+        (sum, st) => sum + ROW_H + linesOf(st).length * PL_H + AFTER,
+        0,
+      ) +
+      8;
+
+    // Split payers into columns, in order: fill the left column up to half
+    // the total height, the rest goes right
+    const heights = groups.map(cardHeight);
+    const half = heights.reduce((sum, h) => sum + h + CARD_GAP + 2, 0) / COLS;
+    const columns = Array.from({ length: COLS }, () => []);
+    let acc = 0;
+    groups.forEach((g, i) => {
+      const step = heights[i] + CARD_GAP + 2;
+      const goLeft =
+        COLS === 1 ||
+        (columns[1].length === 0 &&
+          (columns[0].length === 0 || acc + step / 2 <= half));
+      if (goLeft) {
+        columns[0].push(g);
+        acc += step;
+      } else {
+        columns[1].push(g);
+      }
+    });
+
+    const cardsTop = y;
+    let cardsBottom = y;
+    columns.forEach((colGroups, col) => {
+      useColumn(col);
+      vx = IL + AR;
+      rcxBase = vx + 26 + RR;
+      nameX = rcxBase + RR + 9;
+      y = cardsTop;
+      colGroups.forEach((g) => {
+        const cardH = cardHeight(g);
+        const clipId = `bpc${clipIdx++}`;
+        defs.push(
+          `<clipPath id="${clipId}"><rect x="${cardX}" y="${y}" width="${cardW}" height="${cardH}" rx="14"/></clipPath>`,
+        );
+        p(
+          `<rect x="${cardX}" y="${y}" width="${cardW}" height="${cardH}" rx="14" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`,
+        );
+        // Slightly lifted header band
+        p(
+          `<rect x="${cardX}" y="${y}" width="${cardW}" height="${HEAD_H}" fill="#ffffff" fill-opacity="0.035" clip-path="url(#${clipId})"/>`,
+        );
+        p(
+          `<line x1="${cardX}" y1="${y + HEAD_H}" x2="${cardX + cardW}" y2="${y + HEAD_H}" stroke="${DIVIDER}" stroke-width="0.8"/>`,
+        );
+
+        // Header: avatar · name · counts | TO PAY amount
+        const hy = y + HEAD_H / 2;
+        const totalStr = money(g.total);
+        const totalW = textW(totalStr, 19, 800);
+        const hx = IL + AR * 2 + 12;
+        p(
+          `<text x="${hx}" y="${hy - 2}" font-size="15" fill="${TEXT_HI}" font-weight="700">${esc(fit(g.name, IR - totalW - 16 - hx, 15, 700))}</text>`,
+        );
+        const n = g.transfers.length;
+        const pc = propsOf(g.transfers);
+        const sub = `Pays ${n} ${n === 1 ? "person" : "people"} · ${pc} propert${pc === 1 ? "y" : "ies"}`;
+        p(
+          `<text x="${hx}" y="${hy + 14}" font-size="9.5" fill="${TEXT_MED}">${esc(sub)}</text>`,
+        );
+        p(
+          `<text x="${IR}" y="${hy - 8}" font-size="8" fill="${PAY_CLR}" font-weight="700" letter-spacing="1.2" text-anchor="end">TO PAY</text>`,
+        );
+        p(
+          `<text x="${IR}" y="${hy + 13}" font-size="19" fill="${TEXT_HI}" font-weight="800" text-anchor="end" ${NUM}>${esc(totalStr)}</text>`,
+        );
+
+        // Transfers (connector first so avatars sit on top of it)
+        let ty = y + HEAD_H + 4;
+        const rowsAt = [];
+        g.transfers.forEach((st) => {
+          rowsAt.push(ty + ROW_H / 2);
+          ty += ROW_H + linesOf(st).length * PL_H + AFTER;
+        });
+        const lastCy = rowsAt[rowsAt.length - 1];
+        const R = 7; // elbow radius
+        p(
+          `<path d="M${vx},${hy + AR} V${lastCy - R}" stroke="${DIVIDER}" stroke-width="1.2" fill="none"/>`,
+        );
+        rowsAt.forEach((cy) => {
+          p(
+            `<path d="M${vx},${cy - R} Q${vx},${cy} ${vx + R},${cy} H${rcxBase - RR - 3}" stroke="${DIVIDER}" stroke-width="1.2" fill="none"/>`,
+          );
+        });
+        avatar(g.avatar, g.name, IL + AR, hy, AR, null);
+
+        ty = y + HEAD_H + 4;
+        g.transfers.forEach((st, ti) => {
+          const cy = rowsAt[ti];
+          avatar(st.toAvatar, st.toName, rcxBase, cy, RR, null);
+
+          const amtStr = money(st.amount);
+          const amtW = textW(amtStr, 13.5, 800);
+          const chip = `#${st.n}`;
+          const chipW = textW(chip, 8.5, 700) + 10;
+          const nameMax = IR - amtW - 14 - nameX - chipW - 8;
+          const shownName = fit(st.toName, nameMax, 12.5, 700);
+          p(
+            `<text x="${nameX}" y="${cy + 4.5}" font-size="12.5" fill="${GET_CLR}" font-weight="700">${esc(shownName)}</text>`,
+          );
+          const cx0 = nameX + textW(shownName, 12.5, 700) + 8;
+          p(
+            `<rect x="${cx0}" y="${cy - 7}" width="${chipW}" height="14" rx="7" fill="${CHIP_BG}"/>`,
+          );
+          p(
+            `<text x="${cx0 + chipW / 2}" y="${cy + 3}" font-size="8.5" fill="${CHIP_TXT}" font-weight="700" text-anchor="middle">${esc(chip)}</text>`,
+          );
+          p(
+            `<text x="${IR}" y="${cy + 5}" font-size="13.5" fill="${TEXT_HI}" font-weight="800" text-anchor="end" ${NUM}>${esc(amtStr)}</text>`,
+          );
+
+          // Property lines: unit in brighter text, address muted, amount
+          // (only when there's more than one — a single line is the transfer)
+          const lines = linesOf(st);
+          const single = lines.length === 1;
+          let ly = ty + ROW_H;
+          lines.forEach((line) => {
+            const base = ly + PL_H / 2 + 3;
+            const lAmt = single ? "" : money(line.amount);
+            const lAmtW = single ? 0 : textW(lAmt, 10, 400);
+            const maxW = IR - lAmtW - 12 - nameX;
+            const [unit, addr] = splitProp(
+              line.propertyName || line.propertyId,
+            );
+            const unitW = unit ? textW(unit, 9.5, 700) : 0;
+            if (unit)
+              p(
+                `<text x="${nameX}" y="${base}" font-size="9.5" fill="${TEXT_HI}" font-weight="700" opacity="0.85">${esc(unit)}</text>`,
+              );
+            const addrX = nameX + (unit ? unitW + 6 : 0);
+            p(
+              `<text x="${addrX}" y="${base}" font-size="9.5" fill="${TEXT_MED}">${esc(fit(addr, maxW - (addrX - nameX), 9.5))}</text>`,
+            );
+            if (lAmt) {
+              const credit = line.amount < -0.005;
+              p(
+                `<text x="${IR}" y="${base}" font-size="10" fill="${credit ? GET_CLR : TEXT_MED}" font-weight="${credit ? 600 : 400}" text-anchor="end" ${NUM}>${esc(lAmt)}</text>`,
+              );
+            }
+            ly += PL_H;
+          });
+          ty = ly + AFTER;
+        });
+
+        y += cardH + CARD_GAP + 2;
+      });
+      cardsBottom = Math.max(cardsBottom, y);
+    });
+    y = cardsBottom;
+    useFullWidth();
+
+    // ── Footer: grand total + legend ───────────────────────────────────
+    y += 4;
+    p(
+      `<line x1="${cardX}" y1="${y}" x2="${cardX + cardW}" y2="${y}" stroke="${DIVIDER}" stroke-width="0.8"/>`,
+    );
+    p(
+      `<text x="${IL - 2}" y="${y + 22}" font-size="9" fill="${TEXT_MED}" font-weight="700" letter-spacing="1">GRAND TOTAL</text>`,
+    );
+    p(
+      `<text x="${IR + 2}" y="${y + 23}" font-size="15" fill="${TEXT_HI}" font-weight="800" text-anchor="end" ${NUM}>${esc(money(grandTotal))}</text>`,
+    );
+    y += 36;
+    p(`<rect x="0" y="${y}" width="${W}" height="30" fill="${FOOTER_BG}"/>`);
+    p(
+      `<text x="${W / 2}" y="${y + 19}" font-size="8.5" fill="${TEXT_MED}" text-anchor="middle">Amounts in SGD · #n = transfer number on the report · <tspan fill="${GET_CLR}">−green</tspan> = reduces the transfer</text>`,
+    );
+    y += 30;
+
+    const H = Math.ceil(y);
+    return [
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Noto Serif,serif">`,
+      `<defs>${fontFaceStyle}${defs.join("")}</defs>`,
+      `<rect x="0" y="0" width="${W}" height="${H}" fill="${BASE_BG}"/>`,
+      `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#bpHaze)"/>`,
+      ...nodes,
+      `</svg>`,
+    ].join("");
   }
 
   async exportSettlementAsImage() {
@@ -3014,7 +4480,13 @@ class BulkPropertyReportsComponent {
       const monthLabel = document.getElementById("bulkReportMonth")?.selectedOptions?.[0]?.textContent?.trim() || "";
       const year = document.getElementById("bulkReportYear")?.value || "";
 
-      const svgStr = await this._generateSettlementSVG(settlements, properties, monthLabel, year);
+      const svgStr = await this._generateSettlementSVG(
+        settlements,
+        properties,
+        monthLabel,
+        year,
+        this.lastGroupBreakdowns || [],
+      );
       const blob = await this._svgToPngBlob(svgStr);
 
       // Show preview modal first (non-blocking)
@@ -3344,7 +4816,13 @@ class BulkPropertyReportsComponent {
    * show the plain figure, no sign, matching the extraction export's
    * convention) — distinction comes from typography weight/size, not color.
    */
-  async _generateSettlementSVG(settlements, properties = [], monthLabel = "", year = "") {
+  async _generateSettlementSVG(
+    settlements,
+    properties = [],
+    monthLabel = "",
+    year = "",
+    groupBreakdowns = [],
+  ) {
     // ── Layout constants ──────────────────────────────────────────────────
     // Two columns, each keeping the original single-column card geometry;
     // content fills the left column up to its target height, then flows
@@ -3356,14 +4834,15 @@ class BulkPropertyReportsComponent {
     const CARD_MX = 4;     // extra horizontal inset per card
     const cardW   = COL_W - 2 * (M + CARD_MX); // 398 — same card width in both columns
 
-    // Property preview grid (matches the "Select Properties" picker card style:
-    // rounded photo, ID badge overlaid top-left, address + unit below)
-    const PROP_COLS   = 6;
-    const PROP_GAP    = 10;
-    const PROP_THUMB_H = 52;
-    const PROP_LABEL_H = 22; // address line + unit line
-    const propCardW   = (TOTAL_W - 2 * M - (PROP_COLS - 1) * PROP_GAP) / PROP_COLS;
-    const propCardH   = PROP_THUMB_H + 4 + PROP_LABEL_H;
+    // Property list: compact chips (small square photo + address + unit).
+    // It's reference info only, so it stays small and the settlement cards
+    // below get the space.
+    const PROP_COLS = 6;
+    const PROP_GAP = 6;
+    const PROP_THUMB_H = 24; // square thumbnail
+    const propCardW =
+      (TOTAL_W - 2 * M - (PROP_COLS - 1) * PROP_GAP) / PROP_COLS;
+    const propCardH = PROP_THUMB_H + 4;
 
     // Row heights within each card
     const CARD_PAD_TOP    = 12;
@@ -3448,8 +4927,18 @@ class BulkPropertyReportsComponent {
     const ROW_DIV_FADE = "url(#setRowDivGrad)";
 
     // Avatar + property thumbnail caches
-    const avatarCache = await this._fetchSettlementAvatarsAsBase64(settlements);
-    const propImageCache = await this._fetchPropertyImagesAsBase64(properties, propCardW, PROP_THUMB_H);
+    // (group members' avatars ride along as extra "from" entries)
+    const avatarCache = await this._fetchSettlementAvatarsAsBase64([
+      ...settlements,
+      ...groupBreakdowns.flatMap((g) =>
+        g.members.map((m) => ({ fromAvatar: m.avatar })),
+      ),
+    ]);
+    const propImageCache = await this._fetchPropertyImagesAsBase64(
+      properties,
+      PROP_THUMB_H * 2,
+      PROP_THUMB_H * 2,
+    );
 
     const renderCircleAvatar = (avatarUrl, name, cx, cy, r = 13, fallbackColor = TEXT_MED) => {
       const dataUri = avatarUrl ? avatarCache[avatarUrl] : null;
@@ -3499,63 +4988,81 @@ class BulkPropertyReportsComponent {
     });
     y += INFO_H + 10;
 
-    // ── Selected properties (full width) — mirrors the "Select Properties"
-    // picker card: photo with a numbered ID badge overlaid top-left, then
-    // the full address and unit underneath. ────────────────────────────
+    // ── Selected properties (full width) — compact chips: tiny photo on
+    // the left, address + unit on the right. ────────────────────────────
     if (properties.length > 0) {
       const propsSorted = [...properties].sort(
         (a, b) => (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0),
       );
       const propRows = Math.ceil(propsSorted.length / PROP_COLS);
-      const addrMaxChars = Math.max(8, Math.floor(propCardW / 4.6));
-      const unitMaxChars = Math.max(6, Math.floor(propCardW / 4.6));
+      const textX0 = 2 + PROP_THUMB_H + 6; // text offset inside a chip
+      const textMaxChars = Math.max(
+        8,
+        Math.floor((propCardW - textX0 - 4) / 4.4),
+      );
 
-      p(`<text x="${M}" y="${y + 10}" font-size="9.5" fill="${TEXT_MED}" font-weight="700" letter-spacing="0.5" opacity="0.8">PROPERTIES IN THIS CALCULATION (${propsSorted.length})</text>`);
-      y += 20;
+      p(
+        `<text x="${M}" y="${y + 8}" font-size="8.5" fill="${TEXT_MED}" font-weight="700" letter-spacing="0.5" opacity="0.7">PROPERTIES (${propsSorted.length})</text>`,
+      );
+      y += 14;
       const gridTop = y;
 
       propsSorted.forEach((prop, i) => {
         const col = i % PROP_COLS;
         const row = Math.floor(i / PROP_COLS);
-        const px  = M + col * (propCardW + PROP_GAP);
-        const py  = gridTop + row * (propCardH + PROP_GAP);
+        const px = M + col * (propCardW + PROP_GAP);
+        const py = gridTop + row * (propCardH + PROP_GAP);
+        const tx = px + 2;
+        const ty = py + 2;
 
-        // Card shell
-        p(`<rect x="${px}" y="${py}" width="${propCardW}" height="${propCardH}" rx="8" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`);
+        p(
+          `<rect x="${px}" y="${py}" width="${propCardW}" height="${propCardH}" rx="6" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1"/>`,
+        );
 
-        // Thumbnail photo
-        const dataUri = prop.propertyImage ? propImageCache[prop.propertyImage] : null;
+        const dataUri = prop.propertyImage
+          ? propImageCache[prop.propertyImage]
+          : null;
         if (dataUri) {
           const clipId = `pc${clipIdx++}`;
-          defs.push(`<clipPath id="${clipId}"><rect x="${px}" y="${py}" width="${propCardW}" height="${PROP_THUMB_H}" rx="8"/></clipPath>`);
-          p(`<image href="${dataUri}" x="${px}" y="${py}" width="${propCardW}" height="${PROP_THUMB_H}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`);
+          defs.push(
+            `<clipPath id="${clipId}"><rect x="${tx}" y="${ty}" width="${PROP_THUMB_H}" height="${PROP_THUMB_H}" rx="4"/></clipPath>`,
+          );
+          p(
+            `<image href="${dataUri}" x="${tx}" y="${ty}" width="${PROP_THUMB_H}" height="${PROP_THUMB_H}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`,
+          );
         } else {
-          const fc = this._getAvatarColor(prop.address || prop.propertyId || "?");
-          p(`<rect x="${px}" y="${py}" width="${propCardW}" height="${PROP_THUMB_H}" rx="8" fill="${fc}"/>`);
-          const initial = (prop.unit || prop.propertyId || "?").toString().charAt(0).toUpperCase();
-          p(`<text x="${px + propCardW / 2}" y="${py + PROP_THUMB_H / 2 + 4}" font-size="14" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc(initial)}</text>`);
+          const fc = this._getAvatarColor(
+            prop.address || prop.propertyId || "?",
+          );
+          p(
+            `<rect x="${tx}" y="${ty}" width="${PROP_THUMB_H}" height="${PROP_THUMB_H}" rx="4" fill="${fc}"/>`,
+          );
+          const initial = (prop.unit || prop.propertyId || "?")
+            .toString()
+            .charAt(0)
+            .toUpperCase();
+          p(
+            `<text x="${tx + PROP_THUMB_H / 2}" y="${ty + PROP_THUMB_H / 2 + 4}" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">${this._svgEsc(initial)}</text>`,
+          );
         }
-        p(`<line x1="${px}" y1="${py + PROP_THUMB_H}" x2="${px + propCardW}" y2="${py + PROP_THUMB_H}" stroke="${DIVIDER}" stroke-width="1"/>`);
 
-        // Property ID, overlaid top-left — plain white number, no badge/pill.
-        // This is an internal reference only, so it's kept small and quiet
-        // rather than drawing attention like the picker card's ID bubble.
-        const idStr = this._svgTrunc((prop.propertyId || "").toString(), 3);
-        const idX   = px + 8;
-        const idY   = py + 16;
-        p(`<text x="${idX + 1}" y="${idY + 1}" font-size="11" fill="#000000" fill-opacity="0.55" font-weight="700">${this._svgEsc(idStr)}</text>`);
-        p(`<text x="${idX}" y="${idY}" font-size="11" fill="#ffffff" font-weight="700">${this._svgEsc(idStr)}</text>`);
-
-        // Address + unit, below the photo
-        const addrStr = this._svgTrunc(prop.address || prop.propertyId || "", addrMaxChars);
-        p(`<text x="${px + propCardW / 2}" y="${py + PROP_THUMB_H + 13}" font-size="8.5" fill="${TEXT_HI}" font-weight="700" text-anchor="middle">${this._svgEsc(addrStr)}</text>`);
+        const addrStr = this._svgTrunc(
+          prop.address || prop.propertyId || "",
+          textMaxChars,
+        );
+        const lineY = prop.unit ? py + 12 : py + propCardH / 2 + 3;
+        p(
+          `<text x="${px + textX0}" y="${lineY}" font-size="8" fill="${TEXT_HI}" font-weight="700">${this._svgEsc(addrStr)}</text>`,
+        );
         if (prop.unit) {
-          const unitStr = this._svgTrunc(prop.unit, unitMaxChars);
-          p(`<text x="${px + propCardW / 2}" y="${py + PROP_THUMB_H + 24}" font-size="8" fill="${TEXT_MED}" text-anchor="middle">${this._svgEsc(unitStr)}</text>`);
+          const unitStr = this._svgTrunc(prop.unit, textMaxChars);
+          p(
+            `<text x="${px + textX0}" y="${py + 22}" font-size="7.5" fill="${TEXT_MED}">${this._svgEsc(unitStr)}</text>`,
+          );
         }
       });
 
-      y = gridTop + propRows * propCardH + (propRows - 1) * PROP_GAP + 14;
+      y = gridTop + propRows * propCardH + (propRows - 1) * PROP_GAP + 12;
     }
 
     const colTop = y;
@@ -3712,11 +5219,126 @@ class BulkPropertyReportsComponent {
 
     y = rightCol.length > 0 ? Math.max(leftY, rightY) : leftY;
 
-    // ── Summary (full width, only when multiple settlements) ────────────
-    const fullCardX  = M + CARD_MX;
-    const fullCardW  = TOTAL_W - 2 * (M + CARD_MX);
+    const fullCardX = M + CARD_MX;
+    const fullCardW = TOTAL_W - 2 * (M + CARD_MX);
     const fullInnerL = fullCardX + 12;
     const fullInnerR = fullCardX + fullCardW - 12;
+
+    // ── Inside each group (full width): how the group's total splits
+    // across its members. Only present for users allowed to see it. ─────
+    const money = (v) => `${v < -0.005 ? "-" : ""}$${Math.abs(v).toFixed(2)}`;
+    groupBreakdowns.forEach((g) => {
+      const HEAD_H = 40;
+      const COLHEAD_H = 18;
+      const ROW_H = 26;
+      const NOTE_H = 22;
+      const cardH = HEAD_H + COLHEAD_H + g.members.length * ROW_H + NOTE_H;
+      p(
+        `<rect x="${fullCardX}" y="${y}" width="${fullCardW}" height="${cardH}" rx="10" fill="${CARD_BG}" stroke="${CARD_BORDER}" stroke-width="1.5"/>`,
+      );
+
+      // Header: group avatar + "Inside <group>" + group total
+      const gcy = y + HEAD_H / 2 + 2;
+      renderCircleAvatar(
+        g.avatar,
+        g.name,
+        fullInnerL + 12,
+        gcy,
+        12,
+        RECEIVE_CLR,
+      );
+      p(
+        `<text x="${fullInnerL + 30}" y="${gcy - 2}" font-size="9" fill="${TEXT_MED}" font-weight="700" letter-spacing="0.6">INSIDE THE GROUP</text>`,
+      );
+      p(
+        `<text x="${fullInnerL + 30}" y="${gcy + 11}" font-size="12.5" fill="${TEXT_HI}" font-weight="700">${this._svgEsc(g.name)} &#xB7; ${g.members.filter((m) => !m.isRemainder).length} members</text>`,
+      );
+      const gLabel =
+        g.final > 0.005
+          ? "Group receives"
+          : g.final < -0.005
+            ? "Group pays"
+            : "Balanced";
+      const gColor =
+        g.final > 0.005
+          ? RECEIVE_CLR
+          : g.final < -0.005
+            ? EXPENSE_CLR
+            : TEXT_MED;
+      p(
+        `<text x="${fullInnerR}" y="${gcy - 2}" font-size="9" fill="${TEXT_MED}" font-weight="700" text-anchor="end">${gLabel.toUpperCase()}</text>`,
+      );
+      p(
+        `<text x="${fullInnerR}" y="${gcy + 13}" font-size="16" fill="${gColor}" font-weight="800" text-anchor="end">$${Math.abs(g.final).toFixed(2)}</text>`,
+      );
+
+      // Column headers
+      const cols = [
+        { key: "pct", label: "GROUP %", x: fullInnerL + 360 },
+        { key: "profitShare", label: "PROFIT SHARE", x: fullInnerL + 470 },
+        { key: "paid", label: "PAID", x: fullInnerL + 560 },
+        { key: "received", label: "RECEIVED", x: fullInnerL + 650 },
+        { key: "final", label: "FINAL", x: fullInnerR },
+      ];
+      let ry = y + HEAD_H;
+      p(
+        `<line x1="${fullInnerL}" y1="${ry}" x2="${fullInnerR}" y2="${ry}" stroke="${DIVIDER}" stroke-width="0.5"/>`,
+      );
+      p(
+        `<text x="${fullInnerL}" y="${ry + 12}" font-size="8" fill="${TEXT_MED}" font-weight="700" letter-spacing="0.5">MEMBER</text>`,
+      );
+      cols.forEach((c) =>
+        p(
+          `<text x="${c.x}" y="${ry + 12}" font-size="8" fill="${TEXT_MED}" font-weight="700" letter-spacing="0.5" text-anchor="end">${c.label}</text>`,
+        ),
+      );
+      ry += COLHEAD_H;
+
+      g.members.forEach((m, i) => {
+        const cy = ry + ROW_H / 2;
+        if (i > 0)
+          p(
+            `<line x1="${fullInnerL}" y1="${ry}" x2="${fullInnerR}" y2="${ry}" stroke="${ROW_DIV_FADE}" stroke-width="1"/>`,
+          );
+        let nameX = fullInnerL;
+        if (!m.isRemainder) {
+          renderCircleAvatar(m.avatar, m.name, fullInnerL + 9, cy, 9);
+          nameX = fullInnerL + 24;
+        }
+        p(
+          `<text x="${nameX}" y="${cy + 4}" font-size="10.5" fill="${m.isRemainder ? TEXT_MED : TEXT_HI}" font-weight="${m.isRemainder ? 400 : 600}"${m.isRemainder ? ' font-style="italic"' : ""}>${this._svgEsc(this._svgTrunc(m.name, 42))}</text>`,
+        );
+        const vals = {
+          pct: m.groupPercentage ? `${m.groupPercentage}%` : "—",
+          profitShare: money(m.profitShare),
+          paid: money(m.paid),
+          received: money(m.received),
+          final: money(m.final),
+        };
+        cols.forEach((c) => {
+          const isFinal = c.key === "final";
+          const fill = isFinal
+            ? m.final > 0.005
+              ? RECEIVE_CLR
+              : m.final < -0.005
+                ? EXPENSE_CLR
+                : TEXT_MED
+            : TEXT_MED;
+          p(
+            `<text x="${c.x}" y="${cy + 4}" font-size="${isFinal ? 11.5 : 10}" fill="${fill}" font-weight="${isFinal ? 800 : 400}" text-anchor="end">${this._svgEsc(vals[c.key])}</text>`,
+          );
+        });
+        ry += ROW_H;
+      });
+
+      const note = `Final = profit share + paid − received over all properties. Positive: ${g.name} owes the member · Negative: the member holds money for ${g.name}.`;
+      p(
+        `<text x="${fullInnerL}" y="${ry + 14}" font-size="8.5" fill="${TEXT_MED}" opacity="0.85">${this._svgEsc(note)}</text>`,
+      );
+      y += cardH + 8;
+    });
+
+    // ── Summary (full width, only when multiple settlements) ────────────
     if (settlements.length > 1) {
       const totalSGD = settlements
         .filter((s) => s.currency !== "VND")

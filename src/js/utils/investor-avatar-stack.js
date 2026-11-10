@@ -3,6 +3,8 @@
  * badge overlay on property preview card images across the dashboard.
  */
 
+import { investorOwnsProperty } from "./property-filters.js";
+
 let _investorsPromise = null;
 
 const escapeHtml = (str) =>
@@ -46,9 +48,7 @@ export function avatarGradientColors(seed) {
 
 /** Overlapping avatar circles for the investors tied to a property. */
 export function renderInvestorAvatarStack(investors, propertyId, { size = 26, overlap = 10, max = 4 } = {}) {
-  const owners = (investors || []).filter(
-    (inv) => Array.isArray(inv.properties) && inv.properties.some((pr) => pr.propertyId === propertyId),
-  );
+  const owners = (investors || []).filter((inv) => investorOwnsProperty(inv, propertyId));
   if (owners.length === 0) return "";
 
   const visible = owners.slice(0, max);

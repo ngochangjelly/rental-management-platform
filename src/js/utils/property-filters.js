@@ -21,11 +21,18 @@ export function createDefaultPropertyFilters() {
   };
 }
 
-function investorOwnsProperty(investor, propertyId) {
-  return (
-    Array.isArray(investor.properties) &&
-    investor.properties.some((pr) => pr.propertyId === propertyId)
-  );
+/**
+ * Whether an investor currently holds a share of a property. Investors whose
+ * share went to 0% (e.g. members merged into a group like DownTownHome on
+ * 1 Nov 2026) stay linked so older reports keep their history, but they no
+ * longer own it. A link without a % (not shared with this user) still counts.
+ */
+export function investorOwnsProperty(investor, propertyId) {
+  const link = Array.isArray(investor?.properties)
+    ? investor.properties.find((pr) => pr.propertyId === propertyId)
+    : null;
+  if (!link) return false;
+  return typeof link.percentage !== "number" || link.percentage > 0;
 }
 
 /**

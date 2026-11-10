@@ -1052,8 +1052,9 @@ class PropertyManagementComponent {
     const badge = document.getElementById("propertiesTotalCountBadge");
     if (!badge) return;
 
-    const total = this.properties.filter((p) => !p.isArchived).length;
-    const visible = this.getVisibleProperties().filter((p) => !p.isArchived).length;
+    const isActive = (p) => !p.isArchived && !p.isExpired;
+    const total = this.properties.filter(isActive).length;
+    const visible = this.getVisibleProperties().filter(isActive).length;
     badge.textContent = visible === total ? total : `${visible} / ${total}`;
     badge.style.display = total > 0 ? "" : "none";
   }
@@ -1108,9 +1109,23 @@ class PropertyManagementComponent {
 
     let rowsHtml = "";
     let archivedDividerInserted = false;
+    let expiredDividerInserted = false;
 
     sortedProperties.forEach((property) => {
       const isArchived = !!property.isArchived;
+      const isExpired = !isArchived && !!property.isExpired;
+
+      // Divider before the first expired row (house returned to landlord)
+      if (isExpired && !expiredDividerInserted) {
+        expiredDividerInserted = true;
+        const expiredCount = sortedProperties.filter((p) => !p.isArchived && p.isExpired).length;
+        rowsHtml += `
+          <div class="d-flex align-items-center gap-2" style="margin: 10px 6px 6px;">
+            <i class="bi bi-calendar-x text-secondary" style="font-size: 0.75rem;"></i>
+            <span class="text-secondary fw-semibold" style="font-size: 0.7rem;">${t('list.expired', { count: expiredCount })}</span>
+            <hr class="flex-grow-1 my-0" style="border-color: #adb5bd;">
+          </div>`;
+      }
 
       // Insert section divider before first archived row
       if (isArchived && !archivedDividerInserted) {
@@ -1124,7 +1139,7 @@ class PropertyManagementComponent {
           </div>`;
       }
 
-      rowsHtml += this.renderPropertyRow(property, isArchived);
+      rowsHtml += this.renderPropertyRow(property, isArchived, isExpired);
     });
 
     container.innerHTML = rowsHtml;
@@ -1139,14 +1154,15 @@ class PropertyManagementComponent {
     container.classList.add('pm-list-fade-in');
   }
 
-  // Shared active/archived, createdAt-desc sort used both here and by the
+  // Shared active/expired/archived, createdAt-desc sort used both here and by the
   // auto-select-first-property hook in loadProperties(), so they always agree
   // on what "first property" means.
   sortPropertiesForDisplay(list) {
     const byNewest = (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    const active = list.filter((p) => !p.isArchived).sort(byNewest);
+    const active = list.filter((p) => !p.isArchived && !p.isExpired).sort(byNewest);
+    const expired = list.filter((p) => !p.isArchived && p.isExpired).sort(byNewest);
     const archived = list.filter((p) => p.isArchived).sort(byNewest);
-    return [...active, ...archived];
+    return [...active, ...expired, ...archived];
   }
 
   // Compact list-row for the master-detail left panel. Full property detail
@@ -1154,11 +1170,12 @@ class PropertyManagementComponent {
   // here — it's the same property object and shows up in the right-hand
   // form once the row is selected. Quick-access links (FB groups, SP
   // account) are surfaced here since they're used without editing.
-  renderPropertyRow(property, isArchived) {
+  renderPropertyRow(property, isArchived, isExpired = false) {
+    const isInactive = isArchived || isExpired;
     const isCondo = property.propertyType === 'condo';
     const isSelected = property.propertyId === this.selectedPropertyId;
 
-    const typeGradient = isArchived
+    const typeGradient = isInactive
       ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)'
       : isCondo
         ? 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)'
@@ -1170,7 +1187,7 @@ class PropertyManagementComponent {
     const thumbHtml = property.propertyImage
       ? `<div class="pm-row-thumb" style="background-image:url('${property.propertyImage}');"></div>`
       : `<div class="pm-row-thumb d-flex align-items-center justify-content-center" style="background:${typeGradient};">
-           <i class="bi ${isArchived ? 'bi-archive' : typeIcon} text-white" style="font-size:1.4rem;opacity:0.85;"></i>
+           <i class="bi ${isArchived ? 'bi-archive' : isExpired ? 'bi-calendar-x' : typeIcon} text-white" style="font-size:1.4rem;opacity:0.85;"></i>
          </div>`;
     // Selection badge — pure CSS visibility (driven by the ancestor .pm-row-selected
     // class), so it's always in sync with actual selection state and never a
@@ -1180,13 +1197,19 @@ class PropertyManagementComponent {
     const archivedBadge = isArchived
       ? `<span class="badge bg-secondary" style="font-size:0.6rem;" title="${t('row.archived')}"><i class="bi bi-archive"></i></span>`
       : '';
-    const condoBadge = (!isArchived && isCondo)
+    const expiredDate = isExpired && property.expiredAt
+      ? ` (${new Date(property.expiredAt).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })})`
+      : '';
+    const expiredBadge = isExpired
+      ? `<span class="badge bg-secondary" style="font-size:0.6rem;" title="${this.escapeHtml(t('row.expired', { date: expiredDate }))}"><i class="bi bi-calendar-x me-1"></i>${t('row.expiredShort')}</span>`
+      : '';
+    const condoBadge = (!isInactive && isCondo)
       ? `<span class="badge" style="background:linear-gradient(135deg,#f6d365,#fda085);color:#7c2d12;font-size:0.6rem;" title="${t('row.condo')}"><i class="bi bi-buildings"></i></span>`
       : '';
     const lockBadge = property.digitalLockEnabled
       ? `<i class="bi bi-shield-lock-fill" style="color:#6f42c1;font-size:0.75rem;" title="${t('row.digitalLock')}"></i>`
       : '';
-    const stabilityBadge = !isArchived
+    const stabilityBadge = !isInactive
       ? renderStabilityBadge(property.isStable, 'font-size:0.6rem;')
       : '';
 
@@ -1264,13 +1287,13 @@ class PropertyManagementComponent {
       : `<button type="button" class="btn btn-sm btn-link text-secondary p-0 pm-row-archive-btn" title="${t('row.unarchive')}" onclick="event.stopPropagation(); propertyManager.unarchiveProperty('${property.propertyId}')"><i class="bi bi-arrow-counterclockwise"></i></button>`;
 
     return `
-      <div class="pm-row${isSelected ? ' pm-row-selected' : ''}${isArchived ? ' pm-row-archived' : ''}" data-property-id="${this.escapeHtml(property.propertyId)}" onclick="propertyManager.selectProperty('${property.propertyId}')">
+      <div class="pm-row${isSelected ? ' pm-row-selected' : ''}${isInactive ? ' pm-row-archived' : ''}" data-property-id="${this.escapeHtml(property.propertyId)}" onclick="propertyManager.selectProperty('${property.propertyId}')">
         ${thumbWrapHtml}
         <div class="flex-grow-1" style="min-width: 0;">
           <div class="d-flex align-items-center justify-content-between gap-1">
             <div class="d-flex align-items-center gap-1" style="min-width: 0;">
               <span class="pm-row-id fw-semibold small text-truncate prop-copy-val" data-copy="${this.escapeHtml(property.propertyId)}" title="${t('row.copyPropertyId')}" onclick="event.stopPropagation();copyToClipboardInline(this)">${this.escapeHtml(property.propertyId)}</span>
-              ${archivedBadge}${condoBadge}${stabilityBadge}${lockBadge}
+              ${archivedBadge}${expiredBadge}${condoBadge}${stabilityBadge}${lockBadge}
             </div>
             ${investorAvatarHtml}
           </div>
@@ -1522,7 +1545,7 @@ class PropertyManagementComponent {
     const origHtml = btn?.innerHTML;
     try {
       const sortedProperties = this.sortPropertiesForDisplay(
-        this.getVisibleProperties().filter((p) => !p.isArchived)
+        this.getVisibleProperties().filter((p) => !p.isArchived && !p.isExpired)
       );
 
       if (sortedProperties.length === 0) {
@@ -2283,6 +2306,9 @@ class PropertyManagementComponent {
           },
         },
         'divider',
+        ...(!property.isArchived ? [property.isExpired
+          ? { icon: 'bi-arrow-counterclockwise', label: tText('menu.unexpireProperty'), onClick: () => this.unexpireProperty(property.propertyId) }
+          : { icon: 'bi-calendar-x', label: tText('menu.expireProperty'), onClick: () => this.expireProperty(property.propertyId) }] : []),
         property.isArchived
           ? { icon: 'bi-arrow-counterclockwise', label: tText('menu.unarchiveProperty'), onClick: () => this.unarchiveProperty(property.propertyId) }
           : { icon: 'bi-archive', label: tText('menu.archiveProperty'), danger: true, onClick: () => this.archiveProperty(property.propertyId) },
@@ -2702,6 +2728,40 @@ class PropertyManagementComponent {
     } catch (error) {
       console.error("Error unarchiving property:", error);
       alert(tText('msg.unarchiveError'));
+    }
+  }
+
+  // Expired = house handed back to the landlord. Kept in this list (own
+  // "Expired" section) for history, hidden from Financial Reports.
+  async expireProperty(propertyId) {
+    if (!confirm(tText('msg.expireConfirm', { id: propertyId }))) return;
+    try {
+      const response = await API.patch(`${API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)}/expire`);
+      const result = await response.json();
+      if (result.success) {
+        await this.loadProperties();
+      } else {
+        alert(tText('msg.expireFailed', { error: result.error }));
+      }
+    } catch (error) {
+      console.error("Error expiring property:", error);
+      alert(tText('msg.expireError'));
+    }
+  }
+
+  async unexpireProperty(propertyId) {
+    if (!confirm(tText('msg.unexpireConfirm', { id: propertyId }))) return;
+    try {
+      const response = await API.patch(`${API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(propertyId)}/unexpire`);
+      const result = await response.json();
+      if (result.success) {
+        await this.loadProperties();
+      } else {
+        alert(tText('msg.unexpireFailed', { error: result.error }));
+      }
+    } catch (error) {
+      console.error("Error restoring property:", error);
+      alert(tText('msg.unexpireError'));
     }
   }
 
@@ -3355,7 +3415,7 @@ class PropertyManagementComponent {
       if (btn) { btn.disabled = true; btn.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>${t('msg.copying')}`; }
 
       const active = this.properties
-        .filter(p => !p.isArchived)
+        .filter(p => !p.isArchived && !p.isExpired)
         .filter(p => !selectedIds || selectedIds.has(p.propertyId))
         .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
 
@@ -3433,7 +3493,7 @@ class PropertyManagementComponent {
     try {
       if (btn) { btn.disabled = true; btn.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>${t('msg.exporting')}`; }
       const active = this.properties
-        .filter(p => !p.isArchived)
+        .filter(p => !p.isArchived && !p.isExpired)
         .filter(p => !selectedIds || selectedIds.has(p.propertyId))
         .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
 
@@ -3670,7 +3730,7 @@ class PropertyManagementComponent {
    */
   openExportSelectionModal(mode) {
     const active = this.properties
-      .filter(p => !p.isArchived)
+      .filter(p => !p.isArchived && !p.isExpired)
       .sort((a, b) => (parseInt(a.propertyId) || 0) - (parseInt(b.propertyId) || 0));
 
     if (active.length === 0) {
