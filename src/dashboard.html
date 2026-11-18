@@ -2587,6 +2587,28 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      a.ac-manager.is-link {
+        text-decoration: none;
+        background: #eef6ff;
+        color: #1f2937;
+        transition: background 0.15s ease;
+      }
+      a.ac-manager.is-link:hover,
+      a.ac-manager.is-link:active {
+        background: #dbeafe;
+        color: #1f2937;
+      }
+      .ac-manager-msg {
+        color: #0084ff;
+        font-size: 0.85rem;
+        margin-left: 2px;
+      }
+      @media (max-width: 767.98px) {
+        a.ac-manager.is-link {
+          min-height: 32px; /* comfortable tap target */
+          padding-right: 12px;
+        }
+      }
 
       /* ── AC Clean: phone layout (card list, compact toolbar) ── */
       .ac-mobile-list {

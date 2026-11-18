@@ -5,7 +5,10 @@
  * delete AC service companies) lives in a slide-out panel ("Manage Providers")
  * so the primary grid never has to duplicate itself across tabs.
  */
-import { getGroupLinkMeta } from "../utils/social-links.js";
+import {
+  getGroupLinkMeta,
+  facebookToMessengerUrl,
+} from "../utils/social-links.js";
 import { isMobileViewport, openActionSheet } from "../utils/mobile-ux.js";
 import { avatarGradientColors } from "../utils/investor-avatar-stack.js";
 
@@ -662,10 +665,23 @@ class AcCleanManagementComponent {
     const bg = manager.avatar
       ? ""
       : `background:linear-gradient(135deg,${avatarGradientColors(manager.investorId)});`;
-    return `
-      <div class="ac-manager" title="Manager: ${this.escapeHtml(manager.name)}">
+    const inner = `
         <span class="ac-manager-avatar" style="width:${size}px;height:${size}px;${bg}">${avatar}</span>
-        <span class="ac-manager-name">${this.escapeHtml(manager.name)}</span>
+        <span class="ac-manager-name">${this.escapeHtml(manager.name)}</span>`;
+
+    // Tap → chat with the manager on Messenger (when they have a Facebook link)
+    const messengerUrl = facebookToMessengerUrl(manager.facebookUrl);
+    if (messengerUrl) {
+      return `
+        <a class="ac-manager is-link" href="${this.escapeHtml(messengerUrl)}"
+           target="_blank" rel="noopener noreferrer"
+           title="Message ${this.escapeHtml(manager.name)} on Messenger">
+          ${inner}
+          <i class="bi bi-messenger ac-manager-msg"></i>
+        </a>`;
+    }
+    return `
+      <div class="ac-manager" title="Manager: ${this.escapeHtml(manager.name)}">${inner}
       </div>`;
   }
 
