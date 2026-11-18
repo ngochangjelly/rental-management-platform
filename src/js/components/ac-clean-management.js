@@ -6,6 +6,8 @@
  * so the primary grid never has to duplicate itself across tabs.
  */
 import { getGroupLinkMeta } from "../utils/social-links.js";
+import { isMobileViewport, openActionSheet } from "../utils/mobile-ux.js";
+import { avatarGradientColors } from "../utils/investor-avatar-stack.js";
 
 class AcCleanManagementComponent {
   constructor() {
@@ -17,6 +19,7 @@ class AcCleanManagementComponent {
     this.companies = [];
     this.editingCompany = null;
     this.searchQuery = "";
+    this.statusFilter = "all"; // phone list filter: all | pending | done
     this.init();
   }
 
@@ -74,11 +77,19 @@ class AcCleanManagementComponent {
     // Search filter
     const searchInput = document.getElementById("acSearchInput");
     if (searchInput) {
+      // The full hint doesn't fit beside the Providers button on a phone
+      if (isMobileViewport()) searchInput.placeholder = "Search property, provider";
       searchInput.addEventListener("input", (e) => {
         this.searchQuery = e.target.value;
         this.renderGrid();
       });
     }
+
+    // Swap between the phone card list and the desktop table when the
+    // viewport crosses the breakpoint (rotation, split screen)
+    window
+      .matchMedia("(max-width: 767.98px)")
+      .addEventListener("change", () => this.renderGrid());
   }
 
   async loadProperties() {
@@ -185,6 +196,11 @@ class AcCleanManagementComponent {
 
     this.updateMonthYearDisplay();
 
+    if (isMobileViewport()) {
+      this.renderMobileList(container);
+      return;
+    }
+
     // Only properties actually due for AC service this month get a row —
     // that's the entire point of the month navigator. (The full property
     // roster is still used elsewhere, e.g. to count a provider's assigned
@@ -257,6 +273,331 @@ class AcCleanManagementComponent {
     this.bindCheckboxEvents();
   }
 
+  // ==================== PHONE LAYOUT ====================
+  // Card per property: who/where at the top, provider with a one-tap call
+  // button, then a single big primary action. Secondary actions (undo, edit
+  // provider, website, evidence) live in a bottom action sheet.
+
+  _matchesQuery(service, company, query) {
+    if (!query) return true;
+    return [
+      service.propertyId,
+      service.address,
+      service.unit,
+      service.acServiceName,
+      company?.name,
+    ].some((v) => (v || "").toLowerCase().includes(query));
+  }
+
+  _shortDate(value) {
+    if (!value) return "";
+    return new Date(value).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  renderMobileList(container) {
+    const companyMap = new Map(this.companies.map((c) => [c.companyId, c]));
+    const query = this.searchQuery.trim().toLowerCase();
+    const entries = this.acServices
+      .map((service) => ({
+        service,
+        company: this.getCompanyForProperty(service, companyMap),
+      }))
+      .filter(({ service, company }) =>
+        this._matchesQuery(service, company, query)
+      );
+
+    if (this.acServices.length === 0) {
+      container.innerHTML = `
+        <div class="ac-m-empty">
+          <i class="bi bi-calendar-check"></i>
+          <div class="fw-semibold text-dark mb-1">Nothing due this month</div>
+          <div class="small">AC service is scheduled every 3 months after move-in.</div>
+        </div>`;
+      return;
+    }
+
+    const doneCount = entries.filter((e) => e.service.isCompleted).length;
+    const pendingCount = entries.length - doneCount;
+    const pct = entries.length
+      ? Math.round((doneCount / entries.length) * 100)
+      : 0;
+
+    const visible = entries
+      .filter(({ service }) =>
+        this.statusFilter === "pending"
+          ? !service.isCompleted
+          : this.statusFilter === "done"
+          ? service.isCompleted
+          : true
+      )
+      // Pending first — that's the to-do list
+      .sort((a, b) => Number(a.service.isCompleted) - Number(b.service.isCompleted));
+
+    const seg = (key, label, n) => `
+      <button type="button" data-ac-filter="${key}" class="${
+      this.statusFilter === key ? "active" : ""
+    }">${label}<span class="ac-m-seg-n">${n}</span></button>`;
+
+    let listHtml;
+    if (visible.length > 0) {
+      listHtml = visible.map((e) => this.renderMobileCard(e)).join("");
+    } else if (query) {
+      listHtml = `
+        <div class="ac-m-empty">
+          <i class="bi bi-search"></i>
+          No matches for "${this.escapeHtml(this.searchQuery)}"
+        </div>`;
+    } else {
+      listHtml = `
+        <div class="ac-m-empty">
+          <i class="bi bi-${this.statusFilter === "pending" ? "emoji-smile" : "hourglass"}"></i>
+          ${
+            this.statusFilter === "pending"
+              ? "All done for this month 🎉"
+              : "Nothing completed yet"
+          }
+        </div>`;
+    }
+
+    container.innerHTML = `
+      <div class="ac-m-summary">
+        <div class="ac-m-summary-top">
+          <div class="ac-m-summary-count">${doneCount} of ${entries.length} <small>done</small></div>
+          <div class="ac-m-summary-pct">${pct}%</div>
+        </div>
+        <div class="ac-m-progress"><span style="width:${pct}%"></span></div>
+        <div class="ac-m-seg" role="tablist">
+          ${seg("all", "All", entries.length)}
+          ${seg("pending", "Pending", pendingCount)}
+          ${seg("done", "Done", doneCount)}
+        </div>
+      </div>
+      <div class="ac-mobile-list">${listHtml}</div>
+    `;
+
+    container.onclick = (e) => this._onMobileClick(e);
+  }
+
+  renderMobileCard({ service, company }) {
+    const id = this.escapeHtml(service.propertyId);
+    const done = service.isCompleted;
+    const address = [service.address, service.unit].filter(Boolean).join(", ");
+
+    return `
+      <div class="ac-m-card${done ? " is-done" : ""}">
+        <div class="ac-m-head">
+          ${this.renderPropertyThumb(service)}
+          <div class="ac-m-head-main">
+            <div class="ac-m-title-row">
+              <div class="ac-m-id">${id}</div>
+              <div class="d-flex align-items-center gap-1">
+                <span class="ac-m-status ${done ? "done" : "pending"}">${
+      done ? "Done" : "Pending"
+    }</span>
+                <button type="button" class="ac-m-round ac-m-ghost" style="width:32px;height:32px"
+                  data-ac-action="more" data-id="${id}" aria-label="More actions">
+                  <i class="bi bi-three-dots"></i>
+                </button>
+              </div>
+            </div>
+            <div class="ac-m-addr">${this.escapeHtml(address)}</div>
+            ${
+              service.moveInDate
+                ? `<div class="ac-m-meta">Moved in ${this._shortDate(service.moveInDate)}</div>`
+                : ""
+            }
+            ${this.renderManager(service.manager)}
+          </div>
+        </div>
+        ${this.renderMobileProvider(service, company)}
+        ${this.renderMobileGroupChips(service)}
+        <div class="ac-m-foot">
+          ${
+            done
+              ? this.renderMobileDoneRow(service)
+              : `<button type="button" class="btn btn-success ac-m-done-btn"
+                   data-ac-action="complete" data-id="${id}">
+                   <i class="bi bi-check2-circle me-1"></i>Mark as done
+                 </button>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  renderMobileProvider(service, company) {
+    let name = "";
+    let sub = "";
+    let phone = "";
+    if (company) {
+      name = company.name;
+      phone = company.phone || "";
+      sub = [phone, company.isActive ? "" : "Inactive"].filter(Boolean).join(" · ");
+    } else if (service.acServiceName && service.acServiceName !== "N/A") {
+      name = service.acServiceName;
+      phone = service.acServiceContactNumbers?.[0] || "";
+      sub = (service.acServiceContactNumbers || []).join(" · ");
+    }
+
+    if (!name) {
+      return `
+        <div class="ac-m-provider unassigned">
+          <span class="ac-m-provider-icon"><i class="bi bi-exclamation-lg"></i></span>
+          <div class="ac-m-provider-text">
+            <div class="ac-m-provider-name">No provider assigned</div>
+            <div class="ac-m-provider-sub">Set one in Manage Providers</div>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="ac-m-provider">
+        <span class="ac-m-provider-icon"><i class="bi bi-tools"></i></span>
+        <div class="ac-m-provider-text">
+          <div class="ac-m-provider-name">${this.escapeHtml(name)}</div>
+          ${sub ? `<div class="ac-m-provider-sub">${this.escapeHtml(sub)}</div>` : ""}
+        </div>
+        ${
+          phone
+            ? `<a class="ac-m-round ac-m-call" href="tel:${this.escapeHtml(
+                phone.replace(/\s+/g, "")
+              )}" aria-label="Call ${this.escapeHtml(name)}"><i class="bi bi-telephone-fill"></i></a>`
+            : ""
+        }
+      </div>`;
+  }
+
+  renderMobileGroupChips(service) {
+    const chips = [];
+    if (service.tenantFacebookGroup) {
+      const meta = getGroupLinkMeta(service.tenantFacebookGroup);
+      chips.push(`
+        <a class="ac-m-chip" href="${this.escapeHtml(service.tenantFacebookGroup)}"
+           target="_blank" rel="noopener noreferrer">
+          <i class="bi ${meta.icon}" style="color:${meta.color}"></i>Tenant group
+        </a>`);
+    }
+    if (service.adminFacebookGroup) {
+      chips.push(`
+        <a class="ac-m-chip" href="${this.escapeHtml(service.adminFacebookGroup)}"
+           target="_blank" rel="noopener noreferrer">
+          <i class="bi bi-facebook" style="color:#1877f2"></i>Admin group
+        </a>`);
+    }
+    return chips.length ? `<div class="ac-m-links">${chips.join("")}</div>` : "";
+  }
+
+  renderMobileDoneRow(service) {
+    const id = this.escapeHtml(service.propertyId);
+    const visual = service.completionImage
+      ? `<img src="${this.escapeHtml(service.completionImage)}" alt="Completion evidence"
+           class="ac-evidence-thumb" data-ac-action="evidence" data-id="${id}" />`
+      : `<span class="ac-m-done-icon"><i class="bi bi-check-lg"></i></span>`;
+    const by = service.completedBy
+      ? ` · by ${this.escapeHtml(service.completedBy)}`
+      : "";
+    return `
+      <div class="ac-m-done-row">
+        ${visual}
+        <div class="ac-m-done-text">
+          <strong>Serviced ${this._shortDate(service.completedAt)}</strong>
+          <span>${service.completionImage ? "Tap photo to view" : "No photo"}${by}</span>
+        </div>
+      </div>`;
+  }
+
+  _onMobileClick(e) {
+    const filterBtn = e.target.closest("[data-ac-filter]");
+    if (filterBtn) {
+      this.statusFilter = filterBtn.dataset.acFilter;
+      this.renderGrid();
+      return;
+    }
+    const el = e.target.closest("[data-ac-action]");
+    if (!el) return;
+    const service = this.acServices.find((s) => s.propertyId === el.dataset.id);
+    if (!service) return;
+
+    switch (el.dataset.acAction) {
+      case "complete":
+        this.showCompletionDateModal(service.propertyId);
+        break;
+      case "evidence":
+        this._openEvidence(service);
+        break;
+      case "more":
+        this._openCardActions(service);
+        break;
+    }
+  }
+
+  _openEvidence(service) {
+    this.showCompletionImageModal(
+      service.completionImage,
+      service.propertyId,
+      service.address,
+      service.unit
+    );
+  }
+
+  _openCardActions(service) {
+    const companyMap = new Map(this.companies.map((c) => [c.companyId, c]));
+    const company = this.getCompanyForProperty(service, companyMap);
+    const actions = [];
+
+    if (service.isCompleted) {
+      if (service.completionImage) {
+        actions.push({
+          icon: "bi-image",
+          label: "View completion photo",
+          opensScreen: true,
+          onClick: () => this._openEvidence(service),
+        });
+      }
+    } else {
+      actions.push({
+        icon: "bi-check2-circle",
+        label: "Mark as done",
+        opensScreen: true,
+        onClick: () => this.showCompletionDateModal(service.propertyId),
+      });
+    }
+
+    if (company) {
+      actions.push({
+        icon: "bi-pencil-square",
+        label: "Edit provider",
+        hint: company.name,
+        opensScreen: true,
+        onClick: () => this.showEditCompanyModal(company.companyId),
+      });
+      if (company.website) {
+        actions.push({
+          icon: "bi-globe",
+          label: "Provider website",
+          onClick: () =>
+            window.open(company.website, "_blank", "noopener,noreferrer"),
+        });
+      }
+    }
+
+    if (service.isCompleted) {
+      actions.push("divider", {
+        icon: "bi-arrow-counterclockwise",
+        label: "Mark as pending",
+        hint: "Clears this month's completion",
+        danger: true,
+        onClick: () => this.updateServiceStatus(service.propertyId, false, null),
+      });
+    }
+
+    openActionSheet({ title: `Property ${service.propertyId}`, actions });
+  }
+
   // One row per property due this month. Wide, uncrowded columns — same
   // table/table-hover convention the rest of the dashboard uses for data
   // listings — so every field (thumbnail, provider profile, evidence) stays
@@ -282,6 +623,7 @@ class AcCleanManagementComponent {
       service.unit
     )}
               </div>
+              ${this.renderManager(service.manager)}
             </div>
           </div>
         </td>
@@ -303,6 +645,28 @@ class AcCleanManagementComponent {
         <td class="text-end">${this.renderActionCell(service)}</td>
       </tr>
     `;
+  }
+
+  // Property manager chip: photo avatar (or coloured initials) + name
+  renderManager(manager, size = 22) {
+    if (!manager || !manager.name) return "";
+    const initials = manager.name
+      .split(/\s+/)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+    const avatar = manager.avatar
+      ? `<img src="${this.escapeHtml(manager.avatar)}" alt="" />`
+      : `<span>${this.escapeHtml(initials)}</span>`;
+    const bg = manager.avatar
+      ? ""
+      : `background:linear-gradient(135deg,${avatarGradientColors(manager.investorId)});`;
+    return `
+      <div class="ac-manager" title="Manager: ${this.escapeHtml(manager.name)}">
+        <span class="ac-manager-avatar" style="width:${size}px;height:${size}px;${bg}">${avatar}</span>
+        <span class="ac-manager-name">${this.escapeHtml(manager.name)}</span>
+      </div>`;
   }
 
   // Small square thumbnail for the Property column: property photo when set,
@@ -536,8 +900,15 @@ class AcCleanManagementComponent {
                      title="Upload or paste a photo showing the completed AC service"></i>
                 </label>
 
+                <!-- Phone: one big tap target that opens camera / photos -->
+                <button type="button" class="ac-photo-pick d-md-none mb-2" id="acPhotoPick"
+                  onclick="window.acCleanManagementComponent.openCompletionImageUpload()">
+                  <i class="bi bi-camera"></i>
+                  <span id="acPhotoPickLabel">Add photo</span>
+                </button>
+
                 <!-- Image URL Input with Paste Support -->
-                <div class="input-group mb-2">
+                <div class="input-group mb-2 d-none d-md-flex">
                   <span class="input-group-text"><i class="bi bi-image"></i></span>
                   <input
                     type="text"
@@ -549,7 +920,7 @@ class AcCleanManagementComponent {
                 </div>
 
                 <!-- Upload Button -->
-                <div class="mb-2">
+                <div class="mb-2 d-none d-md-block">
                   <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.acCleanManagementComponent.openCompletionImageUpload()">
                     <i class="bi bi-upload me-1"></i>Upload from File
                   </button>
@@ -709,10 +1080,16 @@ class AcCleanManagementComponent {
   async uploadCompletionImage(file) {
     const imageUrlField = document.getElementById("completionImageUrl");
     const originalPlaceholder = imageUrlField.placeholder;
+    const pickBtn = document.getElementById("acPhotoPick");
+    const pickLabel = document.getElementById("acPhotoPickLabel");
+    const confirmBtn = document.getElementById("confirmCompletionBtn");
 
     try {
       imageUrlField.placeholder = "Uploading image...";
       imageUrlField.disabled = true;
+      if (pickBtn) pickBtn.disabled = true;
+      if (pickLabel) pickLabel.textContent = "Uploading…";
+      if (confirmBtn) confirmBtn.disabled = true;
 
       const formData = new FormData();
       formData.append("image", file);
@@ -752,6 +1129,11 @@ class AcCleanManagementComponent {
     } finally {
       imageUrlField.placeholder = originalPlaceholder;
       imageUrlField.disabled = false;
+      if (pickBtn) pickBtn.disabled = false;
+      if (pickLabel) {
+        pickLabel.textContent = imageUrlField.value ? "Replace photo" : "Add photo";
+      }
+      if (confirmBtn) confirmBtn.disabled = false;
     }
   }
 
@@ -772,6 +1154,8 @@ class AcCleanManagementComponent {
   removeCompletionImage() {
     document.getElementById("completionImageUrl").value = "";
     document.getElementById("completionImagePreview").style.display = "none";
+    const pickLabel = document.getElementById("acPhotoPickLabel");
+    if (pickLabel) pickLabel.textContent = "Add photo";
   }
 
   // Check if string is an image URL
