@@ -1395,6 +1395,7 @@ class BillManagementComponent {
           note: r.note || "",
           presentDays: r.presentDays,
           periodDays: r.tenantPeriodDays,
+          awayPeriods: r.awayPeriods || [],
         };
       });
     });
@@ -3354,6 +3355,7 @@ class BillManagementComponent {
             note: r.note || "",
             presentDays: r.presentDays,
             periodDays: r.tenantPeriodDays,
+            awayPeriods: r.awayPeriods || [],
           });
         });
       });
@@ -3410,6 +3412,7 @@ class BillManagementComponent {
             note: row?.note || "",
             presentDays: row?.presentDays,
             periodDays: row?.tenantPeriodDays,
+            awayPeriods: row?.awayPeriods || [],
           },
         ],
         avatar: full?.avatar || null,
@@ -3482,6 +3485,33 @@ class BillManagementComponent {
         </div>`;
   }
 
+  // The tenant's leave plans inside one utility cycle, clipped to it:
+  // { away: "Vắng nhà 10/10–15/10 (6 ngày)", charged: "chỉ tính 25/31 ngày" }.
+  // Utilities are split by present days, so this is what explains a
+  // smaller-than-usual share. Null when they weren't away during the cycle.
+  _awayNoteVi(cycle) {
+    const periods = cycle?.awayPeriods || [];
+    if (periods.length === 0) return null;
+    const fmtD = (d) =>
+      d.toLocaleDateString("en-SG", { day: "2-digit", month: "2-digit" });
+    const ranges = periods
+      .map((p) =>
+        +p.start === +p.end ? fmtD(p.start) : `${fmtD(p.start)}–${fmtD(p.end)}`,
+      )
+      .join(", ");
+    const awayDays = periods.reduce((s, p) => s + p.days, 0);
+    let charged = "";
+    if (cycle.presentDays === 0) charged = "không tính điện nước kỳ này";
+    else if (cycle.presentDays != null && cycle.periodDays != null)
+      charged = `chỉ tính ${cycle.presentDays}/${cycle.periodDays} ngày`;
+    return { away: `Vắng nhà ${ranges} (${awayDays} ngày)`, charged };
+  }
+
+  _awayNoteTextVi(cycle) {
+    const a = this._awayNoteVi(cycle);
+    return a ? [a.away, a.charged].filter(Boolean).join(" · ") : "";
+  }
+
   // Fee lines — rent, utilities, cleaning, AC clean — shared by the
   // single-tenant card and each tenant's block in the combined card.
   // `dense` tightens the rows (several tenants stack in one image) and puts
@@ -3517,6 +3547,22 @@ class BillManagementComponent {
         <div style="margin-top:2px;padding-left:10px;font-size:11px;color:#adb5bd;font-style:italic;">${escapeHtml(c.note)}</div>`
         : "";
 
+    // Away dates within the cycle (see _awayNoteVi). Not italic like the
+    // note above — the dates are the detail a tenant will check. The icon
+    // sits in its own column so a wrapped line lines up under the text, and
+    // the "chỉ tính X/Y ngày" part never splits across lines.
+    const cycleAwayHtml = (c) => {
+      const a = this._awayNoteVi(c);
+      if (!a) return "";
+      const charged = a.charged
+        ? ` · <span style="white-space:nowrap;">${escapeHtml(a.charged)}</span>`
+        : "";
+      return `
+        <div style="display:flex;gap:5px;margin-top:3px;padding-left:10px;font-size:12px;line-height:1.45;color:#868e96;">
+          <span style="flex:0 0 auto;">🧳</span><span>${escapeHtml(a.away)}${charged}</span>
+        </div>`;
+    };
+
     // A past cycle (uncollected PUB top-up caught up this month) is always
     // listed by its month label, even alone, so the tenant can tell it's not
     // this month's usage.
@@ -3529,12 +3575,12 @@ class BillManagementComponent {
         <div style="display:flex;justify-content:space-between;margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">
           <span>Kỳ ${escapeHtml(c.label)} (${escapeHtml(c.period)})</span>
           <span style="${c.isSubsidized ? "text-decoration:line-through;" : ""}">${fmt(c.share)}</span>
-        </div>${cycleNoteHtml(c)}`,
+        </div>${cycleNoteHtml(c)}${cycleAwayHtml(c)}`,
             )
             .join("")
         : cycles[0]?.period
           ? `
-        <div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">Kỳ ${escapeHtml(cycles[0].period)}</div>${cycleNoteHtml(cycles[0])}`
+        <div style="margin-top:5px;padding-left:10px;font-size:12px;color:#868e96;">Kỳ ${escapeHtml(cycles[0].period)}</div>${cycleNoteHtml(cycles[0])}${cycleAwayHtml(cycles[0])}`
           : "";
 
     const utilitySection = `
@@ -3836,10 +3882,14 @@ class BillManagementComponent {
       cycles.forEach((c) => {
         lines.push(`  Kỳ ${c.label} (${c.period}): ${fmt(c.share)}`);
         if (c.note) lines.push(`    ${c.note}`);
+        const away = this._awayNoteTextVi(c);
+        if (away) lines.push(`    ${away}`);
       });
     } else if (cycles[0]?.period) {
       lines.push(`  Kỳ ${cycles[0].period}`);
       if (cycles[0].note) lines.push(`    ${cycles[0].note}`);
+      const away = this._awayNoteTextVi(cycles[0]);
+      if (away) lines.push(`    ${away}`);
     }
     if (hasPastCycle && !info.isSubsidized)
       lines.push(`  (${BillManagementComponent.PAST_CYCLE_NOTE_VI})`);
@@ -4371,6 +4421,30 @@ class BillManagementComponent {
       return Math.round((oe - os) / msDay) + 1;
     };
 
+    // Leave plans overlapping the tenant's stay [start, end], each clipped to
+    // it. `days` is what gets excluded from their present days; `periods`
+    // keeps the dates so exported bills can show exactly which days weren't
+    // charged.
+    const awayWithin = (start, end, leavePlans) => {
+      const periods = [];
+      for (const lp of leavePlans || []) {
+        const lpS = new Date(lp.startDate);
+        lpS.setHours(0, 0, 0, 0);
+        const lpE = new Date(lp.endDate);
+        lpE.setHours(0, 0, 0, 0);
+        const days = daysOverlap(start, end, lpS, lpE);
+        if (days > 0) {
+          periods.push({
+            start: new Date(Math.max(+start, +lpS)),
+            end: new Date(Math.min(+end, +lpE)),
+            days,
+          });
+        }
+      }
+      periods.sort((a, b) => a.start - b.start);
+      return { days: periods.reduce((s, p) => s + p.days, 0), periods };
+    };
+
     const rows = tenantBills
       .filter((tb) => tb.room)
       .map((tb) => {
@@ -4381,6 +4455,7 @@ class BillManagementComponent {
 
         let tenantPeriodDays = periodDays; // days within billing period
         let awayDays = 0;
+        let awayPeriods = [];
         let clampStart = periodStart;
         let clampEnd = periodEnd;
         let note = "";
@@ -4436,16 +4511,11 @@ class BillManagementComponent {
 
             // Sum away-day leave plans overlapping [clampStart, clampEnd]
             if (tenantPeriodDays > 0) {
-              for (const lp of propAssoc.leavePlans || []) {
-                const lpS = new Date(lp.startDate);
-                lpS.setHours(0, 0, 0, 0);
-                const lpE = new Date(lp.endDate);
-                lpE.setHours(0, 0, 0, 0);
-                const ov = daysOverlap(clampStart, clampEnd, lpS, lpE);
-                if (ov > 0) {
-                  awayDays += ov;
-                }
-              }
+              ({ days: awayDays, periods: awayPeriods } = awayWithin(
+                clampStart,
+                clampEnd,
+                propAssoc.leavePlans,
+              ));
             }
           }
         } else if (!periodStart) {
@@ -4466,6 +4536,7 @@ class BillManagementComponent {
           usesGas: full?.usesGas ?? true,
           tenantPeriodDays,
           awayDays,
+          awayPeriods,
           presentDays,
           note,
           utilityShare: 0,
@@ -4500,15 +4571,8 @@ class BillManagementComponent {
         const ce = new Date(Math.min(+moveout, +periodEnd));
         if (+ce < +cs) continue; // no overlap with billing period
         const tpd = Math.round((+ce - +cs) / msDay) + 1;
-        let extraAwayDays = 0;
-        for (const lp of propAssoc.leavePlans || []) {
-          const lpS = new Date(lp.startDate);
-          lpS.setHours(0, 0, 0, 0);
-          const lpE = new Date(lp.endDate);
-          lpE.setHours(0, 0, 0, 0);
-          extraAwayDays += daysOverlap(cs, ce, lpS, lpE);
-        }
-        const presentDays = Math.max(0, tpd - extraAwayDays);
+        const away = awayWithin(cs, ce, propAssoc.leavePlans);
+        const presentDays = Math.max(0, tpd - away.days);
         let note = t("movedOutNoBill");
         if (+movein > +periodStart) {
           const d = Math.round((+movein - +periodStart) / msDay);
@@ -4528,7 +4592,8 @@ class BillManagementComponent {
           usesWater: ft.usesWater ?? true,
           usesGas: ft.usesGas ?? true,
           tenantPeriodDays: tpd,
-          awayDays: extraAwayDays,
+          awayDays: away.days,
+          awayPeriods: away.periods,
           presentDays,
           note,
           utilityShare: 0,
@@ -4656,6 +4721,22 @@ class BillManagementComponent {
       (a.room || "").localeCompare(b.room || ""),
     );
 
+    // The dates behind a card's "(31d − 6d)" away count, one entry per leave
+    // plan clipped to the billing period: "Away 10 Oct – 15 Oct (6d)".
+    const fmtDayMonth = (d) =>
+      d.toLocaleDateString("en-SG", { day: "2-digit", month: "short" });
+    const awayDatesHtml = (r) => {
+      if (!r.awayPeriods?.length) return "";
+      const dates = r.awayPeriods
+        .map((p) =>
+          +p.start === +p.end
+            ? `${fmtDayMonth(p.start)} (1d)`
+            : `${fmtDayMonth(p.start)} – ${fmtDayMonth(p.end)} (${p.days}d)`,
+        )
+        .join(", ");
+      return `<div style="text-align:right;font-size:0.78rem;color:#dc3545;margin-top:1px;">🧳 ${escapeHtml(t("awayDates", { dates }))}</div>`;
+    };
+
     // Per-tenant "cards" laid out 2-per-row (not a wide multi-column table)
     // — this exact markup is what gets rasterised into the exported/
     // clipboard image, an admin-facing summary of every tenant at once, so
@@ -4705,7 +4786,8 @@ class BillManagementComponent {
               : `<div style="display:flex;justify-content:space-between;font-size:0.86rem;color:#495057;margin-top:9px;">
                   <span>${t("presentDaysHeader").replace("\n", " ")}</span>
                   <span><strong>${r.presentDays}d</strong>${r.awayDays > 0 ? ` <span style="color:#dc3545;">(${r.tenantPeriodDays}d − ${r.awayDays}d)</span>` : ""}</span>
-                </div>`
+                </div>
+                ${awayDatesHtml(r)}`
           }
           <div style="display:flex;justify-content:space-between;font-size:0.86rem;color:#495057;margin-top:4px;">
             <span>${t("calcShare")}</span>
