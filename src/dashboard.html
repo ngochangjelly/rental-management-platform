@@ -17199,10 +17199,20 @@
 
                 <!-- Property Selector -->
                 <div id="propertySelectSection" class="card mb-4">
-                  <div class="card-header bg-info text-white">
+                  <div class="card-header bg-info text-white d-flex align-items-center justify-content-between">
                     <h5 class="mb-0">
                       <i class="bi bi-building me-2"></i>Chọn căn hộ
                     </h5>
+                    <!-- Phone only: switch the one-row strip to the full grid -->
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link text-white text-decoration-none p-0 d-md-none"
+                      id="cpPickerToggleBtn"
+                      aria-expanded="false"
+                      onclick="commonPromptComponent.togglePropertyPickerGrid()"
+                    >
+                      <i class="bi bi-grid-3x3-gap me-1"></i>Xem tất cả
+                    </button>
                   </div>
                   <div class="card-body">
                     <!-- Mode toggle -->
@@ -17225,12 +17235,35 @@
 
                     <!-- Single property select -->
                     <div id="singlePropertySelectWrapper">
-                      <select
-                        id="commonPromptPropertySelect"
-                        class="form-select form-select-lg"
-                      >
-                        <option value="">-- Chọn căn hộ --</option>
-                      </select>
+                      <div id="commonPromptPropertyCards">
+                        <div class="text-center text-muted py-4">
+                          <i class="bi bi-hourglass-split me-2"></i>Đang tải danh sách căn hộ...
+                        </div>
+                      </div>
+                      <style>
+                        #commonPromptPropertyCards > .card { border-radius: 12px; }
+                        @media (max-width: 767.98px) {
+                          /* Property picker: one swipeable row of compact cards (same as Tenants) */
+                          #propertySelectSection:not(.cp-picker-expanded) #commonPromptPropertyCards {
+                            max-width: none !important;
+                            grid-template-columns: none !important;
+                            grid-auto-flow: column;
+                            grid-auto-columns: 112px;
+                            overflow-x: auto;
+                            scroll-snap-type: x proximity;
+                            scroll-padding: 0 1rem;
+                            margin: 0 -1rem;
+                            padding: 2px 1rem 8px;
+                            scrollbar-width: none;
+                            -webkit-overflow-scrolling: touch;
+                          }
+                          #propertySelectSection:not(.cp-picker-expanded) #commonPromptPropertyCards::-webkit-scrollbar { display: none; }
+                          #commonPromptPropertyCards > .card { scroll-snap-align: start; }
+                          #propertySelectSection.cp-picker-expanded #commonPromptPropertyCards {
+                            grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important;
+                          }
+                        }
+                      </style>
                       <small class="text-muted mt-2 d-block">
                         <i class="bi bi-info-circle me-1"></i>
                         Thông tin tài khoản ngân hàng sẽ được lấy từ cài đặt

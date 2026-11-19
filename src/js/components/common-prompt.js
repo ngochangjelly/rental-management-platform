@@ -3,7 +3,13 @@ import {
   fetchInvestorsForAvatarStack,
   renderInvestorAvatarStack,
   renderInvestorAvatarCircle,
+  renderPropertyImageAvatarBadge,
 } from "../utils/investor-avatar-stack.js";
+import {
+  renderStabilityBannerBadge,
+  renderStabilityCardBadge,
+} from "../utils/property-stability.js";
+import { isMobileViewport } from "../utils/mobile-ux.js";
 
 /**
  * Common Prompt Component
@@ -116,7 +122,32 @@ class CommonPromptComponent {
         requiresProperty: true,
         template: this.getPortableAirconTemplate.bind(this),
       },
+      {
+        id: "m1-fiber-contact",
+        name: "Liên hệ M1 Max (Fiber)",
+        description:
+          "Tin nhắn gửi M1 Max về đường truyền fiber, kèm địa chỉ, số tài khoản và chủ tài khoản WiFi",
+        icon: "bi-router",
+        requiresProperty: true,
+        template: this.getM1FiberContactTemplate.bind(this),
+      },
     ];
+  }
+
+  getM1FiberContactTemplate(property) {
+    const unit = property?.unit ? `#${property.unit} ` : "";
+    const street = property?.address || "";
+    const postcode = property?.postcode ? `, Singapore ${property.postcode}` : "";
+    const address = `${unit}${street}${postcode}`.trim();
+    return `Hi M1 Max team,
+
+I would like to check on the fiber connection for the following account:
+
+Address: ${address}
+Account Number: ${property?.wifiAccountNumber || ""}
+Account Holder Name: ${property?.wifiAccountHolderName || ""}
+
+Thank you.`;
   }
 
   getCurrentMonth() {
@@ -408,18 +439,6 @@ Please advise on pricing and availability. Thank you! 🙏`;
   }
 
   bindEvents() {
-    // Property selection change
-    const propertySelect = document.getElementById(
-      "commonPromptPropertySelect",
-    );
-    if (propertySelect && !propertySelect.hasAttribute("data-bound")) {
-      propertySelect.setAttribute("data-bound", "true");
-      propertySelect.addEventListener("change", (e) => {
-        this.selectedPropertyId = e.target.value;
-        this.updateActivePromptPreview();
-      });
-    }
-
     // Copy button
     const copyBtn = document.getElementById("copyPromptBtn");
     if (copyBtn && !copyBtn.hasAttribute("data-bound")) {
@@ -476,7 +495,7 @@ Please advise on pricing and availability. Thank you! 🙏`;
     }
 
     // Mark events as bound if all key elements exist
-    if (propertySelect && copyBtn && rateInput) {
+    if (copyBtn && rateInput) {
       this.eventsBound = true;
     }
   }
@@ -500,6 +519,8 @@ Please advise on pricing and availability. Thank you! 🙏`;
 
     document.getElementById("singlePropertySelectWrapper").style.display =
       "block";
+    const pickerToggle = document.getElementById("cpPickerToggleBtn");
+    if (pickerToggle) pickerToggle.style.display = "";
     document.getElementById("singlePromptPreview").style.display = "block";
     document.getElementById("bulkMessagesSection").style.display = "none";
   }
@@ -522,6 +543,8 @@ Please advise on pricing and availability. Thank you! 🙏`;
 
     document.getElementById("singlePropertySelectWrapper").style.display =
       "none";
+    const pickerToggle = document.getElementById("cpPickerToggleBtn");
+    if (pickerToggle) pickerToggle.style.display = "none";
     document.getElementById("singlePromptPreview").style.display = "none";
     document.getElementById("bulkMessagesSection").style.display = "block";
     // Hide per-property controls in bulk mode (controls are per-card)
@@ -715,7 +738,7 @@ Please advise on pricing and availability. Thank you! 🙏`;
       console.log(
         `📋 [CommonPrompt] Loaded ${this.properties.length} properties`,
       );
-      this.populatePropertyDropdown();
+      this.renderPropertyCards();
     } catch (error) {
       console.error("[CommonPrompt] Error loading properties:", error);
       this.properties = [];
@@ -725,6 +748,7 @@ Please advise on pricing and availability. Thank you! 🙏`;
   async loadInvestors() {
     try {
       this.allInvestors = await fetchInvestorsForAvatarStack();
+      this.renderPropertyCards();
       if (this.mode === "all") this.renderBulkMessages();
       else this.updateActivePromptPreview();
     } catch (error) {
@@ -790,50 +814,158 @@ Please advise on pricing and availability. Thank you! 🙏`;
     return monthsDiff >= 3 && monthsDiff % 3 === 0;
   }
 
-  populatePropertyDropdown() {
-    const select = document.getElementById("commonPromptPropertySelect");
-    if (!select) return;
+  // Property picker cards — same look & phone behaviour as Tenant Management.
+  renderPropertyCards() {
+    const container = document.getElementById("commonPromptPropertyCards");
+    if (!container) return;
 
-    select.innerHTML = '<option value="">-- Chọn căn hộ --</option>';
+    container.style.display = "grid";
+    container.style.gridTemplateColumns =
+      "repeat(auto-fill, minmax(120px, 1fr))";
+    container.style.gap = "0.5rem";
+    container.style.maxWidth = "100%";
 
-    if (this.activePromptId === "ac-clean-booking") {
-      const scheduled = this.properties.filter((p) =>
-        this.isAcScheduledThisMonth(p),
-      );
-      const others = this.properties.filter(
-        (p) => !this.isAcScheduledThisMonth(p),
-      );
+    if (!this.properties || this.properties.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1;" class="text-center text-muted py-4">
+          <i class="bi bi-building-slash me-2"></i>Không có căn hộ
+        </div>`;
+      return;
+    }
 
-      if (scheduled.length > 0) {
-        const groupScheduled = document.createElement("optgroup");
-        groupScheduled.label = `🔔 AC due this month (${scheduled.length})`;
-        scheduled.forEach((property) => {
-          const option = document.createElement("option");
-          option.value = property.propertyId;
-          option.textContent = `${property.propertyId} - ${property.address}`;
-          groupScheduled.appendChild(option);
-        });
-        select.appendChild(groupScheduled);
+    // Newest property first; for AC booking, properties due this month go first.
+    const isAc = this.activePromptId === "ac-clean-booking";
+    const sorted = [...this.properties].sort((a, b) => {
+      if (isAc) {
+        const diff =
+          Number(this.isAcScheduledThisMonth(b)) -
+          Number(this.isAcScheduledThisMonth(a));
+        if (diff) return diff;
       }
+      return (parseInt(b.propertyId) || 0) - (parseInt(a.propertyId) || 0);
+    });
 
-      if (others.length > 0) {
-        const groupOthers = document.createElement("optgroup");
-        groupOthers.label = "Other properties";
-        others.forEach((property) => {
-          const option = document.createElement("option");
-          option.value = property.propertyId;
-          option.textContent = `${property.propertyId} - ${property.address}`;
-          groupOthers.appendChild(option);
-        });
-        select.appendChild(groupOthers);
-      }
+    container.innerHTML = sorted
+      .map((property) => this.renderPropertyCard(property, isAc))
+      .join("");
+
+    this.scrollSelectedPropertyCardIntoView({ smooth: false });
+  }
+
+  renderPropertyCard(property, isAc) {
+    const id = String(property.propertyId);
+    const isSelected = this.selectedPropertyId === property.propertyId;
+    const idBadge = this.escapeHtml(id.substring(0, 3));
+    const acDue = isAc && this.isAcScheduledThisMonth(property);
+    const acDueBadge = acDue
+      ? `<span class="badge rounded-pill bg-info text-white" style="font-size:9px;"><i class="bi bi-snow me-1"></i>AC tháng này</span>`
+      : "";
+    const image = property.propertyImage
+      ? `<div data-role="property-image" style="height: 55px; background-image: url('${this.escapeHtml(property.propertyImage)}'); background-size: cover; background-position: center; position: relative;">
+           <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;">${idBadge}</div>
+           ${renderPropertyImageAvatarBadge(this.allInvestors, property.propertyId, { size: 22, overlap: 9, max: 3 })}
+           ${renderStabilityBannerBadge(property, "bottom-0 start-0")}
+           <div data-role="selected-overlay" style="position: absolute; inset: 0; background: rgba(13,110,253,0.5); display: ${isSelected ? "flex" : "none"}; align-items: center; justify-content: center;"><i class="bi bi-check-circle-fill text-white" style="font-size: 1.4rem;"></i></div>
+         </div>`
+      : "";
+    const noImageAvatar = property.propertyImage
+      ? ""
+      : `<div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+              style="width: 28px; height: 28px; font-size: 11px; flex-shrink: 0;">${idBadge}</div>`;
+    const noImageCheck = property.propertyImage
+      ? ""
+      : `<i data-role="no-image-check" class="bi bi-check-circle-fill text-primary" style="font-size: 0.9rem; display: ${isSelected ? "inline" : "none"};"></i>`;
+
+    return `
+      <div class="card property-grid-card property-card-compact ${isSelected ? "selected-card" : ""} overflow-hidden"
+           style="cursor: pointer; transition: all 0.2s ease;"
+           data-property-id="${this.escapeHtml(id)}"
+           onclick="commonPromptComponent.selectProperty(this.dataset.propertyId)">
+        ${image}
+        <div data-role="card-body" class="d-flex flex-column align-items-center py-2 px-0" style="gap: 3px; background: ${isSelected ? "rgba(13,110,253,0.07)" : "#fff"};">
+          ${noImageAvatar}
+          <div class="text-center px-2" style="line-height: 1.2; width: 100%;">
+            <div class="fw-semibold text-truncate" style="font-size: 10px;" title="${this.escapeHtml(property.address || "")}">${this.escapeHtml(property.address || "")}</div>
+            <div class="text-muted text-truncate" style="font-size: 10px;">${this.escapeHtml(property.unit || "")}</div>
+          </div>
+          ${acDueBadge}
+          ${renderStabilityCardBadge(property)}
+          ${noImageCheck}
+        </div>
+      </div>`;
+  }
+
+  selectProperty(propertyId) {
+    if (this.selectedPropertyId === propertyId) return;
+    this.selectedPropertyId = propertyId;
+    this.updatePropertyCardSelection();
+    this.afterMobilePropertyPick();
+    this.updateActivePromptPreview();
+  }
+
+  updatePropertyCardSelection() {
+    const cards = document.querySelectorAll(
+      "#commonPromptPropertyCards .property-card-compact",
+    );
+    cards.forEach((card) => {
+      const isSelected =
+        card.dataset.propertyId === String(this.selectedPropertyId ?? "");
+      card.classList.toggle("selected-card", isSelected);
+      const overlay = card.querySelector('[data-role="selected-overlay"]');
+      if (overlay) overlay.style.display = isSelected ? "flex" : "none";
+      const body = card.querySelector('[data-role="card-body"]');
+      if (body)
+        body.style.background = isSelected ? "rgba(13,110,253,0.07)" : "#fff";
+      const check = card.querySelector('[data-role="no-image-check"]');
+      if (check) check.style.display = isSelected ? "inline" : "none";
+    });
+  }
+
+  // Phone property picker: one swipeable row by default, full grid on demand.
+  togglePropertyPickerGrid(expand) {
+    const section = document.getElementById("propertySelectSection");
+    const btn = document.getElementById("cpPickerToggleBtn");
+    if (!section) return;
+    const expanded = section.classList.toggle("cp-picker-expanded", expand);
+    if (btn) {
+      btn.setAttribute("aria-expanded", String(expanded));
+      btn.innerHTML = expanded
+        ? '<i class="bi bi-chevron-up me-1"></i>Thu gọn'
+        : '<i class="bi bi-grid-3x3-gap me-1"></i>Xem tất cả';
+    }
+    if (!expanded) this.scrollSelectedPropertyCardIntoView();
+  }
+
+  // Centers the selected property in the phone strip (no vertical scroll).
+  scrollSelectedPropertyCardIntoView({ smooth = true } = {}) {
+    if (!isMobileViewport()) return;
+    const strip = document.getElementById("commonPromptPropertyCards");
+    const card = strip?.querySelector(
+      `.property-card-compact[data-property-id="${CSS.escape(String(this.selectedPropertyId || ""))}"]`,
+    );
+    if (!strip || !card || strip.scrollWidth <= strip.clientWidth) return;
+    const left =
+      card.offsetLeft -
+      strip.offsetLeft -
+      (strip.clientWidth - card.offsetWidth) / 2;
+    strip.scrollTo({
+      left: Math.max(0, left),
+      behavior: smooth ? "smooth" : "auto",
+    });
+  }
+
+  // After picking on a phone: fold the grid back into the strip and show the preview.
+  afterMobilePropertyPick() {
+    if (!isMobileViewport()) return;
+    const section = document.getElementById("propertySelectSection");
+    if (section?.classList.contains("cp-picker-expanded")) {
+      this.togglePropertyPickerGrid(false);
+      document
+        .getElementById("singlePromptPreview")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
-      this.properties.forEach((property) => {
-        const option = document.createElement("option");
-        option.value = property.propertyId;
-        option.textContent = `${property.propertyId} - ${property.address}`;
-        select.appendChild(option);
-      });
+      this.scrollSelectedPropertyCardIntoView();
     }
   }
 
@@ -974,11 +1106,7 @@ Please advise on pricing and availability. Thank you! 🙏`;
       if (firstScheduled) {
         this.selectedPropertyId = firstScheduled.propertyId;
       }
-      this.populatePropertyDropdown();
-      if (firstScheduled) {
-        const select = document.getElementById("commonPromptPropertySelect");
-        if (select) select.value = firstScheduled.propertyId;
-      }
+      this.renderPropertyCards();
       // Update bulk button label to show scheduled count
       const bulkBtn = document.getElementById("allPropertiesModeBtn");
       if (bulkBtn) {
@@ -1007,6 +1135,8 @@ Please advise on pricing and availability. Thank you! 🙏`;
       if (bulkBtn) {
         bulkBtn.innerHTML = `<i class="bi bi-buildings me-1"></i>Tất cả căn hộ (Bulk)`;
       }
+      // Drop the AC-specific ordering/badges
+      this.renderPropertyCards();
     }
 
     // Reset to single mode on new prompt selection
