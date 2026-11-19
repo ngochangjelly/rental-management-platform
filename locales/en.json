@@ -18,7 +18,8 @@
     },
     "dashboard": {
         "title": "Dashboard",
-        "currentDate": "Current Date:"
+        "currentDate": "Current Date:",
+        "tools": "Tools"
     },
     "propertyMoveoutTimeline": {
         "title": "Property Lease Expiry Timeline",

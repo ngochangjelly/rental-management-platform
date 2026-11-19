@@ -18,7 +18,8 @@
     },
     "dashboard": {
         "title": "Trang chủ",
-        "currentDate": "Ngày hiện tại:"
+        "currentDate": "Ngày hiện tại:",
+        "tools": "Công cụ"
     },
     "propertyMoveoutTimeline": {
         "title": "Lịch Hết Hạn Thuê Nhà",

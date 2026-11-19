@@ -88,6 +88,7 @@ i18next.init({
         dashboard: {
           title: "Dashboard",
           currentDate: "Current Date:",
+          tools: "Tools",
           features: {
             contractAnalysis: "Contract Analysis",
             contractAnalysisDesc:
@@ -897,6 +898,7 @@ i18next.init({
         dashboard: {
           title: "Trang chủ",
           currentDate: "Ngày hiện tại:",
+          tools: "Công cụ",
           features: {
             contractAnalysis: "Phân tích hợp đồng",
             contractAnalysisDesc:
