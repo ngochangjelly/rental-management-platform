@@ -969,60 +969,43 @@ Please advise on pricing and availability. Thank you! 🙏`;
     }
   }
 
+  // Template picker. Desktop: compact tiles (icon + name + one-line hint).
+  // Phone: list rows before a pick, then a one-row swipeable chip bar (like
+  // iOS segmented tabs) so the preview sits right under it instead of 2,000px down.
   renderPromptLibrary() {
     const container = document.getElementById("promptLibraryContainer");
     if (!container) return;
 
-    let html = '<div class="row g-3">';
+    const accents = {
+      "rent-collection": "#16a34a",
+      "ac-clean-booking": "#0284c7",
+      "camera-order": "#7c3aed",
+      "portable-aircon-order": "#0d9488",
+      "m1-fiber-contact": "#ea580c",
+    };
 
-    this.prompts.forEach((prompt) => {
-      html += `
-        <div class="col-md-4">
-          <div class="card h-100 prompt-card"
-               data-prompt-id="${prompt.id}"
-               onclick="commonPromptComponent.selectPrompt('${prompt.id}')"
-               style="cursor: pointer; transition: all 0.2s ease;">
-            <div class="card-body text-center">
-              <div class="mb-3">
-                <i class="bi ${prompt.icon}" style="font-size: 2.5rem; color: #667eea;"></i>
-              </div>
-              <h5 class="card-title">${this.escapeHtml(prompt.name)}</h5>
-              <p class="card-text text-muted small">${this.escapeHtml(prompt.description)}</p>
-              ${prompt.requiresProperty ? '<span class="badge bg-info"><i class="bi bi-building me-1"></i>Cần chọn căn hộ</span>' : ""}
-            </div>
-          </div>
-        </div>
-      `;
-    });
+    const items = this.prompts
+      .map((prompt) => {
+        const active = prompt.id === this.activePromptId;
+        const accent = accents[prompt.id] || "#667eea";
+        return `
+        <button type="button" class="cp-tpl${active ? " is-active" : ""}"
+                role="tab" aria-selected="${active}"
+                data-prompt-id="${prompt.id}"
+                style="--cp-accent:${accent};"
+                title="${this.escapeHtml(prompt.description)}"
+                onclick="commonPromptComponent.selectPrompt('${prompt.id}')">
+          <span class="cp-tpl-icon"><i class="bi ${prompt.icon}"></i></span>
+          <span class="cp-tpl-text">
+            <span class="cp-tpl-name">${this.escapeHtml(prompt.name)}</span>
+            <span class="cp-tpl-desc">${this.escapeHtml(prompt.description)}</span>
+          </span>
+          <i class="bi bi-chevron-right cp-tpl-chev" aria-hidden="true"></i>
+        </button>`;
+      })
+      .join("");
 
-    html += "</div>";
-    container.innerHTML = html;
-
-    // Add card hover styles
-    this.addPromptCardStyles();
-  }
-
-  addPromptCardStyles() {
-    if (!document.getElementById("common-prompt-card-styles")) {
-      const style = document.createElement("style");
-      style.id = "common-prompt-card-styles";
-      style.textContent = `
-        .prompt-card {
-          border: 2px solid #e3e6f0;
-          border-radius: 12px;
-        }
-        .prompt-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-          border-color: #667eea;
-        }
-        .prompt-card.selected {
-          border-color: #667eea;
-          background-color: #f8f9fe;
-        }
-      `;
-      document.head.appendChild(style);
-    }
+    container.innerHTML = `<div class="cp-tpl-list${this.activePromptId ? " cp-has-active" : ""}" role="tablist" aria-label="Mẫu tin nhắn">${items}</div>`;
   }
 
   selectPrompt(promptId) {
@@ -1031,15 +1014,25 @@ Please advise on pricing and availability. Thank you! 🙏`;
     if (!prompt) return;
 
     // Update selected state visually
-    document.querySelectorAll(".prompt-card").forEach((card) => {
-      card.classList.remove("selected");
+    const list = document.querySelector("#promptLibraryContainer .cp-tpl-list");
+    list?.classList.add("cp-has-active");
+    list?.querySelectorAll(".cp-tpl").forEach((btn) => {
+      const on = btn.dataset.promptId === promptId;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", String(on));
+      if (on && isMobileViewport()) {
+        // Keep the picked chip in view once the list folds into a strip
+        // (scroll the strip itself — scrollIntoView would also move the page)
+        requestAnimationFrame(() =>
+          list.scrollTo({
+            left: Math.max(
+              0,
+              btn.offsetLeft - (list.clientWidth - btn.offsetWidth) / 2,
+            ),
+          }),
+        );
+      }
     });
-    const selectedCard = document.querySelector(
-      `[data-prompt-id="${promptId}"]`,
-    );
-    if (selectedCard) {
-      selectedCard.classList.add("selected");
-    }
 
     // Store active prompt
     this.activePromptId = promptId;
