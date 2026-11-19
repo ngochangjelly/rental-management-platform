@@ -1644,6 +1644,16 @@
         .main-content {
           padding-top: 1rem !important;
         }
+
+        /* Every module's top wrapper (.p-4 / .p-3 / .container-fluid) used to
+           add its own 1rem on top of main's 1rem: 32px per side on a phone.
+           Keep main's gutter as the single 16px one. */
+        .main-content > .content-section > .p-4,
+        .main-content > .content-section > .p-3,
+        .main-content > .content-section > .container-fluid {
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
       }
 
       .upload-area {
@@ -15275,12 +15285,49 @@
               </div>
 
               <!-- Property Selection -->
-              <div class="card mb-4">
-                <div class="card-header">
+              <div id="billPropertySection" class="card mb-4">
+                <div class="card-header d-flex align-items-center justify-content-between">
                   <h5 class="mb-0">
                     <i class="bi bi-building me-2"></i>Select Property
                   </h5>
+                  <!-- Phone only: switch the one-row strip to the full grid -->
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-link text-decoration-none p-0 d-md-none"
+                    id="billPickerToggleBtn"
+                    aria-expanded="false"
+                    onclick="billManager.togglePropertyPickerGrid()"
+                  >
+                    <i class="bi bi-grid-3x3-gap me-1"></i>View all
+                  </button>
                 </div>
+                <style>
+                  @media (max-width: 767.98px) {
+                    /* Property picker isn't the main task here: one swipeable
+                       row of compact cards instead of a 10-screen grid */
+                    #billPropertySection { margin-bottom: 1rem !important; }
+                    #billPropertySection > .card-header { padding: 0.5rem 0.75rem; }
+                    #billPropertySection > .card-header h5 { font-size: 0.95rem; }
+                    #billPropertySection > .card-body { padding: 0.5rem 0.75rem; }
+                    #billPropertySection:not(.bill-picker-expanded) #billPropertyCards {
+                      grid-template-columns: none !important;
+                      grid-auto-flow: column;
+                      grid-auto-columns: 104px;
+                      overflow-x: auto;
+                      scroll-snap-type: x proximity;
+                      scroll-padding: 0 0.75rem;
+                      margin: 0 -0.75rem;
+                      padding: 2px 0.75rem 4px;
+                      scrollbar-width: none;
+                      -webkit-overflow-scrolling: touch;
+                    }
+                    #billPropertySection:not(.bill-picker-expanded) #billPropertyCards::-webkit-scrollbar { display: none; }
+                    #billPropertyCards > .card { scroll-snap-align: start; }
+                    #billPropertySection.bill-picker-expanded #billPropertyCards {
+                      grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important;
+                    }
+                  }
+                </style>
                 <div class="card-body">
                   <div id="billPropertyCards">
                     <div class="col-12 text-center text-muted">

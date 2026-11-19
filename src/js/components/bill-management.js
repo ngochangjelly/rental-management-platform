@@ -13,6 +13,7 @@ import {
 } from "../utils/investor-avatar-stack.js";
 import { renderStabilityBannerBadge, renderStabilityCardBadge } from "../utils/property-stability.js";
 import i18next, { onLanguageChange } from "../i18n.js";
+import { isMobileViewport } from "../utils/mobile-ux.js";
 
 const t = (key, opts) => i18next.t(`billManagement.${key}`, opts);
 const monthName = (idx, short = false) => {
@@ -102,6 +103,7 @@ class BillManagementComponent {
   // Language switched: redraw from the data already loaded
   handleLanguageChange() {
     this.updateMonthDisplay();
+    this._updatePickerToggleLabel();
     if (this.properties.length) this.renderPropertyCards(this.properties);
     if (this.selectedProperty) this.renderBillTable();
   }
@@ -323,6 +325,48 @@ class BillManagementComponent {
       `;
       container.innerHTML += cardHtml;
     });
+    this._updatePickerToggleLabel();
+    requestAnimationFrame(() =>
+      this.scrollSelectedPropertyCardIntoView({ smooth: false }),
+    );
+  }
+
+  // Phone: switch the property picker between the one-row strip and the full grid.
+  togglePropertyPickerGrid(expand) {
+    const section = document.getElementById("billPropertySection");
+    if (!section) return;
+    const expanded = section.classList.toggle("bill-picker-expanded", expand);
+    this._updatePickerToggleLabel();
+    if (!expanded) this.scrollSelectedPropertyCardIntoView();
+  }
+
+  _updatePickerToggleLabel() {
+    const section = document.getElementById("billPropertySection");
+    const btn = document.getElementById("billPickerToggleBtn");
+    if (!section || !btn) return;
+    const expanded = section.classList.contains("bill-picker-expanded");
+    btn.setAttribute("aria-expanded", String(expanded));
+    btn.innerHTML = expanded
+      ? `<i class="bi bi-chevron-up me-1"></i>${t("pickerCollapse")}`
+      : `<i class="bi bi-grid-3x3-gap me-1"></i>${t("pickerViewAll")}`;
+  }
+
+  // Centers the selected property in the phone strip (scrolls the strip only, not the page).
+  scrollSelectedPropertyCardIntoView({ smooth = true } = {}) {
+    if (!isMobileViewport() || !this.selectedProperty) return;
+    const strip = document.getElementById("billPropertyCards");
+    const card = strip?.querySelector(
+      `.bill-property-card[data-property-id="${CSS.escape(String(this.selectedProperty))}"]`,
+    );
+    if (!strip || !card || strip.scrollWidth <= strip.clientWidth) return;
+    const left =
+      card.offsetLeft -
+      strip.offsetLeft -
+      (strip.clientWidth - card.offsetWidth) / 2;
+    strip.scrollTo({
+      left: Math.max(0, left),
+      behavior: smooth ? "smooth" : "auto",
+    });
   }
 
   async selectProperty(propertyId) {
@@ -337,6 +381,13 @@ class BillManagementComponent {
     this.updateSelectionButtons();
     this.propertySubsidy = 0;
     this.updatePropertyCardSelection(propertyId);
+    // Phone: fold the grid back into the strip so the bills sit right below
+    const section = document.getElementById("billPropertySection");
+    if (isMobileViewport() && section?.classList.contains("bill-picker-expanded")) {
+      this.togglePropertyPickerGrid(false);
+    } else {
+      this.scrollSelectedPropertyCardIntoView();
+    }
     await this._loadPropertyDetails();
     await this.loadBillForCurrentMonth();
     this._syncUrl();

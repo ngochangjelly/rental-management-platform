@@ -498,6 +498,8 @@ i18next.init({
             "No SP Group bill found for this month in Utility Bill Tracker.",
           addBill: "Add bill →",
           pleaseSelectProperty: "Please select a property first",
+          pickerViewAll: "View all",
+          pickerCollapse: "Collapse",
           noPropertySelected: "No property selected",
           // Update Fees Modal
           updateFeesTitle: "Update Fees for All Tenants",
@@ -1309,6 +1311,8 @@ i18next.init({
             "Không tìm thấy hóa đơn SP Group tháng này trong Theo dõi điện nước.",
           addBill: "Thêm hóa đơn →",
           pleaseSelectProperty: "Vui lòng chọn nhà trước",
+          pickerViewAll: "Xem tất cả",
+          pickerCollapse: "Thu gọn",
           noPropertySelected: "Chưa chọn nhà",
           // Update Fees Modal
           updateFeesTitle: "Cập nhật phí cho tất cả người thuê",
