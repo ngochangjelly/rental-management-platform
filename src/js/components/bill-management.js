@@ -3258,13 +3258,18 @@ class BillManagementComponent {
   // back when the bill's billing month started. Returns null on failure/no
   // rate on file so callers simply omit the VND conversion rather than show
   // a stale/wrong figure.
-  async _fetchExchangeRate() {
+  // Returns both sides: `sell` (tenant pays us in VND) and `buy` (we pay a
+  // refund out in VND — the worse side for the tenant). `buy` falls back to
+  // `sell` when no buy rate is on file.
+  async _fetchExchangeRates() {
     try {
       const res = await API.get(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_CURRENT);
       const data = await res.json().catch(() => null);
-      return data?.success && data?.rate?.rate ? data.rate.rate : null;
+      const sell = data?.success ? data?.rate?.rate : null;
+      if (!sell) return { sell: null, buy: null };
+      return { sell, buy: data.rate.buyRate || sell };
     } catch {
-      return null;
+      return { sell: null, buy: null };
     }
   }
 
@@ -3279,9 +3284,9 @@ class BillManagementComponent {
     }
 
     const preview = this._dynamicPreviewCache;
-    const [property, exchangeRate] = await Promise.all([
+    const [property, fx] = await Promise.all([
       this._fetchFullProperty(),
-      this._fetchExchangeRate(),
+      this._fetchExchangeRates(),
     ]);
     const monthLabel = `${this.currentDate.getMonth() + 1}/${this.currentDate.getFullYear()}`;
     const perTenant = {};
@@ -3318,7 +3323,13 @@ class BillManagementComponent {
 
     return {
       tenantBills,
-      ctx: { property, monthLabel, perTenant, exchangeRate },
+      ctx: {
+        property,
+        monthLabel,
+        perTenant,
+        exchangeRate: fx.sell,
+        exchangeBuyRate: fx.buy,
+      },
     };
   }
 
@@ -3336,10 +3347,10 @@ class BillManagementComponent {
     const monthEnd = new Date(year, monthIdx, daysInMonth);
     monthEnd.setHours(0, 0, 0, 0);
 
-    const [property, tenantsRes, exchangeRate] = await Promise.all([
+    const [property, tenantsRes, fx] = await Promise.all([
       this._fetchFullProperty(),
       API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)),
-      this._fetchExchangeRate(),
+      this._fetchExchangeRates(),
     ]);
     const data = await tenantsRes.json();
     const fullTenants = data.success ? data.tenants || [] : [];
@@ -3482,7 +3493,8 @@ class BillManagementComponent {
       property,
       monthLabel: `${monthIdx + 1}/${year}`,
       perTenant,
-      exchangeRate,
+      exchangeRate: fx.sell,
+      exchangeBuyRate: fx.buy,
     };
   }
 
@@ -3701,7 +3713,7 @@ class BillManagementComponent {
   // charge added to the total they owe. A normal move-out bill (the
   // "Deduct rent from deposit" switch off) gets just a one-line note that
   // the deposit is settled after the move-out check.
-  _billDepositCalloutHtml(tenantBill, info, { fmt, dense = false }) {
+  _billDepositCalloutHtml(tenantBill, info, { fmt, dense = false, ctx = null }) {
     if (!info.isMovingOut) return "";
     if (!info.depositOffset) {
       return `
@@ -3722,6 +3734,9 @@ class BillManagementComponent {
     const amount = fmt(Math.abs(info.depositRefund));
     const bg = isShortfall ? "#fff5f5" : "#ebfbee";
     const fg = isShortfall ? "#c92a2a" : "#2b8a3e";
+    // A refund paid out in VND uses the BUY SGD rate (worse for the tenant
+    // than the sell rate they pay rent at).
+    const vndRefund = this._vndRefundLine(info.depositRefund, ctx);
     return `
       <div style="${dense ? "margin:6px 0 8px;padding:10px 12px;" : "margin-top:14px;padding:14px 16px;"}background:${bg};border-radius:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
@@ -3729,7 +3744,18 @@ class BillManagementComponent {
           <span style="font-size:${dense ? 16 : 20}px;font-weight:800;color:${fg};white-space:nowrap;">${amount}</span>
         </div>
         <div style="margin-top:4px;font-size:11px;color:#868e96;">${t("depositRefundFormula", { deposit: fmt(info.deposit), rent: fmt(tenantBill.baseRental) })}</div>
+        ${vndRefund ? `<div style="margin-top:4px;font-size:11px;color:${fg};">${escapeHtml(vndRefund)}</div>` : ""}
       </div>`;
+  }
+
+  // "Hoàn bằng VND: 23.517.000 VND (tỷ giá mua 1 SGD = 20.100 VND)" for a
+  // positive SGD refund, using the BUY SGD rate. Null when nothing is owed
+  // back or there's no rate on file.
+  _vndRefundLine(refundSgd, ctx) {
+    const buy = ctx?.exchangeBuyRate || ctx?.exchangeRate;
+    if (!buy || !(refundSgd > 0)) return null;
+    const vnd = Math.round(refundSgd * buy);
+    return `Hoàn bằng VND: ${vnd.toLocaleString("vi-VN")} VND (tỷ giá mua 1 SGD = ${Number(buy).toLocaleString("vi-VN")} VND)`;
   }
 
   // Deliberately understated — bank details are reference info, not the
@@ -3746,12 +3772,10 @@ class BillManagementComponent {
         ${[s.bankName, s.accountNumber, s.accountHolderName].filter(Boolean).map(escapeHtml).join(" · ")}
         ${extra}
       </div>`;
-    const vndAmount = ctx.exchangeRate
-      ? Math.round(totalAmount * ctx.exchangeRate)
-      : null;
-    const vndAmountLine = vndAmount
-      ? `<br><span style="color:#2b8a3e;font-weight:700;font-size:13px;">Số tiền cần chuyển: ${vndAmount.toLocaleString("vi-VN")} VND</span>
-         <span style="color:#adb5bd;"> (1 SGD ≈ ${Number(ctx.exchangeRate).toLocaleString("vi-VN")} VND)</span>`
+    const vnd = this._vndSettlement(ctx, totalAmount);
+    const vndAmountLine = vnd
+      ? `<br><span style="color:#2b8a3e;font-weight:700;font-size:13px;">${vnd.label}: ${vnd.amount.toLocaleString("vi-VN")} VND</span>
+         <span style="color:#adb5bd;"> (${vnd.rateLabel})</span>`
       : "";
     // SGD and VND accounts sit side by side (2 columns in 1 row) rather than
     // stacked, so a card with both on file doesn't grow taller than it needs
@@ -3765,6 +3789,28 @@ class BillManagementComponent {
           ${settlement.vnd?.bankName ? `<div style="flex:1;min-width:0;">${settlementLine("VND", settlement.vnd, vndAmountLine)}</div>` : ""}
         </div>
       </div>`;
+  }
+
+  // VND figure for a bill total. Tenant pays us (total > 0) → SELL SGD rate;
+  // we owe them money back (total < 0) → BUY SGD rate, the worse side for
+  // them. Null when there's no rate or nothing to transfer.
+  _vndSettlement(ctx, totalAmount) {
+    if (!totalAmount) return null;
+    if (totalAmount > 0) {
+      if (!ctx.exchangeRate) return null;
+      return {
+        label: "Số tiền cần chuyển",
+        amount: Math.round(totalAmount * ctx.exchangeRate),
+        rateLabel: `1 SGD ≈ ${Number(ctx.exchangeRate).toLocaleString("vi-VN")} VND`,
+      };
+    }
+    const buy = ctx.exchangeBuyRate || ctx.exchangeRate;
+    if (!buy) return null;
+    return {
+      label: "Số tiền hoàn lại",
+      amount: Math.round(Math.abs(totalAmount) * buy),
+      rateLabel: `tỷ giá mua 1 SGD = ${Number(buy).toLocaleString("vi-VN")} VND`,
+    };
   }
 
   _billCardFooterHtml() {
@@ -3803,7 +3849,7 @@ class BillManagementComponent {
             <span style="font-size:13px;font-weight:700;color:#868e96;text-transform:uppercase;letter-spacing:0.6px;">Tổng cộng</span>
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">${fmt(tenantBill.totalAmount)}</span>
           </div>
-          ${this._billDepositCalloutHtml(tenantBill, info, { fmt })}
+          ${this._billDepositCalloutHtml(tenantBill, info, { fmt, ctx })}
         </div>
 
         ${this._billPaymentSectionHtml(ctx, tenantBill.totalAmount)}
@@ -3843,7 +3889,7 @@ class BillManagementComponent {
               <div style="font-size:16px;font-weight:800;color:#1a1a1a;white-space:nowrap;">${fmt(subtotals[i])}</div>
             </div>
             ${this._billLineItemsHtml(tb, info, { fmt, dense: true })}
-            ${this._billDepositCalloutHtml(tb, info, { fmt, dense: true })}
+            ${this._billDepositCalloutHtml(tb, info, { fmt, dense: true, ctx })}
           </div>`;
       })
       .join("");
@@ -3975,6 +4021,8 @@ class BillManagementComponent {
           `${label.toUpperCase()}: ${fmt(Math.abs(info.depositRefund))}`,
           `  (${t("depositRefundFormula", { deposit: fmt(info.deposit), rent: fmt(tenantBill.baseRental) })})`,
         );
+        const vndRefund = this._vndRefundLine(info.depositRefund, ctx);
+        if (vndRefund) lines.push(`  ${vndRefund}`);
       }
     }
 
@@ -3987,12 +4035,10 @@ class BillManagementComponent {
         lines.push(fmtSettlement("SGD", settlement.sgd));
       if (settlement.vnd?.bankName) {
         lines.push(fmtSettlement("VND", settlement.vnd));
-        if (ctx.exchangeRate) {
-          const vndAmount = Math.round(
-            tenantBill.totalAmount * ctx.exchangeRate,
-          );
+        const vnd = this._vndSettlement(ctx, tenantBill.totalAmount);
+        if (vnd) {
           lines.push(
-            `  Số tiền cần chuyển: ${vndAmount.toLocaleString("vi-VN")} VND (1 SGD ≈ ${Number(ctx.exchangeRate).toLocaleString("vi-VN")} VND)`,
+            `  ${vnd.label}: ${vnd.amount.toLocaleString("vi-VN")} VND (${vnd.rateLabel})`,
           );
         }
       }
@@ -4340,11 +4386,13 @@ class BillManagementComponent {
         this._resolveBillingPeriod();
 
       // Fetch tenant data, property info, and exchange rate in parallel
-      const [tenantRes, propRes, exchangeRate] = await Promise.all([
+      const [tenantRes, propRes, fx] = await Promise.all([
         API.get(API_CONFIG.ENDPOINTS.PROPERTY_TENANTS(this.selectedProperty)),
         API.get(API_CONFIG.ENDPOINTS.PROPERTY_BY_ID(this.selectedProperty)),
-        this._fetchExchangeRate(),
+        this._fetchExchangeRates(),
       ]);
+      // Utility breakdown is money tenants pay us → sell SGD rate
+      const exchangeRate = fx.sell;
       const data = await tenantRes.json();
       const propData = await propRes.json();
       if (!data.success)

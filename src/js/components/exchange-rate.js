@@ -1,6 +1,10 @@
 /**
  * Exchange Rate Component
- * Manages SGD/VND exchange rate periods and displays history chart
+ * Manages SGD/VND exchange rate periods and displays history chart.
+ * Each period has two sides:
+ *   rate    = SELL SGD rate — tenants paying us in VND
+ *   buyRate = BUY SGD rate  — we pay refunds out in VND (worse for the tenant).
+ *             Falls back to `rate` when not set.
  */
 class ExchangeRateComponent {
   constructor() {
@@ -64,12 +68,21 @@ class ExchangeRateComponent {
     return null;
   }
 
+  // Buy SGD rate of a period (falls back to the sell rate)
+  buyOf(r) {
+    return r ? (r.buyRate || r.rate) : null;
+  }
+
   updateGlobalBadge() {
     const badge = document.getElementById('globalExchangeRateBadge');
     const mobileBadge = document.getElementById('globalExchangeRateBadgeMobile');
     if (this.currentRate) {
       const formatted = Number(this.currentRate.rate).toLocaleString('vi-VN');
-      const html = `<i class="bi bi-currency-exchange me-1"></i>1 SGD = ${formatted} VND`;
+      const buy = this.buyOf(this.currentRate);
+      const buyPart = buy && buy !== this.currentRate.rate
+        ? ` <span style="opacity:.75;">· mua ${Number(buy).toLocaleString('vi-VN')}</span>`
+        : '';
+      const html = `<i class="bi bi-currency-exchange me-1"></i>1 SGD = ${formatted} VND${buyPart}`;
       if (badge) badge.innerHTML = html;
       if (mobileBadge) mobileBadge.innerHTML = html;
     }
@@ -78,6 +91,10 @@ class ExchangeRateComponent {
     const dateEl = document.getElementById('currentRateDate');
     if (display && this.currentRate) {
       display.textContent = Number(this.currentRate.rate).toLocaleString('vi-VN');
+      const buyEl = document.getElementById('currentBuyRateDisplay');
+      if (buyEl) {
+        buyEl.innerHTML = `Bán SGD (thu tiền): <b>${Number(this.currentRate.rate).toLocaleString('vi-VN')}</b> · Mua SGD (hoàn tiền): <b>${Number(this.buyOf(this.currentRate)).toLocaleString('vi-VN')}</b>`;
+      }
       if (dateEl) {
         const d = new Date(this.currentRate.effectiveFrom).toLocaleDateString('vi-VN', {
           year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -103,11 +120,19 @@ class ExchangeRateComponent {
   async addRate() {
     const rateInput = document.getElementById('newExchangeRateInput');
     const noteInput = document.getElementById('newExchangeRateNote');
+    const buyInput = document.getElementById('newExchangeBuyRateInput');
     const submitBtn = document.getElementById('addExchangeRateBtn');
 
     const rate = parseFloat(rateInput?.value);
     if (isNaN(rate) || rate <= 0) {
       alert('Vui lòng nhập tỷ giá hợp lệ.');
+      return;
+    }
+    // Buy SGD rate is optional — empty means "same as the sell rate"
+    const buyRaw = buyInput?.value?.trim();
+    const buyRate = buyRaw ? parseFloat(buyRaw) : rate;
+    if (isNaN(buyRate) || buyRate <= 0) {
+      alert('Vui lòng nhập tỷ giá mua hợp lệ.');
       return;
     }
 
@@ -117,11 +142,13 @@ class ExchangeRateComponent {
     try {
       const res = await API.post(API_CONFIG.ENDPOINTS.EXCHANGE_RATES, {
         rate,
+        buyRate,
         note: noteInput?.value?.trim() || undefined,
       });
       const data = await res.json();
       if (data.success) {
         rateInput.value = '';
+        if (buyInput) buyInput.value = '';
         if (noteInput) noteInput.value = '';
         await this.loadRates();
         this.renderHistory();
@@ -172,6 +199,7 @@ class ExchangeRateComponent {
 
   async saveEditRate(id) {
     const rateInput = document.getElementById(`editRateInput_${id}`);
+    const buyInput = document.getElementById(`editBuyRateInput_${id}`);
     const noteInput = document.getElementById(`editNoteInput_${id}`);
     const dateInput = document.getElementById(`editDateInput_${id}`);
     const saveBtn = document.getElementById(`saveEditBtn_${id}`);
@@ -181,12 +209,18 @@ class ExchangeRateComponent {
       alert('Vui lòng nhập tỷ giá hợp lệ.');
       return;
     }
+    const buyRaw = buyInput?.value?.trim();
+    const buyRate = buyRaw ? parseFloat(buyRaw) : rate;
+    if (isNaN(buyRate) || buyRate <= 0) {
+      alert('Vui lòng nhập tỷ giá mua hợp lệ.');
+      return;
+    }
 
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
     try {
-      const body = { rate, note: noteInput?.value?.trim() || '' };
+      const body = { rate, buyRate, note: noteInput?.value?.trim() || '' };
       if (dateInput?.value) body.effectiveFrom = dateInput.value;
 
       const res = await API.put(API_CONFIG.ENDPOINTS.EXCHANGE_RATE_BY_ID(id), body);
@@ -229,7 +263,8 @@ class ExchangeRateComponent {
           <thead class="table-light">
             <tr>
               <th>#</th>
-              <th>Tỷ giá (1 SGD = ? VND)</th>
+              <th>Bán SGD<div class="small fw-normal text-muted">thu tiền</div></th>
+              <th>Mua SGD<div class="small fw-normal text-muted">hoàn tiền</div></th>
               <th>Hiệu lực từ</th>
               <th>Ghi chú</th>
               <th>Trạng thái</th>
@@ -247,6 +282,7 @@ class ExchangeRateComponent {
       });
       const isoDate = new Date(r.effectiveFrom).toISOString().slice(0, 16);
       const formatted = Number(r.rate).toLocaleString('vi-VN');
+      const buyFormatted = Number(this.buyOf(r)).toLocaleString('vi-VN');
 
       if (isEditing) {
         html += `
@@ -258,6 +294,9 @@ class ExchangeRateComponent {
                 <input type="number" id="editRateInput_${r._id}" class="form-control" value="${r.rate}" min="1" step="1" style="width:100px;">
                 <span class="input-group-text">VND</span>
               </div>
+            </td>
+            <td>
+              <input type="number" id="editBuyRateInput_${r._id}" class="form-control form-control-sm" value="${this.buyOf(r)}" min="1" step="1" placeholder="= bán" style="min-width:100px;">
             </td>
             <td>
               <input type="datetime-local" id="editDateInput_${r._id}" class="form-control form-control-sm" value="${isoDate}" style="min-width:180px;">
@@ -284,6 +323,7 @@ class ExchangeRateComponent {
           <tr ${isCurrent ? 'class="table-success fw-semibold"' : ''}>
             <td>${this.rates.length - i}</td>
             <td><span style="font-size:16px;">${formatted}</span></td>
+            <td><span style="font-size:16px;">${buyFormatted}</span></td>
             <td>${date}</td>
             <td class="text-muted">${r.note ? this.escapeHtml(r.note) : '—'}</td>
             <td>${isCurrent
@@ -324,17 +364,43 @@ class ExchangeRateComponent {
       new Date(r.effectiveFrom).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric', year: '2-digit' })
     );
     const values = sorted.map(r => r.rate);
+    const buyValues = sorted.map(r => this.buyOf(r));
 
     if (this.chart) {
       this.chart.destroy();
     }
 
+    // Number on every point (no hover needed): sell above, buy below
+    const valueLabels = {
+      id: 'fxValueLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.font = '600 11px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        chart.data.datasets.forEach((ds, di) => {
+          if (!chart.isDatasetVisible(di)) return;
+          const below = di === 1;
+          ctx.fillStyle = ds.borderColor;
+          ctx.textBaseline = below ? 'top' : 'bottom';
+          chart.getDatasetMeta(di).data.forEach((pt, i) => {
+            const v = ds.data[i];
+            // Buy == sell: one label is enough
+            if (below && v === chart.data.datasets[0].data[i]) return;
+            ctx.fillText(Number(v).toLocaleString('vi-VN'), pt.x, pt.y + (below ? 8 : -8));
+          });
+        });
+        ctx.restore();
+      },
+    };
+
     this.chart = new Chart(canvas, {
       type: 'line',
+      plugins: [valueLabels],
       data: {
         labels,
         datasets: [{
-          label: '1 SGD = VND',
+          label: 'Bán SGD (thu tiền)',
           data: values,
           borderColor: '#1877F2',
           backgroundColor: 'rgba(24,119,242,0.08)',
@@ -344,21 +410,35 @@ class ExchangeRateComponent {
           pointHoverRadius: 7,
           fill: true,
           tension: 0.3,
+        }, {
+          label: 'Mua SGD (hoàn tiền)',
+          data: buyValues,
+          borderColor: '#f59f00',
+          backgroundColor: 'rgba(245,159,0,0.08)',
+          borderWidth: 2,
+          borderDash: [5, 4],
+          pointBackgroundColor: '#f59f00',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.3,
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
+          legend: { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
           tooltip: {
             callbacks: {
-              label: ctx => ` 1 SGD = ${Number(ctx.parsed.y).toLocaleString('vi-VN')} VND`,
+              label: ctx => ` ${ctx.dataset.label}: 1 SGD = ${Number(ctx.parsed.y).toLocaleString('vi-VN')} VND`,
             }
           }
         },
+        layout: { padding: { top: 18, bottom: 4, left: 8, right: 8 } },
         scales: {
           y: {
+            grace: '5%',
             ticks: {
               callback: val => Number(val).toLocaleString('vi-VN'),
             },

@@ -17194,6 +17194,10 @@
                         <span class="text-muted small">VND / SGD</span>
                       </div>
                       <div
+                        id="currentBuyRateDisplay"
+                        class="small text-muted mb-1"
+                      ></div>
+                      <div
                         id="currentRateDate"
                         class="text-muted small mb-3"
                       ></div>
@@ -17245,7 +17249,7 @@
                       <form id="addExchangeRateForm">
                         <div class="mb-2">
                           <label class="form-label fw-semibold small mb-1"
-                            >Tỷ giá mới (1 SGD = ? VND)</label
+                            >Tỷ giá bán SGD (1 SGD = ? VND)</label
                           >
                           <div class="input-group">
                             <span class="input-group-text">🇸🇬 1 SGD =</span>
@@ -17263,6 +17267,30 @@
                           <div class="text-muted small mt-1">
                             Áp dụng từ thời điểm hiện tại cho đến lần cập nhật
                             tiếp theo.
+                          </div>
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label fw-semibold small mb-1"
+                            >Tỷ giá mua SGD (1 SGD = ? VND)
+                            <span class="text-muted fw-normal"
+                              >(tuỳ chọn)</span
+                            ></label
+                          >
+                          <div class="input-group">
+                            <span class="input-group-text">🇸🇬 1 SGD =</span>
+                            <input
+                              type="number"
+                              id="newExchangeBuyRateInput"
+                              class="form-control"
+                              placeholder="ví dụ: 20100"
+                              min="1"
+                              step="1"
+                            />
+                            <span class="input-group-text">VND</span>
+                          </div>
+                          <div class="text-muted small mt-1">
+                            Dùng khi hoàn tiền bằng VND. Để trống = bằng tỷ giá
+                            bán ở trên.
                           </div>
                         </div>
                         <div class="mb-2">
